@@ -340,6 +340,8 @@ impl RuntimeWorld {
                 narrated_thresholds: Vec::new(),
                 delivery: None,
                 loot: None,
+                focused_profile: None,
+                focused_encounter: None,
             });
         self.jobs
             .entry(state.connection_job_id.clone())
@@ -371,6 +373,8 @@ impl RuntimeWorld {
                     updated_world_tick: self.world.tick,
                 }),
                 loot: None,
+                focused_profile: None,
+                focused_encounter: None,
             });
 
         self.reconcile_generated_place_durable_progress(state);
@@ -407,6 +411,8 @@ impl RuntimeWorld {
                 narrated_thresholds: Vec::new(),
                 delivery: None,
                 loot: None,
+                focused_profile: None,
+                focused_encounter: None,
             });
 
         let mut projects = vec![

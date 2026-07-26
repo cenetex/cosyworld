@@ -611,6 +611,11 @@ pub(super) fn start_focused_encounter_scheduler(state: AppState) {
                 Ok(_) => {}
                 Err(error) => warn!("focused encounter recovery failed: {error}"),
             }
+            match recover_available_focused_job_turns(&state).await {
+                Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
+                Ok(_) => {}
+                Err(error) => warn!("focused work recovery failed: {error}"),
+            }
         }
     });
 }

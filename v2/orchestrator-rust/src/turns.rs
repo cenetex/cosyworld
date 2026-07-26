@@ -14,8 +14,13 @@ pub(super) const ORDERED_SCENE_NEED_TIME_MS: u64 = 60_000;
 pub(super) const FOCUSED_ENCOUNTER_PROTOCOL: &str = "cosyworld.focused-encounter/1";
 pub(super) const FOCUSED_COMBAT_PROFILE_ID: &str = "cosyworld.focused.combat";
 pub(super) const FOCUSED_COMBAT_PROFILE_VERSION: u16 = 1;
+pub(super) const FOCUSED_WORK_PROFILE: &str = "cosyworld.focused.cooperative-work/1";
+pub(super) const FOCUSED_WORK_PROFILE_ID: &str = "cosyworld.focused.cooperative-work";
+pub(super) const FOCUSED_WORK_PROFILE_VERSION: u16 = 1;
 pub(super) const FOCUSED_ENCOUNTER_JOURNAL_VERSION: u32 = 8;
+const FOCUSED_WORK_JOURNAL_VERSION: u32 = 10;
 const FOCUSED_ENCOUNTER_SCHEMA_VERSION: u8 = 1;
+const FOCUSED_JOB_STATE_VERSION: u8 = 1;
 const FOCUSED_ENCOUNTER_MIN_PARTICIPANTS: usize = 2;
 const FOCUSED_ENCOUNTER_MAX_PARTICIPANTS: usize = 6;
 
@@ -122,6 +127,40 @@ pub(super) struct FocusedEncounterCondition {
     pub(super) trigger: String,
     pub(super) expiry: String,
     pub(super) consumed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct FocusedJobEncounterState {
+    pub(super) version: u8,
+    pub(super) encounter_id: u64,
+    pub(super) profile_id: String,
+    pub(super) profile_version: u16,
+    pub(super) location_id: u64,
+    pub(super) phase: String,
+    pub(super) participant_order: Vec<u64>,
+    pub(super) current_index: usize,
+    pub(super) round: u64,
+    pub(super) setup_remaining: u8,
+    pub(super) status: String,
+}
+
+impl FocusedJobEncounterState {
+    fn current_actor_id(&self) -> Option<u64> {
+        self.participant_order.get(self.current_index).copied()
+    }
+
+    fn pass(&mut self, actor_id: u64) -> Result<(), &'static str> {
+        if self.current_actor_id() != Some(actor_id) {
+            return Err("only the current participant can pass");
+        }
+        let next_index = (self.current_index + 1) % self.participant_order.len();
+        if next_index == 0 {
+            self.round = self.round.saturating_add(1);
+        }
+        self.current_index = next_index;
+        self.setup_remaining = 1;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -268,15 +307,68 @@ pub(super) fn focused_encounter_context_for_action(
     })
 }
 
-pub(super) fn focused_encounter_journal_context_is_supported(record: &JournalRecord) -> bool {
-    let Some(expected) = focused_encounter_context_for_action(&record.action) else {
-        return record.focused_encounter.is_none();
+fn focused_encounter_context_for_record(
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> Option<FocusedEncounterJournalContext> {
+    if let Some(context) = focused_encounter_context_for_action(&record.action) {
+        return Some(context);
+    }
+    let activation_step = match record.offer_kind.as_deref()? {
+        "need_time" => FocusedActivationStep::Control,
+        "prepare" => FocusedActivationStep::Setup,
+        "pass" | "check" | "study" | "work" | "help" => FocusedActivationStep::Commit,
+        _ => return None,
     };
-    let Some(context) = record.focused_encounter.as_ref() else {
-        // Historical combat rows predate this envelope and retain combat/1 semantics.
-        return record.version < FOCUSED_ENCOUNTER_JOURNAL_VERSION;
-    };
-    context == &expected
+    let focused = focused_job_encounter(runtime, record.action.actor_id)?;
+    Some(FocusedEncounterJournalContext {
+        protocol: focused.protocol.to_string(),
+        encounter_id: focused.encounter_id,
+        profile_id: focused.profile_id,
+        profile_version: focused.profile_version,
+        activation_step,
+    })
+}
+
+pub(super) fn bind_focused_encounter_context(runtime: &RuntimeWorld, record: &mut JournalRecord) {
+    if record.focused_encounter.is_none() {
+        record.focused_encounter = focused_encounter_context_for_record(runtime, record);
+    }
+}
+
+pub(super) fn focused_encounter_journal_context_is_supported(
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> bool {
+    let focused_controls = record
+        .projection_mutations
+        .iter()
+        .filter_map(|mutation| match mutation {
+            ProjectionMutation::FocusedControl { control } => Some(control.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if focused_controls.len() > 1
+        || focused_controls
+            .first()
+            .is_some_and(|control| Some(*control) != record.offer_kind.as_deref())
+    {
+        return false;
+    }
+    let expected = focused_encounter_context_for_record(runtime, record);
+    match (expected, record.focused_encounter.as_ref()) {
+        (Some(expected), Some(context)) => context == &expected,
+        (Some(expected), None) => {
+            record.version
+                < if expected.profile_id == FOCUSED_WORK_PROFILE_ID {
+                    FOCUSED_WORK_JOURNAL_VERSION
+                } else {
+                    FOCUSED_ENCOUNTER_JOURNAL_VERSION
+                }
+        }
+        (None, None) => true,
+        (None, Some(_)) => false,
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -504,16 +596,379 @@ fn focused_combat_encounter(runtime: &RuntimeWorld, actor_id: u64) -> Option<Foc
     Some(focused)
 }
 
+fn focused_job_encounter(runtime: &RuntimeWorld, actor_id: u64) -> Option<FocusedEncounterView> {
+    let actor = runtime.actor_by_id(actor_id)?;
+    runtime.jobs.values().find_map(|job| {
+        let state = job.focused_encounter.as_ref()?;
+        if state.version != FOCUSED_JOB_STATE_VERSION
+            || state.status != "active"
+            || state.location_id != actor.location_id
+            || !state.participant_order.contains(&actor_id)
+            || runtime.job_status(job) != "active"
+        {
+            return None;
+        }
+        let current_actor_id = state.current_actor_id()?;
+        let focused = FocusedEncounterView {
+            schema_version: FOCUSED_ENCOUNTER_SCHEMA_VERSION,
+            protocol: FOCUSED_ENCOUNTER_PROTOCOL,
+            encounter_id: state.encounter_id,
+            profile_id: state.profile_id.clone(),
+            profile_version: state.profile_version,
+            location_id: state.location_id,
+            phase: state.phase.clone(),
+            concurrency_policy: ConcurrencyPolicy::SceneTurn.as_str(),
+            participant_order: state.participant_order.clone(),
+            current_actor_id,
+            round: state.round,
+            activation_budget: FocusedActivationBudget {
+                setup_limit: 1,
+                setup_remaining: state.setup_remaining,
+                commit_remaining: 1,
+            },
+            objective_clock_id: job.progress_clock_id.clone(),
+            danger_clock_id: (!job.danger_clock_id.trim().is_empty())
+                .then(|| job.danger_clock_id.clone()),
+            pressure_trigger: "activation_end".to_string(),
+            local_nodes: Vec::new(),
+            relations: Vec::new(),
+            conditions: Vec::new(),
+            completion_predicate: "objective_clock_completed".to_string(),
+            stop_predicate: "withdrawal_or_authored_failure".to_string(),
+            retreat_predicate: "participant_withdrew".to_string(),
+            worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
+            rules_profile: active_content().manifest.rules_profile.clone(),
+        };
+        focused.validate().ok()?;
+        Some(focused)
+    })
+}
+
+fn focused_encounter_for_actor(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+) -> Option<FocusedEncounterView> {
+    focused_combat_encounter(runtime, actor_id).or_else(|| focused_job_encounter(runtime, actor_id))
+}
+
+pub(super) fn focused_job_action_available(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    job_id: &str,
+    offer_kind: &str,
+) -> bool {
+    let Some(job) = runtime.jobs.get(job_id) else {
+        return false;
+    };
+    let Some(state) = job.focused_encounter.as_ref() else {
+        return true;
+    };
+    if state.status != "active"
+        || state.current_actor_id() != Some(actor_id)
+        || !state.participant_order.contains(&actor_id)
+    {
+        return false;
+    }
+    offer_kind != "prepare" || state.setup_remaining > 0
+}
+
+fn focused_job_encounter_id(job_id: &str) -> u64 {
+    stable_hash_u64(&["focused-job", job_id]).max(1)
+}
+
+fn focused_job_need_time_used(
+    runtime: &RuntimeWorld,
+    encounter_id: u64,
+    current_actor_id: u64,
+) -> bool {
+    let turn_started_seq = runtime
+        .event_log
+        .iter()
+        .rev()
+        .find(|event| {
+            event.type_name == "focused.turn.started"
+                && event.content_id == Some(encounter_id)
+                && event.actor_id == Some(current_actor_id)
+        })
+        .map(|event| event.seq)
+        .unwrap_or_default();
+    runtime.event_log.iter().any(|event| {
+        event.seq > turn_started_seq
+            && event.type_name == "focused.need_time"
+            && event.content_id == Some(encounter_id)
+            && event.actor_id == Some(current_actor_id)
+    })
+}
+
+fn focused_job_contributors(runtime: &RuntimeWorld, job: &JobState, location_id: u64) -> Vec<u64> {
+    let Some(clock) = runtime.clocks.get(&job.progress_clock_id) else {
+        return Vec::new();
+    };
+    let mut seen = BTreeSet::new();
+    clock
+        .recent_contributions
+        .iter()
+        .filter_map(|contribution| {
+            let actor = runtime.actor_by_id(contribution.actor_id)?;
+            (RuntimeWorld::actor_is_active_avatar(actor)
+                && actor.location_id == location_id
+                && seen.insert(actor.id))
+            .then_some(actor.id)
+        })
+        .take(FOCUSED_ENCOUNTER_MAX_PARTICIPANTS)
+        .collect()
+}
+
+fn append_focused_job_event(
+    runtime: &mut RuntimeWorld,
+    type_name: &str,
+    encounter_id: u64,
+    actor_id: u64,
+    location_id: u64,
+    content: impl Into<String>,
+) -> EventView {
+    let mut event = runtime.append_async_job_event(type_name, actor_id, None, Some(content.into()));
+    event.content_id = Some(encounter_id);
+    event.location_id = Some(location_id);
+    runtime.replace_projected_event(&event);
+    event
+}
+
+impl RuntimeWorld {
+    fn maybe_start_focused_job_encounter(&mut self, record: &JournalRecord) -> Vec<EventView> {
+        if record.focused_policy_version == 0 || record.focused_encounter.is_some() {
+            return Vec::new();
+        }
+        let Some(job_id) = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent } => {
+                    Some(intent.job_id.clone())
+                }
+                _ => None,
+            })
+        else {
+            return Vec::new();
+        };
+        let Some(actor) = self.actor_by_id(record.action.actor_id) else {
+            return Vec::new();
+        };
+        let location_id = actor.location_id;
+        let Some(job) = self.jobs.get(&job_id) else {
+            return Vec::new();
+        };
+        if job.focused_profile.as_deref() != Some(FOCUSED_WORK_PROFILE)
+            || job.focused_encounter.is_some()
+            || self.job_status(job) != "active"
+        {
+            return Vec::new();
+        }
+        let participant_order = focused_job_contributors(self, job, location_id);
+        if !(FOCUSED_ENCOUNTER_MIN_PARTICIPANTS..=FOCUSED_ENCOUNTER_MAX_PARTICIPANTS)
+            .contains(&participant_order.len())
+        {
+            return Vec::new();
+        }
+        let Some(trigger_index) = participant_order
+            .iter()
+            .position(|actor_id| *actor_id == record.action.actor_id)
+        else {
+            return Vec::new();
+        };
+        let encounter_id = focused_job_encounter_id(&job_id);
+        let current_index = (trigger_index + 1) % participant_order.len();
+        let current_actor_id = participant_order[current_index];
+        let state = FocusedJobEncounterState {
+            version: FOCUSED_JOB_STATE_VERSION,
+            encounter_id,
+            profile_id: FOCUSED_WORK_PROFILE_ID.to_string(),
+            profile_version: FOCUSED_WORK_PROFILE_VERSION,
+            location_id,
+            phase: "work".to_string(),
+            participant_order,
+            current_index,
+            round: 1,
+            setup_remaining: 1,
+            status: "active".to_string(),
+        };
+        let Some(job) = self.jobs.get_mut(&job_id) else {
+            return Vec::new();
+        };
+        job.focused_encounter = Some(state);
+        vec![
+            append_focused_job_event(
+                self,
+                "focused.encounter.started",
+                encounter_id,
+                record.action.actor_id,
+                location_id,
+                "The shared work becomes an ordered scene.",
+            ),
+            append_focused_job_event(
+                self,
+                "focused.turn.started",
+                encounter_id,
+                current_actor_id,
+                location_id,
+                "The next participant may set up once, then commit.",
+            ),
+        ]
+    }
+
+    pub(super) fn apply_focused_job_record(&mut self, record: &JournalRecord) -> Vec<EventView> {
+        let Some(context) = record.focused_encounter.as_ref().filter(|context| {
+            context.profile_id == FOCUSED_WORK_PROFILE_ID
+                && context.profile_version == FOCUSED_WORK_PROFILE_VERSION
+        }) else {
+            return self.maybe_start_focused_job_encounter(record);
+        };
+        let Some(job_id) = self.jobs.iter().find_map(|(job_id, job)| {
+            job.focused_encounter
+                .as_ref()
+                .is_some_and(|state| state.encounter_id == context.encounter_id)
+                .then(|| job_id.clone())
+        }) else {
+            return Vec::new();
+        };
+        let actor_id = record.action.actor_id;
+        let offer_kind = record.offer_kind.as_deref().unwrap_or_default();
+        let (encounter_id, location_id, next_actor_id, completed) = {
+            let Some(job) = self.jobs.get_mut(&job_id) else {
+                return Vec::new();
+            };
+            let objective_completed = self
+                .clocks
+                .get(&job.progress_clock_id)
+                .is_some_and(|clock| clock.filled >= clock.segments);
+            let Some(state) = job.focused_encounter.as_mut() else {
+                return Vec::new();
+            };
+            if state.current_actor_id() != Some(actor_id) {
+                return Vec::new();
+            }
+            if context.activation_step == FocusedActivationStep::Setup {
+                if state.setup_remaining == 0 {
+                    return Vec::new();
+                }
+                state.setup_remaining = 0;
+                (
+                    state.encounter_id,
+                    state.location_id,
+                    state.current_actor_id(),
+                    false,
+                )
+            } else if offer_kind == "need_time" {
+                (
+                    state.encounter_id,
+                    state.location_id,
+                    state.current_actor_id(),
+                    false,
+                )
+            } else if objective_completed || job.status != "active" {
+                state.status = "completed".to_string();
+                (state.encounter_id, state.location_id, None, true)
+            } else {
+                if state.pass(actor_id).is_err() {
+                    return Vec::new();
+                }
+                (
+                    state.encounter_id,
+                    state.location_id,
+                    state.current_actor_id(),
+                    false,
+                )
+            }
+        };
+        if context.activation_step == FocusedActivationStep::Setup {
+            return vec![append_focused_job_event(
+                self,
+                "focused.setup",
+                encounter_id,
+                actor_id,
+                location_id,
+                "Setup is ready; the same activation still has one commit.",
+            )];
+        }
+        if offer_kind == "need_time" {
+            return vec![append_focused_job_event(
+                self,
+                "focused.need_time",
+                encounter_id,
+                actor_id,
+                location_id,
+                "The scene keeps its current participant and adds one grace window.",
+            )];
+        }
+        if completed {
+            return vec![append_focused_job_event(
+                self,
+                "focused.encounter.completed",
+                encounter_id,
+                actor_id,
+                location_id,
+                "The ordered work is complete.",
+            )];
+        }
+        let Some(next_actor_id) = next_actor_id else {
+            return Vec::new();
+        };
+        let mut events = vec![append_focused_job_event(
+            self,
+            "focused.turn.ended",
+            encounter_id,
+            actor_id,
+            location_id,
+            "The committed activation ends.",
+        )];
+        if offer_kind == "pass" {
+            events.push(append_focused_job_event(
+                self,
+                "focused.pass",
+                encounter_id,
+                actor_id,
+                location_id,
+                "The current participant passes.",
+            ));
+        }
+        events.push(append_focused_job_event(
+            self,
+            "focused.turn.started",
+            encounter_id,
+            next_actor_id,
+            location_id,
+            "The next participant may set up once, then commit.",
+        ));
+        events
+    }
+}
+
 pub(super) fn focused_encounter_offer_context(
     runtime: &RuntimeWorld,
     actor_id: u64,
     offer_kind: &str,
 ) -> Option<FocusedEncounterOfferContext> {
     let activation_step = match offer_kind {
-        "attack" | "defend" | "flee" => FocusedActivationStep::Commit,
+        "prepare" => FocusedActivationStep::Setup,
+        "attack" | "defend" | "flee" | "check" | "study" | "work" | "help" => {
+            FocusedActivationStep::Commit
+        }
         _ => return None,
     };
-    let focused = focused_combat_encounter(runtime, actor_id)?;
+    let focused = focused_encounter_for_actor(runtime, actor_id)?;
+    let profile_accepts_offer = if focused.profile_id == FOCUSED_COMBAT_PROFILE_ID {
+        matches!(offer_kind, "attack" | "defend" | "flee")
+    } else {
+        matches!(offer_kind, "prepare" | "check" | "study" | "work" | "help")
+    };
+    if !profile_accepts_offer {
+        return None;
+    }
+    if activation_step == FocusedActivationStep::Setup
+        && focused.activation_budget.setup_remaining == 0
+    {
+        return None;
+    }
     (focused.current_actor_id == actor_id).then(|| focused.offer_context(activation_step))
 }
 
@@ -522,14 +977,24 @@ pub(super) fn combat_turn_view(
     actor_id: u64,
     room_id: u64,
 ) -> Option<RoomTurnView> {
-    let focused = focused_combat_encounter(runtime, actor_id)?;
+    let focused = focused_encounter_for_actor(runtime, actor_id)?;
     let current_actor_id = focused.current_actor_id;
     let current_actor_name = runtime.actor_name(current_actor_id);
     let is_current_actor = current_actor_id == actor_id;
-    let need_time_used = combat_need_time_used(runtime, focused.encounter_id, current_actor_id);
+    let is_combat = focused.profile_id == FOCUSED_COMBAT_PROFILE_ID;
+    let need_time_used = if is_combat {
+        combat_need_time_used(runtime, focused.encounter_id, current_actor_id)
+    } else {
+        focused_job_need_time_used(runtime, focused.encounter_id, current_actor_id)
+    };
     let waiting_actor_ids = focused.waiting_actor_ids();
     let explanation = Some(format!(
-        "Combat is an ordered scene. {} acts now; chat and inspection stay available.",
+        "{} {} acts now; chat and inspection stay available.",
+        if is_combat {
+            "Combat is an ordered scene."
+        } else {
+            "The shared work is focused."
+        },
         current_actor_name
             .clone()
             .unwrap_or_else(|| format!("Avatar {current_actor_id}"))
@@ -537,7 +1002,7 @@ pub(super) fn combat_turn_view(
     Some(RoomTurnView {
         enabled: true,
         policy: ConcurrencyPolicy::SceneTurn.as_str(),
-        scene_kind: Some("combat"),
+        scene_kind: Some(if is_combat { "combat" } else { "work" }),
         focused: Some(focused.clone()),
         explanation,
         room_id,
@@ -546,11 +1011,11 @@ pub(super) fn combat_turn_view(
         is_current_actor,
         can_pass: is_current_actor,
         can_need_time: is_current_actor && !need_time_used,
-        grace_period_ms: ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
-            need_time_used
-                .then_some(ORDERED_SCENE_NEED_TIME_MS)
-                .unwrap_or_default(),
-        ),
+        grace_period_ms: ORDERED_SCENE_BASE_GRACE_MS.saturating_add(if need_time_used {
+            ORDERED_SCENE_NEED_TIME_MS
+        } else {
+            0
+        }),
         need_time_extension_ms: ORDERED_SCENE_NEED_TIME_MS,
         handoff_key: Some(focused.handoff_key()),
         can_request_timeout: false,
@@ -604,10 +1069,19 @@ fn actor_ordered_scene_rejection(
 ) -> Option<Json<ActionResponse>> {
     let view = ordered_scene_rejection_view(runtime, actor_id)?;
     let current_actor_id = view.current_actor_id;
+    let is_combat = view.scene_kind == Some("combat");
     let type_name = if view.is_current_actor {
-        "combat.action.required"
+        if is_combat {
+            "combat.action.required"
+        } else {
+            "focused.action.required"
+        }
     } else {
-        "combat.turn.waiting"
+        if is_combat {
+            "combat.turn.waiting"
+        } else {
+            "focused.turn.waiting"
+        }
     };
     let events = vec![EventView {
         type_name: type_name.to_string(),
@@ -639,15 +1113,32 @@ pub(super) fn actor_action_turn_rejection(
     runtime: &RuntimeWorld,
     action: &CwAction,
 ) -> Option<Json<ActionResponse>> {
+    let offer_kind = match action.kind {
+        CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK | CW_ACTION_ATTACK => "attack",
+        CW_ACTION_COMBAT_DODGE | CW_ACTION_DEFEND => "defend",
+        CW_ACTION_COMBAT_ESCAPE | CW_ACTION_FLEE => "flee",
+        CW_ACTION_RULES_SEARCH | CW_ACTION_ABILITY_CHECK => "check",
+        CW_ACTION_RULES_STUDY => "study",
+        _ => "",
+    };
     if action.kind == CW_ACTION_SAY
-        || matches!(
-            action_concurrency_policy(action.kind),
-            ConcurrencyPolicy::SceneTurn
-        )
+        || (!offer_kind.is_empty()
+            && focused_encounter_offer_context(runtime, action.actor_id, offer_kind).is_some())
     {
         return None;
     }
     actor_ordered_scene_rejection(runtime, action.actor_id)
+}
+
+pub(super) fn actor_offer_turn_rejection(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    offer_kind: &str,
+) -> Option<Json<ActionResponse>> {
+    if focused_encounter_offer_context(runtime, actor_id, offer_kind).is_some() {
+        return None;
+    }
+    actor_ordered_scene_rejection(runtime, actor_id)
 }
 
 pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) -> bool {
@@ -674,10 +1165,20 @@ pub(super) fn command_actor_turn_rejection(
     actor_id: u64,
     dispatch: &CommandDispatch,
 ) -> Option<RoomTurnView> {
-    if matches!(
-        dispatch,
-        CommandDispatch::Attack { .. } | CommandDispatch::Defend | CommandDispatch::Flee { .. }
-    ) {
+    let offer_kind = match dispatch {
+        CommandDispatch::Attack { .. } => "attack",
+        CommandDispatch::Defend => "defend",
+        CommandDispatch::Flee { .. } => "flee",
+        CommandDispatch::Check => "check",
+        CommandDispatch::Study => "study",
+        CommandDispatch::Prepare => "prepare",
+        CommandDispatch::Work => "work",
+        CommandDispatch::Help => "help",
+        _ => "",
+    };
+    if !offer_kind.is_empty()
+        && focused_encounter_offer_context(runtime, actor_id, offer_kind).is_some()
+    {
         return None;
     }
     ordered_scene_rejection_view(runtime, actor_id)
@@ -688,12 +1189,22 @@ pub(super) fn command_turn_rejected_response(
     view: RoomTurnView,
     mut events: Vec<EventView>,
 ) -> Json<CommandResponse> {
+    let is_combat = view.scene_kind == Some("combat");
     events.push(EventView {
         type_name: if view.is_current_actor {
-            "combat.action.required".to_string()
+            if is_combat {
+                "combat.action.required"
+            } else {
+                "focused.action.required"
+            }
         } else {
-            "combat.turn.waiting".to_string()
-        },
+            if is_combat {
+                "combat.turn.waiting"
+            } else {
+                "focused.turn.waiting"
+            }
+        }
+        .to_string(),
         success: false,
         reason: 20,
         actor_id: view.current_actor_id,
@@ -753,6 +1264,121 @@ pub(super) fn advance_turn_and_capture_player_tick_observation(
     observation
 }
 
+pub(super) async fn recover_available_focused_job_turns(
+    state: &AppState,
+) -> io::Result<Vec<EventView>> {
+    let mut runtime = state.inner.lock().await;
+    let job_ids = runtime
+        .jobs
+        .iter()
+        .filter_map(|(job_id, job)| {
+            if job
+                .focused_encounter
+                .as_ref()
+                .is_some_and(|focused| focused.status == "active")
+            {
+                Some(job_id.clone())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    let mut events = Vec::new();
+    for job_id in job_ids {
+        for _ in 0..FOCUSED_ENCOUNTER_MAX_PARTICIPANTS {
+            let Some(focused) = runtime
+                .jobs
+                .get(&job_id)
+                .and_then(|job| job.focused_encounter.as_ref())
+                .filter(|focused| focused.status == "active")
+                .cloned()
+            else {
+                break;
+            };
+            let Some(current_actor_id) = focused.current_actor_id() else {
+                break;
+            };
+            let grace_period_ms = ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
+                if focused_job_need_time_used(&runtime, focused.encounter_id, current_actor_id) {
+                    ORDERED_SCENE_NEED_TIME_MS
+                } else {
+                    0
+                },
+            );
+            let active_direct_actors = active_actor_ids_for_focused_grace(state, grace_period_ms);
+            let inference_controlled = runtime.actor_uses_inference(current_actor_id);
+            if !inference_controlled && active_direct_actors.contains(&current_actor_id) {
+                break;
+            }
+            let another_available = focused
+                .participant_order
+                .iter()
+                .copied()
+                .filter(|actor_id| *actor_id != current_actor_id)
+                .any(|actor_id| {
+                    runtime.actor_uses_inference(actor_id)
+                        || active_direct_actors.contains(&actor_id)
+                });
+            let inference_record = if inference_controlled {
+                runtime.actor_by_id(current_actor_id).and_then(|actor| {
+                    runtime
+                        .resident_job_autonomy_record(actor, runtime.next_seed_value())
+                        .map(|mut record| {
+                            record = runtime
+                                .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                                    actor_id: current_actor_id,
+                                    rank: 0,
+                                    score: 0,
+                                    record,
+                                })
+                                .record;
+                            record.origin = if record.offer_kind.as_deref() == Some("prepare") {
+                                JournalOrigin::PlayerControl
+                            } else {
+                                JournalOrigin::PlayerCard
+                            };
+                            record
+                        })
+                })
+            } else {
+                None
+            };
+            let record = if let Some(record) = inference_record {
+                record
+            } else {
+                if !another_available {
+                    break;
+                }
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: current_actor_id,
+                        content_id: focused.encounter_id,
+                        ..CwAction::default()
+                    },
+                    runtime.next_seed_value(),
+                )
+                .into_system();
+                record.bind_offer_kind("pass");
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::FocusedControl {
+                        control: "pass".to_string(),
+                    });
+                record
+            };
+            let (status, committed) = commit_journal_record(state, &mut runtime, record)?;
+            events.extend(committed);
+            if status != CW_OK {
+                return Err(io::Error::other(format!(
+                    "focused work {job_id} recovery failed with status {status}"
+                )));
+            }
+        }
+    }
+    Ok(events)
+}
+
 pub(super) async fn request_turn_timeout(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -767,10 +1393,10 @@ pub(super) async fn request_turn_timeout(
     ) {
         return action_rate_limited_response();
     }
-    apply_combat_choice(
+    apply_focused_control(
         state,
         payload.actor_id,
-        CombatChoice::NeedTime,
+        "need_time",
         payload.actor_session.as_deref(),
     )
     .await
@@ -790,18 +1416,203 @@ pub(super) async fn pass_ordered_scene_turn(
     ) {
         return action_rate_limited_response();
     }
-    apply_combat_choice(
+    apply_focused_control(
         state,
         payload.actor_id,
-        CombatChoice::Pass,
+        "pass",
         payload.actor_session.as_deref(),
     )
     .await
 }
 
+async fn apply_focused_control(
+    state: AppState,
+    actor_id: u64,
+    control: &str,
+    actor_session: Option<&str>,
+) -> Json<ActionResponse> {
+    let work_focused = {
+        let runtime = state.inner.lock().await;
+        focused_job_encounter(&runtime, actor_id).is_some()
+    };
+    if !work_focused {
+        return apply_combat_choice(
+            state,
+            actor_id,
+            if control == "need_time" {
+                CombatChoice::NeedTime
+            } else {
+                CombatChoice::Pass
+            },
+            actor_session,
+        )
+        .await;
+    }
+
+    let was_active = actor_session
+        .and_then(|token| actor_session_active_for_actor(&state.actor_sessions, actor_id, token))
+        .unwrap_or(false);
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
+        return client_actor_rejected_response();
+    }
+    let released_events = release_inactive_direct_inventory_locked(&state, &mut runtime);
+    let Some(focused) = focused_job_encounter(&runtime, actor_id) else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    if focused.current_actor_id != actor_id {
+        let event = EventView {
+            type_name: "focused.turn.waiting".to_string(),
+            success: false,
+            actor_id: Some(focused.current_actor_id),
+            actor_name: runtime.actor_name(focused.current_actor_id),
+            location_id: Some(focused.location_id),
+            content_id: Some(focused.encounter_id),
+            content: Some("The focused scene belongs to another participant.".to_string()),
+            ..EventView::default()
+        };
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 423,
+            events: vec![event],
+        });
+    }
+    if control == "need_time"
+        && focused_job_need_time_used(&runtime, focused.encounter_id, actor_id)
+    {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let turn_location_id = Some(focused.location_id);
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            content_id: focused.encounter_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record = if control == "need_time" {
+        record.into_player_control()
+    } else {
+        record.into_player_card()
+    };
+    record.bind_offer_kind(control);
+    record
+        .projection_mutations
+        .push(ProjectionMutation::FocusedControl {
+            control: control.to_string(),
+        });
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    let observation = if control == "need_time" {
+        if status == CW_OK {
+            append_action_receipt(&state, &runtime, actor_id, &mut events);
+        }
+        None
+    } else {
+        advance_turn_and_capture_player_tick_observation(
+            &state,
+            &mut runtime,
+            turn_location_id,
+            actor_id,
+            status,
+            &mut events,
+        )
+    };
+    drop(runtime);
+    broadcast_events(&state, &released_events);
+    broadcast_events(&state, &events);
+    if let Some(observation) = observation {
+        schedule_player_tick_observation(&state, observation);
+    }
+    let mut response_events = events;
+    if !was_active {
+        response_events.extend(commit_presence_event(&state, actor_id, true).await);
+    }
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events: response_events,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn focused_work_record(runtime: &RuntimeWorld, actor_id: u64, seed: u64) -> JournalRecord {
+        let intent = runtime
+            .job_contribution_intent(actor_id, "work", Some(FIRST_TALE_JOB_ID), None, None)
+            .expect("focused fixture offers Work");
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id,
+                ..CwAction::default()
+            },
+            seed,
+        )
+        .into_player_card();
+        record.bind_offer_kind("work");
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution { intent });
+        bind_focused_encounter_context(runtime, &mut record);
+        record
+    }
+
+    fn focused_control_record(
+        runtime: &RuntimeWorld,
+        actor_id: u64,
+        control: &str,
+        seed: u64,
+    ) -> JournalRecord {
+        let focused = focused_job_encounter(runtime, actor_id).expect("focused fixture is active");
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id,
+                content_id: focused.encounter_id,
+                ..CwAction::default()
+            },
+            seed,
+        );
+        record = if matches!(control, "prepare" | "need_time") {
+            record.into_player_control()
+        } else {
+            record.into_player_card()
+        };
+        record.bind_offer_kind(control);
+        record
+            .projection_mutations
+            .push(ProjectionMutation::FocusedControl {
+                control: control.to_string(),
+            });
+        bind_focused_encounter_context(runtime, &mut record);
+        record
+    }
 
     #[test]
     fn ordinary_operations_have_explicit_concurrency_policies() {
@@ -963,6 +1774,329 @@ mod tests {
     }
 
     #[test]
+    fn cooperative_work_uses_the_focused_scheduler_and_replays_absence_recovery() {
+        std::thread::Builder::new()
+            .name("focused-work-scheduler-replay".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("build focused work test runtime")
+                    .block_on(run_cooperative_work_scheduler_replay());
+            })
+            .expect("spawn focused work scheduler test")
+            .join()
+            .expect("focused work scheduler test completes");
+    }
+
+    async fn run_cooperative_work_scheduler_replay() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "First Worker",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Second Worker",
+        );
+        for actor_id in [5000, 5001] {
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+        }
+        {
+            let job = runtime
+                .jobs
+                .get_mut(FIRST_TALE_JOB_ID)
+                .expect("focused fixture job");
+            job.status = "active".to_string();
+            job.focused_profile = Some(FOCUSED_WORK_PROFILE.to_string());
+            job.focused_encounter = None;
+        }
+        for clock_id in [
+            FIRST_TALE_PROGRESS_CLOCK_ID,
+            "rain-soft-garden.path-washes-out",
+        ] {
+            let clock = runtime
+                .clocks
+                .get_mut(clock_id)
+                .expect("focused fixture clock");
+            clock.segments = 12;
+            clock.filled = 0;
+            clock.status = "active".to_string();
+            clock.recent_contributions.clear();
+            clock.completion = None;
+        }
+
+        let first = focused_work_record(&runtime, 5000, 82_100);
+        assert_eq!(runtime.apply_journal_record(&first).0, CW_OK);
+        assert!(focused_job_encounter(&runtime, 5000).is_none());
+        let second = focused_work_record(&runtime, 5001, 82_101);
+        let (status, started_events) = runtime.apply_journal_record(&second);
+        assert_eq!(status, CW_OK);
+        assert!(started_events
+            .iter()
+            .any(|event| event.type_name == "focused.encounter.started"));
+
+        let focused = focused_job_encounter(&runtime, 5000).expect("shared work becomes focused");
+        assert_eq!(focused.profile_id, FOCUSED_WORK_PROFILE_ID);
+        assert_eq!(focused.profile_version, FOCUSED_WORK_PROFILE_VERSION);
+        assert_eq!(focused.current_actor_id, 5000);
+        assert_eq!(focused.objective_clock_id, FIRST_TALE_PROGRESS_CLOCK_ID);
+        assert_eq!(
+            focused.danger_clock_id.as_deref(),
+            Some("rain-soft-garden.path-washes-out")
+        );
+        assert_eq!(focused.activation_budget.setup_remaining, 1);
+        assert_eq!(focused.activation_budget.commit_remaining, 1);
+        assert!(focused.validate().is_ok());
+
+        let direct_offer = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "work"
+                    && offer
+                        .project
+                        .as_ref()
+                        .is_some_and(|project| project.id == FIRST_TALE_JOB_ID)
+            })
+            .expect("current participant receives certified Work");
+        let offer_context = direct_offer
+            .composition_trace
+            .focused_encounter
+            .as_ref()
+            .expect("Work carries focused identity");
+        assert_eq!(offer_context.profile_id, FOCUSED_WORK_PROFILE_ID);
+        assert_eq!(offer_context.activation_step, FocusedActivationStep::Commit);
+        let reconnected = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("focused work reconnects from its snapshot");
+        let reconnected_offer = reconnected
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "work"
+                    && offer
+                        .project
+                        .as_ref()
+                        .is_some_and(|project| project.id == FIRST_TALE_JOB_ID)
+            })
+            .expect("reconnect projects the current Work");
+        assert_eq!(reconnected_offer.offer_id, direct_offer.offer_id);
+        assert_eq!(
+            reconnected_offer.composition_id,
+            direct_offer.composition_id
+        );
+        assert_eq!(
+            reconnected_offer.composition_trace.focused_encounter,
+            direct_offer.composition_trace.focused_encounter
+        );
+
+        runtime
+            .actor_autonomy
+            .get_mut(&5000)
+            .expect("first worker controller")
+            .control_mode = ActorControlMode::LocalAi;
+        let inference_offer = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "work"
+                    && offer
+                        .project
+                        .as_ref()
+                        .is_some_and(|project| project.id == FIRST_TALE_JOB_ID)
+            })
+            .expect("inference receives the same Work");
+        assert_eq!(
+            serde_json::to_value(&inference_offer).expect("inference offer serializes"),
+            serde_json::to_value(&direct_offer).expect("direct offer serializes")
+        );
+        runtime
+            .actor_autonomy
+            .get_mut(&5000)
+            .expect("first worker controller")
+            .control_mode = ActorControlMode::DirectInput;
+
+        let before_setup_tick = runtime.world.tick;
+        let setup = focused_control_record(&runtime, 5000, "prepare", 82_102);
+        let (status, setup_events) = runtime.apply_journal_record(&setup);
+        assert_eq!(status, CW_OK);
+        assert_eq!(runtime.world.tick, before_setup_tick);
+        assert!(setup_events
+            .iter()
+            .any(|event| event.type_name == "focused.setup"));
+        let after_setup = focused_job_encounter(&runtime, 5000).expect("focus remains active");
+        assert_eq!(after_setup.current_actor_id, 5000);
+        assert_eq!(after_setup.activation_budget.setup_remaining, 0);
+
+        let committed_offer = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "work"
+                    && offer
+                        .project
+                        .as_ref()
+                        .is_some_and(|project| project.id == FIRST_TALE_JOB_ID)
+            })
+            .expect("Setup leaves one Work commit");
+        let before_commit_tick = runtime.world.tick;
+        let commit = focused_work_record(&runtime, 5000, 82_103);
+        assert_eq!(runtime.apply_journal_record(&commit).0, CW_OK);
+        assert_eq!(runtime.world.tick, before_commit_tick + 1);
+        assert_eq!(
+            focused_job_encounter(&runtime, 5001)
+                .expect("focus hands off")
+                .current_actor_id,
+            5001
+        );
+        assert!(
+            runtime
+                .current_reachable_offer(5000, &committed_offer)
+                .is_none(),
+            "the prior activation certificate is stale after Commit"
+        );
+
+        let before_pass_tick = runtime.world.tick;
+        let pass = focused_control_record(&runtime, 5001, "pass", 82_104);
+        assert_eq!(runtime.apply_journal_record(&pass).0, CW_OK);
+        assert_eq!(runtime.world.tick, before_pass_tick + 1);
+        assert_eq!(
+            focused_job_encounter(&runtime, 5000)
+                .expect("Pass hands focus back")
+                .current_actor_id,
+            5000
+        );
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-focused-work-recovery-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(runtime, Some(path.clone()));
+        assert!(
+            recover_available_focused_job_turns(&state)
+                .await
+                .expect("idle recovery succeeds")
+                .is_empty(),
+            "a focused job with nobody available must not churn Pass records"
+        );
+
+        let (session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &session),
+            Some(5001)
+        );
+        let recovery_events = recover_available_focused_job_turns(&state)
+            .await
+            .expect("focused work recovery succeeds");
+        assert!(recovery_events
+            .iter()
+            .any(|event| { event.type_name == "focused.pass" && event.actor_id == Some(5000) }));
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            focused_job_encounter(&runtime, 5001)
+                .expect("available participant receives focus")
+                .current_actor_id,
+            5001
+        );
+        drop(runtime);
+
+        let journal = read_action_journal(&path).expect("focused work recovery journal");
+        assert_eq!(journal.len(), 1);
+        assert!(journal.iter().any(|record| {
+            record.action.actor_id == 5000
+                && record.origin == JournalOrigin::System
+                && record.offer_kind.as_deref() == Some("pass")
+                && record.focused_encounter.as_ref().is_some_and(|context| {
+                    context.profile_id == FOCUSED_WORK_PROFILE_ID
+                        && context.activation_step == FocusedActivationStep::Commit
+                })
+        }));
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("focused work recovery checkpoint restores");
+        for record in &journal {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+        assert_eq!(
+            focused_job_encounter(&replayed, 5001)
+                .expect("replay restores the same handoff")
+                .current_actor_id,
+            5001
+        );
+
+        let (waiting_session, _) = issue_actor_session(&state, 5000);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &waiting_session),
+            Some(5000)
+        );
+        let before_inference_tick = {
+            let mut runtime = state.inner.lock().await;
+            runtime
+                .actor_autonomy
+                .get_mut(&5001)
+                .expect("second worker controller")
+                .control_mode = ActorControlMode::LocalAi;
+            runtime.world.tick
+        };
+        let inference_events = recover_available_focused_job_turns(&state)
+            .await
+            .expect("inference-controlled Work succeeds");
+        assert!(inference_events.iter().any(|event| {
+            event.type_name == "job.contribution.resolved" && event.actor_id == Some(5001)
+        }));
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.world.tick,
+            before_inference_tick + 1,
+            "an inference Commit advances the same one world tick as direct control"
+        );
+        assert_eq!(
+            focused_job_encounter(&runtime, 5000)
+                .expect("inference Commit hands focus to the direct participant")
+                .current_actor_id,
+            5000
+        );
+        drop(runtime);
+
+        let journal = read_action_journal(&path).expect("focused inference journal");
+        assert_eq!(journal.len(), 2);
+        let inference_record = journal.last().expect("inference Commit is journaled");
+        assert_eq!(inference_record.action.actor_id, 5001);
+        assert_eq!(inference_record.origin, JournalOrigin::PlayerCard);
+        assert!(inference_record.resident_decision.is_some());
+        assert!(matches!(
+            inference_record.offer_kind.as_deref(),
+            Some("work" | "help" | "study")
+        ));
+        assert_eq!(replayed.apply_journal_record(inference_record).0, CW_OK);
+        assert_eq!(replayed.world.tick, before_inference_tick + 1);
+        assert_eq!(
+            focused_job_encounter(&replayed, 5000)
+                .expect("replay restores the inference handoff")
+                .current_actor_id,
+            5000
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn combat_and_work_share_one_scheduler_and_activation_budget() {
         let mut combat = FocusedEncounterView {
             schema_version: FOCUSED_ENCOUNTER_SCHEMA_VERSION,
@@ -1033,6 +2167,7 @@ mod tests {
 
     #[test]
     fn focused_journal_context_defaults_historical_combat_and_fails_closed() {
+        let mut runtime = RuntimeWorld::seeded();
         let action = CwAction {
             kind: CW_ACTION_COMBAT_ATTACK,
             actor_id: 5000,
@@ -1049,7 +2184,9 @@ mod tests {
         assert_eq!(context.profile_id, FOCUSED_COMBAT_PROFILE_ID);
         assert_eq!(context.profile_version, FOCUSED_COMBAT_PROFILE_VERSION);
         assert_eq!(context.activation_step, FocusedActivationStep::Commit);
-        assert!(focused_encounter_journal_context_is_supported(&record));
+        assert!(focused_encounter_journal_context_is_supported(
+            &runtime, &record
+        ));
 
         let mut historical_json = serde_json::to_value(&record).expect("journal row serializes");
         historical_json["version"] = serde_json::json!(7);
@@ -1059,11 +2196,15 @@ mod tests {
             .remove("focused_encounter");
         let historical: JournalRecord =
             serde_json::from_value(historical_json).expect("historical combat row defaults");
-        assert!(focused_encounter_journal_context_is_supported(&historical));
+        assert!(focused_encounter_journal_context_is_supported(
+            &runtime,
+            &historical
+        ));
 
         let mut missing_context = historical;
         missing_context.version = FOCUSED_ENCOUNTER_JOURNAL_VERSION;
         assert!(!focused_encounter_journal_context_is_supported(
+            &runtime,
             &missing_context
         ));
 
@@ -1073,7 +2214,6 @@ mod tests {
             .as_mut()
             .expect("focused context")
             .profile_version += 1;
-        let mut runtime = RuntimeWorld::seeded();
         let before = RuntimeSnapshot::from_runtime(&runtime);
         assert_eq!(runtime.apply_journal_record(&incompatible).0, CW_ERR_RULE);
         assert_eq!(
