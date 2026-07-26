@@ -1,6 +1,7 @@
 mod account_auth;
 mod activation;
 mod actor_practice;
+mod actor_presence;
 mod actor_rules_facets;
 mod ai_gateway;
 mod avatar_identity;
@@ -4653,7 +4654,7 @@ fn wallet_session_authorizes_actor_read(
     access: &AccessContext,
 ) -> bool {
     !actor_is_suspended(state, actor_id)
-        && runtime.client_actor_can_submit(actor_id)
+        && runtime.client_actor_can_observe(actor_id)
         && access.signed_wallet_session
         && access
             .owner_wallet_address
@@ -4669,7 +4670,10 @@ fn client_actor_read_authorized_for_state(
     actor_session: Option<&str>,
     access: &AccessContext,
 ) -> bool {
-    client_actor_authorized_for_state(runtime, state, actor_id, actor_session)
+    (!actor_is_suspended(state, actor_id)
+        && runtime.client_actor_can_observe(actor_id)
+        && actor_session.and_then(|token| actor_for_session(&state.actor_sessions, token))
+            == Some(actor_id))
         || wallet_session_authorizes_actor_read(runtime, state, actor_id, access)
 }
 
@@ -4846,7 +4850,7 @@ fn schedule_avatar_identity_refinement(
             let mut runtime = state.inner.lock().await;
             let valid_actor = runtime
                 .actor_by_id(actor_id)
-                .is_some_and(RuntimeWorld::actor_is_active_avatar);
+                .is_some_and(RuntimeWorld::actor_can_act);
             if !valid_actor {
                 return;
             }
@@ -6979,7 +6983,7 @@ impl RuntimeWorld {
             let Some(actor) = self.actor_by_id(evidence.actor_id) else {
                 continue;
             };
-            if !Self::actor_is_active_avatar(actor) || self.item_by_id(evidence.item_id).is_none() {
+            if !Self::actor_can_act(actor) || self.item_by_id(evidence.item_id).is_none() {
                 continue;
             }
             let claim_key = format!(
@@ -7188,7 +7192,7 @@ impl RuntimeWorld {
         }
         let actor_id = event.actor_id?;
         let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
         let (category, source_action, target_kind, target_id, location_id) =
@@ -9900,7 +9904,7 @@ impl RuntimeWorld {
             let Some(resident) = self.actor_by_id(resident_id) else {
                 continue;
             };
-            if !Self::actor_is_active_avatar(resident) {
+            if !Self::actor_can_act(resident) {
                 continue;
             }
             let current_seq = self
@@ -10405,9 +10409,7 @@ impl RuntimeWorld {
                     location_id,
                     reason: _,
                 } => {
-                    let valid_actor = self
-                        .actor_by_id(*actor_id)
-                        .is_some_and(Self::actor_is_active_avatar);
+                    let valid_actor = self.actor_by_id(*actor_id).is_some_and(Self::actor_can_act);
                     if valid_actor {
                         if let Some(event) =
                             self.place_actor_location(*actor_id, *location_id, true)
@@ -11218,7 +11220,7 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(action.actor_id) else {
             return Vec::new();
         };
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return Vec::new();
         }
         if let (Some(profile_id), Some(species_id), Some(origin_id)) = (
@@ -11449,7 +11451,7 @@ impl RuntimeWorld {
             let Some(actor) = self.actor_by_id(actor_id) else {
                 continue;
             };
-            if !Self::actor_is_active_avatar(actor) {
+            if !Self::actor_can_act(actor) {
                 continue;
             }
             let from_location_id = event.location_id.unwrap_or(0);
@@ -11491,10 +11493,7 @@ impl RuntimeWorld {
         let Some(target) = self.actor_by_id(target_actor_id) else {
             return Vec::new();
         };
-        if !Self::actor_is_active_avatar(actor)
-            || !Self::actor_is_active_avatar(target)
-            || actor.id == target.id
-        {
+        if !Self::actor_can_act(actor) || !Self::actor_can_act(target) || actor.id == target.id {
             return Vec::new();
         }
         if !self.rpg_claims.insert(claim_key) {
@@ -11603,9 +11602,7 @@ impl RuntimeWorld {
             };
             let witness_actor_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
                 .iter()
-                .filter(|actor| {
-                    Self::actor_is_active_avatar(**actor) && actor.location_id == location_id
-                })
+                .filter(|actor| Self::actor_is_present(**actor) && actor.location_id == location_id)
                 .map(|actor| actor.id)
                 .collect();
             for actor_id in witness_actor_ids {
@@ -11628,7 +11625,7 @@ impl RuntimeWorld {
             "item.picked_up" => {
                 let resident_id = event.actor_id?;
                 let resident = self.actor_by_id(resident_id)?;
-                if !Self::actor_is_active_avatar(resident) {
+                if !Self::actor_can_act(resident) {
                     return None;
                 }
                 let item_id = event.item_id?;
@@ -11656,12 +11653,12 @@ impl RuntimeWorld {
             "avatar.evolved" => {
                 let source_actor_id = event.actor_id?;
                 let source = self.actor_by_id(source_actor_id)?;
-                if !Self::actor_is_active_avatar(source) {
+                if !Self::actor_can_act(source) {
                     return None;
                 }
                 let resident_id = event.target_actor_id?;
                 let resident = self.actor_by_id(resident_id)?;
-                if !Self::actor_is_active_avatar(resident) {
+                if !Self::actor_can_act(resident) {
                     return None;
                 }
                 let location_id = event.location_id.or(Some(resident.location_id))?;
@@ -11884,7 +11881,7 @@ impl RuntimeWorld {
         let Some(target) = self.actor_by_id(action.target_actor_id) else {
             return Vec::new();
         };
-        if !Self::actor_is_active_avatar(target) {
+        if !Self::actor_can_act(target) {
             return Vec::new();
         }
         let Some(check) = events.iter().find(|event| {
@@ -13396,10 +13393,10 @@ impl RuntimeWorld {
         let actor = self.actor_by_id(event.actor_id)?;
         let target = self.actor_by_id(event.target_actor_id)?;
         let mut parts = Vec::new();
-        if Self::actor_is_active_avatar(actor) && event.target_item_id != 0 {
+        if Self::actor_can_act(actor) && event.target_item_id != 0 {
             parts.push(self.resident_gained_item_reason(actor, event.target_item_id));
         }
-        if Self::actor_is_active_avatar(target) && event.item_id != 0 {
+        if Self::actor_can_act(target) && event.item_id != 0 {
             parts.push(self.resident_gained_item_reason(target, event.item_id));
         }
         (!parts.is_empty()).then(|| format!("{}.", parts.join("; ")))
@@ -13408,7 +13405,7 @@ impl RuntimeWorld {
     fn give_event_context(&self, event: &CwEvent) -> Option<String> {
         let actor = self.actor_by_id(event.actor_id)?;
         let target = self.actor_by_id(event.target_actor_id)?;
-        if event.item_id == 0 || !Self::actor_is_active_avatar(target) {
+        if event.item_id == 0 || !Self::actor_can_act(target) {
             return None;
         }
         let item_name = self
@@ -13437,7 +13434,7 @@ impl RuntimeWorld {
 
     fn pickup_event_context(&self, event: &CwEvent) -> Option<String> {
         let actor = self.actor_by_id(event.actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || event.item_id == 0 {
+        if !Self::actor_can_act(actor) || event.item_id == 0 {
             return None;
         }
         Some(format!(
@@ -13448,7 +13445,7 @@ impl RuntimeWorld {
 
     fn drop_event_context(&self, event: &CwEvent) -> Option<String> {
         let actor = self.actor_by_id(event.actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || event.item_id == 0 {
+        if !Self::actor_can_act(actor) || event.item_id == 0 {
             return None;
         }
         let actor_name = self
@@ -13469,7 +13466,7 @@ impl RuntimeWorld {
 
     fn use_event_context(&self, event: &CwEvent) -> Option<String> {
         let actor = self.actor_by_id(event.actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || event.item_id == 0 || event.damage >= 0 {
+        if !Self::actor_can_act(actor) || event.item_id == 0 || event.damage >= 0 {
             return None;
         }
         let actor_name = self
@@ -13491,7 +13488,7 @@ impl RuntimeWorld {
 
     fn move_event_context(&self, event: &CwEvent) -> Option<String> {
         let actor = self.actor_by_id(event.actor_id)?;
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
         let from_location_id = event.location_id;
@@ -14209,7 +14206,7 @@ impl RuntimeWorld {
             .ok_or_else(|| "Item offer has no exact target.".to_string())?;
         let actor = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "Item action requires an active avatar.".to_string())?;
         let action = match current_offer.kind.as_str() {
             "pick_up" => {
@@ -14285,7 +14282,7 @@ impl RuntimeWorld {
     ) -> Result<(CwAction, Vec<ProjectionMutation>), String> {
         let actor = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "Notice requires an active avatar.".to_string())?;
         if target_actor_id != 0 && !self.economy_notice_target_is_valid(actor_id, target_actor_id) {
             return Err("That avatar is not close enough to notice.".to_string());
@@ -14319,10 +14316,10 @@ impl RuntimeWorld {
     ) -> Result<CwAction, String> {
         let actor = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "Influence requires an active avatar.".to_string())?;
         let target_is_legal = self.actor_by_id(target_actor_id).is_some_and(|target| {
-            Self::actor_is_active_avatar(target)
+            Self::actor_can_act(target)
                 && target.location_id == actor.location_id
                 && !self.actors_blocked(actor_id, target.id)
                 && self
@@ -14442,10 +14439,6 @@ impl RuntimeWorld {
             .find(|actor| actor.id == actor_id)
     }
 
-    fn actor_is_active_avatar(actor: CwActor) -> bool {
-        matches!(actor.kind, CW_ACTOR_HUMAN | CW_ACTOR_NPC) && actor.status == CW_ACTOR_ACTIVE
-    }
-
     fn actor_control_mode(&self, actor_id: u64) -> ActorControlMode {
         self.actor_autonomy
             .get(&actor_id)
@@ -14492,8 +14485,8 @@ impl RuntimeWorld {
             .zip(self.actor_by_id(target_actor_id))
             .is_some_and(|(viewer, target)| {
                 viewer.id != target.id
-                    && Self::actor_is_active_avatar(viewer)
-                    && Self::actor_is_active_avatar(target)
+                    && Self::actor_can_act(viewer)
+                    && Self::actor_can_act(target)
                     && viewer.location_id == target.location_id
                     && !self.actors_blocked(viewer.id, target.id)
             })
@@ -14574,7 +14567,7 @@ impl RuntimeWorld {
         let Some(text) = self.content.get(&action.content_id) else {
             return;
         };
-        if !Self::actor_is_active_avatar(speaker) || !self.speech_discloses_economy(speaker, text) {
+        if !Self::actor_can_act(speaker) || !self.speech_discloses_economy(speaker, text) {
             return;
         }
         let viewer_ids = self.world.actors[..self.world.actor_count]
@@ -14582,7 +14575,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|viewer| {
                 viewer.id != speaker.id
-                    && Self::actor_is_active_avatar(*viewer)
+                    && Self::actor_can_act(*viewer)
                     && viewer.location_id == speaker.location_id
                     && !self.actors_blocked(viewer.id, speaker.id)
                     && !self.actor_muted(viewer.id, speaker.id)
@@ -14701,32 +14694,6 @@ impl RuntimeWorld {
 
     fn actor_uses_inference(&self, actor_id: u64) -> bool {
         self.actor_control_mode(actor_id).uses_inference()
-    }
-
-    fn client_actor_can_submit(&self, actor_id: u64) -> bool {
-        self.actor_by_id(actor_id)
-            .is_some_and(Self::actor_is_active_avatar)
-            && self.actor_control_mode(actor_id).is_direct_input()
-    }
-
-    fn actor_visible_in_projection(
-        &self,
-        actor: CwActor,
-        client_actor_id: Option<u64>,
-        active_direct_actor_ids: Option<&BTreeSet<u64>>,
-    ) -> bool {
-        if !self.actor_uses_inference(actor.id) {
-            if Some(actor.id) == client_actor_id {
-                return true;
-            }
-            return active_direct_actor_ids
-                .map(|ids| ids.contains(&actor.id))
-                .unwrap_or(true);
-        }
-        if self.avatar_hidden_until_discovered(actor) {
-            return self.avatar_discovered(actor.id);
-        }
-        true
     }
 
     fn seed_exit_by_locations(
@@ -14907,7 +14874,7 @@ impl RuntimeWorld {
 
     fn search_memory_active(&self, memory: &SearchMemoryState) -> bool {
         self.actor_by_id(memory.actor_id)
-            .is_some_and(|actor| actor.status == CW_ACTOR_ACTIVE)
+            .is_some_and(Self::actor_is_present)
             && self
                 .search_memory_effective_values(memory)
                 .is_some_and(|(confidence, salience)| {
@@ -14979,9 +14946,7 @@ impl RuntimeWorld {
         let mut actor_ids = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| {
-                actor.location_id == location_id && Self::actor_is_active_avatar(*actor)
-            })
+            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
             .map(|actor| actor.id)
             .collect::<Vec<_>>();
         actor_ids.sort_unstable();
@@ -15030,7 +14995,7 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return;
         };
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_is_present(actor) {
             return;
         }
         let id = Self::search_memory_id(actor_id, kind, location_id, subject_key);
@@ -15207,7 +15172,7 @@ impl RuntimeWorld {
     }
 
     fn avatar_hidden_until_discovered(&self, actor: CwActor) -> bool {
-        if !Self::actor_is_active_avatar(actor)
+        if !Self::actor_can_act(actor)
             || !active_content()
                 .actors
                 .iter()
@@ -15229,7 +15194,7 @@ impl RuntimeWorld {
         let mut candidates = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .filter(|actor| actor.location_id == location_id)
             .filter(|actor| self.avatar_hidden_until_discovered(*actor))
             .filter(|actor| !self.avatar_discovered(actor.id))
@@ -15652,14 +15617,14 @@ impl RuntimeWorld {
     }
 
     fn resident_calling_desired_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_is_active_avatar(resident) || resident.stats.level >= 2 {
+        if !Self::actor_can_act(resident) || resident.stats.level >= 2 {
             return Vec::new();
         }
         self.resident_evolution_item_ids(resident.id)
     }
 
     fn resident_calling_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_is_active_avatar(resident) || resident.stats.level >= 2 {
+        if !Self::actor_can_act(resident) || resident.stats.level >= 2 {
             return Vec::new();
         }
         self.resident_evolution_item_ids_for_target_kind(resident.id, "actor_hand")
@@ -15707,7 +15672,7 @@ impl RuntimeWorld {
     }
 
     fn resident_attachment_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             return Vec::new();
         }
         self.resident_personal_attachments(resident.id)
@@ -15717,7 +15682,7 @@ impl RuntimeWorld {
     }
 
     fn resident_desired_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             return Vec::new();
         }
         let mut item_ids = self.resident_calling_desired_item_ids(resident);
@@ -15737,7 +15702,7 @@ impl RuntimeWorld {
     }
 
     fn resident_healing_target(&self, resident: CwActor) -> Option<CwActor> {
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             return None;
         }
         self.world.actors[..self.world.actor_count]
@@ -15776,7 +15741,7 @@ impl RuntimeWorld {
     }
 
     fn resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             return Vec::new();
         }
         let mut item_ids: Vec<u64> = self
@@ -16280,7 +16245,7 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|actor| {
-                Self::actor_is_active_avatar(*actor)
+                Self::actor_can_act(*actor)
                     && actor.id != resident.id
                     && actor.location_id == resident.location_id
             })
@@ -16393,7 +16358,7 @@ impl RuntimeWorld {
     #[cfg(test)]
     fn resident_reply_text_for_committed_action(&self, action: &CwAction) -> Option<(u64, String)> {
         let target = self.actor_by_id(action.target_actor_id)?;
-        if !Self::actor_is_active_avatar(target) {
+        if !Self::actor_can_act(target) {
             return None;
         }
         match action.kind {
@@ -16496,7 +16461,7 @@ impl RuntimeWorld {
 
     fn resident_economy_action_reply_plan(&self, action: &CwAction) -> Option<AvatarReplyPlan> {
         let actor = self.actor_by_id(action.actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
+        if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
         }
         let user_text = self.resident_economy_action_reply_seed(actor, action)?;
@@ -16730,7 +16695,7 @@ impl RuntimeWorld {
             self.resident_continuities.remove(&resident_id);
             return;
         };
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             self.resident_continuities.remove(&resident_id);
             return;
         }
@@ -16742,7 +16707,7 @@ impl RuntimeWorld {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .map(|actor| actor.id)
             .collect();
         for resident_id in resident_ids {
@@ -16790,7 +16755,7 @@ impl RuntimeWorld {
             })
             .unwrap_or_else(|| observation.source_location_id.into_iter().collect());
         for actor in &self.world.actors[..self.world.actor_count] {
-            if !Self::actor_is_active_avatar(*actor)
+            if !Self::actor_can_act(*actor)
                 || !affected_locations.contains(&actor.location_id)
                 || !self.actor_uses_inference(actor.id)
             {
@@ -17297,7 +17262,7 @@ impl RuntimeWorld {
         let Some(carrier) = self.actor_by_id(carrier_actor_id) else {
             return;
         };
-        if !Self::actor_is_active_avatar(carrier) || location_id == 0 {
+        if !Self::actor_can_act(carrier) || location_id == 0 {
             return;
         }
 
@@ -17504,7 +17469,7 @@ impl RuntimeWorld {
         let Some(resident) = self.actor_by_id(resident_id) else {
             return;
         };
-        if !Self::actor_is_active_avatar(resident) || resident.location_id != location_id {
+        if !Self::actor_can_act(resident) || resident.location_id != location_id {
             return;
         }
 
@@ -17533,7 +17498,7 @@ impl RuntimeWorld {
             .iter()
             .filter(|actor| {
                 actor.id != resident_id
-                    && actor.status == CW_ACTOR_ACTIVE
+                    && Self::actor_is_present(**actor)
                     && actor.location_id == location_id
             })
             .map(|actor| actor.id)
@@ -17560,7 +17525,7 @@ impl RuntimeWorld {
         let resident_ids_with_desires: Vec<CwActor> = actor_ids
             .iter()
             .filter_map(|actor_id| self.actor_by_id(*actor_id))
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .collect();
         for actor in resident_ids_with_desires {
             let sought_item_ids: BTreeSet<_> =
@@ -17586,7 +17551,7 @@ impl RuntimeWorld {
                 self.actor_by_id(item.holder_actor_id)
                     .is_some_and(|holder| {
                         holder.id != resident_id
-                            && holder.status == CW_ACTOR_ACTIVE
+                            && Self::actor_is_present(holder)
                             && holder.location_id == location_id
                     })
             })
@@ -17609,9 +17574,7 @@ impl RuntimeWorld {
     fn observe_room_for_residents(&mut self, location_id: u64) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| {
-                Self::actor_is_active_avatar(**actor) && actor.location_id == location_id
-            })
+            .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
             .map(|actor| actor.id)
             .collect();
         for resident_id in resident_ids {
@@ -17622,9 +17585,7 @@ impl RuntimeWorld {
     fn exchange_resident_memories_at(&mut self, location_id: u64) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| {
-                Self::actor_is_active_avatar(**actor) && actor.location_id == location_id
-            })
+            .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
             .map(|actor| actor.id)
             .collect();
         if resident_ids.len() < 2 {
@@ -17693,7 +17654,7 @@ impl RuntimeWorld {
                         .iter()
                         .filter(|actor| {
                             actor.id != actor_id
-                                && Self::actor_is_active_avatar(**actor)
+                                && Self::actor_can_act(**actor)
                                 && actor.location_id == from_location_id
                         })
                         .map(|actor| actor.id)
@@ -17733,7 +17694,7 @@ impl RuntimeWorld {
         }
 
         if let Some(actor) = self.actor_by_id(action.actor_id) {
-            if Self::actor_is_active_avatar(actor) {
+            if Self::actor_can_act(actor) {
                 locations.insert(actor.location_id);
             }
         }
@@ -17743,9 +17704,7 @@ impl RuntimeWorld {
             self.exchange_resident_memories_at(location_id);
             let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
                 .iter()
-                .filter(|actor| {
-                    Self::actor_is_active_avatar(**actor) && actor.location_id == location_id
-                })
+                .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
                 .map(|actor| actor.id)
                 .collect();
             for resident_id in resident_ids {
@@ -17806,7 +17765,7 @@ impl RuntimeWorld {
 
     #[cfg(test)]
     fn resident_expendable_item_for_pickup(&self, resident: CwActor) -> Option<CwItem> {
-        if !Self::actor_is_active_avatar(resident) || !self.actor_inventory_full(resident.id) {
+        if !Self::actor_can_act(resident) || !self.actor_inventory_full(resident.id) {
             return None;
         }
         self.resident_exchange_item_for_pickup(resident, None)
@@ -17817,7 +17776,7 @@ impl RuntimeWorld {
         resident: CwActor,
         incoming_item: Option<CwItem>,
     ) -> Option<CwItem> {
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             return None;
         }
         let mut candidates: Vec<_> = self
@@ -17983,9 +17942,7 @@ impl RuntimeWorld {
         target: CwActor,
         offered_item: CwItem,
     ) -> Option<CwItem> {
-        if !Self::actor_is_active_avatar(target)
-            || self.actor_can_receive_item(target, offered_item.id)
-        {
+        if !Self::actor_can_act(target) || self.actor_can_receive_item(target, offered_item.id) {
             return None;
         }
         let return_item = self.resident_exchange_item_for_pickup(target, Some(offered_item))?;
@@ -18408,7 +18365,7 @@ impl RuntimeWorld {
                 "actor" => id.parse::<u64>().ok().is_some_and(|target_actor_id| {
                     target_actor_id != actor_id
                         && self.actor_by_id(target_actor_id).is_some_and(|target| {
-                            Self::actor_is_active_avatar(target)
+                            Self::actor_can_act(target)
                                 && target.location_id == actor.location_id
                                 && self.actor_visible_in_projection(target, Some(actor_id), None)
                                 && !self.actors_blocked(actor_id, target_actor_id)
@@ -18442,7 +18399,7 @@ impl RuntimeWorld {
                 .filter_map(|target_actor_id| self.actor_by_id(*target_actor_id))
                 .find(|target| {
                     target.id != actor_id
-                        && Self::actor_is_active_avatar(*target)
+                        && Self::actor_can_act(*target)
                         && target.location_id == actor.location_id
                         && self.actor_visible_in_projection(*target, Some(actor_id), None)
                         && !self.actors_blocked(actor_id, target.id)
@@ -18458,7 +18415,7 @@ impl RuntimeWorld {
                 .iter()
                 .find(|target| {
                     target.id != actor_id
-                        && Self::actor_is_active_avatar(**target)
+                        && Self::actor_can_act(**target)
                         && target.location_id == actor.location_id
                         && self.actor_visible_in_projection(**target, Some(actor_id), None)
                         && !self.actors_blocked(actor_id, target.id)
@@ -18483,7 +18440,7 @@ impl RuntimeWorld {
         target_hint: Option<(&str, &str)>,
     ) -> Option<JobContributionIntent> {
         let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || self.tired_tag_active(actor_id) {
+        if !Self::actor_can_act(actor) || self.tired_tag_active(actor_id) {
             return None;
         }
         self.jobs
@@ -18838,7 +18795,7 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(action.actor_id) else {
             return Vec::new();
         };
-        if !Self::actor_is_active_avatar(actor)
+        if !Self::actor_can_act(actor)
             || !source_events
                 .iter()
                 .any(|event| event.actor_id == Some(action.actor_id))
@@ -18991,7 +18948,7 @@ impl RuntimeWorld {
     ) -> Vec<EventView> {
         if !self
             .actor_by_id(action.actor_id)
-            .is_some_and(Self::actor_is_active_avatar)
+            .is_some_and(Self::actor_can_act)
         {
             return Vec::new();
         }
@@ -19570,7 +19527,7 @@ impl RuntimeWorld {
             .copied()
             .find(|target| {
                 target.id != actor_id
-                    && Self::actor_is_active_avatar(*target)
+                    && Self::actor_can_act(*target)
                     && target.location_id == actor.location_id
                     && !self.actors_blocked(actor_id, target.id)
                     && self.actor_visible_in_projection(*target, Some(actor_id), None)
@@ -19595,8 +19552,7 @@ impl RuntimeWorld {
                     && self
                         .actor_by_id(bond.target_actor_id)
                         .is_some_and(|target| {
-                            Self::actor_is_active_avatar(target)
-                                && target.location_id == actor.location_id
+                            Self::actor_can_act(target) && target.location_id == actor.location_id
                         })
             })
             .max_by(|left, right| {
@@ -19914,7 +19870,7 @@ impl RuntimeWorld {
     ) -> Result<CommunityArtPlan, String> {
         let contributor = self
             .actor_by_id(contributor_actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
             .ok_or_else(|| "The contributing avatar is no longer active.".to_string())?;
         let level = self
             .community_art_subject_level(subject_kind, subject_id)
@@ -20418,7 +20374,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|target| {
                 target.id != actor_id
-                    && Self::actor_is_active_avatar(*target)
+                    && Self::actor_can_act(*target)
                     && target.location_id == actor.location_id
                     && self.actor_visible_in_projection(*target, Some(actor_id), None)
             })
@@ -20461,7 +20417,7 @@ impl RuntimeWorld {
 
     fn default_actor_gift_candidate(&self, actor_id: u64) -> Option<ResidentPlayerGiftCandidate> {
         let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
 
@@ -20514,14 +20470,14 @@ impl RuntimeWorld {
         let actor = self
             .actor_by_id(actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return Err("Only an active avatar can give items.".to_string());
         }
         let target = self
             .actor_by_id(target_actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
         if target.id == actor.id
-            || !Self::actor_is_active_avatar(target)
+            || !Self::actor_can_act(target)
             || target.location_id != actor.location_id
         {
             return Err("That avatar is not close enough to receive an item.".to_string());
@@ -20568,8 +20524,8 @@ impl RuntimeWorld {
             .actor_by_id(target_actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
         if actor.id == target.id
-            || !Self::actor_is_active_avatar(actor)
-            || !Self::actor_is_active_avatar(target)
+            || !Self::actor_can_act(actor)
+            || !Self::actor_can_act(target)
             || target.location_id != actor.location_id
         {
             return Err("That avatar is not close enough to trade.".to_string());
@@ -20625,7 +20581,7 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return Vec::new();
         };
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return Vec::new();
         }
         let offered_items = self.actor_held_items(actor_id);
@@ -20681,7 +20637,7 @@ impl RuntimeWorld {
         &self,
         actor: CwActor,
     ) -> Option<ResidentMutualTradeCandidate> {
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
         let actor_items = self.actor_held_items(actor.id);
@@ -20694,7 +20650,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|target| {
                 target.id != actor.id
-                    && Self::actor_is_active_avatar(*target)
+                    && Self::actor_can_act(*target)
                     && target.location_id == actor.location_id
                     && self.resident_remembers_actor_at(actor.id, target.id, actor.location_id)
             })
@@ -20771,7 +20727,7 @@ impl RuntimeWorld {
     }
 
     fn resident_gift_candidate(&self, actor: CwActor) -> Option<ResidentGiftCandidate> {
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
         let actor_items = self.actor_held_items(actor.id);
@@ -20784,7 +20740,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|target| {
                 target.id != actor.id
-                    && Self::actor_is_active_avatar(*target)
+                    && Self::actor_can_act(*target)
                     && target.location_id == actor.location_id
                     && self.resident_remembers_actor_at(actor.id, target.id, actor.location_id)
             })
@@ -20827,7 +20783,7 @@ impl RuntimeWorld {
     }
 
     fn resident_delivery_candidate(&self, actor: CwActor) -> Option<ResidentDeliveryCandidate> {
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
         let actor_items = self.actor_held_items(actor.id);
@@ -20855,7 +20811,7 @@ impl RuntimeWorld {
                 let Some(target) = self.actor_by_id(memory.subject_id) else {
                     continue;
                 };
-                if !Self::actor_is_active_avatar(target) {
+                if !Self::actor_can_act(target) {
                     continue;
                 }
                 let Some(desire_memory) =
@@ -20911,15 +20867,13 @@ impl RuntimeWorld {
         let actor = self
             .actor_by_id(actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return Err("Only an active avatar can trade.".to_string());
         }
         let target = self
             .actor_by_id(target_actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
-        debug_assert!(
-            Self::actor_is_active_avatar(target) && target.location_id == actor.location_id
-        );
+        debug_assert!(Self::actor_can_act(target) && target.location_id == actor.location_id);
         let offered_item = self.world.items[..self.world.item_count]
             .iter()
             .copied()
@@ -20974,8 +20928,8 @@ impl RuntimeWorld {
     fn dialogue_branch_for(&self, actor_id: u64, target_actor_id: u64) -> Option<DialogueBranch> {
         let actor = self.actor_by_id(actor_id)?;
         let target = self.actor_by_id(target_actor_id)?;
-        if !Self::actor_is_active_avatar(actor)
-            || !Self::actor_is_active_avatar(target)
+        if !Self::actor_can_act(actor)
+            || !Self::actor_can_act(target)
             || actor.id == target.id
             || actor.location_id != target.location_id
         {
@@ -21130,7 +21084,7 @@ impl RuntimeWorld {
     fn room_cast_names(&self, location_id: u64) -> Vec<String> {
         self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
+            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(**actor))
             .filter_map(|actor| self.actor_name(actor.id))
             .collect()
     }
@@ -21140,16 +21094,17 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .any(|actor| {
-                Self::actor_is_active_avatar(actor)
+                Self::actor_can_act(actor)
                     && self.actor_uses_inference(actor.id)
                     && actor.location_id == location_id
             })
     }
 
     fn welcome_host_for(&self, location_id: u64) -> Option<CwActor> {
-        if let Some(rati) = self.actor_by_id(RATI_ACTOR_ID).filter(|actor| {
-            Self::actor_is_active_avatar(*actor) && self.actor_uses_inference(actor.id)
-        }) {
+        if let Some(rati) = self
+            .actor_by_id(RATI_ACTOR_ID)
+            .filter(|actor| Self::actor_can_act(*actor) && self.actor_uses_inference(actor.id))
+        {
             if rati.location_id != location_id {
                 return Some(rati);
             }
@@ -21161,9 +21116,7 @@ impl RuntimeWorld {
         self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| {
-                Self::actor_is_active_avatar(*actor) && self.actor_uses_inference(actor.id)
-            })
+            .filter(|actor| Self::actor_can_act(*actor) && self.actor_uses_inference(actor.id))
             .min_by_key(|actor| actor.id)
     }
 
@@ -21308,8 +21261,8 @@ impl RuntimeWorld {
     fn avatar_chat_plan_for(&self, actor_id: u64, target_actor_id: u64) -> Option<AvatarChatPlan> {
         let actor = self.actor_by_id(actor_id)?;
         let target = self.actor_by_id(target_actor_id)?;
-        if !Self::actor_is_active_avatar(actor)
-            || !Self::actor_is_active_avatar(target)
+        if !Self::actor_can_act(actor)
+            || !Self::actor_can_act(target)
             || actor.id == target.id
             || actor.location_id != target.location_id
         {
@@ -21625,7 +21578,7 @@ impl RuntimeWorld {
             return None;
         }
         let speaker = self.actor_by_id(speaker_actor_id)?;
-        if !Self::actor_is_active_avatar(speaker) {
+        if !Self::actor_can_act(speaker) {
             return None;
         }
         let actor_name = self
@@ -21637,7 +21590,7 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|actor| {
-                Self::actor_is_active_avatar(*actor)
+                Self::actor_can_act(*actor)
                     && actor.location_id == speaker.location_id
                     && (self.actor_uses_inference(actor.id)
                         || active_direct_actor_ids
@@ -21680,8 +21633,8 @@ impl RuntimeWorld {
     ) -> Option<AvatarReplyPlan> {
         let speaker = self.actor_by_id(speaker_actor_id)?;
         let responder = self.actor_by_id(target_actor_id)?;
-        if !Self::actor_is_active_avatar(speaker)
-            || !Self::actor_is_active_avatar(responder)
+        if !Self::actor_can_act(speaker)
+            || !Self::actor_can_act(responder)
             || speaker.location_id != responder.location_id
         {
             return None;
@@ -21732,7 +21685,7 @@ impl RuntimeWorld {
         events: &[EventView],
     ) -> Option<RippleContext> {
         let source_actor = self.actor_by_id(source_actor_id)?;
-        if !Self::actor_is_active_avatar(source_actor) {
+        if !Self::actor_can_act(source_actor) {
             return None;
         }
 
@@ -21810,9 +21763,7 @@ impl RuntimeWorld {
             [..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| {
-                Self::actor_is_active_avatar(*actor) && !self.actor_uses_inference(actor.id)
-            })
+            .filter(|actor| Self::actor_can_act(*actor) && !self.actor_uses_inference(actor.id))
             .map(|actor| actor.location_id)
             .collect();
         if directly_controlled_locations.is_empty() {
@@ -21823,7 +21774,7 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|actor| {
-                Self::actor_is_active_avatar(*actor)
+                Self::actor_can_act(*actor)
                     && self.actor_uses_inference(actor.id)
                     && directly_controlled_locations.contains(&actor.location_id)
             })
@@ -21904,7 +21855,7 @@ impl RuntimeWorld {
     }
 
     fn resident_economy_autonomy_action(&self, actor: CwActor) -> Option<CwAction> {
-        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
+        if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
         }
         let waiting_for_player_gift = self.resident_waits_for_player_gift(actor);
@@ -22888,7 +22839,7 @@ impl RuntimeWorld {
 
     fn prepare_resident_local_memories(&mut self, actor_id: u64) -> Option<CwActor> {
         let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
+        if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
         }
         self.observe_room_for_resident(actor.id, actor.location_id);
@@ -22901,9 +22852,7 @@ impl RuntimeWorld {
         let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| {
-                Self::actor_is_active_avatar(*actor) && self.actor_uses_inference(actor.id)
-            })
+            .filter(|actor| Self::actor_can_act(*actor) && self.actor_uses_inference(actor.id))
             .collect();
         if candidates.is_empty() {
             return Vec::new();
@@ -22919,7 +22868,7 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|actor| {
-                Self::actor_is_active_avatar(*actor)
+                Self::actor_can_act(*actor)
                     && self.actor_uses_inference(actor.id)
                     && context.affected_location_ids.contains(&actor.location_id)
             })
@@ -23230,7 +23179,7 @@ impl RuntimeWorld {
         self.world.actors[..self.world.actor_count]
             .iter()
             .filter(|actor| {
-                Self::actor_is_active_avatar(**actor)
+                Self::actor_can_act(**actor)
                     && self.actor_uses_inference(actor.id)
                     && actor.location_id == player.location_id
             })
@@ -26325,7 +26274,8 @@ fn release_inactive_direct_inventory_locked(
         .iter()
         .copied()
         .filter(|actor| {
-            RuntimeWorld::actor_is_active_avatar(*actor)
+            // Downed avatars remain present with their inventory attached.
+            RuntimeWorld::actor_can_act(*actor)
                 && !runtime.actor_uses_inference(actor.id)
                 && !active_actor_ids.contains(&actor.id)
         })
@@ -30522,7 +30472,7 @@ fn commit_resident_reply_record(
     mut proposal: AvatarIntentProposal,
 ) -> Option<Vec<EventView>> {
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
-    if !RuntimeWorld::actor_is_active_avatar(speaker) {
+    if !RuntimeWorld::actor_can_act(speaker) {
         return None;
     }
     if runtime.actor_uses_inference(speaker.id) {
@@ -31145,7 +31095,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
     let Some(speaker) = runtime.actor_by_id(plan.speaker_actor_id) else {
         return;
     };
-    if !RuntimeWorld::actor_is_active_avatar(speaker) || !runtime.actor_uses_inference(speaker.id) {
+    if !RuntimeWorld::actor_can_act(speaker) || !runtime.actor_uses_inference(speaker.id) {
         return;
     }
     if runtime.resident_reply_repeats_recent_event(
@@ -34441,7 +34391,7 @@ async fn set_actor_safety(
         .zip(runtime.actor_by_id(payload.target_actor_id))
         .is_some_and(|(actor, target)| {
             actor.id != target.id
-                && RuntimeWorld::actor_is_active_avatar(target)
+                && RuntimeWorld::actor_can_act(target)
                 && actor.location_id == target.location_id
         });
     if !nearby {
@@ -34535,8 +34485,8 @@ async fn request_gift_auto_accept(
         .zip(runtime.item_by_id(payload.item_id))
         .is_some_and(|((recipient, holder), item)| {
             recipient.id != holder.id
-                && RuntimeWorld::actor_is_active_avatar(recipient)
-                && RuntimeWorld::actor_is_active_avatar(holder)
+                && RuntimeWorld::actor_can_act(recipient)
+                && RuntimeWorld::actor_can_act(holder)
                 && runtime.actor_control_mode(recipient.id).is_direct_input()
                 && runtime.actor_control_mode(holder.id).is_direct_input()
                 && recipient.location_id == holder.location_id
@@ -36277,7 +36227,7 @@ async fn create_bond(
         });
     };
     if target.id == actor.id
-        || !RuntimeWorld::actor_is_active_avatar(target)
+        || !RuntimeWorld::actor_can_act(target)
         || target.location_id != actor.location_id
         || runtime.actors_blocked(actor.id, target.id)
         || runtime
@@ -36390,7 +36340,7 @@ async fn revise_bond(
         });
     };
     if target.id == actor.id
-        || !RuntimeWorld::actor_is_active_avatar(target)
+        || !RuntimeWorld::actor_can_act(target)
         || target.location_id != actor.location_id
         || runtime.actors_blocked(actor.id, target.id)
     {
@@ -36518,7 +36468,7 @@ async fn resolve_bond(
         });
     };
     if target.id == actor.id
-        || !RuntimeWorld::actor_is_active_avatar(target)
+        || !RuntimeWorld::actor_can_act(target)
         || target.location_id != actor.location_id
         || active_bond.strength < BOND_SETTLE_MIN_STRENGTH
     {
@@ -39572,7 +39522,7 @@ fn commit_journal_record(
                         runtime.world.actors[..runtime.world.actor_count]
                             .iter()
                             .filter(|actor| {
-                                RuntimeWorld::actor_is_active_avatar(**actor)
+                                RuntimeWorld::actor_can_act(**actor)
                                     && !runtime.actor_uses_inference(actor.id)
                                     && actor.location_id == location_id
                                     && active_actor_ids.contains(&actor.id)

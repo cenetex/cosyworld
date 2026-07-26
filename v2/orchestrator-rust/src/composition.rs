@@ -967,7 +967,7 @@ impl RuntimeWorld {
     pub(super) fn pickup_offer_items(&self, actor_id: u64) -> Vec<CwItem> {
         let Some(actor) = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
         else {
             return Vec::new();
         };

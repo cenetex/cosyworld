@@ -466,7 +466,7 @@ impl RuntimeWorld {
         let present = self.world.actors[..self.world.actor_count]
             .iter()
             .filter(|actor| {
-                Self::actor_is_active_avatar(**actor)
+                Self::actor_can_act(**actor)
                     && actor.location_id == location_id
                     && self.actor_control_mode(actor.id).is_direct_input()
             })
@@ -688,10 +688,9 @@ impl RuntimeWorld {
         }
     }
 
-    fn governance_actor_is_present(&self, actor_id: u64, location_id: u64) -> bool {
-        self.actor_by_id(actor_id).is_some_and(|actor| {
-            Self::actor_is_active_avatar(actor) && actor.location_id == location_id
-        })
+    fn governance_actor_can_act_here(&self, actor_id: u64, location_id: u64) -> bool {
+        self.actor_by_id(actor_id)
+            .is_some_and(|actor| Self::actor_can_act(actor) && actor.location_id == location_id)
     }
 
     fn validate_governance_support(
@@ -737,7 +736,7 @@ impl RuntimeWorld {
         if decision.status != GovernanceDecisionStatus::Open {
             return Err("That shared choice is already settled.".to_string());
         }
-        if !self.governance_actor_is_present(actor_id, decision.location_id) {
+        if !self.governance_actor_can_act_here(actor_id, decision.location_id) {
             return Err("Your avatar must be present for this shared choice.".to_string());
         }
         match action {
@@ -792,7 +791,7 @@ impl RuntimeWorld {
                 if *delegate_actor_id == actor_id {
                     return Err("Choose another avatar as delegate.".to_string());
                 }
-                if !self.governance_actor_is_present(*delegate_actor_id, decision.location_id) {
+                if !self.governance_actor_can_act_here(*delegate_actor_id, decision.location_id) {
                     return Err("The delegate must be present for the shared choice.".to_string());
                 }
                 Ok(())

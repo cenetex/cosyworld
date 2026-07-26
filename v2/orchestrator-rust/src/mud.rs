@@ -1205,7 +1205,7 @@ impl RuntimeWorld {
                 "That avatar is not in the world.",
             ));
         };
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return Err(command_error(
                 &command,
                 &verb,
@@ -3031,7 +3031,7 @@ impl RuntimeWorld {
         let actors = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
+            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
             .filter(|visible_actor| {
                 self.actor_visible_in_projection(
                     *visible_actor,
@@ -3272,7 +3272,7 @@ impl RuntimeWorld {
         let actors = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
+            .filter(|actor| actor.location_id == location_id && Self::actor_is_present(*actor))
             .filter(|actor| {
                 self.actor_visible_in_projection(*actor, client_actor_id, active_direct_actor_ids)
             })
@@ -3346,7 +3346,7 @@ impl RuntimeWorld {
             })
             .filter(|candidate| match filter {
                 CommandActorFilter::Any => true,
-                CommandActorFilter::ActiveActor => Self::actor_is_active_avatar(*candidate),
+                CommandActorFilter::ActiveActor => Self::actor_can_act(*candidate),
             })
             .collect::<Vec<_>>();
         self.best_actor_match(candidates, query)
@@ -3373,7 +3373,7 @@ impl RuntimeWorld {
             })
             .filter(|candidate| match filter {
                 CommandActorFilter::Any => true,
-                CommandActorFilter::ActiveActor => Self::actor_is_active_avatar(*candidate),
+                CommandActorFilter::ActiveActor => Self::actor_can_act(*candidate),
             })
             .collect::<Vec<_>>();
         if let Some(found) = self.best_actor_match(candidates, query) {

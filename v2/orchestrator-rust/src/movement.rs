@@ -113,7 +113,7 @@ impl RuntimeWorld {
     fn movement_offer_exits(&self, actor_id: u64, access: &AccessContext) -> Vec<ExitView> {
         let Some(actor) = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
         else {
             return Vec::new();
         };
