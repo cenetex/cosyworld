@@ -92,24 +92,51 @@ impl RuntimeWorld {
     }
 
     pub(super) fn rest_available(&self, actor_id: u64) -> bool {
-        self.tired_tag_active(actor_id)
-            && self.rest_entitlement(actor_id).grade != CW_REST_GRADE_NONE
+        self.rest_entitlement(actor_id).grade != CW_REST_GRADE_NONE
     }
 
     pub(super) fn rest_offer_unavailable_reason(&self, actor_id: u64) -> Option<String> {
-        self.tired_tag_active(actor_id)
-            .then(|| self.rest_entitlement(actor_id))
+        Some(self.rest_entitlement(actor_id))
             .filter(|entitlement| entitlement.grade == CW_REST_GRADE_NONE)
             .and_then(|entitlement| entitlement.unavailable_reason)
+    }
+
+    fn item_is_rest_refreshable(&self, item: CwItem, actor_id: u64, grade: u8) -> bool {
+        if item.holder_actor_id != actor_id
+            || item.zone != CW_CARD_ZONE_EXHAUSTED
+            || item.charges != 0
+            || item.max_charges == 0
+            || item.recovery != CW_ITEM_RECOVERY_REST
+        {
+            return false;
+        }
+        if matches!(grade, CW_REST_GRADE_CAMP | CW_REST_GRADE_LODGED) {
+            return item.role == CW_ITEM_ROLE_SPELL;
+        }
+        grade == CW_REST_GRADE_HEARTH
+            && matches!(
+                item.role,
+                CW_ITEM_ROLE_SPELL | CW_ITEM_ROLE_SKILL_CHARM | CW_ITEM_ROLE_RELIC
+            )
+    }
+
+    pub(super) fn rest_has_recovery_target(&self, actor_id: u64) -> bool {
+        let grade = self.rest_entitlement(actor_id).grade;
+        grade != CW_REST_GRADE_NONE
+            && (self.tired_tag_active(actor_id)
+                || (grade >= CW_REST_GRADE_LODGED && self.trained_since_rest_tag_active(actor_id))
+                || (grade == CW_REST_GRADE_HEARTH
+                    && self.frontier_travel_since_rest_count(actor_id) > 0)
+                || self.world.items[..self.world.item_count]
+                    .iter()
+                    .copied()
+                    .any(|item| self.item_is_rest_refreshable(item, actor_id, grade)))
     }
 
     pub(super) fn plan_rest_action(
         &self,
         actor_id: u64,
     ) -> Result<(CwAction, Vec<ProjectionMutation>), String> {
-        if !self.tired_tag_active(actor_id) {
-            return Err("You are already steady enough to keep going.".to_string());
-        }
         let entitlement = self.rest_entitlement(actor_id);
         if entitlement.grade == CW_REST_GRADE_NONE {
             return Err(entitlement
@@ -128,11 +155,15 @@ impl RuntimeWorld {
             .actor_by_id(actor_id)
             .map(|actor| actor.location_id)
             .ok_or_else(|| "Rest requires an active avatar.".to_string())?;
-        let mut mutations = vec![ProjectionMutation::ClearTag {
-            tag_id: tired_tag_id(actor_id),
-            reason: "rest".to_string(),
-        }];
-        if entitlement.grade >= CW_REST_GRADE_LODGED {
+        let mut mutations = Vec::new();
+        if self.tired_tag_active(actor_id) {
+            mutations.push(ProjectionMutation::ClearTag {
+                tag_id: tired_tag_id(actor_id),
+                reason: "rest".to_string(),
+            });
+        }
+        if entitlement.grade >= CW_REST_GRADE_LODGED && self.trained_since_rest_tag_active(actor_id)
+        {
             mutations.push(ProjectionMutation::ClearTag {
                 tag_id: trained_since_rest_tag_id(actor_id),
                 reason: "rest".to_string(),
@@ -339,6 +370,20 @@ mod tests {
         );
 
         mark_actor_tired(&mut runtime, 5000);
+        let trained_id = trained_since_rest_tag_id(5000);
+        runtime.tags.insert(
+            trained_id.clone(),
+            RpgTagState {
+                id: trained_id,
+                scope: "actor".to_string(),
+                scope_id: 5000,
+                label: "trained".to_string(),
+                kind: "memory".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("after_rest".to_string()),
+            },
+        );
         assert_eq!(runtime.rest_entitlement(5000).grade, CW_REST_GRADE_LODGED);
         let lodging_state = runtime.state_response(Some(5000), &access);
         assert!(lodging_state
@@ -544,6 +589,163 @@ mod tests {
         assert!(!mutations
             .iter()
             .any(|mutation| matches!(mutation, ProjectionMutation::AdvanceClock { .. })));
+    }
+
+    #[test]
+    fn never_left_sanctuary_rest_is_legal_but_noop_stays_out_of_ranked_hand() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Home Rest Tester",
+        );
+        let access = AccessContext::default();
+
+        assert!(runtime.rest_available(5000));
+        assert!(!runtime.rest_has_recovery_target(5000));
+        let state = runtime.state_response(Some(5000), &access);
+        let rest_offer = state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("place entitlement keeps Rest legally reachable at home");
+        assert!(!rest_offer.disabled);
+        assert!(!rest_offer.ranked_hand_eligible);
+        assert!(!state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
+        let decision = state
+            .inspector
+            .offer_decisions
+            .iter()
+            .find(|decision| decision.kind == "rest")
+            .expect("inspector explains legal no-op Rest");
+        assert!(decision.available);
+        assert!(!decision.in_hand);
+        assert!(decision.reason.contains("nothing currently needs recovery"));
+
+        let (action, mutations) = runtime
+            .plan_rest_action(5000)
+            .expect("place-legal no-op Rest still plans");
+        assert_eq!(action.kind, CW_ACTION_REST);
+        assert_eq!(action.rest.requested_grade, CW_REST_GRADE_HEARTH);
+        assert!(mutations.is_empty());
+        let record = JournalRecord::new(action, 18_700);
+        assert_eq!(
+            record.operation.as_deref(),
+            Some("cosyworld.operation/rest")
+        );
+        assert_eq!(record.resolver.as_deref(), Some("rest_v1"));
+        let tick_before = runtime.world.tick;
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(
+            status, CW_OK,
+            "the kernel accepts empty-effect action32 Rest"
+        );
+        assert!(events.is_empty());
+        assert_eq!(runtime.world.tick, tick_before + 1);
+        assert!(!runtime.rest_has_recovery_target(5000));
+    }
+
+    #[test]
+    fn full_expedition_ring_warns_only_on_frontier_bound_travel() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Weary Traveler",
+        );
+        mark_actor_tired(&mut runtime, 5000);
+        let mut travel_depth = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            18_710,
+        );
+        travel_depth
+            .projection_mutations
+            .push(ProjectionMutation::SetTag {
+                tag: RpgTagState {
+                    id: frontier_travel_since_rest_tag_id(5000, 18_710),
+                    scope: "actor".to_string(),
+                    scope_id: 5000,
+                    label: "frontier travel".to_string(),
+                    kind: "memory".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: Some("after_rest".to_string()),
+                },
+                reason: "test_full_expedition_ring".to_string(),
+            });
+        travel_depth
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverSeedExit {
+                from_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                to_location_id: COSY_COTTAGE_LOCATION_ID,
+                reason: "test_safe_retreat".to_string(),
+            });
+        travel_depth
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverSeedExit {
+                from_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                to_location_id: MOONLIT_TRAIL_LOCATION_ID,
+                reason: "test_frontier_bound_travel".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&travel_depth).0, CW_OK);
+        assert_eq!(
+            runtime.frontier_travel_since_rest_count(5000),
+            runtime.frontier_travel_since_rest_required(5000)
+        );
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let safe_offer = state
+            .action_offers
+            .iter()
+            .find(|offer| {
+                offer.kind == "move"
+                    && offer.target.as_ref().and_then(|target| target.id)
+                        == Some(COSY_COTTAGE_LOCATION_ID)
+            })
+            .expect("full-ring weary actor keeps a safe retreat offer");
+        assert!(
+            safe_offer.risk.is_none(),
+            "safe retreat must not inherit the full-ring warning"
+        );
+        let frontier_offer = state
+            .action_offers
+            .iter()
+            .find(|offer| {
+                offer.kind == "move"
+                    && offer.target.as_ref().and_then(|target| target.id)
+                        == Some(MOONLIT_TRAIL_LOCATION_ID)
+            })
+            .expect("full-ring weary actor keeps a frontier-bound Travel offer");
+        assert!(frontier_offer
+            .risk
+            .as_deref()
+            .is_some_and(|risk| risk.contains("may draw more trouble")));
+
+        let move_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: 5000,
+                destination_location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            18_711,
+        );
+        let (status, events) = runtime.apply_journal_record(&move_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "actor.moved"
+                && event.destination_location_id == Some(COSY_COTTAGE_LOCATION_ID)
+        }));
     }
 
     fn rest_replay_actor_record(seed: u64) -> JournalRecord {
@@ -1049,11 +1251,16 @@ mod tests {
         }));
         let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(!rested_state.tags.iter().any(|tag| tag.label == "tired"));
-        assert!(!rested_state
+        assert!(rested_state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "rest"));
+        assert!(!rested_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
         assert_eq!(
             rested_state
                 .clocks

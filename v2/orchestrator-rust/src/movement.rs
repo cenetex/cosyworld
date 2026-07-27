@@ -429,7 +429,26 @@ impl RuntimeWorld {
         }
         offer.target = Some(target.clone());
         offer.composition_trace.target = Some(target);
+        if offer.kind == "move" {
+            offer.risk =
+                self.full_expedition_ring_travel_risk(actor_id, exit.destination_location_id);
+        }
         offer
+    }
+
+    fn full_expedition_ring_travel_risk(
+        &self,
+        actor_id: u64,
+        destination_location_id: u64,
+    ) -> Option<String> {
+        let ring_is_full = self.frontier_travel_since_rest_count(actor_id)
+            >= self.frontier_travel_since_rest_required(actor_id);
+        let destination_extends_risk = self
+            .room_sheets
+            .get(&destination_location_id)
+            .is_some_and(|sheet| matches!(sheet.safety.trim(), "risky" | "dangerous"));
+        (ring_is_full && destination_extends_risk)
+            .then(|| "travelling farther at this depth may draw more trouble".to_string())
     }
 
     pub(super) fn expand_route_action_offers(

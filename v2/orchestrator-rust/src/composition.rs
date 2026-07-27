@@ -468,6 +468,8 @@ impl RuntimeWorld {
                         contextual_offers: contextual_offers.clone(),
                     },
                 );
+                let ranked_hand_eligible =
+                    option.kind != "rest" || self.rest_has_recovery_target(actor_id);
 
                 RankedActionOffer {
                     id: legacy_id,
@@ -506,6 +508,7 @@ impl RuntimeWorld {
                     progress,
                     claim_key,
                     reason: "ranked from current room affordances and RPG projection".to_string(),
+                    ranked_hand_eligible,
                 }
             })
             .collect();
@@ -642,6 +645,7 @@ impl RuntimeWorld {
                 } else {
                     "ranked from an unrevealed journey edge or long route".to_string()
                 },
+                ranked_hand_eligible: true,
             });
         }
         for offer in &mut offers {
@@ -685,9 +689,10 @@ impl RuntimeWorld {
             return 83;
         }
         if kind == "rest"
-            && self
-                .actor_by_id(actor_id)
-                .is_some_and(|actor| !self.location_is_frontier(actor.location_id))
+            && (!self.rest_has_recovery_target(actor_id)
+                || self
+                    .actor_by_id(actor_id)
+                    .is_some_and(|actor| !self.location_is_frontier(actor.location_id)))
         {
             return 84;
         }
@@ -775,6 +780,7 @@ impl RuntimeWorld {
             progress: None,
             claim_key,
             reason: reason.to_string(),
+            ranked_hand_eligible: true,
         }
     }
 
@@ -796,7 +802,7 @@ impl RuntimeWorld {
                 0,
             );
         }
-        if kind == "rest" && actor.is_some_and(|_| self.tired_tag_active(actor_id)) {
+        if kind == "rest" && self.rest_has_recovery_target(actor_id) {
             return action_provider(
                 "rules",
                 "rules:recovery",
@@ -1706,6 +1712,9 @@ impl RuntimeWorld {
                         format!("helps a resident and {progress_effect}")
                     }
                 }),
+            "rest" if !self.rest_has_recovery_target(actor_id) => {
+                Some("takes time; nothing currently needs recovery".to_string())
+            }
             "rest"
                 if self.rest_entitlement(actor_id).grade >= CW_REST_GRADE_LODGED
                     && self.trained_since_rest_tag_active(actor_id) =>

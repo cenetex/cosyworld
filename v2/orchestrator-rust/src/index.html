@@ -5946,12 +5946,14 @@
           run: () => action("/actions/prepare", { actor_id: actorId }),
         });
       }
-      const actorTired = (view.tags || []).some((tag) => (
-        tag.label === "tired"
-        && (!tag.scope_id || Number(tag.scope_id) === Number(actorId))
-      ));
-      if (options.has("rest") && actorTired) {
-        const offer = offerFor("rest");
+      const restOffer = offerFor("rest");
+      const restInProjectedHand = (view.action_hand?.entries || [])
+        .some((entry) => String(entry?.kind || "") === "rest");
+      const restEligible = Boolean(restOffer)
+        && !restOffer.disabled
+        && (options.has("rest") || restInProjectedHand);
+      if (restEligible) {
+        const offer = restOffer;
         const warmedRest = String(offer?.effect || "").includes("hearth tonic warmth");
         const restPriority = frontierRoom ? 25 : 84;
         built.push({
