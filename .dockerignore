@@ -11,6 +11,8 @@
 !v2/core-c/**
 !v2/content/
 !v2/content/**
+!v2/media/
+!v2/media/**
 !v2/orchestrator-rust/
 !v2/orchestrator-rust/Cargo.toml
 !v2/orchestrator-rust/Cargo.lock
