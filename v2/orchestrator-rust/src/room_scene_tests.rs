@@ -1,10 +1,13 @@
 use super::*;
 use crate::*;
 use axum::{body::to_bytes, extract::Path as AxumPath};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
+use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
+use std::{
+    io::Cursor,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 const ACTOR_A: u64 = 5000;
@@ -20,15 +23,31 @@ struct SceneFixture {
 }
 
 fn png() -> Vec<u8> {
-    BASE64_STANDARD
-        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC")
-        .expect("decode PNG fixture")
+    patterned_png(3)
 }
 
 fn scene_png() -> Vec<u8> {
-    let mut bytes = png();
-    bytes.extend([7, 8]);
-    bytes
+    patterned_png(71)
+}
+
+fn patterned_png(seed: u8) -> Vec<u8> {
+    let pixels = ImageBuffer::from_fn(16, 9, |x, y| {
+        Rgba([
+            (x as u8)
+                .wrapping_mul(17)
+                .wrapping_add((y as u8).wrapping_mul(seed)),
+            (y as u8)
+                .wrapping_mul(29)
+                .wrapping_add((x as u8).wrapping_mul(seed)),
+            (x as u8 ^ y as u8).wrapping_mul(11).wrapping_add(seed),
+            255,
+        ])
+    });
+    let mut bytes = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(pixels)
+        .write_to(&mut bytes, ImageFormat::Png)
+        .expect("encode PNG fixture");
+    bytes.into_inner()
 }
 
 fn temp_root(label: &str) -> PathBuf {
@@ -630,7 +649,7 @@ async fn provider_timeout_is_retryable_without_duplicate_job_or_world_mutation()
         Duration::from_secs(1),
         |_| async {
             Ok(DownloadedReplicateImage {
-                bytes: png(),
+                bytes: scene_png(),
                 content_type: "image/png".to_string(),
                 source_url: "https://replicate.delivery/pbxt/retry.png".to_string(),
                 prediction_id: Some("retry".to_string()),

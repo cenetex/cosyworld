@@ -16,6 +16,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::warn;
 
+use crate::media_recipes::media_verdict::{
+    make_visual_verdict, media_candidate_approved, media_candidate_digest,
+    media_candidate_violations, media_provider_route_available, prepare_media_candidate,
+    record_media_provider_failure, record_media_review_unavailable, record_media_visual_verdict,
+    FrozenMediaBrief, MediaCandidateInput, MediaVerdictDisposition, MediaViolation,
+};
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
     canonical_community_media_asset_bytes, commit_journal_record, evolution_rollout_route,
@@ -866,6 +872,8 @@ pub(super) async fn generate_and_store_community_art(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,
 ) -> CommunityArtGenerationOutcome {
+    let media_brief = community_art_media_brief(plan);
+    let job_key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let evolution_route = match plan.evolution_job.as_ref() {
         Some(job) => match evolution_runtime_observation(&job.evaluation_profile)
             .and_then(|observation| evolution_rollout_route(job, observation.as_ref()))
@@ -892,6 +900,18 @@ pub(super) async fn generate_and_store_community_art(
         ) {
             Ok(Some((image, stored_evolution_canary))) => (image, true, stored_evolution_canary),
             Ok(None) => {
+                if !media_provider_route_available(generated_asset_dir, &job_key).unwrap_or(false) {
+                    return CommunityArtGenerationOutcome {
+                        result: Err(CommunityArtGenerationError::Provider(
+                            "generated-image provider route is cooling down or disabled"
+                                .to_string(),
+                        )),
+                        prediction_id: None,
+                        reused_candidate: false,
+                        asset_id: None,
+                        evolution_canary: selected_evolution_canary,
+                    };
+                }
                 let prompt = community_art_generation_request(config, plan);
                 let evolution_reference =
                     plan.evolution_job.as_ref().map(frozen_evolution_reference);
@@ -939,6 +959,15 @@ pub(super) async fn generate_and_store_community_art(
                 let image = match request {
                     Ok(image) => image,
                     Err(error) => {
+                        let _ = record_media_provider_failure(
+                            generated_asset_dir,
+                            media_brief.clone(),
+                            if selected_evolution_canary {
+                                "replicate-evolution-canary"
+                            } else {
+                                "replicate-primary"
+                            },
+                        );
                         return CommunityArtGenerationOutcome {
                             result: Err(CommunityArtGenerationError::Provider(error)),
                             prediction_id: None,
@@ -948,26 +977,24 @@ pub(super) async fn generate_and_store_community_art(
                         };
                     }
                 };
-                if plan.image_policy.is_some() || plan.evolution_job.is_some() {
-                    let stored = if selected_evolution_canary {
-                        store_community_art_candidate_with_route(
-                            generated_asset_dir,
-                            plan,
-                            &image,
-                            true,
-                        )
-                    } else {
-                        store_community_art_candidate(generated_asset_dir, plan, &image)
+                let stored = if selected_evolution_canary {
+                    store_community_art_candidate_with_route(
+                        generated_asset_dir,
+                        plan,
+                        &image,
+                        true,
+                    )
+                } else {
+                    store_community_art_candidate(generated_asset_dir, plan, &image)
+                };
+                if let Err(error) = stored {
+                    return CommunityArtGenerationOutcome {
+                        prediction_id: image.prediction_id.clone(),
+                        result: Err(CommunityArtGenerationError::Storage(error)),
+                        reused_candidate: false,
+                        asset_id: None,
+                        evolution_canary: selected_evolution_canary,
                     };
-                    if let Err(error) = stored {
-                        return CommunityArtGenerationOutcome {
-                            prediction_id: image.prediction_id.clone(),
-                            result: Err(CommunityArtGenerationError::Storage(error)),
-                            reused_candidate: false,
-                            asset_id: None,
-                            evolution_canary: selected_evolution_canary,
-                        };
-                    }
                 }
                 (image, false, selected_evolution_canary)
             }
@@ -984,30 +1011,113 @@ pub(super) async fn generate_and_store_community_art(
 
     let prediction_id = image.prediction_id.clone();
     let result = async {
-        if let Some(policy) = plan.image_policy {
-            let policy_config =
-                policy_config.ok_or(CommunityArtGenerationError::PolicyUnavailable)?;
-            let image_url = community_art_candidate_data_url(&image)?;
-            let decision = request_image_policy_decision(
-                policy_config,
-                ImagePolicyRequest {
-                    feature: "media.location_image_policy",
-                    image_url: &image_url,
-                    policy: policy.review(),
-                    timeout: Duration::from_secs(30),
-                    max_attempts: 2,
-                    referer: "https://cosyworld.fly.dev",
-                },
-            )
-            .await
-            .map_err(|error| CommunityArtGenerationError::PolicyReview(error.to_string()))?;
-            if !decision.allowed {
-                remove_community_art_candidate(generated_asset_dir, plan)
-                    .map_err(CommunityArtGenerationError::Storage)?;
+        let prior_public = fs::read(stored_community_art_image_path(
+            generated_asset_dir,
+            &plan.subject_kind,
+            plan.subject_id,
+        ))
+        .ok();
+        let disposition = prepare_media_candidate(
+            generated_asset_dir,
+            media_brief.clone(),
+            MediaCandidateInput {
+                image: &image,
+                provider: "replicate",
+                model: &config.model,
+                claimed_digest: None,
+                prior_public_bytes: prior_public.as_deref(),
+            },
+        )
+        .map_err(CommunityArtGenerationError::Storage)?;
+        let candidate_digest = media_candidate_digest(generated_asset_dir, &job_key)
+            .map_err(CommunityArtGenerationError::Storage)?
+            .ok_or_else(|| {
+                CommunityArtGenerationError::Storage(
+                    "generated-image gate lost its active candidate".to_string(),
+                )
+            })?;
+        match disposition {
+            MediaVerdictDisposition::Rejected => {
                 return Err(CommunityArtGenerationError::PolicyRejected(
-                    decision.violations,
+                    media_candidate_violations(generated_asset_dir, &job_key, &candidate_digest)
+                        .map_err(CommunityArtGenerationError::Storage)?,
                 ));
             }
+            MediaVerdictDisposition::Disabled | MediaVerdictDisposition::ReplaceRequested => {
+                return Err(CommunityArtGenerationError::PolicyReview(
+                    "generated-image recipe is disabled or awaiting replacement".to_string(),
+                ));
+            }
+            MediaVerdictDisposition::Approved => {}
+            MediaVerdictDisposition::ReviewPending => {
+                let policy_config =
+                    policy_config.ok_or(CommunityArtGenerationError::PolicyUnavailable)?;
+                let mut review_policy = media_brief.review_policy();
+                if let Some(policy) = plan.image_policy {
+                    review_policy.push(' ');
+                    review_policy.push_str(policy.review());
+                }
+                let image_url = community_art_candidate_data_url(&image)?;
+                let decision = request_image_policy_decision(
+                    policy_config,
+                    ImagePolicyRequest {
+                        feature: "media.generated_image_verdict",
+                        image_url: &image_url,
+                        policy: &review_policy,
+                        timeout: Duration::from_secs(30),
+                        max_attempts: 2,
+                        referer: "https://cosyworld.fly.dev",
+                    },
+                )
+                .await
+                .map_err(|error| {
+                    let _ = record_media_review_unavailable(
+                        generated_asset_dir,
+                        &job_key,
+                        &candidate_digest,
+                        &error.to_string(),
+                    );
+                    CommunityArtGenerationError::PolicyReview(error.to_string())
+                })?;
+                let violations = decision
+                    .violations
+                    .iter()
+                    .map(|violation| media_violation_from_policy(violation))
+                    .collect::<Vec<_>>();
+                let verdict = make_visual_verdict(
+                    &media_brief,
+                    candidate_digest.clone(),
+                    "openai-compatible-vision",
+                    &policy_config.vision_model,
+                    decision.allowed,
+                    violations,
+                    decision.summary,
+                    1,
+                    0,
+                    0,
+                )
+                .map_err(CommunityArtGenerationError::Storage)?;
+                let disposition =
+                    record_media_visual_verdict(generated_asset_dir, &job_key, verdict)
+                        .map_err(CommunityArtGenerationError::Storage)?;
+                if disposition != MediaVerdictDisposition::Approved {
+                    return Err(CommunityArtGenerationError::PolicyRejected(
+                        media_candidate_violations(
+                            generated_asset_dir,
+                            &job_key,
+                            &candidate_digest,
+                        )
+                        .map_err(CommunityArtGenerationError::Storage)?,
+                    ));
+                }
+            }
+        }
+        if !media_candidate_approved(generated_asset_dir, &job_key, &candidate_digest)
+            .map_err(CommunityArtGenerationError::Storage)?
+        {
+            return Err(CommunityArtGenerationError::PolicyReview(
+                "generated-image candidate has no durable approving verdict".to_string(),
+            ));
         }
         if plan.evolution_job.is_none() {
             store_community_art_image(generated_asset_dir, plan, &image)
@@ -1114,6 +1224,68 @@ fn community_art_asset_provenance(
         prediction_id,
         source_event_seq: None,
         history_through_seq: plan.history_through_seq,
+    }
+}
+
+fn community_art_media_brief(plan: &CommunityArtPlan) -> FrozenMediaBrief {
+    let mut brief = FrozenMediaBrief::new(
+        community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level),
+        format!(
+            "cosyworld.community-art/{}/{}",
+            plan.generation_profile_version,
+            if plan.evolution_job.is_some() {
+                "evolution"
+            } else {
+                "base"
+            }
+        ),
+        format!("public {} progression art", plan.subject_kind),
+        &plan.prompt,
+        plan.aspect_ratio,
+    );
+    brief.required_subjects = if plan.subject_kind == "location" {
+        Vec::new()
+    } else {
+        vec![format!(
+            "{} {} ({})",
+            plan.subject_kind, plan.persisted_identity, plan.persisted_visual_description
+        )]
+    };
+    if plan.subject_kind == "location" {
+        brief.required_environment = vec![
+            plan.persisted_identity.clone(),
+            plan.persisted_visual_description.clone(),
+        ];
+        brief
+            .forbidden
+            .push("people, characters, creatures, silhouettes, faces, or body parts".to_string());
+    }
+    brief.pack_negative_constraints = plan.stable_traits.clone();
+    if let Some(job) = &plan.evolution_job {
+        brief
+            .approved_reference_digests
+            .push(job.prior_asset_digest.clone());
+    }
+    brief
+}
+
+fn media_violation_from_policy(value: &str) -> MediaViolation {
+    match value {
+        "safety" => MediaViolation::Safety,
+        "text" => MediaViolation::Text,
+        "logo" => MediaViolation::Logo,
+        "watermark" => MediaViolation::Watermark,
+        "system_leak" => MediaViolation::SystemLeak,
+        "ui_chrome" => MediaViolation::UiChrome,
+        "missing_subject" => MediaViolation::MissingSubject,
+        "identity_drift" => MediaViolation::IdentityDrift,
+        "missing_item" => MediaViolation::MissingItem,
+        "wrong_holder" => MediaViolation::WrongHolder,
+        "wrong_environment" => MediaViolation::WrongEnvironment,
+        "bad_crop" => MediaViolation::BadCrop,
+        "pack_negative" => MediaViolation::PackNegative,
+        "person" | "character" | "creature" | "extra_subject" => MediaViolation::ExtraSubject,
+        _ => MediaViolation::Safety,
     }
 }
 
@@ -1615,6 +1787,34 @@ pub(super) fn remove_community_art_candidate(
         }
     }
     Ok(())
+}
+
+pub(super) fn request_community_art_candidate_replacement(
+    root: &Path,
+    job_key: &str,
+) -> Result<bool, String> {
+    let parts = job_key.split(':').collect::<Vec<_>>();
+    if parts.len() != 4
+        || !matches!(parts[0], "actor" | "item" | "location")
+        || parts[2] != "level"
+        || parts[1].parse::<u64>().is_err()
+        || parts[3].parse::<u8>().is_err()
+    {
+        return Ok(false);
+    }
+    let stem = root
+        .join("community-art-candidates")
+        .join(parts[0])
+        .join(parts[1])
+        .join(format!("level-{}", parts[3]));
+    for extension in ["image", "content-type", "metadata.json"] {
+        if let Err(error) = fs::remove_file(stem.with_extension(extension)) {
+            if error.kind() != io::ErrorKind::NotFound {
+                return Err(error.to_string());
+            }
+        }
+    }
+    Ok(true)
 }
 
 fn community_art_dir(root: &Path, subject_kind: &str) -> PathBuf {

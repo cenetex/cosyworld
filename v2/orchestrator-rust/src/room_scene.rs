@@ -17,6 +17,12 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::media_recipes::media_verdict::{
+    make_visual_verdict, media_candidate_approved, media_candidate_violations,
+    media_provider_route_available, prepare_media_candidate, record_media_provider_failure,
+    record_media_visual_verdict, FrozenMediaBrief, MediaCandidateInput, MediaVerdictDisposition,
+    MediaViolation,
+};
 use crate::{
     active_content, allow_actor_mutation, client_actor_authorized_for_state,
     event_visible_in_location, execute_replicate_art, freeze_approved_community_media_reference,
@@ -189,6 +195,73 @@ struct RoomSceneProjection<'a> {
     selected_item: &'a Option<FrozenRoomSceneItem>,
     public_beat_type: &'a str,
     public_beat: &'a str,
+}
+
+fn room_scene_media_brief(job: &FrozenRoomSceneJob) -> FrozenMediaBrief {
+    let mut brief = FrozenMediaBrief::new(
+        job.job_id.clone(),
+        format!(
+            "{}/{}",
+            job.recipe.recipe_id, job.recipe.prompt_template_version
+        ),
+        job.intended_use.clone(),
+        &job.prompt,
+        job.aspect_ratio.clone(),
+    );
+    brief.required_subjects = job
+        .actors
+        .iter()
+        .map(|actor| format!("actor {} ({})", actor.actor_id, actor.name))
+        .collect();
+    brief.required_environment = std::iter::once(job.location_name.clone())
+        .chain(job.environmental_facts.iter().cloned())
+        .collect();
+    brief.required_item_holder = job.selected_item.as_ref().map(|item| {
+        format!(
+            "item {} ({}) held by {}",
+            item.item_id,
+            item.name,
+            item.holder_actor_id
+                .map(|actor_id| actor_id.to_string())
+                .unwrap_or_else(|| "room floor".to_string())
+        )
+    });
+    brief.crop = job.crop.clone();
+    brief.safe_areas = job.safe_areas.clone();
+    brief.forbidden.extend(job.forbidden_facts.clone());
+    brief
+        .pack_negative_constraints
+        .extend(job.style_constraints.clone());
+    brief.approved_reference_digests = job
+        .references
+        .iter()
+        .map(|reference| reference.reference.content_digest.clone())
+        .collect();
+    brief
+}
+
+fn prepare_room_scene_verdict(
+    root: &Path,
+    job: &FrozenRoomSceneJob,
+    image: &DownloadedReplicateImage,
+) -> Result<MediaVerdictDisposition, String> {
+    let prior_public = job.references.first().and_then(|reference| {
+        immutable_media_asset_bytes(root, &reference.reference.asset_id)
+            .ok()
+            .map(|(bytes, _)| bytes)
+    });
+    let digest = candidate_digest(image);
+    prepare_media_candidate(
+        root,
+        room_scene_media_brief(job),
+        MediaCandidateInput {
+            image,
+            provider: "replicate",
+            model: &format!("{}/{}", job.recipe.model_owner, job.recipe.model_name),
+            claimed_digest: Some(&digest),
+            prior_public_bytes: prior_public.as_deref(),
+        },
+    )
 }
 
 impl FrozenRoomSceneRecipe {
@@ -806,11 +879,28 @@ where
             return Err("rejected room-scene jobs cannot be regenerated".to_string());
         }
         if let Some(candidate) = load_room_scene_candidate(root, &state.job)? {
-            state.lifecycle = RoomSceneLifecycle::ReviewPending;
+            let disposition = prepare_room_scene_verdict(root, &state.job, &candidate)?;
+            state.lifecycle = if disposition == MediaVerdictDisposition::Rejected {
+                RoomSceneLifecycle::Rejected
+            } else {
+                RoomSceneLifecycle::ReviewPending
+            };
             state.candidate_digest = Some(candidate_digest(&candidate));
             state.prediction_id = candidate.prediction_id;
+            state.last_error = (disposition == MediaVerdictDisposition::Rejected).then(|| {
+                media_candidate_violations(
+                    root,
+                    &state.job.job_id,
+                    state.candidate_digest.as_deref().unwrap_or_default(),
+                )
+                .unwrap_or_else(|error| vec![error])
+                .join(", ")
+            });
             store_room_scene(root, &state)?;
             return Ok(true);
+        }
+        if !media_provider_route_available(root, &state.job.job_id)? {
+            return Err("room-scene provider route is cooling down or disabled".to_string());
         }
         let resolved = state.job.resolve(root)?;
         let attempt = state.provider_attempts.saturating_add(1);
@@ -833,11 +923,23 @@ where
     let image = match tokio::time::timeout(timeout, provider(resolved)).await {
         Ok(Ok(image)) => image,
         Ok(Err(error)) => {
+            let state = load_room_scene(root, job_id)?;
+            let _ = record_media_provider_failure(
+                root,
+                room_scene_media_brief(&state.job),
+                "replicate-primary",
+            );
             fail_room_scene_generation(root, job_id, attempt, &error)?;
             return Err(error);
         }
         Err(_) => {
             let error = "room-scene provider timed out".to_string();
+            let state = load_room_scene(root, job_id)?;
+            let _ = record_media_provider_failure(
+                root,
+                room_scene_media_brief(&state.job),
+                "replicate-primary",
+            );
             fail_room_scene_generation(root, job_id, attempt, &error)?;
             return Err(error);
         }
@@ -857,10 +959,23 @@ where
         released?;
         return Err(error);
     }
-    state.lifecycle = RoomSceneLifecycle::ReviewPending;
     state.candidate_digest = Some(candidate_digest(&image));
     state.prediction_id = image.prediction_id.clone();
-    state.last_error = None;
+    let disposition = prepare_room_scene_verdict(root, &state.job, &image)?;
+    if disposition == MediaVerdictDisposition::Rejected {
+        state.lifecycle = RoomSceneLifecycle::Rejected;
+        state.last_error = Some(
+            media_candidate_violations(
+                root,
+                &state.job.job_id,
+                state.candidate_digest.as_deref().unwrap_or_default(),
+            )?
+            .join(", "),
+        );
+    } else {
+        state.lifecycle = RoomSceneLifecycle::ReviewPending;
+        state.last_error = None;
+    }
     let stored = store_room_scene(root, &state);
     let released = release_room_scene_generation(root, job_id, attempt);
     stored?;
@@ -906,8 +1021,27 @@ fn review_room_scene_candidate(
         return Err("room-scene review cannot precede the frozen projection".to_string());
     }
     let review_reason = crate::compact_whitespace(reason);
+    let image = load_room_scene_candidate(root, &state.job)?
+        .ok_or_else(|| "room-scene candidate bytes are missing".to_string())?;
+    let digest = candidate_digest(&image);
+    let brief = room_scene_media_brief(&state.job);
+    let verdict = make_visual_verdict(
+        &brief,
+        digest.clone(),
+        "operator",
+        "cosyworld.room-scene-moderation/1",
+        approved,
+        (!approved)
+            .then_some(MediaViolation::OperatorRejected)
+            .into_iter()
+            .collect(),
+        review_reason.clone(),
+        1,
+        0,
+        0,
+    )?;
+    let disposition = record_media_visual_verdict(root, &state.job.job_id, verdict)?;
     if !approved {
-        remove_room_scene_candidate(root, &state.job)?;
         state.lifecycle = RoomSceneLifecycle::Rejected;
         state.review_event_seq = Some(review_event_seq);
         state.review_reason = Some(review_reason.clone());
@@ -915,8 +1049,11 @@ fn review_room_scene_candidate(
         store_room_scene(root, &state)?;
         return Ok(state);
     }
-    let image = load_room_scene_candidate(root, &state.job)?
-        .ok_or_else(|| "room-scene candidate bytes are missing".to_string())?;
+    if disposition != MediaVerdictDisposition::Approved
+        || !media_candidate_approved(root, &state.job.job_id, &digest)?
+    {
+        return Err("room-scene candidate has no durable approving verdict".to_string());
+    }
     let references = state
         .job
         .references
@@ -1235,6 +1372,28 @@ fn remove_room_scene_candidate(root: &Path, job: &FrozenRoomSceneJob) -> Result<
         }
     }
     Ok(())
+}
+
+pub(super) fn request_room_scene_candidate_replacement(
+    root: &Path,
+    job_id: &str,
+    reason: &str,
+) -> Result<bool, String> {
+    if validate_job_id(job_id).is_err() || !room_scene_state_path(root, job_id).exists() {
+        return Ok(false);
+    }
+    let _claim = room_scene_lock()?;
+    let mut state = load_room_scene(root, job_id)?;
+    if state.lifecycle == RoomSceneLifecycle::Ready {
+        return Err("a published room scene requires a new frozen job".to_string());
+    }
+    remove_room_scene_candidate(root, &state.job)?;
+    state.lifecycle = RoomSceneLifecycle::Failed;
+    state.candidate_digest = None;
+    state.prediction_id = None;
+    state.last_error = Some(crate::compact_whitespace(reason));
+    store_room_scene(root, &state)?;
+    Ok(true)
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
