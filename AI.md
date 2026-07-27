@@ -70,6 +70,15 @@ Official OpenRouter docs confirm the integration shape:
 
 - AI may propose text, media, and future content. The C kernel decides world state.
 - Every player-visible AI result is committed as a shared room event.
+- Generated character speech remains a private candidate until the deterministic
+  publication gate certifies its finish reason, voice budget, single-speaker
+  envelope, mode, context anchor, novelty, tone, safety, and action authority.
+- Rejected speech is represented durably only by hashes, stable check codes,
+  model attribution, prompt/context versions, latency, and token usage. Raw
+  rejected bytes never enter the Journal, room history, SSE, or player errors.
+- A certified generation identity may be journaled at most once. Its receipt is
+  part of the canonical speech record so snapshots and journal replay preserve
+  exactly-once publication across retries and restarts.
 - No DMs, no private resident conversations, no one-on-one teacher mode.
 - A connected user key changes who pays; it does not create a private world.
 - One user-paid action can benefit everyone present because the output is a public event.
