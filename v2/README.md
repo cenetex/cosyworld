@@ -765,6 +765,11 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /collection/unmaterialize`
 - `POST /commands`
 
+`POST /actions/use-item` accepts either an actor use (`item_id` plus
+`target_actor_id`) or an exact room-feature use (`item_id`, `location_id`, and
+`feature_key`). Both forms must match a current authoritative offer; typed
+clients never need to round-trip a `use_feature` offer through command prose.
+
 `POST /commands` is the canonical mutation gateway. New callers send the
 authenticated numeric actor handle plus the stable envelope advertised by
 `/state`:

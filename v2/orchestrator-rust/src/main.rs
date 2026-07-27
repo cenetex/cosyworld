@@ -131,6 +131,7 @@ use tokio_stream::{
 use topology::*;
 use tracing::{error, info, warn};
 use turns::*;
+use uses::*;
 use views::*;
 use world_causality::*;
 use world_simulation::*;
@@ -3507,6 +3508,16 @@ struct ItemRequest {
     item_id: u64,
     target_item_id: Option<u64>,
     target_actor_id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UseItemRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    item_id: u64,
+    target_actor_id: Option<u64>,
+    location_id: Option<u64>,
+    feature_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -26193,7 +26204,7 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/cast-spell" => kind == "cast_spell",
         "/actions/pick-up" => kind == "pick_up",
         "/actions/drop" => kind == "drop_item",
-        "/actions/use-item" => kind == "use_item",
+        "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
         "/actions/give-item" => kind == "give_item",
         "/actions/trade-item" => kind == "trade_item",
         "/actions/theft" => kind == "theft",
@@ -26369,7 +26380,7 @@ async fn submit_action_offer(
             use_item(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(parsed!(ItemRequest)),
+                Json(parsed!(UseItemRequest)),
             )
             .await
         }
@@ -29376,12 +29387,13 @@ async fn command_inner(
             let Json(response) = use_item(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(ItemRequest {
+                Json(UseItemRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     item_id,
-                    target_item_id: None,
                     target_actor_id: Some(target_actor_id),
+                    location_id: None,
+                    feature_key: None,
                 }),
             )
             .await;
@@ -29520,117 +29532,36 @@ async fn command_inner(
             feature_key,
             output,
         } => {
-            if !allow_actor_mutation(
+            let outcome = execute_feature_use_action(
                 &state,
                 client_addr,
                 payload.actor_id,
-                "action-actor",
-                GENERAL_ACTION_LIMIT,
-            ) {
-                return command_rate_limited_response_with_events(resolved, presence_events);
-            }
-            let mut runtime = state.inner.lock().await;
-            if !client_actor_authorized_for_state(
-                &runtime,
-                &state,
-                payload.actor_id,
                 payload.actor_session.as_deref(),
-            ) {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 403,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(
-                        "Your avatar slipped out of reach. Begin again or reconnect your account."
-                            .to_string(),
-                    ),
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            }
-            let candidate = match runtime.plan_feature_use_choice(
-                payload.actor_id,
                 item_id,
                 location_id,
                 &feature_key,
-            ) {
-                Ok(candidate) => candidate,
-                Err(reason) => {
-                    return Json(CommandResponse {
-                        ok: false,
-                        status: 409,
-                        command: resolved.command,
-                        verb: resolved.verb,
-                        output: Some(reason),
-                        action: resolved.action,
-                        receipt: None,
-                        events: presence_events,
-                    });
-                }
-            };
-            debug_assert_eq!(output, candidate.content);
-            let output = candidate.content.clone();
-            let mut record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_NONE,
-                    actor_id: payload.actor_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
             )
-            .into_player_card();
-            record.bind_offer_kind("use_feature");
-            record
-                .projection_mutations
-                .push(ProjectionMutation::UseFeature {
-                    item_id: candidate.item_id,
-                    location_id: candidate.location_id,
-                    feature_key: candidate.feature_key,
-                    content: candidate.content,
-                    reason: "use_feature".to_string(),
-                });
-            let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
-            else {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 500,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(
-                        "That choice got lost before the room could answer. Try once more."
-                            .to_string(),
-                    ),
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            };
-            let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
-                &state,
-                &mut runtime,
-                Some(location_id),
-                payload.actor_id,
-                status,
-                &mut events,
-            );
-            drop(runtime);
-            broadcast_events(&state, &events);
-            if let Some(plan) = ripple_reply_plan {
-                schedule_player_tick_observation(&state, plan);
-            }
-            let response = ActionResponse {
-                ok: status == CW_OK && !events.is_empty(),
-                status: if events.is_empty() { 409 } else { status },
-                events,
-            };
-            command_action_response_with_prefix_and_events(
+            .await;
+            debug_assert!(outcome
+                .output
+                .as_deref()
+                .is_none_or(|value| value == output));
+            let success_output = outcome
+                .response
+                .ok
+                .then(|| outcome.output.clone())
+                .flatten();
+            let rejected_output = (!outcome.response.ok).then_some(outcome.output).flatten();
+            let mut response = command_action_response_with_prefix_and_events(
                 resolved,
-                response,
-                Some(output),
+                outcome.response,
+                success_output,
                 presence_events,
-            )
+            );
+            if let Some(output) = rejected_output {
+                response.0.output = Some(output);
+            }
+            response
         }
         CommandDispatch::GiveItem {
             item_id,
@@ -33583,8 +33514,31 @@ async fn drop_item(
 async fn use_item(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(payload): Json<ItemRequest>,
+    Json(payload): Json<UseItemRequest>,
 ) -> Json<ActionResponse> {
+    match (payload.location_id, payload.feature_key.as_deref()) {
+        (Some(location_id), Some(feature_key)) if payload.target_actor_id.is_none() => {
+            return Json(
+                execute_feature_use_action(
+                    &state,
+                    client_addr,
+                    payload.actor_id,
+                    payload.actor_session.as_deref(),
+                    payload.item_id,
+                    location_id,
+                    feature_key,
+                )
+                .await
+                .response,
+            );
+        }
+        (None, None) => {}
+        _ => {
+            return action_offer_rejected(
+                "Use needs either one avatar target or one exact room-feature binding.",
+            );
+        }
+    }
     if !allow_actor_mutation(
         &state,
         client_addr,
@@ -45604,10 +45558,7 @@ mod tests {
         ));
         assert!(!action_path_accepts_kind("/actions/explore-path", "search"));
         assert!(action_path_accepts_kind("/actions/use-item", "use_item"));
-        assert!(!action_path_accepts_kind(
-            "/actions/use-item",
-            "use_feature"
-        ));
+        assert!(action_path_accepts_kind("/actions/use-item", "use_feature"));
     }
 
     #[test]

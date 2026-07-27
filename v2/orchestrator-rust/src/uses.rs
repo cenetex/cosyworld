@@ -25,6 +25,106 @@ enum UseOfferKey {
     },
 }
 
+pub(super) struct FeatureUseActionOutcome {
+    pub(super) response: ActionResponse,
+    pub(super) output: Option<String>,
+}
+
+pub(super) async fn execute_feature_use_action(
+    state: &AppState,
+    client_addr: SocketAddr,
+    actor_id: u64,
+    actor_session: Option<&str>,
+    item_id: u64,
+    location_id: u64,
+    feature_key: &str,
+) -> FeatureUseActionOutcome {
+    if !allow_actor_mutation(
+        state,
+        client_addr,
+        actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return FeatureUseActionOutcome {
+            response: action_rate_limited_response().0,
+            output: None,
+        };
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(&runtime, state, actor_id, actor_session) {
+        return FeatureUseActionOutcome {
+            response: ActionResponse {
+                ok: false,
+                status: 403,
+                events: Vec::new(),
+            },
+            output: None,
+        };
+    }
+    let candidate =
+        match runtime.plan_feature_use_choice(actor_id, item_id, location_id, feature_key) {
+            Ok(candidate) => candidate,
+            Err(reason) => {
+                return FeatureUseActionOutcome {
+                    response: action_offer_rejected(reason.clone()).0,
+                    output: Some(reason),
+                };
+            }
+        };
+    let output = candidate.content.clone();
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_player_card();
+    record.bind_offer_kind("use_feature");
+    record
+        .projection_mutations
+        .push(ProjectionMutation::UseFeature {
+            item_id: candidate.item_id,
+            location_id: candidate.location_id,
+            feature_key: candidate.feature_key,
+            content: candidate.content,
+            reason: "use_feature".to_string(),
+        });
+    let Ok((status, mut events)) = commit_journal_record(state, &mut runtime, record) else {
+        return FeatureUseActionOutcome {
+            response: ActionResponse {
+                ok: false,
+                status: 500,
+                events: Vec::new(),
+            },
+            output: None,
+        };
+    };
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
+        state,
+        &mut runtime,
+        Some(location_id),
+        actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+    broadcast_events(state, &events);
+    if let Some(plan) = ripple_reply_plan {
+        schedule_player_tick_observation(state, plan);
+    }
+    FeatureUseActionOutcome {
+        response: ActionResponse {
+            ok: status == CW_OK && !events.is_empty(),
+            status: if events.is_empty() { 409 } else { status },
+            events,
+        },
+        output: Some(output),
+    }
+}
+
 impl RuntimeWorld {
     fn feature_use_matches(
         &self,
@@ -671,6 +771,115 @@ mod tests {
         );
         assert!(runtime
             .plan_use_item_offer_action(5000, &item_offer)
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn feature_offer_submits_through_typed_use_item_endpoint() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_use_test_actor(&mut runtime, 5000, "Typed Use Maker");
+        let story_button = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("Story Button is seeded");
+        story_button.location_id = 0;
+        story_button.holder_actor_id = 5000;
+        story_button.held_since_tick = runtime.world.tick;
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+
+        let candidate = runtime
+            .default_player_feature_use_candidate(5000)
+            .expect("the held Story Button can target a room feature");
+        let offer = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                RuntimeWorld::use_offer_matches_feature(
+                    offer,
+                    candidate.item_id,
+                    candidate.location_id,
+                    &candidate.feature_key,
+                )
+            })
+            .expect("the exact room-feature offer is projected");
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+
+        let forged_submission = ActionOfferSubmissionRequest {
+            path: "/actions/use-item".to_string(),
+            offer_id: offer.offer_id.clone(),
+            composition_id: offer.composition_id.clone(),
+            kind: offer.kind.clone(),
+            rules_action: offer.rules_action.clone(),
+            operation: offer.operation.clone(),
+            rules_profile: offer.rules_profile.clone(),
+            state_revision: offer.state_revision,
+            route: offer.route.clone(),
+            target: offer.target.clone(),
+            cost: offer.cost.clone(),
+            payload: serde_json::json!({
+                "actor_id": 5000,
+                "actor_session": actor_session,
+                "item_id": candidate.item_id,
+                "location_id": candidate.location_id,
+                "feature_key": "forged_feature"
+            }),
+        };
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime.validate_action_offer_submission(
+                    5000,
+                    &AccessContext::default(),
+                    &forged_submission,
+                ),
+                Err("submitted feature binding does not match the authoritative offer")
+            );
+        }
+
+        let response = submit_action_offer(
+            ConnectInfo("127.0.0.1:44270".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActionOfferSubmissionRequest {
+                path: "/actions/use-item".to_string(),
+                offer_id: offer.offer_id,
+                composition_id: offer.composition_id,
+                kind: offer.kind,
+                rules_action: offer.rules_action,
+                operation: offer.operation,
+                rules_profile: offer.rules_profile,
+                state_revision: offer.state_revision,
+                route: offer.route,
+                target: offer.target,
+                cost: offer.cost,
+                payload: serde_json::json!({
+                    "actor_id": 5000,
+                    "actor_session": actor_session,
+                    "item_id": candidate.item_id,
+                    "location_id": candidate.location_id,
+                    "feature_key": candidate.feature_key
+                }),
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "item.used"
+                && event.actor_id == Some(5000)
+                && event.item_id == Some(STORY_BUTTON_ITEM_ID)
+        }));
+        let runtime = state.inner.lock().await;
+        assert!(runtime
+            .plan_feature_use_choice(
+                5000,
+                candidate.item_id,
+                candidate.location_id,
+                &candidate.feature_key,
+            )
             .is_err());
     }
 }

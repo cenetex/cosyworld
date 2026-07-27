@@ -10,6 +10,7 @@ fn submitted_payload_target(
         ("/actions/craft", "recipe") => "recipe_id",
         ("/actions/pick-up" | "/actions/drop", "item") => "item_id",
         ("/actions/trade-item" | "/actions/theft", "item") => "target_item_id",
+        ("/actions/use-item", "feature") => "location_id",
         (
             "/actions/chat"
             | "/actions/attack"
@@ -17,13 +18,40 @@ fn submitted_payload_target(
             | "/actions/create-bond"
             | "/actions/resolve-bond"
             | "/actions/cast-spell"
-            | "/actions/influence"
-            | "/actions/use-item",
+            | "/actions/influence",
             "actor",
         ) => "target_actor_id",
+        ("/actions/use-item", "actor") => "target_actor_id",
         _ => return None,
     };
     payload.get(key).and_then(serde_json::Value::as_u64)
+}
+
+fn submitted_feature_binding_matches(
+    offer: &RankedActionOffer,
+    payload: &serde_json::Value,
+) -> bool {
+    if offer.kind != "use_feature" {
+        return true;
+    }
+    let Some(rest) = offer.id.strip_prefix("use_feature:") else {
+        return false;
+    };
+    let mut parts = rest.splitn(3, ':');
+    let (Some(item_id), Some(location_id), Some(feature_key)) =
+        (parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    payload.get("item_id").and_then(serde_json::Value::as_u64) == item_id.parse::<u64>().ok()
+        && payload
+            .get("location_id")
+            .and_then(serde_json::Value::as_u64)
+            == location_id.parse::<u64>().ok()
+        && payload
+            .get("feature_key")
+            .and_then(serde_json::Value::as_str)
+            == Some(feature_key)
 }
 
 fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Option<&str> {
@@ -93,6 +121,8 @@ impl RuntimeWorld {
                 .is_some_and(|submitted| target.id != Some(submitted))
         }) {
             Err("submitted payload target does not match the authoritative offer")
+        } else if !submitted_feature_binding_matches(offer, &submission.payload) {
+            Err("submitted feature binding does not match the authoritative offer")
         } else if offer.project.as_ref().is_some_and(|project| {
             submission
                 .payload
