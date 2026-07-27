@@ -12,6 +12,18 @@
     "direction": "west"
   },
   {
+    "from_location_id": 1,
+    "to_location_id": 4,
+    "flags": 0,
+    "direction": "west"
+  },
+  {
+    "from_location_id": 4,
+    "to_location_id": 1,
+    "flags": 0,
+    "direction": "east"
+  },
+  {
     "from_location_id": 3,
     "to_location_id": 50,
     "flags": 0,

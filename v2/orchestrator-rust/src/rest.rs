@@ -202,8 +202,11 @@ pub(super) fn declared_item_recovery_profile(
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use super::{derive_rest_grade, RestPlaceEligibility, MISSING_CAMP_SHELTER_REASON};
+    use super::{
+        derive_rest_grade, RestPlaceEligibility, LODGING_FEATURE_KEY, MISSING_CAMP_SHELTER_REASON,
+    };
 
+    const CORE_LODGING_LOCATION_ID: u64 = 4;
     const OTHER_FRONTIER_LOCATION_ID: u64 = 34;
     const SECOND_FRONTIER_LOCATION_ID: u64 = 42;
     const OTHER_FRONTIER_DANGER_CLOCK_ID: &str = "goblin-cave.leverage";
@@ -258,6 +261,111 @@ mod tests {
             CW_REST_GRADE_HEARTH,
             "sanctuary precedence is stable"
         );
+    }
+
+    #[test]
+    fn zero_orb_core_route_reaches_lodging_and_rests_at_lodged_grade() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Lodging Tester",
+        );
+        runtime.orb_balances.insert(5000, 0);
+
+        let access = AccessContext::default();
+        assert!(location_access_allowed(CORE_LODGING_LOCATION_ID, &access));
+        let access_rule = location_access_rule(CORE_LODGING_LOCATION_ID);
+        assert_eq!(access_rule.required_grant_id, None);
+        assert_eq!(access_rule.required_card_id, None);
+        let mut discovery_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            18_599,
+        );
+        discovery_record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverSeedExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: CORE_LODGING_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&discovery_record).0, CW_OK);
+        let cottage_state = runtime.state_response(Some(5000), &access);
+        assert!(cottage_state.action_offers.iter().any(|offer| {
+            offer.kind == "move"
+                && offer.target.as_ref().and_then(|target| target.id)
+                    == Some(CORE_LODGING_LOCATION_ID)
+        }));
+
+        let move_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: 5000,
+                destination_location_id: CORE_LODGING_LOCATION_ID,
+                ..CwAction::default()
+            },
+            18_600,
+        );
+        let (status, move_events) = runtime.apply_journal_record(&move_record);
+        assert_eq!(status, CW_OK);
+        assert!(move_events.iter().any(|event| {
+            event.type_name == "actor.moved"
+                && event.destination_location_id == Some(CORE_LODGING_LOCATION_ID)
+        }));
+        assert_eq!(
+            runtime
+                .actor_by_id(5000)
+                .expect("lodging traveler exists")
+                .location_id,
+            CORE_LODGING_LOCATION_ID
+        );
+        let lodging_feature = runtime
+            .room_features(CORE_LODGING_LOCATION_ID)
+            .into_iter()
+            .find(|feature| command_key(&feature.key) == LODGING_FEATURE_KEY)
+            .expect("Core inn declares lodging");
+        assert_eq!(
+            lodging_feature
+                .lodging
+                .as_ref()
+                .map(|lodging| lodging.gate.kind.as_str()),
+            Some("open")
+        );
+
+        mark_actor_tired(&mut runtime, 5000);
+        assert_eq!(runtime.rest_entitlement(5000).grade, CW_REST_GRADE_LODGED);
+        let lodging_state = runtime.state_response(Some(5000), &access);
+        assert!(lodging_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
+        let (action, mutations) = runtime
+            .plan_rest_action(5000)
+            .expect("Core lodging grants Rest");
+        assert_eq!(action.rest.requested_grade, CW_REST_GRADE_LODGED);
+        assert_eq!(action.rest.entitled_grade, CW_REST_GRADE_LODGED);
+        assert!(mutations.iter().any(|mutation| matches!(
+            mutation,
+            ProjectionMutation::ClearTag { tag_id, .. }
+                if tag_id == &trained_since_rest_tag_id(5000)
+        )));
+        assert!(!mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::AdvanceClock { .. })));
+
+        let mut rest_record = JournalRecord::new(action, 18_601);
+        rest_record.projection_mutations.extend(mutations);
+        let (status, _) = runtime.apply_journal_record(&rest_record);
+        assert_eq!(status, CW_OK);
+        assert!(!runtime.tired_tag_active(5000));
+        assert_eq!(runtime.orb_balance(5000), 0);
     }
 
     #[test]

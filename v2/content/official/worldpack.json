@@ -654,7 +654,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:e76308cc908da2df0fbf5867cc5c1aa8216a3284c14e3c99593c3508073cb2d5",
+  "bundle_hash": "sha256:9f4bc2379362ce4f94014517b9d518762cb67a6eb079f9a24c8b32b56e0201d2",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -874,16 +874,16 @@
         "access_gates": 0,
         "factions": 11,
         "items": 13,
-        "locations": 22,
-        "exits": 46,
+        "locations": 23,
+        "exits": 48,
         "hidden_exits": 1,
-        "room_features": 16,
-        "room_sheets": 22,
+        "room_features": 17,
+        "room_sheets": 23,
         "clocks": 12,
         "jobs": 6,
         "action_vocabulary": 1,
         "fronts": 5,
-        "cards": 68,
+        "cards": 69,
         "card_bindings": 0,
         "lifecycle_hooks": 19,
         "evolution_tracks": 3,
@@ -1724,7 +1724,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ca67f97d5c68e8b352e3852426936e03d182aebbfffb878adf57dab382ffd455"
+      "integrity": "sha256:ab98c27801b06dd2babc6a928cb6032f3d18e22bfa6d88aa0173aa0107750dd5"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -1877,7 +1877,7 @@
         "locations": 5,
         "exits": 8,
         "hidden_exits": 0,
-        "room_features": 5,
+        "room_features": 6,
         "room_sheets": 5,
         "clocks": 2,
         "jobs": 1,
@@ -1903,7 +1903,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:01e84ccbcf5c952fad0d852d7fc1c5f15ead1a1060fd5e09a6805e3876345d2d"
+      "integrity": "sha256:4e8491fbc5a0d102c55aa60eb8bafeae963e3ab7e0f5f11d77cffc9171af83c5"
     },
     {
       "id": "cosyworld.the-holy-land",
