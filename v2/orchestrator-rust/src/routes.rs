@@ -27,6 +27,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             get(generated_community_art_asset),
         )
         .route(
+            "/assets/generated/room-scenes/{asset_file}",
+            get(generated_room_scene_asset),
+        )
+        .route(
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
@@ -144,6 +148,12 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/narrative-move", post(submit_narrative_move))
         .route("/actions/chat", post(chat))
         .route("/actions/fund-image", post(fund_community_image))
+        .route("/media/room-scenes", post(create_room_scene))
+        .route("/media/room-scenes/{job_id}", get(room_scene_status))
+        .route(
+            "/moderation/room-scenes/{job_id}/review",
+            post(review_room_scene),
+        )
         .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))
         .route("/actions/move", post(move_actor))

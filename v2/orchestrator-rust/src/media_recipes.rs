@@ -22,8 +22,9 @@ pub(super) use self::assets::{
     backfill_legacy_community_asset, canonical_community_media_asset_bytes,
     freeze_approved_community_media_reference, hold_community_media_asset_references,
     immutable_media_asset_bytes, reconcile_community_media_asset_status,
-    register_derived_community_media_asset, register_generated_media_asset,
-    release_community_media_asset_reference_hold, resolve_frozen_community_media_reference,
+    register_derived_community_media_asset, register_derived_room_scene_media_asset,
+    register_generated_media_asset, release_community_media_asset_reference_hold,
+    resolve_frozen_community_media_reference, resolve_frozen_media_reference,
     FrozenMediaAssetReference, MediaAssetBackfill, MediaAssetProvenance,
 };
 
@@ -49,6 +50,8 @@ pub(super) enum MediaIntent {
     Location,
     #[serde(rename = "evolution_card_art")]
     Evolution,
+    #[serde(rename = "room_scene")]
+    RoomScene,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -199,7 +202,7 @@ struct MediaRecipeCanary {
 }
 
 #[derive(Clone, Debug)]
-struct MediaJobRequest {
+pub(super) struct MediaJobRequest {
     pub(super) job_key: String,
     pub(super) profile: String,
     pub(super) operation: MediaOperation,
@@ -472,7 +475,7 @@ impl MediaRecipeRegistry {
         Ok(())
     }
 
-    fn resolve(
+    pub(super) fn resolve(
         &self,
         controls: &MediaRecipeRuntimeControls,
         request: MediaJobRequest,
@@ -916,7 +919,7 @@ pub(super) async fn request_replicate_evolution_art(
     execute_replicate_art(config, &resolved).await
 }
 
-async fn execute_replicate_art(
+pub(super) async fn execute_replicate_art(
     config: &ReplicateAvatarArtConfig,
     resolved: &ResolvedMediaJob,
 ) -> Result<DownloadedReplicateImage, String> {
