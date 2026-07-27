@@ -32,6 +32,7 @@ mod moderation;
 mod movement;
 mod mud;
 mod natural_affordances;
+mod offer_commands;
 mod ownership;
 mod prompts;
 mod quest_loot;
@@ -91,6 +92,7 @@ use moderation::*;
 use movement::*;
 use mud::*;
 use natural_affordances::*;
+use offer_commands::*;
 use ownership::*;
 use prompts::*;
 use qrcode::{render::svg, QrCode};
@@ -27114,6 +27116,7 @@ fn narrative_move_rejected_response(
         command: command.into(),
         verb: String::new(),
         output: Some(output.into()),
+        error_kind: None,
         action: None,
         receipt: None,
         events: Vec::new(),
@@ -27279,6 +27282,7 @@ async fn submit_narrative_move(
             actor_id: payload.character_id,
             actor_session: Some(actor_session),
             command: command_text,
+            offer_id: None,
             wallet_address: Some(wallet_address),
             wallet: None,
             wallet_session: Some(session_id),
@@ -28036,6 +28040,7 @@ fn canonical_command_error(
         command: normalize_command_text(command),
         verb: String::new(),
         output: Some(output.into()),
+        error_kind: None,
         action: None,
         receipt: None,
         events: Vec::new(),
@@ -28267,7 +28272,7 @@ async fn command_with_forwarding(
 
     let request_hash = command_request_hash(
         &envelope.actor_ref,
-        &normalize_command_text(&payload.command),
+        &command_submission_identity(&payload),
         &envelope.observed,
         envelope.last_world_seq,
     );
@@ -28441,7 +28446,7 @@ async fn command_with_forwarding(
     let command_context = Arc::new(CanonicalCommandCommitContext {
         envelope: envelope.clone(),
         request_hash: request_hash.clone(),
-        normalized_command: normalize_command_text(&payload.command),
+        normalized_command: command_submission_identity(&payload),
         compatibility_envelope,
         leases,
         phase: AtomicU8::new(0),
@@ -28456,6 +28461,10 @@ async fn command_with_forwarding(
             ),
         )
         .await;
+
+    if payload.offer_id.is_some() && response.error_kind.is_some() {
+        return Json(response);
+    }
 
     if !command_context.committed() {
         if let Some(path) = state.event_store_path.as_deref() {
@@ -29094,10 +29103,12 @@ async fn command_inner(
         })
         .unwrap_or(false);
     let normalized_command = normalize_command_text(&payload.command);
-    if matches!(
-        normalized_command.as_str(),
-        "pass" | "need time" | "need-time"
-    ) {
+    if payload.offer_id.is_none()
+        && matches!(
+            normalized_command.as_str(),
+            "pass" | "need time" | "need-time"
+        )
+    {
         let request = ActorRequest {
             actor_id: payload.actor_id,
             actor_session: payload.actor_session,
@@ -29134,58 +29145,17 @@ async fn command_inner(
                 "need".to_string()
             },
             output: Some(output.to_string()),
+            error_kind: None,
             action: None,
             receipt: None,
             events: response.events,
         });
     }
-    let resolved = {
-        let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return Json(CommandResponse {
-                ok: false,
-                status: 403,
-                command: normalize_command_text(&payload.command),
-                verb: String::new(),
-                output: Some(
-                    "Your avatar slipped out of reach. Begin again or reconnect your account."
-                        .to_string(),
-                ),
-                action: None,
-                receipt: None,
-                events: Vec::new(),
-            });
-        }
-        let active_direct_actors = active_actor_ids_for_state(&state);
-        runtime.resolve_command_with_presence(&payload, &access, Some(&active_direct_actors))
-    };
-
-    let presence_events = if was_active {
-        Vec::new()
-    } else {
-        commit_presence_event(&state, payload.actor_id, true).await
-    };
-
-    let resolved = match resolved {
-        Ok(resolved) => resolved,
-        Err(error) => {
-            return Json(CommandResponse {
-                ok: false,
-                status: error.status,
-                command: error.command,
-                verb: error.verb,
-                output: Some(error.output),
-                action: None,
-                receipt: None,
-                events: presence_events,
-            });
-        }
-    };
+    let (resolved, presence_events) =
+        match resolve_command_submission_at_boundary(&state, &payload, &access, was_active).await {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
 
     if command_dispatch_consumes_room_turn(&resolved.dispatch) {
         let runtime = state.inner.lock().await;
@@ -29211,6 +29181,7 @@ async fn command_inner(
             command: resolved.command,
             verb: resolved.verb,
             output: Some(output),
+            error_kind: None,
             action: resolved.action,
             receipt: None,
             events: presence_events,
@@ -29221,6 +29192,7 @@ async fn command_inner(
             command: resolved.command,
             verb: resolved.verb,
             output: Some(output),
+            error_kind: None,
             action: resolved.action,
             receipt: None,
             events: presence_events,
@@ -29418,6 +29390,7 @@ async fn command_inner(
                         "Your avatar slipped out of reach. Begin again or reconnect your account."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29433,6 +29406,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some("You are no longer in that room.".to_string()),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29458,6 +29432,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(output.to_string()),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29484,6 +29459,7 @@ async fn command_inner(
                         "That choice got lost before the room could answer. Try once more."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29545,6 +29521,7 @@ async fn command_inner(
                         "Your avatar slipped out of reach. Begin again or reconnect your account."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29564,6 +29541,7 @@ async fn command_inner(
                         command: resolved.command,
                         verb: resolved.verb,
                         output: Some(reason),
+                        error_kind: None,
                         action: resolved.action,
                         receipt: None,
                         events: presence_events,
@@ -29602,6 +29580,7 @@ async fn command_inner(
                         "That choice got lost before the room could answer. Try once more."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29873,6 +29852,7 @@ async fn command_inner(
                         "Your avatar slipped out of reach. Begin again or reconnect your account."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29885,6 +29865,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(output),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29918,6 +29899,7 @@ async fn command_inner(
                         "That choice got lost before the room could answer. Try once more."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -30148,6 +30130,7 @@ async fn command_inner(
                 command: resolved.command,
                 verb: resolved.verb,
                 output,
+                error_kind: None,
                 action: resolved.action,
                 receipt: None,
                 events: presence_events,
@@ -39079,6 +39062,7 @@ fn canonical_fallback_command_response(
             "The command committed before its full response was delivered. Refresh to continue."
                 .to_string(),
         ),
+        error_kind: None,
         action: None,
         receipt: Some(CanonicalCommandReceipt {
             world_id: OFFICIAL_WORLD_ID.to_string(),
@@ -42017,6 +42001,7 @@ mod tests {
             actor_id,
             actor_session: None,
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,
@@ -43549,6 +43534,7 @@ mod tests {
             actor_id,
             actor_session: Some(actor_session.to_string()),
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,

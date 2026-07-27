@@ -1239,6 +1239,7 @@ pub(super) fn command_turn_rejected_response(
         command: resolved.command,
         verb: resolved.verb,
         output: view.explanation,
+        error_kind: None,
         action: resolved.action,
         receipt: None,
         events,

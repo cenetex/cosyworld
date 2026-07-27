@@ -52,6 +52,10 @@ fn offer_composition_matches_at_submitted_revision(
 }
 
 impl RuntimeWorld {
+    pub(super) fn current_state_revision(&self) -> u64 {
+        self.world.next_event_seq.saturating_sub(1)
+    }
+
     pub(super) fn validate_action_offer_submission(
         &self,
         actor_id: u64,
@@ -293,7 +297,7 @@ impl RuntimeWorld {
                     target.as_ref(),
                     project.as_ref(),
                 );
-                let state_revision = self.world.next_event_seq.saturating_sub(1);
+                let state_revision = self.current_state_revision();
                 let source_collectible =
                     self.action_offer_source_collectible(&option.kind, actor_id);
                 let mut source_card_instances =
@@ -393,7 +397,7 @@ impl RuntimeWorld {
                 target.label.as_deref().unwrap_or("the journey destination")
             );
             let provider = self.action_offer_provider(kind, actor_id, Some(&target), None);
-            let state_revision = self.world.next_event_seq.saturating_sub(1);
+            let state_revision = self.current_state_revision();
             let source_collectible = self.location_source_collectible(actor_id);
             let source_card_instances = source_collectible.clone().into_iter().collect();
             let legacy_id = format!("explore_path:{}", target.id.clone().unwrap_or_default());
@@ -525,7 +529,7 @@ impl RuntimeWorld {
     ) -> RankedActionOffer {
         let binding = resolved_action_binding(kind)
             .unwrap_or_else(|| panic!("validated action offer kind has no rules binding: {kind}"));
-        let state_revision = self.world.next_event_seq.saturating_sub(1);
+        let state_revision = self.current_state_revision();
         let legacy_id = format!("{kind}:{}", normalize_command_text(command));
         let offer_id = format!(
             "{}:{}:{}",
@@ -1725,6 +1729,7 @@ mod tests {
             actor_id,
             actor_session: None,
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,

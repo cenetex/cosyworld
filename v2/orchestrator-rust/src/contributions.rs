@@ -1105,6 +1105,7 @@ mod tests {
                         actor_id: 5000,
                         actor_session: None,
                         command: offer.command.clone(),
+                        offer_id: None,
                         wallet_address: None,
                         wallet: None,
                         wallet_session: None,

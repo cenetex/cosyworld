@@ -11,6 +11,8 @@ pub(crate) struct CommandResponse {
     pub(crate) command: String,
     pub(crate) verb: String,
     pub(crate) output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) error_kind: Option<CommandErrorKind>,
     pub(crate) action: Option<CommandActionView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) receipt: Option<CanonicalCommandReceipt>,
@@ -21,7 +23,10 @@ pub(crate) struct CommandResponse {
 pub(crate) struct CommandRequest {
     pub(crate) actor_id: u64,
     pub(crate) actor_session: Option<String>,
+    #[serde(default)]
     pub(crate) command: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) offer_id: Option<String>,
     pub(crate) wallet_address: Option<String>,
     pub(crate) wallet: Option<String>,
     pub(crate) wallet_session: Option<String>,
@@ -29,6 +34,16 @@ pub(crate) struct CommandRequest {
     pub(crate) cards: Option<String>,
     #[serde(default)]
     pub(crate) envelope: Option<CanonicalCommandEnvelope>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CommandErrorKind {
+    ParseFailure,
+    InvalidOfferId,
+    StaleOffer,
+    UnknownOffer,
+    DisabledOffer,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -190,6 +205,7 @@ pub(crate) struct CommandError {
     pub(crate) verb: String,
     pub(crate) status: u32,
     pub(crate) output: String,
+    pub(crate) kind: CommandErrorKind,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -205,6 +221,15 @@ pub(crate) fn normalize_command_text(input: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+pub(crate) fn command_submission_identity(payload: &CommandRequest) -> String {
+    payload
+        .offer_id
+        .as_deref()
+        .map(str::trim)
+        .map(|offer_id| format!("offer_id:{offer_id}"))
+        .unwrap_or_else(|| normalize_command_text(&payload.command))
 }
 
 fn normalize_emote_message(input: &str) -> Option<String> {
@@ -392,6 +417,22 @@ pub(crate) fn command_error(
         verb: verb.to_string(),
         status,
         output: output.into(),
+        kind: CommandErrorKind::ParseFailure,
+    }
+}
+
+pub(crate) fn offer_command_error(
+    _offer_id: &str,
+    kind: CommandErrorKind,
+    status: u32,
+    output: impl Into<String>,
+) -> CommandError {
+    CommandError {
+        command: String::new(),
+        verb: String::new(),
+        status,
+        output: output.into(),
+        kind,
     }
 }
 
@@ -438,6 +479,7 @@ pub(crate) async fn commit_shuffle_hand_command(
             output: Some(
                 "That choice got lost before the room could answer. Try once more.".to_string(),
             ),
+            error_kind: None,
             action: resolved.action,
             receipt: None,
             events: leading_events,
@@ -479,6 +521,7 @@ pub(crate) fn command_action_response_with_prefix_and_events(
         command: resolved.command,
         verb: resolved.verb,
         output,
+        error_kind: None,
         action: resolved.action,
         receipt: None,
         events: response.events,
@@ -580,6 +623,7 @@ pub(crate) fn command_rate_limited_response_with_events(
         command: resolved.command,
         verb: resolved.verb,
         output: Some("The room needs a breath. Try again in a moment.".to_string()),
+        error_kind: None,
         action: resolved.action,
         receipt: None,
         events,
