@@ -26,4 +26,15 @@ describe("two-action browser hand", () => {
     expect(browser).toContain('event.type === "hand.shuffled"');
     expect(browser).toMatch(/function handCapacity\(\) \{\s+return 2;\s+\}/);
   });
+
+  it("submits room-feature Use offers through the typed item endpoint", () => {
+    const featureUseBlock = browser.slice(
+      browser.indexOf('if (options.has("use_feature"))'),
+      browser.indexOf("const routeExits"),
+    );
+    expect(featureUseBlock).toContain('action("/actions/use-item", {');
+    expect(featureUseBlock).toContain("location_id: currentLocationId");
+    expect(featureUseBlock).toContain("feature_key: featureKey");
+    expect(featureUseBlock).not.toContain("runCommandText(command)");
+  });
 });

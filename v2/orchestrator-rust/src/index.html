@@ -5510,7 +5510,12 @@
               modalTitle: `use ${item.name} with ${featureName}`,
               modalSummary: `See what ${item.name} awakens in ${featureName}.`,
               effect,
-              run: () => runCommandText(command),
+              run: () => action("/actions/use-item", {
+                actor_id: actorId,
+                item_id: item.id,
+                location_id: currentLocationId,
+                feature_key: featureKey,
+              }),
             });
           }
         }
@@ -6666,7 +6671,9 @@
       };
       if (path === "/actions/use-item") {
         const selected = actionCard?.selectedMode?.()?.source || actionCard;
-        return (selected?.offerKinds || []).filter((kind) => kind === "use_item");
+        return (selected?.offerKinds || []).filter((kind) => (
+          kind === "use_item" || kind === "use_feature"
+        ));
       }
       const explicitKinds = new Set(actionCard?.offerKinds || []);
       return (byPath[path] || []).filter((kind) => explicitKinds.has(kind));
@@ -6686,6 +6693,9 @@
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
+      if (path === "/actions/use-item" && targetKind === "feature") {
+        return Number(payload.location_id || 0);
+      }
       return 0;
     }
 
@@ -6703,7 +6713,14 @@
           || Number(offer.target.id) === submittedTarget;
         const providerMatches = path !== "/actions/use-item"
           || offer?.provider?.id === `item:${Number(payload.item_id || 0)}`;
-        return contributionMatches && targetMatches && providerMatches;
+        const featureMatches = path !== "/actions/use-item"
+          || offer.kind !== "use_feature"
+          || String(offer.id || "").startsWith(
+            `use_feature:${Number(payload.item_id || 0)}:${Number(payload.location_id || 0)}:`
+          ) && String(offer.id || "").slice(
+            `use_feature:${Number(payload.item_id || 0)}:${Number(payload.location_id || 0)}:`.length
+          ) === String(payload.feature_key || "");
+        return contributionMatches && targetMatches && providerMatches && featureMatches;
       }) || null;
     }
 
