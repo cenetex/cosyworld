@@ -60,6 +60,7 @@ run_fmt() {
 run_tests() {
   (
     cd "$ROOT/orchestrator-rust"
+    export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
     run_with_timeout "running orchestrator cargo test" cargo test
   )
 }
