@@ -7,7 +7,7 @@ use std::{
 };
 
 use axum::{
-    extract::{Path as AxumPath, State},
+    extract::{Path as AxumPath, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -17,13 +17,17 @@ use sha2::{Digest, Sha256};
 use tracing::warn;
 
 use crate::{
-    active_content, backfill_legacy_community_asset, broadcast_events, commit_journal_record,
+    active_content, backfill_legacy_community_asset, broadcast_events,
+    canonical_community_media_asset_bytes, commit_journal_record, evolution_rollout_route,
+    evolution_runtime_observation, freeze_approved_community_media_reference,
     immutable_media_asset_bytes, is_safe_image_content_type, now_millis,
     reconcile_community_media_asset_status, record_ai_usage_for_provider,
-    register_generated_media_asset, request_image_policy_decision, request_replicate_art, AiConfig,
-    AppState, CwAction, EventView, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
-    MediaAssetProvenance, ProjectionMutation, ReplicateAvatarArtConfig, RuntimeWorld,
-    CW_ACTION_NONE, CW_OK,
+    register_derived_community_media_asset, register_generated_media_asset,
+    request_image_policy_decision, request_replicate_art, request_replicate_evolution_art,
+    AiConfig, AppState, CwAction, EventView, EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob,
+    FrozenMediaAssetReference, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
+    MediaAssetProvenance, ProjectionMutation, PublicArtHistoryEvent, ReplicateAvatarArtConfig,
+    RuntimeWorld, CW_ACTION_NONE, CW_OK, EVOLUTION_CANARY_MODEL_REVISION,
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
@@ -88,6 +92,8 @@ pub(super) struct CommunityArtGenerationState {
     pub(super) last_error_code: Option<String>,
     #[serde(default)]
     pub(super) status_event_seq: Option<u64>,
+    #[serde(default)]
+    pub(super) evolution_job: Option<FrozenCommunityArtEvolutionJob>,
 }
 
 #[derive(Clone, Debug)]
@@ -101,6 +107,11 @@ pub(super) struct CommunityArtPlan {
     pub(super) prompt: String,
     pub(super) aspect_ratio: &'static str,
     pub(super) image_policy: Option<CommunityArtImagePolicy>,
+    pub(super) persisted_identity: String,
+    pub(super) persisted_visual_description: String,
+    pub(super) stable_traits: Vec<String>,
+    pub(super) public_history: Vec<PublicArtHistoryEvent>,
+    pub(super) evolution_job: Option<FrozenCommunityArtEvolutionJob>,
 }
 
 impl CommunityArtPlan {
@@ -114,6 +125,56 @@ impl CommunityArtPlan {
             candidate_exists,
             self.generation_profile_version,
         )
+    }
+}
+
+pub(super) fn freeze_community_art_evolution(
+    generated_asset_dir: &Path,
+    plan: &mut CommunityArtPlan,
+) -> Result<(), String> {
+    if plan.level <= 1 {
+        return Ok(());
+    }
+    if let Some(job) = plan.evolution_job.as_ref() {
+        return job.validate();
+    }
+    let prior_level = plan.level.saturating_sub(1);
+    let prior = freeze_approved_community_media_reference(
+        generated_asset_dir,
+        &plan.subject_kind,
+        plan.subject_id,
+        prior_level,
+        plan.history_through_seq,
+    )?;
+    plan.evolution_job = Some(FrozenCommunityArtEvolutionJob::freeze(
+        &plan.subject_kind,
+        plan.subject_id,
+        &plan.persisted_identity,
+        &plan.persisted_visual_description,
+        plan.stable_traits.clone(),
+        &plan.public_history,
+        prior_level,
+        prior.asset_id,
+        prior.content_digest,
+        prior.mime_type,
+        prior.history_through_seq,
+        plan.history_through_seq,
+        plan.level,
+        1,
+        plan.aspect_ratio,
+    )?);
+    Ok(())
+}
+
+fn frozen_evolution_reference(job: &FrozenCommunityArtEvolutionJob) -> FrozenMediaAssetReference {
+    FrozenMediaAssetReference {
+        subject_kind: job.subject_kind.clone(),
+        subject_id: job.subject_id,
+        level: job.prior_level,
+        asset_id: job.prior_asset_id.clone(),
+        content_digest: job.prior_asset_digest.clone(),
+        mime_type: job.prior_mime_type.clone(),
+        history_through_seq: job.prior_history_through_seq,
     }
 }
 
@@ -162,6 +223,8 @@ struct CommunityArtCandidateMetadata {
     #[serde(default)]
     prediction_id: Option<String>,
     sha256: String,
+    #[serde(default)]
+    evolution_canary: bool,
 }
 
 #[derive(Debug)]
@@ -219,6 +282,7 @@ pub(super) struct CommunityArtGenerationOutcome {
     pub(super) prediction_id: Option<String>,
     pub(super) reused_candidate: bool,
     pub(super) asset_id: Option<String>,
+    pub(super) evolution_canary: bool,
 }
 
 pub(super) fn community_art_generation_retryable(
@@ -295,6 +359,311 @@ pub(super) fn build_community_art_prompt(
 }
 
 impl RuntimeWorld {
+    fn actor_community_art_details(&self, actor_id: u64, card: &crate::CardView) -> String {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return String::new();
+        };
+        let mut facts = vec![format!("authoritative level {}", actor.stats.level)];
+        if let Some(identity) = self.character_identities.get(&actor_id) {
+            if let Some(profile) = crate::character_creation_profile(Some(&identity.profile_id)) {
+                if let Some(species) = profile
+                    .species
+                    .iter()
+                    .find(|species| species.id == identity.species_id)
+                {
+                    facts.push(format!("species: {}", species.label));
+                    facts.push(format!("species appearance: {}", species.visual_prompt));
+                }
+                if let Some(origin) = profile
+                    .origins
+                    .iter()
+                    .find(|origin| origin.id == identity.origin_id)
+                {
+                    facts.push(format!("origin: {}", origin.label));
+                    facts.push(format!("origin details: {}", origin.visual_prompt));
+                }
+                if let Some(class) = identity.class_id.as_deref().and_then(|class_id| {
+                    profile.choices.iter().find(|choice| choice.id == class_id)
+                }) {
+                    facts.push(format!("class: {}", class.label));
+                    facts.push(format!("class gear and bearing: {}", class.description));
+                } else {
+                    facts.push("class: classless traveler".to_string());
+                }
+            }
+            if !identity.physical_description.trim().is_empty() {
+                facts.push(format!(
+                    "stable physical description: {}",
+                    identity.physical_description
+                ));
+            }
+        } else {
+            facts.push(format!(
+                "stable physical description: {}",
+                crate::avatar_visual_prompt(&card.display_name, &card.title, &card.blurb)
+            ));
+        }
+        if let Some(calling) = self.callings.get(&actor_id) {
+            facts.push(format!("calling: {}", calling.statement));
+        }
+        if let Some(location) = self.location_name(actor.location_id) {
+            facts.push(format!("current setting: {location}"));
+        }
+        let carried = self
+            .actor_held_items(actor_id)
+            .into_iter()
+            .take(8)
+            .map(|item| {
+                let name = self
+                    .item_name(item.id)
+                    .unwrap_or_else(|| format!("Item {}", item.id));
+                format!(
+                    "{name} ({})",
+                    crate::card_zone(item.zone, item.holder_actor_id, item.location_id)
+                )
+            })
+            .collect::<Vec<_>>();
+        if carried.is_empty() {
+            facts.push("carried items: none".to_string());
+        } else {
+            facts.push(format!(
+                "carried and equipped items: {}",
+                carried.join(", ")
+            ));
+        }
+        facts.join(". ")
+    }
+
+    fn item_community_art_details(&self, item: crate::CwItem) -> String {
+        let mut facts = vec![
+            format!("item type: {}", crate::item_kind(item.kind)),
+            format!("equipment role: {}", crate::item_role(item.role)),
+            format!("size: {}", crate::item_size(item.size_class)),
+        ];
+        if item.charges > 0 {
+            facts.push(format!("remaining charges: {}", item.charges));
+        }
+        if item.holder_actor_id != 0 {
+            facts.push(format!(
+                "carried by: {}",
+                self.actor_name(item.holder_actor_id)
+                    .unwrap_or_else(|| format!("Avatar {}", item.holder_actor_id))
+            ));
+            facts.push(format!(
+                "card zone: {}",
+                crate::card_zone(item.zone, item.holder_actor_id, item.location_id)
+            ));
+        } else if let Some(location) = self.location_name(item.location_id) {
+            facts.push(format!("current setting: {location}"));
+        }
+        facts.join(". ")
+    }
+
+    fn location_community_art_details(&self, location_id: u64) -> String {
+        let meta = self.location_meta_for(location_id);
+        let mut facts = Vec::new();
+        if !meta.biome.trim().is_empty() {
+            facts.push(format!("biome: {}", meta.biome));
+        }
+        if !meta.terrain.is_empty() {
+            facts.push(format!("terrain: {}", meta.terrain.join(", ")));
+        }
+        if let Some(art_prompt) = meta
+            .art_prompt
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            facts.push(format!("reviewed landscape brief: {art_prompt}"));
+        }
+        if let Some(sheet) = self.room_sheets.get(&location_id) {
+            if !sheet.aspects.is_empty() {
+                facts.push(format!("defining aspects: {}", sheet.aspects.join(", ")));
+            }
+            if !sheet.boons.is_empty() {
+                facts.push(format!("visible boons: {}", sheet.boons.join(", ")));
+            }
+            if !sheet.hooks.is_empty() {
+                facts.push(format!("visible hooks: {}", sheet.hooks.join(", ")));
+            }
+        }
+        facts.join(". ")
+    }
+
+    pub(super) fn community_art_plan(
+        &self,
+        contributor_actor_id: u64,
+        subject_kind: &str,
+        subject_id: u64,
+    ) -> Result<CommunityArtPlan, String> {
+        let contributor = self
+            .actor_by_id(contributor_actor_id)
+            .filter(|actor| Self::actor_can_act(*actor))
+            .ok_or_else(|| "The contributing avatar is no longer active.".to_string())?;
+        let level = self
+            .community_art_subject_level(subject_kind, subject_id)
+            .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
+        let (card, visible, aspect_ratio, subject_details, image_policy) = match subject_kind {
+            "actor" => {
+                let actor = self
+                    .actor_by_id(subject_id)
+                    .ok_or_else(|| "That avatar is no longer here.".to_string())?;
+                let meta = self
+                    .actors
+                    .get(&subject_id)
+                    .cloned()
+                    .unwrap_or(crate::ActorMeta {
+                        name: format!("Avatar {subject_id}"),
+                        speech_mode: "prose".to_string(),
+                        title: "World Traveler".to_string(),
+                        description: String::new(),
+                    });
+                let card = crate::card_for_actor(
+                    subject_id,
+                    &meta.name,
+                    &meta.title,
+                    &meta.description,
+                    actor.stats.level,
+                );
+                (
+                    card.clone(),
+                    actor.location_id == contributor.location_id,
+                    "2:3",
+                    self.actor_community_art_details(subject_id, &card),
+                    None,
+                )
+            }
+            "item" => {
+                let item = self.world.items[..self.world.item_count]
+                    .iter()
+                    .find(|item| item.id == subject_id)
+                    .ok_or_else(|| "That item is no longer in the world.".to_string())?;
+                let meta = self
+                    .items
+                    .get(&subject_id)
+                    .cloned()
+                    .unwrap_or(crate::ItemMeta {
+                        name: format!("Item {subject_id}"),
+                        description: "A found keepsake.".to_string(),
+                        skill_id: None,
+                        skill_bonus: 0,
+                        mechanics: None,
+                    });
+                (
+                    crate::card_for_item(subject_id, &meta.name, &meta.description),
+                    item.holder_actor_id == contributor_actor_id
+                        || (item.holder_actor_id == 0
+                            && item.location_id == contributor.location_id),
+                    "1:1",
+                    self.item_community_art_details(*item),
+                    None,
+                )
+            }
+            "location" => {
+                let name = self
+                    .location_name(subject_id)
+                    .ok_or_else(|| "That location is no longer on the shared map.".to_string())?;
+                let visible = subject_id == contributor.location_id
+                    || self.world.exits[..self.world.exit_count]
+                        .iter()
+                        .any(|exit| {
+                            exit.from_location_id == contributor.location_id
+                                && exit.to_location_id == subject_id
+                        });
+                (
+                    crate::card_for_location(
+                        subject_id,
+                        &name,
+                        Some(&self.location_meta_for(subject_id)),
+                    ),
+                    visible,
+                    "16:9",
+                    self.location_community_art_details(subject_id),
+                    Some(CommunityArtImagePolicy::LocationLandscape),
+                )
+            }
+            _ => return Err("Unknown community-art subject.".to_string()),
+        };
+        if !visible {
+            return Err("That card is not visible from here.".to_string());
+        }
+        let history_through_seq = self.world.next_event_seq.saturating_sub(1);
+        let public_history = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| match subject_kind {
+                "actor" => {
+                    event.actor_id == Some(subject_id) || event.target_actor_id == Some(subject_id)
+                }
+                "item" => {
+                    event.item_id == Some(subject_id) || event.target_item_id == Some(subject_id)
+                }
+                "location" => {
+                    event.location_id == Some(subject_id)
+                        || event.destination_location_id == Some(subject_id)
+                }
+                _ => false,
+            })
+            .take(12)
+            .map(|event| PublicArtHistoryEvent {
+                seq: event.seq,
+                summary: event
+                    .content
+                    .as_deref()
+                    .filter(|content| !content.trim().is_empty())
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| event.type_name.replace('.', " ")),
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>();
+        let history_entries = public_history
+            .iter()
+            .map(|event| event.summary.clone())
+            .collect::<Vec<_>>();
+        let history = community_art_prompt_history(subject_kind, &history_entries);
+        let prompt = build_community_art_prompt(
+            subject_kind,
+            &card.display_name,
+            &card.title,
+            &card.blurb,
+            level,
+            &subject_details,
+            &history,
+            image_policy,
+        );
+        let persisted_identity = format!("{} — {}", card.display_name, card.title);
+        let stable_traits =
+            crate::stable_art_traits(subject_kind, &persisted_identity, &subject_details);
+        let persisted_visual_description = stable_traits.join(". ");
+        let existing_evolution_job = self
+            .community_art_generations
+            .get(&community_art_generation_key(
+                subject_kind,
+                subject_id,
+                level,
+            ))
+            .and_then(|generation| generation.evolution_job.clone());
+        Ok(CommunityArtPlan {
+            subject_kind: subject_kind.to_string(),
+            subject_id,
+            level,
+            generation_profile_version: community_art_generation_profile_version(subject_kind),
+            required_orbs: i32::from(level.max(1)),
+            history_through_seq,
+            prompt,
+            aspect_ratio,
+            image_policy,
+            persisted_identity,
+            persisted_visual_description,
+            stable_traits,
+            public_history,
+            evolution_job: existing_evolution_job,
+        })
+    }
+
     #[allow(clippy::too_many_arguments)] // Mirrors the durable funding mutation fields.
     pub(super) fn apply_fund_community_art_projection(
         &mut self,
@@ -306,6 +675,7 @@ impl RuntimeWorld {
         intent_id: &str,
         amount: i32,
         history_through_seq: u64,
+        evolution_job: Option<FrozenCommunityArtEvolutionJob>,
     ) -> Option<EventView> {
         let key = community_art_generation_key(subject_kind, subject_id, level);
         let generation = self
@@ -327,7 +697,11 @@ impl RuntimeWorld {
                 last_prediction_id: None,
                 last_error_code: None,
                 status_event_seq: None,
+                evolution_job: evolution_job.clone(),
             });
+        if generation.evolution_job.is_none() {
+            generation.evolution_job = evolution_job;
+        }
         if !intent_id.is_empty() && !generation.funding_intent_ids.insert(intent_id.to_string()) {
             return None;
         }
@@ -492,52 +866,121 @@ pub(super) async fn generate_and_store_community_art(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,
 ) -> CommunityArtGenerationOutcome {
-    let (image, reused_candidate) = match load_community_art_candidate(generated_asset_dir, plan) {
-        Ok(Some(image)) => (image, true),
-        Ok(None) => {
-            let prompt = community_art_generation_request(config, plan);
-            let image = match request_replicate_art(
-                config,
-                prompt,
-                plan.aspect_ratio,
-                &plan.subject_kind,
-                plan.subject_id,
-                plan.level,
-            )
-            .await
-            {
-                Ok(image) => image,
-                Err(error) => {
-                    return CommunityArtGenerationOutcome {
-                        result: Err(CommunityArtGenerationError::Provider(error)),
-                        prediction_id: None,
-                        reused_candidate: false,
-                        asset_id: None,
-                    };
-                }
-            };
-            if plan.image_policy.is_some() {
-                if let Err(error) = store_community_art_candidate(generated_asset_dir, plan, &image)
-                {
-                    return CommunityArtGenerationOutcome {
-                        prediction_id: image.prediction_id.clone(),
-                        result: Err(CommunityArtGenerationError::Storage(error)),
-                        reused_candidate: false,
-                        asset_id: None,
-                    };
-                }
+    let evolution_route = match plan.evolution_job.as_ref() {
+        Some(job) => match evolution_runtime_observation(&job.evaluation_profile)
+            .and_then(|observation| evolution_rollout_route(job, observation.as_ref()))
+        {
+            Ok(route) => route,
+            Err(error) => {
+                return CommunityArtGenerationOutcome {
+                    result: Err(CommunityArtGenerationError::Provider(error)),
+                    prediction_id: None,
+                    reused_candidate: false,
+                    asset_id: None,
+                    evolution_canary: false,
+                };
             }
-            (image, false)
-        }
-        Err(error) => {
-            return CommunityArtGenerationOutcome {
-                result: Err(CommunityArtGenerationError::Storage(error)),
-                prediction_id: None,
-                reused_candidate: true,
-                asset_id: None,
-            };
-        }
+        },
+        None => EvolutionRolloutRoute::Incumbent,
     };
+    let selected_evolution_canary = evolution_route == EvolutionRolloutRoute::Canary;
+    let (image, reused_candidate, evolution_canary) =
+        match load_route_compatible_community_art_candidate(
+            generated_asset_dir,
+            plan,
+            evolution_route,
+        ) {
+            Ok(Some((image, stored_evolution_canary))) => (image, true, stored_evolution_canary),
+            Ok(None) => {
+                let prompt = community_art_generation_request(config, plan);
+                let evolution_reference =
+                    plan.evolution_job.as_ref().map(frozen_evolution_reference);
+                let evolution_request = || async {
+                    let job = plan
+                        .evolution_job
+                        .as_ref()
+                        .ok_or_else(|| "evolution route is missing its frozen job".to_string())?;
+                    let reference = evolution_reference.as_ref().ok_or_else(|| {
+                        "evolution route is missing its frozen prior-level reference".to_string()
+                    })?;
+                    request_replicate_evolution_art(config, generated_asset_dir, job, reference)
+                        .await
+                };
+                let base_request = || {
+                    request_replicate_art(
+                        config,
+                        prompt.clone(),
+                        plan.aspect_ratio,
+                        &plan.subject_kind,
+                        plan.subject_id,
+                        plan.level,
+                    )
+                };
+                let request = match evolution_route {
+                    EvolutionRolloutRoute::Canary => evolution_request().await,
+                    EvolutionRolloutRoute::Shadow => {
+                        let (incumbent, shadow) = tokio::join!(base_request(), evolution_request());
+                        match shadow {
+                            Ok(shadow) => {
+                                if let Err(error) =
+                                    store_community_art_shadow(generated_asset_dir, plan, &shadow)
+                                {
+                                    warn!("failed to store private evolution shadow: {error}");
+                                }
+                            }
+                            Err(error) => warn!("evolution shadow comparison failed: {error}"),
+                        }
+                        incumbent
+                    }
+                    EvolutionRolloutRoute::Incumbent | EvolutionRolloutRoute::AutomaticRollback => {
+                        base_request().await
+                    }
+                };
+                let image = match request {
+                    Ok(image) => image,
+                    Err(error) => {
+                        return CommunityArtGenerationOutcome {
+                            result: Err(CommunityArtGenerationError::Provider(error)),
+                            prediction_id: None,
+                            reused_candidate: false,
+                            asset_id: None,
+                            evolution_canary: selected_evolution_canary,
+                        };
+                    }
+                };
+                if plan.image_policy.is_some() || plan.evolution_job.is_some() {
+                    let stored = if selected_evolution_canary {
+                        store_community_art_candidate_with_route(
+                            generated_asset_dir,
+                            plan,
+                            &image,
+                            true,
+                        )
+                    } else {
+                        store_community_art_candidate(generated_asset_dir, plan, &image)
+                    };
+                    if let Err(error) = stored {
+                        return CommunityArtGenerationOutcome {
+                            prediction_id: image.prediction_id.clone(),
+                            result: Err(CommunityArtGenerationError::Storage(error)),
+                            reused_candidate: false,
+                            asset_id: None,
+                            evolution_canary: selected_evolution_canary,
+                        };
+                    }
+                }
+                (image, false, selected_evolution_canary)
+            }
+            Err(error) => {
+                return CommunityArtGenerationOutcome {
+                    result: Err(CommunityArtGenerationError::Storage(error)),
+                    prediction_id: None,
+                    reused_candidate: true,
+                    asset_id: None,
+                    evolution_canary: selected_evolution_canary,
+                };
+            }
+        };
 
     let prediction_id = image.prediction_id.clone();
     let result = async {
@@ -566,17 +1009,48 @@ pub(super) async fn generate_and_store_community_art(
                 ));
             }
         }
-        store_community_art_image(generated_asset_dir, plan, &image)
-            .map_err(CommunityArtGenerationError::Storage)?;
-        register_generated_media_asset(
-            generated_asset_dir,
-            &plan.subject_kind,
-            plan.subject_id,
-            plan.level,
-            &image.bytes,
-            &image.content_type,
-            community_art_asset_provenance(config, plan, image.prediction_id.clone()),
-        )
+        if plan.evolution_job.is_none() {
+            store_community_art_image(generated_asset_dir, plan, &image)
+                .map_err(CommunityArtGenerationError::Storage)?;
+        }
+        let provenance = community_art_asset_provenance(
+            config,
+            plan,
+            image.prediction_id.clone(),
+            evolution_canary,
+        );
+        if evolution_canary {
+            let frozen_reference = plan
+                .evolution_job
+                .as_ref()
+                .map(frozen_evolution_reference)
+                .ok_or_else(|| {
+                    CommunityArtGenerationError::Storage(
+                        "evolution candidate is missing its frozen job".to_string(),
+                    )
+                })?;
+            register_derived_community_media_asset(
+                generated_asset_dir,
+                &plan.subject_kind,
+                plan.subject_id,
+                plan.level,
+                &image.bytes,
+                &image.content_type,
+                &frozen_reference,
+                plan.aspect_ratio,
+                provenance,
+            )
+        } else {
+            register_generated_media_asset(
+                generated_asset_dir,
+                &plan.subject_kind,
+                plan.subject_id,
+                plan.level,
+                &image.bytes,
+                &image.content_type,
+                provenance,
+            )
+        }
         .map_err(CommunityArtGenerationError::Storage)
     }
     .await;
@@ -590,6 +1064,7 @@ pub(super) async fn generate_and_store_community_art(
         prediction_id,
         reused_candidate,
         asset_id,
+        evolution_canary,
     }
 }
 
@@ -597,6 +1072,7 @@ fn community_art_asset_provenance(
     config: &ReplicateAvatarArtConfig,
     plan: &CommunityArtPlan,
     prediction_id: Option<String>,
+    evolution_canary: bool,
 ) -> MediaAssetProvenance {
     let manifest = &active_content().manifest;
     MediaAssetProvenance {
@@ -606,16 +1082,33 @@ fn community_art_asset_provenance(
             "community-art:{}:{}:level:{}",
             plan.subject_kind, plan.subject_id, plan.level
         ),
-        composition_revision: plan.generation_profile_version.to_string(),
+        composition_revision: plan
+            .evolution_job
+            .as_ref()
+            .and_then(|job| job.digest().ok())
+            .unwrap_or_else(|| plan.generation_profile_version.to_string()),
         provider: "replicate".to_string(),
-        model: config.model.clone(),
-        model_version: config
-            .version
-            .clone()
-            .unwrap_or_else(|| "provider-default".to_string()),
+        model: if evolution_canary {
+            "black-forest-labs/flux-2-dev".to_string()
+        } else {
+            config.model.clone()
+        },
+        model_version: if evolution_canary {
+            EVOLUTION_CANARY_MODEL_REVISION.to_string()
+        } else {
+            config
+                .version
+                .clone()
+                .unwrap_or_else(|| "provider-default".to_string())
+        },
         prompt_version: format!(
-            "cosyworld.community-art.generation-profile/{}",
-            plan.generation_profile_version
+            "cosyworld.community-art.generation-profile/{}/{}",
+            plan.generation_profile_version,
+            if evolution_canary {
+                "flux2-canary"
+            } else {
+                "incumbent"
+            }
         ),
         seed: None,
         prediction_id,
@@ -835,7 +1328,19 @@ pub(super) fn schedule_community_art_generation(
                     key
                 );
             }
-            if let Err(error) = remove_community_art_candidate(&state.generated_asset_dir, &plan) {
+            let published = if plan.evolution_job.is_some() {
+                publish_community_art_candidate(&state.generated_asset_dir, &plan)
+            } else {
+                Ok(())
+            };
+            if let Err(error) = published {
+                warn!(
+                    "failed to publish approved evolution candidate for {}: {}",
+                    key, error
+                );
+            } else if let Err(error) =
+                remove_community_art_candidate(&state.generated_asset_dir, &plan)
+            {
                 warn!(
                     "failed to remove published community art candidate for {}: {}",
                     key, error
@@ -845,7 +1350,11 @@ pub(super) fn schedule_community_art_generation(
         record_ai_usage_for_provider(
             &state,
             Some(actor_id),
-            "community_image_generation",
+            if outcome.evolution_canary {
+                "community_image_evolution_canary"
+            } else {
+                "community_image_generation"
+            },
             "community_orbs",
             "replicate",
             &config.model,
@@ -864,10 +1373,28 @@ pub(super) fn schedule_community_art_generation(
     });
 }
 
-fn store_community_art_image(
+pub(super) fn publish_community_art_candidate(
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+) -> Result<(), String> {
+    let image = load_community_art_candidate(generated_asset_dir, plan)?
+        .ok_or_else(|| "approved evolution candidate is missing".to_string())?;
+    store_community_art_image_with_route(generated_asset_dir, plan, &image.0, image.1)
+}
+
+pub(super) fn store_community_art_image(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,
     image: &DownloadedReplicateImage,
+) -> Result<(), String> {
+    store_community_art_image_with_route(generated_asset_dir, plan, image, false)
+}
+
+fn store_community_art_image_with_route(
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+    image: &DownloadedReplicateImage,
+    evolution_canary: bool,
 ) -> Result<(), String> {
     let path =
         stored_community_art_image_path(generated_asset_dir, &plan.subject_kind, plan.subject_id);
@@ -881,7 +1408,13 @@ fn store_community_art_image(
         &plan.subject_kind,
         plan.subject_id,
     );
-    store_community_art_bundle(&path, &content_type_path, &metadata_path, image)
+    store_community_art_bundle(
+        &path,
+        &content_type_path,
+        &metadata_path,
+        image,
+        evolution_canary,
+    )
 }
 
 pub(super) fn store_community_art_candidate(
@@ -889,11 +1422,40 @@ pub(super) fn store_community_art_candidate(
     plan: &CommunityArtPlan,
     image: &DownloadedReplicateImage,
 ) -> Result<(), String> {
+    store_community_art_candidate_with_route(generated_asset_dir, plan, image, false)
+}
+
+pub(super) fn store_community_art_candidate_with_route(
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+    image: &DownloadedReplicateImage,
+    evolution_canary: bool,
+) -> Result<(), String> {
     store_community_art_bundle(
         &community_art_candidate_image_path(generated_asset_dir, plan),
         &community_art_candidate_content_type_path(generated_asset_dir, plan),
         &community_art_candidate_metadata_path(generated_asset_dir, plan),
         image,
+        evolution_canary,
+    )
+}
+
+fn store_community_art_shadow(
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+    image: &DownloadedReplicateImage,
+) -> Result<(), String> {
+    let directory = generated_asset_dir
+        .join("media-evolution-shadow")
+        .join(&plan.subject_kind)
+        .join(plan.subject_id.to_string());
+    let stem = format!("level-{}", plan.level);
+    store_community_art_bundle(
+        &directory.join(format!("{stem}.image")),
+        &directory.join(format!("{stem}.content-type")),
+        &directory.join(format!("{stem}.metadata.json")),
+        image,
+        true,
     )
 }
 
@@ -902,12 +1464,13 @@ fn store_community_art_bundle(
     content_type_path: &Path,
     metadata_path: &Path,
     image: &DownloadedReplicateImage,
+    evolution_canary: bool,
 ) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    let metadata =
-        serde_json::to_vec(&community_art_candidate_metadata(image)).map_err(|e| e.to_string())?;
+    let metadata = serde_json::to_vec(&community_art_candidate_metadata(image, evolution_canary))
+        .map_err(|e| e.to_string())?;
     let temporary_suffix = format!("{}-{}", std::process::id(), now_millis());
     let file_stem = path
         .file_name()
@@ -939,6 +1502,7 @@ fn store_community_art_bundle(
 
 fn community_art_candidate_metadata(
     image: &DownloadedReplicateImage,
+    evolution_canary: bool,
 ) -> CommunityArtCandidateMetadata {
     CommunityArtCandidateMetadata {
         schema_version: COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION,
@@ -946,13 +1510,14 @@ fn community_art_candidate_metadata(
         source_url: image.source_url.clone(),
         prediction_id: image.prediction_id.clone(),
         sha256: format!("{:x}", Sha256::digest(&image.bytes)),
+        evolution_canary,
     }
 }
 
 fn load_community_art_candidate(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,
-) -> Result<Option<DownloadedReplicateImage>, String> {
+) -> Result<Option<(DownloadedReplicateImage, bool)>, String> {
     let image_path = community_art_candidate_image_path(generated_asset_dir, plan);
     if !image_path.exists() {
         return Ok(None);
@@ -977,12 +1542,37 @@ fn load_community_art_candidate(
     {
         return Err("stored community-art candidate metadata did not match its image".to_string());
     }
-    Ok(Some(DownloadedReplicateImage {
-        bytes,
-        content_type,
-        source_url: metadata.source_url,
-        prediction_id: metadata.prediction_id,
-    }))
+    Ok(Some((
+        DownloadedReplicateImage {
+            bytes,
+            content_type,
+            source_url: metadata.source_url,
+            prediction_id: metadata.prediction_id,
+        },
+        metadata.evolution_canary,
+    )))
+}
+
+pub(super) fn load_route_compatible_community_art_candidate(
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+    route: EvolutionRolloutRoute,
+) -> Result<Option<(DownloadedReplicateImage, bool)>, String> {
+    let Some((image, stored_evolution_canary)) =
+        load_community_art_candidate(generated_asset_dir, plan)?
+    else {
+        return Ok(None);
+    };
+    let route_uses_evolution_canary = route == EvolutionRolloutRoute::Canary;
+    if stored_evolution_canary == route_uses_evolution_canary {
+        return Ok(Some((image, stored_evolution_canary)));
+    }
+
+    if stored_evolution_canary {
+        store_community_art_shadow(generated_asset_dir, plan, &image)?;
+    }
+    remove_community_art_candidate(generated_asset_dir, plan)?;
+    Ok(None)
 }
 
 fn community_art_candidate_data_url(
@@ -1103,6 +1693,7 @@ pub(super) fn community_art_image_url(
 pub(super) async fn generated_community_art_asset(
     State(state): State<AppState>,
     AxumPath((subject_kind, asset_file)): AxumPath<(String, String)>,
+    Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
     if !matches!(subject_kind.as_str(), "actor" | "item" | "location") {
         return (StatusCode::NOT_FOUND, "unknown community artwork").into_response();
@@ -1115,17 +1706,22 @@ pub(super) async fn generated_community_art_asset(
     };
     let generation = {
         let runtime = state.inner.lock().await;
+        let Some(current_level) = runtime.community_art_subject_level(&subject_kind, subject_id)
+        else {
+            return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
+        };
+        let requested_level = query
+            .get("level")
+            .and_then(|value| value.parse::<u8>().ok())
+            .filter(|level| *level > 0 && *level <= current_level)
+            .unwrap_or(current_level);
         runtime
-            .community_art_subject_level(&subject_kind, subject_id)
-            .and_then(|level| {
-                runtime
-                    .community_art_generations
-                    .get(&crate::community_art_generation_key(
-                        &subject_kind,
-                        subject_id,
-                        level,
-                    ))
-            })
+            .community_art_generations
+            .get(&crate::community_art_generation_key(
+                &subject_kind,
+                subject_id,
+                requested_level,
+            ))
             .cloned()
     };
     let Some(generation) = generation else {
@@ -1163,21 +1759,31 @@ pub(super) async fn generated_community_art_asset(
         .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or_else(now_millis);
-    let immutable = backfill_legacy_community_asset(
-        &state.generated_asset_dir,
-        MediaAssetBackfill {
-            subject_kind: subject_kind.clone(),
+    let immutable = if generation.evolution_job.is_some() {
+        canonical_community_media_asset_bytes(
+            &state.generated_asset_dir,
+            &subject_kind,
             subject_id,
-            level: generation.level,
-            revision: generation.revision.max(1),
-            image_path: path.clone(),
-            content_type_path,
-            metadata_path: metadata_path.is_file().then_some(metadata_path),
-            created_at_ms,
-            provenance: legacy_community_art_asset_provenance(&state, &generation),
-        },
-    )
-    .and_then(|asset_id| immutable_media_asset_bytes(&state.generated_asset_dir, &asset_id));
+            generation.level,
+            generation.last_prediction_id.as_deref(),
+        )
+    } else {
+        backfill_legacy_community_asset(
+            &state.generated_asset_dir,
+            MediaAssetBackfill {
+                subject_kind: subject_kind.clone(),
+                subject_id,
+                level: generation.level,
+                revision: generation.revision.max(1),
+                image_path: path.clone(),
+                content_type_path,
+                metadata_path: metadata_path.is_file().then_some(metadata_path),
+                created_at_ms,
+                provenance: legacy_community_art_asset_provenance(&state, &generation),
+            },
+        )
+        .and_then(|asset_id| immutable_media_asset_bytes(&state.generated_asset_dir, &asset_id))
+    };
     let (bytes, content_type) = match immutable {
         Ok(asset) => asset,
         Err(error) => {
@@ -1185,6 +1791,9 @@ pub(super) async fn generated_community_art_asset(
                 "failed to backfill immutable community artwork {}:{}: {}",
                 subject_kind, subject_id, error
             );
+            if generation.evolution_job.is_some() {
+                return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
+            }
             let Ok(bytes) = fs::read(path) else {
                 return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
             };

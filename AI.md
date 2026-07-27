@@ -294,6 +294,22 @@ an arbitrary enabled recipe. These controls do not change world state. The
 default base profile continues to use the existing FLUX.1 LoRA request and
 community Orb funding/output path.
 
+Later-level art freezes an approved canonical prior-level asset, including its
+content digest and history boundary, before funding commits. The persisted
+evolution job contains the subject's identity and visual description, stable
+traits, the bounded public event delta after that prior boundary, target
+level/revision/crop, and negative constraints. Only the pinned FLUX.2
+single-reference recipe may consume that certified `prior_level` input. The
+incumbent FLUX.1 recipe remains the default route; the reviewed evolution
+contract at `v2/media/evolution-canary.json` records completed shadow
+comparison and an independently gated 5% canary across avatar, item, and
+location dark/light profiles. Runtime observations automatically disable only
+the weak profile and route it back to the incumbent without changing world
+state. Candidates remain private until the durable ready transition, so a
+failed or rejected evolution spends no additional Orbs and leaves the prior
+approved image public. Run `npm run v2:media:evolution` for the checked corpus
+report and comparison chart.
+
 Media intents:
 
 - `avatar_portrait`: 1:1 usable crop for the player avatar and card top square.

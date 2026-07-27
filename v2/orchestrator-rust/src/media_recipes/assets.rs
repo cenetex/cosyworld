@@ -223,6 +223,17 @@ pub(crate) struct MediaAssetBackfill {
     pub(crate) provenance: MediaAssetProvenance,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct FrozenMediaAssetReference {
+    pub(crate) subject_kind: String,
+    pub(crate) subject_id: u64,
+    pub(crate) level: u8,
+    pub(crate) asset_id: String,
+    pub(crate) content_digest: String,
+    pub(crate) mime_type: String,
+    pub(crate) history_through_seq: u64,
+}
+
 #[derive(Clone, Debug)]
 struct MediaReferenceRequirement {
     slot: MediaReferenceSlot,
@@ -536,6 +547,157 @@ pub(crate) fn immutable_media_asset_bytes(
         .ok_or_else(|| format!("unknown immutable media asset {asset_id}"))?;
     let bytes = read_and_verify_object(root, asset)?;
     Ok((bytes, asset.mime_type.clone()))
+}
+
+pub(crate) fn canonical_community_media_asset_bytes(
+    root: &Path,
+    subject_kind: &str,
+    subject_id: u64,
+    level: u8,
+    prediction_id: Option<&str>,
+) -> Result<(Vec<u8>, String), String> {
+    let key = canonical_subject_key(
+        MediaAssetSubjectKind::parse(subject_kind)?,
+        subject_id,
+        level,
+    );
+    let _guard = graph_lock()?;
+    let graph = load_graph(root)?;
+    let asset_id = graph
+        .canonical
+        .get(&key)
+        .ok_or_else(|| format!("no approved canonical media asset for {key}"))?;
+    let asset = graph
+        .assets
+        .get(asset_id)
+        .ok_or_else(|| format!("canonical media asset {asset_id} is missing"))?;
+    if effective_moderation_state(&graph, asset) != MediaAssetModerationState::Approved
+        || prediction_id.is_some_and(|prediction_id| {
+            asset.provenance.prediction_id.as_deref() != Some(prediction_id)
+        })
+    {
+        return Err(format!(
+            "canonical media asset {asset_id} does not match the approved generation"
+        ));
+    }
+    Ok((
+        read_and_verify_object(root, asset)?,
+        asset.mime_type.clone(),
+    ))
+}
+
+pub(crate) fn freeze_approved_community_media_reference(
+    root: &Path,
+    subject_kind: &str,
+    subject_id: u64,
+    level: u8,
+    history_through_seq: u64,
+) -> Result<FrozenMediaAssetReference, String> {
+    let subject_kind_value = MediaAssetSubjectKind::parse(subject_kind)?;
+    let subject_key = canonical_subject_key(subject_kind_value, subject_id, level);
+    let _guard = graph_lock()?;
+    let graph = load_graph(root)?;
+    if graph.reference_holds.contains_key(&subject_key) {
+        return Err(format!(
+            "media references for {subject_key} are held pending lifecycle reconciliation"
+        ));
+    }
+    let asset_id = canonical_asset_as_of(&graph, &subject_key, history_through_seq)
+        .ok_or_else(|| {
+            format!(
+                "no approved canonical media asset for {subject_key} at event {history_through_seq}"
+            )
+        })?
+        .to_string();
+    let asset = graph
+        .assets
+        .get(&asset_id)
+        .ok_or_else(|| format!("canonical media asset {asset_id} is missing"))?;
+    if effective_moderation_state(&graph, asset) != MediaAssetModerationState::Approved {
+        return Err(format!("media asset {asset_id} is not approved"));
+    }
+    if !asset.rights.reference_reuse_permitted {
+        return Err(format!(
+            "media asset {asset_id} is not licensed for derivation"
+        ));
+    }
+    read_and_verify_object(root, asset)?;
+    Ok(FrozenMediaAssetReference {
+        subject_kind: subject_kind.to_string(),
+        subject_id,
+        level,
+        asset_id,
+        content_digest: asset.content_digest.clone(),
+        mime_type: asset.mime_type.clone(),
+        history_through_seq: asset.provenance.history_through_seq,
+    })
+}
+
+pub(crate) fn resolve_frozen_community_media_reference(
+    root: &Path,
+    frozen: &FrozenMediaAssetReference,
+    history_through_seq: u64,
+) -> Result<MediaReference, String> {
+    let current = freeze_approved_community_media_reference(
+        root,
+        &frozen.subject_kind,
+        frozen.subject_id,
+        frozen.level,
+        history_through_seq,
+    )?;
+    if &current != frozen {
+        return Err(
+            "approved prior-level asset did not match the frozen evolution reference".to_string(),
+        );
+    }
+    let (bytes, mime_type) = immutable_media_asset_bytes(root, &frozen.asset_id)?;
+    let url = format!("data:{mime_type};base64,{}", BASE64_STANDARD.encode(bytes));
+    Ok(certified_media_reference(
+        MediaReferenceSlot::PriorLevel,
+        canonical_subject_key(
+            MediaAssetSubjectKind::parse(&frozen.subject_kind)?,
+            frozen.subject_id,
+            frozen.level,
+        ),
+        frozen.asset_id.clone(),
+        frozen.content_digest.clone(),
+        url,
+        mime_type
+            .trim_start_matches("image/")
+            .replace("jpeg", "jpg"),
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn register_derived_community_media_asset(
+    root: &Path,
+    subject_kind: &str,
+    subject_id: u64,
+    level: u8,
+    bytes: &[u8],
+    mime_type: &str,
+    prior: &FrozenMediaAssetReference,
+    crop: &str,
+    provenance: MediaAssetProvenance,
+) -> Result<String, String> {
+    register_derived_media_asset(
+        root,
+        MediaAssetSubjectKind::parse(subject_kind)?,
+        subject_id,
+        level,
+        bytes,
+        mime_type,
+        vec![MediaAssetParentInput {
+            parent_asset_id: prior.asset_id.clone(),
+            slot: MediaReferenceSlot::PriorLevel,
+            order: 0,
+            crop: Some(crop.to_string()),
+            mask: None,
+            transformation: "single-reference identity-preserving evolution".to_string(),
+        }],
+        provenance,
+        crate::now_millis(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1706,6 +1868,71 @@ mod tests {
                 .asset_id,
             approved
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn frozen_prior_level_digest_drives_complete_evolution_lineage() {
+        let root = temp_root("frozen-evolution");
+        let prior = approved_generated(&root, MediaAssetSubjectKind::Actor, 5000, &png(63), 300);
+        let frozen = freeze_approved_community_media_reference(&root, "actor", 5000, 1, 320)
+            .expect("freeze approved prior level");
+        assert_eq!(frozen.asset_id, prior);
+        let reference = resolve_frozen_community_media_reference(&root, &frozen, 320)
+            .expect("resolve exact frozen prior");
+        assert_eq!(reference.slot, MediaReferenceSlot::PriorLevel);
+        assert_eq!(reference.digest, frozen.content_digest);
+
+        let mut derived_provenance = provenance("pack.test", 321);
+        derived_provenance.history_through_seq = 320;
+        let derived = register_derived_community_media_asset(
+            &root,
+            "actor",
+            5000,
+            2,
+            &png(64),
+            "image/png",
+            &frozen,
+            "2:3",
+            derived_provenance,
+        )
+        .expect("register derived evolution candidate");
+        assert!(reconcile_community_media_asset_status(
+            &root,
+            "actor",
+            5000,
+            2,
+            "ready",
+            Some("prediction-321"),
+            Some(322),
+        )
+        .expect("approve derived evolution"));
+
+        let graph = load_graph(&root).expect("reload evolution graph");
+        assert_eq!(graph.canonical["actor:5000:level:1"], prior);
+        assert_eq!(graph.canonical["actor:5000:level:2"], derived);
+        assert_eq!(graph.assets[&derived].parents.len(), 1);
+        assert_eq!(graph.assets[&derived].parents[0].parent_asset_id, prior);
+        assert_eq!(
+            graph.assets[&derived].parents[0].parent_digest,
+            frozen.content_digest
+        );
+        assert_eq!(
+            graph.assets[&derived].parents[0].slot,
+            MediaReferenceSlot::PriorLevel
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn missing_or_tampered_prior_level_fails_before_provider_resolution() {
+        let root = temp_root("missing-prior");
+        assert!(freeze_approved_community_media_reference(&root, "item", 7000, 1, 100,).is_err());
+        let _ = approved_generated(&root, MediaAssetSubjectKind::Item, 7000, &png(65), 90);
+        let mut frozen = freeze_approved_community_media_reference(&root, "item", 7000, 1, 100)
+            .expect("freeze item prior");
+        frozen.content_digest = "f".repeat(64);
+        assert!(resolve_frozen_community_media_reference(&root, &frozen, 100).is_err());
         let _ = fs::remove_dir_all(root);
     }
 

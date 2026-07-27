@@ -9,16 +9,22 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     community_art::{community_art_generation_key, DownloadedReplicateImage},
-    is_safe_image_content_type, ReplicateAvatarArtConfig,
+    is_safe_image_content_type,
+    media_evolution::{
+        FrozenCommunityArtEvolutionJob, EVOLUTION_CANARY_MODEL_REVISION, EVOLUTION_CANARY_RECIPE,
+    },
+    ReplicateAvatarArtConfig,
 };
 
 #[allow(dead_code)]
 mod assets;
 pub(super) use self::assets::{
-    backfill_legacy_community_asset, hold_community_media_asset_references,
+    backfill_legacy_community_asset, canonical_community_media_asset_bytes,
+    freeze_approved_community_media_reference, hold_community_media_asset_references,
     immutable_media_asset_bytes, reconcile_community_media_asset_status,
-    register_generated_media_asset, release_community_media_asset_reference_hold,
-    MediaAssetBackfill, MediaAssetProvenance,
+    register_derived_community_media_asset, register_generated_media_asset,
+    release_community_media_asset_reference_hold, resolve_frozen_community_media_reference,
+    FrozenMediaAssetReference, MediaAssetBackfill, MediaAssetProvenance,
 };
 
 const EMBEDDED_MEDIA_RECIPE_REGISTRY: &str = include_str!("../../media/recipes.json");
@@ -864,12 +870,62 @@ pub(super) async fn request_replicate_art(
             seed: None,
         },
     )?;
+    execute_replicate_art(config, &resolved).await
+}
+
+pub(super) async fn request_replicate_evolution_art(
+    config: &ReplicateAvatarArtConfig,
+    asset_root: &std::path::Path,
+    job: &FrozenCommunityArtEvolutionJob,
+    frozen_reference: &FrozenMediaAssetReference,
+) -> Result<DownloadedReplicateImage, String> {
+    job.validate()?;
+    job.assert_prior_reference(&frozen_reference.asset_id, &frozen_reference.content_digest)?;
+    let reference = resolve_frozen_community_media_reference(
+        asset_root,
+        frozen_reference,
+        job.history_through_seq,
+    )?;
+    let registry = MediaRecipeRegistry::embedded()?;
+    let controls = MediaRecipeRuntimeControls::from_env()?;
+    let resolved = registry.resolve(
+        &controls,
+        MediaJobRequest {
+            job_key: job.job_key.clone(),
+            profile: job.profile.clone(),
+            operation: MediaOperation::SingleReference,
+            intent: MediaIntent::Evolution,
+            prompt: job.prompt()?,
+            references: vec![reference],
+            aspect_ratio: job.aspect_ratio.clone(),
+            output_format: config.output_format.clone(),
+            mask_url: None,
+            seed: None,
+        },
+    )?;
+    if resolved.recipe_id != EVOLUTION_CANARY_RECIPE
+        || resolved.model_revision != EVOLUTION_CANARY_MODEL_REVISION
+        || resolved.references.len() != 1
+        || resolved.references[0].slot != MediaReferenceSlot::PriorLevel
+    {
+        return Err(
+            "evolution canary did not resolve to the pinned FLUX.2 single-reference contract"
+                .to_string(),
+        );
+    }
+    execute_replicate_art(config, &resolved).await
+}
+
+async fn execute_replicate_art(
+    config: &ReplicateAvatarArtConfig,
+    resolved: &ResolvedMediaJob,
+) -> Result<DownloadedReplicateImage, String> {
     let legacy_input = if resolved.recipe_id == "replicate.flux1-dev-lora.base" {
         replicate_avatar_input(config)?
     } else {
         serde_json::Map::new()
     };
-    let request = replicate_prediction_request(config, &resolved, legacy_input)?;
+    let request = replicate_prediction_request(config, resolved, legacy_input)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(resolved.timeout_seconds))
         .build()
