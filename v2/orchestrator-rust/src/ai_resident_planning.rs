@@ -806,7 +806,12 @@ mod tests {
         let expected = offers
             .iter()
             .filter(|offer| action_offer_is_reachable(offer))
-            .filter_map(|offer| runtime.resident_planner_candidate_from_offer(RATI_ACTOR_ID, offer))
+            .filter(|offer| resident_planner_offer_kind_is_eligible(&offer.kind))
+            .map(|offer| {
+                runtime
+                    .resident_planner_candidate_from_offer(RATI_ACTOR_ID, offer)
+                    .expect("every seeded reachable offer in the closed policy is executable")
+            })
             .collect::<Vec<_>>();
         assert_eq!(runtime.resident_planner_candidates(RATI_ACTOR_ID), expected);
         assert!(!resident_planner_offer_kind_is_eligible("search"));
