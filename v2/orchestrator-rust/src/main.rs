@@ -6550,9 +6550,8 @@ impl RuntimeSnapshot {
             next_seed: self.next_seed,
         })
         .and_then(move |mut runtime| {
-            runtime.ensure_authored_route_records();
             runtime
-                .migrate_generated_pathways_for_snapshot(snapshot_version)
+                .restore_canonical_topology_for_snapshot(snapshot_version)
                 .map_err(snapshot_error)?;
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
