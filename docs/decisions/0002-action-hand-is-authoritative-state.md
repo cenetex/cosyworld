@@ -78,6 +78,21 @@ may let the player page through the remaining complete offer list, but it must
 not hash, randomize, or silently re-rank the authoritative opening hand. A
 change to the projected offer/provider ids is the signal to recompose it.
 
+## Command submission
+
+`POST /commands` accepts an `offer_id` from the current `action_offers`
+projection as its authoritative action input. The server resolves that exact
+identifier under the same world-state lock that checks its embedded
+`state_revision`; it does not reparse the offer's display command. Malformed,
+stale, unknown, and disabled identifiers fail before presence, journal, event,
+seed, or world state can change and return distinct typed failure codes.
+
+The optional prose `command` field remains temporarily available for older
+clients and the command palette. It is a legacy convenience resolver, not the
+authoritative join between an offer and an action. When both fields are sent,
+`offer_id` wins. Retirement or stricter hand enforcement remains a separate
+decision alongside #354.
+
 Wallet keepsakes may supply matching art and an explicit cosmetic annotation.
 Equipping, removing, or owning one does not change action eligibility, order,
 rank, effects, costs, odds, or hand power.

@@ -787,14 +787,14 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 clients never need to round-trip a `use_feature` offer through command prose.
 
 `POST /commands` is the canonical mutation gateway. New callers send the
-authenticated numeric actor handle plus the stable envelope advertised by
-`/state`:
+authenticated numeric actor handle, an `offer_id` from the current `/state`
+projection, and the stable envelope:
 
 ```json
 {
   "actor_id": 5000,
   "actor_session": "...",
-  "command": "go east",
+  "offer_id": "cosyworld.srd5/1:92811:move:202",
   "envelope": {
     "world_id": "world://cosyworld/official",
     "intent_id": "client:018f...",
@@ -804,6 +804,14 @@ authenticated numeric actor handle plus the stable envelope advertised by
   }
 }
 ```
+
+The identifier's embedded state revision is checked while resolving the exact
+projected offer. Failures expose `error_kind` as `invalid_offer_id`,
+`stale_offer`, `unknown_offer`, or `disabled_offer` and commit no presence or
+world mutation. The prose `command` field is retained as a legacy convenience
+for the palette and older clients; its failures use `parse_failure`. It is not
+the authoritative offer submission contract, and `offer_id` takes precedence
+when both fields are present.
 
 The response includes a durable `receipt` with the same world/intent/actor,
 the committed `world_epoch` and `world_seq`, affected canonical entity
