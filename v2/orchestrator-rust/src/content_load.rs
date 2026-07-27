@@ -1,5 +1,12 @@
 use super::*;
 
+const LANTERN_KEEPER_PACK_ID: &str = "cosyworld.campaign.the-lantern-keeper";
+const LANTERN_KEEPER_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";
+const LANTERN_KEEPER_CLOCK_OUTCOMES: [(&str, &str); 2] = [
+    ("lantern-keeper.light", "completed"),
+    ("lantern-keeper.darkness", "failed"),
+];
+
 #[derive(Debug)]
 pub(super) struct SeedContent {
     #[cfg_attr(not(test), allow(dead_code))]
@@ -3097,6 +3104,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             &job_ids,
         )?;
     }
+    validate_lantern_clock_effect_contract(content)?;
 
     let mut all_item_ids = item_ids.clone();
     let mut recipe_ids = BTreeSet::new();
@@ -3335,6 +3343,74 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 _ => {}
             }
         }
+    }
+    Ok(())
+}
+
+fn validate_lantern_clock_effect_contract(content: &SeedContent) -> Result<(), String> {
+    if !content
+        .manifest
+        .packs
+        .iter()
+        .any(|pack| pack.id == LANTERN_KEEPER_PACK_ID)
+    {
+        return Ok(());
+    }
+
+    for (clock_id, expected_status) in LANTERN_KEEPER_CLOCK_OUTCOMES {
+        let clock = content
+            .clocks
+            .iter()
+            .find(|clock| clock.id == clock_id)
+            .ok_or_else(|| format!("Lantern Keeper pack is missing clock {clock_id}"))?;
+        if clock.on_fill.is_empty() {
+            return Err(format!(
+                "clock {clock_id} must directly declare a justified on_fill consequence"
+            ));
+        }
+        if clock.on_fill.iter().any(|effect| {
+            effect_descriptor_reason(effect)
+                .map(str::trim)
+                .unwrap_or_default()
+                .is_empty()
+        }) {
+            return Err(format!(
+                "clock {clock_id} on_fill effects must declare authored reasons"
+            ));
+        }
+        let authoritative = clock
+            .on_fill
+            .iter()
+            .filter(|effect| !matches!(effect, EffectDescriptor::SetTag { .. }))
+            .collect::<Vec<_>>();
+        if authoritative.is_empty() {
+            return Err(format!("clock {clock_id} on_fill cannot be tag-only"));
+        }
+        if !matches!(
+            authoritative.as_slice(),
+            [EffectDescriptor::SetJobStatus {
+                job_id,
+                status,
+                ..
+            }] if job_id == LANTERN_KEEPER_JOB_ID && status == expected_status
+        ) {
+            return Err(format!(
+                "clock {clock_id} must declare exactly one authoritative set_job_status consequence for {LANTERN_KEEPER_JOB_ID}:{expected_status}"
+            ));
+        }
+    }
+
+    if let Some(hook) = content.lifecycle_hooks.iter().find(|hook| {
+        hook.hook == "on_clock_fill"
+            && hook.target_kind == "clock"
+            && LANTERN_KEEPER_CLOCK_OUTCOMES
+                .iter()
+                .any(|(clock_id, _)| hook.target_id == *clock_id)
+    }) {
+        return Err(format!(
+            "clock {} must use direct on_fill as its sole authoritative consequence source",
+            hook.target_id
+        ));
     }
     Ok(())
 }

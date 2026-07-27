@@ -60763,7 +60763,7 @@ mod tests {
         );
         assert_eq!(content.fronts.len(), 6);
         assert_eq!(content.cards.len(), 118);
-        assert_eq!(content.lifecycle_hooks.len(), 21);
+        assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 8);
         assert_eq!(content.rules.len(), 3);

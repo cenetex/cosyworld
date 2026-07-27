@@ -38,7 +38,8 @@
         "sha256:5b66ce6369fbf04814b2812f30c5e5940bf6b08100f2aa4bf87be5ddd8d58ecc",
         "sha256:aa077d2657f65b1258f26101d0fd65c6bb672efdf688bc21b28334cd4352d628",
         "sha256:9e91a900766633f5f52b8fe58e8f409f020233553e3fe5bf24ff519553e972ac",
-        "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d"
+        "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d",
+        "sha256:7c25a5ffcec350dba6f9211c3e2866ad4c9bc77173b415e46e023214242eb1fe"
       ]
     },
     "pack_lifecycle": {
@@ -656,7 +657,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:de2d50be1be5308d571416a849a1666f7f881276f087f2338f1f52df1f680c26",
+    "bundle_hash": "sha256:7f7b34ca8e49f335ad2ab0cfa2664e8aba855bb47983f6ed799b17c4a4e01822",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -1887,7 +1888,7 @@
           "fronts": 1,
           "cards": 13,
           "card_bindings": 0,
-          "lifecycle_hooks": 2,
+          "lifecycle_hooks": 0,
           "evolution_tracks": 0,
           "recipes": 0,
           "sentences": 0,
@@ -1905,7 +1906,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:ae261fb1e3745f560912c0d449860c4a3bbe37d478be58bd982ded8bea2e9461"
+        "integrity": "sha256:b202408ab514a260553716afc8275b65880e6f4f1f136d205dcff8dac1729764"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -8335,6 +8336,23 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "on_fill": [
+          {
+            "op": "set_tag",
+            "tag_id": "room:804:beacon_rekindled",
+            "scope": "room",
+            "scope_id": 804,
+            "label": "beacon rekindled",
+            "kind": "memory",
+            "reason": "lantern_keeper_completed"
+          },
+          {
+            "op": "set_job_status",
+            "job_id": "lantern-keeper:rekindle-the-beacon",
+            "status": "completed",
+            "reason": "lantern_keeper_completed"
+          }
+        ],
         "presentation": {
           "version": 1,
           "question": "Can travelers find Rowan Vale and rekindle the Mothwood beacon?",
@@ -8359,6 +8377,23 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "on_fill": [
+          {
+            "op": "set_tag",
+            "tag_id": "room:804:black_beacon",
+            "scope": "room",
+            "scope_id": 804,
+            "label": "black beacon",
+            "kind": "hook",
+            "reason": "lantern_keeper_failed"
+          },
+          {
+            "op": "set_job_status",
+            "job_id": "lantern-keeper:rekindle-the-beacon",
+            "status": "failed",
+            "reason": "lantern_keeper_failed"
+          }
+        ],
         "presentation": {
           "version": 1,
           "question": "Will the Mothwood road go fully dark before the beacon returns?",
@@ -12109,54 +12144,6 @@
           }
         ],
         "pack_id": "cosyworld.core"
-      },
-      {
-        "hook": "on_clock_fill",
-        "target_kind": "clock",
-        "target_id": "lantern-keeper.light",
-        "claim_scope": "event_once",
-        "effects": [
-          {
-            "op": "set_tag",
-            "tag_id": "room:804:beacon_rekindled",
-            "scope": "room",
-            "scope_id": 804,
-            "label": "beacon rekindled",
-            "kind": "memory",
-            "reason": "lantern_keeper_completed"
-          },
-          {
-            "op": "set_job_status",
-            "job_id": "lantern-keeper:rekindle-the-beacon",
-            "status": "completed",
-            "reason": "lantern_keeper_completed"
-          }
-        ],
-        "pack_id": "cosyworld.campaign.the-lantern-keeper"
-      },
-      {
-        "hook": "on_clock_fill",
-        "target_kind": "clock",
-        "target_id": "lantern-keeper.darkness",
-        "claim_scope": "event_once",
-        "effects": [
-          {
-            "op": "set_tag",
-            "tag_id": "room:804:black_beacon",
-            "scope": "room",
-            "scope_id": 804,
-            "label": "black beacon",
-            "kind": "hook",
-            "reason": "lantern_keeper_failed"
-          },
-          {
-            "op": "set_job_status",
-            "job_id": "lantern-keeper:rekindle-the-beacon",
-            "status": "failed",
-            "reason": "lantern_keeper_failed"
-          }
-        ],
-        "pack_id": "cosyworld.campaign.the-lantern-keeper"
       }
     ],
     "evolution_tracks": [
