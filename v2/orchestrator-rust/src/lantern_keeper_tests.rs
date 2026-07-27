@@ -4,7 +4,7 @@ const LANTERN_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";
 const LANTERN_PROGRESS_CLOCK_ID: &str = "lantern-keeper.light";
 const LANTERN_DANGER_CLOCK_ID: &str = "lantern-keeper.darkness";
 const PREVIOUS_WORLD_BUNDLE_HASH: &str =
-    "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d";
+    "sha256:7c25a5ffcec350dba6f9211c3e2866ad4c9bc77173b415e46e023214242eb1fe";
 const FINAL_ACTOR_ID: u64 = 9_800;
 const COMPANION_ACTOR_ID: u64 = 9_801;
 
@@ -535,7 +535,7 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
         .expect("active finale strategy replaces the old snapshot contract");
     assert_eq!(restored_strategy.requirements.len(), 10);
     assert_eq!(restored_strategy.baseline_progress, 6);
-    assert_eq!(restored_strategy.pack_version, "0.1.7");
+    assert_eq!(restored_strategy.pack_version, "0.1.8");
     assert_eq!(
         restored.tags[&room_feature_use_tag_id(801, "cold_lamp_post", 8402)].source_event_seq,
         Some(321)
@@ -660,6 +660,18 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         .iter()
         .find_map(semantic_receipts::semantic_story_receipt)
         .expect("finale emits one semantic story receipt");
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE)
+            .count(),
+        1,
+        "the preferred contribution path emits at most one story receipt"
+    );
+    assert_eq!(
+        story_receipt.narration_key, trace.narration_key,
+        "the authored contribution receipt remains preferred over the generic direct-fill receipt"
+    );
     assert!(story_receipt
         .text
         .starts_with("Final Lantern Tender rekindles the dark Mothwood beacon."));
@@ -731,6 +743,226 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         "completed"
     );
     assert_eq!(reconnected.orb_balance(FINAL_ACTOR_ID), before_orbs + 2);
+}
+
+#[test]
+fn both_lantern_clock_fills_are_once_only_snapshot_and_replay_safe_story_beats() {
+    std::thread::Builder::new()
+        .name("lantern-clock-fill-proof".to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(assert_both_lantern_clock_fills_are_once_only)
+        .expect("Lantern clock proof thread starts")
+        .join()
+        .expect("Lantern clock proof thread completes");
+}
+
+fn assert_both_lantern_clock_fills_are_once_only() {
+    struct FillCase {
+        clock_id: &'static str,
+        expected_status: &'static str,
+        expected_tag_id: &'static str,
+        expected_narration_key: &'static str,
+        expected_story: &'static str,
+    }
+
+    for (index, case) in [
+        FillCase {
+            clock_id: LANTERN_PROGRESS_CLOCK_ID,
+            expected_status: "completed",
+            expected_tag_id: "room:804:beacon_rekindled",
+            expected_narration_key: "lantern-keeper.light-filled",
+            expected_story: "The beacon burns again and makes the Mothwood road trustworthy after dusk. Progress reaches 6/6, and the Lantern Keeper question is complete.",
+        },
+        FillCase {
+            clock_id: LANTERN_DANGER_CLOCK_ID,
+            expected_status: "failed",
+            expected_tag_id: "room:804:black_beacon",
+            expected_narration_key: "lantern-keeper.darkness-filled",
+            expected_story: "The borrowed shadows learn every traveler's shape. Danger reaches 6/6, and the Lantern Keeper question fails.",
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let actor_id = 9_870 + index as u64;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, actor_id, 804, "Lantern Clock Witness");
+        runtime = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("clock witness reconnects before replay proof");
+        let before_bytes =
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).expect("before snapshot");
+        let record = projection_record(
+            actor_id,
+            83_100 + index as u64,
+            ProjectionMutation::AdvanceClock {
+                clock_id: case.clock_id.to_string(),
+                amount: 6,
+                reason: "lantern_clock_fill_contract_test".to_string(),
+            },
+        );
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert_eq!(runtime.clocks[case.clock_id].filled, 6);
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[LANTERN_JOB_ID]),
+            case.expected_status
+        );
+        assert!(runtime
+            .tags
+            .get(case.expected_tag_id)
+            .is_some_and(|tag| tag.active));
+        let consequence_events = events
+            .iter()
+            .filter(|event| {
+                event.type_name == "job.updated"
+                    && event.content.as_deref().is_some_and(|content| {
+                        content.starts_with(&format!(
+                            "{LANTERN_JOB_ID}:{}:",
+                            case.expected_status
+                        ))
+                    })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            consequence_events.len(),
+            1,
+            "one authoritative status consequence"
+        );
+        let clock_event = events
+            .iter()
+            .find(|event| {
+                event.type_name == "clock.updated"
+                    && event.clock_id.as_deref() == Some(case.clock_id)
+                    && event.clock_filled == Some(6)
+            })
+            .expect("terminal clock update");
+        assert_eq!(
+            consequence_events[0].caused_by_event_seq,
+            Some(clock_event.seq),
+            "the consequence is causally linked to its committed fill"
+        );
+        let story_events = events
+            .iter()
+            .filter(|event| event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE)
+            .collect::<Vec<_>>();
+        assert_eq!(story_events.len(), 1, "one understandable story receipt");
+        let story = semantic_receipts::semantic_story_receipt(story_events[0])
+            .expect("story receipt parses");
+        assert_eq!(story.narration_key, case.expected_narration_key);
+        assert!(story.text.contains(case.expected_story), "{}", story.text);
+        assert!(story.event_seqs.contains(&clock_event.seq));
+        assert!(story
+            .event_seqs
+            .contains(&consequence_events[0].seq));
+        assert_eq!(
+            runtime
+                .rpg_claims
+                .iter()
+                .filter(|claim| claim.starts_with(&format!("clock_fill:{}:", case.clock_id)))
+                .count(),
+            1
+        );
+
+        let completed_bytes =
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).expect("completed snapshot");
+        let reconnected = serde_json::from_slice::<RuntimeSnapshot>(&completed_bytes)
+            .expect("completed snapshot parses")
+            .into_runtime()
+            .expect("completed snapshot reconnects");
+        assert_eq!(reconnected.clocks[case.clock_id].filled, 6);
+        assert_eq!(
+            reconnected.job_status(&reconnected.jobs[LANTERN_JOB_ID]),
+            case.expected_status
+        );
+        assert!(reconnected
+            .tags
+            .get(case.expected_tag_id)
+            .is_some_and(|tag| tag.active));
+        assert_eq!(
+            reconnected
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE
+                        && semantic_receipts::semantic_story_receipt(event)
+                            .is_some_and(|receipt| {
+                                receipt.narration_key == case.expected_narration_key
+                            })
+                })
+                .count(),
+            1,
+            "snapshot reconnect preserves one consequence receipt"
+        );
+        assert_eq!(
+            reconnected
+                .rpg_claims
+                .iter()
+                .filter(|claim| claim.starts_with(&format!("clock_fill:{}:", case.clock_id)))
+                .count(),
+            1,
+            "snapshot reconnect preserves the once-only claim"
+        );
+
+        let mut replayed = serde_json::from_slice::<RuntimeSnapshot>(&before_bytes)
+            .expect("before snapshot parses")
+            .into_runtime()
+            .expect("before snapshot reconnects");
+        let (replay_status, replay_events) = replayed.apply_journal_record(&record);
+        assert_eq!(replay_status, CW_OK);
+        assert_eq!(
+            serde_json::to_value(&replay_events).expect("replay events serialize"),
+            serde_json::to_value(&events).expect("first events serialize")
+        );
+        assert_eq!(
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&replayed))
+                .expect("replayed snapshot"),
+            completed_bytes,
+            "journal replay restores byte-identical state"
+        );
+
+        let (retry_status, retry_events) = runtime.apply_journal_record(&record);
+        assert_eq!(retry_status, CW_OK);
+        assert!(!retry_events
+            .iter()
+            .any(|event| event.type_name == "job.updated"));
+        assert!(!retry_events
+            .iter()
+            .any(|event| event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE));
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "job.updated"
+                        && event.content.as_deref().is_some_and(|content| {
+                            content.starts_with(&format!(
+                                "{LANTERN_JOB_ID}:{}:",
+                                case.expected_status
+                            ))
+                        })
+                })
+                .count(),
+            1,
+            "retry cannot duplicate the authoritative consequence"
+        );
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE
+                        && semantic_receipts::semantic_story_receipt(event)
+                            .is_some_and(|receipt| {
+                                receipt.narration_key == case.expected_narration_key
+                            })
+                })
+                .count(),
+            1,
+            "retry cannot duplicate the story receipt"
+        );
+    }
 }
 
 #[test]
