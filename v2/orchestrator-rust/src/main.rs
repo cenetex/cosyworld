@@ -36,6 +36,7 @@ mod ownership;
 mod prompts;
 mod quest_loot;
 mod rate_limit;
+mod relationships;
 mod resident_offer_scoring;
 mod routes;
 mod rpg;
@@ -97,6 +98,7 @@ use qrcode::{render::svg, QrCode};
 use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
+use relationships::*;
 use rpg::*;
 use rules_context::*;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -926,6 +928,12 @@ enum ProjectionMutation {
         status: String,
         reason: String,
     },
+    SetRelationshipDialogueStatus {
+        relationship_actor_id: u64,
+        target_actor_id: u64,
+        status: String,
+        reason: String,
+    },
     RefreshAvatarIdentity {
         actor_id: u64,
         #[serde(default)]
@@ -1248,20 +1256,6 @@ struct AdvancementSpendState {
     label: String,
     cost: u8,
     source_event_seq: u64,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct BondState {
-    id: String,
-    actor_id: u64,
-    target_actor_id: u64,
-    statement: String,
-    strength: u8,
-    status: String,
-    #[serde(default)]
-    source_event_seq: Option<u64>,
-    #[serde(default)]
-    updated_event_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2114,6 +2108,8 @@ struct PlayerTickObservation {
     allow_ordinary_speech: bool,
     source_events: Vec<EventView>,
     ripple_source: Option<RippleSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    relationship_reply: Option<RelationshipReplyExpectation>,
 }
 
 #[derive(Clone, Debug)]
@@ -9763,7 +9759,10 @@ impl RuntimeWorld {
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
-            content: Some(format!("{}:{}:{reason}", bond.id, bond.strength)),
+            content: Some(format!(
+                "{}:{}:{}:{reason}",
+                bond.id, bond.strength, bond.status
+            )),
             item_id: None,
             item_name: None,
             target_item_id: None,
@@ -10268,6 +10267,19 @@ impl RuntimeWorld {
                         action.actor_id,
                         Some(*target_actor_id),
                         Some(reason.clone()),
+                    ));
+                }
+                ProjectionMutation::SetRelationshipDialogueStatus {
+                    relationship_actor_id,
+                    target_actor_id,
+                    status,
+                    reason,
+                } => {
+                    events.extend(self.set_relationship_dialogue_status(
+                        *relationship_actor_id,
+                        *target_actor_id,
+                        status,
+                        reason,
                     ));
                 }
                 ProjectionMutation::RefreshAvatarIdentity {
@@ -11544,6 +11556,8 @@ impl RuntimeWorld {
                 status: "active".to_string(),
                 source_event_seq: Some(source_event_seq),
                 updated_event_seq: None,
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
             });
             bond.strength = bond.strength.saturating_add(1).min(3);
             bond.status = "active".to_string();
@@ -11575,14 +11589,23 @@ impl RuntimeWorld {
             else {
                 continue;
             };
-            projected.extend(self.deepen_bond_from_event(
+            if let Some(events) = self.deepen_authored_relationship_from_gift(
                 actor_id,
                 target_actor_id,
+                item_id,
                 event.seq,
-                gift_bond_claim_key(actor_id, target_actor_id, item_id),
-                "resident_gift",
-                &format!("gift:{actor_id}:{target_actor_id}:{item_id}:bond"),
-            ));
+            ) {
+                projected.extend(events);
+            } else {
+                projected.extend(self.deepen_bond_from_event(
+                    actor_id,
+                    target_actor_id,
+                    event.seq,
+                    gift_bond_claim_key(actor_id, target_actor_id, item_id),
+                    "resident_gift",
+                    &format!("gift:{actor_id}:{target_actor_id}:{item_id}:bond"),
+                ));
+            }
         }
         projected
     }
@@ -12579,105 +12602,6 @@ impl RuntimeWorld {
         };
         self.callings.insert(actor_id, calling.clone());
         events.push(self.append_calling_event("calling.revised", &calling, reason));
-        events
-    }
-
-    fn create_bond(
-        &mut self,
-        actor_id: u64,
-        target_actor_id: u64,
-        statement: &str,
-        cost: u8,
-        reason: &str,
-    ) -> Vec<EventView> {
-        let id = bond_id(actor_id, target_actor_id);
-        if cost == 0
-            || self.advancement_points_available(actor_id) < usize::from(cost)
-            || self.active_bond(actor_id, target_actor_id).is_some()
-        {
-            return Vec::new();
-        }
-
-        let spend_seq = self.world.next_event_seq;
-        let target_name = self
-            .actor_name(target_actor_id)
-            .unwrap_or_else(|| format!("Resident {target_actor_id}"));
-        let spend = AdvancementSpendState {
-            id: advancement_spend_id(actor_id, "bond_slot", spend_seq),
-            actor_id,
-            kind: "bond_slot".to_string(),
-            label: format!("Friendship with {target_name}"),
-            cost,
-            source_event_seq: spend_seq,
-        };
-        if self.advancement_spends.contains_key(&spend.id) {
-            return Vec::new();
-        }
-        self.advancement_spends
-            .insert(spend.id.clone(), spend.clone());
-        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
-
-        let bond = BondState {
-            id: id.clone(),
-            actor_id,
-            target_actor_id,
-            statement: statement.to_string(),
-            strength: 1,
-            status: "active".to_string(),
-            source_event_seq: Some(self.world.next_event_seq),
-            updated_event_seq: Some(self.world.next_event_seq),
-        };
-        self.bonds.insert(id, bond.clone());
-        events.push(self.append_bond_event("bond.created", &bond, reason));
-        events
-    }
-
-    fn revise_bond(
-        &mut self,
-        actor_id: u64,
-        target_actor_id: u64,
-        statement: &str,
-        cost: u8,
-        reason: &str,
-    ) -> Vec<EventView> {
-        let id = bond_id(actor_id, target_actor_id);
-        if cost == 0 || self.advancement_points_available(actor_id) < usize::from(cost) {
-            return Vec::new();
-        }
-        let Some(existing) = self.bonds.get(&id) else {
-            return Vec::new();
-        };
-        if existing.status == "resolved"
-            || existing.strength == 0
-            || existing.statement == statement
-        {
-            return Vec::new();
-        }
-
-        let spend_seq = self.world.next_event_seq;
-        let spend = AdvancementSpendState {
-            id: advancement_spend_id(actor_id, "bond_revision", spend_seq),
-            actor_id,
-            kind: "bond_revision".to_string(),
-            label: "Friendship changed".to_string(),
-            cost,
-            source_event_seq: spend_seq,
-        };
-        if self.advancement_spends.contains_key(&spend.id) {
-            return Vec::new();
-        }
-        self.advancement_spends
-            .insert(spend.id.clone(), spend.clone());
-        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
-
-        let Some(bond) = self.bonds.get_mut(&id) else {
-            return events;
-        };
-        bond.statement = statement.to_string();
-        bond.status = "active".to_string();
-        bond.updated_event_seq = Some(self.world.next_event_seq);
-        let bond = bond.clone();
-        events.push(self.append_bond_event("bond.revised", &bond, reason));
         events
     }
 
@@ -16931,10 +16855,15 @@ impl RuntimeWorld {
                 .actor_name(other_id)
                 .unwrap_or_else(|| format!("Actor {}", other_id));
             let statement = bond.statement.trim();
+            let relationship_label = if bond.status == "forming" {
+                "Forming relationship"
+            } else {
+                "Friendship"
+            };
             let text = if statement.is_empty() {
                 format!("{other_name} matters to them.")
             } else {
-                format!("Friendship with {other_name}: {statement}")
+                format!("{relationship_label} with {other_name}: {statement}")
             };
             notes.insert(other_id, text);
         }
@@ -30148,7 +30077,11 @@ async fn command_inner(
     }
 }
 
-async fn complete_avatar_reply(state: &AppState, plan: AvatarReplyPlan) -> Result<(), String> {
+async fn complete_avatar_reply(
+    state: &AppState,
+    plan: AvatarReplyPlan,
+    relationship_reply: Option<&RelationshipReplyExpectation>,
+) -> Result<bool, String> {
     let proposal = match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
@@ -30157,12 +30090,14 @@ async fn complete_avatar_reply(state: &AppState, plan: AvatarReplyPlan) -> Resul
         }
     };
     let mut runtime = state.inner.lock().await;
-    let Some(events) = commit_resident_reply_record(state, &mut runtime, &plan, proposal) else {
-        return Ok(());
+    let Some(events) =
+        commit_resident_reply_record(state, &mut runtime, &plan, proposal, relationship_reply)
+    else {
+        return Ok(false);
     };
     drop(runtime);
     broadcast_events(state, &events);
-    Ok(())
+    Ok(true)
 }
 
 async fn complete_orb_chat_exchange(
@@ -30184,7 +30119,7 @@ async fn complete_orb_chat_exchange(
         };
     let first_reply_events = {
         let mut runtime = state.inner.lock().await;
-        commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal)
+        commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal, None)
     };
     let Some(first_reply_events) = first_reply_events else {
         return;
@@ -30293,7 +30228,7 @@ async fn complete_orb_chat_exchange(
         };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
-        commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal)
+        commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal, None)
     };
     if let Some(events) = closing_events {
         broadcast_events(state, &events);
@@ -30305,6 +30240,7 @@ fn commit_resident_reply_record(
     runtime: &mut RuntimeWorld,
     plan: &AvatarReplyPlan,
     mut proposal: AvatarIntentProposal,
+    relationship_reply: Option<&RelationshipReplyExpectation>,
 ) -> Option<Vec<EventView>> {
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
@@ -30331,13 +30267,23 @@ fn commit_resident_reply_record(
     record
         .content_upserts
         .insert(content_id, proposal.speech.clone());
-    if runtime.actor_uses_inference(speaker.id) {
+    if runtime.actor_uses_inference(speaker.id) && relationship_reply.is_none() {
         record
             .projection_mutations
             .push(ProjectionMutation::UpdateResidentContinuity {
                 resident_id: plan.speaker_actor_id,
                 proposal,
                 reason: "resident_intent".to_string(),
+            });
+    }
+    if let Some(expectation) = relationship_reply {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetRelationshipDialogueStatus {
+                relationship_actor_id: expectation.actor_id,
+                target_actor_id: expectation.target_actor_id,
+                status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
+                reason: "one grounded resident reply was delivered".to_string(),
             });
     }
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
@@ -30432,24 +30378,42 @@ fn player_tick_observation(
         allow_ordinary_speech,
         source_events: events.to_vec(),
         ripple_source,
+        relationship_reply: relationship_reply_expectation(runtime, actor_id, events),
     })
 }
 
 async fn complete_player_tick_observation(
     state: &AppState,
     observation: PlayerTickObservation,
-) -> Result<Option<AvatarReplyPlan>, String> {
+) -> Result<
+    (
+        Option<AvatarReplyPlan>,
+        Option<RelationshipReplyExpectation>,
+    ),
+    String,
+> {
+    let relationship_reply = observation.relationship_reply.clone();
     let active_direct_actor_ids = active_actor_ids_for_state(state);
     let (ripple_events, reply_plan) = {
         let mut runtime = state.inner.lock().await;
         // A worker may be reclaimed after its reaction committed but before the
         // outbox row was acknowledged. The source tick is globally unique, so
         // an already-recorded autonomous result makes the retry a no-op.
-        if runtime.player_tick_already_has_autonomous_result(observation.source_world_tick) {
-            return Ok(None);
+        if relationship_reply
+            .as_ref()
+            .is_some_and(|expectation| !runtime.relationship_reply_pending(expectation))
+        {
+            return Ok((None, relationship_reply));
+        }
+        if relationship_reply.is_none()
+            && runtime.player_tick_already_has_autonomous_result(observation.source_world_tick)
+        {
+            return Ok((None, None));
         }
         runtime.observe_player_tick_for_autonomy(&observation);
-        let card_reaction_plan = if observation.allow_ordinary_speech {
+        let card_reaction_plan = if relationship_reply.is_some() {
+            runtime.relationship_reply_plan(&observation)
+        } else if observation.allow_ordinary_speech {
             runtime
                 .next_room_card_reaction_plan(
                     observation.source_actor_id,
@@ -30534,7 +30498,7 @@ async fn complete_player_tick_observation(
     if !ripple_events.is_empty() {
         broadcast_events(state, &ripple_events);
     }
-    Ok(reply_plan)
+    Ok((reply_plan, relationship_reply))
 }
 
 fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObservation) {
@@ -30548,28 +30512,33 @@ fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObs
     let Some(location_id) = observation.source_location_id else {
         return;
     };
-    let heartbeat_armed = state
-        .room_chat_heartbeats
-        .lock()
-        .map(|mut rooms| rooms.insert(location_id))
-        .unwrap_or(false);
+    let dedicated_relationship_heartbeat = observation.relationship_reply.is_some();
+    let heartbeat_armed = dedicated_relationship_heartbeat
+        || state
+            .room_chat_heartbeats
+            .lock()
+            .map(|mut rooms| rooms.insert(location_id))
+            .unwrap_or(false);
     if !heartbeat_armed {
         return;
     }
     let state = state.clone();
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(CARD_REACTION_HEARTBEAT_DELAY_MS)).await;
-        match complete_player_tick_observation(&state, observation).await {
-            Ok(Some(plan)) => {
-                if let Err(error) = complete_avatar_reply(&state, plan).await {
+        match complete_player_tick_observation(&state, observation.clone()).await {
+            Ok((plan, relationship_reply)) => {
+                if let Err(error) =
+                    complete_player_tick_reply(&state, &observation, plan, relationship_reply).await
+                {
                     warn!("asynchronous resident dialogue failed: {}", error);
                 }
             }
-            Ok(None) => {}
             Err(error) => warn!("resident turn failed: {}", error),
         }
-        if let Ok(mut rooms) = state.room_chat_heartbeats.lock() {
-            rooms.remove(&location_id);
+        if !dedicated_relationship_heartbeat {
+            if let Ok(mut rooms) = state.room_chat_heartbeats.lock() {
+                rooms.remove(&location_id);
+            }
         }
     });
 }
@@ -30703,12 +30672,22 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                         if job.actor_id == observation.source_actor_id =>
                     {
                         match complete_player_tick_observation(&state, observation.clone()).await {
-                            Ok(Some(plan)) => {
+                            Ok((plan, relationship_reply))
+                                if plan.is_some() || relationship_reply.is_some() =>
+                            {
                                 let reply_state = state.clone();
                                 let reply_path = path.to_path_buf();
                                 let reply_job = job.clone();
+                                let reply_observation = observation.clone();
                                 tokio::spawn(async move {
-                                    match complete_avatar_reply(&reply_state, plan).await {
+                                    match complete_player_tick_reply(
+                                        &reply_state,
+                                        &reply_observation,
+                                        plan,
+                                        relationship_reply,
+                                    )
+                                    .await
+                                    {
                                         Ok(()) => {
                                             if let Err(error) =
                                                 complete_actor_job(&reply_path, reply_job.id)
@@ -30739,7 +30718,7 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                                 });
                                 Ok(false)
                             }
-                            Ok(None) => Ok(true),
+                            Ok(_) => Ok(true),
                             Err(error) => Err(error),
                         }
                     }
@@ -30900,7 +30879,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
             broadcast_events(&state, &events);
         }
         if let Some(plan) = reply_plan {
-            let _ = complete_avatar_reply(&state, plan).await;
+            let _ = complete_avatar_reply(&state, plan, None).await;
         }
         return;
     }
@@ -40088,17 +40067,19 @@ fn actor_job_dedupe_key(observation: &PlayerTickObservation) -> String {
 }
 
 fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> io::Result<bool> {
-    if let Some(location_id) = observation.source_location_id {
-        let active_heartbeat_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM actor_jobs
+    if observation.relationship_reply.is_none() {
+        if let Some(location_id) = observation.source_location_id {
+            let active_heartbeat_count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM actor_jobs
                  WHERE kind = ?1 AND location_id = ?2 AND status IN ('pending', 'running')",
-                params![ACTOR_JOB_KIND_PLAYER_TICK, location_id as i64],
-                |row| row.get(0),
-            )
-            .map_err(sqlite_error)?;
-        if active_heartbeat_count > 0 {
-            return Ok(false);
+                    params![ACTOR_JOB_KIND_PLAYER_TICK, location_id as i64],
+                    |row| row.get(0),
+                )
+                .map_err(sqlite_error)?;
+            if active_heartbeat_count > 0 {
+                return Ok(false);
+            }
         }
     }
     let payload = ActorJobPayload::PlayerTick(observation.clone());
@@ -51857,6 +51838,7 @@ mod tests {
             allow_ordinary_speech: true,
             source_events: Vec::new(),
             ripple_source: None,
+            relationship_reply: None,
         };
         let first_observation = observation(41, 401);
         let second_observation = observation(42, 402);
@@ -51936,6 +51918,7 @@ mod tests {
             allow_ordinary_speech: true,
             source_events: Vec::new(),
             ripple_source: None,
+            relationship_reply: None,
         };
         assert!(append_actor_job(&path, &observation).expect("queue gameplay turn"));
 
@@ -62789,6 +62772,8 @@ mod tests {
                 status: "active".to_string(),
                 source_event_seq: Some(90_002),
                 updated_event_seq: Some(90_002),
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
             },
         );
         let friendship_state =

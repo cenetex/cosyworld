@@ -1450,6 +1450,22 @@ for (const actor of actors) {
     }
   }
   const desiredItemIds = new Set();
+  if (actor.relationship !== undefined) {
+    if (!isObject(actor.relationship)) {
+      fail(`actor ${actor.id} has invalid relationship`);
+    } else {
+      validateRequiredStrings(`actor ${actor.id} relationship`, actor.relationship, [
+        "intent",
+        "statement",
+        "first_beat",
+        "reply_prompt",
+        "active_beat",
+      ]);
+      if (!has(itemIds, actor.relationship.active_on_gift_item_id)) {
+        fail(`actor ${actor.id} relationship references missing gift item ${actor.relationship.active_on_gift_item_id}`);
+      }
+    }
+  }
   for (const desire of actor.desires ?? []) {
     if (!has(itemIds, desire.item_id) || !isNonEmptyString(desire.reason) || desiredItemIds.has(desire.item_id)) {
       fail(`actor ${actor.id} has invalid desire for item ${desire.item_id}`);

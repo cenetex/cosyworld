@@ -4903,6 +4903,8 @@
         const firstChat = chatCandidates[0];
         const oneChat = chatCandidates.length === 1;
         const firstTargetName = firstChat.name || actorLabel(firstChat);
+        const firstRelationship = firstChat.relationship || null;
+        const authoredRelationship = firstRelationship?.initial_status === "forming";
         const chatAction = {
           ...semanticAction(chatOffer, "chat"),
           kind: "advancement-chat",
@@ -4921,11 +4923,16 @@
           targetName: oneChat ? firstTargetName : "",
           modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
           modalSummary: oneChat
-            ? `Use one advancement point to begin a friendship with ${firstTargetName}.`
+            ? (authoredRelationship
+              ? `Use one advancement point to begin this forming relationship: “${firstRelationship.statement}”`
+              : `Use one advancement point to begin a friendship with ${firstTargetName}.`)
             : "Choose someone nearby. Chat uses one advancement point and begins a friendship.",
           effect: oneChat
-            ? `your friendship with ${firstTargetName} begins`
+            ? (authoredRelationship
+              ? firstRelationship.deterministic_consequence
+              : `your friendship with ${firstTargetName} begins`)
             : "a new friendship begins",
+          relationship: firstRelationship,
           ...(oneChat ? {} : {
             choices: chatCandidates.map((actor) => {
               const card = cardForActor(actor.id);
@@ -4945,7 +4952,7 @@
         chatAction.selectedPayload = () => ({
           actor_id: actorId,
           target_actor_id: Number(chatAction.selectedTarget().id),
-          statement: defaultBondStatement(
+          statement: chatAction.selectedTarget().relationship?.statement || defaultBondStatement(
             chatAction.selectedTarget().name || actorLabel(chatAction.selectedTarget())
           ),
         });
@@ -7278,6 +7285,9 @@
       "pathway.discovered",
       "pathway.familiarized",
       "chat.failed",
+      "dialogue.unavailable",
+      "relationship.beat",
+      "relationship.advanced",
       "ability_check.rolled",
       "study.resolved",
       "feature.searched",
@@ -7593,6 +7603,7 @@
         || event.type === "actor.presence"
         || event.type === "chat.queued"
         || event.type === "chat.completed"
+        || event.type === "dialogue.delivered"
         || event.type === "avatar.refined"
         || event.type === "pathway.refined";
     }
@@ -7619,6 +7630,10 @@
         || event.type === "turn.timeout_passed"
         || event.type === "message.created"
         || event.type === "chat.failed"
+        || event.type === "dialogue.unavailable"
+        || event.type === "dialogue.delivered"
+        || event.type === "relationship.beat"
+        || event.type === "relationship.advanced"
         || event.type === "avatar.refined"
         || event.type === "pathway.refined"
         || event.type === "move.blocked"
@@ -8651,6 +8666,15 @@
       if (event.type === "skill.stepped") {
         return { kind: "skill", label: "ability", text: cleanStatusText(skillEventLabel(event)) };
       }
+      if (event.type === "relationship.beat") {
+        return { kind: "bond", label: "relationship", text: cleanStatusText(event.content || "a relationship begins to form") };
+      }
+      if (event.type === "relationship.advanced") {
+        return { kind: "bond", label: "relationship", text: cleanStatusText(event.content || "earned trust changes the relationship") };
+      }
+      if (event.type === "dialogue.unavailable") {
+        return { kind: "bond", label: "dialogue unavailable", text: "The promised resident reply could not run. No substitute speech was created." };
+      }
       if (event.type === "calling.set") {
         if (event.actor_id === actorId) {
           return { kind: "calling", label: "purpose", text: `What draws you in: ${cleanStatusText(callingEventLabel(event))}` };
@@ -8667,7 +8691,10 @@
         return { kind: "bond", label: "friendship", text: `closer to ${event.target_actor_name || "someone"}` };
       }
       if (event.type === "bond.created") {
-        return { kind: "bond", label: "friendship", text: `${event.target_actor_name || "someone"} now matters to you` };
+        const forming = String(event.content || "").includes(":forming:");
+        return forming
+          ? { kind: "bond", label: "relationship", text: `a connection with ${event.target_actor_name || "someone"} is forming` }
+          : { kind: "bond", label: "friendship", text: `${event.target_actor_name || "someone"} now matters to you` };
       }
       if (event.type === "bond.revised") {
         return { kind: "bond", label: "friendship", text: `what ${event.target_actor_name || "someone"} means to you changed` };
@@ -9344,10 +9371,12 @@
         return `${charm.name} — ${skill}${bonus ? ` +${bonus}` : ""}`;
       }).join(", ") : "find a skill charm, then wear it from Deck"));
       const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
-      rows.push(accountRow("friends", bonds.length ? bonds.map((bond) => {
+      rows.push(accountRow("relationships", bonds.length ? bonds.map((bond) => {
         const name = String(bond.target_actor_name || "someone").trim();
         const statement = String(bond.statement || "").trim();
-        const closeness = Number(bond.strength || 0) >= 3 ? "close friend" : (Number(bond.strength || 0) >= 2 ? "getting closer" : "new friend");
+        const closeness = bond.status === "forming"
+          ? "forming acquaintance"
+          : (Number(bond.strength || 0) >= 3 ? "close friend" : (Number(bond.strength || 0) >= 2 ? "getting closer" : "new friend"));
         return `${name} — ${statement || closeness}${statement ? ` (${closeness})` : ""}`;
       }).join(" · ") : "someone new is waiting to meet you"));
       const marks = Array.isArray(ledger.unbanked_marks) ? ledger.unbanked_marks : [];
@@ -9551,6 +9580,12 @@
       if (type === "chat.failed") {
         return "The conversation slipped away before it could begin. Your Orb came back.";
       }
+      if (type === "dialogue.unavailable") {
+        return "Dialogue unavailable: Mara's promised reply could not run. The authored relationship beat still stands, and no substitute speech was created.";
+      }
+      if (type === "relationship.beat" || type === "relationship.advanced") {
+        return finishSentence(cleanStatusText(event.content || "The relationship changes through a visible deed"));
+      }
       if (type === "world.weather.shifted") {
         return finishSentence(cleanStatusText(event.content || "The weather changes its mind"));
       }
@@ -9658,6 +9693,9 @@
         return `${actor} finds a truer answer to what draws them in: ${withoutFinalPeriod(callingEventLabel(event))}.`;
       }
       if (type === "bond.created") {
+        if (String(event.content || "").includes(":forming:")) {
+          return `A cautious connection begins forming between ${actor} and ${event.target_actor_name || "someone new"}; friendship has not been claimed.`;
+        }
         return `Somewhere between ${actor} and ${event.target_actor_name || "someone new"}, a friendship begins.`;
       }
       if (type === "bond.revised") {
@@ -9987,7 +10025,13 @@
       if (event.type === "skill_charm.unequipped") return `removes ${event.item_name || "a skill charm"}.`;
       if (event.type === "skill.stepped") return `${skillEventLabel(event)}.`;
       if (event.type === "bond.deepened") return `grows closer to ${event.target_actor_name || "someone"}.`;
-      if (event.type === "bond.created") return `became friends with ${event.target_actor_name || "someone"}.`;
+      if (event.type === "relationship.beat" || event.type === "relationship.advanced") return finishSentence(cleanStatusText(event.content || "the relationship changes"));
+      if (event.type === "dialogue.unavailable") return "Dialogue unavailable; no substitute speech was created.";
+      if (event.type === "bond.created") {
+        return String(event.content || "").includes(":forming:")
+          ? `began a forming relationship with ${event.target_actor_name || "someone"}.`
+          : `became friends with ${event.target_actor_name || "someone"}.`;
+      }
       if (event.type === "bond.revised") return `sees ${event.target_actor_name || "someone"} a little differently.`;
       if (event.type === "bond.resolved") return `keeps what mattered with ${event.target_actor_name || "someone"}.`;
       if (event.type === "job.updated") return `${jobEventLabel(event)}.`;
@@ -11079,6 +11123,16 @@
         ].filter((row) => String(row[1] || "").trim());
       }
       if (String(action?.label || "").toLowerCase() === "chat") {
+        const selectedRelationship = action?.selectedTarget?.()?.relationship || action?.relationship;
+        if (selectedRelationship?.initial_status === "forming") {
+          return [
+            ["Relationship", selectedRelationship.statement],
+            ["Status", "forming acquaintance; this does not claim friendship"],
+            ["Campaign beat", selectedRelationship.deterministic_consequence],
+            ["Spend", "one advancement point"],
+            ["Dialogue", selectedRelationship.dialogue_contract],
+          ];
+        }
         if (action?.choices?.length) {
           return [
             ["Choose", "who you want to begin a friendship with"],
@@ -11180,6 +11234,21 @@
       ].filter((row) => String(row[1] || "").trim());
     }
 
+    function renderActionModalRows(action) {
+      const selectedRelationship = action?.selectedTarget?.()?.relationship || action?.relationship;
+      const authoredRelationship = String(action?.label || "").toLowerCase() === "chat"
+        && selectedRelationship?.initial_status === "forming";
+      const rows = (authoredRelationship ? actionModalRows(action) : [])
+        .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim());
+      const meta = $("action-modal-meta");
+      meta.innerHTML = rows.map(([key, value]) => {
+        const label = String(key).trim();
+        const detail = String(value).trim();
+        const risk = /^watch for$/i.test(label) ? " risk" : "";
+        return `<div class="action-row${risk}" role="group" aria-label="${escapeAttr(label)}"><span class="action-row-key">${escapeHtml(label)}</span><span class="action-row-value">${escapeHtml(detail)}</span></div>`;
+      }).join("");
+    }
+
     function actionSummary(action) {
       if (action?.modalSummary) return String(action.modalSummary);
       if (["nudge", "ping"].includes(String(action?.label || "").toLowerCase())) {
@@ -11248,7 +11317,7 @@
       syncActionChoicePreview(action, selectedChoice);
       $("action-modal-title").textContent = label;
       $("action-modal-summary").textContent = journalSentence(actionSummary(action));
-      $("action-modal-meta").innerHTML = "";
+      renderActionModalRows(action);
       renderActionChoices(action);
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
       $("action-modal-cancel").textContent = action?.creationStage === "origin" ? "back" : "cancel";
@@ -11311,6 +11380,7 @@
       action.selectedChoice = choice.value;
       renderActionChoices(action);
       syncActionChoicePreview(action, choice);
+      renderActionModalRows(action);
     }
 
     function closeActionModal() {

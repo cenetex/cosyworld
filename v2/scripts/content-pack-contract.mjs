@@ -30,6 +30,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "stats",
     "desires",
     "attachments",
+    "relationship",
   ]),
   items: new Set([
     "pack_id",

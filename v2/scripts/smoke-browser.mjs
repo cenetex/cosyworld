@@ -1917,6 +1917,7 @@ async function main() {
             })),
             selectedChoice: entry.selectedChoice || "",
             focusKeys: entry.focusKeys || [],
+            payload: entry.selectedPayload?.() || null,
             alternateTargetId: entry.choices?.[1]
               ? (() => {
                 const selected = entry.selectedChoice;
@@ -1956,6 +1957,51 @@ async function main() {
           command: entry.command || "",
         }));
       };
+      const renderedMaraModal = () => {
+        const fakeState = {
+          ...baseState,
+          action_offers: [{
+            ...baseState.action_offers[0],
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            command: "chat Rati",
+          }],
+          actors: [
+            baseState.actors[0],
+            { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+            {
+              id: 8301,
+              name: "Mara Wick",
+              kind: "npc",
+              status: "active",
+              stats: { level: 2 },
+              relationship: {
+                intent: "Begin a cautious acquaintance by accepting Mara's request.",
+                statement: "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.",
+                initial_status: "forming",
+                deterministic_consequence: "Mara places Rowan's empty key hook on the bar and asks for the Keeper's Brass Key.",
+                dialogue_contract: "one grounded reply if dialogue is available; otherwise one explicit unavailable result",
+              },
+            },
+          ],
+        };
+        state = fakeState;
+        actorId = 5000;
+        const action = buildActions(fakeState).find((entry) => entry.label === "chat");
+        openActionModal(action);
+        const before = [...document.querySelectorAll("#action-modal-meta .action-row")]
+          .map((node) => node.textContent.trim().replace(/\s+/g, " "));
+        const maraIndex = action.choices.findIndex((choice) => choice.label === "Mara Wick");
+        chooseActionModalChoice(maraIndex);
+        const selected = [...document.querySelectorAll("#action-modal-meta .action-row")]
+          .map((node) => ({
+            label: node.querySelector(".action-row-key")?.textContent?.trim() || "",
+            value: node.querySelector(".action-row-value")?.textContent?.trim() || "",
+            ariaLabel: node.getAttribute("aria-label") || "",
+          }));
+        const payload = action.selectedPayload?.() || null;
+        closeActionModal();
+        return { before, selected, payload };
+      };
       try {
         return {
           serverPaid: chatActionFor({}),
@@ -1990,6 +2036,31 @@ async function main() {
               },
             },
           }),
+          mara: chatActionFor({
+            action_offers: [{
+              ...baseState.action_offers[0],
+              target: { kind: "actor", id: 8301, label: "Mara Wick" },
+              command: "chat Mara Wick",
+            }],
+            actors: [
+              baseState.actors[0],
+              {
+                id: 8301,
+                name: "Mara Wick",
+                kind: "npc",
+                status: "active",
+                stats: { level: 2 },
+                relationship: {
+                  intent: "Begin a cautious acquaintance by accepting Mara's request.",
+                  statement: "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.",
+                  initial_status: "forming",
+                  deterministic_consequence: "Mara places Rowan's empty key hook on the bar and asks for the Keeper's Brass Key.",
+                  dialogue_contract: "one grounded reply if dialogue is available; otherwise one explicit unavailable result",
+                },
+              },
+            ],
+          }),
+          renderedMara: renderedMaraModal(),
         };
       } finally {
         state = previousState;
@@ -2017,6 +2088,54 @@ async function main() {
     assert(!String(result.serverPaid?.detail || "").includes("lv"), `chat cards should let the evolved art and title carry character growth: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("/"), `chat detail should not include card title chrome: ${JSON.stringify(result)}`);
     assert(!String(result.staleConnectedHint?.detail || "").includes("/"), `stale OpenRouter chat detail should not include card title chrome: ${JSON.stringify(result)}`);
+    assert(result.mara?.summary.includes("forming relationship") && result.mara?.summary.includes("Mara is watching"), `Mara Chat should preview the forming relationship statement: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Status" && row[1].includes("does not claim friendship")), `Mara Chat must not present an established friendship: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Campaign beat" && row[1].includes("empty key hook")), `Mara Chat should preview its deterministic campaign beat: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Dialogue" && row[1].includes("explicit unavailable result")), `Mara Chat should distinguish optional dialogue from the relationship mutation: ${JSON.stringify(result)}`);
+    assert(result.mara?.payload?.statement === "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.", `Mara Chat must submit the confirmed authored statement: ${JSON.stringify(result)}`);
+    assert(result.renderedMara?.before?.length === 0, `an ordinary Chat target should keep the existing compact modal: ${JSON.stringify(result.renderedMara)}`);
+    assert(
+      result.renderedMara?.selected?.map((row) => row.label).join(",")
+        === "Relationship,Status,Campaign beat,Spend,Dialogue",
+      `selecting Mara must replace the modal DOM with all five relationship rows: ${JSON.stringify(result.renderedMara)}`,
+    );
+    assert(result.renderedMara?.selected?.every((row) => row.ariaLabel === row.label), `rendered relationship rows need accessible labels: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.renderedMara?.selected?.some((row) => row.label === "Status" && row.value.includes("does not claim friendship")), `rendered Mara status must stay visibly forming: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.renderedMara?.selected?.some((row) => row.label === "Campaign beat" && row.value.includes("empty key hook")), `rendered Mara modal must show the deterministic campaign beat: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.renderedMara?.payload?.target_actor_id === 8301 && result.renderedMara?.payload?.statement === result.mara?.payload?.statement, `the DOM-selected Mara payload must keep the authored relationship statement: ${JSON.stringify(result.renderedMara)}`);
+  }
+
+  async function assertMaraRelationshipEventsStayTruthful() {
+    const result = await page.evaluate(() => {
+      const forming = {
+        type: "bond.created",
+        actor_name: "Lantern Stitch",
+        target_actor_name: "Mara Wick",
+        content: "bond:5000:8301:1:forming:advancement",
+      };
+      const beat = {
+        type: "relationship.beat",
+        actor_name: "Lantern Stitch",
+        target_actor_name: "Mara Wick",
+        content: "Mara places Rowan's empty key hook on the bar and asks for the Keeper's Brass Key.",
+      };
+      const unavailable = {
+        type: "dialogue.unavailable",
+        actor_name: "Lantern Stitch",
+        target_actor_name: "Mara Wick",
+        content: "resident dialogue was unavailable; no substitute line was created",
+      };
+      return {
+        forming: sceneCardEventText(forming),
+        beat: sceneCardEventText(beat),
+        unavailable: sceneCardEventText(unavailable),
+        unavailableStatus: statusUpdateMeta(unavailable),
+      };
+    });
+    assert(/connection begins forming/i.test(result.forming) && /friendship has not been claimed/i.test(result.forming), `forming Bond presentation must not claim friendship: ${JSON.stringify(result)}`);
+    assert(result.beat.includes("empty key hook") && result.beat.includes("Keeper's Brass Key"), `the authored campaign consequence should remain visible without dialogue: ${JSON.stringify(result)}`);
+    assert(/Dialogue unavailable/i.test(result.unavailable) && /no substitute speech/i.test(result.unavailable), `provider-offline failure must be explicit and truthful: ${JSON.stringify(result)}`);
+    assert(result.unavailableStatus?.label === "dialogue unavailable", `typed dialogue failure should keep its visible event label: ${JSON.stringify(result)}`);
   }
 
   async function assertGiftPrimaryUsesCompactVerb() {
@@ -9402,6 +9521,7 @@ async function main() {
   await assertProjectFeatureUseRequiresServerEffect();
   await assertFeatureAndCareShareOneUseCard();
   await assertChatPrimaryUsesCompactActorDetail();
+  await assertMaraRelationshipEventsStayTruthful();
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
