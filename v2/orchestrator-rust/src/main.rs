@@ -15498,108 +15498,6 @@ impl RuntimeWorld {
         });
     }
 
-    fn resident_evolution_item_ids(&self, actor_id: u64) -> Vec<u64> {
-        evolution_track_item_ids(actor_id).unwrap_or_default()
-    }
-
-    fn resident_evolution_item_ids_for_target_kind(
-        &self,
-        actor_id: u64,
-        target_kind: &str,
-    ) -> Vec<u64> {
-        active_content()
-            .evolution_tracks
-            .iter()
-            .find(|track| track.actor_id == actor_id)
-            .map(|track| {
-                track
-                    .requirements
-                    .iter()
-                    .filter(|requirement| requirement.target_kind == target_kind)
-                    .map(|requirement| requirement.item_id)
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    fn resident_calling_desired_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) || resident.stats.level >= 2 {
-            return Vec::new();
-        }
-        self.resident_evolution_item_ids(resident.id)
-    }
-
-    fn resident_calling_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) || resident.stats.level >= 2 {
-            return Vec::new();
-        }
-        self.resident_evolution_item_ids_for_target_kind(resident.id, "actor_hand")
-    }
-
-    fn resident_personal_desires(&self, resident_id: u64) -> Vec<SeedResidentDesireContent> {
-        active_content()
-            .actors
-            .iter()
-            .find(|actor| actor.id == resident_id)
-            .map(|actor| actor.desires.clone())
-            .unwrap_or_default()
-    }
-
-    fn resident_personal_desire_for_item(
-        &self,
-        resident_id: u64,
-        item_id: u64,
-    ) -> Option<SeedResidentDesireContent> {
-        self.resident_personal_desires(resident_id)
-            .into_iter()
-            .find(|desire| desire.item_id == item_id)
-    }
-
-    fn resident_personal_attachments(
-        &self,
-        resident_id: u64,
-    ) -> Vec<SeedResidentAttachmentContent> {
-        active_content()
-            .actors
-            .iter()
-            .find(|actor| actor.id == resident_id)
-            .map(|actor| actor.attachments.clone())
-            .unwrap_or_default()
-    }
-
-    fn resident_personal_attachment_for_item(
-        &self,
-        resident_id: u64,
-        item_id: u64,
-    ) -> Option<SeedResidentAttachmentContent> {
-        self.resident_personal_attachments(resident_id)
-            .into_iter()
-            .find(|attachment| attachment.item_id == item_id)
-    }
-
-    fn resident_attachment_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) {
-            return Vec::new();
-        }
-        self.resident_personal_attachments(resident.id)
-            .into_iter()
-            .map(|attachment| attachment.item_id)
-            .collect()
-    }
-
-    fn resident_desired_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) {
-            return Vec::new();
-        }
-        let mut item_ids = self.resident_calling_desired_item_ids(resident);
-        for desire in self.resident_personal_desires(resident.id) {
-            if !item_ids.contains(&desire.item_id) {
-                item_ids.push(desire.item_id);
-            }
-        }
-        item_ids
-    }
-
     fn item_by_id(&self, item_id: u64) -> Option<CwItem> {
         self.world.items[..self.world.item_count]
             .iter()
@@ -15607,7 +15505,7 @@ impl RuntimeWorld {
             .find(|item| item.id == item_id)
     }
 
-    fn resident_healing_target(&self, resident: CwActor) -> Option<CwActor> {
+    fn merged_inline_resident_healing_target(&self, resident: CwActor) -> Option<CwActor> {
         if !Self::actor_can_act(resident) {
             return None;
         }
@@ -15626,7 +15524,7 @@ impl RuntimeWorld {
             .min_by_key(|target| (target.id != resident.id, target.id))
     }
 
-    fn resident_held_healing_item_for_target(
+    fn merged_inline_resident_held_healing_item_for_target(
         &self,
         resident: CwActor,
     ) -> Option<(CwItem, CwActor)> {
@@ -15639,14 +15537,14 @@ impl RuntimeWorld {
         Some((item, target))
     }
 
-    fn resident_needs_medicine(&self, resident: CwActor) -> bool {
+    fn merged_inline_resident_needs_medicine(&self, resident: CwActor) -> bool {
         self.resident_healing_target(resident).is_some()
             && self
                 .resident_held_healing_item_for_target(resident)
                 .is_none()
     }
 
-    fn resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
+    fn merged_inline_resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
         if !Self::actor_can_act(resident) {
             return Vec::new();
         }
@@ -15670,7 +15568,7 @@ impl RuntimeWorld {
         item_ids
     }
 
-    fn resident_item_is_sought(&self, resident: CwActor, item_id: u64) -> bool {
+    fn merged_inline_resident_item_is_sought(&self, resident: CwActor, item_id: u64) -> bool {
         let wants_item = self
             .resident_calling_sought_item_ids(resident)
             .into_iter()
@@ -15716,7 +15614,7 @@ impl RuntimeWorld {
         false
     }
 
-    fn resident_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
+    fn merged_inline_resident_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
         let held_item_ids: BTreeSet<u64> = self
             .actor_held_items(resident.id)
             .into_iter()
@@ -15968,170 +15866,6 @@ impl RuntimeWorld {
     ) -> bool {
         self.resident_actor_wants_item_memory(holder_actor_id, target_actor_id, item_id)
             .is_some()
-    }
-
-    fn resident_item_is_attached(&self, resident_id: u64, item: CwItem) -> bool {
-        if self
-            .resident_personal_attachment_for_item(resident_id, item.id)
-            .is_some()
-        {
-            return true;
-        }
-        if evolution_item_matches_resident(item.id, resident_id) {
-            return true;
-        }
-        if evolution_item_belongs_to_another_resident(item.id, resident_id) {
-            return false;
-        }
-        if self.resident_item_has_feature_use_attachment(resident_id, item.id) {
-            return true;
-        }
-        item.holder_actor_id == resident_id
-            && item.held_since_tick > 0
-            && self.world.tick.saturating_sub(item.held_since_tick) >= 12
-    }
-
-    fn resident_item_has_feature_use_attachment(&self, resident_id: u64, item_id: u64) -> bool {
-        if evolution_item_belongs_to_another_resident(item_id, resident_id) {
-            return false;
-        }
-        let prefix = format!("actor:{resident_id}:feature_use:");
-        let suffix = format!(":{item_id}");
-        self.tags.values().any(|tag| {
-            tag.active
-                && tag.scope == "actor"
-                && tag.scope_id == resident_id
-                && tag.id.starts_with(&prefix)
-                && tag.id.ends_with(&suffix)
-        })
-    }
-
-    fn resident_attached_item_ids(&self, resident_id: u64) -> Vec<u64> {
-        self.actor_held_items(resident_id)
-            .into_iter()
-            .filter(|item| self.resident_item_is_attached(resident_id, *item))
-            .map(|item| item.id)
-            .collect()
-    }
-
-    fn resident_item_attachment_reason(&self, resident: CwActor, item_id: u64) -> String {
-        let resident_name = self
-            .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| format!("Item {item_id}"));
-        if evolution_item_matches_resident(item_id, resident.id) {
-            format!("{resident_name} is attached to {item_name} because it belongs to their evolution track.")
-        } else if self.resident_item_has_feature_use_attachment(resident.id, item_id) {
-            format!(
-                "{resident_name} is attached to {item_name} because it mattered in a room moment."
-            )
-        } else if let Some(attachment) =
-            self.resident_personal_attachment_for_item(resident.id, item_id)
-        {
-            format!(
-                "{resident_name} is attached to {item_name}: {}",
-                attachment.reason.trim_end_matches('.')
-            )
-        } else {
-            format!("{resident_name} is attached to {item_name}.")
-        }
-    }
-
-    fn resident_item_recovery_reason(&self, resident: CwActor, item_id: u64) -> Option<String> {
-        let attachment = self.resident_personal_attachment_for_item(resident.id, item_id)?;
-        let resident_name = self
-            .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| format!("Item {item_id}"));
-        Some(format!(
-            "{resident_name} wants {item_name} back: {}",
-            attachment.reason.trim_end_matches('.')
-        ))
-    }
-
-    fn resident_sought_item_source(&self, resident: CwActor, item_id: u64) -> &'static str {
-        if self.resident_needs_medicine(resident)
-            && self
-                .item_by_id(item_id)
-                .is_some_and(|item| item.kind == CW_ITEM_POTION)
-        {
-            return "medicine";
-        }
-        if self
-            .resident_personal_desire_for_item(resident.id, item_id)
-            .is_some()
-        {
-            return "personal";
-        }
-        if self
-            .resident_calling_desired_item_ids(resident)
-            .into_iter()
-            .any(|desired_item_id| desired_item_id == item_id)
-        {
-            return "calling";
-        }
-        if self
-            .resident_personal_attachment_for_item(resident.id, item_id)
-            .is_some()
-        {
-            return "attachment";
-        }
-        if self
-            .resident_feature_use_match_for_item(resident, item_id)
-            .is_some()
-        {
-            return "room_feature";
-        }
-        "memory"
-    }
-
-    fn resident_item_request_reason(&self, resident: CwActor, item_id: u64) -> String {
-        let resident_name = self
-            .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| format!("Item {item_id}"));
-        let item = self.item_by_id(item_id);
-        let healing_target = self.resident_healing_target(resident);
-        if let Some(desire) = self.resident_personal_desire_for_item(resident.id, item_id) {
-            format!(
-                "{resident_name} wants {item_name}: {}.",
-                desire.reason.trim_end_matches('.')
-            )
-        } else if self
-            .resident_calling_desired_item_ids(resident)
-            .into_iter()
-            .any(|desired_item_id| desired_item_id == item_id)
-        {
-            format!("{resident_name} wants {item_name}.")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION)
-            && healing_target.is_some_and(|target| target.id == resident.id)
-        {
-            format!("{resident_name} needs {item_name}.")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) && healing_target.is_some() {
-            let target = healing_target.expect("healing target checked");
-            let target_name = self
-                .actor_name(target.id)
-                .unwrap_or_else(|| format!("Resident {}", target.id));
-            format!("{resident_name} wants {item_name} for {target_name}.")
-        } else if let Some(reason) = self.resident_item_recovery_reason(resident, item_id) {
-            format!("{reason}.")
-        } else if let Some(candidate) = self.resident_feature_use_match_for_item(resident, item_id)
-        {
-            format!(
-                "{resident_name} could use {item_name} with {}.",
-                candidate.feature_name
-            )
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) {
-            format!("{resident_name} could use {item_name}.")
-        } else {
-            format!("{resident_name} values {item_name}.")
-        }
     }
 
     fn resident_waits_for_player_gift(&self, resident: CwActor) -> bool {
@@ -41410,6 +41144,22 @@ fn now_millis() -> u64 {
 }
 
 #[cfg(test)]
+fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+    CommandRequest {
+        actor_id,
+        actor_session: None,
+        command: command.to_string(),
+        offer_id: None,
+        wallet_address: None,
+        wallet: None,
+        wallet_session: None,
+        owned_card_ids: None,
+        cards: None,
+        envelope: None,
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use axum::{
@@ -63575,79 +63325,6 @@ mod tests {
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| item.id == WATCH_BELL_ITEM_ID && item.holder_actor_id == 5000));
-    }
-
-    #[test]
-    fn content_authored_personal_desires_drive_requests_and_reasons() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 0;
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 40;
-        let mut create_record = JournalRecord::new(create, 78332);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Button Courier".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Desire Tester".to_string(),
-                description: "A test avatar carrying an item with authored local demand."
-                    .to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            if item.id == DEWBRIGHT_BUTTON_ITEM_ID {
-                item.location_id = 0;
-                item.holder_actor_id = 5000;
-                item.held_since_tick = runtime.world.tick;
-            }
-        }
-
-        let mouse = runtime
-            .actor_by_id(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Doctor Cogwhisker exists");
-        assert!(runtime
-            .resident_desired_item_ids(mouse)
-            .contains(&DEWBRIGHT_BUTTON_ITEM_ID));
-        assert_eq!(
-            runtime.resident_sought_item_source(mouse, DEWBRIGHT_BUTTON_ITEM_ID),
-            "personal"
-        );
-        let request_reason = runtime.resident_item_request_reason(mouse, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert!(request_reason.contains("tiny rain engine"));
-        let immediate_request = runtime
-            .resident_request_for_holder(mouse, 5000)
-            .expect("same-room player-held personal desire is requestable");
-        assert_eq!(immediate_request.item_id, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert!(immediate_request.reason.contains("tiny rain engine"));
-        runtime.record_economy_disclosure(5000, STEAMPUNK_MOUSE_ACTOR_ID);
-
-        let mouse = runtime
-            .prepare_resident_local_memories(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Doctor Cogwhisker observes the courier");
-        let economy = runtime
-            .resident_economy_view(mouse, Some(5000))
-            .expect("resident economy view");
-        let sought = economy
-            .sought_items
-            .iter()
-            .find(|item| item.item_id == DEWBRIGHT_BUTTON_ITEM_ID)
-            .expect("personal desire appears in sought items");
-        assert_eq!(sought.source, "personal");
-        assert!(sought.reason.contains("tiny rain engine"));
-        assert_eq!(sought.holder_actor_id, Some(5000));
-        let request = economy
-            .request
-            .as_ref()
-            .expect("resident asks for observed player-held personal desire");
-        assert_eq!(request.item_id, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert!(request.reason.contains("tiny rain engine"));
-        assert!(economy.motive.contains("tiny rain engine"));
-        assert!(runtime
-            .actor_gift_is_legal(5000, STEAMPUNK_MOUSE_ACTOR_ID, DEWBRIGHT_BUTTON_ITEM_ID)
-            .is_ok());
     }
 
     #[test]
