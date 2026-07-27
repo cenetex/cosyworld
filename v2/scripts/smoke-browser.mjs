@@ -5211,6 +5211,19 @@ async function main() {
         primary_action: { kind: "act", options: [{ kind: "move" }, { kind: "check" }] },
         search_available: false,
       };
+      const nonScoutOffers = (base.action_offers || [])
+        .filter((offer) => offer.kind !== "explore_path");
+      const scoutOffer = {
+        kind: "explore_path",
+        intention: "scout",
+        verb: "Scout",
+        rank: 55,
+        target: {
+          kind: "location",
+          id: 3,
+          label: "Moonlit Trail",
+        },
+      };
       const initial = buildActions({
         ...base,
         journey: null,
@@ -5227,6 +5240,7 @@ async function main() {
       }).find((action) => action.command === "search pathway to Moonlit Trail");
       const searchingActions = buildActions({
         ...base,
+        action_offers: [...nonScoutOffers, scoutOffer],
         exits: [],
         journey: {
           destination_location_id: 3,
@@ -5264,6 +5278,7 @@ async function main() {
       const travelling = travellingActions.find((action) => action.focusKey === "exit:100001");
       const finalSearchActions = buildActions({
         ...base,
+        action_offers: [...nonScoutOffers, scoutOffer],
         exits: [],
         journey: {
           destination_location_id: 3,
@@ -5299,9 +5314,52 @@ async function main() {
         },
       });
       const finalTravel = finalTravelActions.find((action) => action.focusKey === "exit:3");
+      const foundButUnavailableActions = buildActions({
+        ...base,
+        action_offers: [...nonScoutOffers, scoutOffer],
+        exits: [{
+          destination_location_id: 100001,
+          destination_location_name: "Foxglove Turn",
+          direction: "east",
+          distance: 1,
+          accessible: false,
+          locked: false,
+        }],
+        journey: {
+          destination_location_id: 3,
+          destination_name: "Moonlit Trail",
+          current_step: 1,
+          total_steps: 3,
+          steps_remaining: 2,
+          explorer: true,
+          next_location_id: 100001,
+          next_location_name: "Foxglove Turn",
+        },
+      });
+      const missingWithoutScoutOfferActions = buildActions({
+        ...base,
+        action_offers: nonScoutOffers,
+        exits: [],
+        journey: {
+          destination_location_id: 3,
+          destination_name: "Moonlit Trail",
+          current_step: 1,
+          total_steps: 3,
+          steps_remaining: 2,
+          explorer: true,
+          next_location_id: 100001,
+          next_location_name: "Foxglove Turn",
+        },
+      });
       return {
         searchingActionCount: searchingActions.length,
         travellingActionCount: travellingActions.length,
+        scoutAfterFound: foundButUnavailableActions.some((action) => (
+          String(action.intention || "").toLowerCase() === "scout"
+        )),
+        scoutWithoutOffer: missingWithoutScoutOfferActions.some((action) => (
+          String(action.intention || "").toLowerCase() === "scout"
+        )),
         initial: {
           label: initial?.label,
           detail: initial?.detail,
@@ -5352,6 +5410,14 @@ async function main() {
         && result.travelling.command === "go Foxglove Turn"
         && result.travellingActionCount > 1,
       `a revealed adjacent segment should offer ordinary Travel without replacing the hand: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.scoutAfterFound === false,
+      `a found segment must not recreate Scout merely because Travel is unavailable: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.scoutWithoutOffer === false,
+      `a missing exit must not recreate Scout after the authoritative Scout offer disappears: ${JSON.stringify(result)}`,
     );
     assert(
       result.finalSearch.label === "scout"

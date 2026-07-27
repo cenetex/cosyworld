@@ -4959,12 +4959,11 @@
       if (journey) {
         const nextLocationId = Number(journey.next_location_id || 0);
         const nextIsDestination = nextLocationId === Number(journey.destination_location_id || 0);
+        const scoutOffer = offerFor("explore_path");
         const nextStretchRevealed = (view.exits || []).some((exit) => (
           Number(exit.destination_location_id || 0) === nextLocationId
-          && !exitUnavailable(exit, view)
         ));
-        if (!nextStretchRevealed) {
-          const scoutOffer = offerFor("explore_path");
+        if (scoutOffer && !nextStretchRevealed) {
           const scoutVerb = offerVerb(scoutOffer, "Scout");
           const scoutLabel = targetBearingLabel("scout", scoutVerb, journey.destination_name);
           built.push({

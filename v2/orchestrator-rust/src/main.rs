@@ -47698,7 +47698,6 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == second_waypoint_id));
-
         let (second_travel, mut second_travel_mutation, second_travel_narration) = runtime
             .plan_journey_move(5000, second_waypoint_id)
             .expect("second segment travel planning succeeds")
@@ -47736,7 +47735,6 @@ mod tests {
             runtime.actor_by_id(5000).unwrap().location_id,
             second_waypoint_id
         );
-
         let (final_travel, mut final_travel_mutation, final_travel_narration) = runtime
             .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
             .expect("final segment travel planning succeeds")
@@ -48886,7 +48884,7 @@ mod tests {
         assert!(INDEX_HTML
             .contains("the hidden next stretch toward ${journey.destination_name} is revealed"));
         assert!(INDEX_HTML.contains("const built = [];"));
-        assert!(INDEX_HTML.contains("if (!nextStretchRevealed)"));
+        assert!(INDEX_HTML.contains("scoutOffer && !nextStretchRevealed"));
         assert!(!INDEX_HTML.contains("function mergeDuplicateSearchCards"));
         assert!(!INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
         assert!(INDEX_HTML.contains("Reveal the first adjacent stretch toward"));
