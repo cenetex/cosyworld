@@ -145,6 +145,7 @@ async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
         vision_model: "test-vision-model".to_string(),
         reasoning_effort: None,
         vision_reasoning_effort: None,
+        ..AiConfig::default()
     };
 
     preflight_community_art_policy(Some(&config), CommunityArtImagePolicy::LocationLandscape)
@@ -284,6 +285,7 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
         vision_model: "test-vision-model".to_string(),
         reasoning_effort: None,
         vision_reasoning_effort: None,
+        ..AiConfig::default()
     }));
     let (actor_session, _) = issue_actor_session(&state, 5000);
 
@@ -410,6 +412,7 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         vision_model: "test-vision-model".to_string(),
         reasoning_effort: None,
         vision_reasoning_effort: None,
+        ..AiConfig::default()
     };
 
     let first = generate_and_store_community_art(
