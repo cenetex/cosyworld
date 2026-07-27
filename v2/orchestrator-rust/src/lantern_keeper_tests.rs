@@ -489,6 +489,44 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         .expect("finale carries an inspectable contribution trace");
     assert_eq!(trace.requirement_source_event_seqs, expected_evidence);
     assert_eq!(trace.total_progress, 6);
+    let story_receipt = events
+        .iter()
+        .find_map(semantic_receipts::semantic_story_receipt)
+        .expect("finale emits one semantic story receipt");
+    assert!(story_receipt
+        .text
+        .starts_with("Final Lantern Tender rekindles the dark Mothwood beacon."));
+    assert!(story_receipt
+        .text
+        .contains("The beacon burns again and makes the Mothwood road trustworthy after dusk."));
+    assert!(story_receipt.text.contains("Progress: 6/6."));
+    assert!(story_receipt
+        .text
+        .contains("The road remembers Final Lantern Tender's work."));
+    assert!(story_receipt
+        .text
+        .contains("Final Lantern Tender earns 2 Orbs."));
+    assert!(story_receipt
+        .text
+        .ends_with("Next: carry the relit road's news back to Mara Wick."));
+    assert_eq!(
+        semantic_receipts::semantic_story_events(&events)
+            .into_iter()
+            .filter(|event| event.actor_id == Some(FINAL_ACTOR_ID))
+            .map(|event| event.type_name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["story.receipt"]
+    );
+    assert_eq!(
+        room_memory_entries_chronological(804, &events)
+            .into_iter()
+            .map(|entry| entry.text)
+            .collect::<Vec<_>>(),
+        vec![
+            "Final Lantern Tender rekindled the Mothwood beacon; the road is trustworthy after dusk."
+                .to_string()
+        ]
+    );
 
     let completed_snapshot = RuntimeSnapshot::from_runtime(&runtime);
     assert_eq!(runtime.apply_journal_record(&final_record).0, CW_ERR_RULE);
@@ -502,7 +540,14 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     let mut replayed = before_finale
         .into_runtime()
         .expect("pre-finale snapshot reconnects");
-    assert_eq!(replayed.apply_journal_record(&final_record).0, CW_OK);
+    let (replay_status, replay_events) = replayed.apply_journal_record(&final_record);
+    assert_eq!(replay_status, CW_OK);
+    assert_eq!(
+        replay_events
+            .iter()
+            .find_map(semantic_receipts::semantic_story_receipt),
+        Some(story_receipt)
+    );
     assert_eq!(replayed.clocks[LANTERN_PROGRESS_CLOCK_ID].filled, 6);
     assert_eq!(
         replayed.job_status(&replayed.jobs[LANTERN_JOB_ID]),

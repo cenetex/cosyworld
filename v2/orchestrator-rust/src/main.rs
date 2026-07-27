@@ -40,6 +40,7 @@ mod resident_offer_scoring;
 mod routes;
 mod rpg;
 mod rules_context;
+mod semantic_receipts;
 mod settlement_buildings;
 mod story_metrics;
 #[cfg(test)]
@@ -51,7 +52,6 @@ mod uses;
 mod views;
 mod world_causality;
 mod world_simulation;
-
 use account_auth::*;
 use activation::*;
 use actor_practice::*;
@@ -134,7 +134,6 @@ use turns::*;
 use views::*;
 use world_causality::*;
 use world_simulation::*;
-
 #[derive(Clone)]
 struct AppState {
     inner: Arc<Mutex<RuntimeWorld>>,
@@ -187,51 +186,43 @@ struct AppState {
     story_metrics_retention: StoryMetricsRetention,
     allow_unsigned_wallet_claims: bool,
 }
-
 const CANONICAL_WORLD_PARTITION: &str = "world";
 const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
 const DEFAULT_CANONICAL_CONVERGENCE_POLL: Duration = Duration::from_millis(100);
 const DEFAULT_CANONICAL_REGION_ID: &str = "local";
 const CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER: u32 = 3;
 const CANONICAL_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
-
 #[derive(Clone, Debug, Default)]
 struct CanonicalRoutingConfig {
     base_url: Option<String>,
     token: Option<String>,
 }
-
 #[derive(Clone, Debug)]
 struct CanonicalRecoveryConfig {
     replica_path: PathBuf,
     region_id: String,
 }
-
 impl CanonicalRoutingConfig {
     fn enabled(&self) -> bool {
         self.base_url.is_some() && self.token.is_some()
     }
 }
-
 #[derive(Clone, Debug)]
 struct RegionalPresence {
     active: bool,
     last_seen_at: Instant,
 }
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct CanonicalPresenceRelay {
     source_owner_id: String,
     events: Vec<EventView>,
 }
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ForwardedCanonicalCommand {
     source_process_id: String,
     client_addr: String,
     payload: CommandRequest,
 }
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CanonicalHandoffRequest {
@@ -240,7 +231,6 @@ struct CanonicalHandoffRequest {
     expected_world_seq: u64,
     reason: String,
 }
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CanonicalRecoveryPromotionRequest {
@@ -10161,6 +10151,7 @@ impl RuntimeWorld {
             events.extend(self.apply_rules_context_transition_projection(&committed_events));
             self.record_autonomous_action(record);
             self.refresh_craft_event_presentation(&mut events);
+            self.append_lantern_story_receipt(record, &mut events);
             if record.source_world_tick.is_some() {
                 for event in &mut events {
                     event.apply_async_causality(record);
@@ -31360,8 +31351,8 @@ fn room_memory_entries_chronological(
     location_id: u64,
     events: &[EventView],
 ) -> Vec<RoomMemoryEntryView> {
-    events
-        .iter()
+    semantic_receipts::semantic_story_events(events)
+        .into_iter()
         .rev()
         .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
         .collect::<Vec<_>>()
@@ -31411,6 +31402,7 @@ fn room_memory_entry_for_event_at_location(
 
 fn room_memory_label(event: &EventView) -> String {
     match event.type_name.as_str() {
+        semantic_receipts::STORY_RECEIPT_EVENT_TYPE => "story",
         "actor.moved" | "combat.flee.success" => "move",
         "actor.created" | "actor.entered_location" => "join",
         "move.blocked" => "locked",
@@ -31448,6 +31440,7 @@ fn room_memory_label(event: &EventView) -> String {
 
 fn room_memory_kind(event: &EventView) -> String {
     match event.type_name.as_str() {
+        semantic_receipts::STORY_RECEIPT_EVENT_TYPE => "story",
         "message.created" => "chat",
         "ability_check.rolled" | "combat.attack.attempt" => "roll",
         type_name if type_name.starts_with("item.") => "item",
@@ -31488,6 +31481,9 @@ fn room_memory_log_text(event: &EventView) -> Option<String> {
 fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Option<String> {
     let actor_name = event.actor_name.as_deref().unwrap_or("someone");
     let text = match event.type_name.as_str() {
+        semantic_receipts::STORY_RECEIPT_EVENT_TYPE => {
+            semantic_receipts::semantic_story_memory_text(event)?
+        }
         "actor.created" => format!(
             "{} entered {}",
             event.actor_name.as_deref().unwrap_or("someone"),
@@ -36752,6 +36748,7 @@ fn broadcast_events_inner(state: &AppState, events: &[EventView], relay_presence
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut presence_events = Vec::new();
+    let covered_event_seqs = semantic_receipts::semantic_receipt_covered_event_seqs(events);
     for event in events
         .iter()
         .filter(|event| event.type_name != "action.receipt")
@@ -36771,6 +36768,9 @@ fn broadcast_events_inner(state: &AppState, events: &[EventView], relay_presence
             state
                 .canonical_fanout_seq
                 .store(event.seq, AtomicOrdering::Release);
+            if covered_event_seqs.contains(&event.seq) {
+                continue;
+            }
         } else if event.type_name == "actor.presence" {
             if let Some(actor_id) = event.actor_id {
                 if let Ok(mut presence) = state.regional_presence.lock() {

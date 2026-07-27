@@ -606,6 +606,12 @@ pub(crate) fn command_response_output_for_actor(
     events: &[EventView],
     actor_id: Option<u64>,
 ) -> Option<String> {
+    if let Some(receipt) = events.iter().rev().find_map(|event| {
+        crate::semantic_receipts::semantic_story_receipt(event)
+            .filter(|_| actor_id.is_none() || event.actor_id == actor_id)
+    }) {
+        return Some(receipt.text);
+    }
     let mut lines = Vec::new();
     if let Some(prefix) = prefix.map(|value| value.trim().to_string()) {
         if !prefix.is_empty() {
