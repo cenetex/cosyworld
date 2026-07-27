@@ -760,12 +760,19 @@ mod tests {
     fn test_generated_pathway(runtime: &RuntimeWorld, location_id: u64) -> GeneratedPathwayState {
         GeneratedPathwayState {
             id: "replay-pathway".to_string(),
+            identity_version: 0,
+            canonical_id: String::new(),
+            source_route_id: String::new(),
+            source_route_version: 0,
+            owner_pack_id: "cosyworld.core".to_string(),
+            owner_pack_version: runtime.active_pack_version("cosyworld.core"),
             origin_location_id: COSY_COTTAGE_LOCATION_ID,
             destination_location_id: location_id,
             distance: 1,
             created_by_actor_id: RATI_ACTOR_ID,
             waypoints: vec![GeneratedWaypointState {
                 id: location_id,
+                canonical_id: String::new(),
                 name: runtime.location_name(location_id).expect("location name"),
                 meta: runtime
                     .location_meta
@@ -1026,12 +1033,19 @@ mod tests {
 
         let pathway = GeneratedPathwayState {
             id: "test-pathway".to_string(),
+            identity_version: 0,
+            canonical_id: String::new(),
+            source_route_id: String::new(),
+            source_route_version: 0,
+            owner_pack_id: "cosyworld.core".to_string(),
+            owner_pack_version: runtime.active_pack_version("cosyworld.core"),
             origin_location_id: COSY_COTTAGE_LOCATION_ID,
             destination_location_id: location_id,
             distance: 1,
             created_by_actor_id: RATI_ACTOR_ID,
             waypoints: vec![GeneratedWaypointState {
                 id: location_id,
+                canonical_id: String::new(),
                 name: runtime.location_name(location_id).expect("location name"),
                 meta: runtime
                     .location_meta

@@ -815,6 +815,8 @@ pub(super) struct SeedFeatureUseContent {
 
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedExitContent {
+    #[serde(default)]
+    pub(super) pack_id: String,
     pub(super) from_location_id: u64,
     pub(super) to_location_id: u64,
     #[serde(default)]
@@ -827,6 +829,8 @@ pub(super) struct SeedExitContent {
 
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedHiddenExitContent {
+    #[serde(default)]
+    pub(super) pack_id: String,
     pub(super) id: String,
     pub(super) from_location_id: u64,
     pub(super) to_location_id: u64,
