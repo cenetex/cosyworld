@@ -13,6 +13,11 @@ const lonelyForestFlyConfig = readFileSync(
   new URL('../../fly.lonelyforest.toml', import.meta.url),
   'utf8'
 );
+const dockerfile = readFileSync(new URL('../../Dockerfile', import.meta.url), 'utf8');
+const dockerignore = readFileSync(
+  new URL('../../.dockerignore', import.meta.url),
+  'utf8'
+);
 
 const job = (name, nextName) => {
   const start = workflow.indexOf(`\n  ${name}:`);
@@ -66,5 +71,21 @@ describe('deploy workflow', () => {
       expect(config).toContain(visionModel);
       expect(config).toContain(visionReasoning);
     }
+  });
+
+  it('copies compile-time media registries into the release image build', () => {
+    const dependencyBuild = 'RUN cargo chef cook --release --recipe-path /app/recipe.json';
+    const mediaCopy = 'COPY v2/media /app/v2/media';
+    const releaseBuild = 'RUN cargo build --release';
+
+    expect(dockerignore).toContain('!v2/media/');
+    expect(dockerignore).toContain('!v2/media/**');
+    expect(dockerfile).toContain(mediaCopy);
+    expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
+      dockerfile.indexOf(mediaCopy)
+    );
+    expect(dockerfile.indexOf(mediaCopy)).toBeLessThan(
+      dockerfile.indexOf(releaseBuild)
+    );
   });
 });
