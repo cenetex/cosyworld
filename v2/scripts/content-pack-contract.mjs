@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 
+import { validateGenerationPolicyManifest } from "./world-generation-policy.mjs";
+
 export const CONTENT_PACK_CONTRACT = "cosyworld.content-pack/1";
 export const CANONICAL_ID_MAPPING_VERSION = 1;
 export const CAPABILITY_KINDS = Object.freeze([
@@ -346,6 +348,7 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
   for (const error of compositionPackValidationErrors(manifest, label)) {
     contractError(error);
   }
+  validateGenerationPolicyManifest(manifest, label);
   return manifest;
 }
 

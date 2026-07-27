@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "cosyworld.community-art.base/1",
+      "recipes": ["replicate.flux1-dev-lora.base"]
+    },
+    {
+      "id": "cosyworld.holy-land.generated-landscape/1",
+      "recipes": ["replicate.holy-land-b43l.base"]
+    }
+  ],
+  "recipes": [
+    {
+      "id": "replicate.flux1-dev-lora.base",
+      "profile": "cosyworld.community-art.base/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "black-forest-labs",
+        "name": "flux-dev-lora",
+        "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917"
+      },
+      "state": "enabled",
+      "intents": ["location_card_art"],
+      "aspect_ratios": ["16:9"],
+      "output_formats": ["webp"],
+      "prompt_versions": ["community-art/3"],
+      "lora": true
+    },
+    {
+      "id": "replicate.holy-land-b43l.base",
+      "profile": "cosyworld.holy-land.generated-landscape/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "fofr",
+        "name": "b43l",
+        "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
+      },
+      "state": "enabled",
+      "intents": ["location_card_art"],
+      "aspect_ratios": ["16:9"],
+      "output_formats": ["webp"],
+      "prompt_versions": ["holy-land-location/1"],
+      "lora": false
+    }
+  ]
+}

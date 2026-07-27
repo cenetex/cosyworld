@@ -129,6 +129,72 @@ older runtimes must reject it rather than guess. Pack resources remain data
 only. A manifest cannot load pack-owned JavaScript, Rust, native code, or an
 untyped state-changing effect.
 
+## Generated descendant policy
+
+Packs that opt into versioned route, waypoint, place, or location-card
+generation declare `extensions.x-cosyworld-generation`. The extension is
+schema version 1 and is validated against
+`v2/schemas/world-generation-policy-v1.schema.json` both while reading the
+authored manifest and after composition. Packs without the extension retain
+the legacy host-default behavior; the runtime must not invent a provider,
+model, or revision identity for that compatibility mode.
+
+The policy pins:
+
+- a pack-namespaced `policy_id`, monotonic `migration_version`, and
+  `collision_namespace`;
+- generated subject kinds, source-route ownership, active composition
+  provenance, upgrade handling, and unmount handling;
+- a reviewed prose profile and prompt version with the complete route,
+  direction, endpoint, biome, terrain, climate, geology, hydrology,
+  vegetation, fauna, resource, and nearby-authored-description context;
+- a reviewed media profile and recipe, optional provider/model preference,
+  required pack-authored prompt and output policy, authored/community-art
+  eligibility, placeholder, and fallback;
+- a topology profile plus reviewed minimum/maximum bounds for components,
+  roots, ingress/egress, weighted distance, degree, cycle rank, bridges,
+  articulation impact, and terminal spurs; and
+- exact predecessor policy, migration, and pack versions allowed to preserve
+  historical descendants across an upgrade.
+
+Topology limits are reviewed bounds, not accidental equality checks. Use a
+single-value range only when equality is an intentional invariant. Generated
+topology remains deterministic engine work. Language models may propose prose
+and media prompts only; they cannot choose edges, ownership, migration,
+unmount, ecology authority, or fallback behavior.
+
+Media recipes live in the reviewed
+`v2/media/worldpack-recipes.json` allowlist. Manifests may select only a
+published profile/recipe pair. Provider/model preference is optional; when
+present it must exactly restate the recipe's provider and model revision and
+can never bypass or replace the selected allowlisted recipe. Pack-authored
+trigger, prompt prefix, aspect/output policy, negative and subject
+restrictions, authored/community eligibility, placeholder, and fallback remain
+required because the host registry cannot reconstruct those policy choices.
+Credentials, provider URLs, arbitrary request bodies, and other provider wire
+fields are forbidden. URI-like values are also rejected inside media prompt
+prefixes and negative constraints; those prose fields cannot smuggle an asset
+or provider endpoint. Secrets remain host configuration and never enter a pack
+or the compiled registry.
+
+Cross-pack route declarations are composition data exclusively. A reusable
+world or campaign pack must never name another pack's route. A bridge with
+`x-cosyworld-composition.role: bridge` declares each endpoint pair together
+with the bridge-owned route and generated-descendant owner, topology authority
+and migration version, endpoint ecology blend, media profile, removal behavior,
+and world-lifecycle evacuation requirement. Once a bridge opts into the
+generation policy, every authored cross-pack route it owns requires exactly one
+matching declaration; undeclared, duplicate, foreign-owned, or orphaned
+declarations fail compilation. Bridges without the extension remain explicit
+legacy compositions until migrated.
+
+The compiler emits the reviewed media registry only when a selected policy
+uses media or declares a cross-pack route. The registry participates in bundle
+identity, and the compiled checker requires byte-equivalent reviewed data. A
+future runtime binding stores the selected policy and composition provenance
+on generated descendants; it must treat that historical binding as immutable
+on replay and accept an upgrade only through an exact declared migration.
+
 ## Authority boundary
 
 The engine owns execution, validation, persistence, and every typed effect that

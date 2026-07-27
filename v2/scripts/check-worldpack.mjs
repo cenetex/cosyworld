@@ -21,6 +21,11 @@ import { buildingArchetypeValidationErrors } from "./building-archetype-schema.m
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 import { versionedRecipeValidationErrors } from "./recipe-schema.mjs";
+import {
+  generationPolicyForPack,
+  validateCompiledGenerationPolicies,
+  worldpackMediaRegistry,
+} from "./world-generation-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -1354,6 +1359,30 @@ if (manifest.pack_lifecycle !== undefined) {
       }
     }
   }
+}
+try {
+  validateCompiledGenerationPolicies(
+    packs,
+    { locations, exits, hidden_exits: hiddenExits },
+    manifest.pack_lifecycle,
+    "compiled worldpack",
+  );
+  const requiresGenerationMediaRegistry = packs.some((pack) => {
+    const policy = generationPolicyForPack(pack);
+    return policy?.media || policy?.cross_pack_routes?.length > 0;
+  });
+  if (requiresGenerationMediaRegistry) {
+    if (
+      JSON.stringify(manifest.generation_media_registry)
+      !== JSON.stringify(worldpackMediaRegistry())
+    ) {
+      fail("worldpack generation_media_registry does not match the reviewed registry");
+    }
+  } else if (manifest.generation_media_registry !== undefined) {
+    fail("worldpack must not publish an unused generation_media_registry");
+  }
+} catch (error) {
+  fail(error.message);
 }
 
 for (const profile of characterCreationProfiles) {
