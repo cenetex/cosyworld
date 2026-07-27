@@ -3292,6 +3292,24 @@
       line-height: 1.4;
       overflow-wrap: anywhere;
     }
+    .journal-row-inspector {
+      flex-basis: 100%;
+      margin: 2px 0 0;
+      padding: 6px 0 0;
+      border-top: 1px solid var(--line);
+      list-style: none;
+      color: var(--dim);
+      font-size: 10px;
+    }
+    .journal-row.story .journal-row-detail {
+      flex-wrap: wrap;
+    }
+    .journal-row-inspector li {
+      display: grid;
+      grid-template-columns: minmax(15ch, auto) 1fr;
+      gap: 8px;
+      padding: 2px 0;
+    }
     .journal-row-detail button {
       flex: 0 0 auto;
       border: 0;
@@ -6920,8 +6938,10 @@
 
     function narratedTranscriptEvents(events) {
       const narrated = [];
+      const coveredSeqs = semanticReceiptCoveredSeqs(events);
       for (let index = 0; index < (events || []).length; index += 1) {
         const event = events[index];
+        if (coveredSeqs.has(Number(event?.seq || 0))) continue;
         const next = events[index + 1];
         if (eventsShareAJourneyBeat(event, next)) {
           narrated.push(String(event.type || "").startsWith("journey.") ? event : next);
@@ -6938,6 +6958,25 @@
         narrated.push(event);
       }
       return narrated;
+    }
+
+    function semanticStoryReceipt(event) {
+      if (event?.type !== "story.receipt" || !event.content) return null;
+      try {
+        const receipt = JSON.parse(event.content);
+        return receipt?.schema_version === 1 && receipt?.text ? receipt : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function semanticReceiptCoveredSeqs(events) {
+      return new Set((events || [])
+        .map(semanticStoryReceipt)
+        .filter(Boolean)
+        .flatMap((receipt) => receipt.event_seqs || [])
+        .map(Number)
+        .filter((seq) => Number.isSafeInteger(seq) && seq > 0));
     }
 
     function eventIsSearchBeat(event) {
@@ -7207,6 +7246,7 @@
       "clock.threshold",
       "natural_feature.revealed",
       "job.updated",
+      "story.receipt",
       "ledger.banked",
       "calling.revised",
       "skill.stepped",
@@ -7558,6 +7598,7 @@
         || event.type === "bond.revised"
         || event.type === "bond.resolved"
         || event.type === "job.updated"
+        || event.type === "story.receipt"
         || event.type === "combat.defend"
         || event.type === "combat.attack.attempt"
         || event.type === "combat.attack.hit"
@@ -7797,6 +7838,7 @@
       kind = "",
       attrs = "",
       action = "",
+      inspector = [],
     } = {}) {
       const compactSummary = journalSummary(summary || detail || "Something changed");
       const sentence = journalSentence(detail || summary || "Something changed");
@@ -7804,8 +7846,11 @@
       const progressHtml = progress
         ? `<span class="journal-row-progress"${progressParts ? ` role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="${Number(progressParts[2])}" aria-valuenow="${Number(progressParts[1])}"` : ""}>${escapeHtml(progress)}</span>`
         : "";
-      const detailHtml = sentence
-        ? `<div class="journal-row-detail"><p>${escapeHtml(sentence)}</p>${action}</div>`
+      const inspectorHtml = inspector.length
+        ? `<ul class="journal-row-inspector" aria-label="Raw events">${inspector.map((entry) => `<li><code>#${Number(entry.seq || 0)} ${escapeHtml(entry.type || "event")}</code><span>${escapeHtml(cleanStatusText(eventText(entry)))}</span></li>`).join("")}</ul>`
+        : "";
+      const detailHtml = sentence || inspectorHtml
+        ? `<div class="journal-row-detail">${sentence ? `<p>${escapeHtml(sentence)}</p>` : ""}${inspectorHtml}${action}</div>`
         : "";
       const aria = [label, compactSummary, progress].filter(Boolean).join(". ");
       return `<details class="journal-row ${escapeAttr(kind)}"${attrs} aria-label="${escapeAttr(aria)}"><summary><span class="journal-row-label">${escapeHtml(label)}</span><span class="journal-row-summary">${escapeHtml(compactSummary)}</span>${progressHtml}<span class="journal-row-marker" aria-hidden="true"></span></summary>${detailHtml}</details>`;
@@ -8138,6 +8183,17 @@
     }
 
     function journalEventHtml(event) {
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) {
+        const covered = new Set((storyReceipt.event_seqs || []).map(Number));
+        return journalRowHtml({
+          label: "story",
+          summary: journalSummary(storyReceipt.text),
+          detail: storyReceipt.text,
+          kind: "story",
+          inspector: logEvents.filter((candidate) => covered.has(Number(candidate?.seq || 0))),
+        });
+      }
       if (event.type === "message.created") {
         const text = eventText(event);
         return journalRowHtml({
@@ -8478,6 +8534,10 @@
     function statusUpdateMeta(event) {
       const repeat = Number(event.repeat_count || 0);
       const repeatSuffix = repeat > 1 ? ` x${repeat}` : "";
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) {
+        return { kind: "story", label: "story", text: cleanStatusText(storyReceipt.text) };
+      }
       if (event.type === "ledger.marked") {
         return { kind: "ledger", label: "memory", text: cleanStatusText(ledgerEventLabel(event)) };
       }
@@ -9378,6 +9438,8 @@
     function sceneCardEventText(event) {
       const actor = String(event?.actor_name || "Someone").trim() || "Someone";
       const type = String(event?.type || "");
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) return cleanStatusText(storyReceipt.text);
       if (type === "actor.created") {
         const title = actorTitleForEvent(event);
         return `${event.location_name || "The room"} makes room for ${actor}${title ? `, ${title}` : ""}.`;
@@ -9734,6 +9796,8 @@
     }
 
     function eventText(event) {
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) return storyReceipt.text;
       if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
       if (event.type === "feature.searched" || event.type === "location.searched") return searchEventText(event);

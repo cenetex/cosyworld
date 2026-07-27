@@ -497,9 +497,10 @@ class Game:
         if not isinstance(response, dict):
             raise ClientError("command response was not an object")
         output = response.get("output")
-        if output:
+        events = response.get("events") or []
+        if output and not any(semantic_story_receipt(event) for event in events):
             print(str(output))
-        self.print_events(response.get("events") or [])
+        self.print_events(events)
         if not response.get("ok") and not output:
             print(f"Command failed with status {response.get('status')}.")
 
@@ -640,7 +641,7 @@ class Game:
             self.last_seq,
             *(int(event.get("seq") or 0) for event in events),
         )
-        for event in events:
+        for event in semantic_story_events(events):
             if event_is_hidden_context(event):
                 continue
             print(self.format_event(event))
@@ -684,6 +685,9 @@ class Game:
             event.get("destination_location_id")
         )
 
+        if type_name == "story.receipt":
+            receipt = semantic_story_receipt(event)
+            return f"[{seq}] ✦ {receipt.get('text') if receipt else 'The story moves forward.'}"
         if type_name == "message.created":
             return f"[{seq}] {actor}: {event.get('content', '')}"
         if type_name == "world.reset":
@@ -1143,7 +1147,7 @@ class ButtonGame(Game):
             self.last_seq,
             *(int(event.get("seq") or 0) for event in events),
         )
-        for event in events:
+        for event in semantic_story_events(events):
             if event_is_hidden_context(event):
                 continue
             self.message_log.append(self.format_event(event))
@@ -1166,6 +1170,29 @@ def event_is_hidden_context(event: dict[str, object]) -> bool:
         "actor.presence",
         "action.receipt",
     }
+
+
+def semantic_story_receipt(event: dict[str, object]) -> dict[str, object] | None:
+    if event.get("type") != "story.receipt":
+        return None
+    try:
+        receipt = json.loads(str(event.get("content") or ""))
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(receipt, dict) or receipt.get("schema_version") != 1 or not receipt.get("text"):
+        return None
+    return receipt
+
+
+def semantic_story_events(events: list[dict[str, object]]) -> list[dict[str, object]]:
+    covered = {
+        int(seq)
+        for event in events
+        if (receipt := semantic_story_receipt(event))
+        for seq in receipt.get("event_seqs") or []
+        if str(seq).isdigit() and int(seq) > 0
+    }
+    return [event for event in events if int(event.get("seq") or 0) not in covered]
 
 
 def world_beat_is_renderable(event: dict[str, object]) -> bool:

@@ -5202,6 +5202,218 @@ async function main() {
     assert(!/hush|lingers|something learned|stirs close to the light/i.test(JSON.stringify(result)), `room headlines should avoid vague stock atmosphere: ${JSON.stringify(result)}`);
   }
 
+  async function assertLanternKeeperSemanticStoryReceipt() {
+    const result = await page.evaluate(() => {
+      const previousLogEvents = logEvents.slice();
+      const previousSeen = new Set(seenSeq);
+      try {
+        logEvents = [];
+        seenSeq.clear();
+        const text = "Kit Featherstep rekindles the dark Mothwood beacon. The beacon burns again and makes the Mothwood road trustworthy after dusk. Progress: 6/6. The road remembers Kit Featherstep's work. Kit Featherstep earns 2 Orbs. Next: carry the relit road's news back to Mara Wick.";
+        const raw = [
+          {
+            seq: 991100,
+            type: "job.contribution.resolved",
+            actor_id: actorId,
+            actor_name: "Kit Featherstep",
+            location_id: 804,
+            location_name: "Lantern Tower",
+            content: JSON.stringify({
+              job_id: "lantern-keeper:rekindle-the-beacon",
+              strategy_label: "Rekindle the beacon",
+              target: { label: "the dark Mothwood beacon" },
+              outcome: "success",
+              total_progress: 6,
+            }),
+          },
+          {
+            seq: 991101,
+            type: "clock.updated",
+            actor_id: actorId,
+            actor_name: "Kit Featherstep",
+            location_id: 804,
+            location_name: "Lantern Tower",
+            clock_id: "lantern-keeper.light",
+            clock_label: "Rekindle the Beacon",
+            clock_filled: 6,
+            clock_segments: 6,
+          },
+          {
+            seq: 991102,
+            type: "tag.cleared",
+            actor_id: actorId,
+            actor_name: "Kit Featherstep",
+            location_id: 804,
+            location_name: "Lantern Tower",
+            tag_label: "spent preparation",
+          },
+        ];
+        const receipt = {
+          seq: 991103,
+          type: "story.receipt",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          content: JSON.stringify({
+            schema_version: 1,
+            narration_key: "lantern-keeper.work",
+            text,
+            event_seqs: raw.map((event) => event.seq),
+            next_response: "carry the relit road's news back to Mara Wick.",
+          }),
+        };
+        const batch = [...raw, receipt];
+        pushEvents(batch);
+        const narrated = narratedTranscriptEvents(logEvents);
+        const replayed = narratedTranscriptEvents(batch);
+        const journal = journalEventHtml(receipt);
+        return {
+          text,
+          narratedTypes: narrated.map((event) => event.type),
+          narratedText: narrated.map(sceneCardEventText),
+          replayedTypes: replayed.map((event) => event.type),
+          statusText: statusUpdateMeta(receipt).text,
+          eventText: eventText(receipt),
+          memoryText: roomMemoryEntryForEvent(receipt)?.text || "",
+          rawTypesStillInspectable: raw.every((event) => (
+            logEvents.some((logged) => logged.seq === event.seq)
+            && journal.includes(event.type)
+            && journal.includes(`#${event.seq}`)
+          )),
+          malformed: [
+            "grew from what happened",
+            "became frontier travel",
+            "became spent preparation",
+            "The Road Goes Fully Dark draws closer",
+            "shook off spent preparation",
+          ].filter((phrase) => [
+            ...narrated.map(sceneCardEventText),
+            statusUpdateMeta(receipt).text,
+            eventText(receipt),
+          ].some((value) => String(value || "").includes(phrase))),
+        };
+      } finally {
+        logEvents = previousLogEvents;
+        seenSeq.clear();
+        for (const seq of previousSeen) seenSeq.add(seq);
+      }
+    });
+    assert(
+      JSON.stringify(result.narratedTypes) === JSON.stringify(["story.receipt"])
+        && JSON.stringify(result.replayedTypes) === JSON.stringify(["story.receipt"]),
+      `Lantern Keeper browser and replay should collapse one action to one semantic receipt: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.narratedText[0] === result.text
+        && result.statusText === result.text
+        && result.eventText === result.text
+        && result.memoryText === result.text,
+      `every browser surface should render the same authored receipt: ${JSON.stringify(result)}`,
+    );
+    assert(result.rawTypesStillInspectable, `expanded Journal should retain covered raw event evidence: ${JSON.stringify(result)}`);
+    assert(result.malformed.length === 0, `semantic receipt should exclude every reported malformed sentence: ${JSON.stringify(result)}`);
+
+    const previousViewport = page.viewportSize();
+    const evidencePath = resolve(visualSnapshotDir, "lantern-story-receipt.png");
+    await mkdir(visualSnapshotDir, { recursive: true });
+    const evidence = await page.evaluate((text) => {
+      window.__cosyLanternReceiptEvidence = {
+        state,
+        logEvents,
+        seenSeq: new Set(seenSeq),
+        journalOpen,
+      };
+      state = {
+        ...state,
+        location: { ...(state?.location || {}), id: 804, name: "Lantern Tower" },
+      };
+      logEvents = [];
+      seenSeq.clear();
+      const raw = [
+        {
+          seq: 991100,
+          type: "job.contribution.resolved",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          content: JSON.stringify({
+            job_id: "lantern-keeper:rekindle-the-beacon",
+            strategy_label: "Rekindle the beacon",
+            target: { label: "the dark Mothwood beacon" },
+            outcome: "success",
+            total_progress: 6,
+          }),
+        },
+        {
+          seq: 991101,
+          type: "clock.updated",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          clock_label: "Rekindle the Beacon",
+          clock_filled: 6,
+          clock_segments: 6,
+        },
+        {
+          seq: 991102,
+          type: "tag.cleared",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          tag_label: "spent preparation",
+        },
+      ];
+      pushEvents([...raw, {
+        seq: 991103,
+        type: "story.receipt",
+        actor_id: actorId,
+        actor_name: "Kit Featherstep",
+        location_id: 804,
+        location_name: "Lantern Tower",
+        content: JSON.stringify({
+          schema_version: 1,
+          narration_key: "lantern-keeper.work",
+          text,
+          event_seqs: raw.map((event) => event.seq),
+          next_response: "carry the relit road's news back to Mara Wick.",
+        }),
+      }]);
+      renderTimelines();
+      setJournalOpen(true);
+      const storyRow = document.querySelector("#journal-log .journal-row.story");
+      if (storyRow) storyRow.open = true;
+      return {
+        latest: document.querySelector("#room-log-latest")?.textContent || "",
+        story: storyRow?.textContent || "",
+        rawCount: storyRow?.querySelectorAll(".journal-row-inspector li").length || 0,
+      };
+    }, result.text);
+    assert(evidence.latest.includes("Kit Featherstep rekindles"), `receipt evidence should show the authored scene status: ${JSON.stringify(evidence)}`);
+    assert(evidence.story.includes("Kit Featherstep rekindles") && evidence.rawCount === 3, `receipt evidence should expand its three covered raw events: ${JSON.stringify(evidence)}`);
+    await page.setViewportSize({ width: 980, height: 820 });
+    await page.screenshot({ path: evidencePath, fullPage: false });
+    await page.evaluate(() => {
+      const previous = window.__cosyLanternReceiptEvidence;
+      state = previous.state;
+      logEvents = previous.logEvents;
+      seenSeq.clear();
+      for (const seq of previous.seenSeq) seenSeq.add(seq);
+      setJournalOpen(previous.journalOpen);
+      renderTimelines();
+      delete window.__cosyLanternReceiptEvidence;
+    });
+    if (previousViewport) await page.setViewportSize(previousViewport);
+    steps.push({
+      label: "Lantern Keeper semantic receipt",
+      screenshot: evidencePath,
+      rawEvents: evidence.rawCount,
+    });
+  }
+
   async function assertJourneyCardContract() {
     const result = await page.evaluate(() => {
       const base = {
@@ -9007,6 +9219,7 @@ async function main() {
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
+  await assertLanternKeeperSemanticStoryReceipt();
   await assertJourneyCardContract();
   await assertHumanActionRequiresActorSession();
   await assertClientAuthoredSpeechModerated();
