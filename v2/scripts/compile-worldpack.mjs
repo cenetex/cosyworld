@@ -22,6 +22,11 @@ import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
 import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 import { validatePackMediaProfiles } from "./media-recipe-schema.mjs";
+import {
+  generationPolicyForPack,
+  validateCompiledGenerationPolicies,
+  worldpackMediaRegistry,
+} from "./world-generation-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -968,6 +973,16 @@ for (const [resourceName, paths] of [
     );
   }
 }
+validateCompiledGenerationPolicies(
+  packs.map(({ manifest }) => manifest),
+  resources,
+  world.pack_lifecycle,
+  "worldpack compiler",
+);
+const generationMediaRegistry = packs.some(({ manifest }) => {
+  const policy = generationPolicyForPack(manifest);
+  return policy?.media || policy?.cross_pack_routes?.length > 0;
+}) ? worldpackMediaRegistry() : null;
 const activeRulesExtensions = contributionBundles.flatMap((bundle) => bundle.extensions.map((row) => row.id)).sort();
 const activeRulesVariants = contributionBundles.flatMap((bundle) => bundle.variants.map((row) => row.id)).sort();
 const modifiedMaterial = ruleBundles.flatMap((bundle) => {
@@ -1065,6 +1080,7 @@ const bundleHash = sha256([
   json(modifiedMaterial),
   json(characterCreationBundles),
   json(contentReferences),
+  ...(generationMediaRegistry ? [json(generationMediaRegistry)] : []),
 ]);
 assert(
   !persistenceCompatibility?.replay_compatible_bundle_hashes.includes(bundleHash),
@@ -1086,6 +1102,7 @@ const manifest = {
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,
   ...(avatarNaming ? { avatar_naming: avatarNaming } : {}),
+  ...(generationMediaRegistry ? { generation_media_registry: generationMediaRegistry } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,
   files: resourceFiles,
