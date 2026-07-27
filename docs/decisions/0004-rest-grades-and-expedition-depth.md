@@ -122,6 +122,19 @@ the kernel procedure or ring. Those are follow-up implementation slices.
 - Rest availability and recovery presentation remain independent of the
   eventual action-browsing decision.
 
+## Implementation status
+
+Rest grade is now derived server-side from the current room and equipped world
+items. Sanctuary grants Hearth, an authored `lodging` room feature grants
+Lodged, and a frontier grants Camp only while a `tool` item declaring the
+`camp_shelter` capability is equipped. A carried or contained shelter does not
+qualify. The derived grade is submitted through the typed Rest action; clients
+cannot supply or upgrade the entitlement.
+
+Camp is the only grade that advances an active frontier danger clock. A
+frontier without equipped shelter projects an unavailable Rest explanation
+but no legal Rest action.
+
 ## References
 
 - [CosyWorld Product Requirements](../../PRD.md), especially product pillars 2,

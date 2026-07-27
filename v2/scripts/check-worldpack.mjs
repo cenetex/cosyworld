@@ -87,6 +87,7 @@ const supportedRulesAdapters = new Map([
   ])],
 ]);
 const allowedItemRoles = new Set(["generic", "consumable", "weapon", "skill_charm", "spell", "container", "tool", "relic"]);
+const allowedItemCapabilities = new Set(["camp_shelter"]);
 const allowedItemSizes = new Set(["tiny", "small", "medium", "large"]);
 const routableJobContributionActionKinds = new Set([
   "work",
@@ -1480,6 +1481,15 @@ for (const item of items) {
   }
   if (!allowedItemRoles.has(item.role)) {
     fail(`item ${item.id} has invalid role ${item.role}`);
+  }
+  const itemCapabilities = item.capabilities ?? [];
+  if (!Array.isArray(itemCapabilities)
+    || new Set(itemCapabilities).size !== itemCapabilities.length
+    || itemCapabilities.some((capability) => !allowedItemCapabilities.has(capability))) {
+    fail(`item ${item.id} has invalid capabilities`);
+  }
+  if (itemCapabilities.length && item.role !== "tool") {
+    fail(`item ${item.id} capabilities require the tool role`);
   }
   if (!allowedItemSizes.has(item.size)) {
     fail(`item ${item.id} has invalid size ${item.size}`);

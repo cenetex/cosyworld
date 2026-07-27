@@ -716,6 +716,8 @@ pub(super) struct SeedItemContent {
     pub(super) location_id: u64,
     #[serde(default = "default_seed_item_role")]
     pub(super) role: String,
+    #[serde(default)]
+    pub(super) capabilities: Vec<String>,
     #[serde(default = "default_seed_item_weight_tenths")]
     pub(super) weight_tenths: u16,
     #[serde(default = "default_seed_item_size")]
@@ -1974,6 +1976,19 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             || seed_item_kind(item).is_none()
         {
             return Err(format!("seed item {} is missing name", item.id));
+        }
+        let capabilities = item.capabilities.iter().collect::<BTreeSet<_>>();
+        if capabilities.len() != item.capabilities.len()
+            || item
+                .capabilities
+                .iter()
+                .any(|capability| capability != CAMP_SHELTER_ITEM_CAPABILITY)
+            || (!item.capabilities.is_empty() && item.role != "tool")
+        {
+            return Err(format!(
+                "seed item {} has invalid or role-incompatible capabilities",
+                item.id
+            ));
         }
     }
 

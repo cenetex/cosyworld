@@ -1,5 +1,169 @@
 use super::*;
 
+pub(super) const CAMP_SHELTER_ITEM_CAPABILITY: &str = "camp_shelter";
+const LODGING_FEATURE_KEY: &str = "lodging";
+const MISSING_CAMP_SHELTER_REASON: &str = "Equip a shelter before resting out here.";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct RestPlaceEligibility {
+    sanctuary: bool,
+    lodging: bool,
+    frontier: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct RestEntitlement {
+    pub(super) grade: u8,
+    pub(super) unavailable_reason: Option<String>,
+}
+
+fn derive_rest_grade(place: RestPlaceEligibility, has_equipped_shelter: bool) -> u8 {
+    if place.sanctuary {
+        CW_REST_GRADE_HEARTH
+    } else if place.lodging {
+        CW_REST_GRADE_LODGED
+    } else if place.frontier && has_equipped_shelter {
+        CW_REST_GRADE_CAMP
+    } else {
+        CW_REST_GRADE_NONE
+    }
+}
+
+impl RuntimeWorld {
+    fn location_is_rest_sanctuary(&self, location_id: u64) -> bool {
+        self.location_has_building_capability(location_id, "sanctuary")
+            || self
+                .room_sheets
+                .get(&location_id)
+                .map(|sheet| room_sheet_zone(sheet) == ZONE_SANCTUARY)
+                .unwrap_or_else(|| {
+                    self.generated_pathway_for_location(location_id).is_none()
+                        && !self.generated_places.contains_key(&location_id)
+                        && default_zone_for_scope("room", location_id) == ZONE_SANCTUARY
+                })
+    }
+
+    fn location_has_lodging_feature(&self, location_id: u64) -> bool {
+        self.room_features(location_id)
+            .into_iter()
+            .any(|feature| command_key(&feature.key) == LODGING_FEATURE_KEY)
+    }
+
+    fn actor_has_equipped_item_capability(&self, actor_id: u64, capability: &str) -> bool {
+        self.actor_held_items(actor_id).into_iter().any(|item| {
+            item.role == CW_ITEM_ROLE_TOOL
+                && item.zone == CW_CARD_ZONE_EQUIPPED
+                && item.container_item_id == 0
+                && self
+                    .seed_item_contract_for_instance(item.id)
+                    .is_some_and(|contract| {
+                        contract
+                            .capabilities
+                            .iter()
+                            .any(|declared| declared == capability)
+                    })
+        })
+    }
+
+    pub(super) fn rest_entitlement(&self, actor_id: u64) -> RestEntitlement {
+        let Some(actor) = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_can_act(*actor))
+        else {
+            return RestEntitlement {
+                grade: CW_REST_GRADE_NONE,
+                unavailable_reason: Some("Rest requires an active avatar.".to_string()),
+            };
+        };
+        let place = RestPlaceEligibility {
+            sanctuary: self.location_is_rest_sanctuary(actor.location_id),
+            lodging: self.location_has_lodging_feature(actor.location_id),
+            frontier: self.location_is_frontier(actor.location_id),
+        };
+        let grade = derive_rest_grade(
+            place,
+            self.actor_has_equipped_item_capability(actor_id, CAMP_SHELTER_ITEM_CAPABILITY),
+        );
+        RestEntitlement {
+            grade,
+            unavailable_reason: (grade == CW_REST_GRADE_NONE && place.frontier)
+                .then(|| MISSING_CAMP_SHELTER_REASON.to_string()),
+        }
+    }
+
+    pub(super) fn rest_available(&self, actor_id: u64) -> bool {
+        self.tired_tag_active(actor_id)
+            && self.rest_entitlement(actor_id).grade != CW_REST_GRADE_NONE
+    }
+
+    pub(super) fn rest_offer_unavailable_reason(&self, actor_id: u64) -> Option<String> {
+        self.tired_tag_active(actor_id)
+            .then(|| self.rest_entitlement(actor_id))
+            .filter(|entitlement| entitlement.grade == CW_REST_GRADE_NONE)
+            .and_then(|entitlement| entitlement.unavailable_reason)
+    }
+
+    pub(super) fn plan_rest_action(
+        &self,
+        actor_id: u64,
+    ) -> Result<(CwAction, Vec<ProjectionMutation>), String> {
+        if !self.tired_tag_active(actor_id) {
+            return Err("You are already steady enough to keep going.".to_string());
+        }
+        let entitlement = self.rest_entitlement(actor_id);
+        if entitlement.grade == CW_REST_GRADE_NONE {
+            return Err(entitlement
+                .unavailable_reason
+                .unwrap_or_else(|| "Rest is not available here.".to_string()));
+        }
+        let action = rest_action_from_server_entitlement(
+            actor_id,
+            RestActionRequest {
+                requested_grade: entitlement.grade,
+            },
+            entitlement.grade,
+        )
+        .ok_or_else(|| "Rest could not resolve its recovery grade.".to_string())?;
+        let location_id = self
+            .actor_by_id(actor_id)
+            .map(|actor| actor.location_id)
+            .ok_or_else(|| "Rest requires an active avatar.".to_string())?;
+        let mut mutations = vec![ProjectionMutation::ClearTag {
+            tag_id: tired_tag_id(actor_id),
+            reason: "rest".to_string(),
+        }];
+        if entitlement.grade >= CW_REST_GRADE_LODGED {
+            mutations.push(ProjectionMutation::ClearTag {
+                tag_id: trained_since_rest_tag_id(actor_id),
+                reason: "rest".to_string(),
+            });
+        }
+        if entitlement.grade == CW_REST_GRADE_HEARTH {
+            mutations.extend(
+                self.frontier_travel_since_rest_tag_ids(actor_id)
+                    .into_iter()
+                    .map(|tag_id| ProjectionMutation::ClearTag {
+                        tag_id,
+                        reason: "rest".to_string(),
+                    }),
+            );
+        }
+        if entitlement.grade == CW_REST_GRADE_CAMP {
+            if let Some(clock_id) = self
+                .active_danger_clock_id_for_location(location_id)
+                .filter(|clock_id| self.clock_is_frontier(clock_id))
+            {
+                mutations.push(ProjectionMutation::AdvanceClock {
+                    clock_id,
+                    amount: 1,
+                    reason: "rest".to_string(),
+                });
+            }
+        }
+        Ok((action, mutations))
+    }
+}
+
 pub(super) fn declared_item_recovery_profile(
     initial_charges: u8,
     mechanics: Option<&SeedPlayableItemMechanics>,
@@ -38,6 +202,241 @@ pub(super) fn declared_item_recovery_profile(
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use super::{derive_rest_grade, RestPlaceEligibility, MISSING_CAMP_SHELTER_REASON};
+
+    const OTHER_FRONTIER_LOCATION_ID: u64 = 34;
+    const SECOND_FRONTIER_LOCATION_ID: u64 = 42;
+    const OTHER_FRONTIER_DANGER_CLOCK_ID: &str = "goblin-cave.leverage";
+
+    fn mark_actor_tired(runtime: &mut RuntimeWorld, actor_id: u64) {
+        let tag_id = tired_tag_id(actor_id);
+        runtime.tags.insert(
+            tag_id.clone(),
+            RpgTagState {
+                id: tag_id,
+                scope: "actor".to_string(),
+                scope_id: actor_id,
+                label: "tired".to_string(),
+                kind: "condition".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("after_rest".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn grade_derivation_covers_hearth_lodged_camp_and_not_offered() {
+        let sanctuary = RestPlaceEligibility {
+            sanctuary: true,
+            lodging: false,
+            frontier: false,
+        };
+        let lodging = RestPlaceEligibility {
+            sanctuary: false,
+            lodging: true,
+            frontier: true,
+        };
+        let frontier = RestPlaceEligibility {
+            sanctuary: false,
+            lodging: false,
+            frontier: true,
+        };
+        assert_eq!(derive_rest_grade(sanctuary, false), CW_REST_GRADE_HEARTH);
+        assert_eq!(derive_rest_grade(lodging, false), CW_REST_GRADE_LODGED);
+        assert_eq!(derive_rest_grade(frontier, true), CW_REST_GRADE_CAMP);
+        assert_eq!(derive_rest_grade(frontier, false), CW_REST_GRADE_NONE);
+        assert_eq!(
+            derive_rest_grade(
+                RestPlaceEligibility {
+                    sanctuary: true,
+                    lodging: true,
+                    frontier: true,
+                },
+                true,
+            ),
+            CW_REST_GRADE_HEARTH,
+            "sanctuary precedence is stable"
+        );
+    }
+
+    #[test]
+    fn equipped_declared_shelter_enables_camp_without_a_location_allowlist() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            OTHER_FRONTIER_LOCATION_ID,
+            "Shelter Tester",
+        );
+        mark_actor_tired(&mut runtime, 5000);
+        let tonic = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == HEARTH_TONIC_ITEM_ID)
+            .expect("Hearth Tonic exists");
+        tonic.location_id = 0;
+        tonic.holder_actor_id = 5000;
+        tonic.zone = CW_CARD_ZONE_CARRIED;
+        tonic.container_item_id = 0;
+        tonic.charges = 1;
+
+        let contract = runtime
+            .seed_item_contract_for_instance(HEARTH_TONIC_ITEM_ID)
+            .expect("Hearth Tonic has an authored item contract");
+        assert_eq!(contract.role, "tool");
+        assert_eq!(
+            contract.capabilities,
+            vec![CAMP_SHELTER_ITEM_CAPABILITY.to_string()]
+        );
+        assert_eq!(
+            runtime.rest_entitlement(5000).grade,
+            CW_REST_GRADE_NONE,
+            "carried shelter is not Camp"
+        );
+        let blocked_state = runtime.state_response(Some(5000), &AccessContext::default());
+        let blocked_offer = blocked_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("the authoritative offer surface explains blocked Rest");
+        assert!(blocked_offer.disabled);
+        assert_eq!(
+            blocked_offer.disabled_reason.as_deref(),
+            Some(MISSING_CAMP_SHELTER_REASON)
+        );
+        let blocked_decision = blocked_state
+            .inspector
+            .offer_decisions
+            .iter()
+            .find(|decision| decision.kind == "rest")
+            .expect("the hand inspector explains blocked Rest");
+        assert!(!blocked_decision.available);
+        assert_eq!(blocked_decision.reason, MISSING_CAMP_SHELTER_REASON);
+        assert!(!blocked_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
+
+        let equip_events =
+            runtime.set_item_equipped(5000, HEARTH_TONIC_ITEM_ID, true, "test_shelter");
+        assert!(equip_events
+            .iter()
+            .any(|event| event.type_name == "item.equipped"));
+        assert_eq!(runtime.rest_entitlement(5000).grade, CW_REST_GRADE_CAMP);
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("test actor exists");
+        actor.location_id = SECOND_FRONTIER_LOCATION_ID;
+        assert_eq!(
+            runtime.rest_entitlement(5000).grade,
+            CW_REST_GRADE_CAMP,
+            "the capability works in a second frontier room"
+        );
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("test actor exists");
+        actor.location_id = OTHER_FRONTIER_LOCATION_ID;
+
+        let offered_state = runtime.state_response(Some(5000), &AccessContext::default());
+        let rest_offer = offered_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("equipped shelter exposes Rest");
+        assert!(!rest_offer.disabled);
+        assert!(rest_offer
+            .risk
+            .as_deref()
+            .is_some_and(|risk| risk.contains("trouble may draw nearer")));
+        let (action, mutations) = runtime
+            .plan_rest_action(5000)
+            .expect("server derives Camp entitlement");
+        assert_eq!(action.kind, CW_ACTION_REST);
+        assert_eq!(action.rest.requested_grade, CW_REST_GRADE_CAMP);
+        assert_eq!(action.rest.entitled_grade, CW_REST_GRADE_CAMP);
+        assert!(mutations.iter().any(|mutation| matches!(
+            mutation,
+            ProjectionMutation::AdvanceClock { clock_id, amount: 1, .. }
+                if clock_id == OTHER_FRONTIER_DANGER_CLOCK_ID
+        )));
+        assert!(!mutations.iter().any(|mutation| matches!(
+            mutation,
+            ProjectionMutation::ClearTag { tag_id, .. }
+                if tag_id == &trained_since_rest_tag_id(5000)
+                    || tag_id.starts_with(&frontier_travel_since_rest_tag_prefix(5000))
+        )));
+
+        let mut rest_record = JournalRecord::new(action, 18_500);
+        rest_record.projection_mutations.extend(mutations);
+        let (status, rest_events) = runtime.apply_journal_record(&rest_record);
+        assert_eq!(status, CW_OK);
+        assert!(rest_events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(OTHER_FRONTIER_DANGER_CLOCK_ID)
+                && event.clock_filled == Some(1)
+        }));
+
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("test actor exists");
+        actor.damage = 4;
+        let use_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_USE_ITEM,
+                actor_id: 5000,
+                target_actor_id: 5000,
+                item_id: HEARTH_TONIC_ITEM_ID,
+                ..CwAction::default()
+            },
+            18_501,
+        );
+        let (status, use_events) = runtime.apply_journal_record(&use_record);
+        assert_eq!(status, CW_OK);
+        assert!(use_events.iter().any(|event| {
+            event.type_name == "item.used" && event.item_id == Some(HEARTH_TONIC_ITEM_ID)
+        }));
+        let tonic = runtime
+            .item_by_id(HEARTH_TONIC_ITEM_ID)
+            .expect("used tonic remains recorded");
+        assert_eq!(tonic.charges, 0);
+        assert_eq!(tonic.zone, CW_CARD_ZONE_EXHAUSTED);
+    }
+
+    #[test]
+    fn sanctuary_entitlement_is_hearth_and_does_not_tick_frontier_danger() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Hearth Tester",
+        );
+        mark_actor_tired(&mut runtime, 5000);
+        assert_eq!(runtime.rest_entitlement(5000).grade, CW_REST_GRADE_HEARTH);
+        let (action, mutations) = runtime
+            .plan_rest_action(5000)
+            .expect("sanctuary Rest is entitled");
+        assert_eq!(action.rest.entitled_grade, CW_REST_GRADE_HEARTH);
+        assert!(!mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::AdvanceClock { .. })));
+    }
 
     fn rest_replay_actor_record(seed: u64) -> JournalRecord {
         let mut record = JournalRecord::new(
@@ -479,6 +878,21 @@ mod tests {
             .get(&tired_tag)
             .map(|tag| tag.active)
             .unwrap_or(false));
+        let tonic = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == HEARTH_TONIC_ITEM_ID)
+            .expect("Hearth Tonic exists");
+        tonic.location_id = 0;
+        tonic.holder_actor_id = 5000;
+        tonic.zone = CW_CARD_ZONE_CARRIED;
+        tonic.container_item_id = 0;
+        assert!(runtime
+            .set_item_equipped(5000, HEARTH_TONIC_ITEM_ID, true, "rest_test_shelter")
+            .iter()
+            .any(|event| event.type_name == "item.equipped"));
         let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
         assert_eq!(tired_state.ledger.unbanked_count, 0);

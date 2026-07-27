@@ -83,7 +83,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "integrity": "sha256:ca67f97d5c68e8b352e3852426936e03d182aebbfffb878adf57dab382ffd455",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
