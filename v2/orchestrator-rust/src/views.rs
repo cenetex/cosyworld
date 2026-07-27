@@ -3119,7 +3119,10 @@ impl RuntimeWorld {
             location_cards.insert(
                 location.id,
                 apply_location_access(
-                    card_for_location(location.id, &name, Some(&meta)),
+                    self.decorate_generated_location_card(
+                        card_for_location(location.id, &name, Some(&meta)),
+                        location.id,
+                    ),
                     location.id,
                     access,
                 ),
@@ -3198,7 +3201,10 @@ impl RuntimeWorld {
                     .cloned()
                     .unwrap_or_else(|| {
                         apply_location_access(
-                            card_for_location(location.id, &name, Some(&meta)),
+                            self.decorate_generated_location_card(
+                                card_for_location(location.id, &name, Some(&meta)),
+                                location.id,
+                            ),
                             location.id,
                             access,
                         )

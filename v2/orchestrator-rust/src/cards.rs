@@ -62,6 +62,8 @@ pub(super) struct CardView {
     pub(super) accessible: bool,
     pub(super) access_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) generation_policy: Option<GeneratedPolicyBinding>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) community_art: Option<CommunityArtView>,
 }
 
@@ -361,6 +363,17 @@ impl RuntimeWorld {
 }
 
 impl RuntimeWorld {
+    pub(super) fn decorate_generated_location_card(
+        &self,
+        mut card: CardView,
+        location_id: u64,
+    ) -> CardView {
+        card.generation_policy = self
+            .generated_pathway_for_location(location_id)
+            .map(|pathway| pathway.generation_policy.clone());
+        card
+    }
+
     pub(super) fn card_registry_for(
         &self,
         location: &LocationView,
@@ -374,10 +387,13 @@ impl RuntimeWorld {
             location.id,
             apply_location_access(
                 self.decorate_community_art_card(
-                    card_for_location(
+                    self.decorate_generated_location_card(
+                        card_for_location(
+                            location.id,
+                            location.name.as_str(),
+                            Some(&self.location_meta_for(location.id)),
+                        ),
                         location.id,
-                        location.name.as_str(),
-                        Some(&self.location_meta_for(location.id)),
                     ),
                     "location",
                     location.id,
@@ -391,10 +407,13 @@ impl RuntimeWorld {
                 exit.destination_location_id,
                 apply_location_access(
                     self.decorate_community_art_card(
-                        card_for_location(
+                        self.decorate_generated_location_card(
+                            card_for_location(
+                                exit.destination_location_id,
+                                exit.destination_location_name.as_str(),
+                                Some(&self.location_meta_for(exit.destination_location_id)),
+                            ),
                             exit.destination_location_id,
-                            exit.destination_location_name.as_str(),
-                            Some(&self.location_meta_for(exit.destination_location_id)),
                         ),
                         "location",
                         exit.destination_location_id,
@@ -1052,6 +1071,7 @@ pub(super) fn card_from_seed_content(card: &SeedCardContent) -> CardView {
         owned: false,
         accessible: true,
         access_reason: None,
+        generation_policy: None,
         community_art: None,
     }
 }
@@ -1147,6 +1167,7 @@ pub(super) fn external_card_view(spec: &ExternalCardSpec) -> CardView {
         owned: false,
         accessible: true,
         access_reason: None,
+        generation_policy: None,
         community_art: None,
     }
 }
@@ -1198,6 +1219,7 @@ pub(super) fn seed_card(spec: SeedCardSpec<'_>) -> CardView {
         owned: false,
         accessible: true,
         access_reason: None,
+        generation_policy: None,
         community_art: None,
     }
 }
