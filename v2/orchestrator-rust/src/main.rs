@@ -5,6 +5,7 @@ mod actor_presence;
 mod actor_rules_facets;
 mod ai_gateway;
 mod ai_publication;
+mod ai_voice_routing;
 mod avatar_identity;
 mod canonical_journal;
 mod canonical_world;
@@ -26800,7 +26801,6 @@ async fn commit_chat_status(
         Vec::new()
     }
 }
-
 async fn complete_queued_orb_chat(
     state: &AppState,
     actor_id: u64,
@@ -26816,7 +26816,7 @@ async fn complete_queued_orb_chat(
     if state.avatar_chat_delay > Duration::ZERO {
         tokio::time::sleep(state.avatar_chat_delay).await;
     }
-    let certified = match avatar_chat_text(usage_config.as_ref(), &plan).await {
+    let certified = match avatar_chat_text(state, &plan).await {
         Ok(content) => content,
         Err(error) => {
             warn!("queued AI avatar inference failed: {}", error);
@@ -30231,18 +30231,17 @@ async fn complete_orb_chat_exchange(
     let Some(followup_plan) = followup_plan else {
         return;
     };
-    let certified_followup =
-        match avatar_chat_followup_text(state.ai_config.as_ref().as_ref(), &followup_plan).await {
-            Ok(followup) => followup,
-            Err(error) => {
-                warn!(
-                    "AI avatar follow-up inference failed; ending chat exchange: {}",
-                    error
-                );
-                record_rejected_ai_publication(state, &error);
-                return;
-            }
-        };
+    let certified_followup = match avatar_chat_followup_text(state, &followup_plan).await {
+        Ok(followup) => followup,
+        Err(error) => {
+            warn!(
+                "AI avatar follow-up inference failed; ending chat exchange: {}",
+                error
+            );
+            record_rejected_ai_publication(state, &error);
+            return;
+        }
+    };
     let (proposed_followup, followup_receipt) =
         into_recorded_speech_parts(state, certified_followup);
     let (followup_events, closing_plan) = {
@@ -39848,6 +39847,7 @@ fn init_event_store(path: &Path) -> io::Result<()> {
     )
     .map_err(sqlite_error)?;
     init_ai_publication_store(&conn)?;
+    ai_voice_routing::init_ai_voice_routing_store(&conn)?;
     ensure_sqlite_column(
         &conn,
         "world_events",
