@@ -406,6 +406,28 @@ local setups that define `REPLICATE_BASE_MODEL`, `REPLICATE_LORA_WEIGHTS`,
 `REPLICATE_MODEL`, `REPLICATE_LORA_TRIGGER`, or `LORA_TRIGGER_WORD` are also
 supported as fallbacks.
 
+The provider-neutral media registry in `media/recipes.json` freezes model
+revision provenance and the capability contract used before a Replicate
+request. FLUX.2 calls use their pinned version ID; FLUX.1 LoRA remains the
+default zero-reference community-art recipe and retains its existing
+official-model invocation.
+`COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON` can deterministically canary, disable,
+fall back, or roll back an allowlisted recipe without changing world state. For
+example:
+
+```sh
+COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON='{"canaries":{"cosyworld.community-art.base/1":{"recipe":"replicate.flux2-dev.references","percent":5}},"disabled_recipes":[],"profile_overrides":{}}'
+```
+
+Unknown fields, profiles, recipes, disallowed profile targets, and canary
+percentages above 100 fail before recipe selection.
+
+Reference-capable callers pass an ordered typed list of `location`, `actor`,
+`item`, `prior_level`, or `style` inputs. Resolution preserves that list
+exactly and rejects unsupported or over-limit jobs before provider submission.
+The pinned FLUX.2 revision accepts at most four references, custom dimensions
+from 256 through 1440 in multiples of 32, and an optional reproducibility seed.
+
 Avatar art prompts start with the configured LoRA trigger and combine a stable,
 persisted physical description with the avatar's current species, origin,
 class or classless state, level, calling, location, and carried/equipped items.

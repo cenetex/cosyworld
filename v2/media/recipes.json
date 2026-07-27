@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "cosyworld.community-art.base/1",
+      "default_recipe": "replicate.flux1-dev-lora.base",
+      "allowed_recipes": [
+        "replicate.flux1-dev-lora.base",
+        "replicate.flux2-dev.references"
+      ],
+      "operations": [
+        "base_generation"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art"
+      ],
+      "reference_slots": [],
+      "maximum_references": 0
+    },
+    {
+      "id": "cosyworld.community-art.reference/1",
+      "default_recipe": "replicate.flux2-dev.references",
+      "allowed_recipes": [
+        "replicate.flux2-dev.references",
+        "replicate.flux1-dev-lora.base"
+      ],
+      "operations": [
+        "base_generation",
+        "single_reference",
+        "multi_reference"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art",
+        "evolution_card_art"
+      ],
+      "reference_slots": [
+        "location",
+        "actor",
+        "item",
+        "prior_level",
+        "style"
+      ],
+      "maximum_references": 4
+    }
+  ],
+  "recipes": [
+    {
+      "id": "replicate.flux1-dev-lora.base",
+      "profile": "cosyworld.community-art.base/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "black-forest-labs",
+        "name": "flux-dev-lora",
+        "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917",
+        "revision_source": "https://replicate.com/black-forest-labs/flux-dev-lora/api",
+        "invocation": "official_model"
+      },
+      "state": "enabled",
+      "operations": [
+        "base_generation"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art"
+      ],
+      "references": {
+        "minimum": 0,
+        "maximum": 0,
+        "input_field": null,
+        "ordering": "caller",
+        "prompt_semantics": "none",
+        "supported_slots": []
+      },
+      "input_formats": [],
+      "aspect_ratios": [
+        "1:1",
+        "16:9",
+        "3:2",
+        "2:3",
+        "4:5",
+        "5:4",
+        "9:16",
+        "3:4",
+        "4:3"
+      ],
+      "dimensions": {
+        "minimum": 256,
+        "maximum": 2048,
+        "multiple": 16
+      },
+      "output_formats": [
+        "png",
+        "jpg",
+        "webp"
+      ],
+      "supports_masks": false,
+      "seed_behavior": "optional",
+      "timeout_seconds": 90,
+      "cost_class": "community_image",
+      "concurrency": 1,
+      "retry": {
+        "maximum_attempts": 3,
+        "transient_only": true
+      },
+      "prompt_template_version": "community-art/3",
+      "lora": {
+        "weights_input": "lora_weights",
+        "scale_input": "lora_scale"
+      },
+      "output": {
+        "normalization": "first_url",
+        "stable_storage": "required"
+      },
+      "fallback_recipe": null
+    },
+    {
+      "id": "replicate.flux2-dev.references",
+      "profile": "cosyworld.community-art.reference/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "black-forest-labs",
+        "name": "flux-2-dev",
+        "revision": "7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050",
+        "revision_source": "https://replicate.com/black-forest-labs/flux-2-dev/versions/7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050/api",
+        "invocation": "pinned_version"
+      },
+      "state": "canary",
+      "operations": [
+        "base_generation",
+        "single_reference",
+        "multi_reference"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art",
+        "evolution_card_art"
+      ],
+      "references": {
+        "minimum": 0,
+        "maximum": 4,
+        "input_field": "input_images",
+        "ordering": "caller",
+        "prompt_semantics": "indexed_image_1",
+        "supported_slots": [
+          "location",
+          "actor",
+          "item",
+          "prior_level",
+          "style"
+        ]
+      },
+      "input_formats": [
+        "jpeg",
+        "png",
+        "gif",
+        "webp"
+      ],
+      "aspect_ratios": [
+        "match_input_image",
+        "custom",
+        "1:1",
+        "16:9",
+        "3:2",
+        "2:3",
+        "4:5",
+        "5:4",
+        "9:16",
+        "3:4",
+        "4:3"
+      ],
+      "dimensions": {
+        "minimum": 256,
+        "maximum": 1440,
+        "multiple": 32
+      },
+      "output_formats": [
+        "webp",
+        "jpg",
+        "png"
+      ],
+      "supports_masks": false,
+      "seed_behavior": "optional",
+      "timeout_seconds": 90,
+      "cost_class": "reference_image",
+      "concurrency": 1,
+      "retry": {
+        "maximum_attempts": 2,
+        "transient_only": true
+      },
+      "prompt_template_version": "community-reference/1",
+      "lora": null,
+      "output": {
+        "normalization": "single_url",
+        "stable_storage": "required"
+      },
+      "fallback_recipe": "replicate.flux1-dev-lora.base"
+    }
+  ]
+}

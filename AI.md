@@ -219,6 +219,48 @@ The C kernel and Rust validators must reject invalid or impossible proposals.
 
 Add a v2 `media_jobs` pipeline. Do not block the one-button chat loop on slow image work unless the current action explicitly asks for a photo.
 
+The host-owned recipe registry at `v2/media/recipes.json` is the frozen
+capability boundary in front of provider adapters. It records exact Replicate
+revision provenance for the incumbent FLUX.1 LoRA base recipe and uses a pinned
+version invocation for the reference-capable FLUX.2 recipe, along with
+operation, intent, input field, reference limits/order, formats, dimensions,
+seed/mask behavior, retry/cost policy, prompt version, output normalization,
+and stable-storage requirements. The same registry is compiled into Rust and
+read by the worldpack compiler, so pack profile validation cannot drift from
+runtime resolution.
+
+The initial pins were read from Replicate's published API pages on 2026-07-26:
+FLUX.1 LoRA revision
+`ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917`
+from `https://replicate.com/black-forest-labs/flux-dev-lora/api`, and FLUX.2
+dev revision
+`7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050`
+from
+`https://replicate.com/black-forest-labs/flux-2-dev/versions/7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050/api`.
+The latter's published input schema caps this exact recipe at four ordered
+`input_images`, constrains custom width and height to 256–1440 in multiples of
+32, and accepts an optional seed. The registry follows that version-specific
+schema rather than a broader model-family claim.
+
+References are an ordered list of typed `location`, `actor`, `item`,
+`prior_level`, or `style` slots. The resolved job retains that exact order and
+FLUX.2 prompts address it as image 1 through image N. Resolution rejects an
+unsupported slot, operation, intent, format, seed, mask, or over-limit list
+before a provider adapter can construct or send a request; it never truncates,
+sorts, or substitutes references.
+
+`COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON` provides runtime-only
+`disabled_recipes`, `profile_overrides`, and per-profile
+`canaries` (`recipe` plus `percent`). Selection is deterministic from the job
+key. Parsing and registry validation fail closed on unknown fields, profiles,
+recipes, disallowed targets, or percentages above 100. A disabled recipe
+follows only its declared allowlisted fallback, which must still satisfy the
+complete job; an explicit profile override rolls back to a prior recipe. Pack
+compilation follows that same declared default/fallback chain and never picks
+an arbitrary enabled recipe. These controls do not change world state. The
+default base profile continues to use the existing FLUX.1 LoRA request and
+community Orb funding/output path.
+
 Media intents:
 
 - `avatar_portrait`: 1:1 usable crop for the player avatar and card top square.
