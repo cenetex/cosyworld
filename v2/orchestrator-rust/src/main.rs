@@ -28495,7 +28495,7 @@ async fn command_inner(
         let Json(response) = if normalized_command == "pass" {
             pass_ordered_scene_turn(ConnectInfo(client_addr), State(state), Json(request)).await
         } else {
-            request_turn_timeout(ConnectInfo(client_addr), State(state), Json(request)).await
+            request_turn_need_time(ConnectInfo(client_addr), State(state), Json(request)).await
         };
         let output = if response.ok {
             if response
@@ -48083,7 +48083,6 @@ mod tests {
         assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
         assert!(INDEX_HTML.contains("kind: \"advancement-chat\""));
         assert!(!INDEX_HTML.contains("label: \"grow closer\""));
-        assert!(INDEX_HTML.contains("return [waitingAction].map(decorateActionHand);"));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));

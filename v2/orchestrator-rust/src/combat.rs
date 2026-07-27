@@ -540,7 +540,7 @@ fn drive_combat_inference_turns(
     Ok(CW_OK)
 }
 
-fn drive_available_combat_turns(
+pub(super) fn drive_available_combat_turns(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     encounter_id: u64,

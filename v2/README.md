@@ -856,7 +856,9 @@ Public action endpoints accept active human actors only when the matching `actor
 
 `POST /actions/report` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "target_actor_id": 1001, "reason": "..." }`. The reporter and target must both be in the same room, and human targets must be visible in active room presence. Success returns `200` plus a durable report id for moderator review; reports do not broadcast into the room timeline.
 
-`POST /actions/timeout` accepts JSON `{ "actor_id": 5000, "actor_session": "..." }`. It is only useful for an active human waiting on another active human's room turn. The first request gently nudges the current player and starts an eight-second wait; later requests tell the room that those players are still here. If the current player remains away, the next choice passes to an eligible responder. The durable event names remain `turn.ping_started`, `turn.pong`, and `turn.ping_skipped` for compatibility, but the browser presents only the warmer Nudge / I'm here language.
+`POST /actions/timeout` accepts JSON `{ "actor_id": 5000, "actor_session": "..." }`. It is available to an active participant waiting on another active participant in an explicitly ordered combat or cooperative-work scene. A successful nudge journals a system Pass for the current holder and advances to the next eligible participant. Refusals return actionable events with stable types: `turn.timeout_refused.requester_holds_turn`, `turn.timeout_refused.participants_below_two`, `turn.timeout_refused.requester_not_eligible`, `turn.timeout_refused.no_focused_scene`, or `turn.timeout_refused.cooldown`. Refusal checks happen before any world mutation.
+
+`POST /actions/need-time` uses the same actor payload for the current ordered-scene holder's one nonpunitive grace extension. It does not pass the turn or advance world time.
 
 Public mutation endpoints also pass through lightweight in-memory rate limits before they touch the world reducer:
 
