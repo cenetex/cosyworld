@@ -17,9 +17,14 @@ checks, inventory rules, bonds, combat participation, evolution, or deed
 projection. Session ownership decides who may submit a direct choice; it is an
 authorization boundary, not an RPG rule.
 
-Actor-targeted offers and the room roster share one projection-visibility
-policy. A `direct_input` avatar whose presence has lapsed is absent from both;
-an offer issued while they were active fails closed if submitted after they
+The room roster has one projection-visibility policy across `/state`, `/world`,
+typed `look`/`who`, and ordered-turn messages. A `direct_input` avatar whose
+presence has lapsed is normally absent. While that avatar still owns an
+authoritative focused turn, the roster keeps them visible until the bounded
+turn-recovery path hands off; nobody is blocked by an unseen name.
+Actor-targeted offers and commands use the stricter active-presence predicate,
+so that temporary roster visibility does not make the lapsed holder a legal
+target. An offer issued while they were active still fails closed after they
 leave. Present co-located avatars and inference-controlled residents remain
 targetable when the underlying world rule allows the action.
 

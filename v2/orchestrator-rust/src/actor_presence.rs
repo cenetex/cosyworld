@@ -38,13 +38,39 @@ impl RuntimeWorld {
                 return true;
             }
             return active_direct_actor_ids
-                .map(|ids| ids.contains(&actor.id))
+                .map(|ids| ids.contains(&actor.id) || self.actor_holds_blocking_room_turn(actor))
                 .unwrap_or(true);
         }
         if self.avatar_hidden_until_discovered(actor) {
             return self.avatar_discovered(actor.id);
         }
         true
+    }
+
+    pub(super) fn actor_target_visible_in_projection(
+        &self,
+        actor: CwActor,
+        client_actor_id: Option<u64>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> bool {
+        if !self.actor_visible_in_projection(actor, client_actor_id, active_direct_actor_ids) {
+            return false;
+        }
+        if Self::actor_can_act(actor)
+            && !self.actor_uses_inference(actor.id)
+            && Some(actor.id) != client_actor_id
+        {
+            return active_direct_actor_ids
+                .map(|ids| ids.contains(&actor.id))
+                .unwrap_or(true);
+        }
+        true
+    }
+
+    fn actor_holds_blocking_room_turn(&self, actor: CwActor) -> bool {
+        Self::actor_can_act(actor)
+            && combat_turn_view(self, actor.id, actor.location_id)
+                .is_some_and(|turn| turn.current_actor_id == Some(actor.id))
     }
 }
 
@@ -66,7 +92,7 @@ impl RuntimeWorld {
                     && Self::actor_can_act(*target)
                     && target.location_id == actor.location_id
                     && !self.actors_blocked(actor_id, target.id)
-                    && self.actor_visible_in_projection(
+                    && self.actor_target_visible_in_projection(
                         *target,
                         Some(actor_id),
                         active_direct_actor_ids,
@@ -98,7 +124,7 @@ impl RuntimeWorld {
     ) -> bool {
         RuntimeWorld::actor_can_act(target)
             && target.location_id == actor.location_id
-            && self.actor_visible_in_projection(
+            && self.actor_target_visible_in_projection(
                 target,
                 Some(actor.id),
                 Some(active_direct_actor_ids),
@@ -445,6 +471,131 @@ mod tests {
         assert!(!runtime.event_log.iter().any(|event| {
             event.type_name == "advancement.spent" && event.actor_id == Some(5000)
         }));
+    }
+
+    #[tokio::test]
+    async fn blocked_player_sees_lapsed_turn_holder_on_every_room_roster() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "First Worker",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Second Worker",
+        );
+        for actor_id in [5000, 5001] {
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+        }
+        let job = runtime
+            .jobs
+            .get_mut(FIRST_TALE_JOB_ID)
+            .expect("focused fixture job");
+        job.status = "active".to_string();
+        job.focused_profile = Some(FOCUSED_WORK_PROFILE.to_string());
+        job.focused_encounter = Some(FocusedJobEncounterState {
+            version: 1,
+            encounter_id: 90_416,
+            profile_id: FOCUSED_WORK_PROFILE_ID.to_string(),
+            profile_version: FOCUSED_WORK_PROFILE_VERSION,
+            location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+            phase: "work".to_string(),
+            participant_order: vec![5000, 5001],
+            current_index: 0,
+            round: 1,
+            setup_remaining: 1,
+            status: "active".to_string(),
+        });
+
+        let state = test_app_state(runtime, None);
+        let (holder_session, _) = issue_actor_session(&state, 5000);
+        let (blocked_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &holder_session),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &blocked_session),
+            Some(false)
+        );
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &holder_session,
+        ));
+        let active_direct_actor_ids = active_actor_ids_for_state(&state);
+        assert!(!active_direct_actor_ids.contains(&5000));
+        assert!(active_direct_actor_ids.contains(&5001));
+
+        let runtime = state.inner.lock().await;
+        let mut projected = runtime.state_response_with_presence(
+            Some(5001),
+            &AccessContext::default(),
+            Some(&active_direct_actor_ids),
+            false,
+        );
+        projected.turn = room_turn_view_for_runtime(
+            &state,
+            &runtime,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            Some(5001),
+            &active_direct_actor_ids,
+        );
+        assert_eq!(projected.turn.current_actor_id, Some(5000));
+        assert_eq!(
+            projected.turn.current_actor_name.as_deref(),
+            Some("First Worker")
+        );
+        assert!(projected.actors.iter().any(|actor| actor.id == 5000));
+        assert!(projected.actors.iter().any(|actor| actor.id == 5001));
+        assert!(!projected.action_offers.iter().any(|offer| {
+            offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "actor" && target.id == Some(5000))
+        }));
+
+        let world = runtime.world_response_with_presence(
+            Some(5001),
+            &AccessContext::default(),
+            Some(&active_direct_actor_ids),
+        );
+        let room = world
+            .locations
+            .iter()
+            .find(|location| location.id == RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("blocked player's room is visible");
+        assert!(room.actors.iter().any(|actor| actor.id == 5000));
+        assert!(room.actors.iter().any(|actor| actor.id == 5001));
+
+        let blocked_actor = runtime.actor_by_id(5001).expect("blocked actor");
+        let look = runtime.room_command_output(
+            blocked_actor,
+            &AccessContext::default(),
+            Some(&active_direct_actor_ids),
+        );
+        assert!(look.contains("First Worker"));
+        assert!(look.contains("Second Worker"));
+
+        let rejection = actor_turn_rejection(&state, &runtime, 5001)
+            .expect("the second worker is blocked by the focused turn")
+            .0;
+        assert_eq!(rejection.status, 423);
+        let blocker = rejection.events.first().expect("waiting event");
+        assert_eq!(blocker.actor_id, Some(5000));
+        assert_eq!(blocker.actor_name.as_deref(), Some("First Worker"));
+        assert!(projected
+            .actors
+            .iter()
+            .any(|actor| Some(actor.id) == blocker.actor_id));
     }
 
     #[test]
