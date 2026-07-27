@@ -1983,8 +1983,9 @@ mod tests {
 
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, ALPINE_FOREST_LOCATION_ID, "Map Reader");
-        let mut pathway =
-            runtime.generated_pathway(5000, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID, 3);
+        let mut pathway = runtime
+            .generated_pathway(5000, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID, 3)
+            .expect("generated pathway");
         let path = runtime.pathway_path(&pathway, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID);
         for edge in path.windows(2) {
             pathway

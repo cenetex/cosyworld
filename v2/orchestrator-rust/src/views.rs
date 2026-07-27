@@ -1488,10 +1488,10 @@ impl RuntimeWorld {
             memory_location_name: memory
                 .as_ref()
                 .and_then(|memory| self.location_name(memory.location_id)),
-            holder_actor_id: memory.as_ref().and_then(|memory| memory.holder_actor_id),
+            holder_actor_id: memory.as_ref().and_then(|memory| memory.related_actor_id),
             holder_actor_name: memory
                 .as_ref()
-                .and_then(|memory| memory.holder_actor_id)
+                .and_then(|memory| memory.related_actor_id)
                 .and_then(|holder_actor_id| self.actor_name(holder_actor_id)),
             confidence: memory.as_ref().map(|memory| memory.confidence),
             salience: memory.as_ref().map(|memory| memory.salience),
@@ -1552,7 +1552,7 @@ impl RuntimeWorld {
             .map(|item_id| self.resident_sought_item_view(resident, item_id))
             .collect();
         let attached_item_ids = self.resident_attached_item_ids(resident.id);
-        let seek_memory = self.resident_memory_seek_target(resident);
+        let seek_memory = self.belief_seek_target(resident);
         let seeking_item_id = seek_memory.as_ref().map(|memory| memory.subject_id);
         let seeking_location_id = seek_memory.as_ref().map(|memory| memory.location_id);
         let seeking_location_name =
@@ -1627,7 +1627,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Item {item_id}"));
             if let Some(holder_name) = seek_memory
                 .as_ref()
-                .and_then(|memory| memory.holder_actor_id)
+                .and_then(|memory| memory.related_actor_id)
                 .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
             {
                 format!(

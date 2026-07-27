@@ -148,11 +148,11 @@ impl RuntimeWorld {
 
     pub(crate) fn resident_memory_prompt_notes(&self, resident_id: u64) -> Vec<String> {
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                memory.holder_actor_id == resident_id
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
             })
             .cloned()
             .collect();
@@ -179,7 +179,7 @@ impl RuntimeWorld {
                 .location_name(memory.location_id)
                 .unwrap_or_else(|| format!("Location {}", memory.location_id));
             let note = match memory.kind.as_str() {
-                RESIDENT_MEMORY_KIND_ACTOR_LOCATION => {
+                BELIEF_KIND_ACTOR_LOCATION => {
                     if memory.subject_id == resident_id {
                         continue;
                     }
@@ -188,12 +188,12 @@ impl RuntimeWorld {
                         .unwrap_or_else(|| format!("Resident {}", memory.subject_id));
                     format!("{route} {actor_name} near {location_name}")
                 }
-                RESIDENT_MEMORY_KIND_ITEM_LOCATION => {
+                BELIEF_KIND_ITEM_LOCATION => {
                     let item_name = self
                         .item_name(memory.subject_id)
                         .unwrap_or_else(|| format!("Item {}", memory.subject_id));
                     if let Some(holder_name) = memory
-                        .holder_actor_id
+                        .related_actor_id
                         .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
                     {
                         format!("{route} {item_name} with {holder_name} near {location_name}")
@@ -201,8 +201,8 @@ impl RuntimeWorld {
                         format!("{route} {item_name} near {location_name}")
                     }
                 }
-                RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM => {
-                    let Some(target_actor_id) = memory.holder_actor_id else {
+                BELIEF_KIND_ACTOR_WANTS_ITEM => {
+                    let Some(target_actor_id) = memory.related_actor_id else {
                         continue;
                     };
                     let target_name = self
@@ -362,7 +362,7 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_stable_identity(&self, resident: CwActor) -> String {
+    pub(crate) fn resident_stable_identity(&self, resident: CwActor) -> String {
         let name = self
             .actor_name(resident.id)
             .unwrap_or_else(|| format!("Resident {}", resident.id));
@@ -382,7 +382,10 @@ impl RuntimeWorld {
         format!("{name} / {title} / speech:{speech_mode} / {description}")
     }
 
-    fn resident_relationship_notes(&self, resident_id: u64) -> BTreeMap<u64, String> {
+    pub(crate) fn resident_relationship_notes(
+        &self,
+        resident_id: u64,
+    ) -> BTreeMap<u64, String> {
         let mut notes = BTreeMap::new();
         for bond in self.bonds.values() {
             if bond.status == "resolved" {
@@ -409,15 +412,15 @@ impl RuntimeWorld {
         notes
     }
 
-    fn resident_continuity_atoms(
+    pub(crate) fn resident_continuity_atoms(
         &self,
         resident_id: u64,
         limit: usize,
     ) -> Vec<ResidentContinuityAtom> {
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
-            .filter(|memory| memory.carrier_actor_id == resident_id)
+            .filter(|memory| memory.holder_actor_id == resident_id)
             .cloned()
             .collect();
         memories.sort_by_key(|memory| {
@@ -447,8 +450,8 @@ impl RuntimeWorld {
             .collect()
     }
 
-    fn resident_memory_atom_text(&self, memory: &ResidentMemoryState) -> Option<String> {
-        let route = if memory.source_actor_id == Some(memory.carrier_actor_id) && memory.hops == 0 {
+    fn resident_memory_atom_text(&self, memory: &BeliefState) -> Option<String> {
+        let route = if memory.source_actor_id == Some(memory.holder_actor_id) && memory.hops == 0 {
             "saw"
         } else {
             "heard"
@@ -457,8 +460,8 @@ impl RuntimeWorld {
             .location_name(memory.location_id)
             .unwrap_or_else(|| format!("Location {}", memory.location_id));
         match memory.kind.as_str() {
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION => {
-                if memory.subject_id == memory.carrier_actor_id {
+            BELIEF_KIND_ACTOR_LOCATION => {
+                if memory.subject_id == memory.holder_actor_id {
                     return None;
                 }
                 let actor_name = self
@@ -466,12 +469,12 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Actor {}", memory.subject_id));
                 Some(format!("{route} {actor_name} near {location_name}"))
             }
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION => {
+            BELIEF_KIND_ITEM_LOCATION => {
                 let item_name = self
                     .item_name(memory.subject_id)
                     .unwrap_or_else(|| format!("Item {}", memory.subject_id));
                 if let Some(holder_name) = memory
-                    .holder_actor_id
+                    .related_actor_id
                     .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
                 {
                     Some(format!(
@@ -481,8 +484,8 @@ impl RuntimeWorld {
                     Some(format!("{route} {item_name} near {location_name}"))
                 }
             }
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM => {
-                let target_actor_id = memory.holder_actor_id?;
+            BELIEF_KIND_ACTOR_WANTS_ITEM => {
+                let target_actor_id = memory.related_actor_id?;
                 let target_name = self
                     .actor_name(target_actor_id)
                     .unwrap_or_else(|| format!("Actor {}", target_actor_id));
@@ -497,7 +500,7 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_open_obligations_and_intent(
+    pub(crate) fn resident_open_obligations_and_intent(
         &self,
         resident: CwActor,
     ) -> (Vec<String>, Option<String>) {
@@ -546,7 +549,7 @@ impl RuntimeWorld {
         (obligations, current_intent)
     }
 
-    fn latest_observed_event_seq_for_resident(&self, resident: CwActor) -> u64 {
+    pub(crate) fn latest_observed_event_seq_for_resident(&self, resident: CwActor) -> u64 {
         self.event_log
             .iter()
             .filter(|event| {
@@ -576,7 +579,7 @@ pub(crate) fn sanitize_continuity_note_text(value: Option<&str>) -> Option<Strin
     Some(trim_to_chars(&text, 180))
 }
 
-fn push_resident_continuity_note(
+pub(crate) fn push_resident_continuity_note(
     notes: &mut Vec<ResidentContinuityNote>,
     text: String,
     source: &str,
@@ -652,16 +655,16 @@ mod tests {
     #[test]
     fn resident_continuity_projects_memories_and_survives_snapshots() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.refresh_resident_continuity(RATI_ACTOR_ID);

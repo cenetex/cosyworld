@@ -427,7 +427,7 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
         runtime.decay_search_memories();
         assert!(runtime.local_leads[&lead_id].forgotten);
         assert_eq!(runtime.routes, routes_before);
@@ -501,6 +501,7 @@ mod tests {
                     actor_id: TEST_ACTOR_ID,
                     actor_session: Some(session),
                     command: "influence Rati".to_string(),
+                    offer_id: None,
                     wallet_address: None,
                     wallet: None,
                     wallet_session: None,

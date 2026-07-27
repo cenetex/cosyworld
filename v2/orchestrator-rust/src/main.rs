@@ -6,6 +6,8 @@ mod actor_rules_facets;
 mod ai_gateway;
 mod ai_publication;
 mod avatar_identity;
+#[cfg(test)]
+mod beliefs_tests;
 mod canonical_journal;
 mod canonical_world;
 mod cards;
@@ -484,28 +486,40 @@ const RESIDENT_DESIRED_ITEM_SCORE: i16 = 100;
 const RESIDENT_ATTACHED_ITEM_SCORE: i16 = 120;
 const RESIDENT_USEFUL_ITEM_SCORE: i16 = 35;
 const RESIDENT_DEFAULT_ITEM_SCORE: i16 = 20;
-const RESIDENT_MEMORY_KIND_ITEM_LOCATION: &str = "item_location";
-const RESIDENT_MEMORY_KIND_ACTOR_LOCATION: &str = "actor_location";
-const RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM: &str = "actor_wants_item";
-const RESIDENT_MEMORY_CAPACITY: usize = 32;
-const RESIDENT_OBSERVED_MEMORY_CONFIDENCE: u8 = 240;
-const RESIDENT_OBSERVED_MEMORY_SALIENCE: u8 = 210;
-const RESIDENT_GOSSIP_CONFIDENCE_DECAY: u8 = 28;
-const RESIDENT_GOSSIP_SALIENCE_DECAY: u8 = 18;
-const RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE: u8 = 80;
-const RESIDENT_MEMORY_TIME_DECAY_INTERVAL_TICKS: u64 = 12;
-const RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY: u8 = 6;
-const RESIDENT_MEMORY_TIME_SALIENCE_DECAY: u8 = 8;
-const SEARCH_MEMORY_KIND_SEED_EXIT: &str = "seed_exit";
-const SEARCH_MEMORY_KIND_HIDDEN_EXIT: &str = "hidden_exit";
-const SEARCH_MEMORY_KIND_AVATAR: &str = "avatar";
-const SEARCH_MEMORY_KIND_ITEM: &str = "item";
-const SEARCH_MEMORY_CONFIDENCE: u8 = 240;
-const SEARCH_MEMORY_SALIENCE: u8 = 220;
-const SEARCH_MEMORY_MIN_CONFIDENCE: u8 = 80;
-const SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS: u64 = 18;
-const SEARCH_MEMORY_TIME_CONFIDENCE_DECAY: u8 = 6;
-const SEARCH_MEMORY_TIME_SALIENCE_DECAY: u8 = 8;
+const BELIEF_KIND_ITEM_LOCATION: &str = "item_location";
+const BELIEF_KIND_ACTOR_LOCATION: &str = "actor_location";
+const BELIEF_KIND_ACTOR_WANTS_ITEM: &str = "actor_wants_item";
+const BELIEF_KIND_SEED_EXIT: &str = "seed_exit";
+const BELIEF_KIND_HIDDEN_EXIT: &str = "hidden_exit";
+
+#[derive(Clone, Copy)]
+struct BeliefTuning {
+    capacity: usize,
+    firsthand_confidence: u8,
+    firsthand_salience: u8,
+    minimum_action_confidence: u8,
+    decay_interval_ticks: u64,
+    confidence_decay: u8,
+    salience_decay: u8,
+    gossip_confidence_decay: u8,
+    gossip_salience_decay: u8,
+}
+
+// The former stores agreed on confidence, threshold, and decay amounts. The
+// unified policy keeps search's slightly stronger initial salience while using
+// resident autonomy's shorter decay interval so stale beliefs stop driving
+// actions promptly.
+const BELIEF_TUNING: BeliefTuning = BeliefTuning {
+    capacity: 32,
+    firsthand_confidence: 240,
+    firsthand_salience: 220,
+    minimum_action_confidence: 80,
+    decay_interval_ticks: 12,
+    confidence_decay: 6,
+    salience_decay: 8,
+    gossip_confidence_decay: 28,
+    gossip_salience_decay: 18,
+};
 const RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_REPLY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_PLACEMENT_ROTATION_TICKS: u64 = 96;
@@ -1285,7 +1299,30 @@ struct BondState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct ResidentMemoryState {
+struct BeliefState {
+    id: String,
+    holder_actor_id: u64,
+    kind: String,
+    subject_id: u64,
+    location_id: u64,
+    confidence: u8,
+    salience: u8,
+    observed_tick: u64,
+    #[serde(default)]
+    source_actor_id: Option<u64>,
+    #[serde(default)]
+    related_actor_id: Option<u64>,
+    #[serde(default)]
+    learned_tick: u64,
+    #[serde(default)]
+    hops: u8,
+}
+
+// Snapshot-only adapters for the two stores that preceded the unified belief
+// model. They never enter RuntimeWorld and are removed when a snapshot is
+// migrated.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct LegacyResidentMemoryState {
     id: String,
     carrier_actor_id: u64,
     kind: String,
@@ -1305,7 +1342,7 @@ struct ResidentMemoryState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct SearchMemoryState {
+struct LegacySearchMemoryState {
     id: String,
     actor_id: u64,
     kind: String,
@@ -1319,6 +1356,70 @@ struct SearchMemoryState {
     last_used_tick: u64,
     #[serde(default)]
     use_count: u32,
+}
+
+fn belief_id(
+    holder_actor_id: u64,
+    kind: &str,
+    subject_id: u64,
+    location_id: u64,
+    related_actor_id: Option<u64>,
+) -> String {
+    match kind {
+        BELIEF_KIND_SEED_EXIT | BELIEF_KIND_HIDDEN_EXIT => {
+            format!("belief:{holder_actor_id}:{kind}:{location_id}:{subject_id}")
+        }
+        BELIEF_KIND_ACTOR_WANTS_ITEM => format!(
+            "belief:{holder_actor_id}:{kind}:{}:{subject_id}",
+            related_actor_id.unwrap_or_default()
+        ),
+        _ => format!("belief:{holder_actor_id}:{kind}:{subject_id}"),
+    }
+}
+
+fn belief_is_preferred(candidate: &BeliefState, existing: &BeliefState) -> bool {
+    candidate.observed_tick > existing.observed_tick
+        || (candidate.observed_tick == existing.observed_tick
+            && (candidate.confidence > existing.confidence
+                || (candidate.confidence == existing.confidence
+                    && candidate.learned_tick >= existing.learned_tick)))
+}
+
+fn merge_belief(beliefs: &mut BTreeMap<String, BeliefState>, mut belief: BeliefState) {
+    belief.id = belief_id(
+        belief.holder_actor_id,
+        &belief.kind,
+        belief.subject_id,
+        belief.location_id,
+        belief.related_actor_id,
+    );
+    match beliefs.get_mut(&belief.id) {
+        Some(existing) if belief_is_preferred(&belief, existing) => *existing = belief,
+        Some(existing) => existing.salience = existing.salience.max(belief.salience),
+        None => {
+            beliefs.insert(belief.id.clone(), belief);
+        }
+    }
+}
+
+fn belief_decay_at_tick(belief: &BeliefState, now: u64) -> (u64, u8, u8) {
+    let baseline = belief.learned_tick.max(belief.observed_tick);
+    let steps = if baseline == 0 {
+        0
+    } else {
+        now.saturating_sub(baseline) / BELIEF_TUNING.decay_interval_ticks
+    };
+    let confidence_loss = steps
+        .saturating_mul(BELIEF_TUNING.confidence_decay as u64)
+        .min(u8::MAX as u64) as u8;
+    let salience_loss = steps
+        .saturating_mul(BELIEF_TUNING.salience_decay as u64)
+        .min(u8::MAX as u64) as u8;
+    (
+        steps,
+        belief.confidence.saturating_sub(confidence_loss),
+        belief.salience.saturating_sub(salience_loss),
+    )
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1560,8 +1661,7 @@ struct RuntimeWorld {
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
-    resident_memories: BTreeMap<String, ResidentMemoryState>,
-    search_memories: BTreeMap<String, SearchMemoryState>,
+    beliefs: BTreeMap<String, BeliefState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
     actor_rules_facets: BTreeMap<u64, BTreeMap<String, ActorRulesFacetState>>,
@@ -1687,9 +1787,11 @@ struct RuntimeSnapshot {
     #[serde(default)]
     bonds: BTreeMap<String, BondState>,
     #[serde(default)]
-    resident_memories: BTreeMap<String, ResidentMemoryState>,
-    #[serde(default)]
-    search_memories: BTreeMap<String, SearchMemoryState>,
+    beliefs: BTreeMap<String, BeliefState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    resident_memories: BTreeMap<String, LegacyResidentMemoryState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    search_memories: BTreeMap<String, LegacySearchMemoryState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
@@ -6106,7 +6208,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 13,
+            version: 14,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6165,8 +6267,9 @@ impl RuntimeSnapshot {
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
-            resident_memories: runtime.resident_memories.clone(),
-            search_memories: runtime.search_memories.clone(),
+            beliefs: runtime.beliefs.clone(),
+            resident_memories: BTreeMap::new(),
+            search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: runtime.actor_autonomy.clone(),
             actor_rules_facets: runtime.snapshot_actor_rules_facets(),
@@ -6338,6 +6441,51 @@ impl RuntimeSnapshot {
             world.next_event_seq = 1;
         }
 
+        let mut beliefs = self.beliefs;
+        for legacy in self.resident_memories.into_values() {
+            merge_belief(
+                &mut beliefs,
+                BeliefState {
+                    id: String::new(),
+                    holder_actor_id: legacy.carrier_actor_id,
+                    kind: legacy.kind,
+                    subject_id: legacy.subject_id,
+                    location_id: legacy.location_id,
+                    confidence: legacy.confidence,
+                    salience: legacy.salience,
+                    observed_tick: legacy.observed_tick,
+                    source_actor_id: legacy.source_actor_id,
+                    related_actor_id: legacy.holder_actor_id,
+                    learned_tick: legacy.learned_tick,
+                    hops: legacy.hops,
+                },
+            );
+        }
+        for legacy in self.search_memories.into_values() {
+            let kind = match legacy.kind.as_str() {
+                "avatar" => BELIEF_KIND_ACTOR_LOCATION,
+                "item" => BELIEF_KIND_ITEM_LOCATION,
+                _ => legacy.kind.as_str(),
+            };
+            merge_belief(
+                &mut beliefs,
+                BeliefState {
+                    id: String::new(),
+                    holder_actor_id: legacy.actor_id,
+                    kind: kind.to_string(),
+                    subject_id: legacy.subject_id,
+                    location_id: legacy.location_id,
+                    confidence: legacy.confidence,
+                    salience: legacy.salience,
+                    observed_tick: legacy.found_tick,
+                    source_actor_id: Some(legacy.actor_id),
+                    related_actor_id: None,
+                    learned_tick: legacy.last_used_tick.max(legacy.found_tick),
+                    hops: 0,
+                },
+            );
+        }
+
         Ok(RuntimeWorld {
             world,
             canonical_identities: self.canonical_identities,
@@ -6377,8 +6525,7 @@ impl RuntimeSnapshot {
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
-            resident_memories: self.resident_memories,
-            search_memories: self.search_memories,
+            beliefs,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
             actor_rules_facets: self.actor_rules_facets,
@@ -6778,8 +6925,7 @@ impl RuntimeWorld {
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
-            resident_memories: BTreeMap::new(),
-            search_memories: BTreeMap::new(),
+            beliefs: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
             actor_rules_facets: BTreeMap::new(),
@@ -9963,7 +10109,7 @@ impl RuntimeWorld {
                     .insert(receipt.generation_id.clone(), receipt.clone());
             }
             if advances_world_tick {
-                self.decay_search_memories();
+                self.decay_beliefs();
             }
             let listen_context = self.listen_context_for_action(&action, &events);
             let was_repeat_listen = listen_context
@@ -10034,7 +10180,7 @@ impl RuntimeWorld {
             events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
             let committed_events = events.clone();
             events.extend(self.apply_influence_projection(&action, &committed_events));
-            self.reinforce_search_memories_from_events(&events);
+            self.reinforce_beliefs_from_search_events(&events);
             self.record_first_tale_destination_arrivals(&events);
             let committed_events = events.clone();
             events.extend(self.apply_event_lifecycle_hooks(
@@ -10100,7 +10246,7 @@ impl RuntimeWorld {
             let loot_sources = events.clone();
             events.extend(self.reconcile_quest_loot(&loot_sources));
             self.project_qualifying_deeds(&events);
-            self.apply_resident_memory_projection(&action, &events);
+            self.apply_belief_projection(&action, &events);
             if advances_world_tick {
                 let committed_events = events.clone();
                 events.extend(self.apply_player_tick_frontier_resets(&action, &committed_events));
@@ -10688,9 +10834,9 @@ impl RuntimeWorld {
                         self.remember_search_discovery_for_actor_ids(
                             &witness_actor_ids,
                             discovered_exit.from_location_id,
-                            SEARCH_MEMORY_KIND_SEED_EXIT,
+                            BELIEF_KIND_SEED_EXIT,
                             discovered_exit.to_location_id,
-                            &seed_exit_search_memory_subject_key(
+                            &seed_exit_belief_subject_key(
                                 discovered_exit.from_location_id,
                                 discovered_exit.to_location_id,
                             ),
@@ -10741,7 +10887,7 @@ impl RuntimeWorld {
                     events.push(event.clone());
                     self.remember_search_discovery_for_witnesses(
                         hidden_exit.from_location_id,
-                        SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+                        BELIEF_KIND_HIDDEN_EXIT,
                         hidden_exit.to_location_id,
                         hidden_exit.id.clone(),
                     );
@@ -10786,7 +10932,7 @@ impl RuntimeWorld {
                     events.push(event.clone());
                     self.remember_search_discovery_for_witnesses(
                         *location_id,
-                        SEARCH_MEMORY_KIND_AVATAR,
+                        BELIEF_KIND_ACTOR_LOCATION,
                         *actor_id,
                         actor_id.to_string(),
                     );
@@ -10814,7 +10960,7 @@ impl RuntimeWorld {
                     };
                     self.remember_search_discovery_for_witnesses(
                         *location_id,
-                        SEARCH_MEMORY_KIND_ITEM,
+                        BELIEF_KIND_ITEM_LOCATION,
                         *item_id,
                         item_id.to_string(),
                     );
@@ -13450,7 +13596,7 @@ impl RuntimeWorld {
         }
         let from_location_id = event.location_id;
         let to_location_id = event.destination_location_id;
-        let memory = self.resident_memory_seek_target(actor)?;
+        let memory = self.belief_seek_target(actor)?;
         if self.next_unlocked_step_toward(from_location_id, memory.location_id)
             != Some(to_location_id)
         {
@@ -14702,46 +14848,33 @@ impl RuntimeWorld {
     }
 
     fn avatar_discovered(&self, actor_id: u64) -> bool {
-        self.search_memories.values().any(|memory| {
-            memory.kind == SEARCH_MEMORY_KIND_AVATAR
-                && memory.subject_id == actor_id
-                && self.search_memory_active(memory)
+        self.beliefs.values().any(|belief| {
+            belief.kind == BELIEF_KIND_ACTOR_LOCATION
+                && belief.subject_id == actor_id
+                && self.belief_active(belief)
         })
     }
 
-    fn search_memory_active(&self, memory: &SearchMemoryState) -> bool {
-        self.actor_by_id(memory.actor_id)
+    fn belief_active(&self, belief: &BeliefState) -> bool {
+        self.actor_by_id(belief.holder_actor_id)
             .is_some_and(Self::actor_is_present)
             && self
-                .search_memory_effective_values(memory)
+                .belief_effective_values(belief)
                 .is_some_and(|(confidence, salience)| {
-                    confidence >= SEARCH_MEMORY_MIN_CONFIDENCE && salience > 0
+                    confidence >= BELIEF_TUNING.minimum_action_confidence && salience > 0
                 })
     }
 
-    fn search_memory_effective_values(&self, memory: &SearchMemoryState) -> Option<(u8, u8)> {
-        let baseline = memory.last_used_tick.max(memory.found_tick);
-        if baseline == 0 {
-            return Some((memory.confidence, memory.salience));
-        }
-        let now = self.world.tick;
-        let steps = now.saturating_sub(baseline) / SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS;
-        let confidence_loss = steps
-            .saturating_mul(SEARCH_MEMORY_TIME_CONFIDENCE_DECAY as u64)
-            .min(u8::MAX as u64) as u8;
-        let salience_loss = steps
-            .saturating_mul(SEARCH_MEMORY_TIME_SALIENCE_DECAY as u64)
-            .min(u8::MAX as u64) as u8;
-        let confidence = memory.confidence.saturating_sub(confidence_loss);
-        let salience = memory.salience.saturating_sub(salience_loss);
+    fn belief_effective_values(&self, belief: &BeliefState) -> Option<(u8, u8)> {
+        let (_, confidence, salience) = belief_decay_at_tick(belief, self.world.tick);
         (confidence > 0 && salience > 0).then_some((confidence, salience))
     }
 
     fn search_item_remembered(&self, item_id: u64) -> bool {
-        self.search_memories.values().any(|memory| {
-            memory.kind == SEARCH_MEMORY_KIND_ITEM
-                && memory.subject_id == item_id
-                && self.search_memory_active(memory)
+        self.beliefs.values().any(|belief| {
+            belief.kind == BELIEF_KIND_ITEM_LOCATION
+                && belief.subject_id == item_id
+                && self.belief_active(belief)
         })
     }
 
@@ -14757,10 +14890,6 @@ impl RuntimeWorld {
             && item.location_id == location_id
             && self.search_item_found(item.id)
             && !self.search_item_remembered(item.id)
-    }
-
-    fn search_memory_id(actor_id: u64, kind: &str, location_id: u64, subject_key: &str) -> String {
-        format!("search_memory:{actor_id}:{kind}:{location_id}:{subject_key}")
     }
 
     fn search_witness_actor_ids(&self, location_id: u64) -> Vec<u64> {
@@ -14811,86 +14940,24 @@ impl RuntimeWorld {
         location_id: u64,
         kind: &str,
         subject_id: u64,
-        subject_key: &str,
+        _subject_key: &str,
     ) {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return;
-        };
-        if !Self::actor_is_present(actor) {
-            return;
-        }
-        let id = Self::search_memory_id(actor_id, kind, location_id, subject_key);
-        let now = self.world.tick;
-        match self.search_memories.get_mut(&id) {
-            Some(memory) => {
-                memory.confidence = memory.confidence.max(SEARCH_MEMORY_CONFIDENCE);
-                memory.salience = memory.salience.max(SEARCH_MEMORY_SALIENCE);
-                memory.last_used_tick = now;
-                memory.use_count = memory.use_count.saturating_add(1);
-            }
-            None => {
-                self.search_memories.insert(
-                    id.clone(),
-                    SearchMemoryState {
-                        id,
-                        actor_id,
-                        kind: kind.to_string(),
-                        location_id,
-                        subject_id,
-                        subject_key: subject_key.to_string(),
-                        confidence: SEARCH_MEMORY_CONFIDENCE,
-                        salience: SEARCH_MEMORY_SALIENCE,
-                        found_tick: now,
-                        last_used_tick: now,
-                        use_count: 1,
-                    },
-                );
-            }
-        }
+        self.remember_belief(
+            actor_id,
+            kind,
+            subject_id,
+            location_id,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
+            Some(actor_id),
+        );
     }
 
     fn decay_search_memories(&mut self) {
-        let now = self.world.tick;
-        let mut expired = Vec::new();
-        for memory in self.search_memories.values_mut() {
-            let baseline = memory.last_used_tick.max(memory.found_tick);
-            if baseline == 0 {
-                memory.last_used_tick = now;
-                continue;
-            }
-            if now <= baseline {
-                continue;
-            }
-            let steps = (now - baseline) / SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS;
-            if steps == 0 {
-                continue;
-            }
-            let confidence_loss = steps
-                .saturating_mul(SEARCH_MEMORY_TIME_CONFIDENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            let salience_loss = steps
-                .saturating_mul(SEARCH_MEMORY_TIME_SALIENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            memory.confidence = memory.confidence.saturating_sub(confidence_loss);
-            memory.salience = memory.salience.saturating_sub(salience_loss);
-            memory.last_used_tick = now;
-            if memory.confidence == 0 || memory.salience == 0 {
-                expired.push(memory.id.clone());
-            }
-        }
-        for memory_id in expired {
-            if let Some(memory) = self.search_memories.get(&memory_id) {
-                if memory.kind == LOCAL_LEAD_MEMORY_KIND {
-                    let lead_id = memory.subject_key.clone();
-                    self.forget_local_lead_memory(&lead_id);
-                }
-            }
-            self.search_memories.remove(&memory_id);
-        }
-        self.return_forgotten_search_items_to_pool();
+        self.decay_beliefs();
     }
 
-    fn reinforce_search_memories_from_events(&mut self, events: &[EventView]) {
+    fn reinforce_beliefs_from_search_events(&mut self, events: &[EventView]) {
         for event in events.iter().filter(|event| event.success) {
             match event.type_name.as_str() {
                 "actor.moved" => {
@@ -14908,9 +14975,9 @@ impl RuntimeWorld {
                         self.remember_search_discovery(
                             actor_id,
                             from_location_id,
-                            SEARCH_MEMORY_KIND_SEED_EXIT,
+                            BELIEF_KIND_SEED_EXIT,
                             to_location_id,
-                            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+                            &seed_exit_belief_subject_key(from_location_id, to_location_id),
                         );
                         if self
                             .seed_exit_by_locations(to_location_id, from_location_id)
@@ -14919,12 +14986,9 @@ impl RuntimeWorld {
                             self.remember_search_discovery(
                                 actor_id,
                                 to_location_id,
-                                SEARCH_MEMORY_KIND_SEED_EXIT,
+                                BELIEF_KIND_SEED_EXIT,
                                 from_location_id,
-                                &seed_exit_search_memory_subject_key(
-                                    to_location_id,
-                                    from_location_id,
-                                ),
+                                &seed_exit_belief_subject_key(to_location_id, from_location_id),
                             );
                         }
                     }
@@ -14934,7 +14998,7 @@ impl RuntimeWorld {
                         self.remember_search_discovery(
                             actor_id,
                             hidden_exit.from_location_id,
-                            SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+                            BELIEF_KIND_HIDDEN_EXIT,
                             hidden_exit.to_location_id,
                             &hidden_exit.id,
                         );
@@ -14964,7 +15028,7 @@ impl RuntimeWorld {
                     }
                     self.remember_search_discovery_for_witnesses(
                         location_id,
-                        SEARCH_MEMORY_KIND_ITEM,
+                        BELIEF_KIND_ITEM_LOCATION,
                         item_id,
                         item_id.to_string(),
                     );
@@ -15411,12 +15475,21 @@ impl RuntimeWorld {
     }
 
     fn hide_loose_items_at_location(&mut self, location_id: u64) {
+        let hidden_item_ids = self.world.items[..self.world.item_count]
+            .iter()
+            .filter(|item| item.holder_actor_id == 0 && item.location_id == location_id)
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
         for item in &mut self.world.items[..self.world.item_count] {
-            if item.holder_actor_id == 0 && item.location_id == location_id {
+            if hidden_item_ids.contains(&item.id) {
                 item.location_id = 0;
                 item.held_since_tick = 0;
             }
         }
+        self.beliefs.retain(|_, belief| {
+            belief.kind != BELIEF_KIND_ITEM_LOCATION
+                || !hidden_item_ids.contains(&belief.subject_id)
+        });
     }
 
     fn resident_evolution_item_ids(&self, actor_id: u64) -> Vec<u64> {
@@ -15647,12 +15720,12 @@ impl RuntimeWorld {
         let mut sought = Vec::new();
         if self.resident_needs_medicine(resident) {
             let mut remembered_potions: Vec<_> = self
-                .resident_memories
+                .beliefs
                 .values()
                 .filter(|memory| {
-                    memory.carrier_actor_id == resident.id
-                        && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                        && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                    memory.holder_actor_id == resident.id
+                        && memory.kind == BELIEF_KIND_ITEM_LOCATION
+                        && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                         && !held_item_ids.contains(&memory.subject_id)
                 })
                 .filter_map(|memory| {
@@ -15709,7 +15782,7 @@ impl RuntimeWorld {
         sought
     }
 
-    fn resident_memory_seek_target(&self, resident: CwActor) -> Option<ResidentMemoryState> {
+    fn belief_seek_target(&self, resident: CwActor) -> Option<BeliefState> {
         let sought_item_ids: BTreeSet<u64> = self
             .resident_sought_item_ids(resident)
             .into_iter()
@@ -15719,12 +15792,12 @@ impl RuntimeWorld {
         }
 
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident.id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                memory.holder_actor_id == resident.id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                     && sought_item_ids.contains(&memory.subject_id)
             })
             .cloned()
@@ -15748,25 +15821,22 @@ impl RuntimeWorld {
         memories.into_iter().next()
     }
 
-    fn resident_item_memory_resolved_by_actor_memory(
-        &self,
-        memory: ResidentMemoryState,
-    ) -> ResidentMemoryState {
-        if memory.kind != RESIDENT_MEMORY_KIND_ITEM_LOCATION {
+    fn resident_item_memory_resolved_by_actor_memory(&self, memory: BeliefState) -> BeliefState {
+        if memory.kind != BELIEF_KIND_ITEM_LOCATION {
             return memory;
         }
-        let Some(holder_actor_id) = memory.holder_actor_id else {
+        let Some(holder_actor_id) = memory.related_actor_id else {
             return memory;
         };
-        let actor_memory_id = Self::resident_memory_id(
-            memory.carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+        let actor_memory_id = Self::belief_id(
+            memory.holder_actor_id,
+            BELIEF_KIND_ACTOR_LOCATION,
             holder_actor_id,
         );
-        let Some(actor_memory) = self.resident_memories.get(&actor_memory_id) else {
+        let Some(actor_memory) = self.beliefs.get(&actor_memory_id) else {
             return memory;
         };
-        if actor_memory.confidence < RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+        if actor_memory.confidence < BELIEF_TUNING.minimum_action_confidence
             || actor_memory.observed_tick < memory.observed_tick
         {
             return memory;
@@ -15782,19 +15852,15 @@ impl RuntimeWorld {
         resolved
     }
 
-    fn resident_best_item_memory(
-        &self,
-        carrier_actor_id: u64,
-        item_id: u64,
-    ) -> Option<ResidentMemoryState> {
+    fn resident_best_item_memory(&self, holder_actor_id: u64, item_id: u64) -> Option<BeliefState> {
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == carrier_actor_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
+                memory.holder_actor_id == holder_actor_id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
                     && memory.subject_id == item_id
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
             })
             .cloned()
             .map(|memory| self.resident_item_memory_resolved_by_actor_memory(memory))
@@ -15812,82 +15878,77 @@ impl RuntimeWorld {
 
     fn resident_has_fresh_loose_item_observation(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         item_id: u64,
         location_id: u64,
     ) -> bool {
-        let memory_id = Self::resident_memory_id(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            item_id,
-        );
-        self.resident_memories
-            .get(&memory_id)
-            .is_some_and(|memory| {
-                memory.location_id == location_id
-                    && memory.holder_actor_id.is_none()
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
-                    && memory.observed_tick == self.world.tick
-                    && memory.source_actor_id == Some(carrier_actor_id)
-            })
+        let memory_id = Self::belief_id(holder_actor_id, BELIEF_KIND_ITEM_LOCATION, item_id);
+        self.beliefs.get(&memory_id).is_some_and(|memory| {
+            memory.location_id == location_id
+                && memory.related_actor_id.is_none()
+                && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
+                && memory.observed_tick == self.world.tick
+                && memory.source_actor_id == Some(holder_actor_id)
+        })
     }
 
     fn resident_actor_location_memory(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         subject_actor_id: u64,
-    ) -> Option<ResidentMemoryState> {
-        let memory_id = Self::resident_memory_id(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+    ) -> Option<BeliefState> {
+        let memory_id = Self::belief_id(
+            holder_actor_id,
+            BELIEF_KIND_ACTOR_LOCATION,
             subject_actor_id,
         );
-        self.resident_memories
+        self.beliefs
             .get(&memory_id)
-            .filter(|memory| memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE)
+            .filter(|memory| memory.confidence >= BELIEF_TUNING.minimum_action_confidence)
             .cloned()
     }
 
     fn resident_remembers_actor_at(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         subject_actor_id: u64,
         location_id: u64,
     ) -> bool {
-        self.resident_actor_location_memory(carrier_actor_id, subject_actor_id)
+        self.resident_actor_location_memory(holder_actor_id, subject_actor_id)
             .is_some_and(|memory| memory.location_id == location_id)
     }
 
     fn resident_actor_wants_item_memory(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         target_actor_id: u64,
         item_id: u64,
-    ) -> Option<ResidentMemoryState> {
-        let memory_id = Self::resident_memory_key(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM,
+    ) -> Option<BeliefState> {
+        let memory_id = Self::belief_key(
+            holder_actor_id,
+            BELIEF_KIND_ACTOR_WANTS_ITEM,
             item_id,
+            0,
             Some(target_actor_id),
         );
-        self.resident_memories
+        self.beliefs
             .get(&memory_id)
-            .filter(|memory| memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE)
+            .filter(|memory| memory.confidence >= BELIEF_TUNING.minimum_action_confidence)
             .cloned()
     }
 
     fn resident_remembers_actor_holding_item_at(
         &self,
-        carrier_actor_id: u64,
         holder_actor_id: u64,
+        related_actor_id: u64,
         item_id: u64,
         location_id: u64,
     ) -> bool {
-        self.resident_remembers_actor_at(carrier_actor_id, holder_actor_id, location_id)
+        self.resident_remembers_actor_at(holder_actor_id, related_actor_id, location_id)
             && self
-                .resident_best_item_memory(carrier_actor_id, item_id)
+                .resident_best_item_memory(holder_actor_id, item_id)
                 .is_some_and(|memory| {
-                    memory.holder_actor_id == Some(holder_actor_id)
+                    memory.related_actor_id == Some(related_actor_id)
                         && memory.location_id == location_id
                 })
     }
@@ -15895,11 +15956,11 @@ impl RuntimeWorld {
     #[cfg(test)]
     fn resident_remembers_actor_wants_item(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         target_actor_id: u64,
         item_id: u64,
     ) -> bool {
-        self.resident_actor_wants_item_memory(carrier_actor_id, target_actor_id, item_id)
+        self.resident_actor_wants_item_memory(holder_actor_id, target_actor_id, item_id)
             .is_some()
     }
 
@@ -16104,7 +16165,7 @@ impl RuntimeWorld {
             ));
         }
 
-        let memory_notes = self.resident_memory_prompt_notes(resident.id);
+        let memory_notes = self.belief_prompt_notes(resident.id);
         if !memory_notes.is_empty() {
             parts.push(format!("carried memories: {}", memory_notes.join(" | ")));
         }
@@ -16271,7 +16332,7 @@ impl RuntimeWorld {
         resident: CwActor,
         excluding_item_id: u64,
     ) -> Option<String> {
-        let memory = self.resident_memory_seek_target(resident)?;
+        let memory = self.belief_seek_target(resident)?;
         if memory.location_id != resident.location_id || memory.subject_id == excluding_item_id {
             return None;
         }
@@ -16412,6 +16473,140 @@ impl RuntimeWorld {
         }
     }
 
+    fn belief_prompt_notes(&self, resident_id: u64) -> Vec<String> {
+        let mut memories: Vec<_> = self
+            .beliefs
+            .values()
+            .filter(|memory| {
+                memory.holder_actor_id == resident_id
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
+            })
+            .cloned()
+            .collect();
+        memories.sort_by_key(|memory| {
+            (
+                std::cmp::Reverse(memory.salience),
+                std::cmp::Reverse(memory.confidence),
+                std::cmp::Reverse(memory.observed_tick),
+                memory.hops,
+                memory.kind.clone(),
+                memory.subject_id,
+            )
+        });
+
+        let mut notes = Vec::new();
+        let mut seen = BTreeSet::new();
+        for memory in memories {
+            let route = if memory.source_actor_id == Some(resident_id) && memory.hops == 0 {
+                "saw"
+            } else {
+                "heard"
+            };
+            let location_name = self
+                .location_name(memory.location_id)
+                .unwrap_or_else(|| format!("Location {}", memory.location_id));
+            let note = match memory.kind.as_str() {
+                BELIEF_KIND_ACTOR_LOCATION => {
+                    if memory.subject_id == resident_id {
+                        continue;
+                    }
+                    let actor_name = self
+                        .actor_name(memory.subject_id)
+                        .unwrap_or_else(|| format!("Resident {}", memory.subject_id));
+                    format!("{route} {actor_name} near {location_name}")
+                }
+                BELIEF_KIND_ITEM_LOCATION => {
+                    let item_name = self
+                        .item_name(memory.subject_id)
+                        .unwrap_or_else(|| format!("Item {}", memory.subject_id));
+                    if let Some(holder_name) = memory
+                        .related_actor_id
+                        .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
+                    {
+                        format!("{route} {item_name} with {holder_name} near {location_name}")
+                    } else {
+                        format!("{route} {item_name} near {location_name}")
+                    }
+                }
+                BELIEF_KIND_ACTOR_WANTS_ITEM => {
+                    let Some(target_actor_id) = memory.related_actor_id else {
+                        continue;
+                    };
+                    let target_name = self
+                        .actor_name(target_actor_id)
+                        .unwrap_or_else(|| format!("Resident {}", target_actor_id));
+                    let item_name = self
+                        .item_name(memory.subject_id)
+                        .unwrap_or_else(|| format!("Item {}", memory.subject_id));
+                    format!("{route} {target_name} wanted {item_name} near {location_name}")
+                }
+                _ => continue,
+            };
+            if seen.insert(note.clone()) {
+                notes.push(note);
+            }
+            if notes.len() >= 4 {
+                break;
+            }
+        }
+        notes
+    }
+
+    fn merged_inline_resident_continuity_for(
+        &self,
+        resident: CwActor,
+    ) -> ResidentContinuityState {
+        let identity = self.resident_stable_identity(resident);
+        let mut continuity = self
+            .resident_continuities
+            .get(&resident.id)
+            .cloned()
+            .unwrap_or_else(|| ResidentContinuityState::empty(resident.id, identity.clone()));
+        continuity.stable_identity = identity;
+        continuity.relationship_notes_by_actor = self.resident_relationship_notes(resident.id);
+        continuity.memory_atoms = self.resident_continuity_atoms(resident.id, 6);
+        let (open_obligations, current_intent) =
+            self.resident_open_obligations_and_intent(resident);
+        continuity.open_obligations = open_obligations;
+        if continuity
+            .current_intent
+            .as_deref()
+            .map(|intent| intent.trim().is_empty())
+            .unwrap_or(true)
+        {
+            continuity.current_intent = current_intent;
+        }
+        continuity.last_observed_event_seq = continuity
+            .last_observed_event_seq
+            .max(self.latest_observed_event_seq_for_resident(resident));
+        continuity
+    }
+
+    fn merged_inline_refresh_resident_continuity(&mut self, resident_id: u64) {
+        let Some(resident) = self.actor_by_id(resident_id) else {
+            self.resident_continuities.remove(&resident_id);
+            return;
+        };
+        if !Self::actor_can_act(resident) {
+            self.resident_continuities.remove(&resident_id);
+            return;
+        }
+        let continuity = self.resident_continuity_for(resident);
+        self.resident_continuities.insert(resident_id, continuity);
+    }
+
+    fn merged_inline_refresh_all_resident_continuities(&mut self) {
+        let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| Self::actor_can_act(*actor))
+            .map(|actor| actor.id)
+            .collect();
+        for resident_id in resident_ids {
+            self.refresh_resident_continuity(resident_id);
+        }
+    }
+
     fn ensure_actor_autonomy(&mut self) {
         let actors = self.world.actors[..self.world.actor_count].to_vec();
         let active_ids = actors.iter().map(|actor| actor.id).collect::<BTreeSet<_>>();
@@ -16544,6 +16739,292 @@ impl RuntimeWorld {
         })
     }
 
+    fn merged_inline_apply_resident_intent_projection(
+        &mut self,
+        resident_id: u64,
+        proposal: &AvatarIntentProposal,
+        reason: &str,
+    ) {
+        self.refresh_resident_continuity(resident_id);
+        let source_event_seq = self
+            .actor_by_id(resident_id)
+            .map(|resident| self.latest_observed_event_seq_for_resident(resident));
+        let Some(continuity) = self.resident_continuities.get_mut(&resident_id) else {
+            return;
+        };
+        if let Some(intent) = sanitize_continuity_note_text(proposal.intent.as_deref()) {
+            continuity.current_intent = Some(intent);
+        } else if let Some(action) = proposal.proposed_action.as_ref() {
+            if let Some(intent) = resident_proposed_action_intent(action) {
+                continuity.current_intent = Some(intent);
+            }
+        }
+        if let Some(text) = sanitize_continuity_note_text(proposal.belief.as_deref()) {
+            push_resident_continuity_note(
+                &mut continuity.beliefs,
+                text,
+                reason,
+                source_event_seq,
+                180,
+            );
+        }
+        if let Some(text) = sanitize_continuity_note_text(proposal.desire.as_deref()) {
+            push_resident_continuity_note(
+                &mut continuity.desires,
+                text,
+                reason,
+                source_event_seq,
+                190,
+            );
+        }
+        if let Some(text) = proposal
+            .proposed_action
+            .as_ref()
+            .and_then(|action| action.reason.as_deref())
+            .and_then(|reason| sanitize_continuity_note_text(Some(reason)))
+        {
+            push_resident_continuity_note(
+                &mut continuity.desires,
+                text,
+                reason,
+                source_event_seq,
+                150,
+            );
+        }
+        if let Some(text) = sanitize_continuity_note_text(proposal.promise.as_deref()) {
+            push_resident_continuity_note(
+                &mut continuity.promises,
+                text,
+                reason,
+                source_event_seq,
+                210,
+            );
+        }
+        if let Some(text) = sanitize_continuity_note_text(proposal.refusal.as_deref()) {
+            push_resident_continuity_note(
+                &mut continuity.refusals,
+                text,
+                reason,
+                source_event_seq,
+                220,
+            );
+        }
+        if reason != "resident_autonomy_intent" {
+            continuity.pending_action = proposal.proposed_action.clone();
+        }
+        if let Some(source_event_seq) = source_event_seq {
+            continuity.last_observed_event_seq =
+                continuity.last_observed_event_seq.max(source_event_seq);
+        }
+    }
+
+    fn merged_inline_clear_resident_pending_action(&mut self, resident_id: u64) {
+        if let Some(continuity) = self.resident_continuities.get_mut(&resident_id) {
+            continuity.pending_action = None;
+        }
+    }
+
+    fn merged_inline_resident_stable_identity(&self, resident: CwActor) -> String {
+        let name = self
+            .actor_name(resident.id)
+            .unwrap_or_else(|| format!("Resident {}", resident.id));
+        let meta = self.actors.get(&resident.id);
+        let title = meta
+            .map(|meta| meta.title.as_str())
+            .filter(|title| !title.trim().is_empty())
+            .unwrap_or("resident");
+        let description = meta
+            .map(|meta| meta.description.as_str())
+            .filter(|description| !description.trim().is_empty())
+            .unwrap_or("A resident of CosyWorld.");
+        let speech_mode = meta
+            .map(|meta| meta.speech_mode.as_str())
+            .filter(|mode| !mode.trim().is_empty())
+            .unwrap_or("prose");
+        format!("{name} / {title} / speech:{speech_mode} / {description}")
+    }
+
+    fn merged_inline_resident_relationship_notes(
+        &self,
+        resident_id: u64,
+    ) -> BTreeMap<u64, String> {
+        let mut notes = BTreeMap::new();
+        for bond in self.bonds.values() {
+            if bond.status == "resolved" {
+                continue;
+            }
+            let other_id = if bond.actor_id == resident_id {
+                bond.target_actor_id
+            } else if bond.target_actor_id == resident_id {
+                bond.actor_id
+            } else {
+                continue;
+            };
+            let other_name = self
+                .actor_name(other_id)
+                .unwrap_or_else(|| format!("Actor {}", other_id));
+            let statement = bond.statement.trim();
+            let text = if statement.is_empty() {
+                format!("{other_name} matters to them.")
+            } else {
+                format!("Friendship with {other_name}: {statement}")
+            };
+            notes.insert(other_id, text);
+        }
+        notes
+    }
+
+    fn merged_inline_resident_continuity_atoms(
+        &self,
+        resident_id: u64,
+        limit: usize,
+    ) -> Vec<ResidentContinuityAtom> {
+        let mut memories: Vec<_> = self
+            .beliefs
+            .values()
+            .filter(|memory| memory.holder_actor_id == resident_id)
+            .cloned()
+            .collect();
+        memories.sort_by_key(|memory| {
+            (
+                std::cmp::Reverse(memory.salience),
+                std::cmp::Reverse(memory.confidence),
+                std::cmp::Reverse(memory.observed_tick),
+                memory.hops,
+                memory.kind.clone(),
+                memory.subject_id,
+            )
+        });
+        memories
+            .into_iter()
+            .filter_map(|memory| {
+                self.belief_atom_text(&memory)
+                    .map(|text| ResidentContinuityAtom {
+                        kind: memory.kind,
+                        subject_id: memory.subject_id,
+                        text,
+                        confidence: memory.confidence,
+                        salience: memory.salience,
+                        observed_tick: memory.observed_tick,
+                    })
+            })
+            .take(limit)
+            .collect()
+    }
+
+    fn belief_atom_text(&self, memory: &BeliefState) -> Option<String> {
+        let route = if memory.source_actor_id == Some(memory.holder_actor_id) && memory.hops == 0 {
+            "saw"
+        } else {
+            "heard"
+        };
+        let location_name = self
+            .location_name(memory.location_id)
+            .unwrap_or_else(|| format!("Location {}", memory.location_id));
+        match memory.kind.as_str() {
+            BELIEF_KIND_ACTOR_LOCATION => {
+                if memory.subject_id == memory.holder_actor_id {
+                    return None;
+                }
+                let actor_name = self
+                    .actor_name(memory.subject_id)
+                    .unwrap_or_else(|| format!("Actor {}", memory.subject_id));
+                Some(format!("{route} {actor_name} near {location_name}"))
+            }
+            BELIEF_KIND_ITEM_LOCATION => {
+                let item_name = self
+                    .item_name(memory.subject_id)
+                    .unwrap_or_else(|| format!("Item {}", memory.subject_id));
+                if let Some(holder_name) = memory
+                    .related_actor_id
+                    .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
+                {
+                    Some(format!(
+                        "{route} {item_name} with {holder_name} near {location_name}"
+                    ))
+                } else {
+                    Some(format!("{route} {item_name} near {location_name}"))
+                }
+            }
+            BELIEF_KIND_ACTOR_WANTS_ITEM => {
+                let target_actor_id = memory.related_actor_id?;
+                let target_name = self
+                    .actor_name(target_actor_id)
+                    .unwrap_or_else(|| format!("Actor {}", target_actor_id));
+                let item_name = self
+                    .item_name(memory.subject_id)
+                    .unwrap_or_else(|| format!("Item {}", memory.subject_id));
+                Some(format!(
+                    "{route} {target_name} wanted {item_name} near {location_name}"
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    fn merged_inline_resident_open_obligations_and_intent(
+        &self,
+        resident: CwActor,
+    ) -> (Vec<String>, Option<String>) {
+        let Some(economy) = self.resident_economy_view(resident, None) else {
+            return (Vec::new(), None);
+        };
+        let mut obligations = Vec::new();
+        if let Some(request) = economy.request.as_ref() {
+            let item_name = self
+                .item_name(request.item_id)
+                .unwrap_or_else(|| format!("Item {}", request.item_id));
+            let holder_name = self
+                .actor_name(request.holder_actor_id)
+                .unwrap_or_else(|| format!("Actor {}", request.holder_actor_id));
+            obligations.push(format!(
+                "wants {item_name} from {holder_name}: {}",
+                request.reason.trim_end_matches('.')
+            ));
+        }
+        if let Some(offer) = economy.trade_offer.as_ref() {
+            let offered_name = self
+                .item_name(offer.offered_item_id)
+                .unwrap_or_else(|| format!("Item {}", offer.offered_item_id));
+            let requested_name = self
+                .item_name(offer.requested_item_id)
+                .unwrap_or_else(|| format!("Item {}", offer.requested_item_id));
+            obligations.push(format!(
+                "will trade {offered_name} for {requested_name}: {}",
+                offer.reason.trim_end_matches('.')
+            ));
+        }
+        let current_intent = if let Some(item_id) = economy.seeking_item_id {
+            let item_name = self
+                .item_name(item_id)
+                .unwrap_or_else(|| format!("Item {}", item_id));
+            let place = economy
+                .seeking_location_name
+                .as_deref()
+                .unwrap_or("somewhere nearby");
+            Some(format!("seek {item_name} near {place}"))
+        } else if !economy.motive.trim().is_empty() {
+            Some(economy.motive.trim_end_matches('.').to_string())
+        } else {
+            None
+        };
+        (obligations, current_intent)
+    }
+
+    fn merged_inline_latest_observed_event_seq_for_resident(&self, resident: CwActor) -> u64 {
+        self.event_log
+            .iter()
+            .filter(|event| {
+                event.actor_id == Some(resident.id)
+                    || event.target_actor_id == Some(resident.id)
+                    || event.location_id == Some(resident.location_id)
+                    || event.destination_location_id == Some(resident.location_id)
+            })
+            .map(|event| event.seq)
+            .max()
+            .unwrap_or(0)
+    }
+
     fn item_list_label(&self, item_ids: &[u64]) -> String {
         let names: Vec<_> = item_ids
             .iter()
@@ -16565,28 +17046,29 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_memory_id(carrier_actor_id: u64, kind: &str, subject_id: u64) -> String {
-        format!("resident_memory:{carrier_actor_id}:{kind}:{subject_id}")
+    fn belief_id(holder_actor_id: u64, kind: &str, subject_id: u64) -> String {
+        belief_id(holder_actor_id, kind, subject_id, 0, None)
     }
 
-    fn resident_memory_key(
-        carrier_actor_id: u64,
+    fn belief_key(
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
-        holder_actor_id: Option<u64>,
+        location_id: u64,
+        related_actor_id: Option<u64>,
     ) -> String {
-        if kind == RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM {
-            let target_actor_id = holder_actor_id.unwrap_or_default();
-            return format!(
-                "resident_memory:{carrier_actor_id}:{kind}:{target_actor_id}:{subject_id}"
-            );
-        }
-        Self::resident_memory_id(carrier_actor_id, kind, subject_id)
+        belief_id(
+            holder_actor_id,
+            kind,
+            subject_id,
+            location_id,
+            related_actor_id,
+        )
     }
 
-    fn remember_resident_memory(
+    fn remember_belief(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
         location_id: u64,
@@ -16594,8 +17076,8 @@ impl RuntimeWorld {
         salience: u8,
         source_actor_id: Option<u64>,
     ) {
-        self.remember_resident_memory_with_provenance(
-            carrier_actor_id,
+        self.remember_belief_with_provenance(
+            holder_actor_id,
             kind,
             subject_id,
             location_id,
@@ -16609,26 +17091,26 @@ impl RuntimeWorld {
         );
     }
 
-    fn remember_resident_memory_with_holder(
+    fn remember_belief_with_related_actor(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
         location_id: u64,
         confidence: u8,
         salience: u8,
         source_actor_id: Option<u64>,
-        holder_actor_id: Option<u64>,
+        related_actor_id: Option<u64>,
     ) {
-        self.remember_resident_memory_with_provenance(
-            carrier_actor_id,
+        self.remember_belief_with_provenance(
+            holder_actor_id,
             kind,
             subject_id,
             location_id,
             confidence,
             salience,
             source_actor_id,
-            holder_actor_id,
+            related_actor_id,
             self.world.tick,
             self.world.tick,
             0,
@@ -16637,7 +17119,7 @@ impl RuntimeWorld {
 
     fn remember_resident_wants_item_memory(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         wanting_actor_id: u64,
         item_id: u64,
         location_id: u64,
@@ -16648,9 +17130,9 @@ impl RuntimeWorld {
         if wanting_actor_id == 0 || item_id == 0 {
             return;
         }
-        self.remember_resident_memory_with_holder(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM,
+        self.remember_belief_with_related_actor(
+            holder_actor_id,
+            BELIEF_KIND_ACTOR_WANTS_ITEM,
             item_id,
             location_id,
             confidence,
@@ -16660,31 +17142,41 @@ impl RuntimeWorld {
         );
     }
 
-    fn remember_resident_memory_with_provenance(
+    fn remember_belief_with_provenance(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
         location_id: u64,
         confidence: u8,
         salience: u8,
         source_actor_id: Option<u64>,
-        holder_actor_id: Option<u64>,
+        related_actor_id: Option<u64>,
         observed_tick: u64,
         learned_tick: u64,
         hops: u8,
     ) {
-        let Some(carrier) = self.actor_by_id(carrier_actor_id) else {
+        let Some(holder) = self.actor_by_id(holder_actor_id) else {
             return;
         };
-        if !Self::actor_can_act(carrier) || location_id == 0 {
+        if !Self::actor_is_present(holder) || location_id == 0 {
             return;
         }
 
-        let id = Self::resident_memory_key(carrier_actor_id, kind, subject_id, holder_actor_id);
-        let memory = ResidentMemoryState {
-            id: id.clone(),
-            carrier_actor_id,
+        let related_actor_id = (kind == BELIEF_KIND_ITEM_LOCATION
+            || kind == BELIEF_KIND_ACTOR_WANTS_ITEM)
+            .then_some(related_actor_id)
+            .flatten()
+            .filter(|related_id| *related_id != 0);
+        let belief = BeliefState {
+            id: Self::belief_key(
+                holder_actor_id,
+                kind,
+                subject_id,
+                location_id,
+                related_actor_id,
+            ),
+            holder_actor_id,
             kind: kind.to_string(),
             subject_id,
             location_id,
@@ -16692,39 +17184,19 @@ impl RuntimeWorld {
             salience,
             observed_tick,
             source_actor_id,
-            holder_actor_id: (kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                || kind == RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM)
-                .then_some(holder_actor_id)
-                .flatten()
-                .filter(|holder_id| *holder_id != 0),
+            related_actor_id,
             learned_tick,
             hops,
         };
-        match self.resident_memories.get_mut(&id) {
-            Some(existing) => {
-                if memory.observed_tick > existing.observed_tick
-                    || (memory.observed_tick == existing.observed_tick
-                        && (memory.confidence > existing.confidence
-                            || (memory.confidence == existing.confidence
-                                && memory.learned_tick >= existing.learned_tick)))
-                {
-                    *existing = memory;
-                } else {
-                    existing.salience = existing.salience.max(salience);
-                }
-            }
-            None => {
-                self.resident_memories.insert(id, memory);
-            }
-        }
-        self.prune_resident_memories(carrier_actor_id);
+        merge_belief(&mut self.beliefs, belief);
+        self.prune_beliefs(holder_actor_id);
     }
 
-    fn prune_resident_memories(&mut self, carrier_actor_id: u64) {
+    fn prune_beliefs(&mut self, holder_actor_id: u64) {
         let mut owned: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
-            .filter(|memory| memory.carrier_actor_id == carrier_actor_id)
+            .filter(|memory| memory.holder_actor_id == holder_actor_id)
             .map(|memory| {
                 (
                     memory.id.clone(),
@@ -16734,7 +17206,7 @@ impl RuntimeWorld {
                 )
             })
             .collect();
-        if owned.len() <= RESIDENT_MEMORY_CAPACITY {
+        if owned.len() <= BELIEF_TUNING.capacity {
             return;
         }
         owned.sort_by_key(|(_, salience, confidence, observed_tick)| {
@@ -16742,18 +17214,18 @@ impl RuntimeWorld {
         });
         for (id, _, _, _) in owned
             .into_iter()
-            .take(self.resident_memory_overflow_count(carrier_actor_id))
+            .take(self.belief_overflow_count(holder_actor_id))
         {
-            self.resident_memories.remove(&id);
+            self.beliefs.remove(&id);
         }
     }
 
-    fn resident_memory_overflow_count(&self, carrier_actor_id: u64) -> usize {
-        self.resident_memories
+    fn belief_overflow_count(&self, holder_actor_id: u64) -> usize {
+        self.beliefs
             .values()
-            .filter(|memory| memory.carrier_actor_id == carrier_actor_id)
+            .filter(|memory| memory.holder_actor_id == holder_actor_id)
             .count()
-            .saturating_sub(RESIDENT_MEMORY_CAPACITY)
+            .saturating_sub(BELIEF_TUNING.capacity)
     }
 
     fn item_is_observable_at_location(&self, item_id: u64, location_id: u64) -> bool {
@@ -16770,33 +17242,33 @@ impl RuntimeWorld {
             })
     }
 
-    fn item_memory_has_current_holder_location(&self, memory: &ResidentMemoryState) -> bool {
-        if memory.kind != RESIDENT_MEMORY_KIND_ITEM_LOCATION {
+    fn item_memory_has_current_holder_location(&self, memory: &BeliefState) -> bool {
+        if memory.kind != BELIEF_KIND_ITEM_LOCATION {
             return false;
         }
-        let Some(holder_actor_id) = memory.holder_actor_id else {
+        let Some(holder_actor_id) = memory.related_actor_id else {
             return false;
         };
-        let actor_memory_id = Self::resident_memory_id(
-            memory.carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+        let actor_memory_id = Self::belief_id(
+            memory.holder_actor_id,
+            BELIEF_KIND_ACTOR_LOCATION,
             holder_actor_id,
         );
-        self.resident_memories
+        self.beliefs
             .get(&actor_memory_id)
             .is_some_and(|actor_memory| {
-                actor_memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                actor_memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                     && actor_memory.observed_tick >= memory.observed_tick
             })
     }
 
     fn clear_disproved_item_location_memories(&mut self, resident_id: u64, location_id: u64) {
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
+                memory.holder_actor_id == resident_id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
                     && memory.location_id == location_id
                     && !self.item_is_observable_at_location(memory.subject_id, location_id)
                     && !self.item_memory_has_current_holder_location(memory)
@@ -16804,7 +17276,7 @@ impl RuntimeWorld {
             .map(|memory| memory.id.clone())
             .collect();
         for memory_id in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
         }
     }
 
@@ -16815,11 +17287,11 @@ impl RuntimeWorld {
         observed_actor_ids: &BTreeSet<u64>,
     ) -> BTreeSet<u64> {
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ACTOR_LOCATION
+                memory.holder_actor_id == resident_id
+                    && memory.kind == BELIEF_KIND_ACTOR_LOCATION
                     && memory.location_id == location_id
                     && !observed_actor_ids.contains(&memory.subject_id)
             })
@@ -16827,7 +17299,7 @@ impl RuntimeWorld {
             .collect();
         let mut disproved_actor_ids = BTreeSet::new();
         for (memory_id, subject_id) in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
             disproved_actor_ids.insert(subject_id);
         }
         disproved_actor_ids
@@ -16842,49 +17314,49 @@ impl RuntimeWorld {
             return;
         }
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
+                memory.holder_actor_id == resident_id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
                     && memory
-                        .holder_actor_id
+                        .related_actor_id
                         .is_some_and(|holder_actor_id| holder_actor_ids.contains(&holder_actor_id))
             })
             .map(|memory| memory.id.clone())
             .collect();
         for memory_id in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
         }
     }
 
     fn clear_disproved_actor_wants_item_memories(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         target_actor_id: u64,
         current_item_ids: &BTreeSet<u64>,
     ) {
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == carrier_actor_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM
-                    && memory.holder_actor_id == Some(target_actor_id)
+                memory.holder_actor_id == holder_actor_id
+                    && memory.kind == BELIEF_KIND_ACTOR_WANTS_ITEM
+                    && memory.related_actor_id == Some(target_actor_id)
                     && !current_item_ids.contains(&memory.subject_id)
             })
             .map(|memory| memory.id.clone())
             .collect();
         for memory_id in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
         }
     }
 
-    fn observe_room_for_resident(&mut self, resident_id: u64, location_id: u64) {
+    fn observe_room_for_actor(&mut self, resident_id: u64, location_id: u64) {
         let Some(resident) = self.actor_by_id(resident_id) else {
             return;
         };
-        if !Self::actor_can_act(resident) || resident.location_id != location_id {
+        if !Self::actor_is_present(resident) || resident.location_id != location_id {
             return;
         }
 
@@ -16898,13 +17370,13 @@ impl RuntimeWorld {
             .map(|item| item.id)
             .collect();
         for item_id in loose_item_ids {
-            self.remember_resident_memory(
+            self.remember_belief(
                 resident_id,
-                RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+                BELIEF_KIND_ITEM_LOCATION,
                 item_id,
                 location_id,
-                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                BELIEF_TUNING.firsthand_confidence,
+                BELIEF_TUNING.firsthand_salience,
                 Some(resident_id),
             );
         }
@@ -16915,17 +17387,19 @@ impl RuntimeWorld {
                 actor.id != resident_id
                     && Self::actor_is_present(**actor)
                     && actor.location_id == location_id
+                    && (!self.avatar_hidden_until_discovered(**actor)
+                        || self.avatar_discovered(actor.id))
             })
             .map(|actor| actor.id)
             .collect();
         for actor_id in actor_ids.iter().copied() {
-            self.remember_resident_memory(
+            self.remember_belief(
                 resident_id,
-                RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+                BELIEF_KIND_ACTOR_LOCATION,
                 actor_id,
                 location_id,
-                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                BELIEF_TUNING.firsthand_confidence,
+                BELIEF_TUNING.firsthand_salience,
                 Some(resident_id),
             );
         }
@@ -16952,8 +17426,8 @@ impl RuntimeWorld {
                     actor.id,
                     item_id,
                     location_id,
-                    RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                    RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                    BELIEF_TUNING.firsthand_confidence,
+                    BELIEF_TUNING.firsthand_salience,
                     Some(resident_id),
                 );
             }
@@ -16973,47 +17447,47 @@ impl RuntimeWorld {
             .map(|item| (item.id, item.holder_actor_id))
             .collect();
         for (item_id, holder_actor_id) in carried_items {
-            self.remember_resident_memory_with_holder(
+            self.remember_belief_with_related_actor(
                 resident_id,
-                RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+                BELIEF_KIND_ITEM_LOCATION,
                 item_id,
                 location_id,
-                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                BELIEF_TUNING.firsthand_confidence,
+                BELIEF_TUNING.firsthand_salience,
                 Some(resident_id),
                 Some(holder_actor_id),
             );
         }
     }
 
-    fn observe_room_for_residents(&mut self, location_id: u64) {
+    fn observe_room_for_actors(&mut self, location_id: u64) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
+            .filter(|actor| Self::actor_is_present(**actor) && actor.location_id == location_id)
             .map(|actor| actor.id)
             .collect();
         for resident_id in resident_ids {
-            self.observe_room_for_resident(resident_id, location_id);
+            self.observe_room_for_actor(resident_id, location_id);
         }
     }
 
-    fn exchange_resident_memories_at(&mut self, location_id: u64) {
+    fn exchange_beliefs_at(&mut self, location_id: u64) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
+            .filter(|actor| Self::actor_is_present(**actor) && actor.location_id == location_id)
             .map(|actor| actor.id)
             .collect();
         if resident_ids.len() < 2 {
             return;
         }
 
-        let carried: Vec<(u64, Vec<ResidentMemoryState>)> = resident_ids
+        let carried: Vec<(u64, Vec<BeliefState>)> = resident_ids
             .iter()
             .map(|resident_id| {
                 let memories = self
-                    .resident_memories
+                    .beliefs
                     .values()
-                    .filter(|memory| memory.carrier_actor_id == *resident_id)
+                    .filter(|memory| memory.holder_actor_id == *resident_id)
                     .cloned()
                     .collect();
                 (*resident_id, memories)
@@ -17025,14 +17499,14 @@ impl RuntimeWorld {
                 for memory in &memories {
                     let confidence = memory
                         .confidence
-                        .saturating_sub(RESIDENT_GOSSIP_CONFIDENCE_DECAY);
+                        .saturating_sub(BELIEF_TUNING.gossip_confidence_decay);
                     let salience = memory
                         .salience
-                        .saturating_sub(RESIDENT_GOSSIP_SALIENCE_DECAY);
+                        .saturating_sub(BELIEF_TUNING.gossip_salience_decay);
                     if confidence == 0 || salience == 0 {
                         continue;
                     }
-                    self.remember_resident_memory_with_provenance(
+                    self.remember_belief_with_provenance(
                         target_id,
                         &memory.kind,
                         memory.subject_id,
@@ -17040,7 +17514,7 @@ impl RuntimeWorld {
                         confidence,
                         salience,
                         Some(source_id),
-                        memory.holder_actor_id,
+                        memory.related_actor_id,
                         memory.observed_tick,
                         self.world.tick,
                         memory.hops.saturating_add(1),
@@ -17050,7 +17524,7 @@ impl RuntimeWorld {
         }
     }
 
-    fn apply_resident_memory_projection(&mut self, action: &CwAction, events: &[EventView]) {
+    fn apply_belief_projection(&mut self, action: &CwAction, events: &[EventView]) {
         let mut locations = BTreeSet::new();
         for event in events.iter().filter(|event| event.success) {
             if let Some(location_id) = event.location_id {
@@ -17069,19 +17543,19 @@ impl RuntimeWorld {
                         .iter()
                         .filter(|actor| {
                             actor.id != actor_id
-                                && Self::actor_can_act(**actor)
+                                && Self::actor_is_present(**actor)
                                 && actor.location_id == from_location_id
                         })
                         .map(|actor| actor.id)
                         .collect();
                     for observer_id in observers.iter().copied() {
-                        self.remember_resident_memory(
+                        self.remember_belief(
                             observer_id,
-                            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+                            BELIEF_KIND_ACTOR_LOCATION,
                             actor_id,
                             to_location_id,
-                            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                            BELIEF_TUNING.firsthand_confidence,
+                            BELIEF_TUNING.firsthand_salience,
                             Some(observer_id),
                         );
                     }
@@ -17092,13 +17566,13 @@ impl RuntimeWorld {
                         .collect();
                     for observer_id in observers.iter().copied() {
                         for item_id in &carried_item_ids {
-                            self.remember_resident_memory_with_holder(
+                            self.remember_belief_with_related_actor(
                                 observer_id,
-                                RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+                                BELIEF_KIND_ITEM_LOCATION,
                                 *item_id,
                                 to_location_id,
-                                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                                BELIEF_TUNING.firsthand_confidence,
+                                BELIEF_TUNING.firsthand_salience,
                                 Some(observer_id),
                                 Some(actor_id),
                             );
@@ -17109,14 +17583,14 @@ impl RuntimeWorld {
         }
 
         if let Some(actor) = self.actor_by_id(action.actor_id) {
-            if Self::actor_can_act(actor) {
+            if Self::actor_is_present(actor) {
                 locations.insert(actor.location_id);
             }
         }
 
         for location_id in locations {
-            self.observe_room_for_residents(location_id);
-            self.exchange_resident_memories_at(location_id);
+            self.observe_room_for_actors(location_id);
+            self.exchange_beliefs_at(location_id);
             let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
                 .iter()
                 .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
@@ -19973,13 +20447,13 @@ impl RuntimeWorld {
                 continue;
             }
             let target_memories: Vec<_> = self
-                .resident_memories
+                .beliefs
                 .values()
                 .filter(|memory| {
-                    memory.carrier_actor_id == actor.id
-                        && memory.kind == RESIDENT_MEMORY_KIND_ACTOR_LOCATION
+                    memory.holder_actor_id == actor.id
+                        && memory.kind == BELIEF_KIND_ACTOR_LOCATION
                         && memory.subject_id != actor.id
-                        && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                        && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                 })
                 .cloned()
                 .collect();
@@ -21121,7 +21595,7 @@ impl RuntimeWorld {
         if waiting_for_player_gift {
             return None;
         }
-        if let Some(memory) = self.resident_memory_seek_target(actor) {
+        if let Some(memory) = self.belief_seek_target(actor) {
             if memory.location_id == actor.location_id {
                 if self.resident_has_fresh_loose_item_observation(
                     actor.id,
@@ -22057,8 +22531,8 @@ impl RuntimeWorld {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
         }
-        self.observe_room_for_resident(actor.id, actor.location_id);
-        self.exchange_resident_memories_at(actor.location_id);
+        self.observe_room_for_actor(actor.id, actor.location_id);
+        self.exchange_beliefs_at(actor.location_id);
         self.actor_by_id(actor_id)
     }
 
@@ -22443,10 +22917,10 @@ impl RuntimeWorld {
             .map(|candidate| candidate.record.action)
     }
 
-    fn decay_resident_memories_for_autonomy(&mut self) {
+    fn decay_beliefs(&mut self) {
         let now = self.world.tick;
         let mut expired = Vec::new();
-        for memory in self.resident_memories.values_mut() {
+        for memory in self.beliefs.values_mut() {
             let baseline = memory.learned_tick.max(memory.observed_tick);
             if baseline == 0 {
                 memory.learned_tick = now;
@@ -22455,41 +22929,52 @@ impl RuntimeWorld {
             if now <= baseline {
                 continue;
             }
-            let steps = (now - baseline) / RESIDENT_MEMORY_TIME_DECAY_INTERVAL_TICKS;
+            let (steps, confidence, salience) = belief_decay_at_tick(memory, now);
             if steps == 0 {
                 continue;
             }
-            let confidence_loss = steps
-                .saturating_mul(RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            let salience_loss = steps
-                .saturating_mul(RESIDENT_MEMORY_TIME_SALIENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            memory.confidence = memory.confidence.saturating_sub(confidence_loss);
-            memory.salience = memory.salience.saturating_sub(salience_loss);
+            memory.confidence = confidence;
+            memory.salience = salience;
             memory.learned_tick = now;
             if memory.confidence == 0 || memory.salience == 0 {
                 expired.push(memory.id.clone());
             }
         }
+        let mut forgotten_local_leads = Vec::new();
         for memory_id in expired {
-            self.resident_memories.remove(&memory_id);
+            if let Some(memory) = self.beliefs.get(&memory_id) {
+                if memory.kind == LOCAL_LEAD_MEMORY_KIND {
+                    forgotten_local_leads.push((memory.holder_actor_id, memory.subject_id));
+                }
+            }
+            self.beliefs.remove(&memory_id);
         }
+        for (actor_id, destination_location_id) in forgotten_local_leads {
+            for lead in self.local_leads.values_mut().filter(|lead| {
+                lead.actor_id == actor_id
+                    && lead.destination_location_id == destination_location_id
+                    && !lead.consumed
+                    && !lead.settled
+            }) {
+                lead.forgotten = true;
+            }
+        }
+        self.return_forgotten_search_items_to_pool();
     }
 
-    fn refresh_resident_memories_for_autonomy(&mut self) {
-        self.decay_resident_memories_for_autonomy();
+    fn refresh_beliefs_for_autonomy(&mut self) {
+        self.decay_beliefs();
     }
 
     #[cfg(test)]
     fn ambient_autonomy_action(&mut self) -> Option<CwAction> {
-        self.refresh_resident_memories_for_autonomy();
+        self.refresh_beliefs_for_autonomy();
         self.resident_economy_autonomy_action_by_priority()
     }
 
     #[cfg(test)]
     fn ambient_autonomy_record(&mut self, seed: u64) -> Option<JournalRecord> {
-        self.refresh_resident_memories_for_autonomy();
+        self.refresh_beliefs_for_autonomy();
         self.resident_economy_autonomy_record_for_seed(seed)
     }
 
@@ -22501,7 +22986,7 @@ impl RuntimeWorld {
         if context.budget.resident_actions == 0 {
             return None;
         }
-        self.refresh_resident_memories_for_autonomy();
+        self.refresh_beliefs_for_autonomy();
         if let Some(mut record) = self.resident_ripple_record_for_seed(context, seed) {
             record.origin = JournalOrigin::ActorConsequence;
             record.source_world_tick = Some(self.world.tick);
@@ -28859,7 +29344,7 @@ async fn command_inner(
                     events: presence_events,
                 });
             }
-            runtime.decay_search_memories();
+            runtime.decay_beliefs();
             let candidates =
                 runtime.search_reveal_candidates_for_feature(location_id, &feature_key);
             if candidates.is_empty() && feature_key == "room" {
@@ -31546,7 +32031,7 @@ async fn request_ai_avatar_identity(
 
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
 
-async fn request_replicate_art(
+async fn request_replicate_avatar_art_legacy(
     config: &ReplicateAvatarArtConfig,
     prompt: String,
     aspect_ratio: &str,
@@ -36901,7 +37386,7 @@ fn seed_exit_discovered_tag_id(from_location_id: u64, to_location_id: u64) -> St
     format!("seed_exit:{from_location_id}:{to_location_id}:discovered")
 }
 
-fn seed_exit_search_memory_subject_key(from_location_id: u64, to_location_id: u64) -> String {
+fn seed_exit_belief_subject_key(from_location_id: u64, to_location_id: u64) -> String {
     format!("{from_location_id}:{to_location_id}")
 }
 
@@ -44641,9 +45126,9 @@ mod tests {
         runtime.remember_search_discovery(
             RATI_ACTOR_ID,
             from_location_id,
-            SEARCH_MEMORY_KIND_SEED_EXIT,
+            BELIEF_KIND_SEED_EXIT,
             to_location_id,
-            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+            &seed_exit_belief_subject_key(from_location_id, to_location_id),
         );
     }
 
@@ -51455,7 +51940,7 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         let sought_item_id =
             evolution_track_item_ids(RATI_ACTOR_ID).expect("Rati has evolution items")[0];
         for item in &mut runtime.world.items[..runtime.world.item_count] {
@@ -51464,13 +51949,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -51772,7 +52257,7 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
         hide_seed_items(&mut runtime);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
             if actor.kind == CW_ACTOR_NPC
                 && actor.id != RATI_ACTOR_ID
@@ -51824,7 +52309,7 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Path Player");
         hide_seed_items(&mut runtime);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
             if actor.kind != CW_ACTOR_NPC {
                 continue;
@@ -52445,7 +52930,7 @@ mod tests {
     fn player_ripple_context_scopes_resident_candidates_to_touched_rooms() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -61558,8 +62043,8 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
+        runtime.decay_beliefs();
 
         assert!(!runtime.avatar_discovered(AZAZOTH_ACTOR_ID));
         assert!(runtime
@@ -61585,6 +62070,7 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
+        runtime.beliefs.clear();
         assert!(!runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID
@@ -61632,8 +62118,8 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
+        runtime.decay_beliefs();
 
         assert!(!runtime.search_item_remembered(STORY_BUTTON_ITEM_ID));
         assert_eq!(
@@ -63150,7 +63636,7 @@ mod tests {
         assert_eq!(sought_story.holder_actor_id, Some(5000));
         assert_eq!(
             sought_story.confidence,
-            Some(RESIDENT_OBSERVED_MEMORY_CONFIDENCE)
+            Some(BELIEF_TUNING.firsthand_confidence)
         );
         assert_eq!(economy.inventory_count, 1);
         assert_eq!(economy.inventory_capacity, 0);
@@ -63599,7 +64085,7 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
@@ -63815,7 +64301,7 @@ mod tests {
                 item.holder_actor_id = 5000;
             }
         }
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         let skull = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let request = runtime
@@ -64193,7 +64679,7 @@ mod tests {
     fn content_authored_attachments_drive_recovery_seeking() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 HEARTH_TONIC_ITEM_ID => {
@@ -64578,7 +65064,7 @@ mod tests {
     fn non_track_resident_uses_attached_item_with_room_feature() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 40;
@@ -65832,7 +66318,7 @@ mod tests {
     fn resident_economy_autonomy_can_act_without_human_presence() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         assert!(runtime.ambient_line().is_none());
         assert!(runtime.ambient_reply_plan().is_none());
@@ -65845,13 +66331,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -65868,7 +66354,7 @@ mod tests {
     fn resident_economy_autonomy_record_projects_chosen_intent() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
 
@@ -65880,13 +66366,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -65929,7 +66415,7 @@ mod tests {
     fn resident_pending_proposed_action_executes_and_clears_after_kernel_commit() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
         discover_seed_exit_pair_for_test(
@@ -65993,7 +66479,7 @@ mod tests {
     fn resident_proposal_outside_the_enumerated_target_fails_closed() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
         discover_seed_exit_pair_for_test(
@@ -66415,7 +66901,7 @@ mod tests {
     fn resident_scout_uses_the_player_offer_and_replays_pathway_discovery() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.callings.remove(&RATI_ACTOR_ID);
         runtime
             .world
@@ -66901,7 +67387,7 @@ mod tests {
     fn ambient_autonomy_residents_notice_visible_sought_items_without_prior_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 HEARTH_TONIC_ITEM_ID => {
@@ -66923,13 +67409,13 @@ mod tests {
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
         assert_eq!(action.item_id, STORY_BUTTON_ITEM_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("room observation records the visible item");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
@@ -66940,7 +67426,7 @@ mod tests {
     fn ambient_autonomy_prioritizes_local_keepsake_pickup_over_remote_walking() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -66962,13 +67448,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -67004,7 +67490,7 @@ mod tests {
     fn ambient_autonomy_record_residents_use_held_room_feature_items() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -67086,7 +67572,7 @@ mod tests {
         ));
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -67161,76 +67647,6 @@ mod tests {
     }
 
     #[test]
-    fn resident_memories_decay_with_time_before_autonomy() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 1;
-        runtime.resident_memories.clear();
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            if item.id == STORY_BUTTON_ITEM_ID {
-                item.location_id = MOONLIT_TRAIL_LOCATION_ID;
-                item.holder_actor_id = 0;
-            }
-        }
-        runtime.remember_resident_memory(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
-            Some(RATI_ACTOR_ID),
-        );
-        runtime.world.tick = 25;
-
-        runtime.decay_resident_memories_for_autonomy();
-
-        let memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-        );
-        let memory = runtime
-            .resident_memories
-            .get(&memory_id)
-            .expect("aged memory remains above zero");
-        assert_eq!(
-            memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - (2 * RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY)
-        );
-        assert_eq!(
-            memory.salience,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE - (2 * RESIDENT_MEMORY_TIME_SALIENCE_DECAY)
-        );
-        assert_eq!(memory.learned_tick, 25);
-    }
-
-    #[test]
-    fn resident_memories_expire_when_time_decay_exhausts_them() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 1;
-        runtime.resident_memories.clear();
-        runtime.remember_resident_memory(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE,
-            RESIDENT_MEMORY_TIME_SALIENCE_DECAY,
-            Some(RATI_ACTOR_ID),
-        );
-        runtime.world.tick = 13;
-
-        runtime.decay_resident_memories_for_autonomy();
-
-        let memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-        );
-        assert!(runtime.resident_memories.get(&memory_id).is_none());
-    }
-
-    #[test]
     fn ambient_autonomy_residents_pick_up_sought_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -67258,14 +67674,14 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.resident_memories.clear();
-        runtime.remember_resident_memory(
+        runtime.beliefs.clear();
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             actor.location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
 
@@ -67315,7 +67731,7 @@ mod tests {
     fn resident_pickup_requires_fresh_local_observation_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 1;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
@@ -67328,13 +67744,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             actor.location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
         runtime.world.tick = 2;
@@ -67369,7 +67785,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 2004 => {
@@ -67385,13 +67801,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -67440,7 +67856,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 30;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
             if actor.kind == CW_ACTOR_NPC && actor.id != RATI_ACTOR_ID {
                 actor.status = 0;
@@ -67494,13 +67910,13 @@ mod tests {
             .expect("Rati has a non-attached item to make room");
         assert_eq!(expendable.id, DEWBRIGHT_BUTTON_ITEM_ID);
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2004,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -67556,7 +67972,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 30;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -67593,13 +68009,13 @@ mod tests {
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert!(runtime.actor_inventory_full(RATI_ACTOR_ID));
         assert!(runtime.resident_expendable_item_for_pickup(rati).is_none());
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2004,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -67629,7 +68045,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         runtime
             .world
@@ -67692,7 +68108,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         runtime
             .world
@@ -67750,7 +68166,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         runtime
             .world
@@ -67777,13 +68193,13 @@ mod tests {
             "without a grounded memory, the inference controller does nothing"
         );
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2001,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
@@ -67808,7 +68224,7 @@ mod tests {
         );
         assert_eq!(
             sought_tonic.confidence,
-            Some(RESIDENT_OBSERVED_MEMORY_CONFIDENCE)
+            Some(BELIEF_TUNING.firsthand_confidence)
         );
 
         let action = runtime
@@ -67823,7 +68239,7 @@ mod tests {
     fn remembered_healing_item_does_not_peek_at_current_charges() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -67845,19 +68261,19 @@ mod tests {
             }
         }
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2001,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("Rati trusts remembered medicine without remote charge inspection");
         assert_eq!(memory.subject_id, 2001);
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
@@ -67909,20 +68325,20 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         assert!(
             runtime.resident_economy_autonomy_action(actor).is_none(),
             "without a grounded memory, the inference controller does nothing"
         );
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             destination_location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
 
@@ -67963,7 +68379,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         let actor = runtime
             .ambient_actor()
@@ -67977,13 +68393,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
 
@@ -68014,33 +68430,30 @@ mod tests {
     #[test]
     fn resident_item_memories_spread_by_gossip() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         let observed_tick = runtime.world.tick;
-        let whiskerwind_memory_id = RuntimeWorld::resident_memory_id(
+        let whiskerwind_memory_id = RuntimeWorld::belief_id(
             WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             DEWBRIGHT_BUTTON_ITEM_ID,
         );
-        assert!(runtime
-            .resident_memories
-            .get(&whiskerwind_memory_id)
-            .is_none());
+        assert!(runtime.beliefs.get(&whiskerwind_memory_id).is_none());
 
-        runtime.exchange_resident_memories_at(COSY_COTTAGE_LOCATION_ID);
+        runtime.exchange_beliefs_at(COSY_COTTAGE_LOCATION_ID);
 
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&whiskerwind_memory_id)
             .expect("co-located resident learns carried item memory");
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
@@ -68049,7 +68462,7 @@ mod tests {
         assert_eq!(memory.hops, 1);
         assert_eq!(
             memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - RESIDENT_GOSSIP_CONFIDENCE_DECAY
+            BELIEF_TUNING.firsthand_confidence - BELIEF_TUNING.gossip_confidence_decay
         );
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
 
@@ -68068,9 +68481,92 @@ mod tests {
     }
 
     #[test]
+    fn resident_continuity_projects_memories_and_survives_snapshots() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.beliefs.clear();
+        runtime.resident_continuities.clear();
+
+        runtime.remember_belief(
+            RATI_ACTOR_ID,
+            BELIEF_KIND_ACTOR_LOCATION,
+            WHISKERWIND_ACTOR_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
+            Some(RATI_ACTOR_ID),
+        );
+        runtime.refresh_resident_continuity(RATI_ACTOR_ID);
+
+        let continuity = runtime
+            .resident_continuities
+            .get(&RATI_ACTOR_ID)
+            .expect("Rati continuity is projected");
+        assert_eq!(continuity.resident_id, RATI_ACTOR_ID);
+        assert!(continuity.stable_identity.contains("Rati"));
+        assert!(continuity
+            .memory_atoms
+            .iter()
+            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
+        assert!(format_resident_continuity(continuity).contains("memory atoms:"));
+
+        let snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        assert!(snapshot.resident_continuities.is_empty());
+        let restored = snapshot
+            .into_runtime()
+            .expect("snapshot restores resident continuity");
+        let restored_continuity = restored
+            .resident_continuities
+            .get(&RATI_ACTOR_ID)
+            .expect("Rati continuity survives reload");
+        assert!(restored_continuity
+            .memory_atoms
+            .iter()
+            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
+    }
+
+    #[test]
+    fn committed_npc_speech_refreshes_resident_continuity() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.resident_continuities.clear();
+
+        let content_id = runtime.next_content_id_value();
+        let action = CwAction {
+            kind: CW_ACTION_SAY,
+            actor_id: RATI_ACTOR_ID,
+            content_id,
+            ..CwAction::default()
+        };
+        let mut record = JournalRecord::new(action, 7091);
+        record.content_upserts.insert(
+            content_id,
+            "I will keep one stitch open for the room.".to_string(),
+        );
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        let speech_seq = events
+            .iter()
+            .find(|event| {
+                event.type_name == "message.created" && event.actor_id == Some(RATI_ACTOR_ID)
+            })
+            .map(|event| event.seq)
+            .expect("NPC speech event is committed");
+        let continuity = runtime
+            .resident_continuities
+            .get(&RATI_ACTOR_ID)
+            .expect("NPC speech refreshes resident continuity");
+        assert!(continuity.last_observed_event_seq >= speech_seq);
+        assert!(continuity
+            .current_intent
+            .as_deref()
+            .map(|intent| !intent.trim().is_empty())
+            .unwrap_or(false));
+    }
+
+    #[test]
     fn resident_observation_removes_disproved_item_location_memory() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -68091,44 +68587,40 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2004,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.minimum_action_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(
             runtime
-                .resident_memory_seek_target(rati)
+                .belief_seek_target(rati)
                 .expect("stale higher-priority memory")
                 .subject_id,
             2004
         );
 
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, MOONLIT_TRAIL_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, MOONLIT_TRAIL_LOCATION_ID);
 
-        let stale_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            2004,
-        );
-        assert!(runtime.resident_memories.get(&stale_id).is_none());
+        let stale_id = RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ITEM_LOCATION, 2004);
+        assert!(runtime.beliefs.get(&stale_id).is_none());
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let next_memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("resident falls through to another remembered wanted item");
         assert_eq!(next_memory.subject_id, STORY_BUTTON_ITEM_ID);
         assert_eq!(next_memory.location_id, COSY_COTTAGE_LOCATION_ID);
@@ -68137,32 +68629,32 @@ mod tests {
     #[test]
     fn resident_observation_keeps_item_memory_when_holder_is_present() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
                 item.holder_actor_id = WHISKERWIND_ACTOR_ID;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("item memory remains true while the holder is present");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
@@ -68171,7 +68663,7 @@ mod tests {
     #[test]
     fn resident_observation_remembers_items_carried_by_present_actors() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -68179,94 +68671,95 @@ mod tests {
             }
         }
 
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("resident notices an item carried in the room");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
-        assert_eq!(memory.holder_actor_id, Some(WHISKERWIND_ACTOR_ID));
+        assert_eq!(memory.related_actor_id, Some(WHISKERWIND_ACTOR_ID));
     }
 
     #[test]
     fn resident_gossip_preserves_memory_provenance() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.world.tick = 17;
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 23;
 
-        runtime.exchange_resident_memories_at(COSY_COTTAGE_LOCATION_ID);
+        runtime.exchange_beliefs_at(COSY_COTTAGE_LOCATION_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("co-located resident learns item memory through gossip");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
-        assert_eq!(memory.holder_actor_id, Some(5000));
+        assert_eq!(memory.related_actor_id, Some(5000));
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
         assert_eq!(memory.observed_tick, 17);
         assert_eq!(memory.learned_tick, 23);
         assert_eq!(memory.hops, 1);
         assert_eq!(
             memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - RESIDENT_GOSSIP_CONFIDENCE_DECAY
+            BELIEF_TUNING.firsthand_confidence - BELIEF_TUNING.gossip_confidence_decay
         );
     }
 
     #[test]
     fn resident_desire_memories_spread_by_gossip() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.world.tick = 31;
         runtime.remember_resident_wants_item_memory(
             RATI_ACTOR_ID,
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.world.tick = 37;
 
-        let memory_id = RuntimeWorld::resident_memory_key(
+        let memory_id = RuntimeWorld::belief_key(
             WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM,
+            BELIEF_KIND_ACTOR_WANTS_ITEM,
             DEWBRIGHT_BUTTON_ITEM_ID,
+            0,
             Some(WHISKERWIND_ACTOR_ID),
         );
-        assert!(runtime.resident_memories.get(&memory_id).is_none());
+        assert!(runtime.beliefs.get(&memory_id).is_none());
 
-        runtime.exchange_resident_memories_at(COSY_COTTAGE_LOCATION_ID);
+        runtime.exchange_beliefs_at(COSY_COTTAGE_LOCATION_ID);
 
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("co-located resident learns desire memory through gossip");
         assert_eq!(memory.subject_id, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert_eq!(memory.holder_actor_id, Some(WHISKERWIND_ACTOR_ID));
+        assert_eq!(memory.related_actor_id, Some(WHISKERWIND_ACTOR_ID));
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
         assert_eq!(memory.observed_tick, 31);
@@ -68274,7 +68767,7 @@ mod tests {
         assert_eq!(memory.hops, 1);
         assert_eq!(
             memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - RESIDENT_GOSSIP_CONFIDENCE_DECAY
+            BELIEF_TUNING.firsthand_confidence - BELIEF_TUNING.gossip_confidence_decay
         );
     }
 
@@ -68282,7 +68775,7 @@ mod tests {
     fn fulfilled_desire_memories_clear_for_witnesses_not_absent_residents() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 41;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -68303,8 +68796,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -68312,8 +68805,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -68372,7 +68865,7 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
         runtime.world.tick = 10;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -68383,33 +68876,33 @@ mod tests {
                 item.held_since_tick = 0;
             }
         }
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 12;
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WHISKERWIND_ACTOR_ID),
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("Rati follows held item memory");
         assert_eq!(memory.subject_id, STORY_BUTTON_ITEM_ID);
-        assert_eq!(memory.holder_actor_id, Some(5000));
+        assert_eq!(memory.related_actor_id, Some(5000));
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
         let economy = runtime
             .resident_economy_view(rati, None)
@@ -68438,7 +68931,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 10;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         let rati_desired_items = evolution_track_item_ids(RATI_ACTOR_ID).unwrap_or_default();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
@@ -68455,24 +68948,24 @@ mod tests {
             }
         }
 
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 12;
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -68486,10 +68979,10 @@ mod tests {
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("Rati resolves held item through carried actor memory");
         assert_eq!(memory.subject_id, STORY_BUTTON_ITEM_ID);
-        assert_eq!(memory.holder_actor_id, Some(5000));
+        assert_eq!(memory.related_actor_id, Some(5000));
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
         assert_eq!(
             runtime
@@ -68521,7 +69014,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 10;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
@@ -68537,33 +69030,33 @@ mod tests {
             .expect("carrier exists")
             .location_id = MOONLIT_TRAIL_LOCATION_ID;
 
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 12;
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let stale = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("stale carrier memory points at Rain-Soft Garden");
         assert_eq!(stale.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
-        assert_eq!(stale.holder_actor_id, Some(5000));
+        assert_eq!(stale.related_actor_id, Some(5000));
 
         let mut rati_move = CwAction::default();
         rati_move.kind = CW_ACTION_MOVE;
@@ -68576,22 +69069,19 @@ mod tests {
             CW_OK
         );
 
-        let actor_memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
+        let actor_memory_id =
+            RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
         assert!(
-            runtime.resident_memories.get(&actor_memory_id).is_none(),
+            runtime.beliefs.get(&actor_memory_id).is_none(),
             "Rati should stop believing the absent carrier is in the checked room"
         );
-        let item_memory_id = RuntimeWorld::resident_memory_id(
+        let item_memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         assert!(
-            runtime.resident_memories.get(&item_memory_id).is_none(),
+            runtime.beliefs.get(&item_memory_id).is_none(),
             "Rati should clear held-item memory protected only by the disproved carrier rumor"
         );
     }
@@ -68609,7 +69099,7 @@ mod tests {
                 .0,
             CW_OK
         );
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -68628,26 +69118,23 @@ mod tests {
             CW_OK
         );
 
-        let actor_memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
+        let actor_memory_id =
+            RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
         assert_eq!(
             runtime
-                .resident_memories
+                .beliefs
                 .get(&actor_memory_id)
                 .expect("resident remembers where the carrier went")
                 .location_id,
             11
         );
-        let item_memory_id = RuntimeWorld::resident_memory_id(
+        let item_memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let item_memory = runtime
-            .resident_memories
+            .beliefs
             .get(&item_memory_id)
             .expect("resident remembers the carried item moved too");
         assert_eq!(item_memory.location_id, 11);
@@ -68666,7 +69153,7 @@ mod tests {
                 .0,
             CW_OK
         );
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -68686,26 +69173,17 @@ mod tests {
             CW_OK
         );
 
-        let rati_memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
+        let rati_memory_id =
+            RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
         let rati_memory = runtime
-            .resident_memories
+            .beliefs
             .get(&rati_memory_id)
             .expect("source-room resident observes where the player went");
         assert_eq!(rati_memory.location_id, 11);
 
-        let whiskerwind_memory_id = RuntimeWorld::resident_memory_id(
-            WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
-        assert!(runtime
-            .resident_memories
-            .get(&whiskerwind_memory_id)
-            .is_none());
+        let whiskerwind_memory_id =
+            RuntimeWorld::belief_id(WHISKERWIND_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
+        assert!(runtime.beliefs.get(&whiskerwind_memory_id).is_none());
 
         let mut rati_move = CwAction::default();
         rati_move.kind = CW_ACTION_MOVE;
@@ -68719,11 +69197,11 @@ mod tests {
         );
 
         let carried_memory = runtime
-            .resident_memories
+            .beliefs
             .get(&whiskerwind_memory_id)
             .expect("memory travels with Rati and spreads on contact");
         assert_eq!(carried_memory.location_id, 11);
-        assert!(carried_memory.confidence < RESIDENT_OBSERVED_MEMORY_CONFIDENCE);
+        assert!(carried_memory.confidence < BELIEF_TUNING.firsthand_confidence);
         assert_eq!(carried_memory.source_actor_id, Some(RATI_ACTOR_ID));
     }
 
@@ -68741,7 +69219,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -68766,13 +69244,13 @@ mod tests {
             runtime.resident_mutual_trade_candidate(actor).is_none(),
             "resident trade needs carried actor-location memory, not just live room state"
         );
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         assert!(
@@ -68784,8 +69262,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         assert!(
@@ -68903,7 +69381,7 @@ mod tests {
     async fn ambient_autonomy_trade_without_ai_emits_no_fallback_speech() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -68975,7 +69453,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -69241,7 +69719,7 @@ mod tests {
     fn resident_gifts_non_track_room_feature_item_from_desire_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.holder_actor_id = WOODLAND_BEAR_ACTOR_ID;
@@ -69324,7 +69802,7 @@ mod tests {
     fn resident_gifts_requested_non_evolution_attachment_from_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69389,7 +69867,7 @@ mod tests {
     fn resident_delivers_requested_non_evolution_attachment_from_memory() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69405,13 +69883,13 @@ mod tests {
                 item.charges = 1;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             WOODLAND_BEAR_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             RATI_ACTOR_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -69419,8 +69897,8 @@ mod tests {
             RATI_ACTOR_ID,
             HEARTH_TONIC_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
 
@@ -69461,7 +69939,7 @@ mod tests {
     fn resident_delivers_non_track_room_feature_item_to_remembered_want() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69476,13 +69954,13 @@ mod tests {
                 item.held_since_tick = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             WOODLAND_BEAR_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             OLD_OAK_TREE_ACTOR_ID,
             40,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -69490,8 +69968,8 @@ mod tests {
             OLD_OAK_TREE_ACTOR_ID,
             STORY_BUTTON_ITEM_ID,
             40,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
 
@@ -69529,7 +70007,7 @@ mod tests {
     fn ambient_autonomy_residents_carry_sought_items_to_remembered_residents() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69552,13 +70030,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -69572,8 +70050,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         assert!(runtime.resident_remembers_actor_wants_item(
@@ -69619,7 +70097,7 @@ mod tests {
     fn resident_delivery_follows_stale_actor_memory_instead_of_global_truth() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69642,13 +70120,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -69656,8 +70134,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -69687,7 +70165,7 @@ mod tests {
     fn resident_delivery_uses_carried_actor_memory_not_live_target_room() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -69710,13 +70188,13 @@ mod tests {
                 .location_id,
             COSY_COTTAGE_LOCATION_ID
         );
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -69724,8 +70202,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -70175,13 +70653,13 @@ mod tests {
         );
         let (status, _) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WHISKERWIND_ACTOR_ID),
         );
         runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);

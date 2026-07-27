@@ -396,7 +396,7 @@ mod tests {
     fn mutual_trade_remains_the_top_scored_room_offer() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
