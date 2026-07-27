@@ -297,6 +297,7 @@ pub(super) struct ExitView {
     pub(super) route_version: u64,
     pub(super) destination_location_id: u64,
     pub(super) destination_location_name: String,
+    pub(super) route_label: String,
     pub(super) direction: Option<String>,
     pub(super) distance: u8,
     pub(super) locked: bool,
@@ -1697,6 +1698,8 @@ impl RuntimeWorld {
                     destination_location_name: self
                         .location_name(exit.to_location_id)
                         .unwrap_or_else(|| format!("Location {}", exit.to_location_id)),
+                    route_label: self
+                        .route_label_for_edge(exit.from_location_id, exit.to_location_id),
                     direction: self.exit_direction(exit.from_location_id, exit.to_location_id),
                     distance: self.pathway_distance(exit.from_location_id, exit.to_location_id),
                     locked: false,
@@ -2345,11 +2348,7 @@ impl RuntimeWorld {
 
                 let strategies = self.shared_question_strategy_views(job, actor_id);
                 let available = strategies.iter().any(|strategy| strategy.available);
-                let mut recent = progress
-                    .recent_contributions
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let mut recent = progress.recent_contributions.to_vec();
                 if let Some(danger) = danger {
                     recent.extend(danger.recent_contributions.iter().cloned());
                 }

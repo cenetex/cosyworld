@@ -5567,10 +5567,11 @@
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
               choices: groupedExits.map((exit) => ({
-                label: exit.destination_location_name,
+                label: exit.route_label || exit.destination_location_name,
                 detail: searchingPathway
-                  ? `${Number(exit.distance || 1)} stretches`
-                  : (exit.direction ? `${exit.direction} path` : "open path"),
+                  ? `${Number(exit.distance || 1)} stretches toward ${exit.destination_location_name}`
+                  : `${exit.destination_location_name}${exit.direction ? ` · ${exit.direction}` : ""}`,
+                previewAlt: exit.destination_location_name,
                 value: String(exit.destination_location_id),
                 card: cardForLocation(exit.destination_location_id),
               })),
@@ -10754,7 +10755,7 @@
       art?.classList.remove("avatar", "item", "location");
       art?.classList.add(shapeForCard(card));
       $("action-modal-image").src = actionImage(action);
-      $("action-modal-image").alt = choice?.label || card?.display_name || action?.detail || actionTitle(action);
+      $("action-modal-image").alt = choice?.previewAlt || choice?.label || card?.display_name || action?.detail || actionTitle(action);
     }
 
     function smallNumberWord(value) {
