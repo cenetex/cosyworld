@@ -24,7 +24,8 @@ enum {
   CW_REASON_NOT_HOSTILE = 18,
   CW_REASON_ENCOUNTER_ACTIVE = 19,
   CW_REASON_COMBAT_ACTION_REQUIRED = 20,
-  CW_REASON_CAPACITY_EXCEEDED = 21
+  CW_REASON_CAPACITY_EXCEEDED = 21,
+  CW_REASON_REST_GRADE_OVERCLAIMED = 22
 };
 
 static uint64_t splitmix64(uint64_t *state) {
@@ -273,6 +274,7 @@ static cw_status add_item(cw_world *world, cw_id item_id, uint8_t kind, cw_id lo
   item->id = item_id;
   item->kind = kind;
   item->charges = charges;
+  item->max_charges = charges;
   item->weight_tenths = CW_ITEM_DEFAULT_WEIGHT_TENTHS;
   item->size_class = CW_ITEM_SIZE_SMALL;
   item->role = kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC;
@@ -290,6 +292,7 @@ static cw_status create_item(cw_world *world, cw_id item_id, uint8_t kind, uint8
   item->id = item_id;
   item->kind = kind;
   item->charges = charges;
+  item->max_charges = charges;
   item->weight_tenths = CW_ITEM_DEFAULT_WEIGHT_TENTHS;
   item->size_class = CW_ITEM_SIZE_SMALL;
   item->role = kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC;
@@ -418,6 +421,29 @@ cw_status cw_world_set_item_profile(
   return CW_OK;
 }
 
+cw_status cw_world_set_item_recovery_profile(
+    cw_world *world,
+    cw_id item_id,
+    uint8_t max_charges,
+    uint8_t recovery,
+    uint8_t ready_zone) {
+  if (!world || !item_id || !max_charges
+      || recovery > CW_ITEM_RECOVERY_REST
+      || ready_zone < CW_CARD_ZONE_WORLD || ready_zone > CW_CARD_ZONE_INSTALLED
+      || ready_zone == CW_CARD_ZONE_EXHAUSTED) {
+    return CW_ERR_INVALID;
+  }
+  cw_item *item = find_item(world, item_id);
+  if (!item) return CW_ERR_NOT_FOUND;
+  if (item->charges > max_charges) return CW_ERR_INVALID;
+  item->max_charges = max_charges;
+  item->recovery = recovery;
+  if (item->zone != CW_CARD_ZONE_EXHAUSTED || item->recovery_zone == CW_CARD_ZONE_NONE) {
+    item->recovery_zone = ready_zone;
+  }
+  return CW_OK;
+}
+
 cw_status cw_world_set_item_zone(
     cw_world *world,
     cw_id item_id,
@@ -466,6 +492,14 @@ cw_status cw_world_set_item_zone(
   item->zone = zone;
   item->container_item_id = container_item_id;
   return CW_OK;
+}
+
+static void exhaust_item(cw_item *item) {
+  if (!item) return;
+  if (item->zone != CW_CARD_ZONE_NONE && item->zone != CW_CARD_ZONE_EXHAUSTED) {
+    item->recovery_zone = item->zone;
+  }
+  item->zone = CW_CARD_ZONE_EXHAUSTED;
 }
 
 cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_evolution_requirement *requirements, size_t requirement_count) {
@@ -858,7 +892,7 @@ static cw_status apply_use_item(cw_world *world, const cw_action *action, cw_eve
       target->conditions &= ~CW_CONDITION_UNCONSCIOUS;
     }
     item->charges--;
-    if (item->charges == 0) item->zone = CW_CARD_ZONE_EXHAUSTED;
+    if (item->charges == 0) exhaust_item(item);
   } else {
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
@@ -916,7 +950,7 @@ static cw_status apply_rules_magic(cw_world *world, const cw_action *action, cw_
     return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
   }
   spell->charges--;
-  if (spell->charges == 0) spell->zone = CW_CARD_ZONE_EXHAUSTED;
+  if (spell->charges == 0) exhaust_item(spell);
   append_event(world, out_events, CW_EVENT_SPELL_CAST);
   if (out_events && out_events->count > 0) {
     cw_event *event = &out_events->events[out_events->count - 1];
@@ -925,6 +959,106 @@ static cw_status apply_rules_magic(cw_world *world, const cw_action *action, cw_
     event->target_actor_id = target->id;
     event->location_id = actor->location_id;
     event->item_id = spell->id;
+  }
+  return CW_OK;
+}
+
+static int item_is_rest_refreshable(
+    const cw_item *item,
+    cw_id actor_id,
+    uint8_t requested_grade) {
+  if (!item || item->holder_actor_id != actor_id
+      || item->zone != CW_CARD_ZONE_EXHAUSTED || item->charges != 0
+      || item->max_charges == 0 || item->recovery != CW_ITEM_RECOVERY_REST) {
+    return 0;
+  }
+  if (requested_grade == CW_REST_GRADE_CAMP
+      || requested_grade == CW_REST_GRADE_LODGED) {
+    return item->role == CW_ITEM_ROLE_SPELL;
+  }
+  return requested_grade == CW_REST_GRADE_HEARTH
+      && (item->role == CW_ITEM_ROLE_SPELL
+          || item->role == CW_ITEM_ROLE_SKILL_CHARM
+          || item->role == CW_ITEM_ROLE_RELIC);
+}
+
+static uint8_t item_rest_restore_zone(const cw_item *item) {
+  if (item->recovery_zone >= CW_CARD_ZONE_WORLD
+      && item->recovery_zone <= CW_CARD_ZONE_INSTALLED
+      && item->recovery_zone != CW_CARD_ZONE_EXHAUSTED) {
+    return item->recovery_zone;
+  }
+  /* Legacy snapshots predate captured recovery zones. The role fallback is
+     deterministic and applies only when that historical field is absent. */
+  if (item->role == CW_ITEM_ROLE_SPELL) return CW_CARD_ZONE_SPELL_DECK;
+  if (item->role == CW_ITEM_ROLE_SKILL_CHARM) return CW_CARD_ZONE_EQUIPPED;
+  return CW_CARD_ZONE_CARRIED;
+}
+
+static cw_item *next_rest_refreshable_item(
+    cw_world *world,
+    cw_id actor_id,
+    uint8_t requested_grade,
+    cw_id after_item_id) {
+  cw_item *selected = 0;
+  for (size_t i = 0; i < world->item_count; ++i) {
+    cw_item *item = &world->items[i];
+    if (!item_is_rest_refreshable(item, actor_id, requested_grade)
+        || item->id <= after_item_id
+        || (selected && selected->id < item->id)) {
+      continue;
+    }
+    selected = item;
+  }
+  return selected;
+}
+
+static cw_status apply_rest(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+
+  const uint8_t requested_grade = action->rest.requested_grade;
+  const uint8_t entitled_grade = action->rest.entitled_grade;
+  if (requested_grade < CW_REST_GRADE_CAMP || requested_grade > CW_REST_GRADE_HEARTH
+      || entitled_grade < CW_REST_GRADE_CAMP || entitled_grade > CW_REST_GRADE_HEARTH
+      || requested_grade > entitled_grade) {
+    return reject(world, out_events, action, CW_REASON_REST_GRADE_OVERCLAIMED);
+  }
+
+  size_t refresh_count = 0;
+  for (size_t i = 0; i < world->item_count; ++i) {
+    if (item_is_rest_refreshable(&world->items[i], actor->id, requested_grade)) {
+      refresh_count++;
+    }
+  }
+  if (requested_grade == CW_REST_GRADE_CAMP && refresh_count > 1) {
+    refresh_count = 1;
+  }
+  if (refresh_count > CW_MAX_EVENTS || (refresh_count > 0 && !out_events)) {
+    return CW_ERR_FULL;
+  }
+
+  cw_item *refresh_items[CW_MAX_EVENTS];
+  cw_id last_item_id = 0;
+  for (size_t i = 0; i < refresh_count; ++i) {
+    refresh_items[i] =
+        next_rest_refreshable_item(world, actor->id, requested_grade, last_item_id);
+    if (!refresh_items[i]) return CW_ERR_INVALID;
+    last_item_id = refresh_items[i]->id;
+  }
+  for (size_t i = 0; i < refresh_count; ++i) {
+    cw_item *item = refresh_items[i];
+    const uint8_t restored_zone = item_rest_restore_zone(item);
+    item->charges = item->max_charges;
+    item->zone = restored_zone;
+    if (item->recovery_zone == 0) item->recovery_zone = restored_zone;
+    append_event(world, out_events, CW_EVENT_ITEM_REFRESHED);
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+    event->item_id = item->id;
   }
   return CW_OK;
 }
@@ -1366,7 +1500,7 @@ static void apply_craft_input_disposition(
     cw_item *item = find_item(world, item_id);
     if (!item) return;
     item->charges = 0;
-    if (item->holder_actor_id == actor->id) item->zone = CW_CARD_ZONE_EXHAUSTED;
+    if (item->holder_actor_id == actor->id) exhaust_item(item);
     return;
   }
   remove_item(world, item_id);
@@ -2175,6 +2309,9 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
     case CW_ACTION_RULES_UTILIZE_ITEM:
       status = apply_rules_utilize_item(world, action, out_events);
       break;
+    case CW_ACTION_REST:
+      status = apply_rest(world, action, out_events);
+      break;
     case CW_ACTION_ATTACK:
       status = apply_attack(world, action, seed, out_events);
       break;
@@ -2396,6 +2533,7 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_TRANSFORMED: return "item.transformed";
     case CW_EVENT_EXIT_UNLOCKED: return "exit.unlocked";
     case CW_EVENT_ITEM_REVEALED: return "item.revealed";
+    case CW_EVENT_ITEM_REFRESHED: return "item.refreshed";
     default: return "unknown";
   }
 }

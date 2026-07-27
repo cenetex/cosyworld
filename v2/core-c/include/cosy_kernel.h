@@ -8,7 +8,8 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 8u
+/* Version 9 is reserved by #411 for project-push ABI state. */
+#define CW_KERNEL_VERSION 10u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -101,6 +102,18 @@ typedef enum {
 } cw_card_zone;
 
 typedef enum {
+  CW_ITEM_RECOVERY_NONE = 0,
+  CW_ITEM_RECOVERY_REST = 1
+} cw_item_recovery;
+
+typedef enum {
+  CW_REST_GRADE_NONE = 0,
+  CW_REST_GRADE_CAMP = 1,
+  CW_REST_GRADE_LODGED = 2,
+  CW_REST_GRADE_HEARTH = 3
+} cw_rest_grade;
+
+typedef enum {
   CW_ABILITY_STRENGTH = 0,
   CW_ABILITY_DEXTERITY = 1,
   CW_ABILITY_CONSTITUTION = 2,
@@ -158,7 +171,9 @@ typedef enum {
   CW_ACTION_REVEAL_ITEM = 29,
   /* Project use records an authored item contribution without inheriting the
      healing-and-consumption semantics of legacy USE_ITEM journals. */
-  CW_ACTION_RULES_UTILIZE_ITEM = 30
+  CW_ACTION_RULES_UTILIZE_ITEM = 30,
+  /* Action 31 is reserved by #411 for CW_ACTION_PROJECT_PUSH. */
+  CW_ACTION_REST = 32
 } cw_action_kind;
 
 typedef enum {
@@ -202,7 +217,9 @@ typedef enum {
   CW_EVENT_ITEM_EXHAUSTED = 37,
   CW_EVENT_ITEM_TRANSFORMED = 38,
   CW_EVENT_EXIT_UNLOCKED = 39,
-  CW_EVENT_ITEM_REVEALED = 40
+  CW_EVENT_ITEM_REVEALED = 40,
+  /* Event 41 is reserved by #411 for CW_EVENT_PROJECT_PUSH_RESOLVED. */
+  CW_EVENT_ITEM_REFRESHED = 42
 } cw_event_type;
 
 typedef enum {
@@ -283,12 +300,31 @@ typedef struct {
   uint8_t role;
   uint8_t zone;
   uint8_t reserved;
+  uint8_t max_charges;
+  uint8_t recovery;
+  uint8_t recovery_zone;
+  uint8_t reserved2;
   cw_id location_id;
   cw_id holder_actor_id;
   cw_id container_item_id;
   uint64_t held_since_tick;
   uint64_t recharge_at_tick;
 } cw_item;
+
+#ifdef __cplusplus
+static_assert(sizeof(cw_item) == 64, "cw_item ABI size must remain stable");
+static_assert(offsetof(cw_item, max_charges) == 18, "cw_item recovery ABI offset drifted");
+static_assert(offsetof(cw_item, location_id) == 24, "cw_item id ABI offset drifted");
+#else
+_Static_assert(sizeof(cw_item) == 64, "cw_item ABI size must remain stable");
+_Static_assert(offsetof(cw_item, max_charges) == 18, "cw_item recovery ABI offset drifted");
+_Static_assert(offsetof(cw_item, location_id) == 24, "cw_item id ABI offset drifted");
+#endif
+
+typedef struct {
+  uint8_t requested_grade;
+  uint8_t entitled_grade;
+} cw_rest_input;
 
 typedef struct {
   uint8_t kind;
@@ -316,6 +352,7 @@ typedef struct {
   uint8_t output_item_size_class;
   uint8_t output_item_role;
   uint16_t reserved2;
+  cw_rest_input rest;
 } cw_action;
 
 typedef struct {
@@ -401,6 +438,7 @@ typedef struct {
 void cw_world_init(cw_world *world);
 cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events);
 cw_status cw_world_set_item_profile(cw_world *world, cw_id item_id, uint16_t weight_tenths, uint8_t size_class, uint8_t role, uint16_t container_capacity_tenths);
+cw_status cw_world_set_item_recovery_profile(cw_world *world, cw_id item_id, uint8_t max_charges, uint8_t recovery, uint8_t ready_zone);
 cw_status cw_world_set_item_zone(cw_world *world, cw_id item_id, uint8_t zone, cw_id container_item_id);
 cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_evolution_requirement *requirements, size_t requirement_count);
 /* Deterministic apply without clock advancement. Player-card callers own the tick. */
