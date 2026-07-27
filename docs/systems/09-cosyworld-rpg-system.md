@@ -366,7 +366,7 @@ the browser, terminal, inspector, and submission endpoint; see
 | Defend | kernel Defend | Short defensive condition. |
 | Flee | kernel Flee | A valid success path out of danger. |
 | Prepare | projection action now; kernel later only if needed | Create advantage, lower next risk, add a temporary tag. |
-| Rest | projection action now; kernel later only if needed | Reset fatigue/skill step-downs; in the frontier, costs a danger/season tick. |
+| Rest | New append-only kernel procedure for authoritative card refresh; legacy projection-only records keep their historical meaning | Follow [ADR 0004](../decisions/0004-rest-grades-and-expedition-depth.md): Camp clears `tired` and one spell; Lodged also clears `trained_since_rest` and refreshes the whole spell hand; Hearth additionally clears expedition depth and refreshes charms and relics; frontier Rest without equipped shelter is not offered. |
 | Contribute | projection clock action | Advance one named job or covenant clock through job-specific Push and, when available, Help strategies. |
 
 Generated long-distance pathways use these same verbs and UI rules. Scout reveals one adjacent stretch as shared geography without moving, but it never replaces the rest of the hand or locks future movement. When an Explorer first opens a route, bounded structured generation may create every hidden waypoint's narrative identity from its deterministic biome and terrain; each identity remains concealed until its Scout edge is revealed. Invalid or disabled generation keeps the deterministic identity, and neither form may change topology or rules. Generated waypoint rooms begin risky and frontier-zoned. Every generated route receives one shared familiarity job and progress clock across its waypoint rooms; Push and Help are strategies on one contribution card and advance that same clock. Filling the clock settles the route into sanctuary rules and unlocks generated landscape art, while the deterministic SVG remains available throughout discovery and as the inference fallback.
@@ -423,7 +423,7 @@ Clocks give CosyWorld persistent pressure without heavy rules.
 
 ### Clock Movement
 
-Clock changes are event-backed. A successful Listen may fill progress; a failed risky action may fill danger; Rest may reset fatigue and, on the frontier, tick a danger or season clock; Work fills project progress; later actions may deepen an existing Bond; combat fills objective clocks rather than only dealing damage. Chat creates the initial Bond by spending advancement and does not silently fill unrelated clocks.
+Clock changes are event-backed. A successful Listen may fill progress; a failed risky action may fill danger; Rest refreshes by the grade contract in [ADR 0004](../decisions/0004-rest-grades-and-expedition-depth.md), and only Camp may carry an authored frontier danger or season tick. Lodging gates come from access, an existing Bond, a completed Job, or an authored room resource and never debit Orbs. Work fills project progress; later actions may deepen an existing Bond; combat fills objective clocks rather than only dealing damage. Chat creates the initial Bond by spending advancement and does not silently fill unrelated clocks.
 
 **Offscreen movement is frontier-only.** A clock advances between visits only if its `zone` is frontier and it belongs to a goal the player opted into. Sanctuary clocks never move on their own.
 
