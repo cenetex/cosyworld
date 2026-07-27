@@ -307,6 +307,13 @@ pub(super) struct ExitView {
     pub(super) access_reason: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub(super) struct ExpeditionRingView {
+    pub(super) filled_count: u8,
+    pub(super) pip_total: u8,
+    pub(super) needs_rest: bool,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct ActorView {
     pub(super) id: u64,
@@ -329,6 +336,7 @@ pub(super) struct ActorView {
     pub(super) factions: Vec<FactionRefView>,
     #[serde(rename = "economy")]
     pub(super) resident_economy: Option<ResidentEconomyView>,
+    pub(super) expedition_ring: ExpeditionRingView,
     pub(super) hp: i16,
     pub(super) bloodied: bool,
     pub(super) stats: StatView,
@@ -1216,6 +1224,16 @@ impl RuntimeWorld {
         self.actor_view_for_client(actor, None)
     }
 
+    fn expedition_ring_view(&self, actor_id: u64) -> ExpeditionRingView {
+        let pip_total = self.frontier_travel_since_rest_required(actor_id) as u8;
+        let filled_count = self.frontier_travel_since_rest_count(actor_id) as u8;
+        ExpeditionRingView {
+            filled_count,
+            pip_total,
+            needs_rest: filled_count >= pip_total,
+        }
+    }
+
     pub(super) fn actor_view_for_client(
         &self,
         actor: CwActor,
@@ -1256,6 +1274,7 @@ impl RuntimeWorld {
             relationship: self.relationship_preview(actor.id),
             factions: faction_refs_for_actor(actor.id),
             resident_economy: self.resident_economy_view(actor, client_actor_id),
+            expedition_ring: self.expedition_ring_view(actor.id),
             hp: unsafe { cw_actor_current_hp(&actor) },
             bloodied: unsafe { cw_actor_is_bloodied(&actor) != 0 },
             stats: StatView {

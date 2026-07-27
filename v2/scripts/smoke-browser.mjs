@@ -8193,6 +8193,151 @@ async function main() {
     assert(!overflow, `visible UI overflowed the viewport: ${JSON.stringify(overflow)}`);
   }
 
+  async function assertExpeditionRingContract(label) {
+    const result = await page.evaluate(() => {
+      const testActorId = 990_353;
+      const actor = {
+        id: testActorId,
+        name: "Ring Test",
+        title: "Trail Reader",
+        kind: "human",
+        status: "active",
+        stats: { level: 4 },
+        expedition_ring: { filled_count: 2, pip_total: 4, needs_rest: false },
+      };
+      const stage = document.createElement("div");
+      stage.style.cssText = "position:fixed;left:12px;top:72px;width:120px;height:80px;z-index:9999";
+      const rail = document.createElement("div");
+      rail.className = "room-avatar-rail";
+      rail.style.cssText = "position:relative;left:auto;right:auto;bottom:auto;overflow:visible";
+      stage.append(rail);
+      document.body.append(stage);
+      expeditionRingRenderState.delete(String(testActorId));
+
+      const renderAt = (stateRevision, expeditionRing = actor.expedition_ring) => {
+        actor.expedition_ring = expeditionRing;
+        rail.innerHTML = roomAvatarRailHtml({
+          actors: [actor],
+          world_seq: stateRevision,
+          tags: [{ scope: "actor", scope_id: testActorId, label: "tired" }],
+        });
+        const frame = rail.querySelector(".room-avatar-frame");
+        const ring = frame?.querySelector(".expedition-ring");
+        const segments = [...(ring?.querySelectorAll(".expedition-ring-segment") || [])];
+        const filled = segments.filter((segment) => segment.classList.contains("filled"));
+        const frameRect = frame?.getBoundingClientRect();
+        return {
+          segmentCount: segments.length,
+          filledCount: filled.length,
+          committedChange: ring?.classList.contains("committed-change") || false,
+          animationName: ring ? getComputedStyle(ring).animationName : "",
+          ariaHidden: ring?.getAttribute("aria-hidden") || "",
+          text: ring?.textContent || "",
+          width: frameRect?.width || 0,
+          height: frameRect?.height || 0,
+          needsRest: frame?.classList.contains("needs-rest") || false,
+          portraitFilter: frame?.querySelector(".room-avatar-pfp")
+            ? getComputedStyle(frame.querySelector(".room-avatar-pfp")).filter
+            : "",
+          filledColor: filled[0]
+            ? getComputedStyle(filled[0]).getPropertyValue("--ring-segment-color").trim()
+            : "",
+          ringCount: frame?.querySelectorAll(".expedition-ring").length || 0,
+          hpArcCount: frame?.querySelectorAll('[class*="hp"],[data-hp]').length || 0,
+        };
+      };
+
+      const first = renderAt(900);
+      const sameRevision = renderAt(900);
+      const advanced = renderAt(901, {
+        filled_count: 3,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const repeatedAdvanced = renderAt(901);
+      const regressed = renderAt(900, {
+        filled_count: 1,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const restoredCurrent = renderAt(901, {
+        filled_count: 3,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const unrelatedRevision = renderAt(902);
+      const full = renderAt(903, {
+        filled_count: 4,
+        pip_total: 4,
+        needs_rest: true,
+      });
+      const withoutProjection = { ...actor };
+      delete withoutProjection.expedition_ring;
+      rail.innerHTML = roomAvatarRailHtml({
+        actors: [withoutProjection],
+        world_seq: 904,
+        tags: [{ scope: "actor", scope_id: testActorId, label: "tired" }],
+      });
+      const inferredFromTags = Boolean(rail.querySelector(".expedition-ring"));
+      stage.remove();
+      expeditionRingRenderState.delete(String(testActorId));
+      return {
+        viewportWidth: window.innerWidth,
+        first,
+        sameRevision,
+        advanced,
+        repeatedAdvanced,
+        regressed,
+        restoredCurrent,
+        unrelatedRevision,
+        full,
+        inferredFromTags,
+      };
+    });
+    assert(
+      result.first.segmentCount === 4
+        && result.first.filledCount === 2
+        && result.first.ariaHidden === "true"
+        && result.first.text === ""
+        && result.first.ringCount === 1
+        && result.first.hpArcCount === 0,
+      `${label}: the typed 2/4 projection should render one unlabeled segmented ring and no HP arc: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.first.committedChange
+        && !result.sameRevision.committedChange
+        && result.advanced.committedChange
+        && result.advanced.animationName === "expedition-ring-commit"
+        && !result.repeatedAdvanced.committedChange
+        && !result.regressed.committedChange
+        && !result.restoredCurrent.committedChange
+        && !result.unrelatedRevision.committedChange,
+      `${label}: the ring should animate once for a changed committed revision and never for repeated, regressed, restored-current, or unrelated renders: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.full.needsRest
+        && result.full.filledCount === 4
+        && result.full.portraitFilter !== "none"
+        && !/255,\s*125,\s*125|255,\s*0,\s*0/.test(result.full.filledColor),
+      `${label}: a full ring should softly dim without an alarm-red segment: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.inferredFromTags,
+      `${label}: the browser must not infer a ring from internal tags: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.first.width >= (result.viewportWidth <= 900 ? 42 : 50)
+        && result.first.height >= (result.viewportWidth <= 900 ? 42 : 50),
+      `${label}: ring geometry should remain legible at this portrait size: ${JSON.stringify(result)}`,
+    );
+    steps.push({
+      label,
+      viewport: result.viewportWidth,
+      projection: `${result.first.filledCount}/${result.first.segmentCount}`,
+      frame: `${result.first.width}x${result.first.height}`,
+    });
+  }
+
   async function assertUiAccessibilityContract(label) {
     const base = await page.evaluate(() => {
       const visible = (node) => Boolean(node && getComputedStyle(node).display !== "none" && node.getClientRects().length);
@@ -8891,7 +9036,7 @@ async function main() {
       fullPage: false,
       mask: [
         page.locator("#economy"),
-        page.locator("#room-avatar-rail"),
+        page.locator("#room-avatar-rail .room-avatar-pfp"),
         page.locator("#room-log-latest"),
         page.locator("#log"),
         page.locator("footer.prompt"),
@@ -9824,6 +9969,7 @@ async function main() {
   await assertJournalModeContract("mobile Journal");
   await assertJournalTickerLayout();
   await assertUiAccessibilityContract("mobile accessibility and navigation");
+  await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
@@ -10507,6 +10653,7 @@ async function main() {
   await assertStatusBarDoesNotOverlayTranscript("desktop status row");
   await assertJournalModeContract("desktop Journal");
   if (!runLivingWorldStress) {
+    await assertExpeditionRingContract("desktop expedition ring");
     await assertMudShellVisualContract(runLivingWorldStress ? "desktop visual shell stress" : "desktop visual shell");
   }
   await assertSignedWalletBoxAccountFlow();

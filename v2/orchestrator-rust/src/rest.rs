@@ -1303,4 +1303,74 @@ mod tests {
         assert_eq!(restored_state.ledger.unbanked_count, 0);
         assert_eq!(restored_state.ledger.banked_count, 2);
     }
+
+    #[test]
+    fn expedition_ring_projection_survives_snapshot_and_move_replay() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists")
+            .stats
+            .level = 4;
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let records = [
+            (RAIN_SOFT_GARDEN_LOCATION_ID, 18_801),
+            (MOONLIT_TRAIL_LOCATION_ID, 18_802),
+            (RAIN_SOFT_GARDEN_LOCATION_ID, 18_803),
+            (MOONLIT_TRAIL_LOCATION_ID, 18_804),
+        ]
+        .map(|(destination_location_id, seed)| {
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id: RATI_ACTOR_ID,
+                    destination_location_id,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+        });
+        for record in &records {
+            assert_eq!(runtime.apply_journal_record(record).0, CW_OK);
+        }
+
+        let expected = runtime
+            .actor_view(runtime.actor_by_id(RATI_ACTOR_ID).expect("moved Rati"))
+            .expedition_ring;
+        assert_eq!(
+            expected,
+            ExpeditionRingView {
+                filled_count: 3,
+                pip_total: 4,
+                needs_rest: false,
+            }
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("expedition ring source state survives a snapshot round trip");
+        assert_eq!(
+            restored
+                .actor_view(restored.actor_by_id(RATI_ACTOR_ID).expect("restored Rati"))
+                .expedition_ring,
+            expected
+        );
+
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-travel snapshot restores");
+        for record in &records {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+        assert_eq!(
+            replayed
+                .actor_view(replayed.actor_by_id(RATI_ACTOR_ID).expect("replayed Rati"))
+                .expedition_ring,
+            expected
+        );
+    }
 }

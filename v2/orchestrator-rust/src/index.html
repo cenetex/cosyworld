@@ -601,14 +601,25 @@
     .room-avatar-rail:empty {
       display: none;
     }
+    .room-avatar-frame {
+      position: relative;
+      width: 50px;
+      height: 50px;
+      flex: 0 0 50px;
+      display: grid;
+      place-items: center;
+      isolation: isolate;
+    }
     .room-avatar-pfp {
       width: 42px;
       height: 42px;
-      flex: 0 0 42px;
+      flex: none;
       border-radius: 999px;
       border: 2px solid rgba(216, 247, 220, 0.64);
       background-color: rgba(16, 25, 18, 0.86);
       box-shadow: 0 8px 22px rgba(0, 0, 0, 0.44);
+      position: relative;
+      z-index: 1;
     }
     .room-avatar-pfp {
       padding: 0;
@@ -622,6 +633,56 @@
     }
     .room-avatar-pfp.evolved {
       border-color: rgba(239, 201, 107, 0.95);
+    }
+    .expedition-ring {
+      --ring-segment-color: rgba(216, 247, 220, 0.2);
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+    .expedition-ring-segment {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: conic-gradient(
+        from var(--ring-start),
+        var(--ring-segment-color) 0 var(--ring-sweep),
+        transparent var(--ring-sweep)
+      );
+      -webkit-mask: radial-gradient(
+        farthest-side,
+        transparent calc(100% - 3px),
+        #000 calc(100% - 2px)
+      );
+      mask: radial-gradient(
+        farthest-side,
+        transparent calc(100% - 3px),
+        #000 calc(100% - 2px)
+      );
+    }
+    .expedition-ring-segment.filled {
+      --ring-segment-color: rgba(239, 201, 107, 0.92);
+      filter: drop-shadow(0 0 2px rgba(239, 201, 107, 0.38));
+    }
+    .room-avatar-frame.needs-rest .room-avatar-pfp {
+      filter: saturate(0.58) brightness(0.82);
+    }
+    .room-avatar-frame.needs-rest .expedition-ring-segment {
+      --ring-segment-color: rgba(190, 198, 174, 0.24);
+    }
+    .room-avatar-frame.needs-rest .expedition-ring-segment.filled {
+      --ring-segment-color: rgba(190, 198, 174, 0.68);
+      filter: none;
+    }
+    .expedition-ring.committed-change {
+      animation: expedition-ring-commit 360ms ease-out both;
+    }
+    @keyframes expedition-ring-commit {
+      0% { opacity: 0.52; transform: scale(0.94); }
+      70% { opacity: 1; transform: scale(1.035); }
+      100% { opacity: 1; transform: scale(1); }
     }
     .room-tags {
       display: flex;
@@ -945,6 +1006,7 @@
     @media (prefers-reduced-motion: reduce) {
       .chat-thinking-dots > i { animation: none; opacity: 0.72; }
       .arrival-scene::before { animation: none; opacity: 0.9; }
+      .expedition-ring.committed-change { animation: none; }
     }
     .chat-pfp {
       width: 32px;
@@ -2647,8 +2709,12 @@
       .room-avatar-pfp {
         width: 34px;
         height: 34px;
-        flex-basis: 34px;
         border-width: 2px;
+      }
+      .room-avatar-frame {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
       }
       .room-tag { font-size: 11px; padding: 2px 6px; }
       .room-title {
@@ -3969,6 +4035,7 @@
     const clockPresentationContractVersion = 1;
     const clockPresentationReceiptState = new Map();
     let clockPresentationVisibilityFrame = null;
+    const expeditionRingRenderState = new Map();
     let streamReplayFloorSeq = 0;
     let stream = null;
     let refreshInFlight = null;
@@ -7936,12 +8003,59 @@
       return view?.cards?.locations?.[String(id)] || null;
     }
 
+    function committedStateRevision(view = state) {
+      return Math.max(
+        0,
+        Number(view?.state_revision || 0),
+        Number(view?.world_seq || 0),
+      );
+    }
+
+    function expeditionRingPresentation(actor, stateRevision) {
+      const projected = actor?.expedition_ring;
+      if (!projected || typeof projected !== "object") {
+        return { html: "", needsRest: false };
+      }
+      const pipTotal = Math.max(1, Math.min(4, Math.trunc(Number(projected.pip_total) || 1)));
+      const filledCount = Math.max(
+        0,
+        Math.min(pipTotal, Math.trunc(Number(projected.filled_count) || 0)),
+      );
+      const needsRest = projected.needs_rest === true;
+      const actorKey = String(actor?.id || "");
+      const prior = expeditionRingRenderState.get(actorKey);
+      const committedChange = Boolean(
+        prior
+        && stateRevision > prior.stateRevision
+        && (filledCount !== prior.filledCount || needsRest !== prior.needsRest),
+      );
+      if (!prior || stateRevision >= prior.stateRevision) {
+        expeditionRingRenderState.set(actorKey, {
+          filledCount,
+          needsRest,
+          stateRevision,
+        });
+      }
+      const gapDegrees = pipTotal === 1 ? 18 : 10;
+      const sweepDegrees = (360 / pipTotal) - gapDegrees;
+      const segments = Array.from({ length: pipTotal }, (_, index) => {
+        const startDegrees = (index * 360 / pipTotal) + (gapDegrees / 2);
+        return `<span class="expedition-ring-segment${index < filledCount ? " filled" : ""}" style="--ring-start:${startDegrees}deg;--ring-sweep:${sweepDegrees}deg"></span>`;
+      }).join("");
+      const classes = `expedition-ring${committedChange ? " committed-change" : ""}`;
+      return {
+        needsRest,
+        html: `<span class="${classes}" aria-hidden="true" data-filled-count="${filledCount}" data-pip-total="${pipTotal}" data-state-revision="${stateRevision}">${segments}</span>`,
+      };
+    }
+
     function roomAvatarRailHtml(view) {
       const actors = [...(view.actors || [])].sort((a, b) => {
         if (a.id === actorId) return -1;
         if (b.id === actorId) return 1;
         return String(a.name || "").localeCompare(String(b.name || ""));
       });
+      const stateRevision = committedStateRevision(view);
       return actors.map((actor) => {
         const card = cardForActor(actor.id);
         const fallback = card || {
@@ -7953,7 +8067,8 @@
         const you = actor.id === actorId;
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
-        return `<button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>`;
+        const ring = expeditionRingPresentation(actor, stateRevision);
+        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
       }).join("");
     }
 
