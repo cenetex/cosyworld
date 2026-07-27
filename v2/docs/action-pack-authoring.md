@@ -45,6 +45,23 @@ An offer says why an existing action is relevant to an authored noun:
 The runtime still composes legality and resolves Study authoritatively. The
 offer cannot grant the location, item, skill charm, or reward it references.
 
+Influence offers may attach one bounded `cooperation` payload of kind
+`local_lead`. It names an authored destination and a presentation-only hint:
+
+```json
+{
+  "cooperation": {
+    "kind": "local_lead",
+    "destination_location_id": 2,
+    "destination_hint": "the rain-soft garden beyond the eastern cottage door"
+  }
+}
+```
+
+The payload can record actionable knowledge after a successful Influence
+check. It does not create, reveal, close, or otherwise mutate a route; following
+the resulting Scout offer still uses the ordinary topology resolver.
+
 ## Justified variant
 
 A variant is a new, versioned rule identity. It declares its complete delta,

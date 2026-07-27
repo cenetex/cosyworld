@@ -18,6 +18,11 @@
         },
         "label": "Ask for a local lead",
         "target_predicate": "active_npc_same_location",
+        "cooperation": {
+          "kind": "local_lead",
+          "destination_location_id": 2,
+          "destination_hint": "the rain-soft garden beyond the eastern cottage door"
+        },
         "source_reference": "CosyWorld Core — Blue Cottage bounded cooperation"
       }
     ],

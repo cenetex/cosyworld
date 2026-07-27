@@ -267,7 +267,18 @@ pub(super) struct SeedContextualActionOffer {
     pub(super) context: serde_json::Value,
     pub(super) label: String,
     pub(super) target_predicate: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) cooperation: Option<SeedCooperationPayload>,
     pub(super) source_reference: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(super) enum SeedCooperationPayload {
+    LocalLead {
+        destination_location_id: u64,
+        destination_hint: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1861,11 +1872,35 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             }
         }
         for offer in &bundle.offers {
+            let cooperation_is_valid =
+                offer
+                    .cooperation
+                    .as_ref()
+                    .is_none_or(|payload| match payload {
+                        SeedCooperationPayload::LocalLead {
+                            destination_location_id,
+                            destination_hint,
+                        } => {
+                            offer.based_on == "srd5.2.1:influence"
+                                && offer.subject.kind == "location"
+                                && offer.subject.id != *destination_location_id
+                                && content
+                                    .locations
+                                    .iter()
+                                    .any(|location| location.id == *destination_location_id)
+                                && !destination_hint.trim().is_empty()
+                                && content.exits.iter().any(|exit| {
+                                    exit.from_location_id == offer.subject.id
+                                        && exit.to_location_id == *destination_location_id
+                                })
+                        }
+                    });
             if !offer.id.starts_with(&format!("{}:", bundle.pack_id))
                 || !action_ids.contains(offer.based_on.as_str())
                 || offer.label.trim().is_empty()
                 || offer.target_predicate.trim().is_empty()
                 || !offer.context.is_object()
+                || !cooperation_is_valid
                 || !matches!(
                     offer.subject.kind.as_str(),
                     "location" | "feature" | "actor" | "item" | "project"
