@@ -3310,17 +3310,38 @@ impl RuntimeWorld {
             }
         }
 
-        let shared_questions = self.shared_question_views(location_id, Some(actor.id));
+        let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
+        let action_hand = compose_action_hand(&action_offers);
+        let shared_questions = self.shared_question_views_with_actions(
+            location_id,
+            Some(actor.id),
+            &action_offers,
+            &action_hand,
+        );
         let promoted_questions = shared_questions
             .iter()
             .filter(|question| question.promoted)
             .map(|question| {
-                let strategies = question
-                    .strategies
+                let suggestions = question
+                    .suggested_actions
                     .iter()
-                    .filter(|strategy| strategy.available)
-                    .map(|strategy| {
-                        format!("{} — target {}", strategy.label, strategy.target_label)
+                    .enumerate()
+                    .map(|(index, suggestion)| {
+                        let risk = suggestion
+                            .risk
+                            .as_ref()
+                            .map(|risk| format!(" Risk: {risk}."))
+                            .unwrap_or_default();
+                        format!(
+                            "Suggestion {} of {}: {}. target {}. Source: {}. Likely: {}.{}",
+                            index + 1,
+                            question.suggested_actions.len(),
+                            suggestion.label,
+                            suggestion.target_label,
+                            suggestion.source,
+                            suggestion.likely_effect,
+                            risk,
+                        )
                     })
                     .collect::<Vec<_>>();
                 let next = question
@@ -3337,14 +3358,16 @@ impl RuntimeWorld {
                     })
                     .unwrap_or_default();
                 format!(
-                    "{} {} Progress: {}/{}.{} What finishing changes: {} Try: {}.{}",
+                    "{} {} Progress: {}/{}.{} Danger now: {} Danger consequence: {} What finishing changes: {} Try: {}.{}",
                     question.question,
                     question.situation,
                     question.filled,
                     question.segments,
                     trouble,
+                    question.danger_situation,
+                    question.danger_consequence,
                     question.outcome,
-                    command_list_or_none(&strategies),
+                    command_list_or_none(&suggestions),
                     next,
                 )
             })
@@ -3354,12 +3377,19 @@ impl RuntimeWorld {
                 "Shared questions: {}",
                 promoted_questions.join(" | ")
             ));
-        } else if let Some(memory) = shared_questions
+        } else if let Some(question) = shared_questions
             .iter()
             .find(|question| question.presentation_state == "completed_memory")
-            .and_then(|question| question.completion_memory.as_ref())
         {
-            lines.push(format!("What changed here: {memory}"));
+            let contributors = command_list_or_none(&question.participant_names);
+            lines.push(format!(
+                "What changed here: {} Contributors: {}.",
+                question
+                    .completion_memory
+                    .as_deref()
+                    .unwrap_or(&question.situation),
+                contributors,
+            ));
         }
 
         let clocks = self.clock_views(location_id);

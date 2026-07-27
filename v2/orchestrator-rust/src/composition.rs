@@ -1498,10 +1498,15 @@ impl RuntimeWorld {
             "work" => self
                 .job_contribution_intent(actor_id, "work", None, None, None)
                 .map(|intent| {
-                    self.project_headway_text(
+                    let headway = self.project_headway_text(
                         &intent.strategy.clock_id,
                         self.contribution_progress_amount(actor_id, &intent),
-                    )
+                    );
+                    if self.prepared_tag_active(actor_id, actor.location_id) {
+                        format!("{headway}; preparation avoids fatigue")
+                    } else {
+                        headway
+                    }
                 }),
             "help" => self
                 .job_contribution_intent(actor_id, "help", None, None, None)
@@ -1542,7 +1547,20 @@ impl RuntimeWorld {
                     .active_danger_clock_id_for_location(actor.location_id)
                     .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
             {
-                Some("helps you feel fresh; trouble may draw nearer out here".to_string())
+                let clock = self
+                    .active_danger_clock_id_for_location(actor.location_id)
+                    .and_then(|clock_id| self.clocks.get(&clock_id));
+                Some(match clock {
+                    Some(clock) => format!(
+                        "helps you feel fresh; {} advances from {}/{} to {}/{}",
+                        clock.label,
+                        clock.filled,
+                        clock.segments,
+                        clock.filled.saturating_add(1).min(clock.segments),
+                        clock.segments,
+                    ),
+                    None => "helps you feel fresh; trouble may draw nearer out here".to_string(),
+                })
             }
             "rest" => Some("helps you feel fresh".to_string()),
             "move" => Some("takes you to a nearby room".to_string()),

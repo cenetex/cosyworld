@@ -395,6 +395,54 @@
     .shared-question-strategies .unavailable {
       color: var(--faint);
     }
+    .shared-question-meters {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .shared-question-meter {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 8px;
+      color: var(--dim);
+      font-size: 11px;
+    }
+    .shared-question-meter strong {
+      color: var(--amber);
+      text-transform: uppercase;
+    }
+    .shared-question-meter-track {
+      grid-column: 1 / -1;
+      height: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(129, 255, 167, 0.2);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.42);
+    }
+    .shared-question-meter-track span {
+      display: block;
+      width: var(--meter-fill);
+      height: 100%;
+      background: var(--green);
+    }
+    .shared-question-meter.danger .shared-question-meter-track span {
+      background: var(--amber);
+    }
+    .shared-question-suggestions {
+      margin: 8px 0 0;
+      padding: 7px 0 0 18px;
+      border-top: 1px solid rgba(129, 255, 167, 0.14);
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .shared-question-suggestions li + li {
+      margin-top: 6px;
+    }
+    .shared-question-suggestions strong {
+      color: var(--text);
+    }
     .memory-summary {
       min-width: 0;
       color: var(--text);
@@ -3705,6 +3753,7 @@
         </div>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
+        <section class="shared-questions" id="promoted-question" aria-live="polite" aria-label="Current shared question" hidden></section>
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
         <header class="journal-heading">
@@ -7406,33 +7455,35 @@
     function acknowledgeVisibleClockPresentations() {
       if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
       if (libraryPanelPinned || accountPanelPinned) return;
-      const panel = $("shared-questions");
-      if (!panel || panel.hidden || panel.getClientRects().length === 0) return;
-      for (const row of panel.querySelectorAll("[data-clock-presentation][data-clock-id]")) {
-        if (!clockPresentationRowIsActuallyVisible(row, panel)) continue;
-        const clockId = String(row.dataset.clockId || "");
-        const question = (state?.shared_questions || []).find((candidate) => (
-          String(candidate?.progress_clock_id || "") === clockId
-        ));
-        if (!question) continue;
-        const interaction = row.dataset.questionState === "completed_memory"
-          ? "completion_seen"
-          : "promoted_seen";
-        void acknowledgeClockPresentation(question, interaction);
-        const updatedEventSeq = Number(question.updated_event_seq || 0);
-        const lastSeenEventSeq = clockPresentationLastSeenEventSeq(clockId);
-        if (
-          lastSeenEventSeq > 0
-          && updatedEventSeq > lastSeenEventSeq
-          && (
-            (question.recent_contributions || []).some((entry) => Number(entry.event_seq || 0) > lastSeenEventSeq)
-            || question.presentation_state === "completed_memory"
-          )
-        ) {
-          void acknowledgeClockPresentation(question, "return_change_seen");
-        }
-        if (updatedEventSeq > lastSeenEventSeq) {
-          rememberClockPresentationEventSeq(clockId, updatedEventSeq);
+      const panels = [$("promoted-question"), $("shared-questions")]
+        .filter((panel) => panel && !panel.hidden && panel.getClientRects().length > 0);
+      for (const panel of panels) {
+        for (const row of panel.querySelectorAll("[data-clock-presentation][data-clock-id]")) {
+          if (!clockPresentationRowIsActuallyVisible(row, panel)) continue;
+          const clockId = String(row.dataset.clockId || "");
+          const question = (state?.shared_questions || []).find((candidate) => (
+            String(candidate?.progress_clock_id || "") === clockId
+          ));
+          if (!question) continue;
+          const interaction = row.dataset.questionState === "completed_memory"
+            ? "completion_seen"
+            : "promoted_seen";
+          void acknowledgeClockPresentation(question, interaction);
+          const updatedEventSeq = Number(question.updated_event_seq || 0);
+          const lastSeenEventSeq = clockPresentationLastSeenEventSeq(clockId);
+          if (
+            lastSeenEventSeq > 0
+            && updatedEventSeq > lastSeenEventSeq
+            && (
+              (question.recent_contributions || []).some((entry) => Number(entry.event_seq || 0) > lastSeenEventSeq)
+              || question.presentation_state === "completed_memory"
+            )
+          ) {
+            void acknowledgeClockPresentation(question, "return_change_seen");
+          }
+          if (updatedEventSeq > lastSeenEventSeq) {
+            rememberClockPresentationEventSeq(clockId, updatedEventSeq);
+          }
         }
       }
     }
@@ -7706,6 +7757,7 @@
         document.querySelector(".room")?.classList.add("collapsed");
       }
       renderRoomCopy(location.id);
+      renderPromotedQuestion();
       renderSharedQuestions();
       renderTimelines();
       renderCommands();
@@ -8137,8 +8189,13 @@
       const detail = [
         journalClause(question.situation),
         `progress is ${progress}`,
+        question.danger_segments ? `danger is ${Number(question.danger_filled || 0)}/${Number(question.danger_segments || 0)}` : "",
+        question.danger_situation ? `danger now: ${journalClause(question.danger_situation)}` : "",
+        question.danger_consequence ? `if danger fills: ${lowerInitial(journalClause(question.danger_consequence))}` : "",
         question.outcome ? `finishing could ${lowerInitial(journalClause(question.outcome))}` : "",
-        helpers.length ? `help by ${helpers.join(", ")}` : "",
+        (question.suggested_actions || []).length
+          ? `suggested now: ${question.suggested_actions.map((suggestion) => journalClause(suggestion.label)).join(", ")}`
+          : (helpers.length ? `help by ${helpers.join(", ")}` : ""),
       ].filter(Boolean).join("; ");
       return journalRowHtml({
         label: `${rhythm} question`,
@@ -8149,6 +8206,50 @@
         attrs,
         action,
       });
+    }
+
+    function sharedQuestionMeterHtml(label, filled, segments, kind = "") {
+      const total = Math.max(0, Number(segments || 0));
+      const current = Math.min(total, Math.max(0, Number(filled || 0)));
+      const percent = total ? Math.round((current / total) * 100) : 0;
+      return `<div class="shared-question-meter ${escapeAttr(kind)}" role="progressbar" aria-label="${escapeAttr(label)}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${current}" aria-valuetext="${current} of ${total}"><strong>${escapeHtml(label)}</strong><span>${current}/${total}</span><span class="shared-question-meter-track" aria-hidden="true"><span style="--meter-fill:${percent}%"></span></span></div>`;
+    }
+
+    function promotedQuestionHtml(question) {
+      const completed = question.presentation_state === "completed_memory";
+      const attrs = ` data-clock-presentation data-clock-id="${escapeAttr(question.progress_clock_id || "")}" data-question-state="${completed ? "completed_memory" : "active"}"`;
+      const contributors = (question.participant_names || []).filter(Boolean);
+      if (completed) {
+        const result = String(question.completion_memory || question.situation || "The shared question is settled.");
+        const contributorCopy = contributors.length ? `Contributors: ${contributors.join(", ")}.` : "";
+        return `<article class="shared-question completed-memory"${attrs} role="note" aria-label="${escapeAttr([result, contributorCopy].filter(Boolean).join(" "))}"><span class="shared-question-kicker">${question.resolution === "failed" ? "the road changed" : "the beacon changed"}</span><h2>${escapeHtml(result)}</h2>${contributorCopy ? `<p class="shared-question-situation">${escapeHtml(contributorCopy)}</p>` : ""}</article>`;
+      }
+      const suggestions = (question.suggested_actions || []).slice(0, 2);
+      const suggestionHtml = suggestions.length
+        ? `<ol class="shared-question-suggestions" aria-label="${suggestions.length} suggested ${suggestions.length === 1 ? "action" : "actions"}">${suggestions.map((suggestion, index) => {
+          const ordinal = `Suggestion ${index + 1} of ${suggestions.length}`;
+          const risk = suggestion.risk || "No special risk is expected.";
+          const rationale = `${ordinal}. ${suggestion.label}. Target: ${suggestion.target_label}. Source: ${suggestion.source}. Likely effect: ${suggestion.likely_effect}. Risk: ${risk}`;
+          return `<li aria-label="${escapeAttr(rationale)}"><strong>${escapeHtml(`${ordinal}: ${suggestion.label}`)}</strong><br />Target: ${escapeHtml(suggestion.target_label)} · Source: ${escapeHtml(suggestion.source)} · Likely: ${escapeHtml(suggestion.likely_effect)} · Risk: ${escapeHtml(risk)}</li>`;
+        }).join("")}</ol>`
+        : "";
+      const aria = [
+        question.question,
+        question.situation,
+        `Progress ${Number(question.filled || 0)} of ${Number(question.segments || 0)}`,
+        `Danger ${Number(question.danger_filled || 0)} of ${Number(question.danger_segments || 0)}`,
+        `Completion changes: ${question.outcome}`,
+        `Danger consequence: ${question.danger_consequence}`,
+      ].filter(Boolean).join(". ");
+      return `<article class="shared-question active-question"${attrs} role="region" aria-label="${escapeAttr(aria)}"><div class="shared-question-heading"><span><span class="shared-question-kicker">current question</span><h2>${escapeHtml(question.question)}</h2></span><span class="shared-question-progress">${Number(question.filled || 0)}/${Number(question.segments || 0)}</span></div><p class="shared-question-situation">${escapeHtml(question.situation)}</p><div class="shared-question-meters">${sharedQuestionMeterHtml("Progress", question.filled, question.segments)}${sharedQuestionMeterHtml("Danger", question.danger_filled, question.danger_segments, "danger")}</div><div class="shared-question-detail"><span><strong>Completion changes</strong><br />${escapeHtml(question.outcome || "")}</span><span><strong>Danger now</strong><br />${escapeHtml(question.danger_situation || "")}</span><span><strong>If danger fills</strong><br />${escapeHtml(question.danger_consequence || "")}</span></div>${suggestionHtml}</article>`;
+    }
+
+    function renderPromotedQuestion() {
+      const panel = $("promoted-question");
+      const questions = sharedQuestionsForPresentation();
+      panel.hidden = questions.length === 0;
+      panel.innerHTML = questions.slice(0, 1).map(promotedQuestionHtml).join("");
+      if (questions.length) scheduleVisibleClockPresentationReceipts();
     }
 
     function renderSharedQuestions() {
@@ -11721,9 +11822,10 @@
       ].filter(Boolean).join("; ");
       if (title) button.title = title;
       else button.removeAttribute("title");
-      const actionIndex = Number.isInteger(action.actionIndex) ? action.actionIndex : actions.indexOf(action);
-      const count = !state?.branch && actionIndex >= 0 && actions.length > 1
-        ? `${actionIndex + 1} of ${actions.length}`
+      const suggestionIndex = Number(action.suggestionIndex);
+      const suggestionCount = Number(action.suggestionCount);
+      const count = Number.isInteger(suggestionIndex) && suggestionIndex >= 0 && suggestionCount > 0
+        ? `${suggestionIndex + 1} of ${suggestionCount}`
         : "";
       const pendingDetail = action.busy
         ? (typeof action.busyDetail === "function" ? action.busyDetail() : action.busyDetail)
@@ -11737,7 +11839,7 @@
           handProviderReason(action),
           storyGuideLabel,
           keepsakeName ? `matching kept-close art: ${keepsakeName}` : "",
-          count ? `action ${count}` : "",
+          count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
       );
@@ -11897,7 +11999,13 @@
       const visibleActions = actionBarActions().slice(0, handCapacity());
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
-        const visibleAction = visibleActions[index] || null;
+        const visibleAction = visibleActions[index]
+          ? {
+              ...visibleActions[index],
+              suggestionIndex: index,
+              suggestionCount: visibleActions.length,
+            }
+          : null;
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
       }

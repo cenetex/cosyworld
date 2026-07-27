@@ -12047,6 +12047,7 @@ impl RuntimeWorld {
             });
         }
         let clock = clock.clone();
+        self.record_job_clock_participant(clock_id, actor_id);
         let update_event = self.append_clock_event(
             "clock.updated",
             actor_id,
@@ -57724,7 +57725,8 @@ mod tests {
             panic!("look must be a read-only command");
         };
         let question = runtime
-            .shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000))
+            .state_response(Some(5000), &AccessContext::default())
+            .shared_questions
             .into_iter()
             .find(|question| question.promoted)
             .expect("Moonlit Trail has one promoted question");
@@ -57732,12 +57734,10 @@ mod tests {
         assert!(output.contains(&question.question));
         assert!(output.contains(&question.situation));
         assert!(output.contains(&question.outcome));
-        for strategy in question
-            .strategies
-            .iter()
-            .filter(|strategy| strategy.available)
-        {
-            assert!(output.contains(&format!("target {}", strategy.target_label)));
+
+        assert_eq!(question.suggested_actions.len(), 2);
+        for suggestion in &question.suggested_actions {
+            assert!(output.contains(&format!("target {}", suggestion.target_label)));
         }
         assert!(!output.contains(MOONLIT_PROGRESS_CLOCK_ID));
         assert!(!output.contains(MOONLIT_JOB_ID));

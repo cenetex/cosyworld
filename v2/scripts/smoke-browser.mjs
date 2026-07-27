@@ -5414,6 +5414,221 @@ async function main() {
     });
   }
 
+  async function assertLanternQuestionAndTwoSuggestionAccessibility() {
+    const previousViewport = page.viewportSize();
+    const screenshotPath = resolve(visualSnapshotDir, "lantern-question-two-suggestions.png");
+    const metadataPath = resolve(visualSnapshotDir, "lantern-question-two-suggestions.json");
+    await mkdir(visualSnapshotDir, { recursive: true });
+    const evidence = await page.evaluate(() => {
+      window.__cosyLanternQuestionEvidence = {
+        state,
+        actions,
+        actorSession,
+        handKeys,
+        discardedHandKeys,
+        authoritativeHandIdentity,
+        focusIndex,
+        focusedKey,
+        playerPromotedHandKey,
+      };
+      actorSession = "";
+      const suggestedActions = [
+        {
+          offer_id: "offer-prepare",
+          state_revision: 361,
+          kind: "use_feature",
+          label: "Prepare the beacon lens",
+          target_label: "the brass beacon shutters",
+          source: "the Lantern Tower's tools are within reach",
+          likely_effect: "preparation avoids fatigue; progress stays 2/6",
+          likely_progress: 0,
+          risk: "the road remains dark while you prepare",
+        },
+        {
+          offer_id: "offer-rest",
+          state_revision: 361,
+          kind: "rest",
+          label: "Rest",
+          target_label: "your tired traveler",
+          source: "you are tired after tending the road",
+          likely_effect: "helps you feel fresh; The Road Goes Fully Dark advances from 1/6 to 2/6",
+          likely_progress: 0,
+          risk: "trouble may draw nearer while you rest",
+        },
+      ];
+      state = {
+        ...state,
+        state_revision: 361,
+        world_seq: 361,
+        branch: null,
+        location: { ...(state?.location || {}), id: 804, name: "Lantern Tower" },
+        primary_action: { kind: "act", options: [{ kind: "use_feature" }, { kind: "rest" }] },
+        shared_questions: [{
+          job_id: "lantern-keeper:rekindle-the-beacon",
+          question: "Can the Mothwood beacon be relit before the road goes fully dark?",
+          situation: "One more road lamp has gone out, and the dark now reaches the next bend.",
+          resolution: "active",
+          progress_clock_id: "lantern-keeper.light",
+          filled: 2,
+          segments: 6,
+          danger_clock_id: "lantern-keeper.dark",
+          danger_filled: 1,
+          danger_segments: 6,
+          danger_situation: "One more road lamp goes out. The dark now reaches the next bend.",
+          danger_consequence: "The Mothwood road goes fully dark and travelers lose the safe night route.",
+          outcome: "The beacon burns again and makes the Mothwood road trustworthy after dusk.",
+          presentation_state: "active",
+          promoted: true,
+          promotion_rank: 0,
+          updated_event_seq: 361,
+          suggested_actions: suggestedActions,
+        }],
+        action_hand: {
+          capacity: 2,
+          state_revision: 361,
+          entries: suggestedActions.map((suggestion) => ({
+            offer_id: suggestion.offer_id,
+            kind: suggestion.kind,
+            intention: suggestion.kind === "rest" ? "rest" : "feature",
+            state_revision: suggestion.state_revision,
+          })),
+        },
+      };
+      actions = [
+        {
+          label: "prepare",
+          accessibleLabel: "Prepare the beacon lens",
+          detail: "line up the brass shutters",
+          effect: suggestedActions[0].likely_effect,
+          risk: suggestedActions[0].risk,
+          focusKey: "feature:lantern-keeper.prepare",
+          command: "use beacon tools",
+          intention: "feature",
+          offerKinds: ["use_feature"],
+          handProvider: { reason: suggestedActions[0].source, priority: 0 },
+        },
+        {
+          label: "rest",
+          accessibleLabel: "Rest beside the beacon",
+          detail: "catch your breath by the lantern oil",
+          effect: suggestedActions[1].likely_effect,
+          risk: suggestedActions[1].risk,
+          focusKey: "rest",
+          command: "rest",
+          intention: "rest",
+          offerKinds: ["rest"],
+          handProvider: { reason: suggestedActions[1].source, priority: 1 },
+        },
+      ];
+      handKeys = [];
+      discardedHandKeys = [];
+      authoritativeHandIdentity = "";
+      focusIndex = 0;
+      focusedKey = "";
+      playerPromotedHandKey = "";
+      render();
+      const question = document.querySelector("#promoted-question .shared-question");
+      const meters = [...question.querySelectorAll('[role="progressbar"]')].map((meter) => ({
+        label: meter.getAttribute("aria-label"),
+        now: meter.getAttribute("aria-valuenow"),
+        max: meter.getAttribute("aria-valuemax"),
+        text: meter.getAttribute("aria-valuetext"),
+      }));
+      const buttons = ["primary", "secondary"].map((id) => {
+        const button = document.getElementById(id);
+        return {
+          id,
+          text: button?.textContent || "",
+          aria: button?.getAttribute("aria-label") || "",
+          visible: Boolean(button && button.getClientRects().length),
+        };
+      });
+      return {
+        questionText: question?.textContent || "",
+        questionAria: question?.getAttribute("aria-label") || "",
+        meters,
+        buttons,
+        suggestionLabels: [...question.querySelectorAll(".shared-question-suggestions li")]
+          .map((item) => item.getAttribute("aria-label") || ""),
+      };
+    });
+    assert(evidence.questionText.includes("Progress2/6") && evidence.questionText.includes("Danger1/6"), `ordinary scene should show both exact clocks: ${JSON.stringify(evidence)}`);
+    assert(evidence.questionText.includes("Completion changes") && evidence.questionText.includes("If danger fills"), `ordinary scene should explain both outcomes: ${JSON.stringify(evidence)}`);
+    assert(
+      JSON.stringify(evidence.meters) === JSON.stringify([
+        { label: "Progress", now: "2", max: "6", text: "2 of 6" },
+        { label: "Danger", now: "1", max: "6", text: "1 of 6" },
+      ]),
+      `progress and danger meters should expose exact accessible values: ${JSON.stringify(evidence)}`,
+    );
+    assert(
+      evidence.suggestionLabels.length === 2
+        && evidence.suggestionLabels[0].startsWith("Suggestion 1 of 2")
+        && evidence.suggestionLabels[1].startsWith("Suggestion 2 of 2"),
+      `the rationale list should describe exactly two suggestions: ${JSON.stringify(evidence)}`,
+    );
+    assert(
+      evidence.buttons.every((button) => button.visible)
+        && evidence.buttons[0].aria.includes("suggestion 1 of 2")
+        && evidence.buttons[1].aria.includes("suggestion 2 of 2")
+        && evidence.buttons.every((button) => !/action \d+ of \d+/i.test(button.aria)),
+      `the two playable cards should use suggestion ordinals and no legal-superset count: ${JSON.stringify(evidence)}`,
+    );
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+    evidence.terminal = await page.evaluate(() => {
+      const activeQuestion = state.shared_questions[0];
+      state = {
+        ...state,
+        shared_questions: [{
+          ...activeQuestion,
+          promoted: false,
+          presentation_state: "completed_memory",
+          resolution: "failed",
+          completion_memory: "The Mothwood road went fully dark, and the borrowed shadows learned its travelers.",
+          participant_names: ["Mara Wick", "Road Reader"],
+          suggested_actions: [],
+        }],
+      };
+      render();
+      const memory = document.querySelector("#promoted-question .completed-memory");
+      return {
+        text: memory?.textContent || "",
+        progressbars: memory?.querySelectorAll('[role="progressbar"]').length || 0,
+        suggestions: memory?.querySelectorAll(".shared-question-suggestions li").length || 0,
+      };
+    });
+    assert(
+      evidence.terminal.text.includes("road went fully dark")
+        && evidence.terminal.text.includes("Contributors: Mara Wick, Road Reader")
+        && evidence.terminal.progressbars === 0
+        && evidence.terminal.suggestions === 0,
+      `terminal question should retire task bars to contributor memory: ${JSON.stringify(evidence)}`,
+    );
+    await writeFile(metadataPath, `${JSON.stringify(evidence, null, 2)}\n`);
+    await page.evaluate(() => {
+      const previous = window.__cosyLanternQuestionEvidence;
+      state = previous.state;
+      actions = previous.actions;
+      actorSession = previous.actorSession;
+      handKeys = previous.handKeys;
+      discardedHandKeys = previous.discardedHandKeys;
+      authoritativeHandIdentity = previous.authoritativeHandIdentity;
+      focusIndex = previous.focusIndex;
+      focusedKey = previous.focusedKey;
+      playerPromotedHandKey = previous.playerPromotedHandKey;
+      delete window.__cosyLanternQuestionEvidence;
+      render();
+    });
+    if (previousViewport) await page.setViewportSize(previousViewport);
+    steps.push({
+      label: "Lantern Keeper question and two suggestions",
+      screenshot: screenshotPath,
+      metadata: metadataPath,
+      suggestions: evidence.buttons.map((button) => button.aria),
+    });
+  }
+
   async function assertJourneyCardContract() {
     const result = await page.evaluate(() => {
       const base = {
@@ -9220,6 +9435,7 @@ async function main() {
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
+  await assertLanternQuestionAndTwoSuggestionAccessibility();
   await assertJourneyCardContract();
   await assertHumanActionRequiresActorSession();
   await assertClientAuthoredSpeechModerated();

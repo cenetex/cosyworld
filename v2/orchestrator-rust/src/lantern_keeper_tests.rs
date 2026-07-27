@@ -210,6 +210,173 @@ fn runtime_ready_for_lantern_finale() -> (RuntimeWorld, Vec<u64>) {
 }
 
 #[test]
+fn lantern_question_projects_two_truthful_suggestions_and_replays_danger_memory() {
+    let actor_id = 9_850;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, actor_id, 800, "Road Reader");
+
+    let initial = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let initial_question = initial
+        .shared_questions
+        .iter()
+        .find(|question| question.id == LANTERN_JOB_ID)
+        .expect("Lantern question is visible before the finale strategy is legal");
+    assert!(initial_question.promoted);
+    assert_eq!(initial_question.presentation_state, "active");
+    assert_eq!(
+        (
+            initial_question.filled,
+            initial_question.segments,
+            initial_question.danger_filled,
+            initial_question.danger_segments,
+        ),
+        (0, 6, 0, 6)
+    );
+    assert!(!initial_question.danger_situation.is_empty());
+    assert!(!initial_question.danger_consequence.is_empty());
+    assert_eq!(initial_question.suggested_actions.len(), 2);
+    assert_eq!(
+        initial_question
+            .suggested_actions
+            .iter()
+            .map(|suggestion| suggestion.offer_id.as_str())
+            .collect::<Vec<_>>(),
+        initial
+            .action_hand
+            .entries
+            .iter()
+            .map(|entry| entry.offer_id.as_str())
+            .collect::<Vec<_>>()
+    );
+    assert!(initial_question.suggested_actions.iter().all(|suggestion| {
+        !suggestion.label.is_empty()
+            && !suggestion.target_label.is_empty()
+            && !suggestion.source.is_empty()
+            && suggestion.likely_effect.contains("current progress is 0/6")
+            && suggestion.likely_effect.contains("danger is 0/6")
+    }));
+
+    apply_projection(
+        &mut runtime,
+        actor_id,
+        80_100,
+        ProjectionMutation::SetTag {
+            tag: RpgTagState {
+                id: tired_tag_id(actor_id),
+                scope: "actor".to_string(),
+                scope_id: actor_id,
+                label: "tired".to_string(),
+                kind: "condition".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("after_rest".to_string()),
+            },
+            reason: "question_preview_fixture".to_string(),
+        },
+    );
+    let tired = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let rest = tired
+        .action_offers
+        .iter()
+        .find(|offer| offer.kind == "rest")
+        .expect("tired frontier traveler receives Rest");
+    assert_eq!(
+        rest.effect.as_deref(),
+        Some("helps you feel fresh; The Road Goes Fully Dark advances from 0/6 to 1/6")
+    );
+    assert_eq!(
+        rest.risk.as_deref(),
+        Some("trouble may draw nearer while you rest")
+    );
+    let stale_offer_id = rest.offer_id.clone();
+    let before_danger = RuntimeSnapshot::from_runtime(&runtime);
+    let danger_record = projection_record(
+        actor_id,
+        80_101,
+        ProjectionMutation::AdvanceClock {
+            clock_id: LANTERN_DANGER_CLOCK_ID.to_string(),
+            amount: 1,
+            reason: "rest".to_string(),
+        },
+    );
+    assert_eq!(runtime.apply_journal_record(&danger_record).0, CW_OK);
+
+    let after_danger = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let after_question = after_danger
+        .shared_questions
+        .iter()
+        .find(|question| question.id == LANTERN_JOB_ID)
+        .expect("Lantern question stays promoted after Rest");
+    assert_eq!(after_question.danger_filled, 1);
+    assert_eq!(
+        after_question.danger_situation,
+        "One more road lamp goes out. The dark now reaches the next bend."
+    );
+    assert!(after_question
+        .suggested_actions
+        .iter()
+        .all(|suggestion| suggestion.likely_effect.contains("danger is 1/6")));
+    assert!(!after_danger
+        .action_offers
+        .iter()
+        .any(|offer| offer.offer_id == stale_offer_id));
+
+    let mut replayed = before_danger
+        .into_runtime()
+        .expect("pre-Rest snapshot reconnects");
+    assert_eq!(replayed.apply_journal_record(&danger_record).0, CW_OK);
+    assert_eq!(
+        serde_json::to_value(
+            replayed
+                .state_response(Some(actor_id), &AccessContext::default())
+                .shared_questions
+        )
+        .unwrap(),
+        serde_json::to_value(after_danger.shared_questions).unwrap()
+    );
+
+    let failure_record = projection_record(
+        actor_id,
+        80_102,
+        ProjectionMutation::AdvanceClock {
+            clock_id: LANTERN_DANGER_CLOCK_ID.to_string(),
+            amount: 5,
+            reason: "rest".to_string(),
+        },
+    );
+    assert_eq!(runtime.apply_journal_record(&failure_record).0, CW_OK);
+    let failed = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let memory = failed
+        .shared_questions
+        .iter()
+        .find(|question| question.id == LANTERN_JOB_ID)
+        .expect("failed Lantern question leaves a public memory");
+    assert_eq!(memory.presentation_state, "completed_memory");
+    assert_eq!(memory.resolution, "failed");
+    assert!(memory.suggested_actions.is_empty());
+    assert!(memory
+        .completion_memory
+        .as_deref()
+        .is_some_and(|text| text.contains("road went fully dark")));
+    assert!(memory
+        .participant_names
+        .iter()
+        .any(|name| name == "Road Reader"));
+    let reconnected = RuntimeSnapshot::from_runtime(&runtime)
+        .into_runtime()
+        .expect("failure memory survives reconnect");
+    assert_eq!(
+        serde_json::to_value(
+            reconnected
+                .state_response(Some(actor_id), &AccessContext::default())
+                .shared_questions
+        )
+        .unwrap(),
+        serde_json::to_value(failed.shared_questions).unwrap()
+    );
+}
+
+#[test]
 fn lantern_finale_is_absent_and_rejected_before_the_tower() {
     for (index, location_id) in [800, 801, 802, 803].into_iter().enumerate() {
         let actor_id = 9_900 + index as u64;
@@ -368,7 +535,7 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
         .expect("active finale strategy replaces the old snapshot contract");
     assert_eq!(restored_strategy.requirements.len(), 10);
     assert_eq!(restored_strategy.baseline_progress, 6);
-    assert_eq!(restored_strategy.pack_version, "0.1.6");
+    assert_eq!(restored_strategy.pack_version, "0.1.7");
     assert_eq!(
         restored.tags[&room_feature_use_tag_id(801, "cold_lamp_post", 8402)].source_event_seq,
         Some(321)
