@@ -4,6 +4,7 @@ mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
 mod ai_gateway;
+mod ai_publication;
 mod avatar_identity;
 mod canonical_journal;
 mod canonical_world;
@@ -57,6 +58,7 @@ use activation::*;
 use actor_practice::*;
 use actor_rules_facets::*;
 use ai_gateway::*;
+use ai_publication::*;
 use avatar_identity::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
@@ -1356,6 +1358,7 @@ impl ResidentContinuityState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 struct AvatarIntentProposal {
     speech: String,
     #[serde(default)]
@@ -1482,6 +1485,7 @@ struct ActorAutonomyState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 struct AvatarProposedAction {
     kind: String,
     #[serde(default)]
@@ -1557,6 +1561,7 @@ struct RuntimeWorld {
     world: CwWorld,
     canonical_identities: CanonicalIdentityState,
     command_receipts: BTreeMap<String, StoredCommandResponse>,
+    ai_publications: BTreeMap<String, AiPublicationReceipt>,
     actors: BTreeMap<u64, ActorMeta>,
     items: BTreeMap<u64, ItemMeta>,
     locations: BTreeMap<u64, String>,
@@ -1641,6 +1646,8 @@ struct RuntimeSnapshot {
     canonical_identities: CanonicalIdentityState,
     #[serde(default)]
     command_receipts: BTreeMap<String, StoredCommandResponse>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    ai_publications: BTreeMap<String, AiPublicationReceipt>,
     world_actors: Vec<CwActor>,
     world_items: Vec<CwItem>,
     world_locations: Vec<CwLocation>,
@@ -1868,6 +1875,8 @@ struct JournalRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     resident_decision: Option<ResidentDecisionTrace>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    ai_publication: Option<AiPublicationReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     focused_encounter: Option<FocusedEncounterJournalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     offer_kind: Option<String>,
@@ -1946,6 +1955,7 @@ impl JournalRecord {
             observed_through_seq: None,
             source_location_id: None,
             resident_decision: None,
+            ai_publication: None,
             focused_encounter,
             offer_kind: None,
             focused_policy_version: 1,
@@ -6142,6 +6152,7 @@ impl RuntimeSnapshot {
             next_event_seq: runtime.world.next_event_seq,
             canonical_identities: runtime.canonical_identities.clone(),
             command_receipts: runtime.command_receipts.clone(),
+            ai_publications: runtime.ai_publications.clone(),
             world_actors: runtime.world.actors[..runtime.world.actor_count].to_vec(),
             world_items: runtime.world.items[..runtime.world.item_count].to_vec(),
             world_locations: runtime.world.locations[..runtime.world.location_count].to_vec(),
@@ -6362,6 +6373,7 @@ impl RuntimeSnapshot {
             world,
             canonical_identities: self.canonical_identities,
             command_receipts: self.command_receipts,
+            ai_publications: self.ai_publications,
             actors: self.actor_meta,
             items: self.item_meta,
             locations: self.location_names,
@@ -6756,6 +6768,7 @@ impl RuntimeWorld {
             world,
             canonical_identities: CanonicalIdentityState::default(),
             command_receipts: BTreeMap::new(),
+            ai_publications: BTreeMap::new(),
             actors: seed_actor_meta(),
             items: seed_item_meta(),
             locations: seed_location_names(),
@@ -9950,6 +9963,7 @@ impl RuntimeWorld {
         if !focused_encounter_journal_context_is_supported(self, record)
             || !self.route_record_preconditions_hold(record)
             || !self.job_contribution_record_preconditions_hold(record)
+            || !self.ai_publication_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
@@ -9995,6 +10009,10 @@ impl RuntimeWorld {
             self.apply_action_with_seed(action, record.seed, advances_world_tick)
         };
         if status == CW_OK {
+            if let Some(receipt) = record.ai_publication.as_ref() {
+                self.ai_publications
+                    .insert(receipt.generation_id.clone(), receipt.clone());
+            }
             if advances_world_tick {
                 self.decay_search_memories();
             }
@@ -16451,6 +16469,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
         })
     }
 
@@ -21022,6 +21041,7 @@ impl RuntimeWorld {
             .find_map(|line| self.conversation_subject(line, target_actor_id));
 
         Some(AvatarChatPlan {
+            actor_id,
             location_id: actor.location_id,
             actor_name: self
                 .actor_name(actor_id)
@@ -21053,6 +21073,7 @@ impl RuntimeWorld {
             recent_lines,
             fresh_subject,
             missing_need,
+            publication_beat_id: String::new(),
         })
     }
 
@@ -21410,6 +21431,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
         })
     }
 
@@ -21553,6 +21575,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
         })
     }
 
@@ -26787,15 +26810,17 @@ async fn complete_queued_orb_chat(
     source_world_tick: Option<u64>,
     observed_through_seq: Option<u64>,
 ) {
+    let plan = plan.with_publication_beat("avatar-chat", queue_event_id, source_world_tick);
     let started_at = Instant::now();
     let usage_config = state.ai_config.as_ref().clone();
     if state.avatar_chat_delay > Duration::ZERO {
         tokio::time::sleep(state.avatar_chat_delay).await;
     }
-    let content = match avatar_chat_text(usage_config.as_ref(), &plan).await {
+    let certified = match avatar_chat_text(usage_config.as_ref(), &plan).await {
         Ok(content) => content,
         Err(error) => {
             warn!("queued AI avatar inference failed: {}", error);
+            record_rejected_ai_publication(state, &error);
             commit_chat_status(
                 state,
                 actor_id,
@@ -26823,7 +26848,7 @@ async fn complete_queued_orb_chat(
             return;
         }
     };
-
+    let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
     let committed = {
         let mut runtime = state.inner.lock().await;
         let still_together = runtime
@@ -26853,16 +26878,19 @@ async fn complete_queued_orb_chat(
             record.observed_through_seq = observed_through_seq;
             record.source_location_id = Some(plan.location_id);
             record.content_upserts.insert(content_id, content.clone());
+            record.ai_publication = Some(publication_receipt);
             match commit_journal_record(state, &mut runtime, record) {
                 Ok((CW_OK, events)) if !events.is_empty() => {
                     let reply_plan = runtime
                         .resident_reply_plan_for_target(actor_id, target_actor_id, &content)
-                        .map(|mut reply_plan| {
-                            reply_plan.caused_by_event_seq = queue_event_id;
-                            reply_plan.source_world_tick = source_world_tick;
-                            reply_plan.observed_through_seq = observed_through_seq;
-                            reply_plan.source_location_id = Some(plan.location_id);
-                            reply_plan
+                        .map(|reply_plan| {
+                            reply_plan.with_publication_causality(
+                                "avatar-chat-reply",
+                                queue_event_id,
+                                source_world_tick,
+                                observed_through_seq,
+                                Some(plan.location_id),
+                            )
                         });
                     Some((content_id, events, reply_plan))
                 }
@@ -30149,6 +30177,7 @@ async fn complete_avatar_reply(state: &AppState, plan: AvatarReplyPlan) -> Resul
         Ok(proposal) => proposal,
         Err(error) => {
             warn!("AI resident inference failed; skipping dialogue: {}", error);
+            record_rejected_ai_publication(state, &error);
             return Err(error.to_string());
         }
     };
@@ -30175,6 +30204,7 @@ async fn complete_orb_chat_exchange(
                     "AI resident inference failed; ending chat exchange: {}",
                     error
                 );
+                record_rejected_ai_publication(state, &error);
                 return;
             }
         };
@@ -30196,12 +30226,12 @@ async fn complete_orb_chat_exchange(
         if let (Some(plan), Some(subject)) = (plan.as_mut(), anchored_subject) {
             plan.fresh_subject = Some(subject);
         }
-        plan
+        plan.map(|plan| plan.with_reply_beat("avatar-chat-followup", &first_reply_plan))
     };
     let Some(followup_plan) = followup_plan else {
         return;
     };
-    let proposed_followup =
+    let certified_followup =
         match avatar_chat_followup_text(state.ai_config.as_ref().as_ref(), &followup_plan).await {
             Ok(followup) => followup,
             Err(error) => {
@@ -30209,9 +30239,12 @@ async fn complete_orb_chat_exchange(
                     "AI avatar follow-up inference failed; ending chat exchange: {}",
                     error
                 );
+                record_rejected_ai_publication(state, &error);
                 return;
             }
         };
+    let (proposed_followup, followup_receipt) =
+        into_recorded_speech_parts(state, certified_followup);
     let (followup_events, closing_plan) = {
         let mut runtime = state.inner.lock().await;
         if runtime
@@ -30240,6 +30273,7 @@ async fn complete_orb_chat_exchange(
         record.observed_through_seq = first_reply_plan.observed_through_seq;
         record.source_location_id = first_reply_plan.source_location_id;
         record.content_upserts.insert(content_id, followup.clone());
+        record.ai_publication = Some(followup_receipt);
         record
             .projection_mutations
             .push(ProjectionMutation::MarkVisitLedger {
@@ -30261,12 +30295,14 @@ async fn complete_orb_chat_exchange(
         }
         let plan = runtime
             .resident_reply_plan_for_target(actor_id, target_actor_id, &followup)
-            .map(|mut plan| {
-                plan.caused_by_event_seq = first_reply_plan.caused_by_event_seq;
-                plan.source_world_tick = first_reply_plan.source_world_tick;
-                plan.observed_through_seq = first_reply_plan.observed_through_seq;
-                plan.source_location_id = first_reply_plan.source_location_id;
-                plan
+            .map(|plan| {
+                plan.with_publication_causality(
+                    "avatar-chat-closing",
+                    first_reply_plan.caused_by_event_seq,
+                    first_reply_plan.source_world_tick,
+                    first_reply_plan.observed_through_seq,
+                    first_reply_plan.source_location_id,
+                )
             });
         (events, plan)
     };
@@ -30284,6 +30320,7 @@ async fn complete_orb_chat_exchange(
                     "AI resident closing inference failed; ending chat exchange: {}",
                     error
                 );
+                record_rejected_ai_publication(state, &error);
                 return;
             }
         };
@@ -30300,8 +30337,13 @@ fn commit_resident_reply_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     plan: &AvatarReplyPlan,
-    mut proposal: AvatarIntentProposal,
+    certified: CertifiedAvatarIntent,
 ) -> Option<Vec<EventView>> {
+    let CertifiedAvatarIntent {
+        mut proposal,
+        speech,
+    } = certified;
+    let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
         return None;
@@ -30327,6 +30369,7 @@ fn commit_resident_reply_record(
     record
         .content_upserts
         .insert(content_id, proposal.speech.clone());
+    record.ai_publication = Some(publication_receipt);
     if runtime.actor_uses_inference(speaker.id) {
         record
             .projection_mutations
@@ -30915,6 +30958,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
                 "AI ambient resident intent failed; skipping ambient chat: {}",
                 error
             );
+            record_rejected_ai_publication(&state, &error);
             return;
         }
     };
@@ -30929,38 +30973,11 @@ async fn maybe_emit_ambient_event(state: AppState) {
     if !RuntimeWorld::actor_can_act(speaker) || !runtime.actor_uses_inference(speaker.id) {
         return;
     }
-    if runtime.resident_reply_repeats_recent_event(
-        plan.speaker_actor_id,
-        speaker.location_id,
-        &proposal.speech,
-    ) {
-        return;
-    }
-    let content_id = runtime.next_content_id_value();
-    let action = CwAction {
-        kind: CW_ACTION_SAY,
-        actor_id: plan.speaker_actor_id,
-        content_id,
-        ..CwAction::default()
-    };
-    let mut record = JournalRecord::new(action, runtime.next_seed_value());
-    record
-        .content_upserts
-        .insert(content_id, proposal.speech.clone());
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UpdateResidentContinuity {
-            resident_id: plan.speaker_actor_id,
-            proposal,
-            reason: "resident_ambient_intent".to_string(),
-        });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+    let Some(events) = commit_resident_reply_record(&state, &mut runtime, &plan, proposal) else {
         return;
     };
     drop(runtime);
-    if status == CW_OK {
-        broadcast_events(&state, &events);
-    }
+    broadcast_events(&state, &events);
 }
 
 fn room_memory_view_for_state(
@@ -32061,6 +32078,7 @@ async fn request_ai_room_memory_summary(
         config,
         ChatCompletionRequest {
             feature: "room_memory",
+            prompt_version: "room-memory-v1",
             capability: ModelCapability::Voice,
             system,
             user: &user,
@@ -32173,6 +32191,7 @@ async fn request_ai_avatar_identity(
         config,
         ChatCompletionRequest {
             feature: "avatar_identity",
+            prompt_version: "avatar-identity-v1",
             capability: ModelCapability::WorldContent,
             system,
             user: &user,
@@ -32499,60 +32518,25 @@ fn resident_proposed_action_intent(action: &AvatarProposedAction) -> Option<Stri
     Some(trim_to_chars(&parts.join("; "), 180))
 }
 
-fn sanitize_avatar_chat(text: &str) -> Option<String> {
-    cosyworld_ai_model::sanitize_avatar_chat(text)
-}
-
 fn parse_resident_intent_json(text: &str, plan: &AvatarReplyPlan) -> Option<AvatarIntentProposal> {
-    let cleaned = text
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-    let json_text = if cleaned.starts_with('{') {
-        cleaned
-    } else {
-        let start = cleaned.find('{')?;
-        let end = cleaned.rfind('}')?;
-        cleaned.get(start..=end)?
-    };
-    let value: serde_json::Value = serde_json::from_str(json_text).ok()?;
-    resident_intent_from_json_value(&value, plan)
-}
-
-fn resident_intent_from_json_value(
-    value: &serde_json::Value,
-    plan: &AvatarReplyPlan,
-) -> Option<AvatarIntentProposal> {
-    let speech = value
-        .get("speech")
-        .and_then(|value| value.as_str())
-        .and_then(|speech| sanitize_resident_reply(plan, speech))?;
+    let raw: AvatarIntentProposal = serde_json::from_str(text.trim()).ok()?;
+    let speech = sanitize_resident_reply(plan, &raw.speech)?;
+    let proposed_action = raw
+        .proposed_action
+        .and_then(sanitize_resident_proposed_action);
     Some(AvatarIntentProposal {
         speech,
-        intent: sanitize_continuity_note_text(value.get("intent").and_then(|value| value.as_str())),
-        belief: sanitize_continuity_note_text(value.get("belief").and_then(|value| value.as_str())),
-        desire: sanitize_continuity_note_text(value.get("desire").and_then(|value| value.as_str())),
-        promise: sanitize_continuity_note_text(
-            value.get("promise").and_then(|value| value.as_str()),
-        ),
-        refusal: sanitize_continuity_note_text(
-            value.get("refusal").and_then(|value| value.as_str()),
-        ),
-        proposed_action: value
-            .get("proposed_action")
-            .and_then(resident_proposed_action_from_json_value),
+        intent: sanitize_continuity_note_text(raw.intent.as_deref()),
+        belief: sanitize_continuity_note_text(raw.belief.as_deref()),
+        desire: sanitize_continuity_note_text(raw.desire.as_deref()),
+        promise: sanitize_continuity_note_text(raw.promise.as_deref()),
+        refusal: sanitize_continuity_note_text(raw.refusal.as_deref()),
+        proposed_action,
     })
 }
 
-fn resident_proposed_action_from_json_value(
-    value: &serde_json::Value,
-) -> Option<AvatarProposedAction> {
-    if value.is_null() {
-        return None;
-    }
-    let kind = sanitize_continuity_note_text(value.get("kind").and_then(|value| value.as_str()))?;
+fn sanitize_resident_proposed_action(raw: AvatarProposedAction) -> Option<AvatarProposedAction> {
+    let kind = sanitize_continuity_note_text(Some(&raw.kind))?;
     let kind = kind.to_ascii_lowercase().replace([' ', '-'], "_");
     if !matches!(
         kind.as_str(),
@@ -32571,14 +32555,10 @@ fn resident_proposed_action_from_json_value(
     }
     Some(AvatarProposedAction {
         kind,
-        target_actor_id: value
-            .get("target_actor_id")
-            .and_then(|value| value.as_u64()),
-        item_id: value.get("item_id").and_then(|value| value.as_u64()),
-        destination_location_id: value
-            .get("destination_location_id")
-            .and_then(|value| value.as_u64()),
-        reason: sanitize_continuity_note_text(value.get("reason").and_then(|value| value.as_str())),
+        target_actor_id: raw.target_actor_id,
+        item_id: raw.item_id,
+        destination_location_id: raw.destination_location_id,
+        reason: sanitize_continuity_note_text(raw.reason.as_deref()),
     })
 }
 
@@ -32921,6 +32901,7 @@ async fn generate_hidden_pathway_content(
         config,
         ChatCompletionRequest {
             feature: PATHWAY_CONTENT_FEATURE,
+            prompt_version: PATHWAY_CONTENT_PROMPT_VERSION,
             capability: ModelCapability::WorldContent,
             system: "You create bounded hidden geography in CosyWorld. Return only JSON matching the supplied schema. World rules and rewards are outside your authority.",
             user: &prompt,
@@ -39306,6 +39287,9 @@ fn commit_journal_record(
                 &pre_orb_reward_claims,
             );
             if status == CW_OK {
+                if let Some(receipt) = record.ai_publication.as_ref() {
+                    insert_ai_publication_attempt(&tx, receipt, "certified", None)?;
+                }
                 insert_orb_ledger_entries(&tx, &ledger_entries)?;
             }
             insert_world_events_strict(&tx, &events)?;
@@ -39863,6 +39847,7 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             ON economy_reconciliation_runs(created_at_ms);",
     )
     .map_err(sqlite_error)?;
+    init_ai_publication_store(&conn)?;
     ensure_sqlite_column(
         &conn,
         "world_events",
@@ -41120,6 +41105,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM moderation_reports;
          DELETE FROM orb_ledger;
          DELETE FROM ai_usage_ledger;
+         DELETE FROM ai_publication_attempts;
          DELETE FROM wooden_box_receipts;
          DELETE FROM avatar_pack_openings;
          DELETE FROM economy_reconciliation_runs;
@@ -70789,6 +70775,7 @@ mod tests {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
         }
     }
 
@@ -70865,8 +70852,7 @@ mod tests {
     fn resident_intent_json_parses_speech_and_taxonomy() {
         let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
         let proposal = parse_resident_intent_json(
-            r#"```json
-            {
+            r#"{
               "speech": "\"I will keep one stitch open for the room.\"",
               "intent": "listen for the next room need",
               "belief": "the cottage is waiting on a small kindness",
@@ -70880,8 +70866,7 @@ mod tests {
                 "destination_location_id": null,
                 "reason": "the scarf basket still has an unanswered clue"
               }
-            }
-            ```"#,
+            }"#,
             &plan,
         )
         .expect("structured resident intent parses");
@@ -70910,6 +70895,19 @@ mod tests {
             .expect("proposed action retained");
         assert_eq!(action.kind, "search");
         assert_eq!(action.item_id, Some(2002));
+    }
+
+    #[test]
+    fn resident_intent_json_rejects_wrappers_and_unknown_fields() {
+        let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
+        let valid = r#"{"speech":"The teapot is wobbling.","intent":null,"belief":null,"desire":null,"promise":null,"refusal":null,"proposed_action":null}"#;
+        assert!(parse_resident_intent_json(valid, &plan).is_some());
+        assert!(parse_resident_intent_json(&format!("```json\n{valid}\n```"), &plan).is_none());
+        assert!(parse_resident_intent_json(
+            r#"{"speech":"The teapot is wobbling.","intent":null,"belief":null,"desire":null,"promise":null,"refusal":null,"proposed_action":null,"debug":"private"}"#,
+            &plan,
+        )
+        .is_none());
     }
 
     #[test]

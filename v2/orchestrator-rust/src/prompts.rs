@@ -5,6 +5,61 @@ pub(super) const DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT: &str =
 pub(super) const DIRECTLY_CONTROLLED_REACTION_CONTEXT: &str =
     "This is a co-present directly controlled avatar's immediate in-character reaction. Write speech only; do not invent private controller intent, an economy motive, or a physical action.";
 
+#[derive(Clone, Debug)]
+pub(super) enum GeneratedSpeechError {
+    Gateway(AiGatewayError),
+    Rejected(Vec<PublicationRejection>),
+}
+
+impl GeneratedSpeechError {
+    pub(super) fn code(&self) -> &str {
+        match self {
+            Self::Gateway(error) => error.code(),
+            Self::Rejected(errors) => errors
+                .last()
+                .map(|error| error.failure_code.as_str())
+                .unwrap_or("voice_publication_exhausted"),
+        }
+    }
+
+    pub(super) fn rejections(&self) -> &[PublicationRejection] {
+        match self {
+            Self::Gateway(_) => &[],
+            Self::Rejected(errors) => errors,
+        }
+    }
+}
+
+impl std::fmt::Display for GeneratedSpeechError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Gateway(error) => error.fmt(formatter),
+            Self::Rejected(errors) => errors
+                .last()
+                .map(|error| error.fmt(formatter))
+                .unwrap_or_else(|| formatter.write_str("voice_publication_exhausted")),
+        }
+    }
+}
+
+impl From<AiGatewayError> for GeneratedSpeechError {
+    fn from(error: AiGatewayError) -> Self {
+        Self::Gateway(error)
+    }
+}
+
+impl From<Box<PublicationRejection>> for GeneratedSpeechError {
+    fn from(error: Box<PublicationRejection>) -> Self {
+        Self::Rejected(vec![*error])
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct CertifiedAvatarIntent {
+    pub(super) proposal: AvatarIntentProposal,
+    pub(super) speech: CertifiedSpeech,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct AvatarReplyPlan {
     pub(super) speaker_actor_id: u64,
@@ -31,20 +86,66 @@ pub(super) struct AvatarReplyPlan {
     pub(super) observed_through_seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) source_location_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(super) publication_beat_id: String,
 }
 
 impl AvatarReplyPlan {
     pub(super) fn with_observation(mut self, observation: &PlayerTickObservation) -> Self {
-        self.caused_by_event_seq = observation.caused_by_event_seq;
-        self.source_world_tick = Some(observation.source_world_tick);
-        self.observed_through_seq = Some(observation.observed_through_seq);
-        self.source_location_id = observation.source_location_id;
+        self.set_publication_causality(
+            "player-tick",
+            observation.caused_by_event_seq,
+            Some(observation.source_world_tick),
+            Some(observation.observed_through_seq),
+            observation.source_location_id,
+        );
+        self
+    }
+
+    pub(super) fn set_publication_causality(
+        &mut self,
+        stage: &str,
+        caused_by_event_seq: Option<u64>,
+        source_world_tick: Option<u64>,
+        observed_through_seq: Option<u64>,
+        source_location_id: Option<u64>,
+    ) {
+        self.caused_by_event_seq = caused_by_event_seq;
+        self.source_world_tick = source_world_tick;
+        self.observed_through_seq = observed_through_seq;
+        self.source_location_id = source_location_id;
+        self.publication_beat_id = format!(
+            "{stage}:speaker:{}:event:{}:tick:{}:through:{}",
+            self.speaker_actor_id,
+            caused_by_event_seq.unwrap_or(0),
+            source_world_tick.unwrap_or(0),
+            observed_through_seq.unwrap_or(0)
+        );
+    }
+
+    pub(super) fn with_publication_causality(
+        mut self,
+        stage: &str,
+        caused_by_event_seq: Option<u64>,
+        source_world_tick: Option<u64>,
+        observed_through_seq: Option<u64>,
+        source_location_id: Option<u64>,
+    ) -> Self {
+        self.set_publication_causality(
+            stage,
+            caused_by_event_seq,
+            source_world_tick,
+            observed_through_seq,
+            source_location_id,
+        );
         self
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct AvatarChatPlan {
+    #[serde(default)]
+    pub(super) actor_id: u64,
     pub(super) location_id: u64,
     pub(super) actor_name: String,
     pub(super) actor_title: String,
@@ -63,12 +164,35 @@ pub(super) struct AvatarChatPlan {
     pub(super) recent_lines: Vec<String>,
     pub(super) fresh_subject: Option<String>,
     pub(super) missing_need: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(super) publication_beat_id: String,
+}
+
+impl AvatarChatPlan {
+    pub(super) fn with_publication_beat(
+        mut self,
+        stage: &str,
+        caused_by_event_seq: Option<u64>,
+        source_world_tick: Option<u64>,
+    ) -> Self {
+        self.publication_beat_id = format!(
+            "{stage}:actor:{}:event:{}:tick:{}",
+            self.actor_id,
+            caused_by_event_seq.unwrap_or(0),
+            source_world_tick.unwrap_or(0)
+        );
+        self
+    }
+
+    pub(super) fn with_reply_beat(self, stage: &str, reply: &AvatarReplyPlan) -> Self {
+        self.with_publication_beat(stage, reply.caused_by_event_seq, reply.source_world_tick)
+    }
 }
 
 pub(super) async fn avatar_reply_intent(
     config: Option<&AiConfig>,
     plan: &AvatarReplyPlan,
-) -> Result<AvatarIntentProposal, AiGatewayError> {
+) -> Result<CertifiedAvatarIntent, GeneratedSpeechError> {
     let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
     request_ai_avatar_intent(config, plan).await
 }
@@ -76,29 +200,47 @@ pub(super) async fn avatar_reply_intent(
 pub(super) async fn avatar_chat_text(
     config: Option<&AiConfig>,
     plan: &AvatarChatPlan,
-) -> Result<String, AiGatewayError> {
+) -> Result<CertifiedSpeech, GeneratedSpeechError> {
     let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
-    let text = request_ai_avatar_chat(config, plan, false).await?;
-    sanitize_avatar_chat(&text)
-        .ok_or_else(|| AiGatewayError::invalid_response("AI avatar chat response was not usable"))
+    certify_avatar_chat_with_retries(config, plan, false).await
 }
 
 pub(super) async fn avatar_chat_followup_text(
     config: Option<&AiConfig>,
     plan: &AvatarChatPlan,
-) -> Result<String, AiGatewayError> {
+) -> Result<CertifiedSpeech, GeneratedSpeechError> {
     let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
-    let text = request_ai_avatar_chat(config, plan, true).await?;
-    sanitize_avatar_chat(&text).ok_or_else(|| {
-        AiGatewayError::invalid_response("AI avatar chat follow-up response was not usable")
-    })
+    certify_avatar_chat_with_retries(config, plan, true).await
+}
+
+async fn certify_avatar_chat_with_retries(
+    config: &AiConfig,
+    plan: &AvatarChatPlan,
+    followup: bool,
+) -> Result<CertifiedSpeech, GeneratedSpeechError> {
+    let mut rejections = Vec::new();
+    for candidate_round in 1..=2 {
+        let completion = match request_ai_avatar_chat(config, plan, followup).await {
+            Ok(completion) => completion,
+            Err(error) if rejections.is_empty() => return Err(error.into()),
+            Err(_) => return Err(GeneratedSpeechError::Rejected(rejections)),
+        };
+        let text = completion.text.clone();
+        let mut context = avatar_chat_gate_context(plan, followup);
+        context.candidate_round = candidate_round;
+        match certify_speech(Some(config), completion, &text, context) {
+            Ok(speech) => return Ok(speech.with_prior_rejections(rejections)),
+            Err(rejection) => rejections.push(*rejection),
+        }
+    }
+    Err(GeneratedSpeechError::Rejected(rejections))
 }
 
 async fn request_ai_avatar_chat(
     config: &AiConfig,
     plan: &AvatarChatPlan,
     followup: bool,
-) -> Result<String, AiGatewayError> {
+) -> Result<AiCompletion, AiGatewayError> {
     let recent_lines = if followup {
         let start = plan.recent_lines.len().saturating_sub(2);
         &plan.recent_lines[start..]
@@ -166,6 +308,11 @@ async fn request_ai_avatar_chat(
             } else {
                 "dialogue_avatar"
             },
+            prompt_version: if followup {
+                "dialogue-avatar-followup-v1"
+            } else {
+                "dialogue-avatar-v1"
+            },
             capability: ModelCapability::Voice,
             system,
             user: &user,
@@ -178,13 +325,12 @@ async fn request_ai_avatar_chat(
         },
     )
     .await
-    .map(|completion| completion.text)
 }
 
 pub(super) async fn request_ai_avatar_intent(
     config: &AiConfig,
     plan: &AvatarReplyPlan,
-) -> Result<AvatarIntentProposal, AiGatewayError> {
+) -> Result<CertifiedAvatarIntent, GeneratedSpeechError> {
     let system = resident_system_prompt(plan);
     let recent = if plan.recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
@@ -217,25 +363,141 @@ pub(super) async fn request_ai_avatar_intent(
     );
 
     let response_format = serde_json::json!({ "type": "json_object" });
-    let completion = request_chat_completion(
-        config,
-        ChatCompletionRequest {
-            feature: "dialogue_resident",
-            capability: ModelCapability::IntentJson,
-            system: &system,
-            user: &user,
-            temperature: 0.75,
-            max_tokens: 160,
-            timeout: Duration::from_secs(8),
-            max_attempts: 2,
-            referer: "http://127.0.0.1:3102",
-            response_format: Some(&response_format),
+    let mut rejections = Vec::new();
+    for candidate_round in 1..=2 {
+        let completion = match request_chat_completion(
+            config,
+            ChatCompletionRequest {
+                feature: "dialogue_resident",
+                prompt_version: "dialogue-resident-v1",
+                capability: ModelCapability::IntentJson,
+                system: &system,
+                user: &user,
+                temperature: 0.75,
+                max_tokens: 160,
+                timeout: Duration::from_secs(8),
+                max_attempts: 2,
+                referer: "http://127.0.0.1:3102",
+                response_format: Some(&response_format),
+            },
+        )
+        .await
+        {
+            Ok(completion) => completion,
+            Err(error) if rejections.is_empty() => return Err(error.into()),
+            Err(_) => return Err(GeneratedSpeechError::Rejected(rejections)),
+        };
+        let mut proposal = match parse_resident_intent_json(&completion.text, plan) {
+            Some(proposal) => proposal,
+            None => {
+                let mut context = resident_gate_context(plan, false);
+                context.envelope_valid = false;
+                context.candidate_round = candidate_round;
+                match certify_speech(Some(config), completion, "", context) {
+                    Err(rejection) => {
+                        rejections.push(*rejection);
+                        continue;
+                    }
+                    Ok(_) => unreachable!("an invalid envelope cannot certify"),
+                }
+            }
+        };
+        let mut context = resident_gate_context(plan, proposal.proposed_action.is_some());
+        context.candidate_round = candidate_round;
+        match certify_speech(Some(config), completion, &proposal.speech, context) {
+            Ok(speech) => {
+                let speech = speech.with_prior_rejections(rejections);
+                proposal.speech = speech.text().to_string();
+                return Ok(CertifiedAvatarIntent { proposal, speech });
+            }
+            Err(rejection) => rejections.push(*rejection),
+        }
+    }
+    Err(GeneratedSpeechError::Rejected(rejections))
+}
+
+fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGateContext {
+    let mut anchors = vec![
+        plan.location_name.clone(),
+        plan.location_title.clone(),
+        plan.target_actor_name.clone(),
+    ];
+    anchors.extend(plan.location_memory.iter().cloned());
+    anchors.extend(plan.goals.iter().cloned());
+    anchors.extend(plan.recent_lines.iter().cloned());
+    anchors.extend(plan.fresh_subject.iter().cloned());
+    anchors.extend(plan.missing_need.iter().cloned());
+    SpeechGateContext {
+        feature: if followup {
+            "dialogue_avatar_followup"
+        } else {
+            "dialogue_avatar"
         },
-    )
-    .await?;
-    parse_resident_intent_json(&completion.text, plan).ok_or_else(|| {
-        AiGatewayError::invalid_response("AI avatar intent response was not usable JSON")
-    })
+        generation_key: publication_beat_id(
+            &plan.publication_beat_id,
+            plan.actor_id,
+            plan.location_id,
+        ),
+        speaker_actor_id: plan.actor_id,
+        speaker_name: plan.actor_name.clone(),
+        mode: SpeechMode::Prose,
+        max_words: if followup { 28 } else { 34 },
+        anchors,
+        recent_lines: plan.recent_lines.clone(),
+        has_proposed_action: false,
+        envelope_valid: true,
+        candidate_round: 1,
+    }
+}
+
+fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> SpeechGateContext {
+    let mut anchors = vec![
+        plan.user_text.clone(),
+        plan.location_name.clone(),
+        plan.location_title.clone(),
+    ];
+    anchors.extend(plan.location_memory.iter().cloned());
+    anchors.extend(plan.recent_activity.iter().cloned());
+    anchors.extend(plan.recent_lines.iter().cloned());
+    SpeechGateContext {
+        feature: "dialogue_resident",
+        generation_key: publication_beat_id(
+            &plan.publication_beat_id,
+            plan.speaker_actor_id,
+            plan.source_location_id.unwrap_or(0),
+        ),
+        speaker_actor_id: plan.speaker_actor_id,
+        speaker_name: plan.speaker_name.clone(),
+        mode: SpeechMode::from_name(&plan.speech_mode),
+        max_words: resident_word_budget(plan),
+        anchors,
+        recent_lines: plan.recent_lines.clone(),
+        has_proposed_action,
+        envelope_valid: true,
+        candidate_round: 1,
+    }
+}
+
+fn publication_beat_id(explicit: &str, actor_id: u64, scope_id: u64) -> String {
+    if explicit.is_empty() {
+        format!("deterministic-fallback:actor:{actor_id}:scope:{scope_id}")
+    } else {
+        explicit.to_string()
+    }
+}
+
+fn resident_word_budget(plan: &AvatarReplyPlan) -> usize {
+    if matches!(
+        plan.economy_note.as_str(),
+        DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT | DIRECTLY_CONTROLLED_REACTION_CONTEXT
+    ) {
+        return 34;
+    }
+    match plan.speaker_actor_id {
+        1005 => 60,
+        1056 | 1066 | 1067 => 45,
+        _ => 40,
+    }
 }
 
 fn format_location_memory(memory: &[String]) -> String {
@@ -393,5 +655,63 @@ pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
             "You are {} in CosyWorld, a grounded physical-comedy village. Keep the speech field concise, concrete, and cheeky. {base}",
             plan.speaker_name
         ),
+    }
+}
+
+#[cfg(test)]
+mod publication_tests {
+    use super::*;
+
+    fn seeded_plans() -> (AvatarChatPlan, AvatarReplyPlan) {
+        let runtime = RuntimeWorld::seeded();
+        let chat = runtime
+            .avatar_chat_plan_for(RATI_ACTOR_ID, 1002)
+            .expect("seeded cottage avatars can chat");
+        let reply = runtime
+            .resident_reply_plan_for_target(RATI_ACTOR_ID, 1002, "The teapot rattled.")
+            .expect("seeded resident can reply");
+        (chat, reply)
+    }
+
+    #[test]
+    fn direct_controlled_chat_and_proxy_speech_build_gate_contexts() {
+        let (mut chat, mut proxy) = seeded_plans();
+        chat.actor_id = 5000;
+        chat.publication_beat_id = "direct-chat-event-71".to_string();
+        let direct = avatar_chat_gate_context(&chat, false);
+        assert_eq!(direct.feature, "dialogue_avatar");
+        assert_eq!(direct.speaker_actor_id, 5000);
+        assert_eq!(direct.generation_key, "direct-chat-event-71");
+
+        proxy.speaker_actor_id = 5001;
+        proxy.speech_mode = "prose".to_string();
+        proxy.economy_note = DIRECTLY_CONTROLLED_REACTION_CONTEXT.to_string();
+        proxy.publication_beat_id = "direct-proxy-event-72".to_string();
+        let direct_proxy = resident_gate_context(&proxy, false);
+        assert_eq!(direct_proxy.feature, "dialogue_resident");
+        assert_eq!(direct_proxy.speaker_actor_id, 5001);
+        assert_eq!(direct_proxy.max_words, 34);
+        assert_eq!(direct_proxy.generation_key, "direct-proxy-event-72");
+    }
+
+    #[test]
+    fn inference_controlled_resident_speech_builds_the_same_hard_gate() {
+        let (_, mut reply) = seeded_plans();
+        reply.publication_beat_id = "resident-event-73".to_string();
+        let inference = resident_gate_context(&reply, true);
+        assert_eq!(inference.feature, "dialogue_resident");
+        assert_eq!(inference.speaker_actor_id, 1002);
+        assert_eq!(inference.mode, SpeechMode::EmojiOnly);
+        assert!(inference.has_proposed_action);
+        assert_eq!(inference.generation_key, "resident-event-73");
+    }
+
+    #[tokio::test]
+    async fn unavailable_provider_yields_no_certified_character_speech() {
+        let (_, reply) = seeded_plans();
+        assert!(matches!(
+            avatar_reply_intent(None, &reply).await,
+            Err(GeneratedSpeechError::Gateway(_))
+        ));
     }
 }

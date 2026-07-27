@@ -7,6 +7,7 @@ pub(crate) use registry::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 use tokio::time::{sleep, Instant};
 
@@ -376,15 +377,6 @@ impl AiGatewayError {
         }
     }
 
-    pub(crate) fn invalid_response(message: impl Into<String>) -> Self {
-        Self {
-            kind: AiFailureKind::InvalidResponse,
-            message: message.into(),
-            attempts: 1,
-            latency: Duration::ZERO,
-        }
-    }
-
     fn registry(feature: &str, error: RegistryError) -> Self {
         let kind = match error.code() {
             "inference_capability_mismatch" => AiFailureKind::Capability,
@@ -421,6 +413,7 @@ impl fmt::Display for AiGatewayError {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ChatCompletionRequest<'a> {
     pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
     pub(crate) capability: ModelCapability,
     pub(crate) system: &'a str,
     pub(crate) user: &'a str,
@@ -438,6 +431,17 @@ pub(crate) struct AiCompletion {
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: Option<ModelAttribution>,
+    pub(crate) finish_reason: String,
+    pub(crate) usage: AiTokenUsage,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct AiTokenUsage {
+    pub(crate) prompt_tokens: Option<u64>,
+    pub(crate) completion_tokens: Option<u64>,
+    pub(crate) total_tokens: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -475,6 +479,7 @@ pub(crate) async fn request_chat_completion(
     request_completion(
         config,
         request.feature,
+        request.prompt_version,
         request.system,
         Value::String(request.user.to_string()),
         Some(request.temperature),
@@ -540,6 +545,7 @@ pub(crate) async fn request_image_policy_decision(
     let completion = request_completion(
         config,
         request.feature,
+        "image-policy-v1",
         "You are a strict image publication gate. Inspect only visible pixels. Return the required JSON and no prose.",
         user_content,
         None,
@@ -602,6 +608,7 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
 async fn request_completion(
     config: &AiConfig,
     feature: &'static str,
+    prompt_version: &'static str,
     system: &str,
     user_content: Value,
     temperature: Option<f64>,
@@ -615,6 +622,17 @@ async fn request_completion(
     selection: Option<&PinnedModelSelection>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
+    let context_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(feature.as_bytes());
+        hasher.update([0]);
+        hasher.update(prompt_version.as_bytes());
+        hasher.update([0]);
+        hasher.update(system.as_bytes());
+        hasher.update([0]);
+        hasher.update(user_content.to_string().as_bytes());
+        format!("{:x}", hasher.finalize())
+    };
     if let Some(selection) = selection {
         let parameters = selection.candidate().supported_parameters();
         let structured_type = response_format
@@ -764,10 +782,17 @@ async fn request_completion(
             attempts: attempt,
             latency: started_at.elapsed(),
         })?;
-        let text = body
+        let first_choice = body
             .get("choices")
             .and_then(|choices| choices.get(0))
-            .and_then(|choice| choice.get("message"))
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response did not include a choice"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        let text = first_choice
+            .get("message")
             .and_then(|message| message.get("content"))
             .and_then(|content| content.as_str())
             .map(str::trim)
@@ -779,6 +804,23 @@ async fn request_completion(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
+        let finish_reason = first_choice
+            .get("finish_reason")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let usage = body.get("usage");
+        let usage = AiTokenUsage {
+            prompt_tokens: usage
+                .and_then(|usage| usage.get("prompt_tokens"))
+                .and_then(Value::as_u64),
+            completion_tokens: usage
+                .and_then(|usage| usage.get("completion_tokens"))
+                .and_then(Value::as_u64),
+            total_tokens: usage
+                .and_then(|usage| usage.get("total_tokens"))
+                .and_then(Value::as_u64),
+        };
         let model_attribution = selection
             .map(|selection| {
                 let provider_model = body.get("model").and_then(Value::as_str);
@@ -813,6 +855,10 @@ async fn request_completion(
             attempts: attempt,
             latency: started_at.elapsed(),
             model_attribution,
+            finish_reason,
+            usage,
+            context_hash,
+            prompt_version: prompt_version.to_string(),
         });
     }
 
@@ -931,7 +977,13 @@ mod tests {
             "inference_unconfigured"
         );
         assert_eq!(
-            AiGatewayError::invalid_response("bad response").code(),
+            AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: "bad response".to_string(),
+                attempts: 1,
+                latency: Duration::ZERO,
+            }
+            .code(),
             "inference_invalid_response"
         );
     }
@@ -1026,6 +1078,7 @@ mod tests {
             &config,
             ChatCompletionRequest {
                 feature: "retry_test",
+                prompt_version: "retry-test-v1",
                 capability: ModelCapability::WorldContent,
                 system: "system",
                 user: "user",
@@ -1116,6 +1169,7 @@ mod tests {
             &config,
             ChatCompletionRequest {
                 feature: "alias_test",
+                prompt_version: "alias-test-v1",
                 capability: ModelCapability::Voice,
                 system: "system",
                 user: "user",
@@ -1198,6 +1252,7 @@ mod tests {
             &config,
             ChatCompletionRequest {
                 feature: "privacy_test",
+                prompt_version: "privacy-test-v1",
                 capability: ModelCapability::Voice,
                 system: "private system",
                 user: "private prompt",
