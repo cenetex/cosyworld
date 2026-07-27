@@ -948,9 +948,9 @@ impl RuntimeWorld {
         let exits = self.exit_views(actor.location_id, access);
         if let Some(journey) = self.journey_view(actor_id) {
             let next_is_revealed = journey.next_location_id.is_some_and(|next_id| {
-                exits.iter().any(|exit| {
-                    exit.destination_location_id == next_id && exit.accessible && !exit.locked
-                })
+                exits
+                    .iter()
+                    .any(|exit| exit.destination_location_id == next_id)
             });
             if journey.next_location_id.is_some() && !next_is_revealed {
                 return Some(ActionTargetView {
@@ -1803,5 +1803,60 @@ mod tests {
             CommandDispatch::Scout
         ));
         assert!(destination_location_id > 0);
+    }
+
+    #[test]
+    fn revealed_but_inaccessible_journey_segment_does_not_offer_scout_again() {
+        const ALPINE_FOREST_LOCATION_ID: u64 = 50;
+        const LIBRARY_LOCATION_ID: u64 = 12;
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, ALPINE_FOREST_LOCATION_ID, "Map Reader");
+        let mut pathway =
+            runtime.generated_pathway(5000, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID, 3);
+        let path = runtime.pathway_path(&pathway, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID);
+        for edge in path.windows(2) {
+            pathway
+                .revealed_edges
+                .insert(pathway_edge_key(edge[0], edge[1]));
+            runtime.ensure_generated_pathway_edge(&pathway, edge[0], edge[1]);
+        }
+        let current_step = path.len() - 2;
+        let current_location_id = path[current_step];
+        let pathway_id = pathway.id.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway_id.clone(), pathway);
+        runtime.journeys.insert(
+            5000,
+            JourneyState {
+                actor_id: 5000,
+                pathway_id,
+                origin_location_id: ALPINE_FOREST_LOCATION_ID,
+                destination_location_id: LIBRARY_LOCATION_ID,
+                destination_name: "Library".to_string(),
+                path,
+                current_step,
+                explorer: true,
+            },
+        );
+        let actor_count = runtime.world.actor_count;
+        runtime.world.actors[..actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test traveller exists")
+            .location_id = current_location_id;
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let library_exit = state
+            .exits
+            .iter()
+            .find(|exit| exit.destination_location_id == LIBRARY_LOCATION_ID)
+            .expect("the revealed Library edge stays projected");
+        assert!(!library_exit.accessible);
+        assert!(!state
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "explore_path"));
     }
 }
