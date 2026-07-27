@@ -548,6 +548,23 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     let (mut runtime, expected_evidence) = runtime_ready_for_lantern_finale();
     assert_eq!(runtime.clocks[LANTERN_PROGRESS_CLOCK_ID].filled, 0);
 
+    let before_finale_view =
+        runtime.state_response(Some(FINAL_ACTOR_ID), &AccessContext::default());
+    let encountered_front = before_finale_view
+        .fronts
+        .iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("the Lantern journey reaches its larger trouble before the finale");
+    assert_eq!(encountered_front.presentation_state, "active");
+    assert_eq!(
+        encountered_front.premise,
+        "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper."
+    );
+    assert!(encountered_front.stakes_questions.iter().any(|question| {
+        question
+            == "Can Rowan be separated from the shadow without extinguishing the keeper's ember?"
+    }));
+
     assert_tag_source(
         &runtime,
         &room_feature_search_tag_id(800, "failing_lantern"),
@@ -637,6 +654,18 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     assert_eq!(
         runtime.job_status(&runtime.jobs[LANTERN_JOB_ID]),
         "completed"
+    );
+    let after_finale_view = runtime.state_response(Some(FINAL_ACTOR_ID), &AccessContext::default());
+    let persisted_front = after_finale_view
+        .fronts
+        .iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("the larger trouble remains visible after the beacon work");
+    assert_eq!(persisted_front.status, "active");
+    assert_eq!(persisted_front.presentation_state, "persisted");
+    assert_eq!(
+        persisted_front.outcome_statement,
+        "The immediate work is done, but the larger trouble remains unresolved."
     );
     assert!(runtime
         .tags
@@ -731,6 +760,16 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         "completed"
     );
     assert_eq!(reconnected.orb_balance(FINAL_ACTOR_ID), before_orbs + 2);
+    let reconnected_front = reconnected
+        .state_response(Some(FINAL_ACTOR_ID), &AccessContext::default())
+        .fronts
+        .into_iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("persisted larger trouble survives reconnect");
+    assert_eq!(reconnected_front.presentation_state, "persisted");
+    assert!(reconnected_front
+        .outcome_statement
+        .contains("remains unresolved"));
 }
 
 #[test]
@@ -765,6 +804,16 @@ fn lantern_combat_is_evidence_and_danger_resolves_once() {
     );
     assert_eq!(runtime.apply_journal_record(&fail_record).0, CW_OK);
     assert_eq!(runtime.job_status(&runtime.jobs[LANTERN_JOB_ID]), "failed");
+    let escalated_front = runtime
+        .state_response(Some(FINAL_ACTOR_ID), &AccessContext::default())
+        .fronts
+        .into_iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("failed beacon work escalates the larger trouble");
+    assert_eq!(escalated_front.presentation_state, "escalated");
+    assert!(escalated_front
+        .outcome_statement
+        .starts_with("The larger trouble has escalated."));
     assert!(runtime
         .tags
         .get("room:804:black_beacon")
