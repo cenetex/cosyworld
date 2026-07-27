@@ -539,6 +539,19 @@ pub(super) struct SharedQuestionMilestoneView {
     pub(super) text: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct SharedQuestionSuggestionView {
+    pub(super) offer_id: String,
+    pub(super) state_revision: u64,
+    pub(super) kind: String,
+    pub(super) label: String,
+    pub(super) target_label: String,
+    pub(super) source: String,
+    pub(super) likely_effect: String,
+    pub(super) likely_progress: Option<u8>,
+    pub(super) risk: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct SharedQuestionView {
     pub(super) id: String,
@@ -553,6 +566,7 @@ pub(super) struct SharedQuestionView {
     pub(super) presentation_state: String,
     pub(super) promoted: bool,
     pub(super) promotion_rank: Option<usize>,
+    pub(super) resolution: String,
     pub(super) situation: String,
     pub(super) stakes: String,
     pub(super) outcome: String,
@@ -562,8 +576,11 @@ pub(super) struct SharedQuestionView {
     pub(super) danger_clock_id: String,
     pub(super) danger_filled: u8,
     pub(super) danger_segments: u8,
+    pub(super) danger_situation: String,
+    pub(super) danger_consequence: String,
     pub(super) next_revelation: Option<SharedQuestionMilestoneView>,
     pub(super) strategies: Vec<SharedQuestionStrategyView>,
+    pub(super) suggested_actions: Vec<SharedQuestionSuggestionView>,
     pub(super) recent_contributions: Vec<SharedQuestionContributionView>,
     pub(super) completion_memory: Option<String>,
     pub(super) updated_event_seq: Option<u64>,
@@ -1785,6 +1802,12 @@ impl RuntimeWorld {
             active_direct_actor_ids,
         );
         let action_hand = compose_action_hand(&action_offers);
+        let shared_questions = self.shared_question_views_with_actions(
+            location_id,
+            client_actor_id,
+            &action_offers,
+            &action_hand,
+        );
         let inspector = self.inspector_view(
             location_id,
             client_actor_id,
@@ -1824,7 +1847,7 @@ impl RuntimeWorld {
                 .map(|id| self.default_search_target(id).is_some())
                 .unwrap_or(false),
             clocks: self.clock_views(location_id),
-            shared_questions: self.shared_question_views(location_id, client_actor_id),
+            shared_questions,
             tags: self.tag_views(client_actor_id, location_id),
             jobs: self.job_views(location_id),
             fronts: self.front_views(location_id),
@@ -2311,6 +2334,21 @@ impl RuntimeWorld {
                     .clone()
                     .or(reached_situation)
                     .unwrap_or_else(|| progress.presentation.situation.clone());
+                let danger_situation = danger
+                    .and_then(|danger| {
+                        job.narrated_thresholds
+                            .iter()
+                            .filter(|threshold| {
+                                threshold.clock_id == danger.id && threshold.filled <= danger.filled
+                            })
+                            .max_by_key(|threshold| threshold.filled)
+                            .map(|threshold| threshold.text.clone())
+                    })
+                    .or_else(|| danger.map(|clock| clock.presentation.situation.clone()))
+                    .unwrap_or_default();
+                let danger_consequence = danger
+                    .map(|clock| clock.presentation.outcome.clone())
+                    .unwrap_or_default();
 
                 let natural_investigation = self
                     .natural_affordances
@@ -2348,7 +2386,6 @@ impl RuntimeWorld {
                     });
 
                 let strategies = self.shared_question_strategy_views(job, actor_id);
-                let available = strategies.iter().any(|strategy| strategy.available);
                 let mut recent = progress
                     .recent_contributions
                     .iter()
@@ -2395,7 +2432,7 @@ impl RuntimeWorld {
                     priority: progress.presentation.priority,
                     presentation_state: if terminal {
                         "completed_memory"
-                    } else if job_status == "active" && available {
+                    } else if job_status == "active" {
                         "active"
                     } else {
                         "unavailable"
@@ -2403,6 +2440,7 @@ impl RuntimeWorld {
                     .to_string(),
                     promoted: false,
                     promotion_rank: None,
+                    resolution: job_status,
                     situation,
                     stakes: progress.presentation.stakes.clone(),
                     outcome: progress.presentation.outcome.clone(),
@@ -2412,8 +2450,11 @@ impl RuntimeWorld {
                     danger_clock_id: danger.map(|clock| clock.id.clone()).unwrap_or_default(),
                     danger_filled: danger.map(|clock| clock.filled).unwrap_or_default(),
                     danger_segments: danger.map(|clock| clock.segments).unwrap_or_default(),
+                    danger_situation,
+                    danger_consequence,
                     next_revelation,
                     strategies,
+                    suggested_actions: Vec::new(),
                     recent_contributions,
                     completion_memory,
                     updated_event_seq: danger
@@ -2466,6 +2507,68 @@ impl RuntimeWorld {
                 .then_with(|| right.updated_event_seq.cmp(&left.updated_event_seq))
                 .then_with(|| left.id.cmp(&right.id))
         });
+        questions
+    }
+
+    pub(super) fn shared_question_views_with_actions(
+        &self,
+        location_id: u64,
+        actor_id: Option<u64>,
+        action_offers: &[RankedActionOffer],
+        action_hand: &ActionHandView,
+    ) -> Vec<SharedQuestionView> {
+        let mut questions = self.shared_question_views(location_id, actor_id);
+        let suggestions = action_hand
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                let offer = action_offers
+                    .iter()
+                    .find(|offer| offer.offer_id == entry.offer_id)?;
+                let target_label = offer
+                    .target
+                    .as_ref()
+                    .and_then(|target| target.label.clone())
+                    .or_else(|| offer.project.as_ref().map(|project| project.label.clone()))
+                    .unwrap_or_else(|| {
+                        self.location_name(location_id)
+                            .unwrap_or_else(|| "this place".to_string())
+                    });
+                Some(SharedQuestionSuggestionView {
+                    offer_id: offer.offer_id.clone(),
+                    state_revision: offer.state_revision,
+                    kind: offer.kind.clone(),
+                    label: offer.accessible_label.clone(),
+                    target_label,
+                    source: offer.provider.reason.clone(),
+                    likely_effect: offer
+                        .effect
+                        .clone()
+                        .unwrap_or_else(|| "keeps the next choice open".to_string()),
+                    likely_progress: offer.progress,
+                    risk: offer.risk.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        for question in &mut questions {
+            if question.promoted && question.presentation_state == "active" {
+                question.suggested_actions = suggestions
+                    .iter()
+                    .cloned()
+                    .map(|mut suggestion| {
+                        suggestion.likely_effect = format!(
+                            "{}; current progress is {}/{} and danger is {}/{}",
+                            suggestion.likely_effect,
+                            question.filled,
+                            question.segments,
+                            question.danger_filled,
+                            question.danger_segments,
+                        );
+                        suggestion
+                    })
+                    .collect();
+            }
+        }
         questions
     }
 

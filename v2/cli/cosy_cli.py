@@ -235,6 +235,7 @@ class Game:
         self.print_items(state.get("items") or [])
         self.print_primary_action(state.get("primary_action") or {})
         self.print_action_hand(state.get("action_hand") or [])
+        self.print_shared_question(state.get("shared_questions") or [])
         self.remember_events(state.get("recent_events") or [])
 
     def who(self) -> None:
@@ -633,6 +634,67 @@ class Game:
             return
         labels = ", ".join(str(offer.get("label") or offer.get("kind") or "action") for offer in offers)
         print(f"Hand: {labels}")
+
+    def print_shared_question(self, questions: object) -> None:
+        if not isinstance(questions, list):
+            return
+        question = next(
+            (
+                value
+                for value in questions
+                if isinstance(value, dict)
+                and value.get("promoted")
+                and value.get("presentation_state") == "active"
+            ),
+            None,
+        )
+        if question is None:
+            question = next(
+                (
+                    value
+                    for value in questions
+                    if isinstance(value, dict)
+                    and value.get("presentation_state") == "completed_memory"
+                ),
+                None,
+            )
+        if question is None:
+            return
+        if question.get("presentation_state") == "completed_memory":
+            memory = question.get("completion_memory") or question.get("situation")
+            contributors = ", ".join(
+                str(name) for name in question.get("participant_names") or [] if name
+            )
+            print(f"Shared result: {memory}")
+            if contributors:
+                print(f"Contributors: {contributors}")
+            return
+        print(f"Shared question: {question.get('question')}")
+        print(f"Situation: {question.get('situation')}")
+        print(
+            f"Progress: {int(question.get('filled') or 0)}/"
+            f"{int(question.get('segments') or 0)}. "
+            f"Danger: {int(question.get('danger_filled') or 0)}/"
+            f"{int(question.get('danger_segments') or 0)}."
+        )
+        print(f"Completion changes: {question.get('outcome')}")
+        print(
+            f"Danger now: {question.get('danger_situation')} "
+            f"If danger fills: {question.get('danger_consequence')}"
+        )
+        suggestions = [
+            value
+            for value in question.get("suggested_actions") or []
+            if isinstance(value, dict)
+        ][:2]
+        for index, suggestion in enumerate(suggestions, start=1):
+            risk = suggestion.get("risk") or "No special risk is expected."
+            print(
+                f"Suggestion {index} of {len(suggestions)}: {suggestion.get('label')}. "
+                f"Target: {suggestion.get('target_label')}. "
+                f"Source: {suggestion.get('source')}. "
+                f"Likely: {suggestion.get('likely_effect')}. Risk: {risk}"
+            )
 
     def print_events(self, events: list[dict[str, object]]) -> None:
         if not events:

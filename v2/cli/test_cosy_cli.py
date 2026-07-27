@@ -71,6 +71,50 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         ):
             self.assertNotIn(malformed, rendered)
 
+    def test_cli_projects_promoted_question_and_exact_two_suggestion_rationales(self) -> None:
+        question = {
+            "promoted": True,
+            "presentation_state": "active",
+            "question": "Can travelers find Rowan Vale and rekindle the Mothwood beacon?",
+            "situation": "One more road lamp goes out. The dark now reaches the next bend.",
+            "filled": 2,
+            "segments": 6,
+            "danger_filled": 1,
+            "danger_segments": 6,
+            "outcome": "The beacon burns again and makes the Mothwood road trustworthy after dusk.",
+            "danger_situation": "One more road lamp goes out. The dark now reaches the next bend.",
+            "danger_consequence": "The dark road becomes a lantern for borrowed shadows.",
+            "suggested_actions": [
+                {
+                    "label": "Prepare",
+                    "target_label": "the dark Mothwood beacon",
+                    "source": "From Rekindle the beacon",
+                    "likely_effect": "makes the next try count; current progress is 2/6 and danger is 1/6",
+                    "risk": None,
+                },
+                {
+                    "label": "Rest",
+                    "target_label": "Wayside Lantern Inn",
+                    "source": "From Wayside Lantern Inn",
+                    "likely_effect": "The Road Goes Fully Dark advances from 1/6 to 2/6",
+                    "risk": "trouble may draw nearer while you rest",
+                },
+            ],
+        }
+        game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
+        output = io.StringIO()
+        with redirect_stdout(output):
+            game.print_shared_question([question])
+        rendered = output.getvalue()
+        self.assertIn("Progress: 2/6. Danger: 1/6.", rendered)
+        self.assertIn("Suggestion 1 of 2: Prepare.", rendered)
+        self.assertIn("Target: the dark Mothwood beacon.", rendered)
+        self.assertIn("Source: From Rekindle the beacon.", rendered)
+        self.assertIn("Suggestion 2 of 2: Rest.", rendered)
+        self.assertIn("The Road Goes Fully Dark advances from 1/6 to 2/6", rendered)
+        self.assertNotIn("Suggestion 3", rendered)
+        self.assertNotRegex(rendered, r"action \d+ of \d+")
+
 
 if __name__ == "__main__":
     unittest.main()

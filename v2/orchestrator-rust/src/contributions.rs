@@ -16,9 +16,14 @@ impl RuntimeWorld {
             if let Some(existing_job) = self.jobs.get_mut(&authored_job.id) {
                 let status = existing_job.status.clone();
                 let focused_encounter = existing_job.focused_encounter.clone();
+                let mut participant_ids = existing_job.participant_ids.clone();
+                participant_ids.extend(&authored_job.participant_ids);
+                participant_ids.sort_unstable();
+                participant_ids.dedup();
                 *existing_job = authored_job.clone();
                 existing_job.status = status;
                 existing_job.focused_encounter = focused_encounter;
+                existing_job.participant_ids = participant_ids;
             } else {
                 self.jobs
                     .insert(authored_job.id.clone(), authored_job.clone());
@@ -830,6 +835,18 @@ impl RuntimeWorld {
             cleared.extend(self.clear_job_resolved_tags(&job_id, actor_id, "job_resolved"));
         }
         cleared
+    }
+
+    pub(super) fn record_job_clock_participant(&mut self, clock_id: &str, actor_id: u64) {
+        for job in self
+            .jobs
+            .values_mut()
+            .filter(|job| job.progress_clock_id == clock_id || job.danger_clock_id == clock_id)
+        {
+            job.participant_ids.push(actor_id);
+            job.participant_ids.sort_unstable();
+            job.participant_ids.dedup();
+        }
     }
 
     fn clear_job_resolved_tags(

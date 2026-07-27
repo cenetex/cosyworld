@@ -1705,7 +1705,20 @@ impl RuntimeWorld {
                     .active_danger_clock_id_for_location(actor.location_id)
                     .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
             {
-                Some("helps you feel fresh; trouble may draw nearer out here".to_string())
+                let clock = self
+                    .active_danger_clock_id_for_location(actor.location_id)
+                    .and_then(|clock_id| self.clocks.get(&clock_id));
+                Some(match clock {
+                    Some(clock) => format!(
+                        "helps you feel fresh; {} advances from {}/{} to {}/{}",
+                        clock.label,
+                        clock.filled,
+                        clock.segments,
+                        clock.filled.saturating_add(1).min(clock.segments),
+                        clock.segments,
+                    ),
+                    None => "helps you feel fresh; trouble may draw nearer out here".to_string(),
+                })
             }
             "rest" => Some("helps you feel fresh".to_string()),
             "move" => Some("takes you to a nearby room".to_string()),
