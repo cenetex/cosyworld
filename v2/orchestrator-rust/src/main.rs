@@ -44450,20 +44450,17 @@ mod tests {
     }
 
     async fn run_hot_room_and_regional_chaos() {
-        let primary_path = std::env::temp_dir().join(format!(
-            "cosyworld-hot-room-primary-{}-{}.sqlite",
+        let fixture_root = std::env::temp_dir().join(format!(
+            "cosyworld-hot-room-{}-{}",
             std::process::id(),
-            now_seed()
+            random_hex(16)
         ));
-        let recovery_path = std::env::temp_dir().join(format!(
-            "cosyworld-hot-room-recovery-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let quarantine_path = primary_path.with_extension("isolated.sqlite");
-        for path in [&primary_path, &recovery_path, &quarantine_path] {
-            let _ = fs::remove_file(path);
-        }
+        fs::create_dir(&fixture_root).expect("create unique hot-room fixture directory");
+        let primary_path = fixture_root.join("primary.sqlite");
+        let recovery_path = fixture_root.join("recovery.sqlite");
+        let isolated_path = fixture_root.join("isolated.sqlite");
+        initialize_test_event_store(&primary_path);
+        initialize_test_event_store(&isolated_path);
 
         let listener_a = TcpListener::bind("127.0.0.1:0")
             .await
@@ -44471,10 +44468,17 @@ mod tests {
         let listener_b = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind hot-room process B");
+        let listener_isolated = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind isolated hot-room process");
         let addr_a = listener_a.local_addr().expect("hot-room process A address");
         let addr_b = listener_b.local_addr().expect("hot-room process B address");
+        let isolated_addr = listener_isolated
+            .local_addr()
+            .expect("isolated hot-room process address");
         let url_a = format!("http://{addr_a}");
         let url_b = format!("http://{addr_b}");
+        let isolated_url = format!("http://{isolated_addr}");
         let router_token = "hot-room-regional-router-token";
         let lease_ttl = Duration::from_millis(1_500);
         let actor_hot = 5100;
@@ -44522,25 +44526,18 @@ mod tests {
         );
         let store_id = state_a.canonical_store_id.as_ref().clone();
         assert_eq!(state_b.canonical_store_id.as_str(), store_id);
+        let mut isolated_state = state_b.clone();
+        isolated_state.event_store_path = Some(Arc::new(isolated_path.clone()));
 
-        let app_a = routes::app_router(state_a.clone());
-        let app_b = routes::app_router(state_b.clone());
-        let server_a = tokio::spawn(async move {
-            axum::serve(
-                listener_a,
-                app_a.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve hot-room process A");
-        });
-        let server_b = tokio::spawn(async move {
-            axum::serve(
-                listener_b,
-                app_b.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve hot-room process B");
-        });
+        let server_a =
+            spawn_test_app_server(listener_a, state_a.clone(), "serve hot-room process A");
+        let server_b =
+            spawn_test_app_server(listener_b, state_b.clone(), "serve hot-room process B");
+        let isolated_server = spawn_test_app_server(
+            listener_isolated,
+            isolated_state.clone(),
+            "serve isolated hot-room process",
+        );
         let convergence_a =
             start_canonical_capacity_scheduler(state_a.clone()).expect("hot-room convergence A");
         let convergence_b =
@@ -44830,13 +44827,11 @@ mod tests {
             before_cross_location
         );
 
-        // Network isolation cannot bootstrap a second world at the same path:
-        // a fresh file has no pinned store identity and every mutation rejects.
-        convergence_a.abort();
-        convergence_b.abort();
-        fs::rename(&primary_path, &quarantine_path).expect("isolate primary store");
+        // Network isolation cannot bootstrap a second world: the isolated
+        // worker starts on a complete schema with no pinned store identity, so
+        // every mutation rejects without replacing the live primary database.
         let isolated_request = {
-            let runtime = state_b.inner.lock().await;
+            let runtime = isolated_state.inner.lock().await;
             canonical_test_command_request(
                 &runtime,
                 actor_hot,
@@ -44846,7 +44841,7 @@ mod tests {
             )
         };
         let isolated: CommandResponse = client
-            .post(format!("{url_b}/commands"))
+            .post(format!("{isolated_url}/commands"))
             .json(&isolated_request)
             .send()
             .await
@@ -44856,7 +44851,7 @@ mod tests {
             .expect("isolated command json");
         assert!(!isolated.ok);
         assert_eq!(isolated.status, 503);
-        let isolated_conn = open_event_store(&primary_path).expect("fresh isolated store");
+        let isolated_conn = open_event_store(&isolated_path).expect("fresh isolated store");
         let isolated_actions: i64 = isolated_conn
             .query_row("SELECT COUNT(*) FROM action_journal", [], |row| row.get(0))
             .unwrap();
@@ -44867,18 +44862,14 @@ mod tests {
             .unwrap();
         assert_eq!((isolated_actions, isolated_identity), (0, 0));
         drop(isolated_conn);
-        fs::remove_file(&primary_path).expect("remove isolated empty store");
-        fs::rename(&quarantine_path, &primary_path).expect("restore primary store");
-        let convergence_a =
-            start_canonical_capacity_scheduler(state_a.clone()).expect("restart convergence A");
-        let convergence_b =
-            start_canonical_capacity_scheduler(state_b.clone()).expect("restart convergence B");
         converge_capacity_for_read(&state_a, Some(&session_hot)).await;
 
         // Kill the hot-room owner. The surviving process takes the expired
         // range at a higher fence without changing actor identity or history.
         convergence_b.abort();
         server_b.abort();
+        let _ = convergence_b.await;
+        let _ = server_b.await;
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
         let process_loss_request = {
             let runtime = state_a.inner.lock().await;
@@ -44942,6 +44933,8 @@ mod tests {
         assert!(checkpoint.prefix_hash.starts_with("sha256:"));
         convergence_a.abort();
         server_a.abort();
+        let _ = convergence_a.await;
+        let _ = server_a.await;
         let promotion = promote_recovery_region(
             &recovery_path,
             OFFICIAL_WORLD_ID,
@@ -45003,15 +44996,11 @@ mod tests {
             router_token,
             lease_ttl,
         );
-        let recovery_app = routes::app_router(recovery_state.clone());
-        let recovery_server = tokio::spawn(async move {
-            axum::serve(
-                listener_recovery,
-                recovery_app.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve recovery writer");
-        });
+        let recovery_server = spawn_test_app_server(
+            listener_recovery,
+            recovery_state.clone(),
+            "serve recovery writer",
+        );
         let recovery_convergence = start_canonical_capacity_scheduler(recovery_state.clone())
             .expect("recovery convergence");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
@@ -45059,15 +45048,11 @@ mod tests {
             router_token,
             lease_ttl,
         );
-        let reconnect_app = routes::app_router(reconnect_state.clone());
-        let reconnect_server = tokio::spawn(async move {
-            axum::serve(
-                listener_reconnect,
-                reconnect_app.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve reconnect edge");
-        });
+        let reconnect_server = spawn_test_app_server(
+            listener_reconnect,
+            reconnect_state.clone(),
+            "serve reconnect edge",
+        );
         let reconnect_convergence = start_canonical_capacity_scheduler(reconnect_state.clone())
             .expect("reconnect convergence");
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
@@ -45174,10 +45159,25 @@ mod tests {
         reconnect_convergence.abort();
         recovery_server.abort();
         reconnect_server.abort();
-        drop(client);
-        for path in [&primary_path, &recovery_path, &quarantine_path] {
-            let _ = fs::remove_file(path);
+        isolated_server.abort();
+        for task in [
+            recovery_convergence,
+            reconnect_convergence,
+            recovery_server,
+            reconnect_server,
+            isolated_server,
+        ] {
+            let _ = task.await;
         }
+        drop(client);
+        drop((
+            state_a,
+            state_b,
+            isolated_state,
+            recovery_state,
+            reconnect_state,
+        ));
+        fs::remove_dir_all(&fixture_root).expect("remove hot-room fixture directory");
     }
 
     #[tokio::test]
