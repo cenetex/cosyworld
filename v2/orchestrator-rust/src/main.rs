@@ -19224,21 +19224,7 @@ impl RuntimeWorld {
     }
 
     fn default_bondable_resident(&self, actor_id: u64) -> Option<CwActor> {
-        let actor = self.actor_by_id(actor_id)?;
-        if self.advancement_points_available(actor_id) < usize::from(BOND_SLOT_COST) {
-            return None;
-        }
-        self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .find(|target| {
-                target.id != actor_id
-                    && Self::actor_can_act(*target)
-                    && target.location_id == actor.location_id
-                    && !self.actors_blocked(actor_id, target.id)
-                    && self.actor_visible_in_projection(*target, Some(actor_id), None)
-                    && self.active_bond(actor_id, target.id).is_none()
-            })
+        self.default_bondable_resident_with_presence(actor_id, None)
     }
 
     fn default_bond_command(&self, actor_id: u64) -> Option<String> {
@@ -26246,10 +26232,10 @@ async fn submit_action_offer(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let validation = {
-        let runtime = state.inner.lock().await;
-        runtime.validate_action_offer_submission(actor_id, &access, &submission)
-    };
+    let active_direct_actors = active_actor_ids_for_state(&state);
+    let runtime = state.inner.lock().await;
+    let validation = runtime.validate_offer(actor_id, &access, &submission, &active_direct_actors);
+    drop(runtime);
     if let Err(reason) = validation {
         return action_offer_rejected(reason);
     }
@@ -35906,6 +35892,7 @@ async fn create_bond(
         });
     };
 
+    let active_direct_actors = active_actor_ids_for_state(&state);
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
         &runtime,
@@ -35936,8 +35923,7 @@ async fn create_bond(
         });
     };
     if target.id == actor.id
-        || !RuntimeWorld::actor_can_act(target)
-        || target.location_id != actor.location_id
+        || !runtime.actor_offer_target_visible(actor, target, &active_direct_actors)
         || runtime.actors_blocked(actor.id, target.id)
         || runtime
             .active_bond(payload.actor_id, payload.target_actor_id)

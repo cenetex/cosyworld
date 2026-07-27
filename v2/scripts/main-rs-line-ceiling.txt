@@ -1,3 +1,3 @@
 # Total physical lines in main.rs, including inline tests. Tests spend the same
 # budget as production code so extracted systems take their tests with them.
-74555
+74541
