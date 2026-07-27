@@ -32,6 +32,33 @@ typedef enum {
   CW_ERR_RULE = 4
 } cw_status;
 
+/* Append-only rejection values persisted in `cw_event.reason`. */
+typedef enum {
+  CW_REASON_NONE = 0,
+  CW_REASON_INVALID_ACTION = 1,
+  CW_REASON_ACTOR_NOT_FOUND = 2,
+  CW_REASON_ACTOR_INACTIVE = 3,
+  CW_REASON_LOCATION_NOT_FOUND = 4,
+  CW_REASON_ITEM_NOT_FOUND = 5,
+  CW_REASON_ITEM_NOT_AVAILABLE = 6,
+  CW_REASON_TARGET_NOT_FOUND = 7,
+  CW_REASON_TARGET_UNAVAILABLE = 8,
+  CW_REASON_NOT_SAME_LOCATION = 9,
+  CW_REASON_COMBAT_NOT_ALLOWED = 10,
+  CW_REASON_SELF_TARGET = 11,
+  CW_REASON_NO_EXIT = 12,
+  CW_REASON_EXIT_LOCKED = 13,
+  CW_REASON_ENCOUNTER_NOT_FOUND = 14,
+  CW_REASON_ENCOUNTER_FULL = 15,
+  CW_REASON_NOT_PARTICIPANT = 16,
+  CW_REASON_NOT_CURRENT_TURN = 17,
+  CW_REASON_NOT_HOSTILE = 18,
+  CW_REASON_ENCOUNTER_ACTIVE = 19,
+  CW_REASON_COMBAT_ACTION_REQUIRED = 20,
+  CW_REASON_CAPACITY_EXCEEDED = 21,
+  CW_REASON_COUNT
+} cw_rejection_reason;
+
 typedef enum {
   CW_ACTOR_NONE = 0,
   CW_ACTOR_HUMAN = 1,
@@ -407,6 +434,7 @@ cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events);
 cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events);
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers);
+uint16_t cw_rejection_reason_max(void);
 const char *cw_event_type_name(uint8_t type);
 int16_t cw_actor_current_hp(const cw_actor *actor);
 int cw_actor_is_bloodied(const cw_actor *actor);

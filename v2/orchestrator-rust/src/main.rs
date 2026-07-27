@@ -13372,7 +13372,7 @@ impl RuntimeWorld {
             destination_location_id: opt_id(event.destination_location_id),
             destination_location_name: self.location_name(event.destination_location_id),
             content_id: opt_id(event.content_id),
-            content: self.event_content(event),
+            content: rule_rejection_content(event).or_else(|| self.event_content(event)),
             item_id: opt_id(event.item_id),
             item_name: self.item_name(event.item_id),
             target_item_id: opt_id(event.target_item_id),

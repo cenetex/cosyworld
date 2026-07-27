@@ -1138,7 +1138,15 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
         } else {
             "The scuffle is over for now.".to_string()
         }),
-        "rule.rejected" => Some("The room will not let that happen just now.".to_string()),
+        "rule.rejected" => Some(
+            event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .unwrap_or_else(|| kernel_rejection_message(event.reason))
+                .to_string(),
+        ),
         _ => None,
     }
 }

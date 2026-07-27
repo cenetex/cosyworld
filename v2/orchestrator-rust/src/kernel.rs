@@ -6,6 +6,9 @@ use std::os::raw::c_char;
 
 use serde::{Deserialize, Serialize};
 
+mod rejections;
+pub(crate) use rejections::*;
+
 pub const CW_MAX_ACTORS: usize = 512;
 pub const CW_MAX_ITEMS: usize = 1024;
 pub const CW_MAX_LOCATIONS: usize = 256;
@@ -113,6 +116,7 @@ pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
 pub const CW_EVENT_ITEM_USED: u8 = 8;
 pub const CW_EVENT_COMBAT_ATTACK_HIT: u8 = 11;
 pub const CW_EVENT_COMBAT_KNOCKOUT: u8 = 13;
+pub const CW_EVENT_RULE_REJECTED: u8 = 14;
 pub const CW_EVENT_ACTOR_MOVED: u8 = 15;
 pub const CW_EVENT_ITEM_GIVEN: u8 = 16;
 pub const CW_EVENT_AVATAR_EVOLVED: u8 = 17;
@@ -138,6 +142,32 @@ pub const CW_EVENT_ITEM_EXHAUSTED: u8 = 37;
 pub const CW_EVENT_ITEM_TRANSFORMED: u8 = 38;
 pub const CW_EVENT_EXIT_UNLOCKED: u8 = 39;
 pub const CW_EVENT_ITEM_REVEALED: u8 = 40;
+
+// These append-only values mirror the authoritative `CW_REASON_*` enum in
+// core-c. The numeric value remains the replay contract; player-facing copy is
+// derived by the orchestrator and is never written back into a kernel action.
+pub const CW_REASON_INVALID_ACTION: u16 = 1;
+pub const CW_REASON_ACTOR_NOT_FOUND: u16 = 2;
+pub const CW_REASON_ACTOR_INACTIVE: u16 = 3;
+pub const CW_REASON_LOCATION_NOT_FOUND: u16 = 4;
+pub const CW_REASON_ITEM_NOT_FOUND: u16 = 5;
+pub const CW_REASON_ITEM_NOT_AVAILABLE: u16 = 6;
+pub const CW_REASON_TARGET_NOT_FOUND: u16 = 7;
+pub const CW_REASON_TARGET_UNAVAILABLE: u16 = 8;
+pub const CW_REASON_NOT_SAME_LOCATION: u16 = 9;
+pub const CW_REASON_COMBAT_NOT_ALLOWED: u16 = 10;
+pub const CW_REASON_SELF_TARGET: u16 = 11;
+pub const CW_REASON_NO_EXIT: u16 = 12;
+pub const CW_REASON_EXIT_LOCKED: u16 = 13;
+pub const CW_REASON_ENCOUNTER_NOT_FOUND: u16 = 14;
+pub const CW_REASON_ENCOUNTER_FULL: u16 = 15;
+pub const CW_REASON_NOT_PARTICIPANT: u16 = 16;
+pub const CW_REASON_NOT_CURRENT_TURN: u16 = 17;
+pub const CW_REASON_NOT_HOSTILE: u16 = 18;
+pub const CW_REASON_ENCOUNTER_ACTIVE: u16 = 19;
+pub const CW_REASON_COMBAT_ACTION_REQUIRED: u16 = 20;
+pub const CW_REASON_CAPACITY_EXCEEDED: u16 = 21;
+pub const CW_REASON_MAX_KNOWN: u16 = CW_REASON_CAPACITY_EXCEEDED;
 
 pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
 pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
@@ -448,6 +478,7 @@ extern "C" {
         actor_id: u64,
         out_offers: *mut CwActionOffers,
     ) -> u32;
+    pub fn cw_rejection_reason_max() -> u16;
     pub fn cw_event_type_name(type_: u8) -> *const c_char;
     pub fn cw_actor_current_hp(actor: *const CwActor) -> i16;
     pub fn cw_actor_is_bloodied(actor: *const CwActor) -> i32;
