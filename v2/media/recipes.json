@@ -35,7 +35,8 @@
         "avatar_card_art",
         "item_card_art",
         "location_card_art",
-        "evolution_card_art"
+        "evolution_card_art",
+        "room_scene"
       ],
       "reference_slots": [
         "location",
@@ -139,7 +140,8 @@
         "avatar_card_art",
         "item_card_art",
         "location_card_art",
-        "evolution_card_art"
+        "evolution_card_art",
+        "room_scene"
       ],
       "references": {
         "minimum": 0,

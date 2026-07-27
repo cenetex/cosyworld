@@ -638,6 +638,20 @@ pub(crate) fn resolve_frozen_community_media_reference(
     frozen: &FrozenMediaAssetReference,
     history_through_seq: u64,
 ) -> Result<MediaReference, String> {
+    resolve_frozen_media_reference(
+        root,
+        frozen,
+        MediaReferenceSlot::PriorLevel,
+        history_through_seq,
+    )
+}
+
+pub(crate) fn resolve_frozen_media_reference(
+    root: &Path,
+    frozen: &FrozenMediaAssetReference,
+    slot: MediaReferenceSlot,
+    history_through_seq: u64,
+) -> Result<MediaReference, String> {
     let current = freeze_approved_community_media_reference(
         root,
         &frozen.subject_kind,
@@ -647,13 +661,13 @@ pub(crate) fn resolve_frozen_community_media_reference(
     )?;
     if &current != frozen {
         return Err(
-            "approved prior-level asset did not match the frozen evolution reference".to_string(),
+            "approved media asset did not match the frozen authoritative reference".to_string(),
         );
     }
     let (bytes, mime_type) = immutable_media_asset_bytes(root, &frozen.asset_id)?;
     let url = format!("data:{mime_type};base64,{}", BASE64_STANDARD.encode(bytes));
     Ok(certified_media_reference(
-        MediaReferenceSlot::PriorLevel,
+        slot,
         canonical_subject_key(
             MediaAssetSubjectKind::parse(&frozen.subject_kind)?,
             frozen.subject_id,
@@ -695,6 +709,41 @@ pub(crate) fn register_derived_community_media_asset(
             mask: None,
             transformation: "single-reference identity-preserving evolution".to_string(),
         }],
+        provenance,
+        crate::now_millis(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn register_derived_room_scene_media_asset(
+    root: &Path,
+    location_id: u64,
+    location_level: u8,
+    bytes: &[u8],
+    mime_type: &str,
+    references: &[(MediaReferenceSlot, FrozenMediaAssetReference)],
+    crop: &str,
+    provenance: MediaAssetProvenance,
+) -> Result<String, String> {
+    register_derived_media_asset(
+        root,
+        MediaAssetSubjectKind::Location,
+        location_id,
+        location_level,
+        bytes,
+        mime_type,
+        references
+            .iter()
+            .enumerate()
+            .map(|(order, (slot, reference))| MediaAssetParentInput {
+                parent_asset_id: reference.asset_id.clone(),
+                slot: *slot,
+                order,
+                crop: Some(crop.to_string()),
+                mask: None,
+                transformation: "bounded authoritative room-scene composition".to_string(),
+            })
+            .collect(),
         provenance,
         crate::now_millis(),
     )

@@ -11,6 +11,7 @@ const INTENTS = new Set([
   "item_card_art",
   "location_card_art",
   "evolution_card_art",
+  "room_scene",
 ]);
 const REFERENCE_SLOTS = new Set(["location", "actor", "item", "prior_level", "style"]);
 const RECIPE_STATES = new Set(["enabled", "canary", "disabled"]);
