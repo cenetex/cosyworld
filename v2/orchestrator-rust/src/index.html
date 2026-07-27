@@ -9117,7 +9117,7 @@
           Number(entry.item_id) === Number(card.id) && entry.status === "materialized"
         ));
         const actionParts = [];
-        if (["weapon", "container"].includes(String(card.role || ""))) {
+        if (["weapon", "container", "tool"].includes(String(card.role || ""))) {
           const equipped = card.zone === "equipped";
           actionParts.push(`<button class="account-button secondary" type="button" data-set-item-equipped="${card.id}" data-equipped="${equipped ? "false" : "true"}">${equipped ? "unequip" : "equip"}</button>`);
         } else if (card.zone === "contained") {

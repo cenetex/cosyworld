@@ -2657,13 +2657,18 @@ impl RuntimeWorld {
             }
             "rest" => {
                 if !self.rest_available(actor.id) {
+                    let output = self
+                        .rest_offer_unavailable_reason(actor.id)
+                        .unwrap_or_else(|| {
+                            "You are already steady enough to keep going.".to_string()
+                        });
                     return Ok(ResolvedCommand {
                         command: "rest".to_string(),
                         verb,
                         action: Some(command_action("rest", "Rest", "rest")),
                         dispatch: CommandDispatch::Disabled {
                             status: 400,
-                            output: "You are already steady enough to keep going.".to_string(),
+                            output,
                         },
                     });
                 }

@@ -691,7 +691,8 @@ static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
   assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CONTAINED, 2005) == CW_OK);
   assert(content->container_item_id == 2005);
   assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_CONTAINED, 2006) == CW_ERR_RULE);
-  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_EQUIPPED, 0) == CW_ERR_RULE);
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_EQUIPPED, 0) == CW_OK);
+  assert(content->zone == CW_CARD_ZONE_EQUIPPED);
   assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CARRIED, 0) == CW_OK);
 
   cw_item *outer = test_find_item(&world, 2004);

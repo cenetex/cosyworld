@@ -44,6 +44,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "charges",
     "location_id",
     "role",
+    "capabilities",
     "size",
     "weight_tenths",
     "container_capacity_tenths",

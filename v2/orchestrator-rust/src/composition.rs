@@ -514,6 +514,26 @@ impl RuntimeWorld {
         offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
+        if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
+            let mut unavailable = self.ranked_offer_from_parts(
+                "rest",
+                "Rest",
+                "rest",
+                action_offer_rank("rest"),
+                true,
+                Some(reason.clone()),
+                None,
+                None,
+                None,
+                Some("requires equipped shelter in the frontier".to_string()),
+                None,
+                &reason,
+            );
+            unavailable.zone = zone.clone();
+            unavailable.source = "place+equipped_item_capability".to_string();
+            unavailable.provider = self.action_offer_provider("rest", actor_id, None, None);
+            offers.push(unavailable);
+        }
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
             let local_lead = self
                 .actionable_local_lead(actor_id)
@@ -1544,7 +1564,7 @@ impl RuntimeWorld {
             "rest" => self
                 .active_danger_clock_id_for_location(actor.location_id)
                 .filter(|clock_id| self.clock_is_frontier(clock_id))
-                .filter(|_| !self.hearth_tonic_warmth_guards_rest(actor.location_id))
+                .filter(|_| self.rest_entitlement(actor_id).grade == CW_REST_GRADE_CAMP)
                 .map(|_| "trouble may draw nearer while you rest".to_string()),
             _ => None,
         }
@@ -1687,23 +1707,16 @@ impl RuntimeWorld {
                     }
                 }),
             "rest"
-                if self
-                    .active_danger_clock_id_for_location(actor.location_id)
-                    .is_some_and(|clock_id| self.clock_is_frontier(&clock_id))
-                    && self.hearth_tonic_warmth_guards_rest(actor.location_id) =>
+                if self.rest_entitlement(actor_id).grade >= CW_REST_GRADE_LODGED
+                    && self.trained_since_rest_tag_active(actor_id) =>
             {
-                Some(
-                    "helps you feel fresh and uses the tonic's warmth; trouble stays back"
-                        .to_string(),
-                )
-            }
-            "rest" if self.trained_since_rest_tag_active(actor_id) => {
                 Some("helps you feel fresh; practice settles into something lasting".to_string())
             }
             "rest"
-                if self
-                    .active_danger_clock_id_for_location(actor.location_id)
-                    .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
+                if self.rest_entitlement(actor_id).grade == CW_REST_GRADE_CAMP
+                    && self
+                        .active_danger_clock_id_for_location(actor.location_id)
+                        .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
             {
                 let clock = self
                     .active_danger_clock_id_for_location(actor.location_id)

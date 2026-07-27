@@ -457,7 +457,8 @@ cw_status cw_world_set_item_zone(
   if (zone == CW_CARD_ZONE_EQUIPPED
       && item->role != CW_ITEM_ROLE_WEAPON
       && item->role != CW_ITEM_ROLE_SKILL_CHARM
-      && item->role != CW_ITEM_ROLE_CONTAINER) {
+      && item->role != CW_ITEM_ROLE_CONTAINER
+      && item->role != CW_ITEM_ROLE_TOOL) {
     return CW_ERR_RULE;
   }
   if (zone == CW_CARD_ZONE_SPELL_DECK && item->role != CW_ITEM_ROLE_SPELL) {
