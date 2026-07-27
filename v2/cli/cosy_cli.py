@@ -800,7 +800,10 @@ class Game:
         if type_name == "combat.flee.success":
             return f"[{seq}] {actor} flees from {location} to {destination}."
         if type_name == "rule.rejected":
-            return f"[{seq}] Rule rejected for {actor} (reason {event.get('reason')})."
+            reason = " ".join(str(event.get("content") or "").split())
+            if not reason:
+                reason = "That action could not be completed. Refresh the room and try again."
+            return f"[{seq}] {reason}"
         label = str(type_name or "event").replace(".", " ")
         content = " ".join(str(event.get("content") or "").split())
         if content and not content.startswith(("{", "[")):

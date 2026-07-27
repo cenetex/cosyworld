@@ -9835,7 +9835,10 @@
       if (event.type === "combat.knockout") return `${event.target_actor_name}'s light falls quiet for now.`;
       if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}, carrying the trail's silver hush.`;
       if (event.type === "encounter.reset") return `${event.target_actor_name || "The frontier"} stirs again in ${event.location_name || "the frontier"}.`;
-      if (event.type === "rule.rejected") return `hesitates.`;
+      if (event.type === "rule.rejected") {
+        return String(event.content || "").trim()
+          || "That action could not be completed. Refresh the room and try again.";
+      }
       return event.type;
     }
 
