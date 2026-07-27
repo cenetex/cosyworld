@@ -5,10 +5,19 @@ pub(crate) use registry::{
     CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
     PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
 };
+use super::{
+    compact_whitespace, AppState, GeneratedPathwayState, GeneratedWaypointState, LocationMeta,
+    NaturalPotentialPolicy,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    sync::Arc,
+    time::Duration,
+};
 use tokio::time::{sleep, Instant};
 
 pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
@@ -16,7 +25,7 @@ pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
 pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
-pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
+pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v2";
 const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -947,9 +956,403 @@ pub(crate) fn ai_model_name(config: Option<&AiConfig>) -> String {
         .unwrap_or_else(|| "none".to_string())
 }
 
+pub(super) struct PathwayContentPromptContext {
+    pub(super) prompt: String,
+    pub(super) origin_name: String,
+    pub(super) destination_name: String,
+    pub(super) occupied_names: BTreeSet<String>,
+}
+
+fn ecosystem_labels(meta: &LocationMeta) -> Vec<&'static str> {
+    meta.natural_potentials
+        .iter()
+        .filter(|potential| potential.policy != NaturalPotentialPolicy::Impossible)
+        .map(|potential| potential.resource_kind.label())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn ecosystem_label_subset<'a>(labels: &'a [&'static str], accepted: &[&str]) -> Vec<&'a str> {
+    labels
+        .iter()
+        .copied()
+        .filter(|label| accepted.iter().any(|needle| label.contains(needle)))
+        .collect()
+}
+
+fn pathway_ecosystem_context(meta: &LocationMeta) -> String {
+    let environment = serde_json::to_value(&meta.environment).unwrap_or_else(|_| json!({}));
+    let list = |key: &str| {
+        environment
+            .get(key)
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "none authored".to_string())
+    };
+    let labels = ecosystem_labels(meta);
+    let vegetation = ecosystem_label_subset(&labels, &["woodland", "herb", "soil"]);
+    let fauna = ecosystem_label_subset(&labels, &["fish"]);
+    let joined_or_none = |values: &[&str]| {
+        if values.is_empty() {
+            "none authored".to_string()
+        } else {
+            values.join(", ")
+        }
+    };
+    format!(
+        "biome: {biome}; terrain: {terrain}; climate: {climate}; landforms: {landforms}; geology: {geology}; hydrology: {hydrology}; vegetation cues: {vegetation}; fauna cues: {fauna}; ecosystem/resource cues: {ecosystem}",
+        biome = meta.biome,
+        terrain = if meta.terrain.is_empty() {
+            "none authored".to_string()
+        } else {
+            meta.terrain.join(", ")
+        },
+        climate = environment
+            .get("climate")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        landforms = list("landforms"),
+        geology = list("geology"),
+        hydrology = list("hydrology"),
+        vegetation = joined_or_none(&vegetation),
+        fauna = joined_or_none(&fauna),
+        ecosystem = joined_or_none(&labels),
+    )
+}
+
+struct PathwayRoutePromptContext<'a> {
+    route_id: &'a str,
+    route_version: u64,
+    origin_name: &'a str,
+    destination_name: &'a str,
+    direction: &'a str,
+    origin_meta: &'a LocationMeta,
+    destination_meta: &'a LocationMeta,
+}
+
+fn generated_pathway_content_prompt(
+    pathway: &GeneratedPathwayState,
+    route: &PathwayRoutePromptContext<'_>,
+) -> String {
+    let waypoint_context = pathway
+        .waypoints
+        .iter()
+        .enumerate()
+        .map(|(index, waypoint)| {
+            format!(
+                "{step}. segment index/count: {step}/{segments}; fallback name: {fallback}; {ecology}",
+                step = index + 1,
+                segments = pathway.distance.max(1),
+                fallback = waypoint.name,
+                ecology = pathway_ecosystem_context(&waypoint.meta),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "Create {count} distinct hidden waypoint identities for successive segments of one cozy storybook route. They are generated together now but players encounter them one at a time through Scout.\nCanonical route ID: {route_id}\nCanonical route version: {route_version}\nRoute endpoints: origin {origin_name}; destination {destination_name}\nTravel direction: {direction}, from {origin_name} toward {destination_name}.\nNearby authored origin description: {origin_description}\nNearby authored origin persona: {origin_persona}\nOrigin ecology: {origin_ecology}\nNearby authored destination description: {destination_description}\nNearby authored destination persona: {destination_persona}\nDestination ecology: {destination_ecology}\n{waypoint_context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Ground every field in the supplied direction, endpoint descriptions, biome, terrain, climate, hydrology, vegetation, fauna, and ecosystem cues. You may name and describe a waypoint, but you must not choose or change topology, route identity, endpoints, directionality, ownership, route version, segment count, access, or rules. Do not introduce named people, items, quests, rewards, danger outcomes, magic powers, or unsupported ecological facts. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Segment, either route endpoint, or duplicates.",
+        count = pathway.waypoints.len(),
+        route_id = route.route_id,
+        route_version = route.route_version,
+        direction = route.direction,
+        origin_name = route.origin_name,
+        destination_name = route.destination_name,
+        origin_description = route.origin_meta.description,
+        origin_persona = route.origin_meta.persona,
+        origin_ecology = pathway_ecosystem_context(route.origin_meta),
+        destination_description = route.destination_meta.description,
+        destination_persona = route.destination_meta.persona,
+        destination_ecology = pathway_ecosystem_context(route.destination_meta),
+    )
+}
+
+pub(super) async fn pathway_content_generation_context(
+    state: &AppState,
+    pathway: &GeneratedPathwayState,
+) -> PathwayContentPromptContext {
+    let runtime = state.inner.lock().await;
+    let origin_name = runtime
+        .location_name(pathway.origin_location_id)
+        .unwrap_or_else(|| "one known place".to_string());
+    let destination_name = runtime
+        .location_name(pathway.destination_location_id)
+        .unwrap_or_else(|| "another known place".to_string());
+    let direction = runtime
+        .exit_direction(pathway.origin_location_id, pathway.destination_location_id)
+        .unwrap_or_else(|| "endpoint-to-endpoint".to_string());
+    let origin_meta = runtime.location_meta_for(pathway.origin_location_id);
+    let destination_meta = runtime.location_meta_for(pathway.destination_location_id);
+    let occupied_names = runtime
+        .generated_pathways
+        .values()
+        .filter(|existing| existing.id != pathway.id)
+        .flat_map(|existing| existing.waypoints.iter())
+        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+        .chain(
+            runtime
+                .locations
+                .iter()
+                .filter(|(location_id, _)| {
+                    !pathway
+                        .waypoints
+                        .iter()
+                        .any(|waypoint| waypoint.id == **location_id)
+                })
+                .map(|(_, name)| name.to_ascii_lowercase()),
+        )
+        .collect();
+    let route_id = if pathway.source_route_id.is_empty() {
+        pathway.id.as_str()
+    } else {
+        pathway.source_route_id.as_str()
+    };
+    let route_version = pathway.source_route_version.max(1);
+    let prompt = generated_pathway_content_prompt(
+        pathway,
+        &PathwayRoutePromptContext {
+            route_id,
+            route_version,
+            origin_name: &origin_name,
+            destination_name: &destination_name,
+            direction: &direction,
+            origin_meta: &origin_meta,
+            destination_meta: &destination_meta,
+        },
+    );
+    PathwayContentPromptContext {
+        prompt,
+        origin_name,
+        destination_name,
+        occupied_names,
+    }
+}
+
+pub(super) fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
+    let name = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = name.split_whitespace().count();
+    let char_count = name.chars().count();
+    let lower = name.to_ascii_lowercase();
+    if !(2..=5).contains(&word_count)
+        || !(4..=40).contains(&char_count)
+        || lower.contains("pathway")
+        || lower.contains("stretch")
+        || generated_label_contains_authority_language(&lower)
+        || !name
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(name)
+}
+
+fn generated_label_contains_authority_language(value: &str) -> bool {
+    value
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|token| {
+            matches!(
+                token,
+                "access"
+                    | "award"
+                    | "awards"
+                    | "clock"
+                    | "damage"
+                    | "health"
+                    | "inventory"
+                    | "item"
+                    | "items"
+                    | "orb"
+                    | "orbs"
+                    | "quest"
+                    | "quests"
+                    | "reward"
+                    | "rewards"
+                    | "unlock"
+                    | "unlocks"
+                    | "wallet"
+            )
+        })
+}
+
+fn sanitize_generated_content_text(
+    value: &str,
+    min_chars: usize,
+    max_chars: usize,
+) -> Option<String> {
+    let text = compact_whitespace(value.trim().trim_matches('"'));
+    let char_count = text.chars().count();
+    let lowered = format!(" {} ", text.to_ascii_lowercase());
+    if !(min_chars..=max_chars).contains(&char_count)
+        || text.chars().any(char::is_control)
+        || text.chars().any(|character| "{}<>\"".contains(character))
+        || [
+            " http://",
+            " https://",
+            " ignore previous",
+            " system prompt",
+            " developer message",
+            " assistant message",
+            " ai model",
+            " policy",
+            " wallet",
+            " orb ",
+            " orbs ",
+            " item ",
+            " items ",
+            " inventory ",
+            " reward",
+            " award",
+            " damage",
+            " health ",
+            " hit point",
+            " level up",
+            " grants ",
+            " gives you ",
+            " unlock",
+            " access gate",
+            " allows entry",
+            " opens access",
+            " locked until",
+            " quest",
+            " clock",
+        ]
+        .iter()
+        .any(|needle| lowered.contains(needle))
+    {
+        return None;
+    }
+    Some(text)
+}
+
+pub(super) fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
+    let title = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = title.split_whitespace().count();
+    if !(1..=6).contains(&word_count)
+        || !(4..=48).contains(&title.chars().count())
+        || title.to_ascii_lowercase().contains("pathway to")
+        || generated_label_contains_authority_language(&title.to_ascii_lowercase())
+        || !title
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(title)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GeneratedWaypointContentProposal {
+    pub(super) name: String,
+    pub(super) title: String,
+    pub(super) description: String,
+    pub(super) persona: String,
+    pub(super) visual_detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratedPathwayContentProposal {
+    waypoints: Vec<GeneratedWaypointContentProposal>,
+}
+
+pub(super) fn parse_generated_pathway_content(
+    text: &str,
+    expected: usize,
+) -> Option<Vec<GeneratedWaypointContentProposal>> {
+    let cleaned = text
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let json_text = if cleaned.starts_with('{') {
+        cleaned
+    } else {
+        let start = cleaned.find('{')?;
+        let end = cleaned.rfind('}')?;
+        cleaned.get(start..=end)?
+    };
+    let proposal: GeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
+    if proposal.waypoints.len() != expected {
+        return None;
+    }
+    let waypoints = proposal
+        .waypoints
+        .into_iter()
+        .map(|waypoint| {
+            Some(GeneratedWaypointContentProposal {
+                name: sanitize_generated_pathway_name(&waypoint.name)?,
+                title: sanitize_generated_pathway_title(&waypoint.title)?,
+                description: sanitize_generated_content_text(&waypoint.description, 24, 240)?,
+                persona: sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
+                visual_detail: sanitize_generated_content_text(&waypoint.visual_detail, 12, 180)?,
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let unique = waypoints
+        .iter()
+        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    (unique.len() == waypoints.len()).then_some(waypoints)
+}
+
+pub(super) fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
+    let name = compact_whitespace(name).to_ascii_lowercase();
+    anchors.iter().all(|anchor| {
+        let anchor = compact_whitespace(anchor).to_ascii_lowercase();
+        anchor.is_empty() || !name.contains(&anchor)
+    })
+}
+
+pub(super) fn apply_generated_waypoint_content(
+    waypoint: &mut GeneratedWaypointState,
+    content: GeneratedWaypointContentProposal,
+) {
+    waypoint.name = content.name.clone();
+    waypoint.meta.title = content.title;
+    waypoint.meta.description = content.description;
+    waypoint.meta.persona = content.persona;
+    waypoint.meta.art_prompt = Some(format!(
+        "cozy storybook landscape, {detail}, {name}, {biome}, terrain of {terrain}, no people, no characters, no creatures, no text, no logo, no watermark",
+        detail = content.visual_detail,
+        name = content.name,
+        biome = waypoint.meta.biome,
+        terrain = waypoint.meta.terrain.join(", "),
+    ));
+}
+
+pub(super) fn set_pathway_generation_provenance(
+    pathway: &mut GeneratedPathwayState,
+    mode: GenerationMode,
+    config: Option<&AiConfig>,
+    source: &str,
+    attempts: u8,
+) {
+    pathway.generation = GenerationProvenance {
+        source: source.to_string(),
+        feature: PATHWAY_CONTENT_FEATURE.to_string(),
+        policy_mode: mode.as_str().to_string(),
+        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+        provider: ai_provider_name(config).to_string(),
+        model: ai_model_name(config),
+        model_attribution: None,
+        attempts,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RuntimeWorld;
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use base64::Engine;
     use std::sync::{
@@ -957,6 +1360,48 @@ mod tests {
         Arc,
     };
     use tokio::net::TcpListener;
+
+    #[test]
+    fn pathway_prompt_carries_route_direction_ecology_and_authored_context() {
+        let runtime = RuntimeWorld::seeded();
+        let pathway = runtime
+            .generated_pathway(5000, 700, 712, 2)
+            .expect("Bethlehem-to-Jerusalem route");
+        let origin_meta = runtime.location_meta_for(700);
+        let destination_meta = runtime.location_meta_for(712);
+        let prompt = generated_pathway_content_prompt(
+            &pathway,
+            &PathwayRoutePromptContext {
+                route_id: "route://cosyworld.the-holy-land/authored/bethlehem|jerusalem",
+                route_version: 3,
+                origin_name: "Bethlehem",
+                destination_name: "Jerusalem",
+                direction: "north",
+                origin_meta: &origin_meta,
+                destination_meta: &destination_meta,
+            },
+        );
+
+        assert!(prompt.contains("Canonical route ID: route://cosyworld.the-holy-land"));
+        assert!(prompt.contains("Canonical route version: 3"));
+        assert!(prompt.contains("Route endpoints: origin Bethlehem; destination Jerusalem"));
+        assert!(prompt.contains("Travel direction: north, from Bethlehem toward Jerusalem"));
+        assert!(prompt.contains(&origin_meta.description));
+        assert!(prompt.contains(&destination_meta.description));
+        assert!(prompt.contains("segment index/count: 1/2"));
+        for field in [
+            "biome:",
+            "terrain:",
+            "climate:",
+            "hydrology:",
+            "vegetation cues:",
+            "fauna cues:",
+            "ecosystem/resource cues:",
+        ] {
+            assert!(prompt.contains(field), "missing {field} from {prompt}");
+        }
+        assert!(prompt.contains("must not choose or change topology"));
+    }
 
     #[test]
     fn provider_names_follow_the_configured_endpoint() {

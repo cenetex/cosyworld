@@ -2367,8 +2367,22 @@ async function main() {
         ],
         items: [],
         exits: [
-          { destination_location_id: 2, destination_location_name: "Rain-Soft Garden", direction: "east", accessible: true, locked: false },
-          { destination_location_id: 11, destination_location_name: "Homeroom", direction: "north", accessible: true, locked: false },
+          {
+            destination_location_id: 2,
+            destination_location_name: "Rain-Soft Garden",
+            route_label: "Route from The Cosy Cottage to Rain-Soft Garden",
+            direction: "east",
+            accessible: true,
+            locked: false,
+          },
+          {
+            destination_location_id: 11,
+            destination_location_name: "Homeroom",
+            route_label: "Route from The Cosy Cottage to Homeroom",
+            direction: "north",
+            accessible: true,
+            locked: false,
+          },
         ],
         room_features: [],
         cards: {
@@ -2476,8 +2490,11 @@ async function main() {
     assert(result.count === 1, `multiple open paths should collapse into one Travel card: ${JSON.stringify(result)}`);
     assert(result.detail === "choose a path" && result.command === "go", `grouped Travel should carry its destination choice: ${JSON.stringify(result)}`);
     assert(
-      ["Rain-Soft Garden", "Homeroom"].every((name) => result.choices.some((choice) => choice.label === name)),
-      `Travel should carry every open destination: ${JSON.stringify(result)}`,
+      [
+        "Route from The Cosy Cottage to Rain-Soft Garden",
+        "Route from The Cosy Cottage to Homeroom",
+      ].every((name) => result.choices.some((choice) => choice.label === name)),
+      `Travel should distinguish routes from their next location cards: ${JSON.stringify(result)}`,
     );
     assert(
       ["exit:2", "exit:11"].every((key) => result.focusKeys.includes(key)),

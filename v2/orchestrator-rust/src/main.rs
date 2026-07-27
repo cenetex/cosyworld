@@ -640,6 +640,10 @@ struct GeneratedPathwayState {
     destination_location_id: u64,
     distance: u8,
     created_by_actor_id: u64,
+    #[serde(default)]
+    way_class: PathwayWayClass,
+    #[serde(default)]
+    traffic_count: u64,
     waypoints: Vec<GeneratedWaypointState>,
     #[serde(default)]
     generation: GenerationProvenance,
@@ -10506,11 +10510,49 @@ impl RuntimeWorld {
                     {
                         continue;
                     }
-                    if let Some(current) = self.generated_pathways.get(&pathway.id) {
-                        refined
-                            .revealed_edges
-                            .extend(current.revealed_edges.clone());
-                        refined.familiar |= current.familiar;
+                    let Some(current) = self.generated_pathways.get(&pathway.id).cloned() else {
+                        continue;
+                    };
+                    refined
+                        .revealed_edges
+                        .extend(current.revealed_edges.clone());
+                    refined.familiar |= current.familiar;
+                    refined.traffic_count = current.traffic_count;
+                    refined.way_class = PathwayWayClass::for_traffic(refined.traffic_count);
+                    let current_waypoint_ids = current
+                        .waypoints
+                        .iter()
+                        .map(|waypoint| waypoint.id)
+                        .collect::<BTreeSet<_>>();
+                    let mut occupied_names = self
+                        .generated_pathways
+                        .values()
+                        .filter(|existing| existing.id != refined.id)
+                        .flat_map(|existing| existing.waypoints.iter())
+                        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+                        .chain(
+                            self.locations
+                                .iter()
+                                .filter(|(location_id, _)| {
+                                    !current_waypoint_ids.contains(location_id)
+                                })
+                                .map(|(_, name)| name.to_ascii_lowercase()),
+                        )
+                        .collect::<BTreeSet<_>>();
+                    let pathway_canonical_id = refined.canonical_id.clone();
+                    for (index, (waypoint, fallback)) in refined
+                        .waypoints
+                        .iter_mut()
+                        .zip(&current.waypoints)
+                        .enumerate()
+                    {
+                        waypoint.name = reserve_unique_pathway_name(
+                            &mut occupied_names,
+                            &waypoint.name,
+                            &fallback.name,
+                            &pathway_canonical_id,
+                            index,
+                        );
                     }
                     for waypoint in &refined.waypoints {
                         self.locations.insert(waypoint.id, waypoint.name.clone());
@@ -10604,6 +10646,12 @@ impl RuntimeWorld {
                             *to_location_id,
                         );
                     }
+                    let traffic_delta =
+                        durable_pathway_traffic_evidence(&next_pathway, committed_events);
+                    next_pathway.traffic_count =
+                        next_pathway.traffic_count.saturating_add(traffic_delta);
+                    next_pathway.way_class =
+                        PathwayWayClass::for_traffic(next_pathway.traffic_count);
                     self.generated_pathways
                         .insert(next_pathway.id.clone(), next_pathway.clone());
                     if let Some(journey) = journey {
@@ -31844,7 +31892,7 @@ fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
     )
 }
 
-fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
+fn legacy_sanitize_generated_pathway_name(value: &str) -> Option<String> {
     let name = compact_whitespace(value.trim().trim_matches('"'));
     let word_count = name.split_whitespace().count();
     let char_count = name.chars().count();
@@ -31853,7 +31901,7 @@ fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
         || !(4..=40).contains(&char_count)
         || lower.contains("pathway")
         || lower.contains("stretch")
-        || generated_label_contains_authority_language(&lower)
+        || legacy_generated_label_contains_authority_language(&lower)
         || !name
             .chars()
             .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
@@ -31863,7 +31911,7 @@ fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
     Some(name)
 }
 
-fn generated_label_contains_authority_language(value: &str) -> bool {
+fn legacy_generated_label_contains_authority_language(value: &str) -> bool {
     value
         .split(|character: char| !character.is_ascii_alphanumeric())
         .any(|token| {
@@ -31891,7 +31939,7 @@ fn generated_label_contains_authority_language(value: &str) -> bool {
         })
 }
 
-fn sanitize_generated_content_text(
+fn legacy_sanitize_generated_content_text(
     value: &str,
     min_chars: usize,
     max_chars: usize,
@@ -31941,13 +31989,13 @@ fn sanitize_generated_content_text(
     Some(text)
 }
 
-fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
+fn legacy_sanitize_generated_pathway_title(value: &str) -> Option<String> {
     let title = compact_whitespace(value.trim().trim_matches('"'));
     let word_count = title.split_whitespace().count();
     if !(1..=6).contains(&word_count)
         || !(4..=48).contains(&title.chars().count())
         || title.to_ascii_lowercase().contains("pathway to")
-        || generated_label_contains_authority_language(&title.to_ascii_lowercase())
+        || legacy_generated_label_contains_authority_language(&title.to_ascii_lowercase())
         || !title
             .chars()
             .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
@@ -31959,7 +32007,7 @@ fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GeneratedWaypointContentProposal {
+struct LegacyGeneratedWaypointContentProposal {
     name: String,
     title: String,
     description: String,
@@ -31969,14 +32017,14 @@ struct GeneratedWaypointContentProposal {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GeneratedPathwayContentProposal {
-    waypoints: Vec<GeneratedWaypointContentProposal>,
+struct LegacyGeneratedPathwayContentProposal {
+    waypoints: Vec<LegacyGeneratedWaypointContentProposal>,
 }
 
-fn parse_generated_pathway_content(
+fn legacy_parse_generated_pathway_content(
     text: &str,
     expected: usize,
-) -> Option<Vec<GeneratedWaypointContentProposal>> {
+) -> Option<Vec<LegacyGeneratedWaypointContentProposal>> {
     let cleaned = text
         .trim()
         .trim_start_matches("```json")
@@ -31990,7 +32038,7 @@ fn parse_generated_pathway_content(
         let end = cleaned.rfind('}')?;
         cleaned.get(start..=end)?
     };
-    let proposal: GeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
+    let proposal: LegacyGeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
     if proposal.waypoints.len() != expected {
         return None;
     }
@@ -31998,12 +32046,20 @@ fn parse_generated_pathway_content(
         .waypoints
         .into_iter()
         .map(|waypoint| {
-            Some(GeneratedWaypointContentProposal {
+            Some(LegacyGeneratedWaypointContentProposal {
                 name: sanitize_generated_pathway_name(&waypoint.name)?,
                 title: sanitize_generated_pathway_title(&waypoint.title)?,
-                description: sanitize_generated_content_text(&waypoint.description, 24, 240)?,
-                persona: sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
-                visual_detail: sanitize_generated_content_text(&waypoint.visual_detail, 12, 180)?,
+                description: legacy_sanitize_generated_content_text(
+                    &waypoint.description,
+                    24,
+                    240,
+                )?,
+                persona: legacy_sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
+                visual_detail: legacy_sanitize_generated_content_text(
+                    &waypoint.visual_detail,
+                    12,
+                    180,
+                )?,
             })
         })
         .collect::<Option<Vec<_>>>()?;
@@ -32014,7 +32070,7 @@ fn parse_generated_pathway_content(
     (unique.len() == waypoints.len()).then_some(waypoints)
 }
 
-fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
+fn legacy_generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
     let name = compact_whitespace(name).to_ascii_lowercase();
     anchors.iter().all(|anchor| {
         let anchor = compact_whitespace(anchor).to_ascii_lowercase();
@@ -32022,9 +32078,9 @@ fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
     })
 }
 
-fn apply_generated_waypoint_content(
+fn legacy_apply_generated_waypoint_content(
     waypoint: &mut GeneratedWaypointState,
-    content: GeneratedWaypointContentProposal,
+    content: LegacyGeneratedWaypointContentProposal,
 ) {
     waypoint.name = content.name.clone();
     waypoint.meta.title = content.title;
@@ -32086,28 +32142,7 @@ async fn generate_hidden_pathway_content(
         );
         return;
     };
-    let waypoint_context = pathway
-        .waypoints
-        .iter()
-        .enumerate()
-        .map(|(index, waypoint)| {
-            format!(
-                "{}. fallback name: {}; biome: {}; terrain: {}",
-                index + 1,
-                waypoint.name,
-                waypoint.meta.biome,
-                waypoint.meta.terrain.join(", ")
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let prompt = format!(
-        "Create {count} distinct hidden waypoint identities for successive stretches of one cozy storybook route. They are generated together now but players encounter them one at a time through Explore. Route: {origin} toward {destination}.\n{context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Do not introduce people, creatures, items, quests, rewards, rules, danger outcomes, access, magic powers, or facts beyond the listed biome and terrain. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Stretch, the route destination, or duplicates.",
-        count = pathway.waypoints.len(),
-        origin = narration_plan.from_name,
-        destination = narration_plan.destination_name,
-        context = waypoint_context,
-    );
+    let prompt_context = pathway_content_generation_context(state, pathway).await;
     let response_format = serde_json::json!({
         "type": "json_schema",
         "json_schema": {
@@ -32146,7 +32181,7 @@ async fn generate_hidden_pathway_content(
             prompt_version: PATHWAY_CONTENT_PROMPT_VERSION,
             capability: ModelCapability::WorldContent,
             system: "You create bounded hidden geography in CosyWorld. Return only JSON matching the supplied schema. World rules and rewards are outside your authority.",
-            user: &prompt,
+            user: &prompt_context.prompt,
             temperature: 0.8,
             max_tokens: 600,
             timeout: Duration::from_secs(12),
@@ -32186,8 +32221,13 @@ async fn generate_hidden_pathway_content(
             contents.iter().all(|content| {
                 generated_pathway_name_avoids_anchors(
                     &content.name,
-                    &[&narration_plan.from_name, &narration_plan.destination_name],
-                )
+                    &[
+                        &prompt_context.origin_name,
+                        &prompt_context.destination_name,
+                    ],
+                ) && !prompt_context
+                    .occupied_names
+                    .contains(&content.name.to_ascii_lowercase())
             })
         });
     let Some(contents) = contents else {
@@ -32407,11 +32447,11 @@ async fn move_actor(
         if let ProjectionMutation::JourneyTransition {
             narration: stored_narration,
             ..
-        } = &mut mutation
+        } = mutation.as_mut()
         {
             *stored_narration = narration;
         }
-        let content_generation = mutation.clone();
+        let content_generation = (*mutation).clone();
         let turn_action_kind = if action.kind == CW_ACTION_MOVE {
             CW_ACTION_MOVE
         } else {
@@ -32424,7 +32464,7 @@ async fn move_actor(
         let response = apply_journey_transition_with_hosted_access(
             state.clone(),
             action,
-            mutation,
+            *mutation,
             payload.actor_session.as_deref(),
             turn_action_kind,
             hosted_access_grant,
@@ -46849,6 +46889,14 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == first_waypoint_id));
+        assert_eq!(
+            after_first_search
+                .exits
+                .iter()
+                .find(|exit| exit.destination_location_id == first_waypoint_id)
+                .map(|exit| exit.route_label.as_str()),
+            Some("Route from Rain-Soft Garden to Moonlit Trail")
+        );
         assert!(!after_first_search
             .exits
             .iter()
@@ -46896,6 +46944,11 @@ mod tests {
             runtime.actor_by_id(5000).unwrap().location_id,
             first_waypoint_id
         );
+        let traveled_pathway = runtime
+            .pathway_for_anchors(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("travel updates the shared pathway");
+        assert_eq!(traveled_pathway.traffic_count, 1);
+        assert_eq!(traveled_pathway.way_class, PathwayWayClass::Track);
         let frontier_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(frontier_state.location.name, first_waypoint_name);
         assert_eq!(
