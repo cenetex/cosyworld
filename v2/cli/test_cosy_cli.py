@@ -115,6 +115,37 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         self.assertNotIn("Suggestion 3", rendered)
         self.assertNotRegex(rendered, r"action \d+ of \d+")
 
+    def test_cli_keeps_forming_relationship_and_dialogue_failure_explicit(self) -> None:
+        game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
+        forming = game.format_event(
+            {
+                "seq": 21,
+                "type": "bond.created",
+                "actor_name": "Kit Featherstep",
+                "target_actor_name": "Mara Wick",
+                "content": "bond:42:8301:1:forming:advancement",
+            }
+        )
+        beat = game.format_event(
+            {
+                "seq": 22,
+                "type": "relationship.beat",
+                "content": "Mara places Rowan's empty key hook on the bar.",
+            }
+        )
+        unavailable = game.format_event(
+            {
+                "seq": 23,
+                "type": "dialogue.unavailable",
+                "target_actor_name": "Mara Wick",
+            }
+        )
+        self.assertIn("forming Bond with Mara Wick", forming)
+        self.assertNotIn("friend", forming.lower())
+        self.assertIn("empty key hook", beat)
+        self.assertIn("Dialogue unavailable with Mara Wick", unavailable)
+        self.assertIn("no substitute speech", unavailable)
+
 
 if __name__ == "__main__":
     unittest.main()

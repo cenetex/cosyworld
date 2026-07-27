@@ -675,6 +675,8 @@ pub(super) struct SeedActorContent {
     pub(super) desires: Vec<SeedResidentDesireContent>,
     #[serde(default)]
     pub(super) attachments: Vec<SeedResidentAttachmentContent>,
+    #[serde(default)]
+    pub(super) relationship: Option<SeedRelationshipContent>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2199,6 +2201,20 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 return Err(format!(
                     "seed actor {} has invalid attachment to item {}",
                     actor.id, attachment.item_id
+                ));
+            }
+        }
+        if let Some(relationship) = actor.relationship.as_ref() {
+            if relationship.intent.trim().is_empty()
+                || relationship.statement.trim().is_empty()
+                || relationship.first_beat.trim().is_empty()
+                || relationship.reply_prompt.trim().is_empty()
+                || relationship.active_beat.trim().is_empty()
+                || !item_ids.contains(&relationship.active_on_gift_item_id)
+            {
+                return Err(format!(
+                    "seed actor {} has an invalid authored relationship",
+                    actor.id
                 ));
             }
         }

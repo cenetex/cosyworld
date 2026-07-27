@@ -3876,6 +3876,8 @@ mod tests {
                 status: "active".to_string(),
                 source_event_seq: Some(90_407),
                 updated_event_seq: Some(90_407),
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
             },
         );
         assert_actionable_advancement_gate(&disabled_output(

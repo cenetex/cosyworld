@@ -323,6 +323,8 @@ pub(super) struct ActorView {
     pub(super) muted_by_you: bool,
     pub(super) blocked_by_you: bool,
     pub(super) location_id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) relationship: Option<RelationshipPreviewView>,
     pub(super) factions: Vec<FactionRefView>,
     #[serde(rename = "economy")]
     pub(super) resident_economy: Option<ResidentEconomyView>,
@@ -716,6 +718,10 @@ pub(super) struct BondView {
     pub(super) statement: String,
     pub(super) strength: u8,
     pub(super) status: String,
+    pub(super) source_event_seq: Option<u64>,
+    pub(super) updated_event_seq: Option<u64>,
+    pub(super) dialogue_status: String,
+    pub(super) dialogue_event_seq: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1219,6 +1225,7 @@ impl RuntimeWorld {
                     .is_some_and(|safety| safety.blocked_actor_ids.contains(&actor.id))
             }),
             location_id: actor.location_id,
+            relationship: self.relationship_preview(actor.id),
             factions: faction_refs_for_actor(actor.id),
             resident_economy: self.resident_economy_view(actor, client_actor_id),
             hp: unsafe { cw_actor_current_hp(&actor) },
@@ -3156,6 +3163,10 @@ impl RuntimeWorld {
                 statement: bond.statement.clone(),
                 strength: bond.strength,
                 status: bond.status.clone(),
+                source_event_seq: bond.source_event_seq,
+                updated_event_seq: bond.updated_event_seq,
+                dialogue_status: bond.dialogue_status.clone(),
+                dialogue_event_seq: bond.dialogue_event_seq,
             })
             .collect();
         bonds.sort_by(|a, b| {

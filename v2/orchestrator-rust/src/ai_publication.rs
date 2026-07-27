@@ -244,6 +244,38 @@ pub(crate) fn certify_speech(
     })
 }
 
+#[cfg(test)]
+pub(crate) fn certified_test_speech(
+    text: &str,
+    speaker_actor_id: u64,
+    speaker_name: &str,
+) -> CertifiedSpeech {
+    let completion = AiCompletion {
+        text: text.to_string(),
+        attempts: 1,
+        latency: std::time::Duration::ZERO,
+        model_attribution: None,
+        finish_reason: "stop".to_string(),
+        usage: AiTokenUsage::default(),
+        context_hash: "test-context".to_string(),
+        prompt_version: "test-prompt-v1".to_string(),
+    };
+    let context = SpeechGateContext {
+        feature: "test_speech",
+        generation_key: format!("test:{speaker_actor_id}"),
+        speaker_actor_id,
+        speaker_name: speaker_name.to_string(),
+        mode: SpeechMode::Prose,
+        max_words: 80,
+        anchors: vec!["Keeper Brass Key".to_string()],
+        recent_lines: Vec::new(),
+        has_proposed_action: false,
+        envelope_valid: true,
+        candidate_round: 1,
+    };
+    certify_speech(None, completion, text, context).expect("test speech certifies")
+}
+
 pub(crate) fn receipt_matches_text(receipt: &AiPublicationReceipt, text: &str) -> bool {
     receipt.schema_version == AI_PUBLICATION_RECEIPT_VERSION
         && receipt.output_hash == sha256_hex(text.as_bytes())

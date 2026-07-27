@@ -836,7 +836,8 @@ class Game:
             return f"[{seq}] {actor} banks the Visit Ledger: {event_label_tail(event)}."
         if type_name == "bond.created":
             target = event.get("target_actor_name") or "someone"
-            return f"[{seq}] {actor} writes a Bond with {target}."
+            status = "forming" if ":forming:" in str(event.get("content") or "") else "active"
+            return f"[{seq}] {actor} writes a {status} Bond with {target}."
         if type_name == "bond.revised":
             target = event.get("target_actor_name") or "someone"
             return f"[{seq}] {actor} revises a Bond with {target}."
@@ -846,6 +847,13 @@ class Game:
         if type_name == "bond.resolved":
             target = event.get("target_actor_name") or "someone"
             return f"[{seq}] {actor} settles a Bond with {target}."
+        if type_name == "relationship.beat":
+            return f"[{seq}] Relationship beat: {event.get('content') or 'a connection begins to form'}"
+        if type_name == "relationship.advanced":
+            return f"[{seq}] Relationship advanced: {event.get('content') or 'earned trust changes the relationship'}"
+        if type_name == "dialogue.unavailable":
+            target = event.get("target_actor_name") or "the resident"
+            return f"[{seq}] Dialogue unavailable with {target}; no substitute speech was created."
         if type_name == "combat.defend":
             return f"[{seq}] {actor} defends."
         if type_name == "combat.attack.attempt":
