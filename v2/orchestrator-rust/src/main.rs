@@ -48061,7 +48061,7 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
         assert!(INDEX_HTML.contains("data-export-journal"));
         assert!(INDEX_HTML
-            .contains("id=\"shared-questions\" aria-label=\"Shared questions in this place\""));
+            .contains("id=\"shared-questions\" aria-label=\"Current story and shared questions in this place\""));
         assert!(INDEX_HTML.contains("function renderSharedQuestions"));
         assert!(INDEX_HTML.contains("role=\"progressbar\""));
         assert!(INDEX_HTML.contains("question.strategies"));

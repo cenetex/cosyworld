@@ -5420,8 +5420,8 @@ async function main() {
     );
     assert(
       result.roomLatest === result.latestJournalRow
-        && result.roomLatest === "Thimble Guest — Anyone want to follow the newly opened path?",
-      `the room ticker should mirror the newest Journal row: ${JSON.stringify(result)}`,
+        && result.roomLatest === "Thimble Guest looks closely around The Cosy Cottage.",
+      `the room ticker should mirror the newest Journal event without duplicating chat: ${JSON.stringify(result)}`,
     );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
@@ -5663,6 +5663,7 @@ async function main() {
     const screenshotPath = resolve(visualSnapshotDir, "lantern-question-two-suggestions.png");
     const metadataPath = resolve(visualSnapshotDir, "lantern-question-two-suggestions.json");
     await mkdir(visualSnapshotDir, { recursive: true });
+    await page.setViewportSize({ width: 1100, height: 900 });
     const evidence = await page.evaluate(() => {
       window.__cosyLanternQuestionEvidence = {
         state,
@@ -5783,13 +5784,15 @@ async function main() {
       focusedKey = "";
       playerPromotedHandKey = "";
       render();
-      const front = document.querySelector("#promoted-question .story-front");
-      const question = document.querySelector("#promoted-question .active-question");
+      setJournalOpen(true);
+      const front = document.querySelector("#shared-questions .story-front");
+      const question = document.querySelector("#shared-questions .active-question");
+      front.open = true;
+      question.open = true;
       const meters = [...question.querySelectorAll('[role="progressbar"]')].map((meter) => ({
         label: meter.getAttribute("aria-label"),
         now: meter.getAttribute("aria-valuenow"),
         max: meter.getAttribute("aria-valuemax"),
-        text: meter.getAttribute("aria-valuetext"),
       }));
       const buttons = ["primary", "secondary"].map((id) => {
         const button = document.getElementById(id);
@@ -5800,47 +5803,72 @@ async function main() {
           visible: Boolean(button && button.getClientRects().length),
         };
       });
+      const rect = (selector) => {
+        const node = document.querySelector(selector);
+        const box = node?.getBoundingClientRect();
+        return box ? {
+          top: box.top,
+          right: box.right,
+          bottom: box.bottom,
+          left: box.left,
+          width: box.width,
+          height: box.height,
+        } : null;
+      };
       return {
         frontText: front?.textContent || "",
-        frontLabelledBy: front?.getAttribute("aria-labelledby") || "",
-        frontDescribedBy: front?.getAttribute("aria-describedby") || "",
-        frontDescription: (front?.getAttribute("aria-describedby") || "")
-          .split(/\s+/)
-          .filter(Boolean)
-          .map((id) => document.getElementById(id)?.textContent || "")
+        frontSummary: front?.querySelector(".journal-row-summary")?.textContent || "",
+        frontDescription: [...(front?.querySelectorAll(".journal-row-lines li") || [])]
+          .map((line) => line.textContent || "")
           .join(" "),
-        frontRosterLists: front?.querySelectorAll("ul, ol").length || 0,
+        frontInspectorLists: front?.querySelectorAll(".journal-row-inspector").length || 0,
         questionText: question?.textContent || "",
-        questionAria: question?.getAttribute("aria-label") || "",
+        questionDescription: [...(question?.querySelectorAll(".journal-row-lines li") || [])]
+          .map((line) => line.textContent || "")
+          .join(" "),
         meters,
         buttons,
-        suggestionLabels: [...question.querySelectorAll(".shared-question-suggestions li")]
-          .map((item) => item.getAttribute("aria-label") || ""),
+        roomStoryCount: document.querySelectorAll(".room .story-front, .room .active-question, #promoted-question").length,
+        journalVisible: Boolean(document.querySelector("#journal-view")?.getClientRects().length),
+        chatVisible: Boolean(document.querySelector("#log")?.getClientRects().length),
+        promptVisible: Boolean(document.querySelector(".prompt")?.getClientRects().length),
+        journalRect: rect("#journal-view"),
+        chatRect: rect("#log"),
       };
     });
     assert(
-      evidence.frontText.includes("beacon's shadow has learned Rowan's shape")
-        && evidence.frontText.includes("Can Rowan be separated from the shadow")
-        && evidence.frontText.includes("Will the party restore a guiding light")
-        && evidence.frontText.includes("The answer still matters to Pip Thistle, Moth-Eaten Knight, and Rowan Vale.")
+      evidence.frontSummary.includes("beacon's shadow has learned Rowan's shape")
         && evidence.frontDescription.includes("Can Rowan be separated from the shadow")
-        && evidence.frontRosterLists === 0,
-      `ordinary scene should present the front as accessible narrative, not a roster: ${JSON.stringify(evidence)}`,
+        && evidence.frontDescription.includes("Will the party restore a guiding light")
+        && evidence.frontDescription.includes("the answer still matters to Pip Thistle, Moth-Eaten Knight, and Rowan Vale")
+        && evidence.frontInspectorLists === 0,
+      `the Journal should present the front as compact accessible narrative, not a roster: ${JSON.stringify(evidence)}`,
     );
-    assert(evidence.questionText.includes("Progress2/6") && evidence.questionText.includes("Danger1/6"), `ordinary scene should show both exact clocks: ${JSON.stringify(evidence)}`);
-    assert(evidence.questionText.includes("Completion changes") && evidence.questionText.includes("If danger fills"), `ordinary scene should explain both outcomes: ${JSON.stringify(evidence)}`);
+    assert(
+      evidence.questionText.includes("Can the Mothwood beacon be relit")
+        && evidence.questionDescription.includes("progress is 2/6")
+        && evidence.questionDescription.includes("danger is 1/6")
+        && evidence.questionDescription.includes("if danger fills")
+        && evidence.questionDescription.includes("finishing could")
+        && evidence.questionDescription.includes("choice 1/2")
+        && evidence.questionDescription.includes("choice 2/2")
+        && evidence.questionDescription.includes("target the brass beacon shutters")
+        && evidence.questionDescription.includes("risk trouble may draw nearer while you rest"),
+      `the compact Journal question should preserve clocks, outcomes, and both rationales: ${JSON.stringify(evidence)}`,
+    );
     assert(
       JSON.stringify(evidence.meters) === JSON.stringify([
-        { label: "Progress", now: "2", max: "6", text: "2 of 6" },
-        { label: "Danger", now: "1", max: "6", text: "1 of 6" },
+        { label: "Progress", now: "2", max: "6" },
       ]),
-      `progress and danger meters should expose exact accessible values: ${JSON.stringify(evidence)}`,
+      `the collapsed Journal row should expose exact progress without dashboard meter chrome: ${JSON.stringify(evidence)}`,
     );
     assert(
-      evidence.suggestionLabels.length === 2
-        && evidence.suggestionLabels[0].startsWith("Suggestion 1 of 2")
-        && evidence.suggestionLabels[1].startsWith("Suggestion 2 of 2"),
-      `the rationale list should describe exactly two suggestions: ${JSON.stringify(evidence)}`,
+      evidence.roomStoryCount === 0
+        && evidence.journalVisible
+        && evidence.chatVisible
+        && evidence.promptVisible
+        && evidence.chatRect.right <= evidence.journalRect.left + 0.5,
+      `Journal should be the sole story surface and must not replace or overlap chat: ${JSON.stringify(evidence)}`,
     );
     assert(
       evidence.buttons.every((button) => button.visible)
@@ -5849,7 +5877,6 @@ async function main() {
         && evidence.buttons.every((button) => !/action \d+ of \d+/i.test(button.aria)),
       `the two playable cards should use suggestion ordinals and no legal-superset count: ${JSON.stringify(evidence)}`,
     );
-    await page.setViewportSize({ width: 1100, height: 900 });
     await page.screenshot({ path: screenshotPath, fullPage: false });
     evidence.frontOutcomes = await page.evaluate(() => {
       const cases = [
@@ -5872,15 +5899,13 @@ async function main() {
           fronts: [{ ...state.fronts[0], ...frontCase }],
         };
         render();
-        const front = document.querySelector("#promoted-question .story-front");
-        const describedBy = front?.getAttribute("aria-describedby") || "";
+        const front = document.querySelector("#shared-questions .story-front");
+        front.open = true;
         return {
           presentationState: frontCase.presentation_state,
           text: front?.textContent || "",
-          describedText: describedBy
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((id) => document.getElementById(id)?.textContent || "")
+          describedText: [...(front?.querySelectorAll(".journal-row-lines li") || [])]
+            .map((line) => line.textContent || "")
             .join(" "),
         };
       });
@@ -5916,8 +5941,10 @@ async function main() {
         }],
       };
       render();
-      const front = document.querySelector("#promoted-question .story-front");
-      const memory = document.querySelector("#promoted-question .completed-memory");
+      const front = document.querySelector("#shared-questions .story-front");
+      const memory = document.querySelector("#shared-questions .completed-memory");
+      front.open = true;
+      memory.open = true;
       return {
         frontText: front?.textContent || "",
         text: memory?.textContent || "",
@@ -5928,7 +5955,7 @@ async function main() {
     assert(
       evidence.terminal.frontText.includes("the larger trouble remains unresolved")
         && evidence.terminal.text.includes("road went fully dark")
-        && evidence.terminal.text.includes("Contributors: Mara Wick, Road Reader")
+        && evidence.terminal.text.includes("Mara Wick, Road Reader were involved")
         && evidence.terminal.progressbars === 0
         && evidence.terminal.suggestions === 0,
       `terminal question should retire task bars to contributor memory: ${JSON.stringify(evidence)}`,
@@ -5946,6 +5973,7 @@ async function main() {
       focusedKey = previous.focusedKey;
       playerPromotedHandKey = previous.playerPromotedHandKey;
       delete window.__cosyLanternQuestionEvidence;
+      setJournalOpen(false);
       render();
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
@@ -8774,9 +8802,11 @@ async function main() {
       );
       const rows = [...document.querySelectorAll("#journal-view .journal-row")];
       const summaries = rows.map((row) => row.querySelector(".journal-row-summary")).filter(Boolean);
-      const detailNodes = rows.map((row) => row.querySelector(".journal-row-detail p")).filter(Boolean);
+      const detailNodes = rows.map((row) => row.querySelector(".journal-row-detail")).filter(Boolean);
       const terminalRect = document.querySelector(".terminal")?.getBoundingClientRect();
       const journalRect = document.querySelector("#journal-view")?.getBoundingClientRect();
+      const chatRect = document.querySelector("#log")?.getBoundingClientRect();
+      const journalStyle = getComputedStyle(document.querySelector("#journal-view"));
       return {
         expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
         journalVisible: visible(document.querySelector("#journal-view")),
@@ -8784,6 +8814,8 @@ async function main() {
         transcriptVisible: visible(document.querySelector("#log")),
         promptVisible: visible(document.querySelector("footer.prompt")),
         role: document.querySelector("#journal-log")?.getAttribute("role") || "",
+        heading: document.querySelector(".journal-heading h2")?.textContent || "",
+        fontFamily: journalStyle.fontFamily,
         rowCount: rows.length,
         allCollapsed: rows.every((row) => !row.open),
         rowsCompact: rows.every((row) => row.getBoundingClientRect().height <= 42),
@@ -8795,6 +8827,16 @@ async function main() {
         }),
         detailsHidden: detailNodes.every((node) => !visible(node)),
         noDashboardCopy: !/why this matters|what we know/i.test(document.querySelector("#journal-view")?.textContent || ""),
+        noCardChrome: document.querySelectorAll("#journal-view article, #journal-view img, #journal-view .shared-question-meter, #journal-view .shared-question-suggestions").length === 0,
+        panesDoNotOverlap: Boolean(
+          journalRect
+          && chatRect
+          && (
+            window.innerWidth <= 900
+              ? chatRect.bottom <= journalRect.top + 0.5
+              : chatRect.right <= journalRect.left + 0.5
+          )
+        ),
         insideTerminal: Boolean(
           terminalRect
           && journalRect
@@ -8809,26 +8851,41 @@ async function main() {
       };
     }, room.stateSignature);
     assert(journal.expanded === "true" && journal.journalVisible, `${label}: Journal should open from beside the location name: ${JSON.stringify(journal)}`);
-    assert(!journal.heroVisible && !journal.transcriptVisible && !journal.promptVisible, `${label}: Journal should take over the location/chat/action region: ${JSON.stringify(journal)}`);
-    assert(journal.role === "log" && journal.rowCount >= 2, `${label}: Journal should expose current context and chronological history: ${JSON.stringify(journal)}`);
+    assert(journal.transcriptVisible && journal.promptVisible && journal.panesDoNotOverlap, `${label}: Journal must remain separate from visible chat and actions: ${JSON.stringify(journal)}`);
+    assert(journal.role === "region" && journal.rowCount >= 2, `${label}: Journal should expose current context and chronological history without replaying it as a live log: ${JSON.stringify(journal)}`);
     assert(journal.allCollapsed && journal.rowsCompact && journal.summariesOneLine && journal.detailsHidden, `${label}: Journal rows should begin as true one-line summaries: ${JSON.stringify(journal)}`);
-    assert(journal.noDashboardCopy && journal.insideTerminal && journal.stateUnchanged, `${label}: Journal should stay minimalist without changing inference-facing state: ${JSON.stringify(journal)}`);
+    assert(
+      journal.heading === "journal://"
+        && /mono|menlo|consolas/i.test(journal.fontFamily)
+        && journal.noCardChrome
+        && journal.noDashboardCopy
+        && journal.insideTerminal
+        && journal.stateUnchanged,
+      `${label}: Journal should stay a minimalist console without changing inference-facing state: ${JSON.stringify(journal)}`,
+    );
 
     const rowCount = await page.locator("#journal-view .journal-row > summary").count();
     assert(rowCount >= 1, `${label}: Journal should have an expandable row`);
     await page.locator("#journal-view .journal-row > summary").first().click();
     const expandedRow = await page.evaluate(() => {
       const open = document.querySelector("#journal-view .journal-row[open]");
-      const detail = open?.querySelector(".journal-row-detail p")?.textContent?.trim() || "";
-      const endings = detail.match(/[.!?…]+(?:["')\]]+)?(?:\s|$)/g) || [];
-      const sentenceCount = detail ? Math.max(1, endings.length) : 0;
+      const detail = open?.querySelector(".journal-row-detail")?.textContent?.trim() || "";
       return {
         detail,
-        sentenceCount,
+        lineCount: open?.querySelectorAll(".journal-row-lines li").length || 0,
+        paragraphCount: open?.querySelectorAll(".journal-row-detail > p").length || 0,
+        chromeCount: open?.querySelectorAll("h1, h2, h3, article, img").length || 0,
         openCount: document.querySelectorAll("#journal-view .journal-row[open]").length,
       };
     });
-    assert(expandedRow.openCount === 1 && expandedRow.detail && expandedRow.sentenceCount === 1, `${label}: expanding a row should reveal exactly one sentence: ${JSON.stringify(expandedRow)}`);
+    assert(
+      expandedRow.openCount === 1
+        && expandedRow.detail
+        && expandedRow.lineCount <= 12
+        && expandedRow.paragraphCount <= 1
+        && expandedRow.chromeCount === 0,
+      `${label}: expanding a row should reveal bounded console detail without card chrome: ${JSON.stringify(expandedRow)}`,
+    );
 
     await page.locator("#room-log-toggle").click();
     await page.waitForFunction(() => (
