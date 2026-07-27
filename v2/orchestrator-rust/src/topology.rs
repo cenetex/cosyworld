@@ -1657,7 +1657,7 @@ mod tests {
             .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
             .expect("cross-pack long route");
         assert_eq!(pathway.owner_pack_id, "cosyworld.composition.core-ruby");
-        assert_eq!(pathway.owner_pack_version, "1.0.0");
+        assert_eq!(pathway.owner_pack_version, "1.0.1");
         assert!(pathway
             .source_route_id
             .starts_with("route://cosyworld.composition.core-ruby/"));
