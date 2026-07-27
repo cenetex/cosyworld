@@ -307,9 +307,9 @@ mod tests {
         runtime.remember_search_discovery(
             actor_id,
             from_location_id,
-            SEARCH_MEMORY_KIND_SEED_EXIT,
+            BELIEF_KIND_SEED_EXIT,
             to_location_id,
-            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+            &seed_exit_belief_subject_key(from_location_id, to_location_id),
         );
     }
 

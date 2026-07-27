@@ -105,7 +105,7 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(
             runtime
@@ -223,14 +223,14 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.resident_memories.clear();
-        runtime.remember_resident_memory(
+        runtime.beliefs.clear();
+        runtime.remember_belief(
             resident.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             resident.location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(resident.id),
         );
         let action = runtime
