@@ -21,6 +21,7 @@ mod content_registry;
 mod contributions;
 mod crafting;
 mod generated_places;
+mod generation_policy;
 mod hosted_access;
 mod jobs;
 mod journal_checkpoint;
@@ -83,6 +84,7 @@ use cosyworld_ai_model::ResidentReplyModelInput;
 use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use generated_places::*;
+use generation_policy::*;
 use hosted_access::*;
 use jobs::*;
 use kernel::*;
@@ -589,59 +591,6 @@ struct LocationMeta {
     art_prompt: Option<String>,
 }
 
-const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
-const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-struct GenerationProvenance {
-    source: String,
-    feature: String,
-    policy_mode: String,
-    prompt_version: String,
-    provider: String,
-    model: String,
-    attempts: u8,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct GeneratedWaypointState {
-    id: u64,
-    #[serde(default)]
-    canonical_id: String,
-    name: String,
-    meta: LocationMeta,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct GeneratedPathwayState {
-    id: String,
-    #[serde(default)]
-    identity_version: u8,
-    #[serde(default)]
-    canonical_id: String,
-    #[serde(default)]
-    source_route_id: String,
-    #[serde(default)]
-    source_route_version: u64,
-    #[serde(default)]
-    owner_pack_id: String,
-    #[serde(default)]
-    owner_pack_version: String,
-    origin_location_id: u64,
-    destination_location_id: u64,
-    distance: u8,
-    created_by_actor_id: u64,
-    waypoints: Vec<GeneratedWaypointState>,
-    #[serde(default)]
-    generation: GenerationProvenance,
-    #[serde(default)]
-    revealed_edges: BTreeSet<String>,
-    #[serde(default)]
-    art_eligible: bool,
-    #[serde(default)]
-    familiar: bool,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct JourneyState {
     actor_id: u64,
@@ -980,6 +929,8 @@ enum ProjectionMutation {
         provider_attempt: bool,
         #[serde(default = "legacy_community_art_generation_profile_version")]
         generation_profile_version: u8,
+        #[serde(default)]
+        generation_policy: GeneratedPolicyBinding,
     },
     CompleteCommunityArtGeneration {
         subject_kind: String,
@@ -1938,7 +1889,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 12;
+const JOURNAL_RECORD_VERSION: u32 = 13;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -6157,7 +6108,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 13,
+            version: 14,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6240,6 +6191,7 @@ impl RuntimeSnapshot {
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
         let snapshot_version = self.version;
+        let compatibility_bundle_hash = self.worldpack_bundle_hash.clone();
         let compatibility =
             persisted_worldpack_replay_compatibility(&self.worldpack_bundle_hash, "snapshot")?;
         if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
@@ -6452,7 +6404,10 @@ impl RuntimeSnapshot {
         .and_then(move |mut runtime| {
             runtime.ensure_authored_route_records();
             runtime
-                .migrate_generated_pathways_for_snapshot(snapshot_version)
+                .migrate_generated_pathways_for_snapshot(
+                    snapshot_version,
+                    &compatibility_bundle_hash,
+                )
                 .map_err(snapshot_error)?;
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
@@ -8314,7 +8269,7 @@ impl RuntimeWorld {
                 continue;
             };
             if self
-                .normalize_generated_pathway_identity(&mut pathway_snapshot, false)
+                .normalize_generated_pathway_identity(&mut pathway_snapshot, false, None)
                 .is_err()
             {
                 continue;
@@ -10141,6 +10096,7 @@ impl RuntimeWorld {
                 &record.projection_mutations,
                 enforce_active_contribution_contract,
                 record.version < JOURNAL_RECORD_VERSION,
+                &record.worldpack_bundle_hash,
             ));
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
@@ -10263,6 +10219,7 @@ impl RuntimeWorld {
         mutations: &[ProjectionMutation],
         enforce_active_contribution_contract: bool,
         allow_legacy_generated_identity_backfill: bool,
+        historical_bundle_hash: &str,
     ) -> Vec<EventView> {
         let mut events = Vec::new();
         for mutation in mutations {
@@ -10412,7 +10369,27 @@ impl RuntimeWorld {
                     level,
                     provider_attempt,
                     generation_profile_version,
+                    generation_policy,
                 } => {
+                    let generation_policy = if generation_policy.is_empty()
+                        && subject_kind == "location"
+                    {
+                        if let Some(pathway) = self.generated_pathway_for_location(*subject_id) {
+                            if !allow_legacy_generated_identity_backfill {
+                                continue;
+                            }
+                            legacy_generated_policy_binding(
+                                &pathway.owner_pack_id,
+                                &pathway.owner_pack_version,
+                                &active_content().manifest.id,
+                                historical_bundle_hash,
+                            )
+                        } else {
+                            GeneratedPolicyBinding::default()
+                        }
+                    } else {
+                        generation_policy.clone()
+                    };
                     if let Some(event) = self.apply_begin_community_art_generation_projection(
                         action.actor_id,
                         subject_kind,
@@ -10420,6 +10397,7 @@ impl RuntimeWorld {
                         *level,
                         *provider_attempt,
                         *generation_profile_version,
+                        &generation_policy,
                     ) {
                         events.push(event);
                     }
@@ -10450,6 +10428,7 @@ impl RuntimeWorld {
                         .normalize_generated_pathway_identity(
                             &mut refined,
                             allow_legacy_generated_identity_backfill,
+                            Some(historical_bundle_hash),
                         )
                         .is_err()
                     {
@@ -10532,6 +10511,7 @@ impl RuntimeWorld {
                         .normalize_generated_pathway_identity(
                             &mut proposed_pathway,
                             allow_legacy_generated_identity_backfill,
+                            Some(historical_bundle_hash),
                         )
                         .is_err()
                     {
@@ -19400,6 +19380,9 @@ impl RuntimeWorld {
         subject_kind: &str,
         subject_id: u64,
     ) -> CardView {
+        if subject_kind == "location" {
+            card = self.decorate_generated_location_card(card, subject_id);
+        }
         let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
             return card;
         };
@@ -19701,11 +19684,17 @@ impl RuntimeWorld {
             &history,
             image_policy,
         );
+        let generation_policy = (subject_kind == "location")
+            .then(|| self.generated_pathway_for_location(subject_id))
+            .flatten()
+            .map(|pathway| pathway.generation_policy.clone())
+            .unwrap_or_default();
         Ok(CommunityArtPlan {
             subject_kind: subject_kind.to_string(),
             subject_id,
             level,
             generation_profile_version: community_art_generation_profile_version(subject_kind),
+            generation_policy,
             required_orbs: i32::from(level.max(1)),
             history_through_seq,
             prompt,
