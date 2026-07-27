@@ -260,6 +260,28 @@ unsupported slot, operation, intent, format, seed, mask, or over-limit list
 before a provider adapter can construct or send a request; it never truncates,
 sorts, or substitutes references.
 
+Approved media is recorded in an append-only asset graph under the generated
+asset root. Content-addressed objects are immutable; records bind their digest,
+dimensions, MIME type, subject/level/revision, worldpack and composition,
+rights basis, provider/model/prompt/seed/prediction history, and complete
+parent slot/order/crop/mask/transformation lineage. Approval moves a canonical
+pointer without rewriting or deleting prior revisions. Existing approved
+FLUX.1 outputs are lazily backfilled from their stored bytes and metadata, so
+the migration does not spend provider credits or regenerate art.
+
+Reference jobs cannot supply arbitrary URLs. The host resolves typed slots
+against approved canonical records, verifies object digests, checks explicit
+reference-reuse rights, selects the canonical revision as of the intent's
+journal boundary, and creates certified inputs in stable slot/subject order.
+Causal revisions keep same-subject IDs and canonical selection independent of
+pack ingestion order. Durable lifecycle evidence reconciles publication after
+restart; moderation uses a persisted reference hold until its journal result
+is reconciled. Pending, rejected, private, deleted, missing, corrupt, or
+rights-ineligible records fail closed before provider submission. Authored,
+on-chain, and imported sources default to non-derivable until an explicit
+policy grants reuse. A request beyond the recipe budget requires an explicit
+composition plan rather than truncation or unrelated fallback.
+
 `COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON` provides runtime-only
 `disabled_recipes`, `profile_overrides`, and per-profile
 `canaries` (`recipe` plus `percent`). Selection is deterministic from the job

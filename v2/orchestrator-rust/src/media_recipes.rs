@@ -12,6 +12,15 @@ use crate::{
     is_safe_image_content_type, ReplicateAvatarArtConfig,
 };
 
+#[allow(dead_code)]
+mod assets;
+pub(super) use self::assets::{
+    backfill_legacy_community_asset, hold_community_media_asset_references,
+    immutable_media_asset_bytes, reconcile_community_media_asset_status,
+    register_generated_media_asset, release_community_media_asset_reference_hold,
+    MediaAssetBackfill, MediaAssetProvenance,
+};
+
 const EMBEDDED_MEDIA_RECIPE_REGISTRY: &str = include_str!("../../media/recipes.json");
 pub(super) const BASE_COMMUNITY_ART_PROFILE: &str = "cosyworld.community-art.base/1";
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
@@ -54,12 +63,21 @@ enum MediaRecipeState {
     Disabled,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(super) struct MediaReference {
     pub(super) slot: MediaReferenceSlot,
     pub(super) source_id: String,
+    pub(super) asset_id: String,
+    pub(super) digest: String,
     pub(super) url: String,
     pub(super) format: String,
+    #[serde(skip)]
+    authorization: MediaReferenceAuthorization,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct MediaReferenceAuthorization {
+    token: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -175,7 +193,7 @@ struct MediaRecipeCanary {
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct MediaJobRequest {
+struct MediaJobRequest {
     pub(super) job_key: String,
     pub(super) profile: String,
     pub(super) operation: MediaOperation,
@@ -186,6 +204,48 @@ pub(super) struct MediaJobRequest {
     pub(super) output_format: String,
     pub(super) mask_url: Option<String>,
     pub(super) seed: Option<u64>,
+}
+
+fn certified_media_reference(
+    slot: MediaReferenceSlot,
+    source_id: String,
+    asset_id: String,
+    digest: String,
+    url: String,
+    format: String,
+) -> MediaReference {
+    let token = media_reference_authorization(&slot, &asset_id, &digest, &url);
+    MediaReference {
+        slot,
+        source_id,
+        asset_id,
+        digest,
+        url,
+        format,
+        authorization: MediaReferenceAuthorization { token },
+    }
+}
+
+fn media_reference_authorization(
+    slot: &MediaReferenceSlot,
+    asset_id: &str,
+    digest: &str,
+    url: &str,
+) -> String {
+    format!(
+        "{:x}",
+        Sha256::digest(format!("{slot:?}\0{asset_id}\0{digest}\0{url}").as_bytes())
+    )
+}
+
+fn media_reference_is_authorized(reference: &MediaReference) -> bool {
+    reference.authorization.token
+        == media_reference_authorization(
+            &reference.slot,
+            &reference.asset_id,
+            &reference.digest,
+            &reference.url,
+        )
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -406,7 +466,7 @@ impl MediaRecipeRegistry {
         Ok(())
     }
 
-    pub(super) fn resolve(
+    fn resolve(
         &self,
         controls: &MediaRecipeRuntimeControls,
         request: MediaJobRequest,
@@ -665,9 +725,18 @@ fn validate_job(recipe: &MediaRecipe, request: &MediaJobRequest) -> Result<(), S
     }
     let mut source_ids = BTreeSet::new();
     for (index, reference) in request.references.iter().enumerate() {
-        if reference.source_id.trim().is_empty() || !source_ids.insert(&reference.source_id) {
+        if reference.source_id.trim().is_empty()
+            || reference.asset_id.trim().is_empty()
+            || reference.digest.len() != 64
+            || !reference
+                .digest
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+            || !media_reference_is_authorized(reference)
+            || !source_ids.insert(&reference.source_id)
+        {
             return Err(format!(
-                "media reference {} has an empty or duplicate source id",
+                "media reference {} is uncertified, malformed, or duplicates a source id",
                 index + 1
             ));
         }
@@ -1090,12 +1159,16 @@ mod tests {
     }
 
     fn reference(slot: MediaReferenceSlot, id: &str) -> MediaReference {
-        MediaReference {
+        let url = format!("https://assets.example/{id}.png");
+        let digest = format!("{:x}", Sha256::digest(id.as_bytes()));
+        certified_media_reference(
             slot,
-            source_id: id.to_string(),
-            url: format!("https://assets.example/{id}.png"),
-            format: "png".to_string(),
-        }
+            id.to_string(),
+            format!("media-{digest}"),
+            digest,
+            url,
+            "png".to_string(),
+        )
     }
 
     fn art_config() -> ReplicateAvatarArtConfig {

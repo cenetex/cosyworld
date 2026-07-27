@@ -444,6 +444,29 @@ exactly and rejects unsupported or over-limit jobs before provider submission.
 The pinned FLUX.2 revision accepts at most four references, custom dimensions
 from 256 through 1440 in multiples of 32, and an optional reproducibility seed.
 
+Ready community art is also captured in
+`$COSYWORLD_GENERATED_ASSET_DIR/media-assets/graph-v1.json`, with immutable
+content-addressed objects below `media-assets/objects/sha256/`. A record
+includes digest/dimensions/MIME, stable storage, subject level and revision,
+worldpack/composition provenance, provider/model/prompt/prediction history,
+rights, moderation, and complete parent reference lineage. New output remains
+ineligible until its `ready` journal transition commits. Replacement advances
+only the approved canonical pointer; old objects, records, lineage, and
+moderation history remain audit evidence. The generated community-art route
+backfills approved legacy FLUX.1 files on first read without regeneration.
+
+Reference resolution accepts authoritative typed subject slots rather than
+caller URLs, verifies approved canonical objects by digest, and orders them
+deterministically. It resolves canonical history as of the request's journal
+boundary, while causal revisions make same-subject ingestion order irrelevant.
+Durable ready/rejected evidence idempotently reconciles graph state after a
+restart, and an in-flight moderation transaction persists a fail-closed
+reference hold until its journal result is known. Missing, corrupt, pending,
+rejected, private, deleted, and rights-ineligible assets fail before provider
+spend. Authored, on-chain, and imported art is non-derivable by default.
+Requests over a recipe's reference budget require an explicit composition
+plan.
+
 Avatar art prompts start with the configured LoRA trigger and combine a stable,
 persisted physical description with the avatar's current species, origin,
 class or classless state, level, calling, location, and carried/equipped items.

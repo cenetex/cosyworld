@@ -13,14 +13,16 @@ use crate::{
     active_actor_ids_for_state, broadcast_events, clear_actor_sessions_for_actor,
     commit_journal_record, commit_presence_event, community_art_generation_key,
     delete_actor_sessions_for_actor, delete_actor_suspension, deployment_config_error,
-    event_replay_limit, event_store_scan_limit, init_event_store, no_store_headers, now_millis,
-    now_unix_secs, open_event_store, persist_actor_suspension, read_economy_audit,
-    read_event_store, resolve_economy_reconciliation, sqlite_error,
-    stored_community_art_content_type_path, stored_community_art_image_path,
-    stored_community_art_metadata_path, tail_event_replay, ActorSuspension, AiUsageLedgerAuditView,
-    AppState, AvatarPackOpeningView, CwAction, EconomyReconciliationView, EventView, JournalRecord,
-    OrbLedgerAuditView, ProjectionMutation, WoodenBoxReceiptView, CW_ACTION_NONE, CW_OK,
-    MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS, MAX_EVENT_STORE_SCAN, MODERATION_HTML,
+    event_replay_limit, event_store_scan_limit, hold_community_media_asset_references,
+    init_event_store, no_store_headers, now_millis, now_unix_secs, open_event_store,
+    persist_actor_suspension, read_economy_audit, read_event_store,
+    reconcile_community_media_asset_status, release_community_media_asset_reference_hold,
+    resolve_economy_reconciliation, sqlite_error, stored_community_art_content_type_path,
+    stored_community_art_image_path, stored_community_art_metadata_path, tail_event_replay,
+    ActorSuspension, AiUsageLedgerAuditView, AppState, AvatarPackOpeningView, CwAction,
+    EconomyReconciliationView, EventView, JournalRecord, OrbLedgerAuditView, ProjectionMutation,
+    WoodenBoxReceiptView, CW_ACTION_NONE, CW_OK, MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
+    MAX_EVENT_STORE_SCAN, MODERATION_HTML,
 };
 
 pub(crate) const MAX_REPORT_REASON_CHARS: usize = 500;
@@ -688,7 +690,7 @@ pub(crate) async fn moderation_reject_community_art(
         );
     }
 
-    let (level, retryable_without_orbs, events) = {
+    let (level, retryable_without_orbs, events, rejected_prediction_id) = {
         let mut runtime = state.inner.lock().await;
         let Some(level) = runtime.community_art_subject_level(&subject_kind, subject_id) else {
             return response(
@@ -716,7 +718,12 @@ pub(crate) async fn moderation_reject_community_art(
         let retryable_without_orbs = generation.funded_orbs >= generation.required_orbs
             && generation.provider_attempts < MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS;
         if generation_status == "rejected" {
-            (level, retryable_without_orbs, Vec::new())
+            (
+                level,
+                retryable_without_orbs,
+                Vec::new(),
+                last_prediction_id,
+            )
         } else {
             if generation_status != "ready" {
                 return response(
@@ -726,6 +733,26 @@ pub(crate) async fn moderation_reject_community_art(
                     Some(&generation_status),
                     retryable_without_orbs,
                     Some("only ready community artwork can be rejected"),
+                );
+            }
+            if let Err(error) = hold_community_media_asset_references(
+                &state.generated_asset_dir,
+                &subject_kind,
+                subject_id,
+                level,
+                "community art moderation rejection requested",
+            ) {
+                warn!(
+                    "failed to invalidate immutable community artwork {}:{} before rejection: {}",
+                    subject_kind, subject_id, error
+                );
+                return response(
+                    false,
+                    500,
+                    Some(level),
+                    Some("ready"),
+                    retryable_without_orbs,
+                    Some("community artwork references could not be invalidated"),
                 );
             }
             let mut record = JournalRecord::new(
@@ -743,11 +770,17 @@ pub(crate) async fn moderation_reject_community_art(
                     subject_id,
                     level,
                     status: "rejected".to_string(),
-                    prediction_id: last_prediction_id,
+                    prediction_id: last_prediction_id.clone(),
                     error_code: Some("community_art_moderation_rejected".to_string()),
                 });
             let Ok((commit_status, events)) = commit_journal_record(&state, &mut runtime, record)
             else {
+                let _ = release_community_media_asset_reference_hold(
+                    &state.generated_asset_dir,
+                    &subject_kind,
+                    subject_id,
+                    level,
+                );
                 return response(
                     false,
                     500,
@@ -758,6 +791,12 @@ pub(crate) async fn moderation_reject_community_art(
                 );
             };
             if commit_status != CW_OK {
+                let _ = release_community_media_asset_reference_hold(
+                    &state.generated_asset_dir,
+                    &subject_kind,
+                    subject_id,
+                    level,
+                );
                 return response(
                     false,
                     500,
@@ -767,9 +806,32 @@ pub(crate) async fn moderation_reject_community_art(
                     Some("community artwork rejection was refused"),
                 );
             }
-            (level, retryable_without_orbs, events)
+            (level, retryable_without_orbs, events, last_prediction_id)
         }
     };
+
+    if let Err(error) = reconcile_community_media_asset_status(
+        &state.generated_asset_dir,
+        &subject_kind,
+        subject_id,
+        level,
+        "rejected",
+        rejected_prediction_id.as_deref(),
+        events.first().map(|event| event.seq),
+    ) {
+        warn!(
+            "failed to reconcile rejected immutable community artwork {}:{}: {}",
+            subject_kind, subject_id, error
+        );
+        return response(
+            false,
+            500,
+            Some(level),
+            Some("rejected"),
+            retryable_without_orbs,
+            Some("community artwork rejection is safely held for reconciliation"),
+        );
+    }
 
     let image_path =
         stored_community_art_image_path(&state.generated_asset_dir, &subject_kind, subject_id);

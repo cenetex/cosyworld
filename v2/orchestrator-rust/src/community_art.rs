@@ -17,10 +17,13 @@ use sha2::{Digest, Sha256};
 use tracing::warn;
 
 use crate::{
-    broadcast_events, commit_journal_record, is_safe_image_content_type, now_millis,
-    record_ai_usage_for_provider, request_image_policy_decision, request_replicate_art, AiConfig,
-    AppState, CwAction, EventView, ImagePolicyRequest, JournalRecord, ProjectionMutation,
-    ReplicateAvatarArtConfig, RuntimeWorld, CW_ACTION_NONE, CW_OK,
+    active_content, backfill_legacy_community_asset, broadcast_events, commit_journal_record,
+    immutable_media_asset_bytes, is_safe_image_content_type, now_millis,
+    reconcile_community_media_asset_status, record_ai_usage_for_provider,
+    register_generated_media_asset, request_image_policy_decision, request_replicate_art, AiConfig,
+    AppState, CwAction, EventView, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
+    MediaAssetProvenance, ProjectionMutation, ReplicateAvatarArtConfig, RuntimeWorld,
+    CW_ACTION_NONE, CW_OK,
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
@@ -83,6 +86,8 @@ pub(super) struct CommunityArtGenerationState {
     pub(super) last_prediction_id: Option<String>,
     #[serde(default)]
     pub(super) last_error_code: Option<String>,
+    #[serde(default)]
+    pub(super) status_event_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -213,6 +218,7 @@ pub(super) struct CommunityArtGenerationOutcome {
     pub(super) result: Result<(), CommunityArtGenerationError>,
     pub(super) prediction_id: Option<String>,
     pub(super) reused_candidate: bool,
+    pub(super) asset_id: Option<String>,
 }
 
 pub(super) fn community_art_generation_retryable(
@@ -320,6 +326,7 @@ impl RuntimeWorld {
                 provider_attempts: 0,
                 last_prediction_id: None,
                 last_error_code: None,
+                status_event_seq: None,
             });
         if !intent_id.is_empty() && !generation.funding_intent_ids.insert(intent_id.to_string()) {
             return None;
@@ -371,12 +378,16 @@ impl RuntimeWorld {
             generation.last_error_code = Some("legacy_community_art_failure".to_string());
         }
         generation.status = status.to_string();
-        Some(self.append_async_job_event(
+        let event = self.append_async_job_event(
             &format!("community_art.{status}"),
             action_actor_id,
             None,
             Some(format!("{subject_kind}:{subject_id}:level:{level}")),
-        ))
+        );
+        if let Some(generation) = self.community_art_generations.get_mut(&key) {
+            generation.status_event_seq = Some(event.seq);
+        }
+        Some(event)
     }
 
     pub(super) fn apply_begin_community_art_generation_projection(
@@ -501,6 +512,7 @@ pub(super) async fn generate_and_store_community_art(
                         result: Err(CommunityArtGenerationError::Provider(error)),
                         prediction_id: None,
                         reused_candidate: false,
+                        asset_id: None,
                     };
                 }
             };
@@ -511,6 +523,7 @@ pub(super) async fn generate_and_store_community_art(
                         prediction_id: image.prediction_id.clone(),
                         result: Err(CommunityArtGenerationError::Storage(error)),
                         reused_candidate: false,
+                        asset_id: None,
                     };
                 }
             }
@@ -521,6 +534,7 @@ pub(super) async fn generate_and_store_community_art(
                 result: Err(CommunityArtGenerationError::Storage(error)),
                 prediction_id: None,
                 reused_candidate: true,
+                asset_id: None,
             };
         }
     };
@@ -553,14 +567,92 @@ pub(super) async fn generate_and_store_community_art(
             }
         }
         store_community_art_image(generated_asset_dir, plan, &image)
-            .map_err(CommunityArtGenerationError::Storage)
+            .map_err(CommunityArtGenerationError::Storage)?;
+        register_generated_media_asset(
+            generated_asset_dir,
+            &plan.subject_kind,
+            plan.subject_id,
+            plan.level,
+            &image.bytes,
+            &image.content_type,
+            community_art_asset_provenance(config, plan, image.prediction_id.clone()),
+        )
+        .map_err(CommunityArtGenerationError::Storage)
     }
     .await;
 
+    let (result, asset_id) = match result {
+        Ok(asset_id) => (Ok(()), Some(asset_id)),
+        Err(error) => (Err(error), None),
+    };
     CommunityArtGenerationOutcome {
         result,
         prediction_id,
         reused_candidate,
+        asset_id,
+    }
+}
+
+fn community_art_asset_provenance(
+    config: &ReplicateAvatarArtConfig,
+    plan: &CommunityArtPlan,
+    prediction_id: Option<String>,
+) -> MediaAssetProvenance {
+    let manifest = &active_content().manifest;
+    MediaAssetProvenance {
+        pack_id: manifest.id.clone(),
+        pack_version: manifest.version.to_string(),
+        composition_id: format!(
+            "community-art:{}:{}:level:{}",
+            plan.subject_kind, plan.subject_id, plan.level
+        ),
+        composition_revision: plan.generation_profile_version.to_string(),
+        provider: "replicate".to_string(),
+        model: config.model.clone(),
+        model_version: config
+            .version
+            .clone()
+            .unwrap_or_else(|| "provider-default".to_string()),
+        prompt_version: format!(
+            "cosyworld.community-art.generation-profile/{}",
+            plan.generation_profile_version
+        ),
+        seed: None,
+        prediction_id,
+        source_event_seq: None,
+        history_through_seq: plan.history_through_seq,
+    }
+}
+
+fn legacy_community_art_asset_provenance(
+    state: &AppState,
+    generation: &CommunityArtGenerationState,
+) -> MediaAssetProvenance {
+    let manifest = &active_content().manifest;
+    let config = state.avatar_art_config.as_ref().as_ref();
+    MediaAssetProvenance {
+        pack_id: manifest.id.clone(),
+        pack_version: manifest.version.to_string(),
+        composition_id: format!(
+            "community-art:{}:{}:level:{}",
+            generation.subject_kind, generation.subject_id, generation.level
+        ),
+        composition_revision: generation.generation_profile_version.to_string(),
+        provider: "replicate".to_string(),
+        model: config
+            .map(|config| config.model.clone())
+            .unwrap_or_else(|| "legacy-flux-1".to_string()),
+        model_version: config
+            .and_then(|config| config.version.clone())
+            .unwrap_or_else(|| "legacy-provider-default".to_string()),
+        prompt_version: format!(
+            "cosyworld.community-art.generation-profile/{}",
+            generation.generation_profile_version
+        ),
+        seed: None,
+        prediction_id: generation.last_prediction_id.clone(),
+        source_event_seq: generation.status_event_seq,
+        history_through_seq: generation.history_through_seq,
     }
 }
 
@@ -720,7 +812,29 @@ pub(super) fn schedule_community_art_generation(
             error_code,
         )
         .await;
+        if let Some(events) = events.as_ref() {
+            if let Err(error) = reconcile_community_media_asset_status(
+                &state.generated_asset_dir,
+                &plan.subject_kind,
+                plan.subject_id,
+                plan.level,
+                status,
+                outcome.prediction_id.as_deref(),
+                events.first().map(|event| event.seq),
+            ) {
+                warn!(
+                    "failed to reconcile immutable community art lifecycle for {}: {}",
+                    key, error
+                );
+            }
+        }
         if status == "ready" && events.is_some() {
+            if outcome.asset_id.is_none() {
+                warn!(
+                    "ready community art {} has no staged immutable asset; route backfill will reconcile it",
+                    key
+                );
+            }
             if let Err(error) = remove_community_art_candidate(&state.generated_asset_dir, &plan) {
                 warn!(
                     "failed to remove published community art candidate for {}: {}",
@@ -999,7 +1113,7 @@ pub(super) async fn generated_community_art_asset(
     else {
         return (StatusCode::NOT_FOUND, "unknown community artwork").into_response();
     };
-    let ready = {
+    let generation = {
         let runtime = state.inner.lock().await;
         runtime
             .community_art_subject_level(&subject_kind, subject_id)
@@ -1012,18 +1126,76 @@ pub(super) async fn generated_community_art_asset(
                         level,
                     ))
             })
-            .is_some_and(|generation| generation.status == "ready")
+            .cloned()
     };
-    if !ready {
+    let Some(generation) = generation else {
+        return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
+    };
+    if let Err(error) = reconcile_community_media_asset_status(
+        &state.generated_asset_dir,
+        &subject_kind,
+        subject_id,
+        generation.level,
+        &generation.status,
+        generation.last_prediction_id.as_deref(),
+        generation.status_event_seq,
+    ) {
+        warn!(
+            "failed to reconcile immutable community artwork {}:{} from durable state: {}",
+            subject_kind, subject_id, error
+        );
+    }
+    if generation.status != "ready" {
         return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
     }
     let path =
         stored_community_art_image_path(&state.generated_asset_dir, &subject_kind, subject_id);
-    let Ok(bytes) = fs::read(path) else {
-        return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
+    let content_type_path = stored_community_art_content_type_path(
+        &state.generated_asset_dir,
+        &subject_kind,
+        subject_id,
+    );
+    let metadata_path =
+        stored_community_art_metadata_path(&state.generated_asset_dir, &subject_kind, subject_id);
+    let created_at_ms = fs::metadata(&path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or_else(now_millis);
+    let immutable = backfill_legacy_community_asset(
+        &state.generated_asset_dir,
+        MediaAssetBackfill {
+            subject_kind: subject_kind.clone(),
+            subject_id,
+            level: generation.level,
+            revision: generation.revision.max(1),
+            image_path: path.clone(),
+            content_type_path,
+            metadata_path: metadata_path.is_file().then_some(metadata_path),
+            created_at_ms,
+            provenance: legacy_community_art_asset_provenance(&state, &generation),
+        },
+    )
+    .and_then(|asset_id| immutable_media_asset_bytes(&state.generated_asset_dir, &asset_id));
+    let (bytes, content_type) = match immutable {
+        Ok(asset) => asset,
+        Err(error) => {
+            warn!(
+                "failed to backfill immutable community artwork {}:{}: {}",
+                subject_kind, subject_id, error
+            );
+            let Ok(bytes) = fs::read(path) else {
+                return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
+            };
+            let content_type = stored_community_art_content_type(
+                &state.generated_asset_dir,
+                &subject_kind,
+                subject_id,
+            );
+            (bytes, content_type)
+        }
     };
-    let content_type =
-        stored_community_art_content_type(&state.generated_asset_dir, &subject_kind, subject_id);
     (
         StatusCode::OK,
         [
