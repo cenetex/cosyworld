@@ -71,6 +71,25 @@
     "pack_id": "cosyworld.core"
   },
   {
+    "location_id": 4,
+    "key": "lodging",
+    "name": "Guest Rooms",
+    "aliases": [
+      "bed",
+      "beds",
+      "rooms",
+      "upstairs"
+    ],
+    "look": "Four small rooms open from the upstairs landing. Each has a narrow bed and a folded wool blanket.",
+    "search": "Each washstand holds a filled basin. The clean towels are stacked by room number.",
+    "lodging": {
+      "gate": {
+        "kind": "open"
+      }
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
     "location_id": 2,
     "key": "broad_leaves",
     "name": "Broad Leaves",

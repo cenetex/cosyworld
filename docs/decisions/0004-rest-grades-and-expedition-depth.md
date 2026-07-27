@@ -135,6 +135,12 @@ Camp is the only grade that advances an active frontier danger clock. A
 frontier without equipped shelter projects an unavailable Rest explanation
 but no legal Rest action.
 
+Lodging is declared by a room feature with `key: "lodging"` and a typed
+`lodging.gate.kind`. The initial schema accepts only `open`, which keeps the
+Core lodging rung available with zero Orbs and no expansion entitlement.
+Future job, Bond, or room-resource gate kinds belong to #355 and must extend
+this closed schema rather than introduce a separate lodging economy.
+
 ## References
 
 - [CosyWorld Product Requirements](../../PRD.md), especially product pillars 2,

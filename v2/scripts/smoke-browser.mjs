@@ -4148,7 +4148,7 @@ async function main() {
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
   }
 
-  async function assertTiredRestPriorityFollowsRoomDanger() {
+  async function assertServerEligibleRestPriorityFollowsRoomDanger() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -4225,6 +4225,78 @@ async function main() {
             ],
             items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", location_id: 1, charges: 1 }],
           }),
+          exhaustedRecoveryItem: actionsFor({
+            tags: [],
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              rank: 84,
+              effect: "restores one exhausted keepsake",
+            }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:77:rest:rest", kind: "rest", state_revision: 77 }],
+            },
+            items: [{
+              id: 2001,
+              name: "Hearth Tonic",
+              kind: "potion",
+              holder_actor_id: 5000,
+              charges: 0,
+              max_charges: 1,
+              recovery: 1,
+            }],
+          }),
+          trainedSinceRest: actionsFor({
+            tags: [{
+              id: "actor:5000:trained_since_rest",
+              scope: "actor",
+              scope_id: 5000,
+              label: "trained since rest",
+            }],
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{ kind: "rest", rank: 84 }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:78:rest:rest", kind: "rest", state_revision: 78 }],
+            },
+          }),
+          expeditionRecovery: actionsFor({
+            tags: [{
+              id: "actor:5000:frontier_travel_since_rest:79",
+              scope: "actor",
+              scope_id: 5000,
+              label: "frontier travel since rest",
+            }],
+            location: { id: 3, name: "Moonlit Trail" },
+            room_sheet: { zone: "frontier", safety: "dangerous" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              rank: 25,
+              risk: "trouble may draw nearer while you rest",
+            }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:79:rest:rest", kind: "rest", state_revision: 79 }],
+            },
+          }),
         };
       } finally {
         state = previousState;
@@ -4245,6 +4317,16 @@ async function main() {
     assert(sanctuaryRestIndex > sanctuaryTravelIndex, `sanctuary rest should stay available without hijacking travel: ${JSON.stringify(result)}`);
     assert(result.sanctuary[sanctuaryRestIndex]?.detail === "feel fresh", `sanctuary rest should name the concrete payoff in natural language: ${JSON.stringify(result)}`);
     assert(result.sanctuary[sanctuaryRestIndex]?.summary === "Catch your breath.", `sanctuary Rest should stay simple and calm: ${JSON.stringify(result)}`);
+    for (const [target, actions] of Object.entries({
+      exhaustedRecoveryItem: result.exhaustedRecoveryItem,
+      trainedSinceRest: result.trainedSinceRest,
+      expeditionRecovery: result.expeditionRecovery,
+    })) {
+      assert(
+        actions.some((action) => action.label === "rest"),
+        `${target} should render server-authorized Rest without a tired tag: ${JSON.stringify(result)}`,
+      );
+    }
     assert(!JSON.stringify(result).includes("Risk:"), `Rest confirmations should not use a rules-like Risk label: ${JSON.stringify(result)}`);
   }
 
@@ -7372,6 +7454,151 @@ async function main() {
     assert(!overflow, `visible UI overflowed the viewport: ${JSON.stringify(overflow)}`);
   }
 
+  async function assertExpeditionRingContract(label) {
+    const result = await page.evaluate(() => {
+      const testActorId = 990_353;
+      const actor = {
+        id: testActorId,
+        name: "Ring Test",
+        title: "Trail Reader",
+        kind: "human",
+        status: "active",
+        stats: { level: 4 },
+        expedition_ring: { filled_count: 2, pip_total: 4, needs_rest: false },
+      };
+      const stage = document.createElement("div");
+      stage.style.cssText = "position:fixed;left:12px;top:72px;width:120px;height:80px;z-index:9999";
+      const rail = document.createElement("div");
+      rail.className = "room-avatar-rail";
+      rail.style.cssText = "position:relative;left:auto;right:auto;bottom:auto;overflow:visible";
+      stage.append(rail);
+      document.body.append(stage);
+      expeditionRingRenderState.delete(String(testActorId));
+
+      const renderAt = (stateRevision, expeditionRing = actor.expedition_ring) => {
+        actor.expedition_ring = expeditionRing;
+        rail.innerHTML = roomAvatarRailHtml({
+          actors: [actor],
+          world_seq: stateRevision,
+          tags: [{ scope: "actor", scope_id: testActorId, label: "tired" }],
+        });
+        const frame = rail.querySelector(".room-avatar-frame");
+        const ring = frame?.querySelector(".expedition-ring");
+        const segments = [...(ring?.querySelectorAll(".expedition-ring-segment") || [])];
+        const filled = segments.filter((segment) => segment.classList.contains("filled"));
+        const frameRect = frame?.getBoundingClientRect();
+        return {
+          segmentCount: segments.length,
+          filledCount: filled.length,
+          committedChange: ring?.classList.contains("committed-change") || false,
+          animationName: ring ? getComputedStyle(ring).animationName : "",
+          ariaHidden: ring?.getAttribute("aria-hidden") || "",
+          text: ring?.textContent || "",
+          width: frameRect?.width || 0,
+          height: frameRect?.height || 0,
+          needsRest: frame?.classList.contains("needs-rest") || false,
+          portraitFilter: frame?.querySelector(".room-avatar-pfp")
+            ? getComputedStyle(frame.querySelector(".room-avatar-pfp")).filter
+            : "",
+          filledColor: filled[0]
+            ? getComputedStyle(filled[0]).getPropertyValue("--ring-segment-color").trim()
+            : "",
+          ringCount: frame?.querySelectorAll(".expedition-ring").length || 0,
+          hpArcCount: frame?.querySelectorAll('[class*="hp"],[data-hp]').length || 0,
+        };
+      };
+
+      const first = renderAt(900);
+      const sameRevision = renderAt(900);
+      const advanced = renderAt(901, {
+        filled_count: 3,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const repeatedAdvanced = renderAt(901);
+      const regressed = renderAt(900, {
+        filled_count: 1,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const restoredCurrent = renderAt(901, {
+        filled_count: 3,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const unrelatedRevision = renderAt(902);
+      const full = renderAt(903, {
+        filled_count: 4,
+        pip_total: 4,
+        needs_rest: true,
+      });
+      const withoutProjection = { ...actor };
+      delete withoutProjection.expedition_ring;
+      rail.innerHTML = roomAvatarRailHtml({
+        actors: [withoutProjection],
+        world_seq: 904,
+        tags: [{ scope: "actor", scope_id: testActorId, label: "tired" }],
+      });
+      const inferredFromTags = Boolean(rail.querySelector(".expedition-ring"));
+      stage.remove();
+      expeditionRingRenderState.delete(String(testActorId));
+      return {
+        viewportWidth: window.innerWidth,
+        first,
+        sameRevision,
+        advanced,
+        repeatedAdvanced,
+        regressed,
+        restoredCurrent,
+        unrelatedRevision,
+        full,
+        inferredFromTags,
+      };
+    });
+    assert(
+      result.first.segmentCount === 4
+        && result.first.filledCount === 2
+        && result.first.ariaHidden === "true"
+        && result.first.text === ""
+        && result.first.ringCount === 1
+        && result.first.hpArcCount === 0,
+      `${label}: the typed 2/4 projection should render one unlabeled segmented ring and no HP arc: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.first.committedChange
+        && !result.sameRevision.committedChange
+        && result.advanced.committedChange
+        && result.advanced.animationName === "expedition-ring-commit"
+        && !result.repeatedAdvanced.committedChange
+        && !result.regressed.committedChange
+        && !result.restoredCurrent.committedChange
+        && !result.unrelatedRevision.committedChange,
+      `${label}: the ring should animate once for a changed committed revision and never for repeated, regressed, restored-current, or unrelated renders: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.full.needsRest
+        && result.full.filledCount === 4
+        && result.full.portraitFilter !== "none"
+        && !/255,\s*125,\s*125|255,\s*0,\s*0/.test(result.full.filledColor),
+      `${label}: a full ring should softly dim without an alarm-red segment: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.inferredFromTags,
+      `${label}: the browser must not infer a ring from internal tags: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.first.width >= (result.viewportWidth <= 900 ? 42 : 50)
+        && result.first.height >= (result.viewportWidth <= 900 ? 42 : 50),
+      `${label}: ring geometry should remain legible at this portrait size: ${JSON.stringify(result)}`,
+    );
+    steps.push({
+      label,
+      viewport: result.viewportWidth,
+      projection: `${result.first.filledCount}/${result.first.segmentCount}`,
+      frame: `${result.first.width}x${result.first.height}`,
+    });
+  }
+
   async function assertUiAccessibilityContract(label) {
     const base = await page.evaluate(() => {
       const visible = (node) => Boolean(node && getComputedStyle(node).display !== "none" && node.getClientRects().length);
@@ -8070,7 +8297,7 @@ async function main() {
       fullPage: false,
       mask: [
         page.locator("#economy"),
-        page.locator("#room-avatar-rail"),
+        page.locator("#room-avatar-rail .room-avatar-pfp"),
         page.locator("#room-log-latest"),
         page.locator("#log"),
         page.locator("footer.prompt"),
@@ -8993,7 +9220,7 @@ async function main() {
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();
-  await assertTiredRestPriorityFollowsRoomDanger();
+  await assertServerEligibleRestPriorityFollowsRoomDanger();
   await assertFailureCopyStaysContextual();
   await assertCompactDescriptionAndCardModal();
   await assertRoomSummaryStaysFlatAndMechanical();
@@ -9002,6 +9229,7 @@ async function main() {
   await assertJournalModeContract("mobile Journal");
   await assertJournalTickerLayout();
   await assertUiAccessibilityContract("mobile accessibility and navigation");
+  await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
@@ -9683,6 +9911,7 @@ async function main() {
   await assertStatusBarDoesNotOverlayTranscript("desktop status row");
   await assertJournalModeContract("desktop Journal");
   if (!runLivingWorldStress) {
+    await assertExpeditionRingContract("desktop expedition ring");
     await assertMudShellVisualContract(runLivingWorldStress ? "desktop visual shell stress" : "desktop visual shell");
   }
   await assertSignedWalletBoxAccountFlow();

@@ -258,7 +258,7 @@ describe("worldpack authored relationships", () => {
       "cosyworld.composition.core-ruby",
       "cosyworld.composition.core-holy-land",
     ]);
-    expect(locations).toHaveLength(48);
+    expect(locations).toHaveLength(49);
     expect(rules.map((bundle) => bundle.pack_id)).toEqual([
       "cosyworld.rules-srd-5.2.1",
       "cosyworld.rules-profile-srd5",

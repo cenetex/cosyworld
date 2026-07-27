@@ -71,6 +71,25 @@
     "pack_id": "cosyworld.core"
   },
   {
+    "location_id": 4,
+    "key": "lodging",
+    "name": "Guest Rooms",
+    "aliases": [
+      "bed",
+      "beds",
+      "rooms",
+      "upstairs"
+    ],
+    "look": "Four small rooms open from the upstairs landing. Each has a narrow bed and a folded wool blanket.",
+    "search": "Each washstand holds a filled basin. The clean towels are stacked by room number.",
+    "lodging": {
+      "gate": {
+        "kind": "open"
+      }
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
     "location_id": 2,
     "key": "broad_leaves",
     "name": "Broad Leaves",
@@ -259,6 +278,25 @@
     ],
     "look": "The inn's road lantern gutters blue whenever the north door opens.",
     "search": "Rowan's keeper badge hangs inside the cage beside a soot-written note: gone north; bring lens, key, and oil.",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "location_id": 800,
+    "key": "lodging",
+    "name": "Guest Rooms",
+    "aliases": [
+      "bed",
+      "beds",
+      "rooms",
+      "upstairs"
+    ],
+    "look": "Six narrow doors face the upstairs landing. Dry blankets sit folded at the foot of each bed.",
+    "search": "Five washbasins are empty. The sixth holds a brass lamp-wick and a clean towel.",
+    "lodging": {
+      "gate": {
+        "kind": "open"
+      }
+    },
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {

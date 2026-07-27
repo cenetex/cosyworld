@@ -8,6 +8,19 @@
     "search": "Rowan's keeper badge hangs inside the cage beside a soot-written note: gone north; bring lens, key, and oil."
   },
   {
+    "location_id": 800,
+    "key": "lodging",
+    "name": "Guest Rooms",
+    "aliases": ["bed", "beds", "rooms", "upstairs"],
+    "look": "Six narrow doors face the upstairs landing. Dry blankets sit folded at the foot of each bed.",
+    "search": "Five washbasins are empty. The sixth holds a brass lamp-wick and a clean towel.",
+    "lodging": {
+      "gate": {
+        "kind": "open"
+      }
+    }
+  },
+  {
     "location_id": 801,
     "key": "cold_lamp_post",
     "name": "Cold Lamp Post",
