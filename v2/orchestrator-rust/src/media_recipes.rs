@@ -18,6 +18,7 @@ use crate::{
 
 #[allow(dead_code)]
 mod assets;
+pub(crate) mod media_verdict;
 pub(super) use self::assets::{
     backfill_legacy_community_asset, canonical_community_media_asset_bytes,
     freeze_approved_community_media_reference, hold_community_media_asset_references,
