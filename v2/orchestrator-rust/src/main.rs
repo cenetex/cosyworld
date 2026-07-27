@@ -48220,6 +48220,14 @@ mod tests {
         assert!(!INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("ordered combat — your turn"));
+        // Issue #461: ordered-combat timing is a banner above the card row, and
+        // Pass/Need time are banner controls rather than dealt combat cards.
+        assert!(INDEX_HTML.contains("id=\"turn-banner\""));
+        assert!(INDEX_HTML.contains("id=\"turn-banner-controls\""));
+        assert!(INDEX_HTML.contains("data-turn-control"));
+        assert!(!INDEX_HTML.contains("rules:ordered-scene-pass"));
+        assert!(!INDEX_HTML.contains("rules:ordered-scene-need-time"));
+        assert!(!INDEX_HTML.contains("shows the current combat order without taking an action"));
         assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));

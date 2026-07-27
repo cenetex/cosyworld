@@ -732,6 +732,37 @@ async function main() {
             ping_active: false,
           },
         }).map((action) => ({ label: action.label, detail: action.detail, summary: action.modalSummary, effect: action.effect })),
+        orderedTurnBanner: (() => {
+          const turn = {
+            enabled: true,
+            policy: "scene-turn",
+            is_current_actor: false,
+            current_actor_id: 5001,
+            current_actor_name: "Mabel Crumblethorn",
+          };
+          const host = document.createElement("div");
+          host.innerHTML = turnPingPillHtml(turn);
+          return {
+            copy: host.querySelector(".turn-ping-copy")?.textContent || "",
+            controls: turnBannerControlSpecs(turn).map((spec) => spec.label),
+          };
+        })(),
+        currentTurnBanner: (() => {
+          const turn = {
+            enabled: true,
+            policy: "scene-turn",
+            is_current_actor: true,
+            can_pass: true,
+            can_need_time: true,
+            need_time_extension_ms: 60000,
+          };
+          const host = document.createElement("div");
+          host.innerHTML = turnPingPillHtml(turn);
+          return {
+            copy: host.querySelector(".turn-ping-copy")?.textContent || "",
+            controls: turnBannerControlSpecs(turn).map((spec) => spec.label),
+          };
+        })(),
         welcomingListenWithoutOption: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [{ kind: "search" }] },
@@ -983,21 +1014,31 @@ async function main() {
         && guide.roomThreadHand.buttonCue === "",
       `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,
     );
-    assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "ordered combat", `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits: ${JSON.stringify(guide)}`);
+    // Issue #461: ordered-scene timing is banner status, never a dealt card.
+    // The floor is preserved by dealing a waiting player no bypass action at
+    // all, which is stricter than the previous single observational card.
+    assert(guide.arrivalActions.length === 0, `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits, dealing no bypass card: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "check"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
-    assert(guide.waitingWelcomeWithoutOption.length === 1 && guide.waitingWelcomeWithoutOption[0]?.label === "ordered combat", `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
-    assert(/acts now/i.test(guide.arrivalActions[0]?.detail || "") && /chat and inspection stay available/i.test(guide.arrivalActions[0]?.summary || ""), `the ordered-scene wait should explain whose turn it is without hiding free interaction: ${JSON.stringify(guide)}`);
-    assert(guide.arrivalActions[0]?.effect === "shows the current combat order without taking an action", `the ordered-scene action should remain observational: ${JSON.stringify(guide)}`);
-    assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "ordered combat", `ordinary ordered-scene waiting should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(guide.waitingWelcomeWithoutOption.length === 0, `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
+    assert(guide.waitingActions.length === 0, `ordinary ordered-scene waiting should preserve the combat floor without a timer card: ${JSON.stringify(guide)}`);
     assert(
-      guide.nudgeActions.length === 2
+      guide.nudgeActions.length === 1
         && guide.nudgeActions[0]?.label === "nudge"
         && guide.nudgeActions[0]?.focusKey === "scene-timeout"
-        && /play or pass/i.test(guide.nudgeActions[0]?.detail || "")
-        && guide.nudgeActions[1]?.label === "ordered combat",
-      `an eligible waiting participant should receive the nudge beside the observational ordered-scene card: ${JSON.stringify(guide.nudgeActions)}`,
+        && /play or pass/i.test(guide.nudgeActions[0]?.detail || ""),
+      `an eligible waiting participant should receive the nudge and nothing else: ${JSON.stringify(guide.nudgeActions)}`,
     );
-    assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "ordered combat", `a pending ordered-scene handoff should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(guide.gatheringActions.length === 0, `a pending ordered-scene handoff should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(
+      guide.orderedTurnBanner?.copy === "ordered combat — Mabel Crumblethorn acts now"
+        && guide.orderedTurnBanner?.controls?.length === 0,
+      `a waiting combat participant should read the ordered status from the banner: ${JSON.stringify(guide.orderedTurnBanner)}`,
+    );
+    assert(
+      guide.currentTurnBanner?.copy === "ordered combat — your turn"
+        && guide.currentTurnBanner?.controls?.join(",") === "pass,need time",
+      `the acting combat participant should reach pass and need time from the banner, not the card row: ${JSON.stringify(guide.currentTurnBanner)}`,
+    );
   }
 
   async function waitForChatText(needle) {
