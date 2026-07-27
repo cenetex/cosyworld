@@ -69,6 +69,7 @@ impl From<VoiceRoutingError> for GeneratedSpeechError {
 pub(super) struct CertifiedAvatarIntent {
     pub(super) proposal: AvatarIntentProposal,
     pub(super) speech: CertifiedSpeech,
+    pub(super) planning: ResidentPlanningTrace,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -99,6 +100,10 @@ pub(super) struct AvatarReplyPlan {
     pub(super) source_location_id: Option<u64>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(super) publication_beat_id: String,
+    #[serde(default)]
+    pub(super) planner_requested: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) planner_candidates: Vec<ResidentPlannerCandidate>,
 }
 
 impl AvatarReplyPlan {
@@ -110,6 +115,11 @@ impl AvatarReplyPlan {
             Some(observation.observed_through_seq),
             observation.source_location_id,
         );
+        self
+    }
+
+    pub(super) fn requesting_planner(mut self) -> Self {
+        self.planner_requested = true;
         self
     }
 
@@ -201,11 +211,23 @@ impl AvatarChatPlan {
 }
 
 pub(super) async fn avatar_reply_intent(
-    config: Option<&AiConfig>,
+    state: &AppState,
     plan: &AvatarReplyPlan,
 ) -> Result<CertifiedAvatarIntent, GeneratedSpeechError> {
-    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
-    request_ai_avatar_intent(config, plan).await
+    let config = state
+        .ai_config
+        .as_ref()
+        .as_ref()
+        .ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    request_ai_avatar_intent(
+        config,
+        state
+            .event_store_path
+            .as_deref()
+            .map(std::path::PathBuf::as_path),
+        plan,
+    )
+    .await
 }
 
 pub(super) async fn avatar_chat_text(
@@ -338,8 +360,16 @@ async fn request_ai_avatar_chat(
 
 pub(super) async fn request_ai_avatar_intent(
     config: &AiConfig,
+    store_path: Option<&Path>,
     plan: &AvatarReplyPlan,
 ) -> Result<CertifiedAvatarIntent, GeneratedSpeechError> {
+    let (planning, voice_action) = if !plan.planner_requested {
+        resident_disposition_for_voice(plan)
+    } else {
+        let planning = request_resident_plan(config, plan).await;
+        let voice_action = planning.proposed_action.clone();
+        (planning, voice_action)
+    };
     let system = resident_system_prompt(plan);
     let recent = if plan.recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
@@ -354,8 +384,12 @@ pub(super) async fn request_ai_avatar_intent(
     let location_memory = format_location_memory(&plan.location_memory);
     let goals = format_goal_lines(&plan.goals);
     let resident_continuity = format_resident_continuity(&plan.resident_continuity);
+    let planning_brief = resident_voice_planning_brief(&ResidentPlanningResult {
+        proposed_action: voice_action,
+        trace: planning.trace.clone(),
+    });
     let user = format!(
-        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nSpeaker continuity:\n{resident_continuity}\nActor economy:\n{economy_note}\nCast present: {cast}\nRecent played cards and room log, oldest to newest:\n{recent_activity}\nRecent room lines:\n{recent}\nCard or direct event to respond to:\n{line}\nReply contract: react to what actually happened in this channel. Treat the room log and played cards as facts, with newer entries superseding older state. Answer the direct event first, then use at most one concrete detail from the recent context as a hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects.\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
+        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nSpeaker continuity:\n{resident_continuity}\nActor economy:\n{economy_note}\nCast present: {cast}\nRecent played cards and room log, oldest to newest:\n{recent_activity}\nRecent room lines:\n{recent}\nCard or direct event to respond to:\n{line}\nPlanner brief: {planning_brief}\nReply contract: react to what actually happened in this channel. Treat the room log and played cards as facts, with newer entries superseding older state. Answer the direct event first, then use at most one concrete detail from the recent context as a hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects. Write only {name}'s visible spoken line. A proposed action is not committed; never claim its cost, success, outcome, or reward.",
         location = plan.location_name,
         location_title = plan.location_title,
         location_description = plan.location_description,
@@ -371,58 +405,114 @@ pub(super) async fn request_ai_avatar_intent(
         name = plan.speaker_name
     );
 
-    let response_format = serde_json::json!({ "type": "json_object" });
-    let mut rejections = Vec::new();
-    for candidate_round in 1..=2 {
-        let completion = match request_chat_completion(
-            config,
-            ChatCompletionRequest {
-                feature: "dialogue_resident",
-                prompt_version: "dialogue-resident-v1",
-                capability: ModelCapability::IntentJson,
-                system: &system,
-                user: &user,
-                temperature: 0.75,
-                max_tokens: 160,
-                timeout: Duration::from_secs(8),
-                max_attempts: 2,
-                referer: "http://127.0.0.1:3102",
-                response_format: Some(&response_format),
+    let speech = route_certified_voice(
+        config,
+        store_path,
+        VoiceAttemptRequest {
+            feature: "dialogue_resident",
+            prompt_version: "dialogue-resident-voice-v1",
+            system,
+            user,
+            temperature: 0.75,
+            max_tokens: 120,
+            referer: "http://127.0.0.1:3102",
+        },
+        resident_gate_context(plan, planning.proposed_action.is_some()),
+    )
+    .await?;
+    let proposal = AvatarIntentProposal {
+        speech: speech.text().to_string(),
+        intent: None,
+        belief: None,
+        desire: None,
+        promise: None,
+        refusal: None,
+        proposed_action: planning.proposed_action,
+    };
+    Ok(CertifiedAvatarIntent {
+        proposal,
+        speech,
+        planning: planning.trace,
+    })
+}
+
+fn resident_disposition_for_voice(
+    plan: &AvatarReplyPlan,
+) -> (ResidentPlanningResult, Option<AvatarProposedAction>) {
+    let disposition = plan
+        .resident_continuity
+        .last_planning_disposition
+        .clone()
+        .filter(|disposition| {
+            matches!(
+                disposition.trace.status,
+                ResidentPlanningStatus::Committed
+                    | ResidentPlanningStatus::Rejected
+                    | ResidentPlanningStatus::Superseded
+            )
+        });
+    match disposition {
+        Some(disposition) => (
+            ResidentPlanningResult {
+                proposed_action: None,
+                trace: disposition.trace,
             },
-        )
-        .await
-        {
-            Ok(completion) => completion,
-            Err(error) if rejections.is_empty() => return Err(error.into()),
-            Err(_) => return Err(GeneratedSpeechError::Rejected(rejections)),
-        };
-        let mut proposal = match parse_resident_intent_json(&completion.text, plan) {
-            Some(proposal) => proposal,
-            None => {
-                let mut context = resident_gate_context(plan, false);
-                context.envelope_valid = false;
-                context.candidate_round = candidate_round;
-                match certify_speech(Some(config), completion, "", context) {
-                    Err(rejection) => {
-                        rejections.push(*rejection);
-                        continue;
-                    }
-                    Ok(_) => unreachable!("an invalid envelope cannot certify"),
-                }
-            }
-        };
-        let mut context = resident_gate_context(plan, proposal.proposed_action.is_some());
-        context.candidate_round = candidate_round;
-        match certify_speech(Some(config), completion, &proposal.speech, context) {
-            Ok(speech) => {
-                let speech = speech.with_prior_rejections(rejections);
-                proposal.speech = speech.text().to_string();
-                return Ok(CertifiedAvatarIntent { proposal, speech });
-            }
-            Err(rejection) => rejections.push(*rejection),
-        }
+            disposition.proposed_action,
+        ),
+        None => (
+            ResidentPlanningResult {
+                proposed_action: None,
+                trace: ResidentPlanningTrace::absent(plan),
+            },
+            None,
+        ),
     }
-    Err(GeneratedSpeechError::Rejected(rejections))
+}
+
+pub(super) fn resident_voice_planning_brief(planning: &ResidentPlanningResult) -> String {
+    match (planning.trace.status, planning.proposed_action.as_ref()) {
+        (ResidentPlanningStatus::Proposed, Some(action)) => format!(
+            "status=proposed; {}; speech_act={}. This is not committed.",
+            resident_voice_action_brief(action),
+            action
+                .speech_act
+                .map(ResidentSpeechAct::as_str)
+                .unwrap_or("inform")
+        ),
+        (ResidentPlanningStatus::Rejected, _) => {
+            "status=rejected. No action was accepted; speak or wait safely.".to_string()
+        }
+        (ResidentPlanningStatus::Superseded, _) => {
+            "status=superseded. A newer decision replaced this plan; do not claim it happened."
+                .to_string()
+        }
+        (ResidentPlanningStatus::Accepted, Some(action)) => format!(
+            "status=accepted; {}. The kernel has not committed an outcome.",
+            resident_voice_action_brief(action)
+        ),
+        (ResidentPlanningStatus::Committed, Some(action)) => format!(
+            "status=committed; {}. Mention only the recorded public outcome.",
+            resident_voice_action_brief(action)
+        ),
+        _ => "status=absent. No action was proposed; this is speech only.".to_string(),
+    }
+}
+
+fn resident_voice_action_brief(action: &AvatarProposedAction) -> String {
+    let mut fields = vec![format!("kind={}", action.kind)];
+    if let Some(target_actor_id) = action.target_actor_id {
+        fields.push(format!("target_actor_id={target_actor_id}"));
+    }
+    if let Some(item_id) = action.item_id {
+        fields.push(format!("item_id={item_id}"));
+    }
+    if let Some(target_item_id) = action.target_item_id {
+        fields.push(format!("target_item_id={target_item_id}"));
+    }
+    if let Some(destination_location_id) = action.destination_location_id {
+        fields.push(format!("destination_location_id={destination_location_id}"));
+    }
+    fields.join("; ")
 }
 
 fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGateContext {
@@ -523,7 +613,7 @@ fn format_location_memory(memory: &[String]) -> String {
         .join("\n")
 }
 
-fn format_goal_lines(goals: &[String]) -> String {
+pub(super) fn format_goal_lines(goals: &[String]) -> String {
     if goals.is_empty() {
         return "No active player-facing goal is currently highlighted.".to_string();
     }
@@ -616,7 +706,7 @@ pub(super) fn format_resident_continuity(continuity: &ResidentContinuityState) -
 }
 
 pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
-    let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other avatars. Treat speaker continuity as this avatar's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
+    let base = "Write only the visible spoken line, never JSON or metadata. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other avatars. Treat speaker continuity as this avatar's durable perspective, while the room/kernel facts remain authoritative. A planner brief describes only proposal status: never change its action or claim an uncommitted cost, success, outcome, or reward. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
     if plan.economy_note == DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT {
         return format!(
             "You are {}, the acting avatar in CosyWorld. Speak briefly on behalf of its direct controller in first person, reacting to the concrete outcome of the action just chosen. Do not narrate rules, claim private controller thoughts, or invent another action. Keep it under 34 words. {base}",
@@ -631,37 +721,37 @@ pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
     }
     match plan.speaker_actor_id {
         1001 => format!(
-            "You are Rati, the cottage's brisk landlady mouse. The speech field must be first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
+            "You are Rati, the cottage's brisk landlady mouse. Speak in first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
         ),
         1002 => format!(
-            "You are Gust, a weather gremlin. The speech field must contain only 3 to 6 emoji used as a punchline or heckle reacting to what just happened: no letters, no words, no markdown, no explanation. {base}"
+            "You are Gust, a weather gremlin. Return only 3 to 6 emoji used as a punchline or heckle reacting to what just happened: no letters, no words, no markdown, no explanation. {base}"
         ),
         1003 => format!(
-            "You are Skull, the deadpan wolf and the room's straight man. The speech field must be exactly one third-person emote wrapped in asterisks: minimal reaction to maximum chaos, no quoted speech, no inner monologue, no gore. {base}"
+            "You are Skull, the deadpan wolf and the room's straight man. Return exactly one third-person emote wrapped in asterisks: minimal reaction to maximum chaos, no quoted speech, no inner monologue, no gore. {base}"
         ),
         1005 => format!(
-            "You are Oak, the Old Oak Tree in the Lonely Forest. The speech field answers through four short voices that bicker like a family radio show: Root is stubborn, Ring cites ancient precedent, Leaf is distractible, Hollow repeats secrets it should not. Keep speech under 60 words. {base}"
+            "You are Oak, the Old Oak Tree in the Lonely Forest. Answer through four short voices that bicker like a family radio show: Root is stubborn, Ring cites ancient precedent, Leaf is distractible, Hollow repeats secrets it should not. Keep speech under 60 words. {base}"
         ),
         1051 => format!(
-            "You are Euphemie, a mansion ghost mostly annoyed that nobody dusts. The speech field should be brief and practical; her warnings are about stairs and drafts, not fate. Short authentic Haitian Creole fragments welcome; never invent parody dialect or fake broken Creole. Under 40 words. {base}"
+            "You are Euphemie, a mansion ghost mostly annoyed that nobody dusts. Be brief and practical; her warnings are about stairs and drafts, not fate. Short authentic Haitian Creole fragments welcome; never invent parody dialect or fake broken Creole. Under 40 words. {base}"
         ),
         1056 => format!(
-            "You are Chamuel, Lord Samael's fussy, immaculate page. The speech field must be first person: precise, accidentally flirty, correcting people mid-crisis and defending your filing system with your life. Under 45 words. {base}"
+            "You are Chamuel, Lord Samael's fussy, immaculate page. Speak in first person: precise, accidentally flirty, correcting people mid-crisis and defending your filing system with your life. Under 45 words. {base}"
         ),
         1066 => format!(
-            "You are Azazoth, a many-tentacled deep-sea god who hosts a feast nobody attends and takes the leftovers personally. The speech field must be first person: grand appetites, wounded pride, at least one tentacle doing something undignified. Under 45 words. {base}"
+            "You are Azazoth, a many-tentacled deep-sea god who hosts a feast nobody attends and takes the leftovers personally. Speak in first person: grand appetites, wounded pride, at least one tentacle doing something undignified. Under 45 words. {base}"
         ),
         1067 => format!(
-            "You are Zadkiel, a dark angel of tremendous formality forging dramatic pronouncements nobody asked for. The speech field must be first person: formal delivery constantly undercut by anvil logistics and whether anyone was watching. Under 45 words. {base}"
+            "You are Zadkiel, a dark angel of tremendous formality forging dramatic pronouncements nobody asked for. Speak in first person: formal delivery constantly undercut by anvil logistics and whether anyone was watching. Under 45 words. {base}"
         ),
         1068 => format!(
-            "You are Badger, grumpy landlord of the lower burrow. The speech field must be first person: gruff, economical, complaining about the immediate physical mess, helping anyway and furious about it. Under 40 words. {base}"
+            "You are Badger, grumpy landlord of the lower burrow. Speak in first person: gruff, economical, complaining about the immediate physical mess, helping anyway and furious about it. Under 40 words. {base}"
         ),
         1069 => format!(
-            "You are Toad, a reckless stunt toad with zero completed jumps. The speech field must be first person: breathless, already mid-jump, announcing stunts nobody asked for and treating applause as medical care. Under 40 words. {base}"
+            "You are Toad, a reckless stunt toad with zero completed jumps. Speak in first person: breathless, already mid-jump, announcing stunts nobody asked for and treating applause as medical care. Under 40 words. {base}"
         ),
         _ => format!(
-            "You are {} in CosyWorld, a grounded physical-comedy village. Keep the speech field concise, concrete, and cheeky. {base}",
+            "You are {} in CosyWorld, a grounded physical-comedy village. Keep the line concise, concrete, and cheeky. {base}",
             plan.speaker_name
         ),
     }
@@ -715,12 +805,68 @@ mod publication_tests {
         assert_eq!(inference.generation_key, "resident-event-73");
     }
 
-    #[tokio::test]
-    async fn unavailable_provider_yields_no_certified_character_speech() {
+    #[test]
+    fn direct_proxy_and_conversation_only_reply_skip_the_planner() {
+        let (_, mut reply) = seeded_plans();
+        reply.economy_note = DIRECTLY_CONTROLLED_REACTION_CONTEXT.to_string();
+        let absent = ResidentPlanningResult {
+            proposed_action: None,
+            trace: ResidentPlanningTrace::absent(&reply),
+        };
+        assert_eq!(
+            resident_voice_planning_brief(&absent),
+            "status=absent. No action was proposed; this is speech only."
+        );
+        assert!(!reply.planner_requested);
+        assert!(reply.planner_candidates.is_empty());
+    }
+
+    #[test]
+    fn voice_brief_distinguishes_proposed_from_committed_action() {
         let (_, reply) = seeded_plans();
-        assert!(matches!(
-            avatar_reply_intent(None, &reply).await,
-            Err(GeneratedSpeechError::Gateway(_))
-        ));
+        let action = AvatarProposedAction {
+            kind: "move".to_string(),
+            ..AvatarProposedAction::default()
+        };
+        let mut planning = ResidentPlanningResult {
+            proposed_action: Some(action),
+            trace: ResidentPlanningTrace::absent(&reply),
+        };
+        planning.trace.status = ResidentPlanningStatus::Proposed;
+        let proposed = resident_voice_planning_brief(&planning);
+        assert!(proposed.contains("status=proposed"));
+        assert!(proposed.contains("not committed"));
+
+        planning.trace.status = ResidentPlanningStatus::Committed;
+        let committed = resident_voice_planning_brief(&planning);
+        assert!(committed.contains("status=committed"));
+        assert!(committed.contains("recorded public outcome"));
+    }
+
+    #[test]
+    fn committed_disposition_is_voice_context_not_a_new_proposal() {
+        let (_, mut reply) = seeded_plans();
+        let action = AvatarProposedAction {
+            kind: "move".to_string(),
+            destination_location_id: Some(MOONLIT_TRAIL_LOCATION_ID),
+            planning_generation_id: Some("resident-plan:committed".to_string()),
+            ..AvatarProposedAction::default()
+        };
+        let mut trace = ResidentPlanningTrace::absent(&reply);
+        trace.generation_id = "resident-plan:committed".to_string();
+        trace.status = ResidentPlanningStatus::Committed;
+        reply.resident_continuity.last_planning_disposition = Some(ResidentPlanningDisposition {
+            trace,
+            proposed_action: Some(action),
+        });
+
+        let (planning, voice_action) = resident_disposition_for_voice(&reply);
+        assert_eq!(planning.trace.status, ResidentPlanningStatus::Committed);
+        assert!(planning.proposed_action.is_none());
+        assert!(resident_voice_planning_brief(&ResidentPlanningResult {
+            proposed_action: voice_action,
+            trace: planning.trace,
+        })
+        .contains("status=committed"));
     }
 }

@@ -132,9 +132,27 @@ candidates persist hashes, evidence, and decision metadata, never raw output
 bytes. The existing publication journal precondition remains the single writer
 for the final world-visible line.
 
-This live routing scope intentionally stops at avatar chat and its follow-up.
-Resident intent/voice composition remains on the `intent_json` path until that
-coupling is split in the follow-on work.
+Resident intelligence uses the same bounded Voice router for public prose.
+Decision beats make one separate `intent_json` request containing only the
+triggering public event, bounded continuity/goals, and the exact current
+planner-eligible candidate IDs plus their state revision. The declared
+`resident-planner-offers-v1` policy is closed over reachable move, pickup, drop,
+give, trade, and use-item offers. Other legal kinds, including search, stay in
+deterministic hands; pickups needing an inventory exchange are excluded until
+the schema can name the exact outgoing item. The strict response may echo only
+a candidate ID/revision, closed speech act, and proposal reason.
+Conversation-only beats and directly controlled proxy reactions skip the
+planner.
+
+Planner failure does not consume the Voice budget and degrades to rejected or
+absent intent with no action. Before a pending action is journaled, the server
+re-enumerates and compares the full authoritative candidate identity and fields.
+The C kernel remains the only mutation authority. Journaled planning,
+publication, causality, and eventual decision links replay without inference;
+raw planner reasoning remains only in the planning trace and is never copied
+into projected action state or promoted to world truth. Matching execution
+durably records committed or rejected disposition; a newer accepted generation
+supersedes the prior one, while a rejected new attempt does not mutate it.
 
 ## Privacy and attribution
 

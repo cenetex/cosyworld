@@ -686,7 +686,7 @@ mod tests {
                         Json(serde_json::json!({
                             "choices": [{
                                 "message": {
-                                    "content": r#"{"speech":"Bring Rowan's Keeper Brass Key back to this empty hook, and I will know the road is still ours.","intent":"wait for the key","belief":null,"desire":"Rowan's Keeper Brass Key returned","promise":null,"refusal":null,"proposed_action":{"kind":"wait","target_actor_id":null,"item_id":null,"destination_location_id":null,"reason":"the traveler must follow the failed lamps first"}}"#
+                                    "content": "Bring Rowan's Keeper Brass Key back to this empty hook, and I will know the road is still ours."
                                 },
                                 "finish_reason": "stop"
                             }]
@@ -850,6 +850,7 @@ mod tests {
                         plan.speaker_actor_id,
                         &plan.speaker_name,
                     ),
+                    planning: ResidentPlanningTrace::absent(&plan),
                 },
                 None,
             )

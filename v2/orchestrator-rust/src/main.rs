@@ -5,6 +5,7 @@ mod actor_presence;
 mod actor_rules_facets;
 mod ai_gateway;
 mod ai_publication;
+mod ai_resident_planning;
 mod ai_voice_routing;
 mod avatar_identity;
 #[cfg(test)]
@@ -73,6 +74,7 @@ use actor_practice::*;
 use actor_rules_facets::*;
 use ai_gateway::*;
 use ai_publication::*;
+use ai_resident_planning::*;
 use avatar_identity::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
@@ -95,7 +97,6 @@ use content_packs::*;
 use content_policy::*;
 use content_registry::*;
 use contributions::*;
-use cosyworld_ai_model::ResidentReplyModelInput;
 use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use generated_places::*;
@@ -1565,7 +1566,7 @@ struct ActorAutonomyState {
     attention_credits: u8,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct AvatarProposedAction {
     kind: String,
@@ -1574,7 +1575,19 @@ struct AvatarProposedAction {
     #[serde(default)]
     item_id: Option<u64>,
     #[serde(default)]
+    target_item_id: Option<u64>,
+    #[serde(default)]
     destination_location_id: Option<u64>,
+    #[serde(default)]
+    candidate_id: Option<String>,
+    #[serde(default)]
+    composition_id: Option<String>,
+    #[serde(default)]
+    state_revision: Option<u64>,
+    #[serde(default)]
+    planning_generation_id: Option<String>,
+    #[serde(default)]
+    speech_act: Option<ResidentSpeechAct>,
     #[serde(default)]
     reason: Option<String>,
 }
@@ -1916,6 +1929,12 @@ struct ResidentDecisionTrace {
     choice: ResidentDecisionChoiceTrace,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     outcome: Option<ResidentDecisionOutcomeTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    planning_generation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    planner_candidate_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    planner_state_revision: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1949,6 +1968,8 @@ struct JournalRecord {
     source_location_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     resident_decision: Option<ResidentDecisionTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resident_planning: Option<ResidentPlanningTrace>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ai_publication: Option<AiPublicationReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2030,6 +2051,7 @@ impl JournalRecord {
             observed_through_seq: None,
             source_location_id: None,
             resident_decision: None,
+            resident_planning: None,
             ai_publication: None,
             focused_encounter,
             offer_kind: None,
@@ -10118,6 +10140,7 @@ impl RuntimeWorld {
 
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
+        let resident_planning_lifecycle = self.resident_planning_lifecycle_snapshot(&action);
         let advances_world_tick = record.advances_world_tick();
         let authoritative_contribution_clock_ids = record
             .projection_mutations
@@ -10270,9 +10293,6 @@ impl RuntimeWorld {
             for delta in &record.orb_deltas {
                 self.apply_orb_delta(delta.actor_id, delta.delta);
             }
-            if action.kind != CW_ACTION_SAY {
-                self.clear_resident_pending_action(action.actor_id);
-            }
             self.reconcile_card_zones();
             let delivery_evidence = self.update_item_provenance(&events);
             let logistics_events = self.apply_actor_causal_logistics(delivery_evidence);
@@ -10322,6 +10342,7 @@ impl RuntimeWorld {
                 }
             }
         }
+        self.apply_resident_planning_lifecycle(record, status, resident_planning_lifecycle);
         self.ensure_canonical_identities(record.seed);
         if status == CW_OK {
             self.ensure_active_actor_rules_facets();
@@ -16132,6 +16153,8 @@ impl RuntimeWorld {
             observed_through_seq: None,
             source_location_id: None,
             publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         })
     }
 
@@ -16524,20 +16547,6 @@ impl RuntimeWorld {
                 190,
             );
         }
-        if let Some(text) = proposal
-            .proposed_action
-            .as_ref()
-            .and_then(|action| action.reason.as_deref())
-            .and_then(|reason| sanitize_continuity_note_text(Some(reason)))
-        {
-            push_resident_continuity_note(
-                &mut continuity.desires,
-                text,
-                reason,
-                source_event_seq,
-                150,
-            );
-        }
         if let Some(text) = sanitize_continuity_note_text(proposal.promise.as_deref()) {
             push_resident_continuity_note(
                 &mut continuity.promises,
@@ -16556,7 +16565,7 @@ impl RuntimeWorld {
                 220,
             );
         }
-        if reason != "resident_autonomy_intent" {
+        if reason != "resident_autonomy_intent" && proposal.proposed_action.is_some() {
             continuity.pending_action = proposal.proposed_action.clone();
         }
         if let Some(source_event_seq) = source_event_seq {
@@ -20818,6 +20827,8 @@ impl RuntimeWorld {
             observed_through_seq: None,
             source_location_id: None,
             publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         })
     }
 
@@ -20962,6 +20973,8 @@ impl RuntimeWorld {
             observed_through_seq: None,
             source_location_id: None,
             publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         })
     }
 
@@ -21469,6 +21482,19 @@ impl RuntimeWorld {
                     None
                 }
             }
+            "trade" => {
+                let target_actor_id = proposal.target_actor_id?;
+                let item_id = proposal.item_id?;
+                let target_item_id = proposal.target_item_id?;
+                Some(CwAction {
+                    kind: CW_ACTION_TRADE_ITEM,
+                    actor_id: actor.id,
+                    target_actor_id,
+                    item_id,
+                    target_item_id,
+                    ..CwAction::default()
+                })
+            }
             "use" => {
                 let item_id = proposal.item_id?;
                 if !self
@@ -21812,10 +21838,7 @@ impl RuntimeWorld {
             .unwrap_or_else(|| format!("Resident {}", actor.id));
         let mut proposed_action = AvatarProposedAction {
             kind: "wait".to_string(),
-            target_actor_id: None,
-            item_id: None,
-            destination_location_id: None,
-            reason: None,
+            ..AvatarProposedAction::default()
         };
         let intent = match action.kind {
             CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => {
@@ -22298,6 +22321,7 @@ impl RuntimeWorld {
                 }
             })
             .collect();
+        let planner = self.resident_planner_proposal_for_action(actor, &candidate.record.action);
         ResidentDecisionTrace {
             schema_version: 1,
             actor_id: candidate.actor_id,
@@ -22324,6 +22348,10 @@ impl RuntimeWorld {
                 action: candidate.record.action,
             },
             outcome: None,
+            planning_generation_id: planner
+                .and_then(|proposal| proposal.planning_generation_id.clone()),
+            planner_candidate_id: planner.and_then(|proposal| proposal.candidate_id.clone()),
+            planner_state_revision: planner.and_then(|proposal| proposal.state_revision),
         }
     }
 
@@ -29498,7 +29526,11 @@ async fn complete_avatar_reply(
     plan: AvatarReplyPlan,
     relationship_reply: Option<&RelationshipReplyExpectation>,
 ) -> Result<bool, String> {
-    let proposal = match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &plan).await {
+    let plan = {
+        let runtime = state.inner.lock().await;
+        runtime.prepare_resident_planner_snapshot(plan)
+    };
+    let proposal = match avatar_reply_intent(state, &plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
             warn!("AI resident inference failed; skipping dialogue: {}", error);
@@ -29523,18 +29555,17 @@ async fn complete_orb_chat_exchange(
     target_actor_id: u64,
     first_reply_plan: AvatarReplyPlan,
 ) {
-    let first_proposal =
-        match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &first_reply_plan).await {
-            Ok(proposal) => proposal,
-            Err(error) => {
-                warn!(
-                    "AI resident inference failed; ending chat exchange: {}",
-                    error
-                );
-                record_rejected_ai_publication(state, &error);
-                return;
-            }
-        };
+    let first_proposal = match avatar_reply_intent(state, &first_reply_plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!(
+                "AI resident inference failed; ending chat exchange: {}",
+                error
+            );
+            record_rejected_ai_publication(state, &error);
+            return;
+        }
+    };
     let first_reply_events = {
         let mut runtime = state.inner.lock().await;
         commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal, None)
@@ -29638,18 +29669,17 @@ async fn complete_orb_chat_exchange(
     let Some(closing_plan) = closing_plan else {
         return;
     };
-    let closing_proposal =
-        match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &closing_plan).await {
-            Ok(proposal) => proposal,
-            Err(error) => {
-                warn!(
-                    "AI resident closing inference failed; ending chat exchange: {}",
-                    error
-                );
-                record_rejected_ai_publication(state, &error);
-                return;
-            }
-        };
+    let closing_proposal = match avatar_reply_intent(state, &closing_plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!(
+                "AI resident closing inference failed; ending chat exchange: {}",
+                error
+            );
+            record_rejected_ai_publication(state, &error);
+            return;
+        }
+    };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
         commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal, None)
@@ -29669,6 +29699,7 @@ fn commit_resident_reply_record(
     let CertifiedAvatarIntent {
         mut proposal,
         speech,
+        mut planning,
     } = certified;
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
@@ -29677,6 +29708,22 @@ fn commit_resident_reply_record(
     }
     if runtime.actor_uses_inference(speaker.id) {
         proposal = runtime.collision_safe_resident_proposal(plan, proposal)?;
+        if proposal
+            .proposed_action
+            .as_ref()
+            .is_some_and(|action| !runtime.resident_planner_proposal_is_current(plan, action))
+        {
+            proposal.proposed_action = None;
+            planning.reject("planner_stale_or_illegal");
+        } else if proposal.proposed_action.is_some() {
+            planning.status = ResidentPlanningStatus::Accepted;
+            planning.supersedes_generation_id = runtime
+                .resident_continuities
+                .get(&speaker.id)
+                .and_then(|continuity| continuity.pending_planning.as_ref())
+                .filter(|pending| pending.generation_id != planning.generation_id)
+                .map(|pending| pending.generation_id.clone());
+        }
     } else {
         proposal.speech =
             runtime.collision_safe_avatar_followup(plan.speaker_actor_id, &proposal.speech)?;
@@ -29697,6 +29744,7 @@ fn commit_resident_reply_record(
         .content_upserts
         .insert(content_id, proposal.speech.clone());
     record.ai_publication = Some(publication_receipt);
+    record.resident_planning = Some(planning);
     if runtime.actor_uses_inference(speaker.id) && relationship_reply.is_none() {
         record
             .projection_mutations
@@ -29850,7 +29898,7 @@ async fn complete_player_tick_observation(
                     &observation.source_events,
                     Some(&active_direct_actor_ids),
                 )
-                .map(|plan| plan.with_observation(&observation))
+                .map(|plan| plan.with_observation(&observation).requesting_planner())
         } else {
             runtime.direct_observation_reply_plan(&observation)
         }
@@ -30321,7 +30369,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
     };
     drop(runtime);
 
-    let proposal = match request_ai_avatar_intent(&config, &plan).await {
+    let proposal = match request_ai_avatar_intent(&config, None, &plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
             warn!(
@@ -31840,53 +31888,10 @@ fn sanitize_avatar_chat(text: &str) -> Option<String> {
     cosyworld_ai_model::sanitize_avatar_chat(text)
 }
 
-fn parse_resident_intent_json(text: &str, plan: &AvatarReplyPlan) -> Option<AvatarIntentProposal> {
-    let raw: AvatarIntentProposal = serde_json::from_str(text.trim()).ok()?;
-    let speech = sanitize_resident_reply(plan, &raw.speech)?;
-    let proposed_action = raw
-        .proposed_action
-        .and_then(sanitize_resident_proposed_action);
-    Some(AvatarIntentProposal {
-        speech,
-        intent: sanitize_continuity_note_text(raw.intent.as_deref()),
-        belief: sanitize_continuity_note_text(raw.belief.as_deref()),
-        desire: sanitize_continuity_note_text(raw.desire.as_deref()),
-        promise: sanitize_continuity_note_text(raw.promise.as_deref()),
-        refusal: sanitize_continuity_note_text(raw.refusal.as_deref()),
-        proposed_action,
-    })
-}
-
-fn sanitize_resident_proposed_action(raw: AvatarProposedAction) -> Option<AvatarProposedAction> {
-    let kind = sanitize_continuity_note_text(Some(&raw.kind))?;
-    let kind = kind.to_ascii_lowercase().replace([' ', '-'], "_");
-    if !matches!(
-        kind.as_str(),
-        "wait"
-            | "speak"
-            | "move"
-            | "pick_up"
-            | "drop"
-            | "give"
-            | "trade"
-            | "use"
-            | "search"
-            | "refuse"
-    ) {
-        return None;
-    }
-    Some(AvatarProposedAction {
-        kind,
-        target_actor_id: raw.target_actor_id,
-        item_id: raw.item_id,
-        destination_location_id: raw.destination_location_id,
-        reason: sanitize_continuity_note_text(raw.reason.as_deref()),
-    })
-}
-
+#[cfg(test)]
 fn sanitize_resident_reply(plan: &AvatarReplyPlan, text: &str) -> Option<String> {
     cosyworld_ai_model::sanitize_resident_reply(
-        &ResidentReplyModelInput {
+        &cosyworld_ai_model::ResidentReplyModelInput {
             npc_actor_id: plan.speaker_actor_id,
             npc_name: plan.speaker_name.clone(),
             speech_mode: plan.speech_mode.clone(),
@@ -65653,10 +65658,9 @@ mod tests {
                 refusal: None,
                 proposed_action: Some(AvatarProposedAction {
                     kind: "move".to_string(),
-                    target_actor_id: None,
-                    item_id: None,
                     destination_location_id: Some(offered_destination),
                     reason: Some("the offered path is the next reachable room".to_string()),
+                    ..AvatarProposedAction::default()
                 }),
             },
             "resident_intent",
@@ -65722,10 +65726,9 @@ mod tests {
                 refusal: None,
                 proposed_action: Some(AvatarProposedAction {
                     kind: "move".to_string(),
-                    target_actor_id: None,
-                    item_id: None,
                     destination_location_id: Some(proposed_destination),
                     reason: Some("model-selected alternative".to_string()),
+                    ..AvatarProposedAction::default()
                 }),
             },
             "resident_intent",
@@ -65917,10 +65920,8 @@ mod tests {
             .expect("the exact drop offer plans");
         let exact_proposal = AvatarProposedAction {
             kind: "drop".to_string(),
-            target_actor_id: None,
             item_id: Some(STORY_BUTTON_ITEM_ID),
-            destination_location_id: None,
-            reason: None,
+            ..AvatarProposedAction::default()
         };
         assert!(runtime.resident_proposed_action_matches_legal_offer(
             5000,
@@ -69497,6 +69498,8 @@ mod tests {
             observed_through_seq: None,
             source_location_id: None,
             publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         }
     }
 
@@ -69570,68 +69573,6 @@ mod tests {
         assert_eq!(resident.user_text, "What changed here?");
     }
     #[test]
-    fn resident_intent_json_parses_speech_and_taxonomy() {
-        let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
-        let proposal = parse_resident_intent_json(
-            r#"{
-              "speech": "\"I will keep one stitch open for the room.\"",
-              "intent": "listen for the next room need",
-              "belief": "the cottage is waiting on a small kindness",
-              "desire": "find who needs Moonwool Thread",
-              "promise": "keep one stitch open",
-              "refusal": "do not pretend the button has already moved",
-              "proposed_action": {
-                "kind": "search",
-                "target_actor_id": null,
-                "item_id": 2002,
-                "destination_location_id": null,
-                "reason": "the scarf basket still has an unanswered clue"
-              }
-            }"#,
-            &plan,
-        )
-        .expect("structured resident intent parses");
-
-        assert_eq!(proposal.speech, "I will keep one stitch open for the room.");
-        assert_eq!(
-            proposal.intent.as_deref(),
-            Some("listen for the next room need")
-        );
-        assert_eq!(
-            proposal.belief.as_deref(),
-            Some("the cottage is waiting on a small kindness")
-        );
-        assert_eq!(
-            proposal.desire.as_deref(),
-            Some("find who needs Moonwool Thread")
-        );
-        assert_eq!(proposal.promise.as_deref(), Some("keep one stitch open"));
-        assert_eq!(
-            proposal.refusal.as_deref(),
-            Some("do not pretend the button has already moved")
-        );
-        let action = proposal
-            .proposed_action
-            .as_ref()
-            .expect("proposed action retained");
-        assert_eq!(action.kind, "search");
-        assert_eq!(action.item_id, Some(2002));
-    }
-
-    #[test]
-    fn resident_intent_json_rejects_wrappers_and_unknown_fields() {
-        let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
-        let valid = r#"{"speech":"The teapot is wobbling.","intent":null,"belief":null,"desire":null,"promise":null,"refusal":null,"proposed_action":null}"#;
-        assert!(parse_resident_intent_json(valid, &plan).is_some());
-        assert!(parse_resident_intent_json(&format!("```json\n{valid}\n```"), &plan).is_none());
-        assert!(parse_resident_intent_json(
-            r#"{"speech":"The teapot is wobbling.","intent":null,"belief":null,"desire":null,"promise":null,"refusal":null,"proposed_action":null,"debug":"private"}"#,
-            &plan,
-        )
-        .is_none());
-    }
-
-    #[test]
     fn resident_intent_projection_records_typed_continuity_notes() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.resident_continuities.clear();
@@ -69645,10 +69586,9 @@ mod tests {
             refusal: Some("do not pretend the button has already moved".to_string()),
             proposed_action: Some(AvatarProposedAction {
                 kind: "search".to_string(),
-                target_actor_id: None,
                 item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
-                destination_location_id: None,
                 reason: Some("the scarf basket still has an unanswered clue".to_string()),
+                ..AvatarProposedAction::default()
             }),
         };
         let content_id = runtime.next_content_id_value();

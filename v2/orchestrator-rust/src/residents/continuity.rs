@@ -16,6 +16,10 @@ pub(crate) struct ResidentContinuityState {
     pub(crate) refusals: Vec<ResidentContinuityNote>,
     #[serde(default)]
     pub(crate) pending_action: Option<AvatarProposedAction>,
+    #[serde(default)]
+    pub(crate) pending_planning: Option<ResidentPlanningTrace>,
+    #[serde(default)]
+    pub(crate) last_planning_disposition: Option<ResidentPlanningDisposition>,
     pub(crate) open_obligations: Vec<String>,
     pub(crate) current_intent: Option<String>,
     pub(crate) last_observed_event_seq: u64,
@@ -51,6 +55,8 @@ impl ResidentContinuityState {
             promises: Vec::new(),
             refusals: Vec::new(),
             pending_action: None,
+            pending_planning: None,
+            last_planning_disposition: None,
             open_obligations: Vec::new(),
             current_intent: None,
             last_observed_event_seq: 0,
@@ -315,20 +321,6 @@ impl RuntimeWorld {
                 190,
             );
         }
-        if let Some(text) = proposal
-            .proposed_action
-            .as_ref()
-            .and_then(|action| action.reason.as_deref())
-            .and_then(|reason| sanitize_continuity_note_text(Some(reason)))
-        {
-            push_resident_continuity_note(
-                &mut continuity.desires,
-                text,
-                reason,
-                source_event_seq,
-                150,
-            );
-        }
         if let Some(text) = sanitize_continuity_note_text(proposal.promise.as_deref()) {
             push_resident_continuity_note(
                 &mut continuity.promises,
@@ -347,7 +339,7 @@ impl RuntimeWorld {
                 220,
             );
         }
-        if reason != "resident_autonomy_intent" {
+        if reason != "resident_autonomy_intent" && proposal.proposed_action.is_some() {
             continuity.pending_action = proposal.proposed_action.clone();
         }
         if let Some(source_event_seq) = source_event_seq {
@@ -613,9 +605,6 @@ pub(crate) fn resident_proposed_action_intent(action: &AvatarProposedAction) -> 
     if let Some(destination_location_id) = action.destination_location_id {
         parts.push(format!("destination {destination_location_id}"));
     }
-    if let Some(reason) = sanitize_continuity_note_text(action.reason.as_deref()) {
-        parts.push(reason);
-    }
     Some(trim_to_chars(&parts.join("; "), 180))
 }
 
@@ -750,6 +739,7 @@ mod tests {
                 item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
                 destination_location_id: None,
                 reason: Some("the scarf basket still has an unanswered clue".to_string()),
+                ..AvatarProposedAction::default()
             }),
         };
         let content_id = runtime.next_content_id_value();
