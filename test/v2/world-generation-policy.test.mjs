@@ -117,6 +117,16 @@ describe("world-generation-policy/1", () => {
           recipe.intents.includes("location_card_art"),
       ),
     ).toBe(true);
+    expect(
+      registry.recipes.find(
+        (recipe) => recipe.id === "replicate.holy-land-b43l.base",
+      )?.model,
+    ).toEqual({
+      owner: "ratimics",
+      name: "b43l",
+      revision:
+        "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f",
+    });
   });
 
   it("resolves a profile and recipe without a vendor preference", () => {
