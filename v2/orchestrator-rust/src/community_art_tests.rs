@@ -440,6 +440,10 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
     .await;
     assert!(second.reused_candidate);
     assert!(second.result.is_ok());
+    assert!(
+        second.asset_id.is_some(),
+        "publication stages an immutable asset before the ready journal transition"
+    );
     assert_eq!(policy_requests.load(Ordering::SeqCst), 2);
     assert_eq!(
         fs::read(stored_community_art_image_path(
@@ -740,6 +744,11 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
             status: "ready".to_string(),
         });
     assert_eq!(runtime.apply_journal_record(&ready).0, CW_OK);
+    runtime
+        .community_art_generations
+        .get_mut(&community_art_generation_key("location", waypoint_id, 1))
+        .expect("ready community art generation")
+        .last_prediction_id = Some("pathway-approved-prediction".to_string());
     assert_eq!(
         runtime
             .state_response(Some(5000), &AccessContext::default())
@@ -770,7 +779,14 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
         stored_community_art_content_type_path(&generated_dir, "location", waypoint_id);
     fs::create_dir_all(image_path.parent().expect("community art parent"))
         .expect("create community art fixture directory");
-    fs::write(&image_path, b"reviewed fixture bytes").expect("write ready art fixture");
+    let reviewed_bytes = base64::engine::general_purpose::STANDARD
+        .decode(
+            POLICY_PREFLIGHT_IMAGE_URL
+                .strip_prefix("data:image/png;base64,")
+                .expect("fixture prefix"),
+        )
+        .expect("decode reviewed PNG fixture");
+    fs::write(&image_path, &reviewed_bytes).expect("write ready art fixture");
     fs::write(&content_type_path, "image/png").expect("write ready art type fixture");
     let legacy_pathway_dir = generated_dir.join("pathways");
     fs::create_dir_all(&legacy_pathway_dir).expect("create legacy pathway directory");
@@ -794,6 +810,24 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
         "legacy pathway bitmaps must never override the deterministic fallback"
     );
 
+    let ready_asset = generated_community_art_asset(
+        State(state.clone()),
+        AxumPath(("location".to_string(), format!("{waypoint_id}.image"))),
+    )
+    .await
+    .into_response();
+    assert_eq!(ready_asset.status(), StatusCode::OK);
+    let immutable_object = fs::read_dir(generated_dir.join("media-assets/objects/sha256"))
+        .expect("immutable object directory")
+        .next()
+        .expect("one immutable object")
+        .expect("immutable object entry")
+        .path();
+    assert_eq!(
+        fs::read(&immutable_object).expect("read immutable object"),
+        reviewed_bytes
+    );
+
     let mut headers = HeaderMap::new();
     headers.insert(
         header::AUTHORIZATION,
@@ -811,6 +845,14 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
     assert!(rejected.retryable_without_orbs);
     assert!(!image_path.exists());
     assert!(!content_type_path.exists());
+    assert!(
+        immutable_object.exists(),
+        "rejection removes mutable aliases but preserves immutable evidence"
+    );
+    let graph = fs::read_to_string(generated_dir.join("media-assets/graph-v1.json"))
+        .expect("read immutable graph after rejection");
+    assert!(graph.contains("\"state\": \"rejected\""));
+    assert!(graph.contains("\"canonical\": {}"));
 
     let runtime = state.inner.lock().await;
     let card = &runtime
