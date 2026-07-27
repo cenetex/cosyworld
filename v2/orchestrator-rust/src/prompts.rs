@@ -1,4 +1,5 @@
 use super::*;
+use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest, VoiceRoutingError};
 
 pub(super) const DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT: &str =
     "This avatar is directly controlled and is reacting to the action its controller just chose. Write speech only; do not invent private controller intent or another physical action.";
@@ -9,6 +10,7 @@ pub(super) const DIRECTLY_CONTROLLED_REACTION_CONTEXT: &str =
 pub(super) enum GeneratedSpeechError {
     Gateway(AiGatewayError),
     Rejected(Vec<PublicationRejection>),
+    Unavailable(VoiceRoutingError),
 }
 
 impl GeneratedSpeechError {
@@ -19,6 +21,7 @@ impl GeneratedSpeechError {
                 .last()
                 .map(|error| error.failure_code.as_str())
                 .unwrap_or("voice_publication_exhausted"),
+            Self::Unavailable(error) => error.code(),
         }
     }
 
@@ -26,6 +29,7 @@ impl GeneratedSpeechError {
         match self {
             Self::Gateway(_) => &[],
             Self::Rejected(errors) => errors,
+            Self::Unavailable(error) => error.rejections(),
         }
     }
 }
@@ -38,6 +42,7 @@ impl std::fmt::Display for GeneratedSpeechError {
                 .last()
                 .map(|error| error.fmt(formatter))
                 .unwrap_or_else(|| formatter.write_str("voice_publication_exhausted")),
+            Self::Unavailable(error) => error.fmt(formatter),
         }
     }
 }
@@ -51,6 +56,12 @@ impl From<AiGatewayError> for GeneratedSpeechError {
 impl From<Box<PublicationRejection>> for GeneratedSpeechError {
     fn from(error: Box<PublicationRejection>) -> Self {
         Self::Rejected(vec![*error])
+    }
+}
+
+impl From<VoiceRoutingError> for GeneratedSpeechError {
+    fn from(error: VoiceRoutingError) -> Self {
+        Self::Unavailable(error)
     }
 }
 
@@ -198,49 +209,49 @@ pub(super) async fn avatar_reply_intent(
 }
 
 pub(super) async fn avatar_chat_text(
-    config: Option<&AiConfig>,
+    state: &AppState,
     plan: &AvatarChatPlan,
 ) -> Result<CertifiedSpeech, GeneratedSpeechError> {
+    let config = state.ai_config.as_ref().as_ref();
     let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
-    certify_avatar_chat_with_retries(config, plan, false).await
+    request_ai_avatar_chat(
+        config,
+        state
+            .event_store_path
+            .as_deref()
+            .map(std::path::PathBuf::as_path),
+        plan,
+        false,
+    )
+    .await
+    .map_err(Into::into)
 }
 
 pub(super) async fn avatar_chat_followup_text(
-    config: Option<&AiConfig>,
+    state: &AppState,
     plan: &AvatarChatPlan,
 ) -> Result<CertifiedSpeech, GeneratedSpeechError> {
+    let config = state.ai_config.as_ref().as_ref();
     let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
-    certify_avatar_chat_with_retries(config, plan, true).await
-}
-
-async fn certify_avatar_chat_with_retries(
-    config: &AiConfig,
-    plan: &AvatarChatPlan,
-    followup: bool,
-) -> Result<CertifiedSpeech, GeneratedSpeechError> {
-    let mut rejections = Vec::new();
-    for candidate_round in 1..=2 {
-        let completion = match request_ai_avatar_chat(config, plan, followup).await {
-            Ok(completion) => completion,
-            Err(error) if rejections.is_empty() => return Err(error.into()),
-            Err(_) => return Err(GeneratedSpeechError::Rejected(rejections)),
-        };
-        let text = completion.text.clone();
-        let mut context = avatar_chat_gate_context(plan, followup);
-        context.candidate_round = candidate_round;
-        match certify_speech(Some(config), completion, &text, context) {
-            Ok(speech) => return Ok(speech.with_prior_rejections(rejections)),
-            Err(rejection) => rejections.push(*rejection),
-        }
-    }
-    Err(GeneratedSpeechError::Rejected(rejections))
+    request_ai_avatar_chat(
+        config,
+        state
+            .event_store_path
+            .as_deref()
+            .map(std::path::PathBuf::as_path),
+        plan,
+        true,
+    )
+    .await
+    .map_err(Into::into)
 }
 
 async fn request_ai_avatar_chat(
     config: &AiConfig,
+    store_path: Option<&Path>,
     plan: &AvatarChatPlan,
     followup: bool,
-) -> Result<AiCompletion, AiGatewayError> {
+) -> Result<CertifiedSpeech, VoiceRoutingError> {
     let recent_lines = if followup {
         let start = plan.recent_lines.len().saturating_sub(2);
         &plan.recent_lines[start..]
@@ -300,9 +311,10 @@ async fn request_ai_avatar_chat(
         recent = recent,
     );
 
-    request_chat_completion(
+    route_certified_voice(
         config,
-        ChatCompletionRequest {
+        store_path,
+        VoiceAttemptRequest {
             feature: if followup {
                 "dialogue_avatar_followup"
             } else {
@@ -313,16 +325,13 @@ async fn request_ai_avatar_chat(
             } else {
                 "dialogue-avatar-v1"
             },
-            capability: ModelCapability::Voice,
-            system,
-            user: &user,
+            system: system.to_string(),
+            user,
             temperature: 0.8,
             max_tokens: 70,
-            timeout: Duration::from_secs(12),
-            max_attempts: 2,
             referer: "http://127.0.0.1:3102",
-            response_format: None,
         },
+        avatar_chat_gate_context(plan, followup),
     )
     .await
 }

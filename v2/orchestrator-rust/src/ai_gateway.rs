@@ -5,6 +5,7 @@ use super::{
     compact_whitespace, AppState, GeneratedPathwayState, GeneratedWaypointState, LocationMeta,
     NaturalPotentialPolicy,
 };
+use crate::ai_voice_routing::VoiceRoutingConfig;
 pub(crate) use registry::{
     CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
     PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
@@ -126,6 +127,7 @@ pub(crate) struct AiConfig {
     pub(crate) registry: Option<Arc<CapabilityRegistrySnapshot>>,
     pub(crate) capability_models: BTreeMap<ModelCapability, String>,
     pub(crate) data_policy_mode: DataPolicyMode,
+    pub(crate) voice_routing: VoiceRoutingConfig,
 }
 
 impl AiConfig {
@@ -207,6 +209,7 @@ impl AiConfig {
         } else {
             DataPolicyMode::Development
         };
+        let voice_routing = VoiceRoutingConfig::from_env()?;
 
         Ok(Some(Self {
             api_key,
@@ -218,6 +221,7 @@ impl AiConfig {
             registry,
             capability_models,
             data_policy_mode,
+            voice_routing,
         }))
     }
 
@@ -248,6 +252,21 @@ impl AiConfig {
             None
         };
         registry.pin(capability, configured, self.data_policy_mode)
+    }
+
+    pub(crate) fn pin_models(
+        &self,
+        capability: ModelCapability,
+    ) -> Result<Vec<PinnedModelSelection>, RegistryError> {
+        if let Some(registry) = self.registry.as_deref() {
+            return registry.pin_all(capability, self.data_policy_mode);
+        }
+        CapabilityRegistrySnapshot::legacy(
+            "legacy-config-v1",
+            ai_provider_name(Some(self)),
+            &self.model,
+        )?
+        .pin_all(capability, self.data_policy_mode)
     }
 }
 
@@ -404,6 +423,16 @@ impl AiGatewayError {
     pub(crate) fn code(&self) -> &'static str {
         self.kind.code()
     }
+
+    pub(crate) fn affects_provider_health(&self) -> bool {
+        matches!(
+            self.kind,
+            AiFailureKind::Timeout
+                | AiFailureKind::Transport
+                | AiFailureKind::Provider
+                | AiFailureKind::InvalidResponse
+        )
+    }
 }
 
 impl fmt::Display for AiGatewayError {
@@ -500,6 +529,30 @@ pub(crate) async fn request_chat_completion(
         selection.requested_model_id(),
         config.reasoning_effort.as_deref(),
         Some(&selection),
+    )
+    .await
+}
+
+pub(crate) async fn request_chat_completion_with_selection(
+    config: &AiConfig,
+    request: ChatCompletionRequest<'_>,
+    selection: &PinnedModelSelection,
+) -> Result<AiCompletion, AiGatewayError> {
+    request_completion(
+        config,
+        request.feature,
+        request.prompt_version,
+        request.system,
+        Value::String(request.user.to_string()),
+        Some(request.temperature),
+        request.max_tokens,
+        request.timeout,
+        request.max_attempts,
+        request.referer,
+        request.response_format,
+        selection.requested_model_id(),
+        config.reasoning_effort.as_deref(),
+        Some(selection),
     )
     .await
 }
