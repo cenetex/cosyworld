@@ -28,6 +28,7 @@ mod kernel;
 #[cfg(test)]
 mod lantern_keeper_tests;
 mod legacy_import;
+mod media_evolution;
 mod media_recipes;
 mod moderation;
 mod movement;
@@ -88,6 +89,7 @@ use hosted_access::*;
 use jobs::*;
 use kernel::*;
 use legacy_import::*;
+use media_evolution::*;
 use media_recipes::*;
 use moderation::*;
 use movement::*;
@@ -953,6 +955,8 @@ enum ProjectionMutation {
         intent_id: String,
         amount: i32,
         history_through_seq: u64,
+        #[serde(default)]
+        evolution_job: Option<FrozenCommunityArtEvolutionJob>,
     },
     SetCommunityArtStatus {
         subject_kind: String,
@@ -10307,6 +10311,7 @@ impl RuntimeWorld {
                     intent_id,
                     amount,
                     history_through_seq,
+                    evolution_job,
                 } => {
                     if let Some(event) = self.apply_fund_community_art_projection(
                         subject_kind,
@@ -10317,6 +10322,7 @@ impl RuntimeWorld {
                         intent_id,
                         *amount,
                         *history_through_seq,
+                        evolution_job.clone(),
                     ) {
                         events.push(event);
                     }
@@ -19440,6 +19446,15 @@ impl RuntimeWorld {
         };
         let key = community_art_generation_key(subject_kind, subject_id, level);
         let generation = self.community_art_generations.get(&key);
+        let published_generation = (1..=level).rev().find_map(|published_level| {
+            self.community_art_generations
+                .get(&community_art_generation_key(
+                    subject_kind,
+                    subject_id,
+                    published_level,
+                ))
+                .filter(|state| state.status == "ready")
+        });
         let required_orbs = i32::from(level.max(1));
         let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
         let status =
@@ -19451,12 +19466,12 @@ impl RuntimeWorld {
         let retryable_without_orbs = generation.is_some_and(|state| {
             community_art_generation_retryable_for_profile(state, false, generation_profile_version)
         });
-        if status == "ready" {
+        if let Some(published) = published_generation {
             card.image_url = Some(community_art_image_url(
                 subject_kind,
                 subject_id,
-                level,
-                generation.map(|state| state.revision).unwrap_or(0),
+                published.level,
+                published.revision,
             ));
             card.asset_status = "community_art".to_string();
         }
@@ -19476,277 +19491,6 @@ impl RuntimeWorld {
             retryable_without_orbs,
         });
         card
-    }
-
-    fn actor_community_art_details(&self, actor_id: u64, card: &CardView) -> String {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return String::new();
-        };
-        let mut facts = vec![format!("authoritative level {}", actor.stats.level)];
-        if let Some(identity) = self.character_identities.get(&actor_id) {
-            if let Some(profile) = character_creation_profile(Some(&identity.profile_id)) {
-                if let Some(species) = profile
-                    .species
-                    .iter()
-                    .find(|species| species.id == identity.species_id)
-                {
-                    facts.push(format!("species: {}", species.label));
-                    facts.push(format!("species appearance: {}", species.visual_prompt));
-                }
-                if let Some(origin) = profile
-                    .origins
-                    .iter()
-                    .find(|origin| origin.id == identity.origin_id)
-                {
-                    facts.push(format!("origin: {}", origin.label));
-                    facts.push(format!("origin details: {}", origin.visual_prompt));
-                }
-                if let Some(class) = identity.class_id.as_deref().and_then(|class_id| {
-                    profile.choices.iter().find(|choice| choice.id == class_id)
-                }) {
-                    facts.push(format!("class: {}", class.label));
-                    facts.push(format!("class gear and bearing: {}", class.description));
-                } else {
-                    facts.push("class: classless traveler".to_string());
-                }
-            }
-            if !identity.physical_description.trim().is_empty() {
-                facts.push(format!(
-                    "stable physical description: {}",
-                    identity.physical_description
-                ));
-            }
-        } else {
-            facts.push(format!(
-                "stable physical description: {}",
-                avatar_visual_prompt(&card.display_name, &card.title, &card.blurb)
-            ));
-        }
-        if let Some(calling) = self.callings.get(&actor_id) {
-            facts.push(format!("calling: {}", calling.statement));
-        }
-        if let Some(location) = self.location_name(actor.location_id) {
-            facts.push(format!("current setting: {location}"));
-        }
-        let carried = self
-            .actor_held_items(actor_id)
-            .into_iter()
-            .take(8)
-            .map(|item| {
-                let name = self
-                    .item_name(item.id)
-                    .unwrap_or_else(|| format!("Item {}", item.id));
-                format!(
-                    "{name} ({})",
-                    card_zone(item.zone, item.holder_actor_id, item.location_id)
-                )
-            })
-            .collect::<Vec<_>>();
-        if carried.is_empty() {
-            facts.push("carried items: none".to_string());
-        } else {
-            facts.push(format!(
-                "carried and equipped items: {}",
-                carried.join(", ")
-            ));
-        }
-        facts.join(". ")
-    }
-
-    fn item_community_art_details(&self, item: CwItem) -> String {
-        let mut facts = vec![
-            format!("item type: {}", item_kind(item.kind)),
-            format!("equipment role: {}", item_role(item.role)),
-            format!("size: {}", item_size(item.size_class)),
-        ];
-        if item.charges > 0 {
-            facts.push(format!("remaining charges: {}", item.charges));
-        }
-        if item.holder_actor_id != 0 {
-            facts.push(format!(
-                "carried by: {}",
-                self.actor_name(item.holder_actor_id)
-                    .unwrap_or_else(|| format!("Avatar {}", item.holder_actor_id))
-            ));
-            facts.push(format!(
-                "card zone: {}",
-                card_zone(item.zone, item.holder_actor_id, item.location_id)
-            ));
-        } else if let Some(location) = self.location_name(item.location_id) {
-            facts.push(format!("current setting: {location}"));
-        }
-        facts.join(". ")
-    }
-
-    fn location_community_art_details(&self, location_id: u64) -> String {
-        let meta = self.location_meta_for(location_id);
-        let mut facts = Vec::new();
-        if !meta.biome.trim().is_empty() {
-            facts.push(format!("biome: {}", meta.biome));
-        }
-        if !meta.terrain.is_empty() {
-            facts.push(format!("terrain: {}", meta.terrain.join(", ")));
-        }
-        if let Some(art_prompt) = meta
-            .art_prompt
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            facts.push(format!("reviewed landscape brief: {art_prompt}"));
-        }
-        if let Some(sheet) = self.room_sheets.get(&location_id) {
-            if !sheet.aspects.is_empty() {
-                facts.push(format!("defining aspects: {}", sheet.aspects.join(", ")));
-            }
-            if !sheet.boons.is_empty() {
-                facts.push(format!("visible boons: {}", sheet.boons.join(", ")));
-            }
-            if !sheet.hooks.is_empty() {
-                facts.push(format!("visible hooks: {}", sheet.hooks.join(", ")));
-            }
-        }
-        facts.join(". ")
-    }
-
-    fn community_art_plan(
-        &self,
-        contributor_actor_id: u64,
-        subject_kind: &str,
-        subject_id: u64,
-    ) -> Result<CommunityArtPlan, String> {
-        let contributor = self
-            .actor_by_id(contributor_actor_id)
-            .filter(|actor| Self::actor_can_act(*actor))
-            .ok_or_else(|| "The contributing avatar is no longer active.".to_string())?;
-        let level = self
-            .community_art_subject_level(subject_kind, subject_id)
-            .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
-        let (card, visible, aspect_ratio, subject_details, image_policy) = match subject_kind {
-            "actor" => {
-                let actor = self
-                    .actor_by_id(subject_id)
-                    .ok_or_else(|| "That avatar is no longer here.".to_string())?;
-                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
-                    name: format!("Avatar {subject_id}"),
-                    speech_mode: "prose".to_string(),
-                    title: "World Traveler".to_string(),
-                    description: String::new(),
-                });
-                let card = card_for_actor(
-                    subject_id,
-                    &meta.name,
-                    &meta.title,
-                    &meta.description,
-                    actor.stats.level,
-                );
-                (
-                    card.clone(),
-                    actor.location_id == contributor.location_id,
-                    "2:3",
-                    self.actor_community_art_details(subject_id, &card),
-                    None,
-                )
-            }
-            "item" => {
-                let item = self.world.items[..self.world.item_count]
-                    .iter()
-                    .find(|item| item.id == subject_id)
-                    .ok_or_else(|| "That item is no longer in the world.".to_string())?;
-                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
-                    name: format!("Item {subject_id}"),
-                    description: "A found keepsake.".to_string(),
-                    skill_id: None,
-                    skill_bonus: 0,
-                    mechanics: None,
-                });
-                (
-                    card_for_item(subject_id, &meta.name, &meta.description),
-                    item.holder_actor_id == contributor_actor_id
-                        || (item.holder_actor_id == 0
-                            && item.location_id == contributor.location_id),
-                    "1:1",
-                    self.item_community_art_details(*item),
-                    None,
-                )
-            }
-            "location" => {
-                let name = self
-                    .location_name(subject_id)
-                    .ok_or_else(|| "That location is no longer on the shared map.".to_string())?;
-                let visible = subject_id == contributor.location_id
-                    || self.world.exits[..self.world.exit_count]
-                        .iter()
-                        .any(|exit| {
-                            exit.from_location_id == contributor.location_id
-                                && exit.to_location_id == subject_id
-                        });
-                (
-                    card_for_location(subject_id, &name, Some(&self.location_meta_for(subject_id))),
-                    visible,
-                    "16:9",
-                    self.location_community_art_details(subject_id),
-                    Some(CommunityArtImagePolicy::LocationLandscape),
-                )
-            }
-            _ => return Err("Unknown community-art subject.".to_string()),
-        };
-        if !visible {
-            return Err("That card is not visible from here.".to_string());
-        }
-        let history_through_seq = self.world.next_event_seq.saturating_sub(1);
-        let history_entries = self
-            .event_log
-            .iter()
-            .rev()
-            .filter(|event| match subject_kind {
-                "actor" => {
-                    event.actor_id == Some(subject_id) || event.target_actor_id == Some(subject_id)
-                }
-                "item" => {
-                    event.item_id == Some(subject_id) || event.target_item_id == Some(subject_id)
-                }
-                "location" => {
-                    event.location_id == Some(subject_id)
-                        || event.destination_location_id == Some(subject_id)
-                }
-                _ => false,
-            })
-            .take(12)
-            .map(|event| {
-                event
-                    .content
-                    .as_deref()
-                    .filter(|content| !content.trim().is_empty())
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| event.type_name.replace('.', " "))
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>();
-        let history = community_art_prompt_history(subject_kind, &history_entries);
-        let prompt = build_community_art_prompt(
-            subject_kind,
-            &card.display_name,
-            &card.title,
-            &card.blurb,
-            level,
-            &subject_details,
-            &history,
-            image_policy,
-        );
-        Ok(CommunityArtPlan {
-            subject_kind: subject_kind.to_string(),
-            subject_id,
-            level,
-            generation_profile_version: community_art_generation_profile_version(subject_kind),
-            required_orbs: i32::from(level.max(1)),
-            history_through_seq,
-            prompt,
-            aspect_ratio,
-            image_policy,
-        })
     }
 
     fn branch_is_active(&self, branch: &DialogueBranch) -> bool {
@@ -26558,7 +26302,7 @@ async fn fund_community_image(
         });
     }
 
-    let initial_plan = {
+    let mut initial_plan = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -26583,6 +26327,13 @@ async fn fund_community_image(
             }
         }
     };
+    if freeze_community_art_evolution(&state.generated_asset_dir, &mut initial_plan).is_err() {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
     if let Some(policy) = initial_plan.image_policy {
         let started_at = Instant::now();
         if let Err(error) =
@@ -26626,7 +26377,7 @@ async fn fund_community_image(
     ) {
         return client_actor_rejected_response();
     }
-    let plan = match runtime.community_art_plan(
+    let mut plan = match runtime.community_art_plan(
         payload.actor_id,
         payload.subject_kind.trim(),
         payload.subject_id,
@@ -26640,6 +26391,13 @@ async fn fund_community_image(
             });
         }
     };
+    if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
     let candidate_exists = community_art_candidate_exists(&state.generated_asset_dir, &plan);
@@ -26705,6 +26463,7 @@ async fn fund_community_image(
                 intent_id: intent_id.to_string(),
                 amount: contribution,
                 history_through_seq: plan.history_through_seq,
+                evolution_job: plan.evolution_job.clone(),
             });
         record.orb_deltas.push(OrbDelta {
             actor_id: payload.actor_id,
@@ -53584,6 +53343,7 @@ mod tests {
                     intent_id: format!("test-community-art-{seed}"),
                     amount: 1,
                     history_through_seq: seed,
+                    evolution_job: None,
                 });
             assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
         }
@@ -53623,74 +53383,6 @@ mod tests {
             card.image_url.as_deref(),
             Some("/assets/generated/community/actor/5000.image?level=2&revision=1")
         );
-    }
-
-    #[tokio::test]
-    async fn community_image_endpoint_pools_one_orb_without_taking_a_turn() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Patron");
-        runtime.world.actors[..runtime.world.actor_count]
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("test avatar exists")
-            .stats
-            .level = 2;
-        let before_tick = runtime.world.tick;
-        let mut state = test_app_state(runtime, None);
-        state.avatar_art_config = Arc::new(Some(ReplicateAvatarArtConfig {
-            api_token: "test-token".to_string(),
-            model: "test/model".to_string(),
-            version: None,
-            lora_url: None,
-            lora_input_key: "lora_weights".to_string(),
-            lora_scale_input_key: "lora_scale".to_string(),
-            lora_scale: 1.0,
-            prompt_prefix: "cozy card art".to_string(),
-            output_format: "png".to_string(),
-        }));
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-
-        let response = fund_community_image(
-            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
-            State(state.clone()),
-            Json(FundCommunityImageRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session.clone()),
-                subject_kind: "actor".to_string(),
-                subject_id: 5000,
-                intent_id: "test-community-endpoint-1".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(response.ok);
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "community_art.funded"));
-        let duplicate = fund_community_image(
-            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
-            State(state.clone()),
-            Json(FundCommunityImageRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                subject_kind: "actor".to_string(),
-                subject_id: 5000,
-                intent_id: "test-community-endpoint-1".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(duplicate.ok);
-        assert!(duplicate.events.is_empty());
-        let runtime = state.inner.lock().await;
-        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
-        assert_eq!(runtime.world.tick, before_tick);
-        let generation =
-            &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
-        assert_eq!(generation.funded_orbs, 1);
-        assert_eq!(generation.required_orbs, 2);
-        assert_eq!(generation.status, "funding");
     }
 
     #[test]
@@ -53744,6 +53436,7 @@ mod tests {
                 intent_id: "test-community-ledger-1".to_string(),
                 amount: 1,
                 history_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+                evolution_job: None,
             });
         art_record.orb_deltas.push(OrbDelta {
             actor_id: 5000,
