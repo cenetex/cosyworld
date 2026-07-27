@@ -47821,6 +47821,16 @@ mod tests {
 
     #[test]
     fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable() {
+        std::thread::Builder::new()
+            .name("generated-place-lifecycle".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(generated_place_lifecycle_is_typed_causal_bounded_and_replayable_inner)
+            .expect("generated-place lifecycle test thread starts")
+            .join()
+            .expect("generated-place lifecycle test thread completes");
+    }
+
+    fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable_inner() {
         fn apply_pair(
             first: &mut RuntimeWorld,
             replay: &mut RuntimeWorld,
