@@ -71,7 +71,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "enum": ["pathway-content-v1"] }
+          "items": { "enum": ["pathway-content-v1", "pathway-content-v2"] }
         },
         "ecology": {
           "type": "object",

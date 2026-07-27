@@ -19,6 +19,12 @@
       }
     ]
   },
+  "persistence_compatibility": {
+    "schema_version": 1,
+    "replay_compatible_bundle_hashes": [
+      "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca"
+    ]
+  },
   "packs": [
     "cosyworld.core",
     "ruby-high.first-bell",

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.composition.core-holy-land",
   "name": "CosyWorld Core + Holy Land Bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "world",
   "description": "Composition-owned paths connecting CosyWorld Core and The Holy Land.",
   "license": "MIT",
@@ -53,6 +53,38 @@
     "x-cosyworld-composition": {
       "schema_version": 1,
       "role": "bridge"
+    },
+    "x-cosyworld-generation": {
+      "schema_version": 1,
+      "policy_id": "cosyworld.composition.core-holy-land/generation/1",
+      "migration_version": 1,
+      "collision_namespace": "pack://cosyworld.composition.core-holy-land/generated/v1",
+      "migrations": [
+        {
+          "from_policy_id": "cosyworld.compatibility.host-generation/1",
+          "from_migration_version": 0,
+          "from_pack_version": "1.0.0",
+          "mode": "preserve_descendants"
+        }
+      ],
+      "cross_pack_routes": [
+        {
+          "endpoints": [
+            { "pack_id": "cosyworld.core", "location_id": 1 },
+            { "pack_id": "cosyworld.the-holy-land", "location_id": 700 }
+          ],
+          "route_owner": "cosyworld.composition.core-holy-land",
+          "generated_descendant_owner": "cosyworld.composition.core-holy-land",
+          "topology_authority": {
+            "pack_id": "cosyworld.composition.core-holy-land",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "cosyworld.holy-land.generated-landscape/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        }
+      ]
     }
   }
 }

@@ -105,6 +105,14 @@ function pack(id = "fixture.world", policy = generationPolicy(id)) {
 }
 
 describe("world-generation-policy/1", () => {
+  it("accepts the current ecology pathway prompt contract", () => {
+    const candidate = generationPolicy();
+    candidate.prose.prompt_versions = ["pathway-content-v2"];
+    expect(() =>
+      validateGenerationPolicyManifest(pack("fixture.world", candidate)),
+    ).not.toThrow();
+  });
+
   it("accepts a closed policy and publishes only reviewed media coordinates", () => {
     expect(() => validateGenerationPolicyManifest(pack())).not.toThrow();
     const registry = worldpackMediaRegistry();
