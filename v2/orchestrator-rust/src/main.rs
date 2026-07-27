@@ -2875,6 +2875,8 @@ struct RankedActionOffer {
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
+    #[serde(skip)]
+    ranked_hand_eligible: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -18047,6 +18049,18 @@ impl RuntimeWorld {
         tag_ids
     }
 
+    fn frontier_travel_since_rest_required(&self, actor_id: u64) -> usize {
+        self.actor_by_id(actor_id)
+            .map(|actor| usize::from(actor.stats.level.clamp(1, 4)))
+            .unwrap_or(1)
+    }
+
+    fn frontier_travel_since_rest_count(&self, actor_id: u64) -> usize {
+        self.frontier_travel_since_rest_tag_ids(actor_id)
+            .len()
+            .min(self.frontier_travel_since_rest_required(actor_id))
+    }
+
     fn tired_tag_active(&self, actor_id: u64) -> bool {
         self.tags
             .get(&tired_tag_id(actor_id))
@@ -19798,7 +19812,9 @@ impl RuntimeWorld {
         let has_authored_contribution = !self
             .job_contribution_intents(actor_id, None, None, None, None)
             .is_empty();
-        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution) {
+        let can_rest = self.rest_available(actor_id);
+        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution && !can_rest)
+        {
             return PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
@@ -19830,7 +19846,6 @@ impl RuntimeWorld {
         let can_use_item_contribution = self
             .job_contribution_intent(actor_id, "use_item", None, None, None)
             .is_some();
-        let can_rest = self.rest_available(actor_id);
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
         let can_cast_spell = self.default_spell_card(actor_id).is_some();
@@ -22197,6 +22212,9 @@ impl RuntimeWorld {
             .saturating_sub(RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW);
         let mut record = match offer.kind.as_str() {
             "rest" => {
+                if !self.rest_has_recovery_target(actor.id) {
+                    return None;
+                }
                 let (action, mutations) = self.plan_rest_action(actor.id).ok()?;
                 let mut record =
                     JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
@@ -38445,7 +38463,7 @@ fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
     const CAPACITY: usize = 2;
     let mut candidates: Vec<_> = offers
         .iter()
-        .filter(|offer| action_offer_is_reachable(offer))
+        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
         .collect();
     candidates.sort_by(|left, right| {
         left.provider
@@ -55789,11 +55807,17 @@ mod tests {
             event.type_name == "tag.cleared" && event.tag_id.as_deref() == Some(tired_tag.as_str())
         }));
         let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(!rested_state
+        assert!(rested_state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "rest"));
+        assert!(!runtime.rest_has_recovery_target(5000));
+        assert!(!rested_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
         assert!(rested_state
             .action_offers
             .iter()
@@ -58351,6 +58375,19 @@ mod tests {
             RAIN_SOFT_GARDEN_LOCATION_ID,
             "Garden Path Worker",
         );
+        let initial = runtime.state_response(Some(5000), &AccessContext::default());
+        let initial_rest = initial
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("a player who never left sanctuary can Rest at home");
+        assert!(!initial_rest.disabled);
+        assert!(!initial_rest.ranked_hand_eligible);
+        assert!(!initial
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -58364,21 +58401,20 @@ mod tests {
         )
         .await
         .0;
-        assert!(!unneeded_rest.ok);
-        assert_eq!(unneeded_rest.status, 400);
-        assert!(unneeded_rest.events.is_empty());
+        assert!(unneeded_rest.ok);
+        assert_eq!(unneeded_rest.status, CW_OK);
+        assert!(!unneeded_rest.events.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "item.refreshed" | "tag.cleared" | "clock.updated"
+            )
+        }));
         {
             let runtime = state.inner.lock().await;
             let command = runtime
                 .resolve_command(&command_request(5000, "rest"), &AccessContext::default())
                 .expect("Rest command resolves while recovery is unnecessary");
-            match command.dispatch {
-                CommandDispatch::Disabled { status, output } => {
-                    assert_eq!(status, 400);
-                    assert_eq!(output, "You are already steady enough to keep going.");
-                }
-                other => panic!("unneeded Rest should be disabled, got {other:?}"),
-            }
+            assert!(matches!(command.dispatch, CommandDispatch::Rest));
         }
 
         for step in 1..=4 {
@@ -58418,6 +58454,9 @@ mod tests {
                     .iter()
                     .find(|offer| offer.kind == "rest")
                     .expect("tired sanctuary worker can Rest immediately");
+                assert!(rest_offer.ranked_hand_eligible);
+                assert_eq!(rest_offer.provider.id, "rules:recovery");
+                assert_eq!(rest_offer.provider.priority, 0);
                 assert!(rest_offer.risk.is_none());
                 assert_eq!(rest_offer.effect.as_deref(), Some("helps you feel fresh"));
                 assert!(!tired_state
@@ -67410,7 +67449,8 @@ mod tests {
         assert!(travel_tags
             .iter()
             .all(|tag_id| { runtime.tags.get(tag_id).is_some_and(|tag| !tag.active) }));
-        assert!(!runtime.rest_available(actor.id));
+        assert!(runtime.rest_available(actor.id));
+        assert!(!runtime.rest_has_recovery_target(actor.id));
         assert!(runtime
             .resident_record_for_shared_offer(actor, &offer, 98_205)
             .is_none());
