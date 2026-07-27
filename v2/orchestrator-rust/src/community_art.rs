@@ -30,8 +30,9 @@ use crate::{
     reconcile_community_media_asset_status, record_ai_usage_for_provider,
     register_derived_community_media_asset, register_generated_media_asset,
     request_image_policy_decision, request_replicate_art, request_replicate_evolution_art,
-    AiConfig, AppState, CwAction, EventView, EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob,
-    FrozenMediaAssetReference, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
+    resolve_generation_media_config, AiConfig, AppState, CwAction, EventView,
+    EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference,
+    GeneratedPolicyBinding, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
     MediaAssetProvenance, ProjectionMutation, PublicArtHistoryEvent, ReplicateAvatarArtConfig,
     RuntimeWorld, CW_ACTION_NONE, CW_OK, EVOLUTION_CANARY_MODEL_REVISION,
 };
@@ -80,6 +81,8 @@ pub(super) struct CommunityArtGenerationState {
     pub(super) level: u8,
     #[serde(default = "legacy_community_art_generation_profile_version")]
     pub(super) generation_profile_version: u8,
+    #[serde(default)]
+    pub(super) generation_policy: GeneratedPolicyBinding,
     pub(super) required_orbs: i32,
     pub(super) funded_orbs: i32,
     #[serde(default)]
@@ -108,6 +111,7 @@ pub(super) struct CommunityArtPlan {
     pub(super) subject_id: u64,
     pub(super) level: u8,
     pub(super) generation_profile_version: u8,
+    pub(super) generation_policy: GeneratedPolicyBinding,
     pub(super) required_orbs: i32,
     pub(super) history_through_seq: u64,
     pub(super) prompt: String,
@@ -652,11 +656,17 @@ impl RuntimeWorld {
                 level,
             ))
             .and_then(|generation| generation.evolution_job.clone());
+        let generation_policy = (subject_kind == "location")
+            .then(|| self.generated_pathway_for_location(subject_id))
+            .flatten()
+            .map(|pathway| pathway.generation_policy.clone())
+            .unwrap_or_default();
         Ok(CommunityArtPlan {
             subject_kind: subject_kind.to_string(),
             subject_id,
             level,
             generation_profile_version: community_art_generation_profile_version(subject_kind),
+            generation_policy,
             required_orbs: i32::from(level.max(1)),
             history_through_seq,
             prompt,
@@ -692,6 +702,7 @@ impl RuntimeWorld {
                 subject_id,
                 level,
                 generation_profile_version: community_art_generation_profile_version(subject_kind),
+                generation_policy: GeneratedPolicyBinding::default(),
                 required_orbs: required_orbs.max(1),
                 funded_orbs: 0,
                 contributions: BTreeMap::new(),
@@ -770,6 +781,7 @@ impl RuntimeWorld {
         Some(event)
     }
 
+    #[allow(clippy::too_many_arguments)] // Mirrors the durable begin-generation mutation.
     pub(super) fn apply_begin_community_art_generation_projection(
         &mut self,
         action_actor_id: u64,
@@ -778,9 +790,15 @@ impl RuntimeWorld {
         level: u8,
         provider_attempt: bool,
         generation_profile_version: u8,
+        generation_policy: &GeneratedPolicyBinding,
     ) -> Option<EventView> {
         let key = community_art_generation_key(subject_kind, subject_id, level);
         let generation = self.community_art_generations.get_mut(&key)?;
+        if generation.generation_policy.is_empty() {
+            generation.generation_policy = generation_policy.clone();
+        } else if &generation.generation_policy != generation_policy {
+            return None;
+        }
         if generation_profile_version > generation.generation_profile_version {
             generation.generation_profile_version = generation_profile_version;
             generation.provider_attempts = 0;
@@ -872,6 +890,23 @@ pub(super) async fn generate_and_store_community_art(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,
 ) -> CommunityArtGenerationOutcome {
+    let resolved_config = match resolve_generation_media_config(
+        config,
+        plan.generation_policy.media.as_ref(),
+        plan.aspect_ratio,
+    ) {
+        Ok(config) => config,
+        Err(error) => {
+            return CommunityArtGenerationOutcome {
+                result: Err(CommunityArtGenerationError::Provider(error)),
+                prediction_id: None,
+                reused_candidate: false,
+                asset_id: None,
+                evolution_canary: false,
+            };
+        }
+    };
+    let config = &resolved_config;
     let media_brief = community_art_media_brief(plan);
     let job_key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let evolution_route = match plan.evolution_job.as_ref() {
@@ -1326,8 +1361,15 @@ pub(super) fn community_art_generation_request(
     plan: &CommunityArtPlan,
 ) -> String {
     let prompt_prefix = plan
-        .image_policy
-        .map(CommunityArtImagePolicy::generation_prompt_prefix)
+        .generation_policy
+        .media
+        .as_ref()
+        .map(|media| media.prompt_prefix.as_str())
+        .filter(|prefix| !prefix.trim().is_empty())
+        .or_else(|| {
+            plan.image_policy
+                .map(CommunityArtImagePolicy::generation_prompt_prefix)
+        })
         .unwrap_or(&config.prompt_prefix);
     crate::compact_whitespace(&format!("{prompt_prefix}, {}", plan.prompt))
 }
@@ -1373,6 +1415,7 @@ async fn begin_community_art_generation(
             level: plan.level,
             provider_attempt,
             generation_profile_version: plan.generation_profile_version,
+            generation_policy: plan.generation_policy.clone(),
         });
     let (commit_status, events) = commit_journal_record(state, &mut runtime, record).ok()?;
     drop(runtime);

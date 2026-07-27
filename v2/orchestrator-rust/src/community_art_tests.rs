@@ -290,6 +290,7 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
         subject_id: 181_730,
         level: 1,
         generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
         required_orbs: 1,
         history_through_seq: 99,
         prompt: build_community_art_prompt(
@@ -443,6 +444,7 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
             subject_id: waypoint_id,
             level: 1,
             generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+            generation_policy: GeneratedPolicyBinding::default(),
             required_orbs: 1,
             history_through_seq: 0,
             prompt: String::new(),
@@ -512,6 +514,7 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         subject_id: 181_728,
         level: 1,
         generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
         required_orbs: 1,
         history_through_seq: 99,
         prompt: "A quiet rain-soft path with no figures.".to_string(),
@@ -621,6 +624,7 @@ fn rollback_and_incumbent_routes_quarantine_a_stored_canary_before_publication()
         subject_id: 5000,
         level: 2,
         generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
         required_orbs: 2,
         history_through_seq: 72,
         prompt: "incumbent prompt".to_string(),
@@ -749,6 +753,7 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
                 level: 1,
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+                generation_policy: GeneratedPolicyBinding::default(),
             });
         record
             .projection_mutations
@@ -900,6 +905,7 @@ fn failed_evolution_retries_charge_no_extra_orbs_and_keep_prior_art_public() {
                 level: 2,
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+                generation_policy: GeneratedPolicyBinding::default(),
             });
         failure
             .projection_mutations
@@ -989,6 +995,10 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
                 level: 1,
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+                generation_policy: runtime
+                    .generated_pathway_for_location(subject_id)
+                    .map(|pathway| pathway.generation_policy.clone())
+                    .unwrap_or_default(),
             });
         record
             .projection_mutations
@@ -1032,6 +1042,10 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
             level: 1,
             provider_attempt: true,
             generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+            generation_policy: runtime
+                .generated_pathway_for_location(subject_id)
+                .map(|pathway| pathway.generation_policy.clone())
+                .unwrap_or_default(),
         });
     assert_eq!(runtime.apply_journal_record(&retry).0, CW_OK);
 

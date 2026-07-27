@@ -757,36 +757,20 @@ mod tests {
         runtime
     }
 
-    fn test_generated_pathway(runtime: &RuntimeWorld, location_id: u64) -> GeneratedPathwayState {
-        GeneratedPathwayState {
-            id: "replay-pathway".to_string(),
-            identity_version: 0,
-            canonical_id: String::new(),
-            source_route_id: String::new(),
-            source_route_version: 0,
-            owner_pack_id: "cosyworld.core".to_string(),
-            owner_pack_version: runtime.active_pack_version("cosyworld.core"),
-            origin_location_id: COSY_COTTAGE_LOCATION_ID,
-            destination_location_id: location_id,
-            distance: 1,
-            created_by_actor_id: RATI_ACTOR_ID,
-            way_class: PathwayWayClass::Route,
-            traffic_count: 0,
-            waypoints: vec![GeneratedWaypointState {
-                id: location_id,
-                canonical_id: String::new(),
-                name: runtime.location_name(location_id).expect("location name"),
-                meta: runtime
-                    .location_meta
-                    .get(&location_id)
-                    .cloned()
-                    .expect("location metadata"),
-            }],
-            generation: GenerationProvenance::default(),
-            revealed_edges: BTreeSet::new(),
-            art_eligible: false,
-            familiar: false,
-        }
+    fn test_generated_pathway(runtime: &RuntimeWorld) -> GeneratedPathwayState {
+        let mut pathway = runtime
+            .generated_pathway(
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                2,
+            )
+            .expect("canonical test pathway");
+        pathway.revealed_edges.insert(pathway_edge_key(
+            pathway.origin_location_id,
+            pathway.waypoints[0].id,
+        ));
+        pathway
     }
 
     #[test]
@@ -1033,40 +1017,26 @@ mod tests {
             .versioned_craft_plan(RATI_ACTOR_ID, 3103, Some("test-install"))
             .is_none());
 
-        let pathway = GeneratedPathwayState {
-            id: "test-pathway".to_string(),
-            identity_version: 0,
-            canonical_id: String::new(),
-            source_route_id: String::new(),
-            source_route_version: 0,
-            owner_pack_id: "cosyworld.core".to_string(),
-            owner_pack_version: runtime.active_pack_version("cosyworld.core"),
-            origin_location_id: COSY_COTTAGE_LOCATION_ID,
-            destination_location_id: location_id,
-            distance: 1,
-            created_by_actor_id: RATI_ACTOR_ID,
-            way_class: PathwayWayClass::Route,
-            traffic_count: 0,
-            waypoints: vec![GeneratedWaypointState {
-                id: location_id,
-                canonical_id: String::new(),
-                name: runtime.location_name(location_id).expect("location name"),
-                meta: runtime
-                    .location_meta
-                    .get(&location_id)
-                    .cloned()
-                    .expect("location metadata"),
-            }],
-            generation: GenerationProvenance::default(),
-            revealed_edges: BTreeSet::new(),
-            art_eligible: false,
-            familiar: false,
-        };
+        let pathway = test_generated_pathway(&runtime);
+        let generated_location_id = pathway.waypoints[0].id;
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        runtime.ensure_generated_pathway_edge(
+            &pathway,
+            pathway.origin_location_id,
+            generated_location_id,
+        );
         runtime.ensure_generated_place_for_waypoint(
             &pathway,
-            location_id,
+            generated_location_id,
             COSY_COTTAGE_LOCATION_ID,
         );
+        runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati remains present")
+            .location_id = generated_location_id;
         let bracket_item_id = runtime
             .craft_receipts
             .get("test-anchor")
@@ -1083,7 +1053,7 @@ mod tests {
             .versioned_recipe_capability_source(
                 RATI_ACTOR_ID,
                 runtime.recipe_by_id(3103).expect("install recipe"),
-                location_id,
+                generated_location_id,
             )
             .is_some());
         let anchor_plan = runtime
@@ -1120,11 +1090,13 @@ mod tests {
         );
         assert!(runtime
             .tags
-            .get(&format!("generated-place:{location_id}:anchor-fixture"))
+            .get(&format!(
+                "generated-place:{generated_location_id}:anchor-fixture"
+            ))
             .is_some_and(|tag| tag.active));
         let generated = runtime
             .generated_places
-            .get(&location_id)
+            .get(&generated_location_id)
             .expect("generated place");
         assert!(runtime
             .clocks
@@ -1179,12 +1151,26 @@ mod tests {
         );
         assert_eq!(committed.apply_journal_record(&forge_record).0, CW_OK);
 
-        let pathway = test_generated_pathway(&committed, location_id);
+        let pathway = test_generated_pathway(&committed);
+        let generated_location_id = pathway.waypoints[0].id;
+        committed
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        committed.ensure_generated_pathway_edge(
+            &pathway,
+            pathway.origin_location_id,
+            generated_location_id,
+        );
         committed.ensure_generated_place_for_waypoint(
             &pathway,
-            location_id,
+            generated_location_id,
             COSY_COTTAGE_LOCATION_ID,
         );
+        committed.world.actors[..committed.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati remains present")
+            .location_id = generated_location_id;
         let install_record = record_for_plan(
             &committed,
             committed
@@ -1213,12 +1199,25 @@ mod tests {
         let mut replayed = prepared_craft_runtime(location_id);
         assert_eq!(replayed.apply_journal_record(&durable_records[0]).0, CW_OK);
         assert_eq!(replayed.apply_journal_record(&durable_records[1]).0, CW_OK);
-        let replay_pathway = test_generated_pathway(&replayed, location_id);
+        let replay_pathway = test_generated_pathway(&replayed);
+        replayed
+            .generated_pathways
+            .insert(replay_pathway.id.clone(), replay_pathway.clone());
+        replayed.ensure_generated_pathway_edge(
+            &replay_pathway,
+            replay_pathway.origin_location_id,
+            generated_location_id,
+        );
         replayed.ensure_generated_place_for_waypoint(
             &replay_pathway,
-            location_id,
+            generated_location_id,
             COSY_COTTAGE_LOCATION_ID,
         );
+        replayed.world.actors[..replayed.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati remains present")
+            .location_id = generated_location_id;
         assert_eq!(replayed.apply_journal_record(&durable_records[2]).0, CW_OK);
 
         assert_eq!(

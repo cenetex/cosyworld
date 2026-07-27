@@ -84,6 +84,8 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) avatar_naming: Option<cosyworld_ai_model::AvatarNamingConfig>,
     #[serde(default)]
+    pub(super) generation_media_registry: serde_json::Value,
+    #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
     #[serde(default)]
     pub(super) registry: String,

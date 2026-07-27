@@ -25,6 +25,7 @@ mod content_registry;
 mod contributions;
 mod crafting;
 mod generated_places;
+mod generation_policy;
 mod hosted_access;
 mod jobs;
 mod journal_checkpoint;
@@ -98,6 +99,7 @@ use cosyworld_ai_model::ResidentReplyModelInput;
 use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use generated_places::*;
+use generation_policy::*;
 use hosted_access::*;
 use jobs::*;
 use kernel::*;
@@ -623,6 +625,8 @@ struct GeneratedWaypointState {
     canonical_id: String,
     name: String,
     meta: LocationMeta,
+    #[serde(default)]
+    generation_policy: GeneratedPolicyBinding,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -640,6 +644,8 @@ struct GeneratedPathwayState {
     owner_pack_id: String,
     #[serde(default)]
     owner_pack_version: String,
+    #[serde(default)]
+    generation_policy: GeneratedPolicyBinding,
     origin_location_id: u64,
     destination_location_id: u64,
     distance: u8,
@@ -1011,6 +1017,8 @@ enum ProjectionMutation {
         provider_attempt: bool,
         #[serde(default = "legacy_community_art_generation_profile_version")]
         generation_profile_version: u8,
+        #[serde(default)]
+        generation_policy: GeneratedPolicyBinding,
     },
     CompleteCommunityArtGeneration {
         subject_kind: String,
@@ -1985,7 +1993,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 12;
+const JOURNAL_RECORD_VERSION: u32 = 13;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -6309,6 +6317,7 @@ impl RuntimeSnapshot {
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
         let snapshot_version = self.version;
+        let compatibility_bundle_hash = self.worldpack_bundle_hash.clone();
         let compatibility =
             persisted_worldpack_replay_compatibility(&self.worldpack_bundle_hash, "snapshot")?;
         if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
@@ -6566,7 +6575,10 @@ impl RuntimeSnapshot {
         })
         .and_then(move |mut runtime| {
             runtime
-                .restore_canonical_topology_for_snapshot(snapshot_version)
+                .restore_canonical_topology_for_snapshot(
+                    snapshot_version,
+                    &compatibility_bundle_hash,
+                )
                 .map_err(snapshot_error)?;
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
@@ -8429,7 +8441,7 @@ impl RuntimeWorld {
                 continue;
             };
             if self
-                .normalize_generated_pathway_identity(&mut pathway_snapshot, false)
+                .normalize_generated_pathway_identity(&mut pathway_snapshot, false, None)
                 .is_err()
             {
                 continue;
@@ -10200,6 +10212,7 @@ impl RuntimeWorld {
                 &record.projection_mutations,
                 enforce_active_contribution_contract,
                 record.version < JOURNAL_RECORD_VERSION,
+                &record.worldpack_bundle_hash,
             ));
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
@@ -10323,6 +10336,7 @@ impl RuntimeWorld {
         mutations: &[ProjectionMutation],
         enforce_active_contribution_contract: bool,
         allow_legacy_generated_identity_backfill: bool,
+        historical_bundle_hash: &str,
     ) -> Vec<EventView> {
         let mut events = Vec::new();
         for mutation in mutations {
@@ -10487,7 +10501,27 @@ impl RuntimeWorld {
                     level,
                     provider_attempt,
                     generation_profile_version,
+                    generation_policy,
                 } => {
+                    let generation_policy = if generation_policy.is_empty()
+                        && subject_kind == "location"
+                    {
+                        if let Some(pathway) = self.generated_pathway_for_location(*subject_id) {
+                            if !allow_legacy_generated_identity_backfill {
+                                continue;
+                            }
+                            legacy_generated_policy_binding(
+                                &pathway.owner_pack_id,
+                                &pathway.owner_pack_version,
+                                &active_content().manifest.id,
+                                historical_bundle_hash,
+                            )
+                        } else {
+                            GeneratedPolicyBinding::default()
+                        }
+                    } else {
+                        generation_policy.clone()
+                    };
                     if let Some(event) = self.apply_begin_community_art_generation_projection(
                         action.actor_id,
                         subject_kind,
@@ -10495,6 +10529,7 @@ impl RuntimeWorld {
                         *level,
                         *provider_attempt,
                         *generation_profile_version,
+                        &generation_policy,
                     ) {
                         events.push(event);
                     }
@@ -10525,12 +10560,26 @@ impl RuntimeWorld {
                         .normalize_generated_pathway_identity(
                             &mut refined,
                             allow_legacy_generated_identity_backfill,
+                            Some(historical_bundle_hash),
                         )
                         .is_err()
                     {
                         continue;
                     }
                     let Some(current) = self.generated_pathways.get(&pathway.id).cloned() else {
+                        for waypoint in &refined.waypoints {
+                            self.locations.insert(waypoint.id, waypoint.name.clone());
+                            self.location_meta
+                                .insert(waypoint.id, waypoint.meta.clone());
+                        }
+                        self.generated_pathways
+                            .insert(refined.id.clone(), refined.clone());
+                        events.push(self.append_async_job_event(
+                            "pathway.refined",
+                            refined.created_by_actor_id,
+                            None,
+                            Some(refined.id),
+                        ));
                         continue;
                     };
                     refined
@@ -10645,6 +10694,7 @@ impl RuntimeWorld {
                         .normalize_generated_pathway_identity(
                             &mut proposed_pathway,
                             allow_legacy_generated_identity_backfill,
+                            Some(historical_bundle_hash),
                         )
                         .is_err()
                     {
@@ -19020,6 +19070,9 @@ impl RuntimeWorld {
         subject_kind: &str,
         subject_id: u64,
     ) -> CardView {
+        if subject_kind == "location" {
+            card = self.decorate_generated_location_card(card, subject_id);
+        }
         let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
             return card;
         };
@@ -47132,6 +47185,16 @@ mod tests {
 
     #[test]
     fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable() {
+        std::thread::Builder::new()
+            .name("generated-place-lifecycle".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(generated_place_lifecycle_is_typed_causal_bounded_and_replayable_inner)
+            .expect("generated-place lifecycle test thread starts")
+            .join()
+            .expect("generated-place lifecycle test thread completes");
+    }
+
+    fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable_inner() {
         fn apply_pair(
             first: &mut RuntimeWorld,
             replay: &mut RuntimeWorld,

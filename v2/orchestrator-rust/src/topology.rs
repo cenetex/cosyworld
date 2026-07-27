@@ -43,6 +43,8 @@ pub(super) struct RouteRecordState {
     pub(super) owner_pack_id: String,
     #[serde(default)]
     pub(super) owner_pack_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) generation_policy: Option<GeneratedPolicyBinding>,
     pub(super) provenance: String,
     #[serde(default)]
     pub(super) directionality: RouteDirectionality,
@@ -145,13 +147,14 @@ impl RuntimeWorld {
     pub(super) fn restore_canonical_topology_for_snapshot(
         &mut self,
         snapshot_version: u32,
+        historical_bundle_hash: &str,
     ) -> Result<(), String> {
         self.migrate_canonical_topology_for_snapshot(snapshot_version)?;
         if snapshot_version >= 14 {
             self.validate_canonical_route_records()?;
         }
         self.ensure_authored_route_records();
-        self.migrate_generated_pathways_for_snapshot(snapshot_version)?;
+        self.migrate_generated_pathways_for_snapshot(snapshot_version, historical_bundle_hash)?;
         self.validate_canonical_route_records()
     }
 
@@ -261,6 +264,7 @@ impl RuntimeWorld {
     pub(super) fn migrate_generated_pathways_for_snapshot(
         &mut self,
         snapshot_version: u32,
+        historical_bundle_hash: &str,
     ) -> Result<(), String> {
         let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
         for pathway_id in pathway_ids {
@@ -269,7 +273,11 @@ impl RuntimeWorld {
                 .get(&pathway_id)
                 .cloned()
                 .ok_or_else(|| "generated pathway disappeared during load".to_string())?;
-            self.normalize_generated_pathway_identity(&mut pathway, snapshot_version < 13)?;
+            self.normalize_generated_pathway_identity(
+                &mut pathway,
+                snapshot_version < 14,
+                Some(historical_bundle_hash),
+            )?;
             self.generated_pathways.insert(pathway_id, pathway);
         }
         self.validate_generated_pathway_identity_claims()?;
@@ -291,6 +299,107 @@ impl RuntimeWorld {
             .any(|route_id| route_id.starts_with("route:generated:"))
         {
             return Err("current snapshot contains a legacy generated route identity".to_string());
+        }
+        let bindings = self
+            .generated_pathways
+            .iter()
+            .map(|(id, pathway)| (id.clone(), pathway.generation_policy.clone()))
+            .collect::<BTreeMap<_, _>>();
+        for route in self.routes.values_mut() {
+            let Some(pathway_id) = route.provenance.strip_prefix("generated_pathway:") else {
+                continue;
+            };
+            let binding = bindings
+                .get(pathway_id)
+                .ok_or_else(|| format!("generated route {} has no pathway owner", route.id))?;
+            if route.generation_policy.is_none() && snapshot_version < 14 {
+                route.generation_policy = Some(binding.clone());
+            }
+            if route.generation_policy.as_ref() != Some(binding) {
+                return Err(format!(
+                    "generated route {} policy binding differs from its pathway",
+                    route.id
+                ));
+            }
+            if route.owner_pack_id != binding.owner_pack_id
+                || route.owner_pack_version != binding.owner_pack_version
+            {
+                return Err(format!(
+                    "generated route {} ownership differs from its policy binding",
+                    route.id
+                ));
+            }
+        }
+        for place in self.generated_places.values_mut() {
+            let pathway = self
+                .generated_pathways
+                .get(&place.pathway_id)
+                .ok_or_else(|| {
+                    format!("generated place {} has no pathway owner", place.location_id)
+                })?;
+            if !pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.id == place.location_id)
+            {
+                return Err(format!(
+                    "generated place {} is not a waypoint of its pathway owner",
+                    place.location_id
+                ));
+            }
+            let binding = bindings
+                .get(&place.pathway_id)
+                .expect("validated pathway has a binding");
+            if place.generation_policy.is_empty() && snapshot_version < 14 {
+                place.generation_policy = binding.clone();
+            }
+            if &place.generation_policy != binding {
+                return Err(format!(
+                    "generated place {} policy binding differs from its pathway",
+                    place.location_id
+                ));
+            }
+            if snapshot_version < 14 && place.pack_id.is_empty() {
+                place.pack_id = binding.owner_pack_id.clone();
+                place.pack_version = binding.owner_pack_version.clone();
+            }
+            if place.pack_id != binding.owner_pack_id
+                || place.pack_version != binding.owner_pack_version
+            {
+                return Err(format!(
+                    "generated place {} ownership differs from its policy binding",
+                    place.location_id
+                ));
+            }
+        }
+        for generation in self.community_art_generations.values_mut() {
+            if generation.subject_kind != "location" {
+                continue;
+            }
+            let Some(binding) = self.generated_pathways.values().find_map(|pathway| {
+                pathway
+                    .waypoints
+                    .iter()
+                    .any(|waypoint| waypoint.id == generation.subject_id)
+                    .then_some(&pathway.generation_policy)
+            }) else {
+                if !generation.generation_policy.is_empty() {
+                    return Err(format!(
+                        "bound generated media {} has no pathway owner",
+                        generation.subject_id
+                    ));
+                }
+                continue;
+            };
+            if generation.generation_policy.is_empty() && snapshot_version < 14 {
+                generation.generation_policy = binding.clone();
+            }
+            if &generation.generation_policy != binding {
+                return Err(format!(
+                    "generated media {} policy binding differs from its pathway",
+                    generation.subject_id
+                ));
+            }
         }
         Ok(())
     }
@@ -325,6 +434,7 @@ impl RuntimeWorld {
                     owner: format!("worldpack:{owner_pack_id}"),
                     owner_pack_id,
                     owner_pack_version,
+                    generation_policy: None,
                     provenance: "authored_exit".to_string(),
                     directionality: exit.directionality,
                     fallback_location_id: exit.fallback_location_id,
@@ -364,6 +474,7 @@ impl RuntimeWorld {
                 owner: format!("worldpack:{owner_pack_id}"),
                 owner_pack_version: self.active_pack_version(&owner_pack_id),
                 owner_pack_id,
+                generation_policy: None,
                 provenance: hidden.source.clone(),
                 directionality: RouteDirectionality::Reciprocal,
                 fallback_location_id: None,
@@ -405,6 +516,7 @@ impl RuntimeWorld {
                     owner: format!("worldpack:{}", pathway.owner_pack_id),
                     owner_pack_id: pathway.owner_pack_id.clone(),
                     owner_pack_version: pathway.owner_pack_version.clone(),
+                    generation_policy: Some(pathway.generation_policy.clone()),
                     provenance: format!("generated_pathway:{}", pathway.id),
                     directionality: RouteDirectionality::Reciprocal,
                     fallback_location_id: None,
@@ -488,6 +600,7 @@ impl RuntimeWorld {
         &self,
         pathway: &mut GeneratedPathwayState,
         allow_legacy_backfill: bool,
+        historical_bundle_hash: Option<&str>,
     ) -> Result<(), String> {
         pathway.way_class = PathwayWayClass::for_traffic(pathway.traffic_count);
         if pathway.origin_location_id == pathway.destination_location_id
@@ -531,6 +644,11 @@ impl RuntimeWorld {
                 .waypoints
                 .iter()
                 .any(|waypoint| waypoint.canonical_id.is_empty());
+        let policy_is_incomplete = pathway.generation_policy.is_empty()
+            || pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.generation_policy.is_empty());
         if pathway.identity_version == 0 {
             let is_unversioned_shape = pathway.canonical_id.is_empty()
                 && pathway.source_route_id.is_empty()
@@ -541,13 +659,15 @@ impl RuntimeWorld {
                     .waypoints
                     .iter()
                     .all(|waypoint| waypoint.canonical_id.is_empty());
-            if identity_is_incomplete && (!allow_legacy_backfill || !is_unversioned_shape) {
+            if (identity_is_incomplete && (!allow_legacy_backfill || !is_unversioned_shape))
+                || (policy_is_incomplete && !allow_legacy_backfill)
+            {
                 return Err(format!(
                     "generated pathway {} has incomplete current identity metadata",
                     pathway.id
                 ));
             }
-        } else if identity_is_incomplete {
+        } else if identity_is_incomplete || (policy_is_incomplete && !allow_legacy_backfill) {
             return Err(format!(
                 "generated pathway {} has incomplete current identity metadata",
                 pathway.id
@@ -604,11 +724,41 @@ impl RuntimeWorld {
         if pathway.owner_pack_version.is_empty() {
             pathway.owner_pack_version = source_route.owner_pack_version.clone();
         } else if pathway.owner_pack_version != source_route.owner_pack_version {
+            if pathway.generation_policy.is_empty() {
+                return Err(format!(
+                    "generated pathway {} has no policy binding for pack upgrade",
+                    pathway.id
+                ));
+            }
+            generation_policy_allows_upgrade(
+                &pathway.generation_policy,
+                &source_route.owner_pack_version,
+            )?;
+        }
+        if pathway.generation_policy.is_empty() {
+            if !allow_legacy_backfill {
+                return Err(format!(
+                    "generated pathway {} has no generation policy binding",
+                    pathway.id
+                ));
+            }
+            pathway.generation_policy = legacy_generated_policy_binding(
+                &pathway.owner_pack_id,
+                &pathway.owner_pack_version,
+                &active_content().manifest.id,
+                historical_bundle_hash
+                    .ok_or_else(|| "legacy pathway migration has no bundle identity".to_string())?,
+            );
+        }
+        if pathway.generation_policy.owner_pack_id != pathway.owner_pack_id
+            || pathway.generation_policy.owner_pack_version != pathway.owner_pack_version
+        {
             return Err(format!(
-                "generated pathway {} owner pack version changed",
+                "generated pathway {} policy binding ownership changed",
                 pathway.id
             ));
         }
+        validate_generated_policy_binding(&pathway.generation_policy)?;
         let expected_pathway_id = format!(
             "generated-pathway:{}@{}",
             pathway.source_route_id, pathway.source_route_version
@@ -637,6 +787,15 @@ impl RuntimeWorld {
             } else if waypoint.canonical_id != expected_canonical_id {
                 return Err(format!(
                     "generated waypoint {} canonical identity changed",
+                    waypoint.id
+                ));
+            }
+            if waypoint.generation_policy.is_empty() && allow_legacy_backfill {
+                waypoint.generation_policy = pathway.generation_policy.clone();
+            }
+            if waypoint.generation_policy != pathway.generation_policy {
+                return Err(format!(
+                    "generated waypoint {} policy binding differs from its pathway",
                     waypoint.id
                 ));
             }
@@ -835,6 +994,7 @@ impl RuntimeWorld {
             route.owner = format!("worldpack:{}", pathway.owner_pack_id);
             route.owner_pack_id = pathway.owner_pack_id.clone();
             route.owner_pack_version = pathway.owner_pack_version.clone();
+            route.generation_policy = Some(pathway.generation_policy.clone());
             self.routes.insert(canonical_route_id, route);
         }
         Ok(())
@@ -844,10 +1004,15 @@ impl RuntimeWorld {
         &self,
         pathway: &GeneratedPathwayState,
         allow_legacy_backfill: bool,
+        historical_bundle_hash: Option<&str>,
     ) -> bool {
         let mut normalized = pathway.clone();
-        self.normalize_generated_pathway_identity(&mut normalized, allow_legacy_backfill)
-            .is_ok()
+        self.normalize_generated_pathway_identity(
+            &mut normalized,
+            allow_legacy_backfill,
+            historical_bundle_hash,
+        )
+        .is_ok()
     }
 
     pub(super) fn generated_pathway(
@@ -886,6 +1051,8 @@ impl RuntimeWorld {
         let origin_meta = self.location_meta_for(origin_location_id);
         let destination_meta = self.location_meta_for(destination_location_id);
         let pathway_id = generated_pathway_canonical_id(source_route);
+        let generation_policy =
+            generated_policy_binding(source_route, origin_location_id, destination_location_id)?;
         let seed = stable_pathway_hash(&pathway_id);
         let waypoint_count = usize::from(distance.saturating_sub(1));
         let names = [
@@ -959,6 +1126,7 @@ impl RuntimeWorld {
                         image_url: Some(format!("/assets/generated/pathways/{id}.svg")),
                         art_prompt: Some(art_prompt),
                     },
+                    generation_policy: generation_policy.clone(),
                 }
             })
             .collect();
@@ -970,6 +1138,7 @@ impl RuntimeWorld {
             source_route_version: source_route.entity_version,
             owner_pack_id: source_route.owner_pack_id.clone(),
             owner_pack_version: source_route.owner_pack_version.clone(),
+            generation_policy,
             origin_location_id,
             destination_location_id,
             distance,
@@ -991,7 +1160,7 @@ impl RuntimeWorld {
             art_eligible: distance >= 2,
             familiar: false,
         };
-        if !self.generated_pathway_identity_is_compatible(&pathway, false) {
+        if !self.generated_pathway_identity_is_compatible(&pathway, false, None) {
             return Err("generated pathway identity or numeric handle collides".to_string());
         }
         Ok(pathway)
@@ -1015,6 +1184,7 @@ impl RuntimeWorld {
             || current.owner != proposed.owner
             || current.owner_pack_id != proposed.owner_pack_id
             || current.owner_pack_version != proposed.owner_pack_version
+            || current.generation_policy != proposed.generation_policy
             || current.provenance != proposed.provenance
             || current.directionality != proposed.directionality
             || current.fallback_location_id != proposed.fallback_location_id;
@@ -1024,6 +1194,7 @@ impl RuntimeWorld {
             current.owner = proposed.owner;
             current.owner_pack_id = proposed.owner_pack_id;
             current.owner_pack_version = proposed.owner_pack_version;
+            current.generation_policy = proposed.generation_policy;
             current.provenance = proposed.provenance;
             current.directionality = proposed.directionality;
             current.fallback_location_id = proposed.fallback_location_id;
@@ -1063,6 +1234,7 @@ impl RuntimeWorld {
                     owner: format!("worldpack:{owner_pack_id}"),
                     owner_pack_id,
                     owner_pack_version,
+                    generation_policy: None,
                     provenance: "authored_exit".to_string(),
                     directionality: exit.directionality,
                     fallback_location_id: exit.fallback_location_id,
@@ -1109,6 +1281,7 @@ impl RuntimeWorld {
                 owner: format!("worldpack:{owner_pack_id}"),
                 owner_pack_id,
                 owner_pack_version,
+                generation_policy: None,
                 provenance: hidden.source.clone(),
                 directionality: RouteDirectionality::Reciprocal,
                 fallback_location_id: None,
@@ -1159,6 +1332,7 @@ impl RuntimeWorld {
                 owner: format!("worldpack:{}", pathway.owner_pack_id),
                 owner_pack_id: pathway.owner_pack_id.clone(),
                 owner_pack_version: pathway.owner_pack_version.clone(),
+                generation_policy: Some(pathway.generation_policy.clone()),
                 provenance: format!("generated_pathway:{}", pathway.id),
                 directionality: RouteDirectionality::Reciprocal,
                 fallback_location_id: None,
@@ -1601,6 +1775,7 @@ impl RuntimeWorld {
                     .generated_pathway_identity_is_compatible(
                         pathway,
                         record.version < JOURNAL_RECORD_VERSION,
+                        Some(&record.worldpack_bundle_hash),
                     ),
                 _ => true,
             })
@@ -1719,11 +1894,13 @@ mod tests {
         pathway.source_route_version = 0;
         pathway.owner_pack_id.clear();
         pathway.owner_pack_version.clear();
+        pathway.generation_policy = GeneratedPolicyBinding::default();
         for (index, waypoint) in pathway.waypoints.iter_mut().enumerate() {
             waypoint.id = GENERATED_PATHWAY_LOCATION_ID_BASE
                 + (stable_pathway_hash(legacy_id) % 10_000) * 16
                 + index as u64;
             waypoint.canonical_id.clear();
+            waypoint.generation_policy = GeneratedPolicyBinding::default();
         }
         pathway.revealed_edges.clear();
         pathway
@@ -2474,6 +2651,7 @@ mod tests {
                 owner: "actor:1001".to_string(),
                 owner_pack_id: String::new(),
                 owner_pack_version: String::new(),
+                generation_policy: None,
                 provenance: "generated_pathway:orphan".to_string(),
                 directionality: RouteDirectionality::Reciprocal,
                 fallback_location_id: None,
