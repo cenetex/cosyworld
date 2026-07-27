@@ -309,6 +309,17 @@ Media intents:
 - `evolution_card_art`: tall card or level-up art.
 - `pack_reveal`: card-pack reveal media.
 
+`room_scene` is a bounded server-sponsored composition over one committed
+public event: one location, one or two still-present event actors, and at most
+one event item. Its server-canonical job identity excludes callers and request
+tokens, freezes the projection digest, ordered approved references, prompt,
+recipe revision, and `server_sponsored_no_orb_debit/1` funding policy before
+provider spend. A durable per-job provider lease deduplicates concurrent
+workers and can be reclaimed only after its recipe-timeout expiry, consuming
+the next bounded attempt. Candidates remain private until moderator review;
+the server records its current committed event boundary as provenance and only
+then advances the location's approved canonical asset.
+
 Recommended provider path:
 
 1. OpenRouter image model discovered through `output_modalities=image`.
