@@ -485,7 +485,16 @@ pub(super) async fn generate_and_store_community_art(
         Ok(Some(image)) => (image, true),
         Ok(None) => {
             let prompt = community_art_generation_request(config, plan);
-            let image = match request_replicate_art(config, prompt, plan.aspect_ratio).await {
+            let image = match request_replicate_art(
+                config,
+                prompt,
+                plan.aspect_ratio,
+                &plan.subject_kind,
+                plan.subject_id,
+                plan.level,
+            )
+            .await
+            {
                 Ok(image) => image,
                 Err(error) => {
                     return CommunityArtGenerationOutcome {

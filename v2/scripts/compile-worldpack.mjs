@@ -21,6 +21,7 @@ import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
 import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
 import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
+import { validatePackMediaProfiles } from "./media-recipe-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -632,6 +633,7 @@ for (const packId of world.packs) {
   const packRoot = path.resolve(worldDir, locked.source.path);
   const manifest = readJson(path.join(packRoot, "pack.json"));
   validateContentPackManifest(manifest, `${packId}/pack.json`);
+  validatePackMediaProfiles(manifest, `${packId}/pack.json`);
   const buildingArchetypes = manifest.extensions?.["x-cosyworld-building-archetypes"];
   if (buildingArchetypes !== undefined) {
     assertBuildingArchetypeConfig(
