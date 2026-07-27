@@ -626,6 +626,63 @@ static cw_status require_active_actor(cw_world *world, const cw_action *action, 
   return CW_OK;
 }
 
+cw_status cw_resolve_project_push(const cw_project_push_input *input, uint8_t *out_progress) {
+  if (!input || !out_progress) return CW_ERR_INVALID;
+  if (!input->base_progress
+      || !input->location_count
+      || !input->remaining_progress
+      || input->prepared > 1
+      || input->evidence_count > input->location_count) {
+    return CW_ERR_RULE;
+  }
+
+  uint16_t progress = input->base_progress;
+  if (input->prepared) {
+    progress += input->prepared_bonus_progress
+      ? input->prepared_bonus_progress
+      : 1u;
+    if (input->evidence_count) {
+      progress += input->location_count > 1
+          && input->evidence_count == input->location_count
+        ? 2u
+        : 1u;
+    }
+  }
+  if (progress > input->remaining_progress) progress = input->remaining_progress;
+  *out_progress = (uint8_t)progress;
+  return CW_OK;
+}
+
+static cw_status apply_project_push(
+    cw_world *world,
+    const cw_action *action,
+    cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+
+  uint8_t progress = 0;
+  status = cw_resolve_project_push(&action->project_push, &progress);
+  if (status != CW_OK) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+
+  append_event(world, out_events, CW_EVENT_PROJECT_PUSH_RESOLVED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+    event->content_id = action->content_id;
+    event->raw_roll = action->project_push.evidence_count;
+    event->modifier = action->project_push.prepared_bonus_progress;
+    event->total = progress;
+    event->dc = action->project_push.location_count;
+    event->damage = action->project_push.base_progress;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_say(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
@@ -2175,6 +2232,9 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
     case CW_ACTION_RULES_UTILIZE_ITEM:
       status = apply_rules_utilize_item(world, action, out_events);
       break;
+    case CW_ACTION_PROJECT_PUSH:
+      status = apply_project_push(world, action, out_events);
+      break;
     case CW_ACTION_ATTACK:
       status = apply_attack(world, action, seed, out_events);
       break;
@@ -2396,6 +2456,7 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_TRANSFORMED: return "item.transformed";
     case CW_EVENT_EXIT_UNLOCKED: return "exit.unlocked";
     case CW_EVENT_ITEM_REVEALED: return "item.revealed";
+    case CW_EVENT_PROJECT_PUSH_RESOLVED: return "project.push.resolved";
     default: return "unknown";
   }
 }

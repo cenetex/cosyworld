@@ -465,6 +465,7 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         | CW_ACTION_DROP_ITEM
         | CW_ACTION_USE_ITEM
         | CW_ACTION_RULES_UTILIZE_ITEM
+        | CW_ACTION_PROJECT_PUSH
         | CW_ACTION_GIVE_ITEM
         | CW_ACTION_TRADE_ITEM
         | CW_ACTION_CRAFT
@@ -1138,6 +1139,7 @@ pub(super) fn actor_action_turn_rejection(
         CW_ACTION_RULES_SEARCH | CW_ACTION_ABILITY_CHECK => "check",
         CW_ACTION_RULES_STUDY => "study",
         CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
+        CW_ACTION_PROJECT_PUSH => "work",
         _ => "",
     };
     if action.kind == CW_ACTION_SAY

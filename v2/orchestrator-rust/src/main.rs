@@ -33,6 +33,8 @@ mod movement;
 mod mud;
 mod natural_affordances;
 mod ownership;
+#[cfg(test)]
+mod project_push_tests;
 mod prompts;
 mod quest_loot;
 mod rate_limit;
@@ -786,6 +788,12 @@ struct JobContributionTrace {
     baseline_progress: u8,
     success_progress: u8,
     prepared_bonus_progress: u8,
+    #[serde(default)]
+    project_push_prepared: bool,
+    #[serde(default)]
+    project_evidence_count: u8,
+    #[serde(default)]
+    project_location_count: u8,
     total_progress: u8,
     clock_id: String,
     claim_key: Option<String>,
@@ -1923,7 +1931,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 11;
+const JOURNAL_RECORD_VERSION: u32 = 12;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -6064,6 +6072,7 @@ fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> 
         CW_ACTION_GIVE_ITEM => "give_item",
         CW_ACTION_TRADE_ITEM => "trade_item",
         CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
+        CW_ACTION_PROJECT_PUSH => "work",
         CW_ACTION_CRAFT => "craft",
         CW_ACTION_THEFT => "theft",
         CW_ACTION_SAY => "chat",
@@ -12310,6 +12319,22 @@ impl RuntimeWorld {
             };
         let mut source_event_seqs = requirement_source_event_seqs.clone();
         source_event_seqs.extend(resolution_source_event_seqs);
+        let project_push_event = if action.kind == CW_ACTION_PROJECT_PUSH {
+            let expected_progress = Self::resolve_project_push(action.project_push);
+            committed_events.iter().find(|event| {
+                event.type_name == "project.push.resolved"
+                    && event.actor_id == Some(action.actor_id)
+                    && event.total.and_then(|total| u8::try_from(total).ok()) == expected_progress
+            })
+        } else {
+            None
+        };
+        if action.kind == CW_ACTION_PROJECT_PUSH && project_push_event.is_none() {
+            return Vec::new();
+        }
+        if let Some(event) = project_push_event {
+            source_event_seqs.push(event.seq);
+        }
         source_event_seqs.sort_unstable();
         source_event_seqs.dedup();
 
@@ -12318,7 +12343,15 @@ impl RuntimeWorld {
                 return Vec::new();
             }
         }
-        let prepared_bonus_progress = if self
+        let project_push_prepared =
+            action.kind == CW_ACTION_PROJECT_PUSH && action.project_push.prepared == 1;
+        let prepared_bonus_progress = if action.kind == CW_ACTION_PROJECT_PUSH {
+            if project_push_prepared {
+                action.project_push.prepared_bonus_progress
+            } else {
+                0
+            }
+        } else if self
             .actor_by_id(action.actor_id)
             .is_some_and(|actor| self.prepared_tag_active(action.actor_id, actor.location_id))
         {
@@ -12331,11 +12364,18 @@ impl RuntimeWorld {
         } else {
             0
         };
-        let total_progress = intent
-            .strategy
-            .baseline_progress
-            .saturating_add(success_progress)
-            .saturating_add(prepared_bonus_progress);
+        let total_progress = if let Some(event) = project_push_event {
+            event
+                .total
+                .and_then(|total| u8::try_from(total).ok())
+                .expect("validated project Push event total")
+        } else {
+            intent
+                .strategy
+                .baseline_progress
+                .saturating_add(success_progress)
+                .saturating_add(prepared_bonus_progress)
+        };
         if total_progress > 0 {
             if let Some(job) = self.jobs.get_mut(&intent.job_id) {
                 job.participant_ids.push(action.actor_id);
@@ -12358,6 +12398,17 @@ impl RuntimeWorld {
             baseline_progress: intent.strategy.baseline_progress,
             success_progress,
             prepared_bonus_progress,
+            project_push_prepared,
+            project_evidence_count: action
+                .project_push
+                .evidence_count
+                .checked_mul(u8::from(action.kind == CW_ACTION_PROJECT_PUSH))
+                .unwrap_or(0),
+            project_location_count: action
+                .project_push
+                .location_count
+                .checked_mul(u8::from(action.kind == CW_ACTION_PROJECT_PUSH))
+                .unwrap_or(0),
             total_progress,
             clock_id: intent.strategy.clock_id.clone(),
             claim_key: claim_key.clone(),
@@ -16776,7 +16827,7 @@ impl RuntimeWorld {
             CW_ACTION_RULES_MAGIC => CW_OFFER_USE_ITEM,
             CW_ACTION_PICK_UP_ITEM => CW_OFFER_PICK_UP,
             CW_ACTION_USE_ITEM => CW_OFFER_USE_ITEM,
-            CW_ACTION_RULES_UTILIZE_ITEM => return true,
+            CW_ACTION_RULES_UTILIZE_ITEM | CW_ACTION_PROJECT_PUSH => return true,
             CW_ACTION_ATTACK => CW_OFFER_ATTACK,
             CW_ACTION_DEFEND => CW_OFFER_DEFEND,
             CW_ACTION_GIVE_ITEM => CW_OFFER_GIVE_ITEM,
@@ -18123,26 +18174,34 @@ impl RuntimeWorld {
         {
             return true;
         }
-        let clock_id = if let Some(job) = self.active_job_for_location(actor.location_id) {
-            if !focused_job_action_available(self, actor_id, &job.id, "prepare") {
-                return false;
-            }
-            if !job
-                .contribution_strategies
-                .iter()
-                .any(|strategy| strategy.prepared_bonus_progress > 0)
-            {
-                return false;
-            }
-            job.progress_clock_id.clone()
-        } else {
-            let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id)
-            else {
-                return false;
+        let (clock_id, work_intent) =
+            if let Some(job) = self.active_job_for_location(actor.location_id) {
+                if !focused_job_action_available(self, actor_id, &job.id, "prepare") {
+                    return false;
+                }
+                let Some(intent) =
+                    self.job_contribution_intent(actor_id, "work", Some(&job.id), None, None)
+                else {
+                    return false;
+                };
+                (job.progress_clock_id.clone(), intent)
+            } else {
+                let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id)
+                else {
+                    return false;
+                };
+                let Some(intent) = self.job_contribution_intent(actor_id, "work", None, None, None)
+                else {
+                    return false;
+                };
+                (clock_id, intent)
             };
-            clock_id
-        };
+        let preparation_improves_push = self
+            .project_push_progress(actor_id, &work_intent, false)
+            .zip(self.project_push_progress(actor_id, &work_intent, true))
+            .is_some_and(|(unprepared, prepared)| prepared > unprepared);
         actor.status == CW_ACTOR_ACTIVE
+            && preparation_improves_push
             && !self.prepared_tag_active(actor_id, actor.location_id)
             && !self.project_preparation_spent_for_clock(actor_id, actor.location_id, &clock_id)
             && !self.tired_tag_active(actor_id)
@@ -19135,22 +19194,13 @@ impl RuntimeWorld {
     }
 
     fn prepared_project_progress_amount(&self, actor_id: u64, location_id: u64) -> u8 {
-        let Some(job) = self.active_job_for_location(location_id) else {
-            return 2;
-        };
-        if job.location_ids.len() > 1 {
-            let needed = job.location_ids.len();
-            let found = self.project_location_evidence_count(actor_id, job);
-            if found >= needed {
-                3
-            } else {
-                2
-            }
-        } else if self.searched_room_feature_count(actor_id, location_id) > 0 {
-            3
-        } else {
-            2
-        }
+        self.job_contribution_intent(actor_id, "work", None, None, None)
+            .filter(|_| {
+                self.actor_by_id(actor_id)
+                    .is_some_and(|actor| actor.location_id == location_id)
+            })
+            .and_then(|intent| self.project_push_progress(actor_id, &intent, true))
+            .unwrap_or(0)
     }
 
     #[cfg(test)]
@@ -22189,7 +22239,17 @@ impl RuntimeWorld {
                     ..CwAction::default()
                 }
             }
-            ("prepare" | "work" | "help", _) => CwAction {
+            ("work", ContributionResolutionPolicy::Certain) => CwAction {
+                kind: CW_ACTION_PROJECT_PUSH,
+                actor_id: actor.id,
+                project_push: self.project_push_input(
+                    actor.id,
+                    &intent,
+                    self.prepared_tag_active(actor.id, actor.location_id),
+                )?,
+                ..CwAction::default()
+            },
+            ("prepare" | "help", _) => CwAction {
                 kind: CW_ACTION_NONE,
                 actor_id: actor.id,
                 ..CwAction::default()
@@ -34644,7 +34704,15 @@ async fn work(
     };
     let clock_id = intent.strategy.clock_id.clone();
     let prepared = runtime.prepared_tag_active(payload.actor_id, location_id);
-    let progress_amount = runtime.contribution_progress_amount(payload.actor_id, &intent);
+    let Some(project_push) = runtime.project_push_input(payload.actor_id, &intent, prepared) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let progress_amount =
+        RuntimeWorld::resolve_project_push(project_push).expect("validated project Push input");
     let progress_reason = if prepared && progress_amount > 2 {
         "informed_work"
     } else if prepared {
@@ -34655,8 +34723,9 @@ async fn work(
     let pathway_upgrade_id = runtime.generated_pathway_id_for_progress_clock(&clock_id);
     let mut record = JournalRecord::new(
         CwAction {
-            kind: CW_ACTION_NONE,
+            kind: CW_ACTION_PROJECT_PUSH,
             actor_id: payload.actor_id,
+            project_push,
             ..CwAction::default()
         },
         runtime.next_seed_value(),
@@ -56884,9 +56953,18 @@ mod tests {
                 reason: "prepare".to_string(),
             });
         assert_eq!(runtime.apply_journal_record(&prepare_record).0, CW_OK);
+        let work_intent = runtime
+            .job_contribution_intent(5000, "work", Some(MOONLIT_JOB_ID), None, None)
+            .expect("searched Moonlit project offers Push");
+        let prepared_input = runtime
+            .project_push_input(5000, &work_intent, true)
+            .expect("searched prepared Push snapshot");
+        assert_eq!(prepared_input.evidence_count, 1);
+        assert_eq!(prepared_input.location_count, 1);
+        assert_eq!(RuntimeWorld::resolve_project_push(prepared_input), Some(4));
         assert_eq!(
             runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-            3
+            4
         );
         discover_all_seed_exits_for_test(&mut runtime);
         let ready_features = runtime.room_feature_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000));
@@ -56916,10 +56994,14 @@ mod tests {
 
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| { event.type_name == "project.push.resolved" && event.total == Some(4) }));
         assert!(response.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
-                && event.clock_delta == Some(3)
+                && event.clock_delta == Some(4)
                 && event.content.as_deref()
                     == Some("job_contribution:moonlit-trail:quiet-the-echo:steady-trail")
         }));
@@ -56950,12 +57032,12 @@ mod tests {
                 .clocks
                 .get(MOONLIT_PROGRESS_CLOCK_ID)
                 .map(|clock| clock.filled),
-            Some(3)
+            Some(4)
         );
         assert!(!runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
-        assert!(runtime.project_preparation_spent_for_actor(5000));
+        assert!(!runtime.project_preparation_spent_for_actor(5000));
         assert!(!runtime.prepare_available(5000));
-        assert!(runtime.work_available(5000));
+        assert!(!runtime.work_available(5000));
         let post_work_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(!post_work_state
             .primary_action
@@ -56963,34 +57045,10 @@ mod tests {
             .iter()
             .any(|option| option.kind == "prepare"));
         assert_eq!(post_work_state.primary_action.kind, "pick_up");
-        assert!(post_work_state.primary_action.options.iter().any(|option| {
-            option.kind == "work" && option.label == "Finish" && option.command == "work"
-        }));
-        let finish_offer = post_work_state
+        assert!(!post_work_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "work")
-            .expect("finish-ready work offer is exposed");
-        assert_eq!(finish_offer.label, "Push Quiet the echo");
-        assert_eq!(finish_offer.intention, "contribute");
-        assert_eq!(finish_offer.command, "contribute steady-trail");
-        assert_eq!(finish_offer.rank, 36);
-        assert!(finish_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("finishes the shared work")));
-        assert!(finish_offer.progress.is_some_and(|amount| amount > 0));
-        let finish_help_offer = post_work_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "help")
-            .expect("finish-ready help offer is exposed");
-        assert!(finish_help_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("finishes the shared work")
-                && effect.contains("first help brings you closer")));
-        assert!(finish_help_offer.progress.is_some_and(|amount| amount > 0));
+            .any(|offer| matches!(offer.kind.as_str(), "prepare" | "work" | "help")));
     }
 
     #[test]
@@ -58108,116 +58166,6 @@ mod tests {
     }
 
     #[test]
-    fn multi_room_project_needs_evidence_from_each_room_for_best_prepared_progress() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 36;
-        let mut create_record = JournalRecord::new(create, 7143);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Two-Sided Listener".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Bell Mediator".to_string(),
-                description: "A test avatar checking multi-room project evidence.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
-
-        let mut solar_search_record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: 5000,
-                ..CwAction::default()
-            },
-            7144,
-        );
-        solar_search_record
-            .projection_mutations
-            .push(ProjectionMutation::SearchFeature {
-                location_id: 36,
-                feature_key: "sun_bell".to_string(),
-                feature_name: "Missing Sun Bell".to_string(),
-                content: "The empty bracket hums downward.".to_string(),
-                reason: "search_feature".to_string(),
-            });
-        assert_eq!(runtime.apply_journal_record(&solar_search_record).0, CW_OK);
-        assert_eq!(
-            runtime.project_location_evidence_count(
-                5000,
-                runtime
-                    .active_job_for_location(36)
-                    .expect("solar job remains active")
-            ),
-            1
-        );
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
-        let partial_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let partial_prepare = partial_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "prepare")
-            .and_then(|offer| offer.effect.as_deref())
-            .expect("partial prepare effect is exposed");
-        assert!(partial_prepare.contains("clues you found here"));
-        assert!(partial_prepare.contains("makes the next try count"));
-        assert_eq!(
-            partial_state
-                .action_offers
-                .iter()
-                .find(|offer| offer.kind == "prepare")
-                .and_then(|offer| offer.progress),
-            Some(2)
-        );
-
-        runtime
-            .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, DARKEST_OCEAN_LOCATION_ID));
-        assert_eq!(
-            runtime.project_location_evidence_count(
-                5000,
-                runtime
-                    .active_job_for_location(36)
-                    .expect("solar job remains active")
-            ),
-            2
-        );
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
-        runtime
-            .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, DARK_ABYSS_LOCATION_ID));
-        assert_eq!(
-            runtime.project_location_evidence_count(
-                5000,
-                runtime
-                    .active_job_for_location(36)
-                    .expect("solar job remains active")
-            ),
-            3
-        );
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 3);
-        let complete_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let complete_prepare = complete_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "prepare")
-            .and_then(|offer| offer.effect.as_deref())
-            .expect("complete prepare effect is exposed");
-        assert!(complete_prepare.contains("every clue you found"));
-        assert_eq!(
-            complete_state
-                .action_offers
-                .iter()
-                .find(|offer| offer.kind == "prepare")
-                .and_then(|offer| offer.progress),
-            Some(3)
-        );
-    }
-
-    #[test]
     fn project_feature_use_advances_moonlit_clock_once() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -58803,6 +58751,10 @@ mod tests {
         .await
         .0;
         assert!(first_work.ok);
+        assert!(first_work
+            .events
+            .iter()
+            .any(|event| { event.type_name == "project.push.resolved" && event.total == Some(2) }));
         assert!(first_work.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some("solar-abyss.drowned-bell")
@@ -58847,6 +58799,10 @@ mod tests {
         .await
         .0;
         assert!(finishing_work.ok);
+        assert!(finishing_work
+            .events
+            .iter()
+            .any(|event| { event.type_name == "project.push.resolved" && event.total == Some(2) }));
         assert!(finishing_work.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some("solar-abyss.drowned-bell")
@@ -58978,94 +58934,6 @@ mod tests {
                 .map(|clock| clock.filled),
             Some(0)
         );
-    }
-
-    #[test]
-    fn defend_sets_up_active_room_project() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7160);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Guard Worker".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Shielded Helper".to_string(),
-                description: "A test avatar turning defense into project preparation.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-
-        let initial = runtime.state_response(Some(5000), &AccessContext::default());
-        let defend_offer = initial
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "defend")
-            .expect("defend offer is exposed in combat project room");
-        assert_eq!(defend_offer.progress, Some(2));
-        assert_eq!(
-            defend_offer.effect.as_deref(),
-            Some("guards carefully and makes the next try count")
-        );
-        for offer in &initial.action_offers {
-            let player_copy = format!(
-                "{} {}",
-                offer.effect.as_deref().unwrap_or_default(),
-                offer.risk.as_deref().unwrap_or_default()
-            )
-            .to_ascii_lowercase();
-            for forbidden in ["progress", "clock", "ledger", "tag", "projection", "kernel"] {
-                assert!(
-                    !player_copy.contains(forbidden),
-                    "{} offer leaked {forbidden}: {player_copy}",
-                    offer.kind
-                );
-            }
-            assert!(
-                !player_copy.contains(" +"),
-                "{} offer leaked arithmetic: {player_copy}",
-                offer.kind
-            );
-        }
-        assert_eq!(
-            runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-            1
-        );
-
-        let mut defend_action = CwAction::default();
-        defend_action.kind = CW_ACTION_DEFEND;
-        defend_action.actor_id = 5000;
-        let (status, events) =
-            runtime.apply_journal_record(&JournalRecord::new(defend_action, 7161));
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "combat.defend"
-                && event.actor_id == Some(5000)
-                && event.location_id == Some(MOONLIT_TRAIL_LOCATION_ID)
-        }));
-        assert!(events.iter().any(|event| {
-            event.type_name == "tag.applied"
-                && event.tag_id.as_deref()
-                    == Some(prepared_tag_id(5000, MOONLIT_TRAIL_LOCATION_ID).as_str())
-                && event.tag_label.as_deref() == Some("prepared")
-                && event.content.as_deref() == Some("defend_prepare")
-        }));
-        assert!(runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
-        assert_eq!(
-            runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-            2
-        );
-
-        let prepared = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(prepared
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "defend")
-            .and_then(|offer| offer.effect.as_deref())
-            .is_some_and(|effect| effect.contains("careful guard")));
     }
 
     #[test]
@@ -62974,7 +62842,10 @@ mod tests {
         assert_eq!(work_offer.intention, "contribute");
         assert_eq!(work_offer.verb, "Push");
         assert_eq!(work_offer.accessible_label, "Push Quiet the echo");
-        assert_eq!(work_offer.effect.as_deref(), Some("makes good headway"));
+        assert!(work_offer.effect.as_deref().is_some_and(|effect| {
+            effect.contains("Advances 2 segments now (2 base)")
+                && effect.contains("Evidence: 0/1 location")
+        }));
         assert_eq!(work_offer.progress, Some(2));
         assert!(work_offer
             .risk
@@ -63011,8 +62882,10 @@ mod tests {
         assert!(!suggested.disabled);
         assert!(state.action_offers.iter().any(|offer| {
             offer.kind == "prepare"
-                && offer.progress == Some(2)
-                && offer.effect.as_deref() == Some("makes the next try count")
+                && offer.progress == Some(3)
+                && offer.effect.as_deref().is_some_and(|effect| {
+                    effect.contains("Next Push advances 3 segments; Push now advances 2")
+                })
         }));
         assert!(inspector
             .fronts

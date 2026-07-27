@@ -17,7 +17,7 @@ pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-pub const CW_KERNEL_VERSION: u32 = 8;
+pub const CW_KERNEL_VERSION: u32 = 9;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_RULE: u32 = 4;
@@ -107,6 +107,7 @@ pub const CW_ACTION_COMBAT_NEED_TIME: u8 = 27;
 pub const CW_ACTION_UNLOCK_EXIT: u8 = 28;
 pub const CW_ACTION_REVEAL_ITEM: u8 = 29;
 pub const CW_ACTION_RULES_UTILIZE_ITEM: u8 = 30;
+pub const CW_ACTION_PROJECT_PUSH: u8 = 31;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
@@ -138,6 +139,7 @@ pub const CW_EVENT_ITEM_EXHAUSTED: u8 = 37;
 pub const CW_EVENT_ITEM_TRANSFORMED: u8 = 38;
 pub const CW_EVENT_EXIT_UNLOCKED: u8 = 39;
 pub const CW_EVENT_ITEM_REVEALED: u8 = 40;
+pub const CW_EVENT_PROJECT_PUSH_RESOLVED: u8 = 41;
 
 pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
 pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
@@ -235,6 +237,23 @@ fn default_item_size_class() -> u8 {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwProjectPushInput {
+    pub base_progress: u8,
+    pub prepared_bonus_progress: u8,
+    pub prepared: u8,
+    pub evidence_count: u8,
+    pub location_count: u8,
+    pub remaining_progress: u8,
+}
+
+impl CwProjectPushInput {
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct CwAction {
     pub kind: u8,
@@ -278,6 +297,8 @@ pub struct CwAction {
     pub output_item_role: u8,
     #[serde(default)]
     pub reserved2: u16,
+    #[serde(default, skip_serializing_if = "CwProjectPushInput::is_empty")]
+    pub project_push: CwProjectPushInput,
 }
 
 #[repr(C)]
@@ -448,7 +469,70 @@ extern "C" {
         actor_id: u64,
         out_offers: *mut CwActionOffers,
     ) -> u32;
+    pub fn cw_resolve_project_push(input: *const CwProjectPushInput, out_progress: *mut u8) -> u32;
     pub fn cw_event_type_name(type_: u8) -> *const c_char;
     pub fn cw_actor_current_hp(actor: *const CwActor) -> i16;
     pub fn cw_actor_is_bloodied(actor: *const CwActor) -> i32;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_push_ffi_matches_single_and_multi_location_matrix() {
+        for (prepared, evidence_count, location_count, expected) in [
+            (0, 0, 1, 2),
+            (1, 0, 1, 3),
+            (1, 1, 1, 4),
+            (0, 1, 3, 2),
+            (1, 1, 3, 4),
+            (1, 3, 3, 5),
+        ] {
+            let input = CwProjectPushInput {
+                base_progress: 2,
+                prepared_bonus_progress: 1,
+                prepared,
+                evidence_count,
+                location_count,
+                remaining_progress: 6,
+            };
+            let mut progress = 0;
+            assert_eq!(
+                unsafe { cw_resolve_project_push(&input, &mut progress) },
+                CW_OK
+            );
+            assert_eq!(progress, expected);
+        }
+    }
+
+    #[test]
+    fn project_push_ffi_clamps_only_remaining_and_rejects_over_claims() {
+        let mut input = CwProjectPushInput {
+            base_progress: 2,
+            prepared_bonus_progress: 1,
+            prepared: 1,
+            evidence_count: 3,
+            location_count: 3,
+            remaining_progress: 1,
+        };
+        let mut progress = 0;
+        assert_eq!(
+            unsafe { cw_resolve_project_push(&input, &mut progress) },
+            CW_OK
+        );
+        assert_eq!(progress, 1);
+
+        input.evidence_count = 4;
+        assert_eq!(
+            unsafe { cw_resolve_project_push(&input, &mut progress) },
+            CW_ERR_RULE
+        );
+        input.evidence_count = 3;
+        input.prepared = 2;
+        assert_eq!(
+            unsafe { cw_resolve_project_push(&input, &mut progress) },
+            CW_ERR_RULE
+        );
+    }
 }
