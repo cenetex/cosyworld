@@ -1,13 +1,13 @@
 #[path = "ai_registry.rs"]
 mod registry;
 
-pub(crate) use registry::{
-    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
-    PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
-};
 use super::{
     compact_whitespace, AppState, GeneratedPathwayState, GeneratedWaypointState, LocationMeta,
     NaturalPotentialPolicy,
+};
+pub(crate) use registry::{
+    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
+    PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};

@@ -58,6 +58,9 @@ pub(crate) fn kernel_rejection_message(reason: u16) -> &'static str {
         CW_REASON_CAPACITY_EXCEEDED => {
             "You cannot carry that much. Make room in your inventory and try again."
         }
+        CW_REASON_REST_GRADE_OVERCLAIMED => {
+            "That rest is not available here. Choose a rest option this shelter supports."
+        }
         _ => UNKNOWN_KERNEL_REJECTION_MESSAGE,
     }
 }
@@ -84,8 +87,8 @@ mod tests {
             .map(kernel_rejection_message)
             .collect::<Vec<_>>();
 
-        assert_eq!(messages.len(), 21);
-        assert_eq!(messages.iter().copied().collect::<HashSet<_>>().len(), 21);
+        assert_eq!(messages.len(), 22);
+        assert_eq!(messages.iter().copied().collect::<HashSet<_>>().len(), 22);
         assert!(messages
             .iter()
             .all(|message| *message != UNKNOWN_KERNEL_REJECTION_MESSAGE));

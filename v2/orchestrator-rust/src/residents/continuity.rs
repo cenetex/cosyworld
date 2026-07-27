@@ -382,10 +382,7 @@ impl RuntimeWorld {
         format!("{name} / {title} / speech:{speech_mode} / {description}")
     }
 
-    pub(crate) fn resident_relationship_notes(
-        &self,
-        resident_id: u64,
-    ) -> BTreeMap<u64, String> {
+    pub(crate) fn resident_relationship_notes(&self, resident_id: u64) -> BTreeMap<u64, String> {
         let mut notes = BTreeMap::new();
         for bond in self.bonds.values() {
             if bond.status == "resolved" {

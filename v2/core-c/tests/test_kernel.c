@@ -716,10 +716,29 @@ static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
   assert(cw_world_apply(&world, &magic, 421, &events) == CW_ERR_RULE);
   assert(content->charges == 1);
   assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_SPELL_DECK, 0) == CW_OK);
+  assert(cw_world_set_item_recovery_profile(
+      &world,
+      2006,
+      1,
+      CW_ITEM_RECOVERY_REST,
+      CW_CARD_ZONE_SPELL_DECK) == CW_OK);
   assert(cw_world_apply(&world, &magic, 421, &events) == CW_OK);
   assert(events.count == 1 && events.events[0].type == CW_EVENT_SPELL_CAST);
   assert(content->charges == 0 && content->zone == CW_CARD_ZONE_EXHAUSTED);
   assert(cw_world_apply(&world, &magic, 421, &events) == CW_ERR_RULE);
+
+  cw_action rest = {0};
+  rest.kind = CW_ACTION_REST;
+  rest.actor_id = 5001;
+  rest.rest.requested_grade = CW_REST_GRADE_HEARTH;
+  rest.rest.entitled_grade = CW_REST_GRADE_HEARTH;
+  assert(cw_world_apply(&world, &rest, 421, &events) == CW_OK);
+  assert(events.count == 1 && events.events[0].type == CW_EVENT_ITEM_REFRESHED);
+  assert(events.events[0].item_id == content->id);
+  assert(content->charges == 1 && content->zone == CW_CARD_ZONE_SPELL_DECK);
+  assert(cw_world_apply(&world, &magic, 421, &events) == CW_OK);
+  assert(events.count == 1 && events.events[0].type == CW_EVENT_SPELL_CAST);
+  assert(content->charges == 0 && content->zone == CW_CARD_ZONE_EXHAUSTED);
 
   cw_item *stolen = test_find_item(&world, 2004);
   assert(stolen);
@@ -743,6 +762,156 @@ static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
   assert(events.events[1].type == CW_EVENT_ITEM_STOLEN);
   assert(stolen->holder_actor_id == 5001);
   assert(stolen->zone == CW_CARD_ZONE_CARRIED);
+}
+
+static void configure_exhausted_rest_card(
+    cw_world *world,
+    cw_id item_id,
+    cw_id actor_id,
+    uint8_t role,
+    uint8_t recovery,
+    uint8_t recovery_zone) {
+  cw_item *item = test_find_item(world, item_id);
+  assert(item);
+  assert(cw_world_set_item_profile(
+      world,
+      item_id,
+      1,
+      CW_ITEM_SIZE_TINY,
+      role,
+      0) == CW_OK);
+  item->holder_actor_id = actor_id;
+  item->location_id = 0;
+  item->container_item_id = 0;
+  item->charges = 0;
+  item->zone = CW_CARD_ZONE_EXHAUSTED;
+  item->recovery_zone = CW_CARD_ZONE_NONE;
+  assert(cw_world_set_item_recovery_profile(
+      world,
+      item_id,
+      2,
+      recovery,
+      recovery_zone) == CW_OK);
+}
+
+static void setup_rest_matrix(cw_world *world, cw_event_buffer *events) {
+  cw_world_init(world);
+  assert(cw_seed_cosy_cottage(world, events) == CW_OK);
+  configure_exhausted_rest_card(
+      world, 2001, 1001, CW_ITEM_ROLE_SPELL, CW_ITEM_RECOVERY_REST, CW_CARD_ZONE_SPELL_DECK);
+  configure_exhausted_rest_card(
+      world, 2002, 1001, CW_ITEM_ROLE_SPELL, CW_ITEM_RECOVERY_REST, CW_CARD_ZONE_SPELL_DECK);
+  configure_exhausted_rest_card(
+      world, 2003, 1001, CW_ITEM_ROLE_SKILL_CHARM, CW_ITEM_RECOVERY_REST, CW_CARD_ZONE_EQUIPPED);
+  configure_exhausted_rest_card(
+      world, 2004, 1001, CW_ITEM_ROLE_RELIC, CW_ITEM_RECOVERY_REST, CW_CARD_ZONE_CARRIED);
+  configure_exhausted_rest_card(
+      world, 2005, 1001, CW_ITEM_ROLE_SPELL, CW_ITEM_RECOVERY_NONE, CW_CARD_ZONE_SPELL_DECK);
+  cw_item *legacy_charm = test_find_item(world, 2003);
+  assert(legacy_charm);
+  legacy_charm->recovery_zone = CW_CARD_ZONE_NONE;
+}
+
+static cw_action rest_action(cw_id actor_id, uint8_t requested_grade, uint8_t entitled_grade) {
+  cw_action action = {0};
+  action.kind = CW_ACTION_REST;
+  action.actor_id = actor_id;
+  action.rest.requested_grade = requested_grade;
+  action.rest.entitled_grade = entitled_grade;
+  return action;
+}
+
+static void test_rest_grade_refresh_matrix_and_atomic_validation(void) {
+  cw_world world;
+  cw_event_buffer events;
+  setup_rest_matrix(&world, &events);
+
+  cw_action camp = rest_action(1001, CW_REST_GRADE_CAMP, CW_REST_GRADE_HEARTH);
+  assert(cw_world_apply(&world, &camp, 430, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_REFRESHED);
+  assert(events.events[0].item_id == 2001);
+  assert(test_find_item(&world, 2001)->charges == 2);
+  assert(test_find_item(&world, 2001)->zone == CW_CARD_ZONE_SPELL_DECK);
+  assert(test_find_item(&world, 2002)->charges == 0);
+  assert(test_find_item(&world, 2003)->charges == 0);
+  assert(test_find_item(&world, 2004)->charges == 0);
+  assert(test_find_item(&world, 2005)->charges == 0);
+
+  setup_rest_matrix(&world, &events);
+  cw_action lodged = rest_action(1001, CW_REST_GRADE_LODGED, CW_REST_GRADE_LODGED);
+  assert(cw_world_apply(&world, &lodged, 431, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].item_id == 2001);
+  assert(events.events[1].item_id == 2002);
+  assert(test_find_item(&world, 2001)->charges == 2);
+  assert(test_find_item(&world, 2002)->charges == 2);
+  assert(test_find_item(&world, 2003)->charges == 0);
+  assert(test_find_item(&world, 2004)->charges == 0);
+  assert(test_find_item(&world, 2005)->charges == 0);
+
+  setup_rest_matrix(&world, &events);
+  cw_action hearth = rest_action(1001, CW_REST_GRADE_HEARTH, CW_REST_GRADE_HEARTH);
+  assert(cw_world_apply(&world, &hearth, 432, &events) == CW_OK);
+  assert(events.count == 4);
+  for (size_t i = 0; i < events.count; ++i) {
+    assert(events.events[i].type == CW_EVENT_ITEM_REFRESHED);
+    assert(events.events[i].item_id == 2001 + i);
+  }
+  assert(test_find_item(&world, 2001)->zone == CW_CARD_ZONE_SPELL_DECK);
+  assert(test_find_item(&world, 2002)->zone == CW_CARD_ZONE_SPELL_DECK);
+  assert(test_find_item(&world, 2003)->zone == CW_CARD_ZONE_EQUIPPED);
+  assert(test_find_item(&world, 2003)->recovery_zone == CW_CARD_ZONE_EQUIPPED);
+  assert(test_find_item(&world, 2004)->zone == CW_CARD_ZONE_CARRIED);
+  assert(test_find_item(&world, 2005)->charges == 0);
+  assert(test_find_item(&world, 2005)->zone == CW_CARD_ZONE_EXHAUSTED);
+
+  setup_rest_matrix(&world, &events);
+  cw_action overclaim = rest_action(1001, CW_REST_GRADE_HEARTH, CW_REST_GRADE_CAMP);
+  assert(cw_world_apply(&world, &overclaim, 433, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(events.events[0].reason == 22);
+  for (cw_id item_id = 2001; item_id <= 2005; ++item_id) {
+    assert(test_find_item(&world, item_id)->charges == 0);
+    assert(test_find_item(&world, item_id)->zone == CW_CARD_ZONE_EXHAUSTED);
+  }
+  overclaim.rest.requested_grade = CW_REST_GRADE_NONE;
+  overclaim.rest.entitled_grade = CW_REST_GRADE_HEARTH;
+  assert(cw_world_apply(&world, &overclaim, 434, &events) == CW_ERR_RULE);
+  assert(events.count == 1 && events.events[0].reason == 22);
+
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+  cw_action empty = rest_action(1001, CW_REST_GRADE_HEARTH, CW_REST_GRADE_HEARTH);
+  assert(cw_world_apply(&world, &empty, 435, &events) == CW_OK);
+  assert(events.count == 0);
+}
+
+static void test_rest_event_capacity_preflight_is_atomic(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+  world.item_count = CW_MAX_EVENTS + 1;
+  for (size_t i = 0; i < world.item_count; ++i) {
+    cw_item *item = &world.items[i];
+    memset(item, 0, sizeof(*item));
+    item->id = 5000 + i;
+    item->holder_actor_id = 1001;
+    item->role = CW_ITEM_ROLE_SPELL;
+    item->zone = CW_CARD_ZONE_EXHAUSTED;
+    item->max_charges = 1;
+    item->recovery = CW_ITEM_RECOVERY_REST;
+    item->recovery_zone = CW_CARD_ZONE_SPELL_DECK;
+  }
+  cw_action hearth = rest_action(1001, CW_REST_GRADE_HEARTH, CW_REST_GRADE_HEARTH);
+  assert(cw_world_apply(&world, &hearth, 436, &events) == CW_ERR_FULL);
+  assert(events.count == 0);
+  for (size_t i = 0; i < world.item_count; ++i) {
+    assert(world.items[i].charges == 0);
+    assert(world.items[i].zone == CW_CARD_ZONE_EXHAUSTED);
+  }
 }
 
 static void test_give_items_and_evolution(void) {
@@ -1579,6 +1748,8 @@ int main(void) {
   test_combat_v2_encounter_turns_dodge_targeting_and_escape();
   test_combat_v4_weapon_profile_and_legacy_replay();
   test_card_zones_spell_exhaustion_and_theft_atomicity();
+  test_rest_grade_refresh_matrix_and_atomic_validation();
+  test_rest_event_capacity_preflight_is_atomic();
   test_give_items_and_evolution();
   test_maximum_evolution_burst_fits_event_buffer();
   test_npc_trade_items();
