@@ -90,7 +90,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:f2d0ae80594dda3f765f763d0add99acda2afc5fa2686ceadb82c34dc76fdd51",
+      "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -167,7 +167,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:6d96876b8e4f6b0341fd3f051b0f31a9d20f446864b129c24b4fc8a4cac13ccb",
+      "integrity": "sha256:bb4475d96fc6bd7c1b3e89a78a3927b6c5a7984da4f7a0472bbc1f46cfc43321",
       "dependencies": [
         {
           "id": "cosyworld.core",

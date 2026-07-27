@@ -60414,8 +60414,8 @@ mod tests {
             .expect("core pack includes a carrying container");
         assert_eq!(satchel.role, "container");
         assert_eq!(satchel.container_capacity_tenths, 300);
-        assert_eq!(content.locations.len(), 48);
-        assert_eq!(content.exits.len(), 110);
+        assert_eq!(content.locations.len(), 49);
+        assert_eq!(content.exits.len(), 112);
 
         assert!(content.exits.iter().any(|exit| {
             exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
@@ -60426,8 +60426,22 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 37);
-        assert_eq!(content.room_sheets.len(), 48);
+        assert_eq!(content.room_features.len(), 39);
+        assert_eq!(content.room_sheets.len(), 49);
+        for location_id in [4, 800] {
+            let lodging = content
+                .room_features
+                .iter()
+                .find(|feature| feature.location_id == location_id && feature.key == "lodging")
+                .unwrap_or_else(|| panic!("location {location_id} declares lodging"));
+            assert_eq!(
+                lodging
+                    .lodging
+                    .as_ref()
+                    .map(|value| value.gate.kind.as_str()),
+                Some("open")
+            );
+        }
         assert_eq!(content.clocks.len(), 14);
         assert_eq!(content.jobs.len(), 7);
         assert!(content
@@ -60445,8 +60459,8 @@ mod tests {
             1
         );
         assert_eq!(content.fronts.len(), 6);
-        assert_eq!(content.cards.len(), 118);
-        assert_eq!(content.lifecycle_hooks.len(), 19);
+        assert_eq!(content.cards.len(), 119);
+        assert_eq!(content.lifecycle_hooks.len(), 21);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 8);
         assert_eq!(content.rules.len(), 3);

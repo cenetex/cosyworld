@@ -70,6 +70,28 @@
     ]
   },
   {
+    "id": "room:4",
+    "location_id": 4,
+    "name": "Mossbell Inn",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "drying boots",
+      "four small guest rooms"
+    ],
+    "boons": [
+      "travelers can sleep without returning to the Cottage"
+    ],
+    "hooks": [
+      "a sealed note lies beneath cup seven"
+    ],
+    "resources": {
+      "beds": 4,
+      "broth": 2
+    },
+    "projects": []
+  },
+  {
     "id": "room:30",
     "location_id": 30,
     "name": "The Heavens",

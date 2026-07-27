@@ -677,7 +677,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:0eec761f6b61f1db9c803a2060da8e82e4303087f832d6c95aabec31f410be84",
+  "bundle_hash": "sha256:76d8753ca6fface8d0f2ac887257780807d8be3b036dd3bf02c0166b4015d53d",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -897,16 +897,16 @@
         "access_gates": 0,
         "factions": 11,
         "items": 13,
-        "locations": 22,
-        "exits": 46,
+        "locations": 23,
+        "exits": 48,
         "hidden_exits": 1,
-        "room_features": 16,
-        "room_sheets": 22,
+        "room_features": 17,
+        "room_sheets": 23,
         "clocks": 12,
         "jobs": 6,
         "action_vocabulary": 1,
         "fronts": 5,
-        "cards": 68,
+        "cards": 69,
         "card_bindings": 0,
         "lifecycle_hooks": 19,
         "evolution_tracks": 3,
@@ -1747,7 +1747,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:f2d0ae80594dda3f765f763d0add99acda2afc5fa2686ceadb82c34dc76fdd51"
+      "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612"
     },
     {
       "id": "ruby-high.first-bell",

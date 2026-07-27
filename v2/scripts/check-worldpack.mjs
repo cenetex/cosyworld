@@ -27,6 +27,7 @@ import {
   validateCompiledGenerationPolicies,
   worldpackMediaRegistry,
 } from "./world-generation-policy.mjs";
+import { roomFeatureSchemaValidationErrors } from "./room-feature-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -1789,6 +1790,12 @@ for (const bundle of contributionBundles) {
 const featureKeys = new Set();
 for (const feature of roomFeatures) {
   validateRequiredStrings("room feature", feature, ["key", "name", "look", "search"]);
+  for (const error of roomFeatureSchemaValidationErrors(
+    feature,
+    `room feature ${feature.location_id}:${feature.key}`,
+  )) {
+    fail(error);
+  }
   if (!has(locationIds, feature.location_id)) {
     fail(`feature ${feature.key} references missing location ${feature.location_id}`);
   }
