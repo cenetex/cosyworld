@@ -365,6 +365,22 @@ COSYWORLD_AI_VISION_MODEL=openai/gpt-5-image-mini
 COSYWORLD_AI_VISION_REASONING_EFFORT=low
 ```
 
+Text selection can instead use a versioned capability registry and
+capability-specific configured defaults:
+
+```sh
+COSYWORLD_AI_REGISTRY_JSON='{"schema_version":1,"snapshot_version":"catalog-1","declared":[...],"discovered":[...]}'
+COSYWORLD_AI_CAPABILITY_MODELS_JSON='{"voice":"provider/tiny-chat","intent_json":"provider/planner","world_content":"provider/generator"}'
+```
+
+The immutable snapshot may retain hundreds of candidates, but a request pins
+and sends only one. Provider discovery never grants eligibility by itself,
+mutable aliases require concrete returned-model attribution, and production
+text inference fails closed unless the selected declaration explicitly
+prohibits retention and training. See
+[`docs/ai-capability-registry.md`](docs/ai-capability-registry.md) for the
+schema, capability boundaries, privacy contract, and replay provenance.
+
 Server-side generative world content is separately controlled and defaults to
 off. Enable only reviewed features, or run them in shadow mode to validate and
 audit proposals without publishing them:

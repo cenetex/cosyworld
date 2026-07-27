@@ -166,6 +166,7 @@ async fn request_ai_avatar_chat(
             } else {
                 "dialogue_avatar"
             },
+            capability: ModelCapability::Voice,
             system,
             user: &user,
             temperature: 0.8,
@@ -220,6 +221,7 @@ pub(super) async fn request_ai_avatar_intent(
         config,
         ChatCompletionRequest {
             feature: "dialogue_resident",
+            capability: ModelCapability::IntentJson,
             system: &system,
             user: &user,
             temperature: 0.75,

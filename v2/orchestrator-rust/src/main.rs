@@ -588,20 +588,6 @@ struct LocationMeta {
     art_prompt: Option<String>,
 }
 
-const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
-const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-struct GenerationProvenance {
-    source: String,
-    feature: String,
-    policy_mode: String,
-    prompt_version: String,
-    provider: String,
-    model: String,
-    attempts: u8,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedWaypointState {
     id: u64,
@@ -5379,7 +5365,7 @@ impl AppState {
             .map(Arc::new);
         let moderation_report_retention = ModerationReportRetention::from_env()?;
         let story_metrics_retention = StoryMetricsRetention::from_env()?;
-        let ai_config = Arc::new(AiConfig::from_env());
+        let ai_config = Arc::new(AiConfig::from_env().map_err(deployment_config_error)?);
         let generation_controls =
             Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
         let avatar_art_config = Arc::new(ReplicateAvatarArtConfig::from_env());
@@ -8285,6 +8271,7 @@ impl RuntimeWorld {
                     prompt_version: "legacy".to_string(),
                     provider: "none".to_string(),
                     model: "none".to_string(),
+                    model_attribution: None,
                     attempts: 0,
                 };
             }
@@ -13805,6 +13792,7 @@ impl RuntimeWorld {
                 prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
                 provider: "none".to_string(),
                 model: "none".to_string(),
+                model_attribution: None,
                 attempts: 0,
             },
             revealed_edges: BTreeSet::new(),
@@ -32073,6 +32061,7 @@ async fn request_ai_room_memory_summary(
         config,
         ChatCompletionRequest {
             feature: "room_memory",
+            capability: ModelCapability::Voice,
             system,
             user: &user,
             temperature: 0.45,
@@ -32184,6 +32173,7 @@ async fn request_ai_avatar_identity(
         config,
         ChatCompletionRequest {
             feature: "avatar_identity",
+            capability: ModelCapability::WorldContent,
             system,
             user: &user,
             temperature: 1.0,
@@ -32827,24 +32817,6 @@ fn apply_generated_waypoint_content(
     ));
 }
 
-fn set_pathway_generation_provenance(
-    pathway: &mut GeneratedPathwayState,
-    mode: GenerationMode,
-    config: Option<&AiConfig>,
-    source: &str,
-    attempts: u8,
-) {
-    pathway.generation = GenerationProvenance {
-        source: source.to_string(),
-        feature: PATHWAY_CONTENT_FEATURE.to_string(),
-        policy_mode: mode.as_str().to_string(),
-        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
-        provider: ai_provider_name(config).to_string(),
-        model: ai_model_name(config),
-        attempts,
-    };
-}
-
 async fn generate_hidden_pathway_content(
     state: &AppState,
     mutation: &mut ProjectionMutation,
@@ -32859,7 +32831,8 @@ async fn generate_hidden_pathway_content(
     let mode = state.generation_controls.mode(PATHWAY_CONTENT_FEATURE);
     let config = state.ai_config.as_ref().as_ref();
     if mode == GenerationMode::Off {
-        set_pathway_generation_provenance(pathway, mode, config, "deterministic_fallback", 0);
+        pathway.generation =
+            GenerationProvenance::for_pathway(mode, config, None, "deterministic_fallback", 0);
         record_ai_usage(
             state,
             Some(pathway.created_by_actor_id),
@@ -32875,7 +32848,8 @@ async fn generate_hidden_pathway_content(
         return;
     }
     let Some(config) = config else {
-        set_pathway_generation_provenance(pathway, mode, None, "deterministic_fallback", 0);
+        pathway.generation =
+            GenerationProvenance::for_pathway(mode, None, None, "deterministic_fallback", 0);
         record_ai_usage(
             state,
             Some(pathway.created_by_actor_id),
@@ -32947,6 +32921,7 @@ async fn generate_hidden_pathway_content(
         config,
         ChatCompletionRequest {
             feature: PATHWAY_CONTENT_FEATURE,
+            capability: ModelCapability::WorldContent,
             system: "You create bounded hidden geography in CosyWorld. Return only JSON matching the supplied schema. World rules and rewards are outside your authority.",
             user: &prompt,
             temperature: 0.8,
@@ -32961,10 +32936,10 @@ async fn generate_hidden_pathway_content(
     {
         Ok(completion) => completion,
         Err(error) => {
-            set_pathway_generation_provenance(
-                pathway,
+            pathway.generation = GenerationProvenance::for_pathway(
                 mode,
                 Some(config),
+                None,
                 "deterministic_fallback",
                 error.attempts,
             );
@@ -32993,10 +32968,10 @@ async fn generate_hidden_pathway_content(
             })
         });
     let Some(contents) = contents else {
-        set_pathway_generation_provenance(
-            pathway,
+        pathway.generation = GenerationProvenance::for_pathway(
             mode,
             Some(config),
+            completion.model_attribution.as_ref(),
             "deterministic_fallback",
             completion.attempts,
         );
@@ -33015,10 +32990,10 @@ async fn generate_hidden_pathway_content(
         return;
     };
     if mode == GenerationMode::Shadow {
-        set_pathway_generation_provenance(
-            pathway,
+        pathway.generation = GenerationProvenance::for_pathway(
             mode,
             Some(config),
+            completion.model_attribution.as_ref(),
             "deterministic_fallback",
             completion.attempts,
         );
@@ -33044,7 +33019,13 @@ async fn generate_hidden_pathway_content(
             narration_plan.to_name = next_name;
         }
     }
-    set_pathway_generation_provenance(pathway, mode, Some(config), "ai", completion.attempts);
+    pathway.generation = GenerationProvenance::for_pathway(
+        mode,
+        Some(config),
+        completion.model_attribution.as_ref(),
+        "ai",
+        completion.attempts,
+    );
     record_ai_usage(
         state,
         Some(pathway.created_by_actor_id),
@@ -47346,7 +47327,8 @@ mod tests {
         assert!(art_prompt.contains("no watermark"));
         assert!(art_prompt.contains(&biome));
 
-        set_pathway_generation_provenance(&mut pathway, GenerationMode::AutoBounded, None, "ai", 2);
+        pathway.generation =
+            GenerationProvenance::for_pathway(GenerationMode::AutoBounded, None, None, "ai", 2);
         assert_eq!(pathway.generation.feature, PATHWAY_CONTENT_FEATURE);
         assert_eq!(
             pathway.generation.prompt_version,
@@ -47362,6 +47344,7 @@ mod tests {
             "/chat/completions",
             post(|| async {
                 Json(serde_json::json!({
+                    "model": "test-resolved-structured-model",
                     "choices": [{
                         "message": {
                             "content": r#"{"waypoints":[{"name":"Rain-Silver Crossing","title":"Silverwater Bend","description":"Rain threads the flat stones while foxglove leans over the crossing.","persona":"The crossing brightens after rain and keeps every footprint briefly visible.","visual_detail":"silver rain on flat stones beneath leaning foxglove"},{"name":"Foxglove Turn","title":"Blooming Corner","description":"Foxglove crowds a soft bend where moss gathers beneath the old roots.","persona":"The turn feels close and sheltered, opening only as travelers round it.","visual_detail":"dense foxglove around a mossy root-lined bend"}]}"#
@@ -47379,7 +47362,6 @@ mod tests {
         let server = tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
         });
-
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -47444,10 +47426,9 @@ mod tests {
         };
         assert_eq!(pathway.generation.source, "ai");
         assert_eq!(pathway.generation.policy_mode, "auto_bounded");
-        assert_eq!(pathway.generation.model, "test-structured-model");
+        assert_eq!(pathway.generation.model, "test-resolved-structured-model");
         assert_eq!(pathway.waypoints[0].name, "Rain-Silver Crossing");
         assert_eq!(pathway.waypoints[1].name, "Foxglove Turn");
-
         let first_waypoint_id = pathway.waypoints[0].id;
         let second_waypoint_id = pathway.waypoints[1].id;
         let mut runtime = state.inner.lock().await;
@@ -47455,7 +47436,26 @@ mod tests {
         assert_eq!(runtime.location_name(second_waypoint_id), None);
         let mut record = JournalRecord::new(action, 987_001);
         record.projection_mutations.push(mutation);
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let replayed_record: JournalRecord = serde_json::from_str(
+            &serde_json::to_string(&record).expect("serialize pathway generation record"),
+        )
+        .expect("replay pathway generation record");
+        assert_eq!(runtime.apply_journal_record(&replayed_record).0, CW_OK);
+        let replayed_pathway = runtime
+            .generated_pathways
+            .values()
+            .next()
+            .expect("replayed generated pathway");
+        let attribution = replayed_pathway
+            .generation
+            .model_attribution
+            .as_ref()
+            .expect("replayed model attribution");
+        assert_eq!(attribution.catalog_snapshot_version, "legacy-config-v1");
+        assert_eq!(
+            attribution.resolved_model_id,
+            "test-resolved-structured-model"
+        );
         assert_eq!(
             runtime.location_name(first_waypoint_id).as_deref(),
             Some("Rain-Silver Crossing")

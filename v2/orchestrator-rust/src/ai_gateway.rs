@@ -1,12 +1,21 @@
-use serde::Deserialize;
+#[path = "ai_registry.rs"]
+mod registry;
+
+pub(crate) use registry::{
+    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
+    PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, fmt, time::Duration};
+use std::{collections::BTreeMap, fmt, sync::Arc, time::Duration};
 use tokio::time::{sleep, Instant};
 
 pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
+pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
+pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
 const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -104,10 +113,13 @@ pub(crate) struct AiConfig {
     pub(crate) vision_model: String,
     pub(crate) reasoning_effort: Option<String>,
     pub(crate) vision_reasoning_effort: Option<String>,
+    pub(crate) registry: Option<Arc<CapabilityRegistrySnapshot>>,
+    pub(crate) capability_models: BTreeMap<ModelCapability, String>,
+    pub(crate) data_policy_mode: DataPolicyMode,
 }
 
 impl AiConfig {
-    pub(crate) fn from_env() -> Option<Self> {
+    pub(crate) fn from_env() -> Result<Option<Self>, String> {
         let api_key = std::env::var("COSYWORLD_AI_API_KEY")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
@@ -129,19 +141,33 @@ impl AiConfig {
         let api_key = match api_key {
             Some(key) => key,
             None if local_ai_base_url(&base_url) => "local-ai".to_string(),
-            None => return None,
+            None => return Ok(None),
         };
-        let model = std::env::var("COSYWORLD_AI_MODEL")
+        let configured_model = std::env::var("COSYWORLD_AI_MODEL")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_CHAT_MODEL").ok())
-            .or_else(|| std::env::var("OPENAI_MODEL").ok())
-            .unwrap_or_else(|| {
-                if using_openrouter {
-                    DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
-                } else {
-                    DEFAULT_OPENAI_CHAT_MODEL.to_string()
-                }
-            });
+            .or_else(|| std::env::var("OPENAI_MODEL").ok());
+        let registry = std::env::var(AI_REGISTRY_ENV)
+            .ok()
+            .map(|value| {
+                CapabilityRegistrySnapshot::from_json(&value)
+                    .map(Arc::new)
+                    .map_err(|error| format!("{AI_REGISTRY_ENV}: {error}"))
+            })
+            .transpose()?;
+        let model = configured_model.unwrap_or_else(|| {
+            registry
+                .as_deref()
+                .and_then(|snapshot| snapshot.first_model_for(ModelCapability::Voice))
+                .map(ToString::to_string)
+                .unwrap_or_else(|| {
+                    if using_openrouter {
+                        DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
+                    } else {
+                        DEFAULT_OPENAI_CHAT_MODEL.to_string()
+                    }
+                })
+        });
         let vision_model = std::env::var("COSYWORLD_AI_VISION_MODEL")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_VISION_MODEL").ok())
@@ -161,21 +187,153 @@ impl AiConfig {
             .map(|effort| effort.trim().to_ascii_lowercase())
             .filter(|effort| !effort.is_empty())
             .or_else(|| reasoning_effort.clone());
+        let capability_models =
+            parse_capability_models(std::env::var(AI_CAPABILITY_MODELS_ENV).ok().as_deref())?;
+        let data_policy_mode = if std::env::var("COSYWORLD_DEPLOY_PROFILE")
+            .map(|profile| profile.eq_ignore_ascii_case("production"))
+            .unwrap_or(false)
+        {
+            DataPolicyMode::Production
+        } else {
+            DataPolicyMode::Development
+        };
 
-        Some(Self {
+        Ok(Some(Self {
             api_key,
             base_url,
             model,
             vision_model,
             reasoning_effort,
             vision_reasoning_effort,
-        })
+            registry,
+            capability_models,
+            data_policy_mode,
+        }))
     }
+
+    fn pin_model(
+        &self,
+        capability: ModelCapability,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let fallback_registry;
+        let registry = if let Some(registry) = self.registry.as_deref() {
+            registry
+        } else {
+            fallback_registry = CapabilityRegistrySnapshot::legacy(
+                "legacy-config-v1",
+                ai_provider_name(Some(self)),
+                &self.model,
+            )?;
+            &fallback_registry
+        };
+        let configured = if let Some(model) = self.capability_models.get(&capability) {
+            Some(model.as_str())
+        } else if self.registry.is_none()
+            || registry
+                .pin(capability, Some(self.model.as_str()), self.data_policy_mode)
+                .is_ok()
+        {
+            Some(self.model.as_str())
+        } else {
+            None
+        };
+        registry.pin(capability, configured, self.data_policy_mode)
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct GenerationProvenance {
+    pub(crate) source: String,
+    pub(crate) feature: String,
+    pub(crate) policy_mode: String,
+    pub(crate) prompt_version: String,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) model_attribution: Option<ModelAttribution>,
+    pub(crate) attempts: u8,
+}
+
+impl GenerationProvenance {
+    pub(crate) fn for_pathway(
+        mode: GenerationMode,
+        config: Option<&AiConfig>,
+        model_attribution: Option<&ModelAttribution>,
+        source: &str,
+        attempts: u8,
+    ) -> Self {
+        Self::for_feature(
+            PATHWAY_CONTENT_FEATURE,
+            PATHWAY_CONTENT_PROMPT_VERSION,
+            mode,
+            config,
+            model_attribution,
+            source,
+            attempts,
+        )
+    }
+
+    pub(crate) fn for_feature(
+        feature: &str,
+        prompt_version: &str,
+        mode: GenerationMode,
+        config: Option<&AiConfig>,
+        model_attribution: Option<&ModelAttribution>,
+        source: &str,
+        attempts: u8,
+    ) -> Self {
+        let provider = model_attribution
+            .map(|attribution| attribution.provider.clone())
+            .unwrap_or_else(|| ai_provider_name(config).to_string());
+        let model = model_attribution
+            .map(|attribution| attribution.resolved_model_id.clone())
+            .unwrap_or_else(|| ai_model_name(config));
+        Self {
+            source: source.to_string(),
+            feature: feature.to_string(),
+            policy_mode: mode.as_str().to_string(),
+            prompt_version: prompt_version.to_string(),
+            provider,
+            model,
+            model_attribution: model_attribution.cloned(),
+            attempts,
+        }
+    }
+}
+
+fn parse_capability_models(
+    value: Option<&str>,
+) -> Result<BTreeMap<ModelCapability, String>, String> {
+    let raw = match value.map(str::trim) {
+        None | Some("") => return Ok(BTreeMap::new()),
+        Some(value) => serde_json::from_str::<BTreeMap<ModelCapability, String>>(value)
+            .map_err(|error| {
+                format!(
+                    "{AI_CAPABILITY_MODELS_ENV} must map voice, intent_json, or world_content to model ids: {error}"
+                )
+            })?,
+    };
+    raw.into_iter()
+        .map(|(capability, model)| {
+            let model = model.trim().to_string();
+            if model.is_empty() {
+                Err(format!(
+                    "{AI_CAPABILITY_MODELS_ENV} contains an empty {capability} model"
+                ))
+            } else {
+                Ok((capability, model))
+            }
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AiFailureKind {
     Unconfigured,
+    Registry,
+    Capability,
+    Privacy,
+    Alias,
     Client,
     Timeout,
     Transport,
@@ -187,6 +345,10 @@ impl AiFailureKind {
     pub(crate) fn code(self) -> &'static str {
         match self {
             Self::Unconfigured => "inference_unconfigured",
+            Self::Registry => "inference_registry_error",
+            Self::Capability => "inference_capability_mismatch",
+            Self::Privacy => "inference_privacy_rejected",
+            Self::Alias => "inference_alias_unresolved",
             Self::Client => "inference_client_error",
             Self::Timeout => "inference_timeout",
             Self::Transport => "inference_transport_error",
@@ -223,6 +385,21 @@ impl AiGatewayError {
         }
     }
 
+    fn registry(feature: &str, error: RegistryError) -> Self {
+        let kind = match error.code() {
+            "inference_capability_mismatch" => AiFailureKind::Capability,
+            "inference_privacy_rejected" => AiFailureKind::Privacy,
+            "inference_alias_unresolved" => AiFailureKind::Alias,
+            _ => AiFailureKind::Registry,
+        };
+        Self {
+            kind,
+            message: format!("AI {feature} registry rejected the request: {error}"),
+            attempts: 0,
+            latency: Duration::ZERO,
+        }
+    }
+
     pub(crate) fn code(&self) -> &'static str {
         self.kind.code()
     }
@@ -244,6 +421,7 @@ impl fmt::Display for AiGatewayError {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ChatCompletionRequest<'a> {
     pub(crate) feature: &'static str,
+    pub(crate) capability: ModelCapability,
     pub(crate) system: &'a str,
     pub(crate) user: &'a str,
     pub(crate) temperature: f64,
@@ -259,6 +437,7 @@ pub(crate) struct AiCompletion {
     pub(crate) text: String,
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
+    pub(crate) model_attribution: Option<ModelAttribution>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -290,6 +469,9 @@ pub(crate) async fn request_chat_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
+    let selection = config
+        .pin_model(request.capability)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
     request_completion(
         config,
         request.feature,
@@ -301,8 +483,9 @@ pub(crate) async fn request_chat_completion(
         request.max_attempts,
         request.referer,
         request.response_format,
-        &config.model,
+        selection.requested_model_id(),
         config.reasoning_effort.as_deref(),
+        Some(&selection),
     )
     .await
 }
@@ -367,6 +550,7 @@ pub(crate) async fn request_image_policy_decision(
         Some(&response_format),
         &config.vision_model,
         config.vision_reasoning_effort.as_deref(),
+        None,
     )
     .await?;
     parse_image_policy_decision(&completion.text).map_err(|message| AiGatewayError {
@@ -428,8 +612,35 @@ async fn request_completion(
     response_format: Option<&Value>,
     model: &str,
     reasoning_effort: Option<&str>,
+    selection: Option<&PinnedModelSelection>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
+    if let Some(selection) = selection {
+        let parameters = selection.candidate().supported_parameters();
+        let structured_type = response_format
+            .and_then(|format| format.get("type"))
+            .and_then(Value::as_str);
+        if structured_type == Some("json_schema") && !parameters.structured_output {
+            return Err(AiGatewayError::registry(
+                feature,
+                RegistryError::CapabilityMismatch {
+                    model: model.to_string(),
+                    capability: ModelCapability::WorldContent,
+                },
+            ));
+        }
+        if structured_type == Some("json_object")
+            && !(parameters.json_mode || parameters.structured_output)
+        {
+            return Err(AiGatewayError::registry(
+                feature,
+                RegistryError::CapabilityMismatch {
+                    model: model.to_string(),
+                    capability: ModelCapability::IntentJson,
+                },
+            ));
+        }
+    }
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -443,6 +654,16 @@ async fn request_completion(
     let max_attempts = max_attempts.max(1);
 
     for attempt in 1..=max_attempts {
+        let candidate_output_cap = selection
+            .map(|selection| {
+                let candidate = selection.candidate();
+                candidate
+                    .output_limit()
+                    .unwrap_or(u32::MAX)
+                    .min(candidate.sampling().hard_output_cap)
+            })
+            .unwrap_or(u32::MAX);
+        let max_tokens = max_tokens.min(candidate_output_cap);
         let mut payload = json!({
             "model": model,
             "messages": [
@@ -451,6 +672,9 @@ async fn request_completion(
             ],
             "max_tokens": max_tokens
         });
+        let temperature = selection
+            .and_then(|selection| selection.candidate().sampling().temperature)
+            .or(temperature);
         if let Some(temperature) = temperature {
             payload["temperature"] = json!(temperature);
         }
@@ -464,6 +688,21 @@ async fn request_completion(
         }
         if let Some(reasoning_effort) = reasoning_effort {
             payload["reasoning"] = json!({ "effort": reasoning_effort });
+        }
+        if let Some(selection) = selection {
+            let candidate = selection.candidate();
+            let defaults = candidate.sampling();
+            if let Some(top_p) = defaults.top_p {
+                payload["top_p"] = json!(top_p);
+            }
+            if candidate.supported_parameters().seed {
+                if let Some(seed) = defaults.seed {
+                    payload["seed"] = json!(seed);
+                }
+            }
+            if candidate.supported_parameters().stop && !defaults.stop.is_empty() {
+                payload["stop"] = json!(defaults.stop);
+            }
         }
         let response = client
             .post(&url)
@@ -540,11 +779,31 @@ async fn request_completion(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
+        let model_attribution = selection
+            .map(|selection| {
+                let provider_model = body.get("model").and_then(Value::as_str);
+                selection.attribute_response(provider_model)
+            })
+            .transpose()
+            .map_err(|error| {
+                let mut gateway_error = AiGatewayError::registry(feature, error);
+                gateway_error.attempts = attempt;
+                gateway_error.latency = started_at.elapsed();
+                gateway_error
+            })?;
 
         tracing::info!(
             feature,
             provider = ai_provider_name(Some(config)),
-            model,
+            requested_model = model,
+            resolved_model = model_attribution
+                .as_ref()
+                .map(|attribution| attribution.resolved_model_id.as_str())
+                .unwrap_or(model),
+            registry_snapshot = model_attribution
+                .as_ref()
+                .map(|attribution| attribution.catalog_snapshot_version.as_str())
+                .unwrap_or("vision-config"),
             attempts = attempt,
             latency_ms = started_at.elapsed().as_millis() as u64,
             "CosyWorld AI inference completed"
@@ -553,6 +812,7 @@ async fn request_completion(
             text,
             attempts: attempt,
             latency: started_at.elapsed(),
+            model_attribution,
         });
     }
 
@@ -639,6 +899,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
             vision_reasoning_effort: None,
+            ..AiConfig::default()
         };
         assert_eq!(
             ai_provider_name(Some(&config("https://openrouter.ai/api/v1"))),
@@ -750,6 +1011,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: Some("none".to_string()),
             vision_reasoning_effort: Some("low".to_string()),
+            ..AiConfig::default()
         };
         let response_format = json!({
             "type": "json_schema",
@@ -764,6 +1026,7 @@ mod tests {
             &config,
             ChatCompletionRequest {
                 feature: "retry_test",
+                capability: ModelCapability::WorldContent,
                 system: "system",
                 user: "user",
                 temperature: 0.0,
@@ -782,6 +1045,176 @@ mod tests {
         assert_eq!(attempts.load(Ordering::SeqCst), 2);
         assert!(structured_format_seen.load(Ordering::SeqCst));
         assert!(reasoning_none_seen.load(Ordering::SeqCst));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn gateway_sends_one_pinned_alias_and_attributes_the_concrete_model() {
+        let request_seen = Arc::new(AtomicBool::new(false));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_seen = request_seen.clone();
+                move |Json(body): Json<Value>| {
+                    let request_seen = request_seen.clone();
+                    async move {
+                        request_seen.store(
+                            body.get("model").and_then(Value::as_str) == Some("provider/auto")
+                                && body.get("max_tokens").and_then(Value::as_u64) == Some(33)
+                                && body.pointer("/stop/0").and_then(Value::as_str) == Some("<END>"),
+                            Ordering::SeqCst,
+                        );
+                        Json(json!({
+                            "model": "provider/concrete-2026-07-26",
+                            "choices": [{ "message": { "content": "A small hello." } }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind pinned alias gateway test server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "gateway-alias-1",
+              "declared": [{
+                "requested_model_id": "provider/auto",
+                "provider": "test-provider",
+                "mutable_alias": true,
+                "input_modalities": ["text"],
+                "output_modalities": ["text"],
+                "supported_parameters": {"stop": true},
+                "data_policy": {"retention": "none", "training": "prohibited"},
+                "prompt_adapter": {"id": "cosy-chat", "version": "3"},
+                "sampling": {"stop": ["<END>"], "hard_output_cap": 33},
+                "capabilities": ["voice"]
+              }]
+            }"#,
+        )
+        .expect("valid alias registry");
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "provider/auto".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            registry: Some(Arc::new(registry)),
+            capability_models: BTreeMap::from([(
+                ModelCapability::Voice,
+                "provider/auto".to_string(),
+            )]),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+
+        let completion = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "alias_test",
+                capability: ModelCapability::Voice,
+                system: "system",
+                user: "user",
+                temperature: 0.6,
+                max_tokens: 200,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+            },
+        )
+        .await
+        .expect("alias request");
+        let attribution = completion
+            .model_attribution
+            .expect("resolved model attribution");
+
+        assert!(request_seen.load(Ordering::SeqCst));
+        assert_eq!(attribution.requested_model_id, "provider/auto");
+        assert_eq!(
+            attribution.resolved_model_id,
+            "provider/concrete-2026-07-26"
+        );
+        assert_eq!(attribution.catalog_snapshot_version, "gateway-alias-1");
+        assert_eq!(attribution.prompt_adapter_version, "3");
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn production_privacy_rejection_happens_before_network_io() {
+        let request_seen = Arc::new(AtomicBool::new(false));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_seen = request_seen.clone();
+                move || {
+                    let request_seen = request_seen.clone();
+                    async move {
+                        request_seen.store(true, Ordering::SeqCst);
+                        Json(json!({
+                            "choices": [{ "message": { "content": "must not run" } }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind privacy gateway test server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "privacy-unknown-1",
+              "declared": [{
+                "requested_model_id": "provider/unknown-policy",
+                "provider": "test-provider",
+                "concrete_model": {"model_id": "provider/unknown-policy"},
+                "input_modalities": ["text"],
+                "output_modalities": ["text"],
+                "capabilities": ["voice"]
+              }]
+            }"#,
+        )
+        .expect("valid unknown-policy registry");
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "provider/unknown-policy".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            registry: Some(Arc::new(registry)),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+
+        let error = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "privacy_test",
+                capability: ModelCapability::Voice,
+                system: "private system",
+                user: "private prompt",
+                temperature: 0.0,
+                max_tokens: 20,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+            },
+        )
+        .await
+        .expect_err("unknown production policy must fail closed");
+
+        assert_eq!(error.code(), "inference_privacy_rejected");
+        assert_eq!(error.attempts, 0);
+        assert!(!request_seen.load(Ordering::SeqCst));
         server.abort();
     }
 
@@ -842,6 +1275,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
             vision_reasoning_effort: Some("low".to_string()),
+            ..AiConfig::default()
         };
 
         let decision = request_image_policy_decision(
@@ -894,6 +1328,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
             vision_reasoning_effort: None,
+            ..AiConfig::default()
         };
 
         let error = request_image_policy_decision(
