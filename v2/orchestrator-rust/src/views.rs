@@ -641,6 +641,8 @@ pub(super) struct FrontView {
     pub(super) premise: String,
     pub(super) zone: String,
     pub(super) status: String,
+    pub(super) presentation_state: String,
+    pub(super) outcome_statement: String,
     pub(super) location_ids: Vec<u64>,
     pub(super) participant_ids: Vec<u64>,
     pub(super) participant_names: Vec<String>,
@@ -648,6 +650,31 @@ pub(super) struct FrontView {
     pub(super) portent_clock_id: String,
     pub(super) job_ids: Vec<String>,
     pub(super) impending_outcome: String,
+}
+
+fn front_presentation(
+    authored_status: &str,
+    has_completed_job: bool,
+    has_failed_job: bool,
+    impending_outcome: &str,
+) -> (&'static str, String) {
+    let presentation_state = match authored_status {
+        "completed" => "resolved",
+        "failed" => "escalated",
+        "dormant" => "dormant",
+        _ if has_failed_job => "escalated",
+        _ if has_completed_job => "persisted",
+        _ => "active",
+    };
+    let outcome_statement = match presentation_state {
+        "resolved" => "The larger trouble is resolved.".to_string(),
+        "persisted" => {
+            "The immediate work is done, but the larger trouble remains unresolved.".to_string()
+        }
+        "escalated" => format!("The larger trouble has escalated. {impending_outcome}"),
+        _ => String::new(),
+    };
+    (presentation_state, outcome_statement)
 }
 
 #[derive(Debug, Serialize)]
@@ -2623,25 +2650,41 @@ impl RuntimeWorld {
             .fronts
             .iter()
             .filter(|front| front.location_ids.contains(&location_id))
-            .map(|front| FrontView {
-                id: front.id.clone(),
-                premise: front.premise.clone(),
-                zone: front.zone.clone(),
-                status: front.status.clone(),
-                location_ids: front.location_ids.clone(),
-                participant_ids: front.participant_ids.clone(),
-                participant_names: front
-                    .participant_ids
+            .map(|front| {
+                let job_statuses = front
+                    .job_ids
                     .iter()
-                    .map(|actor_id| {
-                        self.actor_name(*actor_id)
-                            .unwrap_or_else(|| format!("Actor {actor_id}"))
-                    })
-                    .collect(),
-                stakes_questions: front.stakes_questions.clone(),
-                portent_clock_id: front.portent_clock_id.clone(),
-                job_ids: front.job_ids.clone(),
-                impending_outcome: front.impending_outcome.clone(),
+                    .filter_map(|job_id| self.jobs.get(job_id))
+                    .map(|job| self.job_status(job))
+                    .collect::<Vec<_>>();
+                let (presentation_state, outcome_statement) = front_presentation(
+                    &front.status,
+                    job_statuses.iter().any(|status| status == "completed"),
+                    job_statuses.iter().any(|status| status == "failed"),
+                    &front.impending_outcome,
+                );
+                FrontView {
+                    id: front.id.clone(),
+                    premise: front.premise.clone(),
+                    zone: front.zone.clone(),
+                    status: front.status.clone(),
+                    presentation_state: presentation_state.to_string(),
+                    outcome_statement,
+                    location_ids: front.location_ids.clone(),
+                    participant_ids: front.participant_ids.clone(),
+                    participant_names: front
+                        .participant_ids
+                        .iter()
+                        .map(|actor_id| {
+                            self.actor_name(*actor_id)
+                                .unwrap_or_else(|| format!("Actor {actor_id}"))
+                        })
+                        .collect(),
+                    stakes_questions: front.stakes_questions.clone(),
+                    portent_clock_id: front.portent_clock_id.clone(),
+                    job_ids: front.job_ids.clone(),
+                    impending_outcome: front.impending_outcome.clone(),
+                }
             })
             .collect()
     }
@@ -3372,5 +3415,38 @@ impl RuntimeWorld {
             simulation: self.world_simulation_view(),
             locations,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::front_presentation;
+
+    #[test]
+    fn front_presentation_names_active_persisted_resolved_and_escalated_truths() {
+        let impending = "Every road lamp accepts the shadow as keeper.";
+        assert_eq!(
+            front_presentation("active", false, false, impending),
+            ("active", String::new())
+        );
+        assert_eq!(
+            front_presentation("active", true, false, impending),
+            (
+                "persisted",
+                "The immediate work is done, but the larger trouble remains unresolved."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            front_presentation("completed", false, false, impending),
+            ("resolved", "The larger trouble is resolved.".to_string())
+        );
+        assert_eq!(
+            front_presentation("active", false, true, impending),
+            (
+                "escalated",
+                format!("The larger trouble has escalated. {impending}")
+            )
+        );
     }
 }

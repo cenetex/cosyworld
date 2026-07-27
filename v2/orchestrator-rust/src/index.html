@@ -324,6 +324,43 @@
       border-color: rgba(226, 187, 121, 0.28);
       background: rgba(24, 19, 10, 0.66);
     }
+    .story-front {
+      border-color: rgba(226, 187, 121, 0.34);
+      background:
+        linear-gradient(110deg, rgba(45, 31, 13, 0.45), rgba(8, 19, 12, 0.76));
+    }
+    .story-front.persisted,
+    .story-front.escalated {
+      border-color: rgba(226, 187, 121, 0.5);
+    }
+    .story-front-stakes {
+      margin-top: 8px;
+      display: grid;
+      gap: 5px;
+    }
+    .story-front-question,
+    .story-front-reference,
+    .story-front-outcome {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .story-front-question {
+      color: var(--text);
+      font-weight: 700;
+    }
+    .story-front-reference {
+      margin-top: 8px;
+      color: var(--dim);
+    }
+    .story-front-outcome {
+      margin-top: 8px;
+      border-top: 1px solid rgba(226, 187, 121, 0.2);
+      padding-top: 7px;
+      color: var(--amber);
+      font-weight: 700;
+    }
     .shared-question-heading {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -3753,7 +3790,7 @@
         </div>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
-        <section class="shared-questions" id="promoted-question" aria-live="polite" aria-label="Current shared question" hidden></section>
+        <section class="shared-questions" id="promoted-question" aria-live="polite" aria-label="Current story and shared question" hidden></section>
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
         <header class="journal-heading">
@@ -8166,6 +8203,46 @@
         .slice(0, 1);
     }
 
+    function frontsForPresentation(view = state) {
+      const fronts = Array.isArray(view?.fronts) ? view.fronts : [];
+      return fronts.filter((front) => front.presentation_state !== "dormant");
+    }
+
+    function narrativeNames(names) {
+      const values = (names || []).map((name) => String(name || "").trim()).filter(Boolean);
+      if (values.length < 2) return values[0] || "";
+      if (values.length === 2) return `${values[0]} and ${values[1]}`;
+      return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+    }
+
+    function promotedFrontHtml(front, index = 0) {
+      const stateName = String(front.presentation_state || "active");
+      const idBase = `story-front-${String(front.id || index).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+      const titleId = `${idBase}-title`;
+      const stakes = (front.stakes_questions || []).filter(Boolean);
+      const stakeIds = stakes.map((_, stakeIndex) => `${idBase}-stake-${stakeIndex + 1}`);
+      const names = narrativeNames(front.participant_names);
+      const referenceId = names ? `${idBase}-reference` : "";
+      const outcome = String(front.outcome_statement || "").trim();
+      const outcomeId = outcome ? `${idBase}-outcome` : "";
+      const describedBy = [...stakeIds, referenceId, outcomeId].filter(Boolean).join(" ");
+      const kicker = {
+        persisted: "the larger trouble persists",
+        resolved: "the larger trouble is resolved",
+        escalated: "the larger trouble has escalated",
+      }[stateName] || "larger trouble";
+      const stakeHtml = stakes.length
+        ? `<div class="story-front-stakes">${stakes.map((stake, stakeIndex) => `<p class="story-front-question" id="${stakeIds[stakeIndex]}">${escapeHtml(stake)}</p>`).join("")}</div>`
+        : "";
+      const referenceHtml = names
+        ? `<p class="story-front-reference" id="${referenceId}">${escapeHtml(`The answer still matters to ${names}.`)}</p>`
+        : "";
+      const outcomeHtml = outcome
+        ? `<p class="story-front-outcome" id="${outcomeId}">${escapeHtml(outcome)}</p>`
+        : "";
+      return `<article class="shared-question story-front ${escapeAttr(stateName)}" role="region" aria-labelledby="${titleId}"${describedBy ? ` aria-describedby="${describedBy}"` : ""}><span class="shared-question-kicker">${escapeHtml(kicker)}</span><h2 id="${titleId}">${escapeHtml(front.premise)}</h2>${stakeHtml}${referenceHtml}${outcomeHtml}</article>`;
+    }
+
     function sharedQuestionHtml(question) {
       const completed = question.presentation_state === "completed_memory";
       const rhythm = String(question.rhythm || "shared").replaceAll("_", " ");
@@ -8261,9 +8338,13 @@
 
     function renderPromotedQuestion() {
       const panel = $("promoted-question");
+      const fronts = frontsForPresentation();
       const questions = sharedQuestionsForPresentation();
-      panel.hidden = questions.length === 0;
-      panel.innerHTML = questions.slice(0, 1).map(promotedQuestionHtml).join("");
+      panel.hidden = fronts.length === 0 && questions.length === 0;
+      panel.innerHTML = [
+        ...fronts.slice(0, 1).map(promotedFrontHtml),
+        ...questions.slice(0, 1).map(promotedQuestionHtml),
+      ].join("");
       if (questions.length) scheduleVisibleClockPresentationReceipts();
     }
 
