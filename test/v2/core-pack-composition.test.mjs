@@ -116,7 +116,22 @@ describe("independently mountable CosyWorld Core", () => {
         },
       },
       resident_continuities: { 1001: { resident_id: 1001 } },
-      resident_memories: { memory: { carrier_actor_id: 1001, kind: "item", subject_id: 2001, location_id: 3 } },
+      beliefs: {
+        memory: {
+          holder_actor_id: 1001,
+          kind: "item_location",
+          subject_id: 2001,
+          location_id: 3,
+        },
+      },
+      resident_memories: {
+        legacy: {
+          carrier_actor_id: 1001,
+          kind: "item_location",
+          subject_id: 2001,
+          location_id: 3,
+        },
+      },
       search_memories: { search: { actor_id: 5000, kind: "location", subject_id: 3, location_id: 3 } },
       tags: { tag: { scope_id: 3 } },
       world_simulation: { locations: { 3: {} }, factions: { hearthbound: {} } },
@@ -135,7 +150,7 @@ describe("independently mountable CosyWorld Core", () => {
     for (const field of ["world_evolution_tracks", "world_combat_encounters"]) {
       expect(result.snapshot[field]).toEqual([]);
     }
-    for (const field of ["actor_meta", "natural_affordances", "clocks", "jobs", "branches", "bonds", "resident_continuities", "resident_memories", "search_memories", "tags"]) {
+    for (const field of ["actor_meta", "natural_affordances", "clocks", "jobs", "branches", "bonds", "resident_continuities", "beliefs", "resident_memories", "search_memories", "tags"]) {
       expect(result.snapshot[field]).toEqual({});
     }
     expect(result.snapshot.world_simulation).toEqual({ locations: {}, factions: {} });
@@ -204,6 +219,7 @@ describe("independently mountable CosyWorld Core", () => {
       "branches",
       "bonds",
       "resident_continuities",
+      "beliefs",
       "resident_memories",
       "search_memories",
       "tags",

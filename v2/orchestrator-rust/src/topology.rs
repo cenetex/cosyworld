@@ -1335,26 +1335,27 @@ mod tests {
     #[test]
     fn memory_decay_never_changes_shared_topology() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.search_memories.insert(
-            "route-memory".to_string(),
-            SearchMemoryState {
-                id: "route-memory".to_string(),
-                actor_id: RATI_ACTOR_ID,
-                kind: "exit".to_string(),
+        merge_belief(
+            &mut runtime.beliefs,
+            BeliefState {
+                id: String::new(),
+                holder_actor_id: RATI_ACTOR_ID,
+                kind: BELIEF_KIND_SEED_EXIT.to_string(),
                 location_id: COSY_COTTAGE_LOCATION_ID,
                 subject_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-                subject_key: "exit:1:2".to_string(),
                 confidence: 1,
                 salience: 1,
-                found_tick: 0,
-                last_used_tick: 0,
-                use_count: 0,
+                observed_tick: 1,
+                source_actor_id: Some(RATI_ACTOR_ID),
+                related_actor_id: None,
+                learned_tick: 1,
+                hops: 0,
             },
         );
         let routes = runtime.routes.clone();
         let exits = runtime.world.exits[..runtime.world.exit_count].to_vec();
-        runtime.world.tick = SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64;
-        runtime.decay_search_memories();
+        runtime.world.tick = BELIEF_TUNING.decay_interval_ticks * 64;
+        runtime.decay_beliefs();
         assert_eq!(runtime.routes, routes);
         assert_eq!(&runtime.world.exits[..runtime.world.exit_count], exits);
     }
@@ -1405,8 +1406,8 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
+        runtime.decay_beliefs();
 
         assert!(
             runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
@@ -1875,7 +1876,7 @@ mod tests {
             &serde_json::to_vec(&snapshot).expect("serialize downgraded fixture"),
         )
         .expect("clone downgraded fixture");
-        forged_current_snapshot.version = 13;
+        forged_current_snapshot.version = 14;
         assert!(forged_current_snapshot.into_runtime().is_err());
 
         let restored = snapshot

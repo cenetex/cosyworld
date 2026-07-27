@@ -735,6 +735,22 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     migrated.resident_continuities,
     (continuity) => hasId(actorIds, continuity.resident_id),
   );
+  maps.beliefs = takeMapValues(
+    migrated.beliefs,
+    (belief) =>
+      hasId(actorIds, belief.holder_actor_id)
+        || hasId(actorIds, belief.source_actor_id)
+        || hasId(actorIds, belief.related_actor_id)
+        || hasId(locationIds, belief.location_id)
+        || (belief.kind === "actor_location" && hasId(actorIds, belief.subject_id))
+        || (belief.kind === "item_location" && hasId(itemIds, belief.subject_id))
+        || (
+          ["seed_exit", "hidden_exit"].includes(belief.kind)
+          && hasId(locationIds, belief.subject_id)
+        ),
+  );
+  // Pre-v14 snapshots can still reach the pack migration tool before the
+  // orchestrator folds their two legacy maps into `beliefs`.
   maps.resident_memories = takeMapValues(
     migrated.resident_memories,
     (memory) =>
@@ -742,8 +758,8 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
         || hasId(actorIds, memory.source_actor_id)
         || hasId(actorIds, memory.holder_actor_id)
         || hasId(locationIds, memory.location_id)
-        || (memory.kind === "actor" && hasId(actorIds, memory.subject_id))
-        || (memory.kind === "item" && hasId(itemIds, memory.subject_id)),
+        || (memory.kind === "actor_location" && hasId(actorIds, memory.subject_id))
+        || (memory.kind === "item_location" && hasId(itemIds, memory.subject_id)),
   );
   maps.search_memories = takeMapValues(
     migrated.search_memories,
