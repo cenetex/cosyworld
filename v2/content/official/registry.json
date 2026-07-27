@@ -656,7 +656,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:3e6c6a329d1b0ffd28cbc1fe138edd5825185fe0c29ad20af9b9d14c552e11d9",
+    "bundle_hash": "sha256:9f4bc2379362ce4f94014517b9d518762cb67a6eb079f9a24c8b32b56e0201d2",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -876,16 +876,16 @@
           "access_gates": 0,
           "factions": 11,
           "items": 13,
-          "locations": 22,
-          "exits": 46,
+          "locations": 23,
+          "exits": 48,
           "hidden_exits": 1,
-          "room_features": 16,
-          "room_sheets": 22,
+          "room_features": 17,
+          "room_sheets": 23,
           "clocks": 12,
           "jobs": 6,
           "action_vocabulary": 1,
           "fronts": 5,
-          "cards": 68,
+          "cards": 69,
           "card_bindings": 0,
           "lifecycle_hooks": 19,
           "evolution_tracks": 3,
@@ -1726,7 +1726,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f"
+        "integrity": "sha256:ab98c27801b06dd2babc6a928cb6032f3d18e22bfa6d88aa0173aa0107750dd5"
       },
       {
         "id": "cosyworld.rules-srd-5.1",
@@ -1879,7 +1879,7 @@
           "locations": 5,
           "exits": 8,
           "hidden_exits": 0,
-          "room_features": 5,
+          "room_features": 6,
           "room_sheets": 5,
           "clocks": 2,
           "jobs": 1,
@@ -1905,7 +1905,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:01e84ccbcf5c952fad0d852d7fc1c5f15ead1a1060fd5e09a6805e3876345d2d"
+        "integrity": "sha256:4e8491fbc5a0d102c55aa60eb8bafeae963e3ab7e0f5f11d77cffc9171af83c5"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -4353,7 +4353,10 @@
         "kind": "potion",
         "charges": 1,
         "location_id": 1,
-        "role": "consumable",
+        "role": "tool",
+        "capabilities": [
+          "camp_shelter"
+        ],
         "weight_tenths": 5,
         "size": "small",
         "mechanics": {
@@ -4804,6 +4807,25 @@
           "The Wolfprint Charm and the Watch Bell have both passed this way."
         ],
         "allow_combat": true,
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "id": 4,
+        "name": "Mossbell Inn",
+        "title": "Beds Beside the Rain",
+        "description": "A slate-roofed inn stands beside the west road. Four guest-room windows glow above a boot rack.",
+        "persona": "Mossbell Inn keeps practical comforts ready and treats a dry pair of socks as serious hospitality.",
+        "biome": "rainy roadside",
+        "terrain": [
+          "gravel yard",
+          "covered porch",
+          "warm common room"
+        ],
+        "memory": [
+          "The Cosy Cottage is one short walk east.",
+          "Four upstairs rooms stay ready for wet travelers."
+        ],
+        "allow_combat": false,
         "pack_id": "cosyworld.core"
       },
       {
@@ -5541,6 +5563,20 @@
         "to_location_id": 1,
         "flags": 0,
         "direction": "west",
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "from_location_id": 1,
+        "to_location_id": 4,
+        "flags": 0,
+        "direction": "west",
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "from_location_id": 4,
+        "to_location_id": 1,
+        "flags": 0,
+        "direction": "east",
         "pack_id": "cosyworld.core"
       },
       {
@@ -6423,6 +6459,25 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "location_id": 4,
+        "key": "lodging",
+        "name": "Guest Rooms",
+        "aliases": [
+          "bed",
+          "beds",
+          "rooms",
+          "upstairs"
+        ],
+        "look": "Four small rooms open from the upstairs landing. Each has a narrow bed and a folded wool blanket.",
+        "search": "Each washstand holds a filled basin. The clean towels are stacked by room number.",
+        "lodging": {
+          "gate": {
+            "kind": "open"
+          }
+        },
+        "pack_id": "cosyworld.core"
+      },
+      {
         "location_id": 2,
         "key": "broad_leaves",
         "name": "Broad Leaves",
@@ -6611,6 +6666,25 @@
         ],
         "look": "The inn's road lantern gutters blue whenever the north door opens.",
         "search": "Rowan's keeper badge hangs inside the cage beside a soot-written note: gone north; bring lens, key, and oil.",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper"
+      },
+      {
+        "location_id": 800,
+        "key": "lodging",
+        "name": "Guest Rooms",
+        "aliases": [
+          "bed",
+          "beds",
+          "rooms",
+          "upstairs"
+        ],
+        "look": "Six narrow doors face the upstairs landing. Dry blankets sit folded at the foot of each bed.",
+        "search": "Five washbasins are empty. The sixth holds a brass lamp-wick and a clean towel.",
+        "lodging": {
+          "gate": {
+            "kind": "open"
+          }
+        },
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
       },
       {
@@ -6968,6 +7042,29 @@
         "projects": [
           "moonlit-trail:quiet-the-echo"
         ],
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "id": "room:4",
+        "location_id": 4,
+        "name": "Mossbell Inn",
+        "safety": "safe",
+        "zone": "frontier",
+        "aspects": [
+          "drying boots",
+          "four small guest rooms"
+        ],
+        "boons": [
+          "travelers can sleep without returning to the Cottage"
+        ],
+        "hooks": [
+          "a sealed note lies beneath cup seven"
+        ],
+        "resources": {
+          "beds": 4,
+          "broth": 2
+        },
+        "projects": [],
         "pack_id": "cosyworld.core"
       },
       {
@@ -10379,6 +10476,30 @@
       },
       {
         "subject_kind": "location",
+        "subject_id": 4,
+        "card_id": "location-mossbell-inn",
+        "display_name": "Mossbell Inn",
+        "role": "location",
+        "rarity": "free",
+        "title": "Beds Beside the Rain",
+        "blurb": "A slate-roofed inn stands beside the west road. Four guest-room windows glow above a boot rack.",
+        "aspect": "wide",
+        "source": "cosyworld_seed",
+        "asset_status": "pending_art",
+        "subject": "Beds Beside the Rain",
+        "art": {
+          "label": "Mossbell Inn",
+          "role": "location",
+          "aspect": "wide",
+          "bg": "#283026",
+          "ink": "#f5e6b8",
+          "accent": "#efc96b",
+          "glyph": "MI"
+        },
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "subject_kind": "location",
         "subject_id": 30,
         "card_id": "location-the-heavens",
         "display_name": "The Heavens",
@@ -13051,7 +13172,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
-      "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "pack_integrity": "sha256:ab98c27801b06dd2babc6a928cb6032f3d18e22bfa6d88aa0173aa0107750dd5",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -13064,7 +13185,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
-      "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "pack_integrity": "sha256:ab98c27801b06dd2babc6a928cb6032f3d18e22bfa6d88aa0173aa0107750dd5",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",
@@ -16924,6 +17045,14 @@
         "runtime_handle": 6580883718503069
       },
       {
+        "canonical_ref": "pack://cosyworld.core/card/location-mossbell-inn",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.10",
+        "kind": "card",
+        "local_id": "location-mossbell-inn",
+        "runtime_handle": 1828177118382624
+      },
+      {
         "canonical_ref": "pack://cosyworld.core/card/location-old-oak-tree",
         "pack_id": "cosyworld.core",
         "pack_version": "1.3.10",
@@ -17475,6 +17604,15 @@
         "runtime_handle": 36
       },
       {
+        "canonical_ref": "pack://cosyworld.core/location/4",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.10",
+        "kind": "location",
+        "local_id": "4",
+        "legacy_runtime_id": 4,
+        "runtime_handle": 4
+      },
+      {
         "canonical_ref": "pack://cosyworld.core/location/40",
         "pack_id": "cosyworld.core",
         "pack_version": "1.3.10",
@@ -17725,6 +17863,14 @@
         "kind": "room-sheet",
         "local_id": "room:36",
         "runtime_handle": 1278082739662403
+      },
+      {
+        "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A4",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.10",
+        "kind": "room-sheet",
+        "local_id": "room:4",
+        "runtime_handle": 7088628016282642
       },
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A40",

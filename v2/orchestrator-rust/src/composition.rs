@@ -333,6 +333,8 @@ impl RuntimeWorld {
                         contextual_offers: contextual_offers.clone(),
                     },
                 );
+                let ranked_hand_eligible =
+                    option.kind != "rest" || self.rest_has_recovery_target(actor_id);
 
                 RankedActionOffer {
                     id: legacy_id,
@@ -371,6 +373,7 @@ impl RuntimeWorld {
                     progress,
                     claim_key,
                     reason: "ranked from current room affordances and RPG projection".to_string(),
+                    ranked_hand_eligible,
                 }
             })
             .collect();
@@ -379,6 +382,26 @@ impl RuntimeWorld {
         offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
+        if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
+            let mut unavailable = self.ranked_offer_from_parts(
+                "rest",
+                "Rest",
+                "rest",
+                action_offer_rank("rest"),
+                true,
+                Some(reason.clone()),
+                None,
+                None,
+                None,
+                Some("requires equipped shelter in the frontier".to_string()),
+                None,
+                &reason,
+            );
+            unavailable.zone = zone.clone();
+            unavailable.source = "place+equipped_item_capability".to_string();
+            unavailable.provider = self.action_offer_provider("rest", actor_id, None, None);
+            offers.push(unavailable);
+        }
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
             let kind = "explore_path";
             let binding = resolved_action_binding(kind)
@@ -456,6 +479,7 @@ impl RuntimeWorld {
                 progress: None,
                 claim_key: None,
                 reason: "ranked from an unrevealed journey edge or long route".to_string(),
+                ranked_hand_eligible: true,
             });
         }
         for offer in &mut offers {
@@ -499,9 +523,10 @@ impl RuntimeWorld {
             return 83;
         }
         if kind == "rest"
-            && self
-                .actor_by_id(actor_id)
-                .is_some_and(|actor| !self.location_is_frontier(actor.location_id))
+            && (!self.rest_has_recovery_target(actor_id)
+                || self
+                    .actor_by_id(actor_id)
+                    .is_some_and(|actor| !self.location_is_frontier(actor.location_id)))
         {
             return 84;
         }
@@ -589,6 +614,7 @@ impl RuntimeWorld {
             progress: None,
             claim_key,
             reason: reason.to_string(),
+            ranked_hand_eligible: true,
         }
     }
 
@@ -610,7 +636,7 @@ impl RuntimeWorld {
                 0,
             );
         }
-        if kind == "rest" && actor.is_some_and(|_| self.tired_tag_active(actor_id)) {
+        if kind == "rest" && self.rest_has_recovery_target(actor_id) {
             return action_provider(
                 "rules",
                 "rules:recovery",
@@ -1371,7 +1397,7 @@ impl RuntimeWorld {
             "rest" => self
                 .active_danger_clock_id_for_location(actor.location_id)
                 .filter(|clock_id| self.clock_is_frontier(clock_id))
-                .filter(|_| !self.hearth_tonic_warmth_guards_rest(actor.location_id))
+                .filter(|_| self.rest_entitlement(actor_id).grade == CW_REST_GRADE_CAMP)
                 .map(|_| "trouble may draw nearer while you rest".to_string()),
             _ => None,
         }
@@ -1523,24 +1549,20 @@ impl RuntimeWorld {
                         format!("helps a resident and {progress_effect}")
                     }
                 }),
-            "rest"
-                if self
-                    .active_danger_clock_id_for_location(actor.location_id)
-                    .is_some_and(|clock_id| self.clock_is_frontier(&clock_id))
-                    && self.hearth_tonic_warmth_guards_rest(actor.location_id) =>
-            {
-                Some(
-                    "helps you feel fresh and uses the tonic's warmth; trouble stays back"
-                        .to_string(),
-                )
+            "rest" if !self.rest_has_recovery_target(actor_id) => {
+                Some("takes time; nothing currently needs recovery".to_string())
             }
-            "rest" if self.trained_since_rest_tag_active(actor_id) => {
+            "rest"
+                if self.rest_entitlement(actor_id).grade >= CW_REST_GRADE_LODGED
+                    && self.trained_since_rest_tag_active(actor_id) =>
+            {
                 Some("helps you feel fresh; practice settles into something lasting".to_string())
             }
             "rest"
-                if self
-                    .active_danger_clock_id_for_location(actor.location_id)
-                    .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
+                if self.rest_entitlement(actor_id).grade == CW_REST_GRADE_CAMP
+                    && self
+                        .active_danger_clock_id_for_location(actor.location_id)
+                        .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
             {
                 Some("helps you feel fresh; trouble may draw nearer out here".to_string())
             }

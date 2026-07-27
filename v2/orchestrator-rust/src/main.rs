@@ -517,6 +517,7 @@ const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
 const OLD_OAK_TREE_LOCATION_ID: u64 = 40;
 #[cfg(test)]
 const CIRCLE_OF_MOON_LOCATION_ID: u64 = 35;
+#[cfg(test)]
 const HEARTH_TONIC_WARMTH_TAG_ID: &str = "room:3:hearth_tonic_used";
 const FEATURE_BOND_TARGETS: &[FeatureBondTarget] = &[
     FeatureBondTarget {
@@ -2874,6 +2875,8 @@ struct RankedActionOffer {
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
+    #[serde(skip)]
+    ranked_hand_eligible: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -12969,7 +12972,10 @@ impl RuntimeWorld {
             return Vec::new();
         };
         if item.holder_actor_id != actor_id
-            || !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
+            || !matches!(
+                item.role,
+                CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER | CW_ITEM_ROLE_TOOL
+            )
             || item.container_item_id != 0
         {
             return Vec::new();
@@ -14349,52 +14355,6 @@ impl RuntimeWorld {
             dc: LISTEN_DC,
             ..CwAction::default()
         })
-    }
-
-    fn plan_rest_mutations(&self, actor_id: u64) -> Result<Vec<ProjectionMutation>, String> {
-        if !self.rest_available(actor_id) {
-            return Err("Rest is not needed here.".to_string());
-        }
-        let location_id = self
-            .actor_by_id(actor_id)
-            .map(|actor| actor.location_id)
-            .ok_or_else(|| "Rest requires an active avatar.".to_string())?;
-        let mut mutations = vec![
-            ProjectionMutation::ClearTag {
-                tag_id: tired_tag_id(actor_id),
-                reason: "rest".to_string(),
-            },
-            ProjectionMutation::ClearTag {
-                tag_id: trained_since_rest_tag_id(actor_id),
-                reason: "rest".to_string(),
-            },
-        ];
-        mutations.extend(
-            self.frontier_travel_since_rest_tag_ids(actor_id)
-                .into_iter()
-                .map(|tag_id| ProjectionMutation::ClearTag {
-                    tag_id,
-                    reason: "rest".to_string(),
-                }),
-        );
-        if let Some(clock_id) = self
-            .active_danger_clock_id_for_location(location_id)
-            .filter(|clock_id| self.clock_is_frontier(clock_id))
-        {
-            if self.hearth_tonic_warmth_guards_rest(location_id) {
-                mutations.push(ProjectionMutation::ClearTag {
-                    tag_id: HEARTH_TONIC_WARMTH_TAG_ID.to_string(),
-                    reason: "rest_warmed".to_string(),
-                });
-            } else {
-                mutations.push(ProjectionMutation::AdvanceClock {
-                    clock_id,
-                    amount: 1,
-                    reason: "rest".to_string(),
-                });
-            }
-        }
-        Ok(mutations)
     }
 
     fn plan_scout_offer(
@@ -18072,10 +18032,6 @@ impl RuntimeWorld {
                     .is_some_and(|actor| self.location_is_frontier(actor.location_id)))
     }
 
-    fn rest_available(&self, actor_id: u64) -> bool {
-        self.tired_tag_active(actor_id)
-    }
-
     fn frontier_travel_since_rest_tag_ids(&self, actor_id: u64) -> Vec<String> {
         let prefix = frontier_travel_since_rest_tag_prefix(actor_id);
         let mut tag_ids: Vec<_> = self
@@ -18091,6 +18047,18 @@ impl RuntimeWorld {
             .collect();
         tag_ids.sort();
         tag_ids
+    }
+
+    fn frontier_travel_since_rest_required(&self, actor_id: u64) -> usize {
+        self.actor_by_id(actor_id)
+            .map(|actor| usize::from(actor.stats.level.clamp(1, 4)))
+            .unwrap_or(1)
+    }
+
+    fn frontier_travel_since_rest_count(&self, actor_id: u64) -> usize {
+        self.frontier_travel_since_rest_tag_ids(actor_id)
+            .len()
+            .min(self.frontier_travel_since_rest_required(actor_id))
     }
 
     fn tired_tag_active(&self, actor_id: u64) -> bool {
@@ -18127,15 +18095,6 @@ impl RuntimeWorld {
             .get(&location_id)
             .map(|sheet| room_sheet_zone(sheet) == ZONE_FRONTIER)
             .unwrap_or_else(|| default_zone_for_scope("room", location_id) == ZONE_FRONTIER)
-    }
-
-    fn hearth_tonic_warmth_guards_rest(&self, location_id: u64) -> bool {
-        location_id == MOONLIT_TRAIL_LOCATION_ID
-            && self
-                .tags
-                .get(HEARTH_TONIC_WARMTH_TAG_ID)
-                .map(|tag| tag.active)
-                .unwrap_or(false)
     }
 
     fn prepare_available(&self, actor_id: u64) -> bool {
@@ -19853,7 +19812,9 @@ impl RuntimeWorld {
         let has_authored_contribution = !self
             .job_contribution_intents(actor_id, None, None, None, None)
             .is_empty();
-        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution) {
+        let can_rest = self.rest_available(actor_id);
+        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution && !can_rest)
+        {
             return PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
@@ -19885,7 +19846,6 @@ impl RuntimeWorld {
         let can_use_item_contribution = self
             .job_contribution_intent(actor_id, "use_item", None, None, None)
             .is_some();
-        let can_rest = self.rest_available(actor_id);
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
         let can_cast_spell = self.default_spell_card(actor_id).is_some();
@@ -22252,16 +22212,12 @@ impl RuntimeWorld {
             .saturating_sub(RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW);
         let mut record = match offer.kind.as_str() {
             "rest" => {
-                let mutations = self.plan_rest_mutations(actor.id).ok()?;
-                let mut record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_NONE,
-                        actor_id: actor.id,
-                        ..CwAction::default()
-                    },
-                    seed,
-                )
-                .into_actor_consequence(self.world.tick, None);
+                if !self.rest_has_recovery_target(actor.id) {
+                    return None;
+                }
+                let (action, mutations) = self.plan_rest_action(actor.id).ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
                 record.bind_offer_kind("rest");
                 record.projection_mutations.extend(mutations);
                 record
@@ -22553,6 +22509,10 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Actor {}", action.target_actor_id));
                 format!("{actor_name} intends to ask {target} for a useful local lead.")
             }
+            CW_ACTION_REST => {
+                proposed_action.kind = "rest".to_string();
+                format!("{actor_name} intends to rest.")
+            }
             CW_ACTION_NONE => record
                 .projection_mutations
                 .iter()
@@ -22733,6 +22693,7 @@ impl RuntimeWorld {
             }
             CW_ACTION_DEFEND | CW_ACTION_COMBAT_DODGE => "defend",
             CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => "flee",
+            CW_ACTION_REST => "rest",
             _ => "act",
         }
         .to_string()
@@ -22857,6 +22818,7 @@ impl RuntimeWorld {
                 target.kind == "actor"
                     && self.combat_target_for_actor(action.content_id, action.actor_id) == target.id
             }),
+            CW_ACTION_REST if offer.kind == "rest" => offer.target.is_none(),
             CW_ACTION_NONE if offer.kind == "rest" => {
                 offer.target.is_none()
                     && record.projection_mutations.iter().any(|mutation| {
@@ -34986,22 +34948,14 @@ async fn rest(
     if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
         return response;
     }
-    let Ok(mutations) = runtime.plan_rest_mutations(payload.actor_id) else {
+    let Ok((action, mutations)) = runtime.plan_rest_action(payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
             status: 400,
             events: Vec::new(),
         });
     };
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    )
-    .into_player_card();
+    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
     record.bind_offer_kind("rest");
     record.projection_mutations.extend(mutations);
 
@@ -38509,7 +38463,7 @@ fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
     const CAPACITY: usize = 2;
     let mut candidates: Vec<_> = offers
         .iter()
-        .filter(|offer| action_offer_is_reachable(offer))
+        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
         .collect();
     candidates.sort_by(|left, right| {
         left.provider
@@ -55853,11 +55807,17 @@ mod tests {
             event.type_name == "tag.cleared" && event.tag_id.as_deref() == Some(tired_tag.as_str())
         }));
         let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(!rested_state
+        assert!(rested_state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "rest"));
+        assert!(!runtime.rest_has_recovery_target(5000));
+        assert!(!rested_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
         assert!(rested_state
             .action_offers
             .iter()
@@ -58415,6 +58375,19 @@ mod tests {
             RAIN_SOFT_GARDEN_LOCATION_ID,
             "Garden Path Worker",
         );
+        let initial = runtime.state_response(Some(5000), &AccessContext::default());
+        let initial_rest = initial
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("a player who never left sanctuary can Rest at home");
+        assert!(!initial_rest.disabled);
+        assert!(!initial_rest.ranked_hand_eligible);
+        assert!(!initial
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -58428,21 +58401,20 @@ mod tests {
         )
         .await
         .0;
-        assert!(!unneeded_rest.ok);
-        assert_eq!(unneeded_rest.status, 400);
-        assert!(unneeded_rest.events.is_empty());
+        assert!(unneeded_rest.ok);
+        assert_eq!(unneeded_rest.status, CW_OK);
+        assert!(!unneeded_rest.events.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "item.refreshed" | "tag.cleared" | "clock.updated"
+            )
+        }));
         {
             let runtime = state.inner.lock().await;
             let command = runtime
                 .resolve_command(&command_request(5000, "rest"), &AccessContext::default())
                 .expect("Rest command resolves while recovery is unnecessary");
-            match command.dispatch {
-                CommandDispatch::Disabled { status, output } => {
-                    assert_eq!(status, 400);
-                    assert_eq!(output, "You are already steady enough to keep going.");
-                }
-                other => panic!("unneeded Rest should be disabled, got {other:?}"),
-            }
+            assert!(matches!(command.dispatch, CommandDispatch::Rest));
         }
 
         for step in 1..=4 {
@@ -58482,6 +58454,9 @@ mod tests {
                     .iter()
                     .find(|offer| offer.kind == "rest")
                     .expect("tired sanctuary worker can Rest immediately");
+                assert!(rest_offer.ranked_hand_eligible);
+                assert_eq!(rest_offer.provider.id, "rules:recovery");
+                assert_eq!(rest_offer.provider.priority, 0);
                 assert!(rest_offer.risk.is_none());
                 assert_eq!(rest_offer.effect.as_deref(), Some("helps you feel fresh"));
                 assert!(!tired_state
@@ -58662,6 +58637,22 @@ mod tests {
             assert!(runtime.tired_tag_active(5000));
             move_test_actor(&mut runtime, 5000, 30, 71511);
             move_test_actor(&mut runtime, 5000, 36, 71512);
+            let item_count = runtime.world.item_count;
+            let tonic = runtime
+                .world
+                .items
+                .iter_mut()
+                .take(item_count)
+                .find(|item| item.id == HEARTH_TONIC_ITEM_ID)
+                .expect("Hearth Tonic exists");
+            tonic.location_id = 0;
+            tonic.holder_actor_id = 5000;
+            tonic.zone = CW_CARD_ZONE_CARRIED;
+            tonic.container_item_id = 0;
+            assert!(runtime
+                .set_item_equipped(5000, HEARTH_TONIC_ITEM_ID, true, "solar_rest_shelter")
+                .iter()
+                .any(|event| event.type_name == "item.equipped"));
             assert!(runtime.rest_available(5000));
         }
 
@@ -58715,116 +58706,6 @@ mod tests {
                 .get("solar-abyss.schism")
                 .map(|clock| clock.filled),
             Some(1)
-        );
-    }
-
-    #[tokio::test]
-    async fn hearth_tonic_warmth_spends_to_block_frontier_rest_danger() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7152);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Warm Rest Tester".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Hearth Carrier".to_string(),
-                description: "A test avatar checking warmed frontier rest.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-
-        let mut warm_record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: 5000,
-                ..CwAction::default()
-            },
-            7153,
-        );
-        warm_record
-            .projection_mutations
-            .push(ProjectionMutation::SetTag {
-                tag: RpgTagState {
-                    id: tired_tag_id(5000),
-                    scope: "actor".to_string(),
-                    scope_id: 5000,
-                    label: "tired".to_string(),
-                    kind: "condition".to_string(),
-                    active: true,
-                    source_event_seq: None,
-                    expires: Some("after_rest".to_string()),
-                },
-                reason: "test_tired".to_string(),
-            });
-        warm_record
-            .projection_mutations
-            .push(ProjectionMutation::SetTag {
-                tag: RpgTagState {
-                    id: HEARTH_TONIC_WARMTH_TAG_ID.to_string(),
-                    scope: "room".to_string(),
-                    scope_id: MOONLIT_TRAIL_LOCATION_ID,
-                    label: "hearth tonic warmth".to_string(),
-                    kind: "memory".to_string(),
-                    active: true,
-                    source_event_seq: None,
-                    expires: Some("after_rest".to_string()),
-                },
-                reason: "test_warmth".to_string(),
-            });
-        assert_eq!(runtime.apply_journal_record(&warm_record).0, CW_OK);
-
-        move_test_actor(&mut runtime, 5000, 2, 71531);
-        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 71532);
-        let warm_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let rest_offer = warm_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "rest")
-            .expect("rest offer is exposed while tired");
-        assert!(rest_offer.risk.is_none());
-        assert!(rest_offer.effect.as_deref().is_some_and(|effect| effect
-            .contains("tonic's warmth")
-            && effect.contains("trouble stays back")));
-
-        let state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-        let rest_response = rest(
-            ConnectInfo("127.0.0.1:43111".parse().expect("client address")),
-            State(state.clone()),
-            Json(ActorRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-            }),
-        )
-        .await
-        .0;
-        assert!(rest_response.ok);
-        assert_eq!(rest_response.status, CW_OK);
-        assert!(rest_response.events.iter().any(|event| {
-            event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("tired")
-        }));
-        assert!(rest_response.events.iter().any(|event| {
-            event.type_name == "tag.cleared"
-                && event.tag_id.as_deref() == Some(HEARTH_TONIC_WARMTH_TAG_ID)
-        }));
-        assert!(!rest_response.events.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.clock_id.as_deref() == Some(MOONLIT_DANGER_CLOCK_ID)
-        }));
-
-        let runtime = state.inner.lock().await;
-        assert!(!runtime.tired_tag_active(5000));
-        assert!(!runtime.hearth_tonic_warmth_guards_rest(MOONLIT_TRAIL_LOCATION_ID));
-        assert_eq!(
-            runtime
-                .clocks
-                .get(MOONLIT_DANGER_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(0)
         );
     }
 
@@ -61525,8 +61406,8 @@ mod tests {
             .expect("core pack includes a carrying container");
         assert_eq!(satchel.role, "container");
         assert_eq!(satchel.container_capacity_tenths, 300);
-        assert_eq!(content.locations.len(), 48);
-        assert_eq!(content.exits.len(), 110);
+        assert_eq!(content.locations.len(), 49);
+        assert_eq!(content.exits.len(), 112);
 
         assert!(content.exits.iter().any(|exit| {
             exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
@@ -61537,8 +61418,22 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 37);
-        assert_eq!(content.room_sheets.len(), 48);
+        assert_eq!(content.room_features.len(), 39);
+        assert_eq!(content.room_sheets.len(), 49);
+        for location_id in [4, 800] {
+            let lodging = content
+                .room_features
+                .iter()
+                .find(|feature| feature.location_id == location_id && feature.key == "lodging")
+                .unwrap_or_else(|| panic!("location {location_id} declares lodging"));
+            assert_eq!(
+                lodging
+                    .lodging
+                    .as_ref()
+                    .map(|value| value.gate.kind.as_str()),
+                Some("open")
+            );
+        }
         assert_eq!(content.clocks.len(), 14);
         assert_eq!(content.jobs.len(), 7);
         assert!(content
@@ -61556,7 +61451,7 @@ mod tests {
             1
         );
         assert_eq!(content.fronts.len(), 6);
-        assert_eq!(content.cards.len(), 118);
+        assert_eq!(content.cards.len(), 119);
         assert_eq!(content.lifecycle_hooks.len(), 21);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 8);
@@ -67471,6 +67366,12 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             98_202,
         );
+        move_test_actor(
+            &mut runtime,
+            RATI_ACTOR_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            98_203,
+        );
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let offer = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
@@ -67478,13 +67379,16 @@ mod tests {
             .into_iter()
             .find(|offer| offer.kind == "rest")
             .expect("the player candidate surface offers Rest");
-        let player_mutations = runtime
-            .plan_rest_mutations(actor.id)
+        let (player_action, player_mutations) = runtime
+            .plan_rest_action(actor.id)
             .expect("the player Rest planner accepts the current offer");
         let record = runtime
-            .resident_economy_autonomy_record(actor, 98_203)
+            .resident_economy_autonomy_record(actor, 98_204)
             .expect("urgent resident autonomy selects the same Rest offer");
-        assert_eq!(record.action.kind, CW_ACTION_NONE);
+        assert_eq!(player_action.kind, CW_ACTION_REST);
+        assert_eq!(record.action.kind, player_action.kind);
+        assert_eq!(record.action.actor_id, player_action.actor_id);
+        assert_eq!(record.action.rest, player_action.rest);
         assert_eq!(record.rules_action, offer.rules_action);
         assert_eq!(record.operation, offer.operation);
         assert_eq!(record.resolver.as_deref(), Some(offer.resolver.as_str()));
@@ -67545,9 +67449,10 @@ mod tests {
         assert!(travel_tags
             .iter()
             .all(|tag_id| { runtime.tags.get(tag_id).is_some_and(|tag| !tag.active) }));
-        assert!(!runtime.rest_available(actor.id));
+        assert!(runtime.rest_available(actor.id));
+        assert!(!runtime.rest_has_recovery_target(actor.id));
         assert!(runtime
-            .resident_record_for_shared_offer(actor, &offer, 98_204)
+            .resident_record_for_shared_offer(actor, &offer, 98_205)
             .is_none());
         let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
             .expect("state serializes");

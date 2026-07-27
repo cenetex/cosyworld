@@ -807,6 +807,14 @@
       "runtime_handle": 6580883718503069
     },
     {
+      "canonical_ref": "pack://cosyworld.core/card/location-mossbell-inn",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.10",
+      "kind": "card",
+      "local_id": "location-mossbell-inn",
+      "runtime_handle": 1828177118382624
+    },
+    {
       "canonical_ref": "pack://cosyworld.core/card/location-old-oak-tree",
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
@@ -1358,6 +1366,15 @@
       "runtime_handle": 36
     },
     {
+      "canonical_ref": "pack://cosyworld.core/location/4",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.10",
+      "kind": "location",
+      "local_id": "4",
+      "legacy_runtime_id": 4,
+      "runtime_handle": 4
+    },
+    {
       "canonical_ref": "pack://cosyworld.core/location/40",
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
@@ -1608,6 +1625,14 @@
       "kind": "room-sheet",
       "local_id": "room:36",
       "runtime_handle": 1278082739662403
+    },
+    {
+      "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A4",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.10",
+      "kind": "room-sheet",
+      "local_id": "room:4",
+      "runtime_handle": 7088628016282642
     },
     {
       "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A40",

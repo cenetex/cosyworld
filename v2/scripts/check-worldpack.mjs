@@ -21,6 +21,7 @@ import { buildingArchetypeValidationErrors } from "./building-archetype-schema.m
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 import { versionedRecipeValidationErrors } from "./recipe-schema.mjs";
+import { roomFeatureSchemaValidationErrors } from "./room-feature-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -87,6 +88,7 @@ const supportedRulesAdapters = new Map([
   ])],
 ]);
 const allowedItemRoles = new Set(["generic", "consumable", "weapon", "skill_charm", "spell", "container", "tool", "relic"]);
+const allowedItemCapabilities = new Set(["camp_shelter"]);
 const allowedItemSizes = new Set(["tiny", "small", "medium", "large"]);
 const routableJobContributionActionKinds = new Set([
   "work",
@@ -1481,6 +1483,15 @@ for (const item of items) {
   if (!allowedItemRoles.has(item.role)) {
     fail(`item ${item.id} has invalid role ${item.role}`);
   }
+  const itemCapabilities = item.capabilities ?? [];
+  if (!Array.isArray(itemCapabilities)
+    || new Set(itemCapabilities).size !== itemCapabilities.length
+    || itemCapabilities.some((capability) => !allowedItemCapabilities.has(capability))) {
+    fail(`item ${item.id} has invalid capabilities`);
+  }
+  if (itemCapabilities.length && item.role !== "tool") {
+    fail(`item ${item.id} capabilities require the tool role`);
+  }
   if (!allowedItemSizes.has(item.size)) {
     fail(`item ${item.id} has invalid size ${item.size}`);
   }
@@ -1645,6 +1656,12 @@ for (const exit of exits) {
 const featureKeys = new Set();
 for (const feature of roomFeatures) {
   validateRequiredStrings("room feature", feature, ["key", "name", "look", "search"]);
+  for (const error of roomFeatureSchemaValidationErrors(
+    feature,
+    `room feature ${feature.location_id}:${feature.key}`,
+  )) {
+    fail(error);
+  }
   if (!has(locationIds, feature.location_id)) {
     fail(`feature ${feature.key} references missing location ${feature.location_id}`);
   }

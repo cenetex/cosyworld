@@ -131,6 +131,24 @@
     "allow_combat": true
   },
   {
+    "id": 4,
+    "name": "Mossbell Inn",
+    "title": "Beds Beside the Rain",
+    "description": "A slate-roofed inn stands beside the west road. Four guest-room windows glow above a boot rack.",
+    "persona": "Mossbell Inn keeps practical comforts ready and treats a dry pair of socks as serious hospitality.",
+    "biome": "rainy roadside",
+    "terrain": [
+      "gravel yard",
+      "covered porch",
+      "warm common room"
+    ],
+    "memory": [
+      "The Cosy Cottage is one short walk east.",
+      "Four upstairs rooms stay ready for wet travelers."
+    ],
+    "allow_combat": false
+  },
+  {
     "id": 30,
     "name": "The Heavens",
     "title": "Forbidden Mountain",

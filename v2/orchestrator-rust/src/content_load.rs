@@ -716,6 +716,8 @@ pub(super) struct SeedItemContent {
     pub(super) location_id: u64,
     #[serde(default = "default_seed_item_role")]
     pub(super) role: String,
+    #[serde(default)]
+    pub(super) capabilities: Vec<String>,
     #[serde(default = "default_seed_item_weight_tenths")]
     pub(super) weight_tenths: u16,
     #[serde(default = "default_seed_item_size")]
@@ -794,12 +796,26 @@ pub(super) struct SeedRoomFeatureContent {
     pub(super) search: String,
     #[serde(default)]
     pub(super) uses: Vec<SeedFeatureUseContent>,
+    #[serde(default)]
+    pub(super) lodging: Option<SeedLodgingContent>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedFeatureUseContent {
     pub(super) item_id: u64,
     pub(super) text: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedLodgingContent {
+    pub(super) gate: SeedLodgingGateContent,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedLodgingGateContent {
+    pub(super) kind: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1975,6 +1991,19 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         {
             return Err(format!("seed item {} is missing name", item.id));
         }
+        let capabilities = item.capabilities.iter().collect::<BTreeSet<_>>();
+        if capabilities.len() != item.capabilities.len()
+            || item
+                .capabilities
+                .iter()
+                .any(|capability| capability != CAMP_SHELTER_ITEM_CAPABILITY)
+            || (!item.capabilities.is_empty() && item.role != "tool")
+        {
+            return Err(format!(
+                "seed item {} has invalid or role-incompatible capabilities",
+                item.id
+            ));
+        }
     }
 
     let mut location_ids = BTreeSet::new();
@@ -2299,6 +2328,28 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 "duplicate or invalid room feature key {} in location {}",
                 feature.key, feature.location_id
             ));
+        }
+        match (command_key(&feature.key).as_str(), feature.lodging.as_ref()) {
+            ("lodging", Some(lodging)) if lodging.gate.kind == "open" => {}
+            ("lodging", Some(lodging)) => {
+                return Err(format!(
+                    "lodging room feature in location {} has unsupported gate kind {}",
+                    feature.location_id, lodging.gate.kind
+                ));
+            }
+            ("lodging", None) => {
+                return Err(format!(
+                    "lodging room feature in location {} is missing lodging gate fields",
+                    feature.location_id
+                ));
+            }
+            (_, Some(_)) => {
+                return Err(format!(
+                    "room feature {} in location {} may not declare lodging fields",
+                    feature.key, feature.location_id
+                ));
+            }
+            _ => {}
         }
         for use_case in &feature.uses {
             if !item_ids.contains(&use_case.item_id) || use_case.text.trim().is_empty() {

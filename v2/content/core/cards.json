@@ -845,6 +845,29 @@
   },
   {
     "subject_kind": "location",
+    "subject_id": 4,
+    "card_id": "location-mossbell-inn",
+    "display_name": "Mossbell Inn",
+    "role": "location",
+    "rarity": "free",
+    "title": "Beds Beside the Rain",
+    "blurb": "A slate-roofed inn stands beside the west road. Four guest-room windows glow above a boot rack.",
+    "aspect": "wide",
+    "source": "cosyworld_seed",
+    "asset_status": "pending_art",
+    "subject": "Beds Beside the Rain",
+    "art": {
+      "label": "Mossbell Inn",
+      "role": "location",
+      "aspect": "wide",
+      "bg": "#283026",
+      "ink": "#f5e6b8",
+      "accent": "#efc96b",
+      "glyph": "MI"
+    }
+  },
+  {
+    "subject_kind": "location",
     "subject_id": 30,
     "card_id": "location-the-heavens",
     "display_name": "The Heavens",
