@@ -71426,7 +71426,7 @@ mod tests {
         match blocked_revision.dispatch {
             CommandDispatch::Disabled { status, output } => {
                 assert_eq!(status, 409);
-                assert!(output.contains("Earn advancement first"));
+                assert!(output.contains("one banked advancement point"));
             }
             other => panic!("unbanked bond revision should be disabled, got {other:?}"),
         }
