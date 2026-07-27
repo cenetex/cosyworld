@@ -7676,7 +7676,7 @@ async function main() {
       "Cottage projection should include the current avatar when accessible",
     );
     assert(
-      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Rain-Soft Garden"]),
+      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Mossbell Inn", "Rain-Soft Garden"]),
       `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
     );
     assert(!science, "Science Class should stay hidden until its path is found from Homeroom");
@@ -9285,7 +9285,10 @@ async function main() {
     const guestSheetText = await page.locator(".account-panel").innerText();
     assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
     assert(guestSheetText.includes("0 · classless"), `the account sheet should show staged classless creation: ${guestSheetText}`);
-    assert(guestSheetText.includes("journal") && guestSheetText.includes("friends"), `avatar sheet should use the small player vocabulary: ${guestSheetText}`);
+    assert(
+      guestSheetText.includes("journal") && guestSheetText.includes("relationships"),
+      `avatar sheet should expose the journal and authored relationship state: ${guestSheetText}`,
+    );
     assert(
       guestSheetText.includes("your first little moment is waiting")
         && guestSheetText.includes("worn skill charms")

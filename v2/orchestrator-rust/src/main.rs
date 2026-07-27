@@ -50831,7 +50831,7 @@ mod tests {
             .get("kernel_version")
             .cloned()
             .expect("golden records their historical kernel version");
-        assert_eq!(historical_kernel_version, serde_json::json!(8));
+        assert_eq!(historical_kernel_version, serde_json::json!(9));
         actual["kernel_version"] = historical_kernel_version;
         assert_eq!(
             actual,
@@ -60567,7 +60567,7 @@ mod tests {
         );
         assert_eq!(content.fronts.len(), 6);
         assert_eq!(content.cards.len(), 119);
-        assert_eq!(content.lifecycle_hooks.len(), 21);
+        assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 8);
         assert_eq!(content.rules.len(), 3);

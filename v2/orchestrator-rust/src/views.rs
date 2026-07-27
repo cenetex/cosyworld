@@ -2442,7 +2442,6 @@ impl RuntimeWorld {
                     });
 
                 let strategies = self.shared_question_strategy_views(job, actor_id);
-                let available = strategies.iter().any(|strategy| strategy.available);
                 let mut recent = progress.recent_contributions.to_vec();
                 if let Some(danger) = danger {
                     recent.extend(danger.recent_contributions.iter().cloned());
@@ -2485,7 +2484,7 @@ impl RuntimeWorld {
                     priority: progress.presentation.priority,
                     presentation_state: if terminal {
                         "completed_memory"
-                    } else if job_status == "active" && available {
+                    } else if job_status == "active" {
                         "active"
                     } else {
                         "unavailable"

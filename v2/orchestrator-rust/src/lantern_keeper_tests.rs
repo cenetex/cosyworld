@@ -281,13 +281,11 @@ fn lantern_question_projects_two_truthful_suggestions_and_replays_danger_memory(
         .find(|offer| offer.kind == "rest")
         .expect("tired frontier traveler receives Rest");
     assert_eq!(
-        rest.effect.as_deref(),
-        Some("helps you feel fresh; The Road Goes Fully Dark advances from 0/6 to 1/6")
+        runtime.rest_entitlement(actor_id).grade,
+        CW_REST_GRADE_HEARTH
     );
-    assert_eq!(
-        rest.risk.as_deref(),
-        Some("trouble may draw nearer while you rest")
-    );
+    assert_eq!(rest.effect.as_deref(), Some("helps you feel fresh"));
+    assert_eq!(rest.risk, None);
     let stale_offer_id = rest.offer_id.clone();
     let before_danger = RuntimeSnapshot::from_runtime(&runtime);
     let danger_record = projection_record(
