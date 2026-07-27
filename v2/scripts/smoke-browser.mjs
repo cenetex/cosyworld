@@ -764,6 +764,24 @@ async function main() {
             ping_active: false,
           },
         }).map((action) => ({ label: action.label, detail: action.detail, effect: action.effect })),
+        nudgeActions: buildActions({
+          location: { id: 1, name: "The Cosy Cottage" },
+          primary_action: { options: [{ kind: "check" }] },
+          economy: { listen_attempted_here: true },
+          turn: {
+            enabled: true,
+            policy: "scene-turn",
+            is_current_actor: false,
+            can_request_timeout: true,
+            current_actor_id: 5001,
+            current_actor_name: "Mabel Crumblethorn",
+          },
+        }).map((action) => ({
+          label: action.label,
+          detail: action.detail,
+          effect: action.effect,
+          focusKey: action.focusKey,
+        })),
         gatheringActions: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [{ kind: "check" }] },
@@ -971,6 +989,14 @@ async function main() {
     assert(/acts now/i.test(guide.arrivalActions[0]?.detail || "") && /chat and inspection stay available/i.test(guide.arrivalActions[0]?.summary || ""), `the ordered-scene wait should explain whose turn it is without hiding free interaction: ${JSON.stringify(guide)}`);
     assert(guide.arrivalActions[0]?.effect === "shows the current combat order without taking an action", `the ordered-scene action should remain observational: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "ordered combat", `ordinary ordered-scene waiting should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(
+      guide.nudgeActions.length === 2
+        && guide.nudgeActions[0]?.label === "nudge"
+        && guide.nudgeActions[0]?.focusKey === "scene-timeout"
+        && /play or pass/i.test(guide.nudgeActions[0]?.detail || "")
+        && guide.nudgeActions[1]?.label === "ordered combat",
+      `an eligible waiting participant should receive the nudge beside the observational ordered-scene card: ${JSON.stringify(guide.nudgeActions)}`,
+    );
     assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "ordered combat", `a pending ordered-scene handoff should preserve the combat floor: ${JSON.stringify(guide)}`);
   }
 

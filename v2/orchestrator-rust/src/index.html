@@ -4887,6 +4887,29 @@
       };
       if (turn.enabled && !turn.is_current_actor) {
         const currentName = turn.current_actor_name || "another avatar";
+        const waitingActions = [];
+        if (turn.can_request_timeout) {
+          waitingActions.push({
+            handProvider: {
+              kind: "rules",
+              id: "rules:ordered-scene-timeout",
+              label: "Ordered scene",
+              reason: "Ask the current participant to play or pass",
+              priority: 0,
+            },
+            label: "nudge",
+            detail: `ask ${currentName} to play or pass`,
+            command: "nudge",
+            focusKey: "scene-timeout",
+            card: cardForActor(turn.current_actor_id) || cardForLocation(view.location?.id),
+            shape: "avatar",
+            priority: 0,
+            modalTitle: `gently nudge ${currentName}`,
+            modalSummary: `Ask ${currentName} to play or pass so this ordered scene can continue.`,
+            effect: "passes the ordered floor to the next eligible participant",
+            run: () => action("/actions/timeout", { actor_id: actorId }),
+          });
+        }
         const waitingAction = {
           handProvider: {
             kind: "rules",
@@ -4907,7 +4930,8 @@
           effect: "shows the current combat order without taking an action",
           run: () => runCommandText("look"),
         };
-        return [waitingAction].map(decorateActionHand);
+        waitingActions.push(waitingAction);
+        return waitingActions.map(decorateActionHand);
       }
 
       const built = [];
@@ -6715,7 +6739,7 @@
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
-      } else if (["/actions/move", "/actions/flee", "/actions/explore-path"].includes(path)) {
+      } else if (["/actions/move", "/actions/flee", "/actions/explore-path", "/actions/timeout"].includes(path)) {
         await refresh();
       }
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
@@ -6731,6 +6755,12 @@
       const status = Number(result.status || 0);
       const conflict = (result.events || []).find((event) => event?.type === "action.conflict");
       if (conflict?.content) return String(conflict.content);
+      const timeoutRefusal = (result.events || []).find((event) => (
+        String(event?.type || "").startsWith("turn.timeout_refused.")
+      ));
+      if (path === "/actions/timeout" && timeoutRefusal?.content) {
+        return String(timeoutRefusal.content);
+      }
       if (status === 402 && path.includes("fund-image")) {
         return "You need one Orb to add to this community image.";
       }
