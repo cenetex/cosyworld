@@ -1611,6 +1611,7 @@ for (const location of locations) {
 
 const exitPairs = new Set();
 const exitDirections = new Set();
+const exitOwnerByEndpoints = new Map();
 for (const exit of exits) {
   if (!has(locationIds, exit.from_location_id) || !has(locationIds, exit.to_location_id)) {
     fail(`exit ${exit.from_location_id}->${exit.to_location_id} references missing location`);
@@ -1633,6 +1634,18 @@ for (const exit of exits) {
     fail(`duplicate exit ${pair}`);
   }
   exitPairs.add(pair);
+  const endpointKey = [
+    Number(exit.from_location_id),
+    Number(exit.to_location_id),
+  ].sort((left, right) => left - right).join(":");
+  const reciprocalOwner = exitOwnerByEndpoints.get(endpointKey);
+  if (reciprocalOwner !== undefined && reciprocalOwner !== exit.pack_id) {
+    fail(
+      `reciprocal exits between ${endpointKey} have different owners ${reciprocalOwner} and ${exit.pack_id}`,
+    );
+  } else {
+    exitOwnerByEndpoints.set(endpointKey, exit.pack_id);
+  }
   if (isNonEmptyString(exit.direction)) {
     const directionKey = `${exit.from_location_id}:${exit.direction.trim().toLowerCase()}`;
     if (exitDirections.has(directionKey)) {

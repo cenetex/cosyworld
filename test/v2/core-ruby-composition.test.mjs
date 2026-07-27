@@ -124,6 +124,43 @@ describe("Core + Ruby High composition", () => {
     }
   });
 
+  it("rejects reciprocal authored exits with different owners", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-route-owner-"));
+    const compiledRoot = path.join(tempRoot, "core-ruby");
+    try {
+      fs.cpSync(path.join(repoRoot, "v2/content/core-ruby"), compiledRoot, {
+        recursive: true,
+      });
+      const exitsPath = path.join(compiledRoot, "exits.json");
+      const registryPath = path.join(compiledRoot, "registry.json");
+      const exits = JSON.parse(fs.readFileSync(exitsPath, "utf8"));
+      const registryCopy = JSON.parse(fs.readFileSync(registryPath, "utf8"));
+      const forward = exits.find((exit) =>
+        exit.pack_id === "cosyworld.core"
+          && exits.some((candidate) =>
+            candidate.pack_id === exit.pack_id
+              && candidate.from_location_id === exit.to_location_id
+              && candidate.to_location_id === exit.from_location_id));
+      const reverse = exits.find((exit) =>
+        exit.from_location_id === forward.to_location_id
+          && exit.to_location_id === forward.from_location_id);
+      reverse.pack_id = "ruby-high.first-bell";
+      registryCopy.resources.exits = exits;
+      fs.writeFileSync(exitsPath, `${JSON.stringify(exits, null, 2)}\n`);
+      fs.writeFileSync(registryPath, `${JSON.stringify(registryCopy, null, 2)}\n`);
+
+      const checked = spawnSync(process.execPath, [checkerPath, compiledRoot], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      });
+      expect(checked.status).not.toBe(0);
+      expect(checked.stderr).toContain("reciprocal exits between");
+      expect(checked.stderr).toContain("have different owners");
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects an evacuation destination that would disappear with its pack", () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-evacuation-policy-"));
     const compiledRoot = path.join(tempRoot, "core-ruby");

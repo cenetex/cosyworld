@@ -703,12 +703,14 @@ mod tests {
     #[test]
     fn generated_riverside_feature_is_hidden_then_cooperatively_revealed_and_restored() {
         let mut runtime = RuntimeWorld::seeded();
-        let pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint_id = pathway.waypoints[0].id;
         runtime
             .generated_pathways

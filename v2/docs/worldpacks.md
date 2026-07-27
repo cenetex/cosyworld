@@ -280,6 +280,18 @@ pinned `pack.lock.json` produces the same handles regardless of mount order.
 Duplicate canonical references, handles, legacy ids, missing pack versions, or
 non-canonical URI spellings fail before the listener opens.
 
+Runtime-generated pathways use the same ownership boundary. Their canonical
+identity binds the owning authored route identity and entity version; waypoint,
+segment-route, and generated-place identities derive from that pathway rather
+than discovery order or the discovering actor. Numeric waypoint handles occupy
+the reserved generated-location range and are derived directly from the
+canonical waypoint identity. A collision with authored or already-generated
+state fails closed instead of probing to an order-dependent replacement.
+Snapshot v12 and journal v11 records receive this identity backfill once;
+current-format persistence with missing identity fields is rejected. During the
+v12 snapshot upgrade, legacy `route:generated:*` keys are replaced by canonical
+segment keys without changing route lifecycle, discovery, or entity version.
+
 Snapshots, action-journal records, and stored world events now carry a
 `content_context` containing the mapping version, every relevant canonical
 reference, owning pack version, runtime handle, legacy id when applicable, and
@@ -304,6 +316,9 @@ frozen. The transaction changes the bundle, rules binding, canonical context,
 and mount revision atomically; on restart the runtime deterministically seeds
 the newly mounted entities and composition-owned paths without rewriting
 existing live state or identities.
+Soft unmount is the inverse: the removal set may contain only the requested
+pack and dependent composition bridges, retained pack identities cannot
+change, and a target cannot smuggle in an unrelated state-owning pack.
 
 A composition may declare a schema-version-1
 `pack_lifecycle.unmount` policy that moves every non-pack-owned occupant and
@@ -316,6 +331,11 @@ Without one unique policy, or while an occupant is in an active encounter,
 removes the pack-owned live projection and freezes the exact entities,
 item/card zones, projection maps, and canonical context in the snapshot's
 versioned `pack_mount_state`.
+This lifecycle scope includes the complete dynamically generated subgraph owned
+by a removed pack or composition bridge: pathway waypoints, segment routes,
+generated places, jobs, clocks, natural affordances, settlement/governance
+state, art state, and their canonical location identities. Remount restores
+that frozen subgraph byte-for-byte and rejects active identity collisions.
 Pending transfer offers that reference the pack become durable `invalidated`
 tombstones, and matching one-use gift policies become consumed; remount never
 revives either transient authorization. Every action composition certificate

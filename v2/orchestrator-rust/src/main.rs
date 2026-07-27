@@ -555,6 +555,7 @@ const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
 const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
 const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 const GENERATED_PATHWAY_LOCATION_ID_BASE: u64 = 100_000;
+const GENERATED_PATHWAY_LOCATION_ID_LIMIT: u64 = 1_000_000_000_000;
 const EXPLORER_CALLING_STATEMENT: &str = "I explore the paths nobody has named yet.";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -605,6 +606,8 @@ struct GenerationProvenance {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedWaypointState {
     id: u64,
+    #[serde(default)]
+    canonical_id: String,
     name: String,
     meta: LocationMeta,
 }
@@ -612,6 +615,18 @@ struct GeneratedWaypointState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedPathwayState {
     id: String,
+    #[serde(default)]
+    identity_version: u8,
+    #[serde(default)]
+    canonical_id: String,
+    #[serde(default)]
+    source_route_id: String,
+    #[serde(default)]
+    source_route_version: u64,
+    #[serde(default)]
+    owner_pack_id: String,
+    #[serde(default)]
+    owner_pack_version: String,
     origin_location_id: u64,
     destination_location_id: u64,
     distance: u8,
@@ -1923,7 +1938,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 11;
+const JOURNAL_RECORD_VERSION: u32 = 12;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -6142,7 +6157,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 12,
+            version: 13,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6434,7 +6449,11 @@ impl RuntimeSnapshot {
             next_content_id: self.next_content_id,
             next_seed: self.next_seed,
         })
-        .map(move |mut runtime| {
+        .and_then(move |mut runtime| {
+            runtime.ensure_authored_route_records();
+            runtime
+                .migrate_generated_pathways_for_snapshot(snapshot_version)
+                .map_err(snapshot_error)?;
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
             if snapshot_version < 12 {
@@ -6456,7 +6475,7 @@ impl RuntimeSnapshot {
             let mint_seed = runtime.next_seed;
             runtime.ensure_canonical_identities(mint_seed);
             runtime.refresh_all_canonical_events();
-            runtime
+            Ok(runtime)
         })
     }
 }
@@ -6559,6 +6578,17 @@ fn zone_for_safety(safety: &str) -> &'static str {
 
 impl RuntimeWorld {
     fn ensure_canonical_identities(&mut self, mint_seed: u64) {
+        let generated_location_refs = self
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| {
+                pathway
+                    .waypoints
+                    .iter()
+                    .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+            })
+            .filter(|(_, canonical_id)| !canonical_id.is_empty())
+            .collect::<BTreeMap<_, _>>();
         let actor_ids = self.world.actors[..self.world.actor_count]
             .iter()
             .map(|actor| actor.id)
@@ -6618,6 +6648,7 @@ impl RuntimeWorld {
             let canonical_ref = content_registry()
                 .content_reference("location", location_id)
                 .map(|entry| entry.canonical_ref.clone())
+                .or_else(|| generated_location_refs.get(&location_id).cloned())
                 .unwrap_or_else(|| {
                     opaque_runtime_ref("location", &format!("{location_id}:{mint_seed}"))
                 });
@@ -7513,19 +7544,25 @@ impl RuntimeWorld {
     }
 
     fn ensure_revealed_generated_natural_affordances(&mut self) {
-        let location_ids = self
+        let locations = self
             .generated_pathways
             .values()
-            .flat_map(|pathway| pathway.waypoints.iter().map(|waypoint| waypoint.id))
-            .filter(|location_id| self.generated_location_is_revealed(*location_id))
+            .flat_map(|pathway| {
+                pathway.waypoints.iter().map(|waypoint| {
+                    (
+                        waypoint.id,
+                        pathway.owner_pack_id.clone(),
+                        pathway.owner_pack_version.clone(),
+                    )
+                })
+            })
+            .filter(|(location_id, _, _)| self.generated_location_is_revealed(*location_id))
             .collect::<Vec<_>>();
-        let pack_id = "cosyworld.core";
-        let pack_version = self.active_pack_version(pack_id);
-        for location_id in location_ids {
+        for (location_id, pack_id, pack_version) in locations {
             self.ensure_natural_affordance_for_location(
                 location_id,
                 "generated_environment",
-                pack_id,
+                &pack_id,
                 &pack_version,
             );
         }
@@ -7926,6 +7963,13 @@ impl RuntimeWorld {
             focused_profile: None,
             focused_encounter: None,
         });
+        if let Some(job) = self.jobs.get_mut(&job_id) {
+            job.pack_id = state.generation.pack_id.clone();
+            for strategy in &mut job.contribution_strategies {
+                strategy.pack_id = state.generation.pack_id.clone();
+                strategy.pack_version = state.generation.pack_version.clone();
+            }
+        }
         if revealed {
             if let Some(clock) = self.clocks.get_mut(&state.investigation_clock_id) {
                 clock.filled = clock.segments;
@@ -8265,9 +8309,18 @@ impl RuntimeWorld {
     fn ensure_generated_pathway_topology(&mut self) {
         let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
         for pathway_id in pathway_ids {
-            let Some(pathway_snapshot) = self.generated_pathways.get(&pathway_id).cloned() else {
+            let Some(mut pathway_snapshot) = self.generated_pathways.get(&pathway_id).cloned()
+            else {
                 continue;
             };
+            if self
+                .normalize_generated_pathway_identity(&mut pathway_snapshot, false)
+                .is_err()
+            {
+                continue;
+            }
+            self.generated_pathways
+                .insert(pathway_id.clone(), pathway_snapshot.clone());
             let origin_meta = self.location_meta_for(pathway_snapshot.origin_location_id);
             let destination_meta = self.location_meta_for(pathway_snapshot.destination_location_id);
             let waypoint_count = pathway_snapshot.waypoints.len();
@@ -8342,11 +8395,19 @@ impl RuntimeWorld {
             self.location_meta
                 .entry(waypoint.id)
                 .or_insert_with(|| waypoint.meta.clone());
+            self.canonical_identities
+                .location_refs
+                .entry(waypoint.id)
+                .or_insert_with(|| waypoint.canonical_id.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(waypoint.canonical_id.clone())
+                .or_insert(1);
         }
         self.open_generated_pathway_route(pathway, from_location_id, to_location_id);
         self.rebuild_kernel_exits_from_routes();
-        let pack_id = "cosyworld.core";
-        let pack_version = self.active_pack_version(pack_id);
+        let pack_id = pathway.owner_pack_id.clone();
+        let pack_version = pathway.owner_pack_version.clone();
         for location_id in [from_location_id, to_location_id] {
             if pathway
                 .waypoints
@@ -8356,9 +8417,17 @@ impl RuntimeWorld {
                 self.ensure_natural_affordance_for_location(
                     location_id,
                     "generated_environment",
-                    pack_id,
+                    &pack_id,
                     &pack_version,
                 );
+                if let Some(state) = self.natural_affordances.get_mut(&location_id) {
+                    state.generation.pack_id = pack_id.clone();
+                    state.generation.pack_version = pack_version.clone();
+                    if let Some(feature) = state.revealed_feature.as_mut() {
+                        feature.generation.pack_id = pack_id.clone();
+                        feature.generation.pack_version = pack_version.clone();
+                    }
+                }
                 let connected_from_location_id = if location_id == from_location_id {
                     to_location_id
                 } else {
@@ -10071,6 +10140,7 @@ impl RuntimeWorld {
                 &committed_events,
                 &record.projection_mutations,
                 enforce_active_contribution_contract,
+                record.version < JOURNAL_RECORD_VERSION,
             ));
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
@@ -10192,6 +10262,7 @@ impl RuntimeWorld {
         committed_events: &[EventView],
         mutations: &[ProjectionMutation],
         enforce_active_contribution_contract: bool,
+        allow_legacy_generated_identity_backfill: bool,
     ) -> Vec<EventView> {
         let mut events = Vec::new();
         for mutation in mutations {
@@ -10375,6 +10446,15 @@ impl RuntimeWorld {
                 }
                 ProjectionMutation::RefinePathway { pathway } => {
                     let mut refined = pathway.clone();
+                    if self
+                        .normalize_generated_pathway_identity(
+                            &mut refined,
+                            allow_legacy_generated_identity_backfill,
+                        )
+                        .is_err()
+                    {
+                        continue;
+                    }
                     if let Some(current) = self.generated_pathways.get(&pathway.id) {
                         refined
                             .revealed_edges
@@ -10447,11 +10527,21 @@ impl RuntimeWorld {
                     narration,
                     event_type,
                 } => {
+                    let mut proposed_pathway = pathway.clone();
+                    if self
+                        .normalize_generated_pathway_identity(
+                            &mut proposed_pathway,
+                            allow_legacy_generated_identity_backfill,
+                        )
+                        .is_err()
+                    {
+                        continue;
+                    }
                     let mut next_pathway = self
                         .generated_pathways
-                        .get(&pathway.id)
+                        .get(&proposed_pathway.id)
                         .cloned()
-                        .unwrap_or_else(|| pathway.clone());
+                        .unwrap_or(proposed_pathway);
                     self.ensure_generated_pathway_route_records(&next_pathway);
                     for (from_location_id, to_location_id) in reveal_edges {
                         next_pathway
@@ -13658,24 +13748,6 @@ impl RuntimeWorld {
             .is_some_and(|calling| calling_statement_is_explorer(&calling.statement))
     }
 
-    fn pathway_for_anchors(
-        &self,
-        from_location_id: u64,
-        to_location_id: u64,
-    ) -> Option<&GeneratedPathwayState> {
-        self.generated_pathways
-            .get(&generated_pathway_id(from_location_id, to_location_id))
-    }
-
-    fn generated_pathway_for_location(&self, location_id: u64) -> Option<&GeneratedPathwayState> {
-        self.generated_pathways.values().find(|pathway| {
-            pathway
-                .waypoints
-                .iter()
-                .any(|waypoint| waypoint.id == location_id)
-        })
-    }
-
     fn generated_pathway_id_for_progress_clock(&self, clock_id: &str) -> Option<String> {
         self.generated_pathways
             .values()
@@ -13705,112 +13777,6 @@ impl RuntimeWorld {
             })
             .map(|exit| exit.distance.max(1))
             .unwrap_or(1)
-    }
-
-    fn generated_pathway(
-        &self,
-        actor_id: u64,
-        from_location_id: u64,
-        to_location_id: u64,
-        distance: u8,
-    ) -> GeneratedPathwayState {
-        let (origin_location_id, destination_location_id) =
-            canonical_pathway_anchors(from_location_id, to_location_id);
-        let origin_name = self
-            .location_name(origin_location_id)
-            .unwrap_or_else(|| "one known place".to_string());
-        let destination_name = self
-            .location_name(destination_location_id)
-            .unwrap_or_else(|| "another known place".to_string());
-        let origin_meta = self.location_meta_for(origin_location_id);
-        let destination_meta = self.location_meta_for(destination_location_id);
-        let pathway_id = generated_pathway_id(origin_location_id, destination_location_id);
-        let seed = stable_pathway_hash(&pathway_id);
-        let waypoint_count = usize::from(distance.saturating_sub(1));
-        let names = [
-            "Lantern Bend",
-            "Mossy Verge",
-            "Rain-Silver Crossing",
-            "Foxglove Turn",
-            "Quiet Rise",
-            "Bramble Mile",
-        ];
-        let waypoints = (0..waypoint_count)
-            .map(|index| {
-                let landmark_name = names[(seed as usize + index) % names.len()].to_string();
-                let id = generated_pathway_location_id(&pathway_id, index);
-                let art_prompt = format!(
-                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no characters, no creatures, no text, no logo, no watermark",
-                    step = index + 1,
-                    origin_biome = origin_meta.biome,
-                    destination_biome = destination_meta.biome,
-                    origin = origin_meta.description,
-                    destination = destination_meta.description,
-                );
-                let terrain = interpolated_pathway_terrain(
-                    &origin_meta,
-                    &destination_meta,
-                    index,
-                    waypoint_count,
-                );
-                let environment = interpolated_environment_profile(
-                    &origin_meta.environment,
-                    &destination_meta.environment,
-                    index,
-                    waypoint_count,
-                );
-                let natural_potentials = generated_potential_rules(&environment);
-                let terrain_phrase = terrain
-                    .iter()
-                    .take(3)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let description = format!(
-                    "At {landmark_name}, {terrain_phrase} mark a half-known stretch between {origin_name} and {destination_name}; weather and footprints are still deciding what belongs."
-                );
-                GeneratedWaypointState {
-                    id,
-                    name: landmark_name.clone(),
-                    meta: LocationMeta {
-                        title: "Newly Found Path".to_string(),
-                        description,
-                        persona: format!(
-                            "{landmark_name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
-                        ),
-                        memory: vec![format!(
-                            "An Explorer first drew this path between {origin_name} and {destination_name}."
-                        )],
-                        biome: format!("{} to {}", origin_meta.biome, destination_meta.biome),
-                        terrain,
-                        environment,
-                        natural_potentials,
-                        image_url: Some(format!("/assets/generated/pathways/{id}.svg")),
-                        art_prompt: Some(art_prompt),
-                    },
-                }
-            })
-            .collect();
-        GeneratedPathwayState {
-            id: pathway_id,
-            origin_location_id,
-            destination_location_id,
-            distance,
-            created_by_actor_id: actor_id,
-            waypoints,
-            generation: GenerationProvenance {
-                source: "deterministic_fallback".to_string(),
-                feature: PATHWAY_CONTENT_FEATURE.to_string(),
-                policy_mode: "fallback".to_string(),
-                prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
-                provider: "none".to_string(),
-                model: "none".to_string(),
-                attempts: 0,
-            },
-            revealed_edges: BTreeSet::new(),
-            art_eligible: distance >= 2,
-            familiar: false,
-        }
     }
 
     fn pathway_path(
@@ -14026,14 +13992,15 @@ impl RuntimeWorld {
             .pathway_for_anchors(actor.location_id, requested_destination_id)
             .cloned();
         let discovering_pathway = existing_pathway.is_none();
-        let pathway = existing_pathway.unwrap_or_else(|| {
-            self.generated_pathway(
+        let pathway = match existing_pathway {
+            Some(pathway) => pathway,
+            None => self.generated_pathway(
                 actor_id,
                 actor.location_id,
                 requested_destination_id,
                 distance,
-            )
-        });
+            )?,
+        };
         let path = self.pathway_path(&pathway, actor.location_id, requested_destination_id);
         let first_edge = (path[0], path[1]);
         let next_journey = JourneyState {
@@ -37742,9 +37709,15 @@ fn canonical_pathway_anchors(left: u64, right: u64) -> (u64, u64) {
     }
 }
 
-fn generated_pathway_id(left: u64, right: u64) -> String {
-    let (origin, destination) = canonical_pathway_anchors(left, right);
-    format!("pathway:{origin}:{destination}")
+fn generated_pathway_canonical_id(source_route: &RouteRecordState) -> String {
+    format!(
+        "generated-pathway:{}@{}",
+        source_route.canonical_id, source_route.entity_version
+    )
+}
+
+fn generated_waypoint_canonical_id(pathway_id: &str, index: usize) -> String {
+    format!("{pathway_id}/waypoint/{index}")
 }
 
 fn generated_pathway_progress_clock_id(pathway_id: &str) -> String {
@@ -37853,10 +37826,9 @@ fn materialized_item_id(receipt_id: &str) -> u64 {
     MATERIALIZED_ITEM_ID_BASE + stable_pathway_hash(receipt_id) % MATERIALIZED_ITEM_ID_RANGE
 }
 
-fn generated_pathway_location_id(pathway_id: &str, index: usize) -> u64 {
-    GENERATED_PATHWAY_LOCATION_ID_BASE
-        + (stable_pathway_hash(pathway_id) % 10_000) * 16
-        + index as u64
+fn generated_pathway_location_id(waypoint_canonical_id: &str) -> u64 {
+    let range = GENERATED_PATHWAY_LOCATION_ID_LIMIT - GENERATED_PATHWAY_LOCATION_ID_BASE;
+    GENERATED_PATHWAY_LOCATION_ID_BASE + stable_pathway_hash(waypoint_canonical_id) % range
 }
 
 fn interpolated_pathway_terrain(
@@ -47297,12 +47269,14 @@ mod tests {
     #[test]
     fn generated_pathway_content_can_change_narrative_fields_only() {
         let runtime = RuntimeWorld::seeded();
-        let mut pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let mut pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint = pathway
             .waypoints
             .first_mut()
@@ -47903,12 +47877,14 @@ mod tests {
             &mut replay,
             &avatar_record(5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Trail Builder", 910_000),
         );
-        let rejected_pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let rejected_pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let rejected_waypoint_id = rejected_pathway.waypoints[0].id;
         let mut rejected_record = JournalRecord::new(
             CwAction {
@@ -47946,8 +47922,7 @@ mod tests {
         search_record.projection_mutations.push(search_mutation);
         let discovery_events = apply_pair(&mut runtime, &mut replay, &search_record);
 
-        let pathway_id =
-            generated_pathway_id(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID);
+        let pathway_id = runtime.journeys[&5000].pathway_id.clone();
         let first_waypoint_id = runtime.journeys[&5000].path[1];
         let place = runtime.generated_places[&first_waypoint_id].clone();
         assert_eq!(place.schema_version, GENERATED_PLACE_SCHEMA_VERSION);
@@ -59950,12 +59925,14 @@ mod tests {
     #[test]
     fn durable_frontier_projects_never_reset_as_encounters_and_repair_from_evidence() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let mut pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint_id = pathway.waypoints[0].id;
         pathway
             .revealed_edges
@@ -60156,12 +60133,14 @@ mod tests {
     #[test]
     fn canonical_natural_feature_restores_legacy_generated_place_projection() {
         let mut source = RuntimeWorld::seeded();
-        let mut pathway = source.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let mut pathway = source
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint = pathway.waypoints[0].clone();
         pathway
             .revealed_edges

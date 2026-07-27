@@ -1863,6 +1863,7 @@ mod tests {
             GeneratedPlaceState {
                 schema_version: GENERATED_PLACE_SCHEMA_VERSION,
                 location_id,
+                canonical_id: "test-generated-place".to_string(),
                 pathway_id: "test-pathway".to_string(),
                 connected_from_location_id: MOONLIT_TRAIL_LOCATION_ID,
                 discovered_by_actor_id: RATI_ACTOR_ID,
