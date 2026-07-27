@@ -1800,7 +1800,22 @@ mod tests {
     #[test]
     fn fishery_completion_opens_a_reward_quest_and_empty_cache_without_cargo() {
         let mut runtime = RuntimeWorld::seeded();
-        let location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        let mut pathway = runtime
+            .generated_pathway(
+                RATI_ACTOR_ID,
+                COSY_COTTAGE_LOCATION_ID,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                2,
+            )
+            .expect("canonical test pathway");
+        let location_id = pathway.waypoints[0].id;
+        pathway
+            .revealed_edges
+            .insert(pathway_edge_key(pathway.origin_location_id, location_id));
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        runtime.ensure_generated_pathway_edge(&pathway, pathway.origin_location_id, location_id);
         let actor = runtime.world.actors[..runtime.world.actor_count]
             .iter_mut()
             .find(|actor| actor.id == RATI_ACTOR_ID)
@@ -1858,34 +1873,23 @@ mod tests {
             },
         );
         let decision_id = generated_building_governance_decision_id(location_id);
-        runtime.generated_places.insert(
+        runtime.ensure_generated_place_for_waypoint(
+            &pathway,
             location_id,
-            GeneratedPlaceState {
-                schema_version: GENERATED_PLACE_SCHEMA_VERSION,
-                location_id,
-                pathway_id: "test-pathway".to_string(),
-                connected_from_location_id: MOONLIT_TRAIL_LOCATION_ID,
-                discovered_by_actor_id: RATI_ACTOR_ID,
-                discovered_event_seq: Some(1),
-                source_generation: GenerationProvenance::default(),
-                pack_id: "cosyworld.core".to_string(),
-                pack_version: pack_version.clone(),
-                anchor_clock_id: "test-anchor".to_string(),
-                connection_clock_id: "test-connection".to_string(),
-                settlement_clock_id: "test-settlement".to_string(),
-                anchor_job_id: "test-anchor-job".to_string(),
-                connection_job_id: "test-connection-job".to_string(),
-                settlement_job_id: "test-settlement-job".to_string(),
-                building_proposal: Some(GeneratedBuildingProposalState {
-                    schema_version: GENERATED_PLACE_SCHEMA_VERSION,
-                    location_id,
-                    eligible_archetype_ids: vec!["fishery".to_string()],
-                    opened_event_seq: 2,
-                    governance_decision_id: decision_id.clone(),
-                    selected_archetype_id: None,
-                }),
-            },
+            pathway.origin_location_id,
         );
+        runtime
+            .generated_places
+            .get_mut(&location_id)
+            .expect("generated place exists")
+            .building_proposal = Some(GeneratedBuildingProposalState {
+            schema_version: GENERATED_PLACE_SCHEMA_VERSION,
+            location_id,
+            eligible_archetype_ids: vec!["fishery".to_string()],
+            opened_event_seq: 2,
+            governance_decision_id: decision_id.clone(),
+            selected_archetype_id: None,
+        });
         assert_eq!(
             runtime.sync_generated_place_governance(location_id, &["fishery".to_string()], 2,),
             GovernanceSyncOutcome::Opened

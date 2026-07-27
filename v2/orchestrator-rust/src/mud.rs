@@ -11,6 +11,8 @@ pub(crate) struct CommandResponse {
     pub(crate) command: String,
     pub(crate) verb: String,
     pub(crate) output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) error_kind: Option<CommandErrorKind>,
     pub(crate) action: Option<CommandActionView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) receipt: Option<CanonicalCommandReceipt>,
@@ -21,7 +23,10 @@ pub(crate) struct CommandResponse {
 pub(crate) struct CommandRequest {
     pub(crate) actor_id: u64,
     pub(crate) actor_session: Option<String>,
+    #[serde(default)]
     pub(crate) command: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) offer_id: Option<String>,
     pub(crate) wallet_address: Option<String>,
     pub(crate) wallet: Option<String>,
     pub(crate) wallet_session: Option<String>,
@@ -29,6 +34,16 @@ pub(crate) struct CommandRequest {
     pub(crate) cards: Option<String>,
     #[serde(default)]
     pub(crate) envelope: Option<CanonicalCommandEnvelope>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CommandErrorKind {
+    ParseFailure,
+    InvalidOfferId,
+    StaleOffer,
+    UnknownOffer,
+    DisabledOffer,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -190,6 +205,7 @@ pub(crate) struct CommandError {
     pub(crate) verb: String,
     pub(crate) status: u32,
     pub(crate) output: String,
+    pub(crate) kind: CommandErrorKind,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -212,6 +228,15 @@ const ADVANCEMENT_NEXT_STEP: &str =
 
 fn advancement_gate_output(subject: &str) -> String {
     format!("{subject} needs one banked advancement point. {ADVANCEMENT_NEXT_STEP}")
+}
+
+pub(crate) fn command_submission_identity(payload: &CommandRequest) -> String {
+    payload
+        .offer_id
+        .as_deref()
+        .map(str::trim)
+        .map(|offer_id| format!("offer_id:{offer_id}"))
+        .unwrap_or_else(|| normalize_command_text(&payload.command))
 }
 
 fn normalize_emote_message(input: &str) -> Option<String> {
@@ -399,6 +424,22 @@ pub(crate) fn command_error(
         verb: verb.to_string(),
         status,
         output: output.into(),
+        kind: CommandErrorKind::ParseFailure,
+    }
+}
+
+pub(crate) fn offer_command_error(
+    _offer_id: &str,
+    kind: CommandErrorKind,
+    status: u32,
+    output: impl Into<String>,
+) -> CommandError {
+    CommandError {
+        command: String::new(),
+        verb: String::new(),
+        status,
+        output: output.into(),
+        kind,
     }
 }
 
@@ -445,6 +486,7 @@ pub(crate) async fn commit_shuffle_hand_command(
             output: Some(
                 "That choice got lost before the room could answer. Try once more.".to_string(),
             ),
+            error_kind: None,
             action: resolved.action,
             receipt: None,
             events: leading_events,
@@ -486,6 +528,7 @@ pub(crate) fn command_action_response_with_prefix_and_events(
         command: resolved.command,
         verb: resolved.verb,
         output,
+        error_kind: None,
         action: resolved.action,
         receipt: None,
         events: response.events,
@@ -587,6 +630,7 @@ pub(crate) fn command_rate_limited_response_with_events(
         command: resolved.command,
         verb: resolved.verb,
         output: Some("The room needs a breath. Try again in a moment.".to_string()),
+        error_kind: None,
         action: resolved.action,
         receipt: None,
         events,
@@ -606,6 +650,12 @@ pub(crate) fn command_response_output_for_actor(
     events: &[EventView],
     actor_id: Option<u64>,
 ) -> Option<String> {
+    if let Some(receipt) = events.iter().rev().find_map(|event| {
+        crate::semantic_receipts::semantic_story_receipt(event)
+            .filter(|_| actor_id.is_none() || event.actor_id == actor_id)
+    }) {
+        return Some(receipt.text);
+    }
     let mut lines = Vec::new();
     if let Some(prefix) = prefix.map(|value| value.trim().to_string()) {
         if !prefix.is_empty() {
@@ -1132,7 +1182,15 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
         } else {
             "The scuffle is over for now.".to_string()
         }),
-        "rule.rejected" => Some("The room will not let that happen just now.".to_string()),
+        "rule.rejected" => Some(
+            event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .unwrap_or_else(|| kernel_rejection_message(event.reason))
+                .to_string(),
+        ),
         _ => None,
     }
 }
@@ -2599,13 +2657,18 @@ impl RuntimeWorld {
             }
             "rest" => {
                 if !self.rest_available(actor.id) {
+                    let output = self
+                        .rest_offer_unavailable_reason(actor.id)
+                        .unwrap_or_else(|| {
+                            "You are already steady enough to keep going.".to_string()
+                        });
                     return Ok(ResolvedCommand {
                         command: "rest".to_string(),
                         verb,
                         action: Some(command_action("rest", "Rest", "rest")),
                         dispatch: CommandDispatch::Disabled {
                             status: 400,
-                            output: "You are already steady enough to keep going.".to_string(),
+                            output,
                         },
                     });
                 }
@@ -3313,17 +3376,38 @@ impl RuntimeWorld {
             }
         }
 
-        let shared_questions = self.shared_question_views(location_id, Some(actor.id));
+        let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
+        let action_hand = compose_action_hand(&action_offers);
+        let shared_questions = self.shared_question_views_with_actions(
+            location_id,
+            Some(actor.id),
+            &action_offers,
+            &action_hand,
+        );
         let promoted_questions = shared_questions
             .iter()
             .filter(|question| question.promoted)
             .map(|question| {
-                let strategies = question
-                    .strategies
+                let suggestions = question
+                    .suggested_actions
                     .iter()
-                    .filter(|strategy| strategy.available)
-                    .map(|strategy| {
-                        format!("{} — target {}", strategy.label, strategy.target_label)
+                    .enumerate()
+                    .map(|(index, suggestion)| {
+                        let risk = suggestion
+                            .risk
+                            .as_ref()
+                            .map(|risk| format!(" Risk: {risk}."))
+                            .unwrap_or_default();
+                        format!(
+                            "Suggestion {} of {}: {}. target {}. Source: {}. Likely: {}.{}",
+                            index + 1,
+                            question.suggested_actions.len(),
+                            suggestion.label,
+                            suggestion.target_label,
+                            suggestion.source,
+                            suggestion.likely_effect,
+                            risk,
+                        )
                     })
                     .collect::<Vec<_>>();
                 let next = question
@@ -3340,14 +3424,16 @@ impl RuntimeWorld {
                     })
                     .unwrap_or_default();
                 format!(
-                    "{} {} Progress: {}/{}.{} What finishing changes: {} Try: {}.{}",
+                    "{} {} Progress: {}/{}.{} Danger now: {} Danger consequence: {} What finishing changes: {} Try: {}.{}",
                     question.question,
                     question.situation,
                     question.filled,
                     question.segments,
                     trouble,
+                    question.danger_situation,
+                    question.danger_consequence,
                     question.outcome,
-                    command_list_or_none(&strategies),
+                    command_list_or_none(&suggestions),
                     next,
                 )
             })
@@ -3357,12 +3443,19 @@ impl RuntimeWorld {
                 "Shared questions: {}",
                 promoted_questions.join(" | ")
             ));
-        } else if let Some(memory) = shared_questions
+        } else if let Some(question) = shared_questions
             .iter()
             .find(|question| question.presentation_state == "completed_memory")
-            .and_then(|question| question.completion_memory.as_ref())
         {
-            lines.push(format!("What changed here: {memory}"));
+            let contributors = command_list_or_none(&question.participant_names);
+            lines.push(format!(
+                "What changed here: {} Contributors: {}.",
+                question
+                    .completion_memory
+                    .as_deref()
+                    .unwrap_or(&question.situation),
+                contributors,
+            ));
         }
 
         let clocks = self.clock_views(location_id);
@@ -3531,7 +3624,7 @@ impl RuntimeWorld {
                 candidate.id != actor.id && candidate.location_id == actor.location_id
             })
             .filter(|candidate| {
-                self.actor_visible_in_projection(
+                self.actor_target_visible_in_projection(
                     *candidate,
                     Some(actor.id),
                     active_direct_actor_ids,
@@ -3558,7 +3651,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|candidate| candidate.id != actor.id)
             .filter(|candidate| {
-                self.actor_visible_in_projection(
+                self.actor_target_visible_in_projection(
                     *candidate,
                     Some(actor.id),
                     active_direct_actor_ids,
@@ -3732,6 +3825,7 @@ mod tests {
             actor_id: 5000,
             actor_session: None,
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,
@@ -3787,6 +3881,8 @@ mod tests {
                 status: "active".to_string(),
                 source_event_seq: Some(90_407),
                 updated_event_seq: Some(90_407),
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
             },
         );
         assert_actionable_advancement_gate(&disabled_output(

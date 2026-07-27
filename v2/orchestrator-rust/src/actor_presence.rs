@@ -38,13 +38,97 @@ impl RuntimeWorld {
                 return true;
             }
             return active_direct_actor_ids
-                .map(|ids| ids.contains(&actor.id))
+                .map(|ids| ids.contains(&actor.id) || self.actor_holds_blocking_room_turn(actor))
                 .unwrap_or(true);
         }
         if self.avatar_hidden_until_discovered(actor) {
             return self.avatar_discovered(actor.id);
         }
         true
+    }
+
+    pub(super) fn actor_target_visible_in_projection(
+        &self,
+        actor: CwActor,
+        client_actor_id: Option<u64>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> bool {
+        if !self.actor_visible_in_projection(actor, client_actor_id, active_direct_actor_ids) {
+            return false;
+        }
+        if Self::actor_can_act(actor)
+            && !self.actor_uses_inference(actor.id)
+            && Some(actor.id) != client_actor_id
+        {
+            return active_direct_actor_ids
+                .map(|ids| ids.contains(&actor.id))
+                .unwrap_or(true);
+        }
+        true
+    }
+
+    fn actor_holds_blocking_room_turn(&self, actor: CwActor) -> bool {
+        Self::actor_can_act(actor)
+            && combat_turn_view(self, actor.id, actor.location_id)
+                .is_some_and(|turn| turn.current_actor_id == Some(actor.id))
+    }
+}
+
+impl RuntimeWorld {
+    pub(super) fn default_bondable_resident_with_presence(
+        &self,
+        actor_id: u64,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> Option<CwActor> {
+        let actor = self.actor_by_id(actor_id)?;
+        if self.advancement_points_available(actor_id) < usize::from(BOND_SLOT_COST) {
+            return None;
+        }
+        self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .find(|target| {
+                target.id != actor_id
+                    && Self::actor_can_act(*target)
+                    && target.location_id == actor.location_id
+                    && !self.actors_blocked(actor_id, target.id)
+                    && self.actor_target_visible_in_projection(
+                        *target,
+                        Some(actor_id),
+                        active_direct_actor_ids,
+                    )
+                    && self.active_bond(actor_id, target.id).is_none()
+            })
+    }
+
+    pub(super) fn validate_offer(
+        &self,
+        actor_id: u64,
+        access: &AccessContext,
+        submission: &ActionOfferSubmissionRequest,
+        active_direct_actor_ids: &BTreeSet<u64>,
+    ) -> Result<(), &'static str> {
+        self.validate_action_offer_submission_with_presence(
+            actor_id,
+            access,
+            submission,
+            Some(active_direct_actor_ids),
+        )
+    }
+
+    pub(super) fn actor_offer_target_visible(
+        &self,
+        actor: CwActor,
+        target: CwActor,
+        active_direct_actor_ids: &BTreeSet<u64>,
+    ) -> bool {
+        RuntimeWorld::actor_can_act(target)
+            && target.location_id == actor.location_id
+            && self.actor_target_visible_in_projection(
+                target,
+                Some(actor.id),
+                Some(active_direct_actor_ids),
+            )
     }
 }
 
@@ -57,6 +141,7 @@ mod tests {
             actor_id,
             actor_session: None,
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,
@@ -105,7 +190,7 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(
             runtime
@@ -200,6 +285,319 @@ mod tests {
             }));
     }
 
+    #[tokio::test]
+    async fn lapsed_direct_avatar_offer_cannot_spend_advancement() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Bond Seeker",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Visible Neighbor",
+        );
+        create_test_human(
+            &mut runtime,
+            5002,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Remaining Neighbor",
+        );
+        runtime.ledger_marks.insert(
+            "test:lapsed-offer-advancement".to_string(),
+            VisitLedgerMarkState {
+                id: "test:lapsed-offer-advancement".to_string(),
+                actor_id: 5000,
+                category: "witness".to_string(),
+                label: "Found a reason to grow".to_string(),
+                source_event_seq: runtime.world.next_event_seq,
+                banked: true,
+            },
+        );
+
+        let state = test_app_state(runtime, None);
+        let (seeker_session, _) = issue_actor_session(&state, 5000);
+        let (neighbor_session, _) = issue_actor_session(&state, 5001);
+        let (remaining_session, _) = issue_actor_session(&state, 5002);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &seeker_session),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &neighbor_session),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5002, &remaining_session),
+            Some(false)
+        );
+
+        let issued_offer = {
+            let active_direct_actor_ids = active_actor_ids_for_state(&state);
+            let runtime = state.inner.lock().await;
+            let projected = runtime.state_response_with_presence(
+                Some(5000),
+                &AccessContext::default(),
+                Some(&active_direct_actor_ids),
+                false,
+            );
+            assert!(projected.actors.iter().any(|actor| actor.id == 5001));
+            projected
+                .action_offers
+                .into_iter()
+                .find(|offer| {
+                    offer.kind == "create_bond"
+                        && offer
+                            .target
+                            .as_ref()
+                            .is_some_and(|target| target.id == Some(5001))
+                })
+                .expect("visible co-located direct avatar is a legal bond target")
+        };
+
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5001,
+            &neighbor_session,
+        ));
+        {
+            let active_direct_actor_ids = active_actor_ids_for_state(&state);
+            let runtime = state.inner.lock().await;
+            let projected = runtime.state_response_with_presence(
+                Some(5000),
+                &AccessContext::default(),
+                Some(&active_direct_actor_ids),
+                false,
+            );
+            assert!(!projected.actors.iter().any(|actor| actor.id == 5001));
+            assert!(projected.actors.iter().any(|actor| actor.id == 5002));
+            assert!(!projected.action_offers.iter().any(|offer| {
+                offer
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.kind == "actor" && target.id == Some(5001))
+            }));
+            let replacement_offer = projected
+                .action_offers
+                .iter()
+                .find(|offer| offer.kind == "create_bond")
+                .expect("same-kind bond offer survives for the remaining visible neighbor");
+            assert_eq!(
+                replacement_offer
+                    .target
+                    .as_ref()
+                    .and_then(|target| target.id),
+                Some(5002)
+            );
+            let replacement_option = projected
+                .primary_action
+                .options
+                .iter()
+                .find(|option| option.kind == "create_bond")
+                .expect("primary options retain the visible same-kind bond action");
+            assert_eq!(replacement_option.command, replacement_offer.command);
+            assert!(!replacement_option
+                .command
+                .to_ascii_lowercase()
+                .contains("visible neighbor"));
+            assert!(!projected
+                .primary_action
+                .command
+                .to_ascii_lowercase()
+                .contains("visible neighbor"));
+            assert!(!serde_json::to_string(&projected.primary_action)
+                .expect("primary action serializes")
+                .to_ascii_lowercase()
+                .contains("visible neighbor"));
+        }
+
+        let rejected_offer = submit_action_offer(
+            ConnectInfo("127.0.0.1:44136".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActionOfferSubmissionRequest {
+                path: "/actions/create-bond".to_string(),
+                offer_id: issued_offer.offer_id,
+                composition_id: issued_offer.composition_id,
+                kind: issued_offer.kind,
+                rules_action: issued_offer.rules_action,
+                operation: issued_offer.operation,
+                rules_profile: issued_offer.rules_profile,
+                state_revision: issued_offer.state_revision,
+                route: issued_offer.route,
+                target: issued_offer.target,
+                cost: issued_offer.cost,
+                payload: serde_json::json!({
+                    "actor_id": 5000,
+                    "actor_session": seeker_session.clone(),
+                    "target_actor_id": 5001,
+                    "statement": "We always make room for each other."
+                }),
+            }),
+        )
+        .await
+        .0;
+        assert!(!rejected_offer.ok);
+        assert_eq!(rejected_offer.status, 409);
+        assert!(rejected_offer.events.iter().any(|event| {
+            event.type_name == "action.offer_rejected"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("offer expired"))
+        }));
+
+        let rejected_direct = create_bond(
+            ConnectInfo("127.0.0.1:44137".parse().expect("client address")),
+            State(state.clone()),
+            Json(ReviseBondRequest {
+                actor_id: 5000,
+                actor_session: Some(seeker_session),
+                target_actor_id: 5001,
+                statement: "We always make room for each other.".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!rejected_direct.ok);
+        assert_eq!(rejected_direct.status, 409);
+        assert!(rejected_direct.events.is_empty());
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.advancement_points_available(5000), 1);
+        assert!(runtime.active_bond(5000, 5001).is_none());
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.type_name == "advancement.spent" && event.actor_id == Some(5000)
+        }));
+    }
+
+    #[tokio::test]
+    async fn blocked_player_sees_lapsed_turn_holder_on_every_room_roster() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "First Worker",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Second Worker",
+        );
+        for actor_id in [5000, 5001] {
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+        }
+        let job = runtime
+            .jobs
+            .get_mut(FIRST_TALE_JOB_ID)
+            .expect("focused fixture job");
+        job.status = "active".to_string();
+        job.focused_profile = Some(FOCUSED_WORK_PROFILE.to_string());
+        job.focused_encounter = Some(FocusedJobEncounterState {
+            version: 1,
+            encounter_id: 90_416,
+            profile_id: FOCUSED_WORK_PROFILE_ID.to_string(),
+            profile_version: FOCUSED_WORK_PROFILE_VERSION,
+            location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+            phase: "work".to_string(),
+            participant_order: vec![5000, 5001],
+            current_index: 0,
+            round: 1,
+            setup_remaining: 1,
+            status: "active".to_string(),
+        });
+
+        let state = test_app_state(runtime, None);
+        let (holder_session, _) = issue_actor_session(&state, 5000);
+        let (blocked_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &holder_session),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &blocked_session),
+            Some(false)
+        );
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &holder_session,
+        ));
+        let active_direct_actor_ids = active_actor_ids_for_state(&state);
+        assert!(!active_direct_actor_ids.contains(&5000));
+        assert!(active_direct_actor_ids.contains(&5001));
+
+        let runtime = state.inner.lock().await;
+        let mut projected = runtime.state_response_with_presence(
+            Some(5001),
+            &AccessContext::default(),
+            Some(&active_direct_actor_ids),
+            false,
+        );
+        projected.turn = room_turn_view_for_runtime(
+            &state,
+            &runtime,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            Some(5001),
+            &active_direct_actor_ids,
+        );
+        assert_eq!(projected.turn.current_actor_id, Some(5000));
+        assert_eq!(
+            projected.turn.current_actor_name.as_deref(),
+            Some("First Worker")
+        );
+        assert!(projected.actors.iter().any(|actor| actor.id == 5000));
+        assert!(projected.actors.iter().any(|actor| actor.id == 5001));
+        assert!(!projected.action_offers.iter().any(|offer| {
+            offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "actor" && target.id == Some(5000))
+        }));
+
+        let world = runtime.world_response_with_presence(
+            Some(5001),
+            &AccessContext::default(),
+            Some(&active_direct_actor_ids),
+        );
+        let room = world
+            .locations
+            .iter()
+            .find(|location| location.id == RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("blocked player's room is visible");
+        assert!(room.actors.iter().any(|actor| actor.id == 5000));
+        assert!(room.actors.iter().any(|actor| actor.id == 5001));
+
+        let blocked_actor = runtime.actor_by_id(5001).expect("blocked actor");
+        let look = runtime.room_command_output(
+            blocked_actor,
+            &AccessContext::default(),
+            Some(&active_direct_actor_ids),
+        );
+        assert!(look.contains("First Worker"));
+        assert!(look.contains("Second Worker"));
+
+        let rejection = actor_turn_rejection(&state, &runtime, 5001)
+            .expect("the second worker is blocked by the focused turn")
+            .0;
+        assert_eq!(rejection.status, 423);
+        let blocker = rejection.events.first().expect("waiting event");
+        assert_eq!(blocker.actor_id, Some(5000));
+        assert_eq!(blocker.actor_name.as_deref(), Some("First Worker"));
+        assert!(projected
+            .actors
+            .iter()
+            .any(|actor| Some(actor.id) == blocker.actor_id));
+    }
+
     #[test]
     fn knocked_out_avatar_receives_local_witness_credit() {
         let mut runtime = RuntimeWorld::seeded();
@@ -223,14 +621,14 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.resident_memories.clear();
-        runtime.remember_resident_memory(
+        runtime.beliefs.clear();
+        runtime.remember_belief(
             resident.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             resident.location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(resident.id),
         );
         let action = runtime

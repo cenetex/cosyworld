@@ -27,6 +27,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             get(generated_community_art_asset),
         )
         .route(
+            "/assets/generated/room-scenes/{asset_file}",
+            get(generated_room_scene_asset),
+        )
+        .route(
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
@@ -117,6 +121,15 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/moderation/economy", get(moderation_economy_view))
         .route(
+            "/moderation/media-verdicts",
+            get(media_recipes::media_verdict::moderation_media_verdicts),
+        )
+        .route(
+            "/moderation/media-verdicts/{record_id}",
+            get(media_recipes::media_verdict::moderation_media_verdict)
+                .post(media_recipes::media_verdict::moderation_update_media_verdict),
+        )
+        .route(
             "/moderation/community-art/{subject_kind}/{subject_id}/reject",
             post(moderation_reject_community_art),
         )
@@ -139,11 +152,17 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/presence/leave", post(leave_presence))
         .route("/actions/submit", post(submit_action_offer))
         .route("/actions/timeout", post(request_turn_timeout))
-        .route("/actions/need-time", post(request_turn_timeout))
+        .route("/actions/need-time", post(request_turn_need_time))
         .route("/actions/pass", post(pass_ordered_scene_turn))
         .route("/actions/narrative-move", post(submit_narrative_move))
         .route("/actions/chat", post(chat))
         .route("/actions/fund-image", post(fund_community_image))
+        .route("/media/room-scenes", post(create_room_scene))
+        .route("/media/room-scenes/{job_id}", get(room_scene_status))
+        .route(
+            "/moderation/room-scenes/{job_id}/review",
+            post(review_room_scene),
+        )
         .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))
         .route("/actions/move", post(move_actor))

@@ -193,6 +193,7 @@ run_js_checks() {
 
 run_cli_checks() {
   python3 -m py_compile "$ROOT/cli/cosy_cli.py"
+  python3 -m unittest discover -s "$ROOT/cli" -p "test_*.py"
 }
 
 start_deterministic_smoke_server() {

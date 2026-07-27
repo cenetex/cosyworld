@@ -67,6 +67,24 @@
     "search": "Through the glass: the garden first, the trail beyond it, the school past both."
   },
   {
+    "location_id": 4,
+    "key": "lodging",
+    "name": "Guest Rooms",
+    "aliases": [
+      "bed",
+      "beds",
+      "rooms",
+      "upstairs"
+    ],
+    "look": "Four small rooms open from the upstairs landing. Each has a narrow bed and a folded wool blanket.",
+    "search": "Each washstand holds a filled basin. The clean towels are stacked by room number.",
+    "lodging": {
+      "gate": {
+        "kind": "open"
+      }
+    }
+  },
+  {
     "location_id": 2,
     "key": "broad_leaves",
     "name": "Broad Leaves",

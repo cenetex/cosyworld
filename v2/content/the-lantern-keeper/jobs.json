@@ -97,7 +97,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.6"
+        "pack_version": "0.1.8"
       },
       {
         "version": 1,
@@ -179,15 +179,39 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.6"
+        "pack_version": "0.1.8"
       }
     ],
     "narrated_thresholds": [
       {
         "clock_id": "lantern-keeper.darkness",
+        "filled": 1,
+        "narration_key": "lantern-keeper.first-road-lamp-fails",
+        "text": "One more road lamp goes out. The dark now reaches the next bend."
+      },
+      {
+        "clock_id": "lantern-keeper.darkness",
+        "filled": 2,
+        "narration_key": "lantern-keeper.unlit-stretches-grow",
+        "text": "Every other road lamp is dark. Travelers must cross longer unlit stretches."
+      },
+      {
+        "clock_id": "lantern-keeper.darkness",
         "filled": 3,
         "narration_key": "lantern-keeper.shadows-learn",
         "text": "Borrowed shadows begin repeating the shapes of travelers who have not yet arrived."
+      },
+      {
+        "clock_id": "lantern-keeper.darkness",
+        "filled": 4,
+        "narration_key": "lantern-keeper.two-road-lamps-remain",
+        "text": "Only two road lamps remain lit. The tower path is difficult to follow."
+      },
+      {
+        "clock_id": "lantern-keeper.darkness",
+        "filled": 5,
+        "narration_key": "lantern-keeper.final-road-lamp-fails",
+        "text": "The final road lamp below the tower is failing. The next delay will leave the road fully dark."
       }
     ]
   }

@@ -1,0 +1,302 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cosyworld.org/schemas/world-generation-policy-v1.schema.json",
+  "title": "CosyWorld generated descendant policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_id",
+    "migration_version",
+    "collision_namespace",
+    "migrations",
+    "cross_pack_routes"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "policy_id": { "$ref": "#/definitions/profileId" },
+    "migration_version": { "type": "integer", "minimum": 1 },
+    "collision_namespace": {
+      "type": "string",
+      "pattern": "^pack://[a-z0-9][a-z0-9.-]*/generated/[a-z0-9][a-z0-9._/-]*$"
+    },
+    "generated_descendants": { "$ref": "#/definitions/generatedDescendants" },
+    "prose": { "$ref": "#/definitions/prose" },
+    "media": { "$ref": "#/definitions/media" },
+    "topology": { "$ref": "#/definitions/topology" },
+    "migrations": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/migration" }
+    },
+    "cross_pack_routes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/crossPackRoute" }
+    }
+  },
+  "definitions": {
+    "profileId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*(?:/[a-z0-9][a-z0-9._-]*)*/[1-9][0-9]*$"
+    },
+    "generatedDescendants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "composition",
+        "subject_kinds",
+        "on_upgrade",
+        "on_unmount"
+      ],
+      "properties": {
+        "owner": { "enum": ["self", "source_route"] },
+        "composition": { "const": "active_bundle" },
+        "subject_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["route", "waypoint", "place", "location_card"] }
+        },
+        "on_upgrade": { "const": "require_declared_migration" },
+        "on_unmount": { "const": "freeze_with_owner" }
+      }
+    },
+    "prose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "prompt_versions", "ecology"],
+      "properties": {
+        "profile_id": { "$ref": "#/definitions/profileId" },
+        "prompt_versions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["pathway-content-v1", "pathway-content-v2"] }
+        },
+        "ecology": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["interpolation", "required_context"],
+          "properties": {
+            "interpolation": { "const": "endpoint_blend/1" },
+            "required_context": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "route_id",
+                  "route_version",
+                  "origin",
+                  "destination",
+                  "travel_direction",
+                  "segment_index",
+                  "segment_count",
+                  "biome",
+                  "terrain",
+                  "climate",
+                  "landforms",
+                  "geology",
+                  "hydrology",
+                  "vegetation",
+                  "fauna",
+                  "resource_cues",
+                  "nearby_authored_descriptions"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "recipe_id",
+        "prompt_version",
+        "prompt_prefix",
+        "aspect_ratios",
+        "output_formats",
+        "negative_constraints",
+        "subject_kinds",
+        "authored_art",
+        "community_art",
+        "unexplored_placeholder",
+        "fallback"
+      ],
+      "properties": {
+        "profile_id": { "$ref": "#/definitions/profileId" },
+        "recipe_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "provider_preference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "model", "revision"],
+          "properties": {
+            "provider": { "const": "replicate" },
+            "model": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$"
+            },
+            "revision": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        },
+        "prompt_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "prompt_prefix": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "aspect_ratios": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["16:9"] }
+        },
+        "output_formats": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["webp"] }
+        },
+        "negative_constraints": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "subject_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "const": "location_card" }
+        },
+        "authored_art": { "enum": ["permanent", "ineligible"] },
+        "community_art": { "enum": ["eligible", "ineligible"] },
+        "unexplored_placeholder": { "const": "common_unexplored/1" },
+        "fallback": { "const": "unexplored_placeholder" }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "directionality", "evacuation", "budgets"],
+      "properties": {
+        "profile_id": {
+          "enum": [
+            "linear_journey",
+            "regional_mesh",
+            "hub_and_spoke",
+            "dungeon",
+            "island",
+            "open_frontier"
+          ]
+        },
+        "directionality": { "const": "reciprocal_or_explicit_one_way" },
+        "evacuation": { "enum": ["world_lifecycle_required", "not_required"] },
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "components",
+            "roots",
+            "ingress",
+            "egress",
+            "weighted_distance",
+            "degree",
+            "cycle_rank",
+            "bridges",
+            "articulation_impact",
+            "terminal_spurs"
+          ],
+          "properties": {
+            "components": { "$ref": "#/definitions/bound" },
+            "roots": { "$ref": "#/definitions/bound" },
+            "ingress": { "$ref": "#/definitions/bound" },
+            "egress": { "$ref": "#/definitions/bound" },
+            "weighted_distance": { "$ref": "#/definitions/bound" },
+            "degree": { "$ref": "#/definitions/bound" },
+            "cycle_rank": { "$ref": "#/definitions/bound" },
+            "bridges": { "$ref": "#/definitions/bound" },
+            "articulation_impact": { "$ref": "#/definitions/bound" },
+            "terminal_spurs": { "$ref": "#/definitions/bound" }
+          }
+        }
+      }
+    },
+    "bound": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "min": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_policy_id",
+        "from_migration_version",
+        "from_pack_version",
+        "mode"
+      ],
+      "properties": {
+        "from_policy_id": { "$ref": "#/definitions/profileId" },
+        "from_migration_version": { "type": "integer", "minimum": 0 },
+        "from_pack_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "mode": { "const": "preserve_descendants" }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pack_id", "location_id"],
+      "properties": {
+        "pack_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+        "location_id": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "crossPackRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoints",
+        "route_owner",
+        "generated_descendant_owner",
+        "topology_authority",
+        "ecology_transition",
+        "media_profile_id",
+        "unmount",
+        "evacuation"
+      ],
+      "properties": {
+        "endpoints": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/definitions/endpoint" }
+        },
+        "route_owner": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+        "generated_descendant_owner": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "topology_authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pack_id", "migration_version"],
+          "properties": {
+            "pack_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+            "migration_version": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "ecology_transition": { "const": "endpoint_blend/1" },
+        "media_profile_id": { "$ref": "#/definitions/profileId" },
+        "unmount": { "const": "remove_with_route_owner" },
+        "evacuation": { "const": "world_pack_lifecycle" }
+      }
+    }
+  }
+}

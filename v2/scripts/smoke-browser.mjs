@@ -764,6 +764,24 @@ async function main() {
             ping_active: false,
           },
         }).map((action) => ({ label: action.label, detail: action.detail, effect: action.effect })),
+        nudgeActions: buildActions({
+          location: { id: 1, name: "The Cosy Cottage" },
+          primary_action: { options: [{ kind: "check" }] },
+          economy: { listen_attempted_here: true },
+          turn: {
+            enabled: true,
+            policy: "scene-turn",
+            is_current_actor: false,
+            can_request_timeout: true,
+            current_actor_id: 5001,
+            current_actor_name: "Mabel Crumblethorn",
+          },
+        }).map((action) => ({
+          label: action.label,
+          detail: action.detail,
+          effect: action.effect,
+          focusKey: action.focusKey,
+        })),
         gatheringActions: buildActions({
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { options: [{ kind: "check" }] },
@@ -971,6 +989,14 @@ async function main() {
     assert(/acts now/i.test(guide.arrivalActions[0]?.detail || "") && /chat and inspection stay available/i.test(guide.arrivalActions[0]?.summary || ""), `the ordered-scene wait should explain whose turn it is without hiding free interaction: ${JSON.stringify(guide)}`);
     assert(guide.arrivalActions[0]?.effect === "shows the current combat order without taking an action", `the ordered-scene action should remain observational: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "ordered combat", `ordinary ordered-scene waiting should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(
+      guide.nudgeActions.length === 2
+        && guide.nudgeActions[0]?.label === "nudge"
+        && guide.nudgeActions[0]?.focusKey === "scene-timeout"
+        && /play or pass/i.test(guide.nudgeActions[0]?.detail || "")
+        && guide.nudgeActions[1]?.label === "ordered combat",
+      `an eligible waiting participant should receive the nudge beside the observational ordered-scene card: ${JSON.stringify(guide.nudgeActions)}`,
+    );
     assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "ordered combat", `a pending ordered-scene handoff should preserve the combat floor: ${JSON.stringify(guide)}`);
   }
 
@@ -1917,6 +1943,7 @@ async function main() {
             })),
             selectedChoice: entry.selectedChoice || "",
             focusKeys: entry.focusKeys || [],
+            payload: entry.selectedPayload?.() || null,
             alternateTargetId: entry.choices?.[1]
               ? (() => {
                 const selected = entry.selectedChoice;
@@ -1956,6 +1983,51 @@ async function main() {
           command: entry.command || "",
         }));
       };
+      const renderedMaraModal = () => {
+        const fakeState = {
+          ...baseState,
+          action_offers: [{
+            ...baseState.action_offers[0],
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            command: "chat Rati",
+          }],
+          actors: [
+            baseState.actors[0],
+            { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+            {
+              id: 8301,
+              name: "Mara Wick",
+              kind: "npc",
+              status: "active",
+              stats: { level: 2 },
+              relationship: {
+                intent: "Begin a cautious acquaintance by accepting Mara's request.",
+                statement: "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.",
+                initial_status: "forming",
+                deterministic_consequence: "Mara places Rowan's empty key hook on the bar and asks for the Keeper's Brass Key.",
+                dialogue_contract: "one grounded reply if dialogue is available; otherwise one explicit unavailable result",
+              },
+            },
+          ],
+        };
+        state = fakeState;
+        actorId = 5000;
+        const action = buildActions(fakeState).find((entry) => entry.label === "chat");
+        openActionModal(action);
+        const before = [...document.querySelectorAll("#action-modal-meta .action-row")]
+          .map((node) => node.textContent.trim().replace(/\s+/g, " "));
+        const maraIndex = action.choices.findIndex((choice) => choice.label === "Mara Wick");
+        chooseActionModalChoice(maraIndex);
+        const selected = [...document.querySelectorAll("#action-modal-meta .action-row")]
+          .map((node) => ({
+            label: node.querySelector(".action-row-key")?.textContent?.trim() || "",
+            value: node.querySelector(".action-row-value")?.textContent?.trim() || "",
+            ariaLabel: node.getAttribute("aria-label") || "",
+          }));
+        const payload = action.selectedPayload?.() || null;
+        closeActionModal();
+        return { before, selected, payload };
+      };
       try {
         return {
           serverPaid: chatActionFor({}),
@@ -1990,6 +2062,31 @@ async function main() {
               },
             },
           }),
+          mara: chatActionFor({
+            action_offers: [{
+              ...baseState.action_offers[0],
+              target: { kind: "actor", id: 8301, label: "Mara Wick" },
+              command: "chat Mara Wick",
+            }],
+            actors: [
+              baseState.actors[0],
+              {
+                id: 8301,
+                name: "Mara Wick",
+                kind: "npc",
+                status: "active",
+                stats: { level: 2 },
+                relationship: {
+                  intent: "Begin a cautious acquaintance by accepting Mara's request.",
+                  statement: "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.",
+                  initial_status: "forming",
+                  deterministic_consequence: "Mara places Rowan's empty key hook on the bar and asks for the Keeper's Brass Key.",
+                  dialogue_contract: "one grounded reply if dialogue is available; otherwise one explicit unavailable result",
+                },
+              },
+            ],
+          }),
+          renderedMara: renderedMaraModal(),
         };
       } finally {
         state = previousState;
@@ -2017,6 +2114,54 @@ async function main() {
     assert(!String(result.serverPaid?.detail || "").includes("lv"), `chat cards should let the evolved art and title carry character growth: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("/"), `chat detail should not include card title chrome: ${JSON.stringify(result)}`);
     assert(!String(result.staleConnectedHint?.detail || "").includes("/"), `stale OpenRouter chat detail should not include card title chrome: ${JSON.stringify(result)}`);
+    assert(result.mara?.summary.includes("forming relationship") && result.mara?.summary.includes("Mara is watching"), `Mara Chat should preview the forming relationship statement: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Status" && row[1].includes("does not claim friendship")), `Mara Chat must not present an established friendship: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Campaign beat" && row[1].includes("empty key hook")), `Mara Chat should preview its deterministic campaign beat: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Dialogue" && row[1].includes("explicit unavailable result")), `Mara Chat should distinguish optional dialogue from the relationship mutation: ${JSON.stringify(result)}`);
+    assert(result.mara?.payload?.statement === "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.", `Mara Chat must submit the confirmed authored statement: ${JSON.stringify(result)}`);
+    assert(result.renderedMara?.before?.length === 0, `an ordinary Chat target should keep the existing compact modal: ${JSON.stringify(result.renderedMara)}`);
+    assert(
+      result.renderedMara?.selected?.map((row) => row.label).join(",")
+        === "Relationship,Status,Campaign beat,Spend,Dialogue",
+      `selecting Mara must replace the modal DOM with all five relationship rows: ${JSON.stringify(result.renderedMara)}`,
+    );
+    assert(result.renderedMara?.selected?.every((row) => row.ariaLabel === row.label), `rendered relationship rows need accessible labels: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.renderedMara?.selected?.some((row) => row.label === "Status" && row.value.includes("does not claim friendship")), `rendered Mara status must stay visibly forming: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.renderedMara?.selected?.some((row) => row.label === "Campaign beat" && row.value.includes("empty key hook")), `rendered Mara modal must show the deterministic campaign beat: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.renderedMara?.payload?.target_actor_id === 8301 && result.renderedMara?.payload?.statement === result.mara?.payload?.statement, `the DOM-selected Mara payload must keep the authored relationship statement: ${JSON.stringify(result.renderedMara)}`);
+  }
+
+  async function assertMaraRelationshipEventsStayTruthful() {
+    const result = await page.evaluate(() => {
+      const forming = {
+        type: "bond.created",
+        actor_name: "Lantern Stitch",
+        target_actor_name: "Mara Wick",
+        content: "bond:5000:8301:1:forming:advancement",
+      };
+      const beat = {
+        type: "relationship.beat",
+        actor_name: "Lantern Stitch",
+        target_actor_name: "Mara Wick",
+        content: "Mara places Rowan's empty key hook on the bar and asks for the Keeper's Brass Key.",
+      };
+      const unavailable = {
+        type: "dialogue.unavailable",
+        actor_name: "Lantern Stitch",
+        target_actor_name: "Mara Wick",
+        content: "resident dialogue was unavailable; no substitute line was created",
+      };
+      return {
+        forming: sceneCardEventText(forming),
+        beat: sceneCardEventText(beat),
+        unavailable: sceneCardEventText(unavailable),
+        unavailableStatus: statusUpdateMeta(unavailable),
+      };
+    });
+    assert(/connection begins forming/i.test(result.forming) && /friendship has not been claimed/i.test(result.forming), `forming Bond presentation must not claim friendship: ${JSON.stringify(result)}`);
+    assert(result.beat.includes("empty key hook") && result.beat.includes("Keeper's Brass Key"), `the authored campaign consequence should remain visible without dialogue: ${JSON.stringify(result)}`);
+    assert(/Dialogue unavailable/i.test(result.unavailable) && /no substitute speech/i.test(result.unavailable), `provider-offline failure must be explicit and truthful: ${JSON.stringify(result)}`);
+    assert(result.unavailableStatus?.label === "dialogue unavailable", `typed dialogue failure should keep its visible event label: ${JSON.stringify(result)}`);
   }
 
   async function assertGiftPrimaryUsesCompactVerb() {
@@ -2222,8 +2367,22 @@ async function main() {
         ],
         items: [],
         exits: [
-          { destination_location_id: 2, destination_location_name: "Rain-Soft Garden", direction: "east", accessible: true, locked: false },
-          { destination_location_id: 11, destination_location_name: "Homeroom", direction: "north", accessible: true, locked: false },
+          {
+            destination_location_id: 2,
+            destination_location_name: "Rain-Soft Garden",
+            route_label: "Route from The Cosy Cottage to Rain-Soft Garden",
+            direction: "east",
+            accessible: true,
+            locked: false,
+          },
+          {
+            destination_location_id: 11,
+            destination_location_name: "Homeroom",
+            route_label: "Route from The Cosy Cottage to Homeroom",
+            direction: "north",
+            accessible: true,
+            locked: false,
+          },
         ],
         room_features: [],
         cards: {
@@ -2331,8 +2490,11 @@ async function main() {
     assert(result.count === 1, `multiple open paths should collapse into one Travel card: ${JSON.stringify(result)}`);
     assert(result.detail === "choose a path" && result.command === "go", `grouped Travel should carry its destination choice: ${JSON.stringify(result)}`);
     assert(
-      ["Rain-Soft Garden", "Homeroom"].every((name) => result.choices.some((choice) => choice.label === name)),
-      `Travel should carry every open destination: ${JSON.stringify(result)}`,
+      [
+        "Route from The Cosy Cottage to Rain-Soft Garden",
+        "Route from The Cosy Cottage to Homeroom",
+      ].every((name) => result.choices.some((choice) => choice.label === name)),
+      `Travel should distinguish routes from their next location cards: ${JSON.stringify(result)}`,
     );
     assert(
       ["exit:2", "exit:11"].every((key) => result.focusKeys.includes(key)),
@@ -4148,7 +4310,7 @@ async function main() {
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
   }
 
-  async function assertTiredRestPriorityFollowsRoomDanger() {
+  async function assertServerEligibleRestPriorityFollowsRoomDanger() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -4225,6 +4387,78 @@ async function main() {
             ],
             items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", location_id: 1, charges: 1 }],
           }),
+          exhaustedRecoveryItem: actionsFor({
+            tags: [],
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              rank: 84,
+              effect: "restores one exhausted keepsake",
+            }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:77:rest:rest", kind: "rest", state_revision: 77 }],
+            },
+            items: [{
+              id: 2001,
+              name: "Hearth Tonic",
+              kind: "potion",
+              holder_actor_id: 5000,
+              charges: 0,
+              max_charges: 1,
+              recovery: 1,
+            }],
+          }),
+          trainedSinceRest: actionsFor({
+            tags: [{
+              id: "actor:5000:trained_since_rest",
+              scope: "actor",
+              scope_id: 5000,
+              label: "trained since rest",
+            }],
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{ kind: "rest", rank: 84 }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:78:rest:rest", kind: "rest", state_revision: 78 }],
+            },
+          }),
+          expeditionRecovery: actionsFor({
+            tags: [{
+              id: "actor:5000:frontier_travel_since_rest:79",
+              scope: "actor",
+              scope_id: 5000,
+              label: "frontier travel since rest",
+            }],
+            location: { id: 3, name: "Moonlit Trail" },
+            room_sheet: { zone: "frontier", safety: "dangerous" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              rank: 25,
+              risk: "trouble may draw nearer while you rest",
+            }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:79:rest:rest", kind: "rest", state_revision: 79 }],
+            },
+          }),
         };
       } finally {
         state = previousState;
@@ -4245,6 +4479,16 @@ async function main() {
     assert(sanctuaryRestIndex > sanctuaryTravelIndex, `sanctuary rest should stay available without hijacking travel: ${JSON.stringify(result)}`);
     assert(result.sanctuary[sanctuaryRestIndex]?.detail === "feel fresh", `sanctuary rest should name the concrete payoff in natural language: ${JSON.stringify(result)}`);
     assert(result.sanctuary[sanctuaryRestIndex]?.summary === "Catch your breath.", `sanctuary Rest should stay simple and calm: ${JSON.stringify(result)}`);
+    for (const [target, actions] of Object.entries({
+      exhaustedRecoveryItem: result.exhaustedRecoveryItem,
+      trainedSinceRest: result.trainedSinceRest,
+      expeditionRecovery: result.expeditionRecovery,
+    })) {
+      assert(
+        actions.some((action) => action.label === "rest"),
+        `${target} should render server-authorized Rest without a tired tag: ${JSON.stringify(result)}`,
+      );
+    }
     assert(!JSON.stringify(result).includes("Risk:"), `Rest confirmations should not use a rules-like Risk label: ${JSON.stringify(result)}`);
   }
 
@@ -5200,6 +5444,517 @@ async function main() {
     assert(result.projectAtmosphere === "Quiet the Moonlit Trail draws closer.", `project headlines should retain the concrete project outcome: ${JSON.stringify(result)}`);
     assert(result.chatAtmosphere === "Rati's voice stayed in the room.", `chat headlines should identify the voice without purple prose: ${JSON.stringify(result)}`);
     assert(!/hush|lingers|something learned|stirs close to the light/i.test(JSON.stringify(result)), `room headlines should avoid vague stock atmosphere: ${JSON.stringify(result)}`);
+  }
+
+  async function assertLanternKeeperSemanticStoryReceipt() {
+    const result = await page.evaluate(() => {
+      const previousLogEvents = logEvents.slice();
+      const previousSeen = new Set(seenSeq);
+      try {
+        logEvents = [];
+        seenSeq.clear();
+        const text = "Kit Featherstep rekindles the dark Mothwood beacon. The beacon burns again and makes the Mothwood road trustworthy after dusk. Progress: 6/6. The road remembers Kit Featherstep's work. Kit Featherstep earns 2 Orbs. Next: carry the relit road's news back to Mara Wick.";
+        const raw = [
+          {
+            seq: 991100,
+            type: "job.contribution.resolved",
+            actor_id: actorId,
+            actor_name: "Kit Featherstep",
+            location_id: 804,
+            location_name: "Lantern Tower",
+            content: JSON.stringify({
+              job_id: "lantern-keeper:rekindle-the-beacon",
+              strategy_label: "Rekindle the beacon",
+              target: { label: "the dark Mothwood beacon" },
+              outcome: "success",
+              total_progress: 6,
+            }),
+          },
+          {
+            seq: 991101,
+            type: "clock.updated",
+            actor_id: actorId,
+            actor_name: "Kit Featherstep",
+            location_id: 804,
+            location_name: "Lantern Tower",
+            clock_id: "lantern-keeper.light",
+            clock_label: "Rekindle the Beacon",
+            clock_filled: 6,
+            clock_segments: 6,
+          },
+          {
+            seq: 991102,
+            type: "tag.cleared",
+            actor_id: actorId,
+            actor_name: "Kit Featherstep",
+            location_id: 804,
+            location_name: "Lantern Tower",
+            tag_label: "spent preparation",
+          },
+        ];
+        const receipt = {
+          seq: 991103,
+          type: "story.receipt",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          content: JSON.stringify({
+            schema_version: 1,
+            narration_key: "lantern-keeper.work",
+            text,
+            event_seqs: raw.map((event) => event.seq),
+            next_response: "carry the relit road's news back to Mara Wick.",
+          }),
+        };
+        const batch = [...raw, receipt];
+        pushEvents(batch);
+        const narrated = narratedTranscriptEvents(logEvents);
+        const replayed = narratedTranscriptEvents(batch);
+        const journal = journalEventHtml(receipt);
+        return {
+          text,
+          narratedTypes: narrated.map((event) => event.type),
+          narratedText: narrated.map(sceneCardEventText),
+          replayedTypes: replayed.map((event) => event.type),
+          statusText: statusUpdateMeta(receipt).text,
+          eventText: eventText(receipt),
+          memoryText: roomMemoryEntryForEvent(receipt)?.text || "",
+          rawTypesStillInspectable: raw.every((event) => (
+            logEvents.some((logged) => logged.seq === event.seq)
+            && journal.includes(event.type)
+            && journal.includes(`#${event.seq}`)
+          )),
+          malformed: [
+            "grew from what happened",
+            "became frontier travel",
+            "became spent preparation",
+            "The Road Goes Fully Dark draws closer",
+            "shook off spent preparation",
+          ].filter((phrase) => [
+            ...narrated.map(sceneCardEventText),
+            statusUpdateMeta(receipt).text,
+            eventText(receipt),
+          ].some((value) => String(value || "").includes(phrase))),
+        };
+      } finally {
+        logEvents = previousLogEvents;
+        seenSeq.clear();
+        for (const seq of previousSeen) seenSeq.add(seq);
+      }
+    });
+    assert(
+      JSON.stringify(result.narratedTypes) === JSON.stringify(["story.receipt"])
+        && JSON.stringify(result.replayedTypes) === JSON.stringify(["story.receipt"]),
+      `Lantern Keeper browser and replay should collapse one action to one semantic receipt: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.narratedText[0] === result.text
+        && result.statusText === result.text
+        && result.eventText === result.text
+        && result.memoryText === result.text,
+      `every browser surface should render the same authored receipt: ${JSON.stringify(result)}`,
+    );
+    assert(result.rawTypesStillInspectable, `expanded Journal should retain covered raw event evidence: ${JSON.stringify(result)}`);
+    assert(result.malformed.length === 0, `semantic receipt should exclude every reported malformed sentence: ${JSON.stringify(result)}`);
+
+    const previousViewport = page.viewportSize();
+    const evidencePath = resolve(visualSnapshotDir, "lantern-story-receipt.png");
+    await mkdir(visualSnapshotDir, { recursive: true });
+    const evidence = await page.evaluate((text) => {
+      window.__cosyLanternReceiptEvidence = {
+        state,
+        logEvents,
+        seenSeq: new Set(seenSeq),
+        journalOpen,
+      };
+      state = {
+        ...state,
+        location: { ...(state?.location || {}), id: 804, name: "Lantern Tower" },
+      };
+      logEvents = [];
+      seenSeq.clear();
+      const raw = [
+        {
+          seq: 991100,
+          type: "job.contribution.resolved",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          content: JSON.stringify({
+            job_id: "lantern-keeper:rekindle-the-beacon",
+            strategy_label: "Rekindle the beacon",
+            target: { label: "the dark Mothwood beacon" },
+            outcome: "success",
+            total_progress: 6,
+          }),
+        },
+        {
+          seq: 991101,
+          type: "clock.updated",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          clock_label: "Rekindle the Beacon",
+          clock_filled: 6,
+          clock_segments: 6,
+        },
+        {
+          seq: 991102,
+          type: "tag.cleared",
+          actor_id: actorId,
+          actor_name: "Kit Featherstep",
+          location_id: 804,
+          location_name: "Lantern Tower",
+          tag_label: "spent preparation",
+        },
+      ];
+      pushEvents([...raw, {
+        seq: 991103,
+        type: "story.receipt",
+        actor_id: actorId,
+        actor_name: "Kit Featherstep",
+        location_id: 804,
+        location_name: "Lantern Tower",
+        content: JSON.stringify({
+          schema_version: 1,
+          narration_key: "lantern-keeper.work",
+          text,
+          event_seqs: raw.map((event) => event.seq),
+          next_response: "carry the relit road's news back to Mara Wick.",
+        }),
+      }]);
+      renderTimelines();
+      setJournalOpen(true);
+      const storyRow = document.querySelector("#journal-log .journal-row.story");
+      if (storyRow) storyRow.open = true;
+      return {
+        latest: document.querySelector("#room-log-latest")?.textContent || "",
+        story: storyRow?.textContent || "",
+        rawCount: storyRow?.querySelectorAll(".journal-row-inspector li").length || 0,
+      };
+    }, result.text);
+    assert(evidence.latest.includes("Kit Featherstep rekindles"), `receipt evidence should show the authored scene status: ${JSON.stringify(evidence)}`);
+    assert(evidence.story.includes("Kit Featherstep rekindles") && evidence.rawCount === 3, `receipt evidence should expand its three covered raw events: ${JSON.stringify(evidence)}`);
+    await page.setViewportSize({ width: 980, height: 820 });
+    await page.screenshot({ path: evidencePath, fullPage: false });
+    await page.evaluate(() => {
+      const previous = window.__cosyLanternReceiptEvidence;
+      state = previous.state;
+      logEvents = previous.logEvents;
+      seenSeq.clear();
+      for (const seq of previous.seenSeq) seenSeq.add(seq);
+      setJournalOpen(previous.journalOpen);
+      renderTimelines();
+      delete window.__cosyLanternReceiptEvidence;
+    });
+    if (previousViewport) await page.setViewportSize(previousViewport);
+    steps.push({
+      label: "Lantern Keeper semantic receipt",
+      screenshot: evidencePath,
+      rawEvents: evidence.rawCount,
+    });
+  }
+
+  async function assertLanternQuestionAndTwoSuggestionAccessibility() {
+    const previousViewport = page.viewportSize();
+    const screenshotPath = resolve(visualSnapshotDir, "lantern-question-two-suggestions.png");
+    const metadataPath = resolve(visualSnapshotDir, "lantern-question-two-suggestions.json");
+    await mkdir(visualSnapshotDir, { recursive: true });
+    const evidence = await page.evaluate(() => {
+      window.__cosyLanternQuestionEvidence = {
+        state,
+        actions,
+        actorSession,
+        handKeys,
+        discardedHandKeys,
+        authoritativeHandIdentity,
+        focusIndex,
+        focusedKey,
+        playerPromotedHandKey,
+      };
+      actorSession = "";
+      const suggestedActions = [
+        {
+          offer_id: "offer-prepare",
+          state_revision: 361,
+          kind: "use_feature",
+          label: "Prepare the beacon lens",
+          target_label: "the brass beacon shutters",
+          source: "the Lantern Tower's tools are within reach",
+          likely_effect: "preparation avoids fatigue; progress stays 2/6",
+          likely_progress: 0,
+          risk: "the road remains dark while you prepare",
+        },
+        {
+          offer_id: "offer-rest",
+          state_revision: 361,
+          kind: "rest",
+          label: "Rest",
+          target_label: "your tired traveler",
+          source: "you are tired after tending the road",
+          likely_effect: "helps you feel fresh; The Road Goes Fully Dark advances from 1/6 to 2/6",
+          likely_progress: 0,
+          risk: "trouble may draw nearer while you rest",
+        },
+      ];
+      state = {
+        ...state,
+        state_revision: 361,
+        world_seq: 361,
+        branch: null,
+        location: { ...(state?.location || {}), id: 804, name: "Lantern Tower" },
+        primary_action: { kind: "act", options: [{ kind: "use_feature" }, { kind: "rest" }] },
+        fronts: [{
+          id: "lantern-keeper:hollow-light",
+          premise: "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper.",
+          status: "active",
+          presentation_state: "active",
+          outcome_statement: "",
+          participant_names: ["Pip Thistle", "Moth-Eaten Knight", "Rowan Vale"],
+          stakes_questions: [
+            "Can Rowan be separated from the shadow without extinguishing the keeper's ember?",
+            "Will the party restore a guiding light or merely another weapon against the dark?",
+          ],
+        }],
+        shared_questions: [{
+          job_id: "lantern-keeper:rekindle-the-beacon",
+          question: "Can the Mothwood beacon be relit before the road goes fully dark?",
+          situation: "One more road lamp has gone out, and the dark now reaches the next bend.",
+          resolution: "active",
+          progress_clock_id: "lantern-keeper.light",
+          filled: 2,
+          segments: 6,
+          danger_clock_id: "lantern-keeper.dark",
+          danger_filled: 1,
+          danger_segments: 6,
+          danger_situation: "One more road lamp goes out. The dark now reaches the next bend.",
+          danger_consequence: "The Mothwood road goes fully dark and travelers lose the safe night route.",
+          outcome: "The beacon burns again and makes the Mothwood road trustworthy after dusk.",
+          presentation_state: "active",
+          promoted: true,
+          promotion_rank: 0,
+          updated_event_seq: 361,
+          suggested_actions: suggestedActions,
+        }],
+        action_hand: {
+          capacity: 2,
+          state_revision: 361,
+          entries: suggestedActions.map((suggestion) => ({
+            offer_id: suggestion.offer_id,
+            kind: suggestion.kind,
+            intention: suggestion.kind === "rest" ? "rest" : "feature",
+            state_revision: suggestion.state_revision,
+          })),
+        },
+      };
+      actions = [
+        {
+          label: "prepare",
+          accessibleLabel: "Prepare the beacon lens",
+          detail: "line up the brass shutters",
+          effect: suggestedActions[0].likely_effect,
+          risk: suggestedActions[0].risk,
+          focusKey: "feature:lantern-keeper.prepare",
+          command: "use beacon tools",
+          intention: "feature",
+          offerKinds: ["use_feature"],
+          handProvider: { reason: suggestedActions[0].source, priority: 0 },
+        },
+        {
+          label: "rest",
+          accessibleLabel: "Rest beside the beacon",
+          detail: "catch your breath by the lantern oil",
+          effect: suggestedActions[1].likely_effect,
+          risk: suggestedActions[1].risk,
+          focusKey: "rest",
+          command: "rest",
+          intention: "rest",
+          offerKinds: ["rest"],
+          handProvider: { reason: suggestedActions[1].source, priority: 1 },
+        },
+      ];
+      handKeys = [];
+      discardedHandKeys = [];
+      authoritativeHandIdentity = "";
+      focusIndex = 0;
+      focusedKey = "";
+      playerPromotedHandKey = "";
+      render();
+      const front = document.querySelector("#promoted-question .story-front");
+      const question = document.querySelector("#promoted-question .active-question");
+      const meters = [...question.querySelectorAll('[role="progressbar"]')].map((meter) => ({
+        label: meter.getAttribute("aria-label"),
+        now: meter.getAttribute("aria-valuenow"),
+        max: meter.getAttribute("aria-valuemax"),
+        text: meter.getAttribute("aria-valuetext"),
+      }));
+      const buttons = ["primary", "secondary"].map((id) => {
+        const button = document.getElementById(id);
+        return {
+          id,
+          text: button?.textContent || "",
+          aria: button?.getAttribute("aria-label") || "",
+          visible: Boolean(button && button.getClientRects().length),
+        };
+      });
+      return {
+        frontText: front?.textContent || "",
+        frontLabelledBy: front?.getAttribute("aria-labelledby") || "",
+        frontDescribedBy: front?.getAttribute("aria-describedby") || "",
+        frontDescription: (front?.getAttribute("aria-describedby") || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => document.getElementById(id)?.textContent || "")
+          .join(" "),
+        frontRosterLists: front?.querySelectorAll("ul, ol").length || 0,
+        questionText: question?.textContent || "",
+        questionAria: question?.getAttribute("aria-label") || "",
+        meters,
+        buttons,
+        suggestionLabels: [...question.querySelectorAll(".shared-question-suggestions li")]
+          .map((item) => item.getAttribute("aria-label") || ""),
+      };
+    });
+    assert(
+      evidence.frontText.includes("beacon's shadow has learned Rowan's shape")
+        && evidence.frontText.includes("Can Rowan be separated from the shadow")
+        && evidence.frontText.includes("Will the party restore a guiding light")
+        && evidence.frontText.includes("The answer still matters to Pip Thistle, Moth-Eaten Knight, and Rowan Vale.")
+        && evidence.frontDescription.includes("Can Rowan be separated from the shadow")
+        && evidence.frontRosterLists === 0,
+      `ordinary scene should present the front as accessible narrative, not a roster: ${JSON.stringify(evidence)}`,
+    );
+    assert(evidence.questionText.includes("Progress2/6") && evidence.questionText.includes("Danger1/6"), `ordinary scene should show both exact clocks: ${JSON.stringify(evidence)}`);
+    assert(evidence.questionText.includes("Completion changes") && evidence.questionText.includes("If danger fills"), `ordinary scene should explain both outcomes: ${JSON.stringify(evidence)}`);
+    assert(
+      JSON.stringify(evidence.meters) === JSON.stringify([
+        { label: "Progress", now: "2", max: "6", text: "2 of 6" },
+        { label: "Danger", now: "1", max: "6", text: "1 of 6" },
+      ]),
+      `progress and danger meters should expose exact accessible values: ${JSON.stringify(evidence)}`,
+    );
+    assert(
+      evidence.suggestionLabels.length === 2
+        && evidence.suggestionLabels[0].startsWith("Suggestion 1 of 2")
+        && evidence.suggestionLabels[1].startsWith("Suggestion 2 of 2"),
+      `the rationale list should describe exactly two suggestions: ${JSON.stringify(evidence)}`,
+    );
+    assert(
+      evidence.buttons.every((button) => button.visible)
+        && evidence.buttons[0].aria.includes("suggestion 1 of 2")
+        && evidence.buttons[1].aria.includes("suggestion 2 of 2")
+        && evidence.buttons.every((button) => !/action \d+ of \d+/i.test(button.aria)),
+      `the two playable cards should use suggestion ordinals and no legal-superset count: ${JSON.stringify(evidence)}`,
+    );
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+    evidence.frontOutcomes = await page.evaluate(() => {
+      const cases = [
+        {
+          presentation_state: "persisted",
+          outcome_statement: "The immediate work is done, but the larger trouble remains unresolved.",
+        },
+        {
+          presentation_state: "resolved",
+          outcome_statement: "The larger trouble is resolved.",
+        },
+        {
+          presentation_state: "escalated",
+          outcome_statement: "The larger trouble has escalated. Every road lamp accepts the shadow as keeper.",
+        },
+      ];
+      return cases.map((frontCase) => {
+        state = {
+          ...state,
+          fronts: [{ ...state.fronts[0], ...frontCase }],
+        };
+        render();
+        const front = document.querySelector("#promoted-question .story-front");
+        const describedBy = front?.getAttribute("aria-describedby") || "";
+        return {
+          presentationState: frontCase.presentation_state,
+          text: front?.textContent || "",
+          describedText: describedBy
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((id) => document.getElementById(id)?.textContent || "")
+            .join(" "),
+        };
+      });
+    });
+    assert(
+      evidence.frontOutcomes.every((outcome) => (
+        outcome.text.includes(outcome.presentationState === "persisted"
+          ? "remains unresolved"
+          : `larger trouble ${outcome.presentationState === "resolved" ? "is resolved" : "has escalated"}`)
+        && outcome.describedText.includes(outcome.presentationState === "persisted"
+          ? "remains unresolved"
+          : `larger trouble ${outcome.presentationState === "resolved" ? "is resolved" : "has escalated"}`)
+      )),
+      `front outcomes should keep their visible and described story truth aligned: ${JSON.stringify(evidence)}`,
+    );
+    evidence.terminal = await page.evaluate(() => {
+      const activeQuestion = state.shared_questions[0];
+      state = {
+        ...state,
+        fronts: [{
+          ...state.fronts[0],
+          presentation_state: "persisted",
+          outcome_statement: "The immediate work is done, but the larger trouble remains unresolved.",
+        }],
+        shared_questions: [{
+          ...activeQuestion,
+          promoted: false,
+          presentation_state: "completed_memory",
+          resolution: "failed",
+          completion_memory: "The Mothwood road went fully dark, and the borrowed shadows learned its travelers.",
+          participant_names: ["Mara Wick", "Road Reader"],
+          suggested_actions: [],
+        }],
+      };
+      render();
+      const front = document.querySelector("#promoted-question .story-front");
+      const memory = document.querySelector("#promoted-question .completed-memory");
+      return {
+        frontText: front?.textContent || "",
+        text: memory?.textContent || "",
+        progressbars: memory?.querySelectorAll('[role="progressbar"]').length || 0,
+        suggestions: memory?.querySelectorAll(".shared-question-suggestions li").length || 0,
+      };
+    });
+    assert(
+      evidence.terminal.frontText.includes("the larger trouble remains unresolved")
+        && evidence.terminal.text.includes("road went fully dark")
+        && evidence.terminal.text.includes("Contributors: Mara Wick, Road Reader")
+        && evidence.terminal.progressbars === 0
+        && evidence.terminal.suggestions === 0,
+      `terminal question should retire task bars to contributor memory: ${JSON.stringify(evidence)}`,
+    );
+    await writeFile(metadataPath, `${JSON.stringify(evidence, null, 2)}\n`);
+    await page.evaluate(() => {
+      const previous = window.__cosyLanternQuestionEvidence;
+      state = previous.state;
+      actions = previous.actions;
+      actorSession = previous.actorSession;
+      handKeys = previous.handKeys;
+      discardedHandKeys = previous.discardedHandKeys;
+      authoritativeHandIdentity = previous.authoritativeHandIdentity;
+      focusIndex = previous.focusIndex;
+      focusedKey = previous.focusedKey;
+      playerPromotedHandKey = previous.playerPromotedHandKey;
+      delete window.__cosyLanternQuestionEvidence;
+      render();
+    });
+    if (previousViewport) await page.setViewportSize(previousViewport);
+    steps.push({
+      label: "Lantern Keeper question and two suggestions",
+      screenshot: screenshotPath,
+      metadata: metadataPath,
+      suggestions: evidence.buttons.map((button) => button.aria),
+    });
   }
 
   async function assertJourneyCardContract() {
@@ -6921,7 +7676,7 @@ async function main() {
       "Cottage projection should include the current avatar when accessible",
     );
     assert(
-      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Rain-Soft Garden"]),
+      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Mossbell Inn", "Rain-Soft Garden"]),
       `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
     );
     assert(!science, "Science Class should stay hidden until its path is found from Homeroom");
@@ -7436,6 +8191,151 @@ async function main() {
         ));
     });
     assert(!overflow, `visible UI overflowed the viewport: ${JSON.stringify(overflow)}`);
+  }
+
+  async function assertExpeditionRingContract(label) {
+    const result = await page.evaluate(() => {
+      const testActorId = 990_353;
+      const actor = {
+        id: testActorId,
+        name: "Ring Test",
+        title: "Trail Reader",
+        kind: "human",
+        status: "active",
+        stats: { level: 4 },
+        expedition_ring: { filled_count: 2, pip_total: 4, needs_rest: false },
+      };
+      const stage = document.createElement("div");
+      stage.style.cssText = "position:fixed;left:12px;top:72px;width:120px;height:80px;z-index:9999";
+      const rail = document.createElement("div");
+      rail.className = "room-avatar-rail";
+      rail.style.cssText = "position:relative;left:auto;right:auto;bottom:auto;overflow:visible";
+      stage.append(rail);
+      document.body.append(stage);
+      expeditionRingRenderState.delete(String(testActorId));
+
+      const renderAt = (stateRevision, expeditionRing = actor.expedition_ring) => {
+        actor.expedition_ring = expeditionRing;
+        rail.innerHTML = roomAvatarRailHtml({
+          actors: [actor],
+          world_seq: stateRevision,
+          tags: [{ scope: "actor", scope_id: testActorId, label: "tired" }],
+        });
+        const frame = rail.querySelector(".room-avatar-frame");
+        const ring = frame?.querySelector(".expedition-ring");
+        const segments = [...(ring?.querySelectorAll(".expedition-ring-segment") || [])];
+        const filled = segments.filter((segment) => segment.classList.contains("filled"));
+        const frameRect = frame?.getBoundingClientRect();
+        return {
+          segmentCount: segments.length,
+          filledCount: filled.length,
+          committedChange: ring?.classList.contains("committed-change") || false,
+          animationName: ring ? getComputedStyle(ring).animationName : "",
+          ariaHidden: ring?.getAttribute("aria-hidden") || "",
+          text: ring?.textContent || "",
+          width: frameRect?.width || 0,
+          height: frameRect?.height || 0,
+          needsRest: frame?.classList.contains("needs-rest") || false,
+          portraitFilter: frame?.querySelector(".room-avatar-pfp")
+            ? getComputedStyle(frame.querySelector(".room-avatar-pfp")).filter
+            : "",
+          filledColor: filled[0]
+            ? getComputedStyle(filled[0]).getPropertyValue("--ring-segment-color").trim()
+            : "",
+          ringCount: frame?.querySelectorAll(".expedition-ring").length || 0,
+          hpArcCount: frame?.querySelectorAll('[class*="hp"],[data-hp]').length || 0,
+        };
+      };
+
+      const first = renderAt(900);
+      const sameRevision = renderAt(900);
+      const advanced = renderAt(901, {
+        filled_count: 3,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const repeatedAdvanced = renderAt(901);
+      const regressed = renderAt(900, {
+        filled_count: 1,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const restoredCurrent = renderAt(901, {
+        filled_count: 3,
+        pip_total: 4,
+        needs_rest: false,
+      });
+      const unrelatedRevision = renderAt(902);
+      const full = renderAt(903, {
+        filled_count: 4,
+        pip_total: 4,
+        needs_rest: true,
+      });
+      const withoutProjection = { ...actor };
+      delete withoutProjection.expedition_ring;
+      rail.innerHTML = roomAvatarRailHtml({
+        actors: [withoutProjection],
+        world_seq: 904,
+        tags: [{ scope: "actor", scope_id: testActorId, label: "tired" }],
+      });
+      const inferredFromTags = Boolean(rail.querySelector(".expedition-ring"));
+      stage.remove();
+      expeditionRingRenderState.delete(String(testActorId));
+      return {
+        viewportWidth: window.innerWidth,
+        first,
+        sameRevision,
+        advanced,
+        repeatedAdvanced,
+        regressed,
+        restoredCurrent,
+        unrelatedRevision,
+        full,
+        inferredFromTags,
+      };
+    });
+    assert(
+      result.first.segmentCount === 4
+        && result.first.filledCount === 2
+        && result.first.ariaHidden === "true"
+        && result.first.text === ""
+        && result.first.ringCount === 1
+        && result.first.hpArcCount === 0,
+      `${label}: the typed 2/4 projection should render one unlabeled segmented ring and no HP arc: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.first.committedChange
+        && !result.sameRevision.committedChange
+        && result.advanced.committedChange
+        && result.advanced.animationName === "expedition-ring-commit"
+        && !result.repeatedAdvanced.committedChange
+        && !result.regressed.committedChange
+        && !result.restoredCurrent.committedChange
+        && !result.unrelatedRevision.committedChange,
+      `${label}: the ring should animate once for a changed committed revision and never for repeated, regressed, restored-current, or unrelated renders: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.full.needsRest
+        && result.full.filledCount === 4
+        && result.full.portraitFilter !== "none"
+        && !/255,\s*125,\s*125|255,\s*0,\s*0/.test(result.full.filledColor),
+      `${label}: a full ring should softly dim without an alarm-red segment: ${JSON.stringify(result)}`,
+    );
+    assert(
+      !result.inferredFromTags,
+      `${label}: the browser must not infer a ring from internal tags: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.first.width >= (result.viewportWidth <= 900 ? 42 : 50)
+        && result.first.height >= (result.viewportWidth <= 900 ? 42 : 50),
+      `${label}: ring geometry should remain legible at this portrait size: ${JSON.stringify(result)}`,
+    );
+    steps.push({
+      label,
+      viewport: result.viewportWidth,
+      projection: `${result.first.filledCount}/${result.first.segmentCount}`,
+      frame: `${result.first.width}x${result.first.height}`,
+    });
   }
 
   async function assertUiAccessibilityContract(label) {
@@ -8136,7 +9036,7 @@ async function main() {
       fullPage: false,
       mask: [
         page.locator("#economy"),
-        page.locator("#room-avatar-rail"),
+        page.locator("#room-avatar-rail .room-avatar-pfp"),
         page.locator("#room-log-latest"),
         page.locator("#log"),
         page.locator("footer.prompt"),
@@ -8385,7 +9285,10 @@ async function main() {
     const guestSheetText = await page.locator(".account-panel").innerText();
     assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
     assert(guestSheetText.includes("0 · classless"), `the account sheet should show staged classless creation: ${guestSheetText}`);
-    assert(guestSheetText.includes("journal") && guestSheetText.includes("friends"), `avatar sheet should use the small player vocabulary: ${guestSheetText}`);
+    assert(
+      guestSheetText.includes("journal") && guestSheetText.includes("relationships"),
+      `avatar sheet should expose the journal and authored relationship state: ${guestSheetText}`,
+    );
     assert(
       guestSheetText.includes("your first little moment is waiting")
         && guestSheetText.includes("worn skill charms")
@@ -9041,6 +9944,7 @@ async function main() {
   await assertProjectFeatureUseRequiresServerEffect();
   await assertFeatureAndCareShareOneUseCard();
   await assertChatPrimaryUsesCompactActorDetail();
+  await assertMaraRelationshipEventsStayTruthful();
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
@@ -9059,7 +9963,7 @@ async function main() {
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();
-  await assertTiredRestPriorityFollowsRoomDanger();
+  await assertServerEligibleRestPriorityFollowsRoomDanger();
   await assertFailureCopyStaysContextual();
   await assertCompactDescriptionAndCardModal();
   await assertRoomSummaryStaysFlatAndMechanical();
@@ -9068,11 +9972,14 @@ async function main() {
   await assertJournalModeContract("mobile Journal");
   await assertJournalTickerLayout();
   await assertUiAccessibilityContract("mobile accessibility and navigation");
+  await assertExpeditionRingContract("mobile expedition ring");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
+  await assertLanternKeeperSemanticStoryReceipt();
+  await assertLanternQuestionAndTwoSuggestionAccessibility();
   await assertJourneyCardContract();
   await assertHumanActionRequiresActorSession();
   await assertClientAuthoredSpeechModerated();
@@ -9749,6 +10656,7 @@ async function main() {
   await assertStatusBarDoesNotOverlayTranscript("desktop status row");
   await assertJournalModeContract("desktop Journal");
   if (!runLivingWorldStress) {
+    await assertExpeditionRingContract("desktop expedition ring");
     await assertMudShellVisualContract(runLivingWorldStress ? "desktop visual shell stress" : "desktop visual shell");
   }
   await assertSignedWalletBoxAccountFlow();

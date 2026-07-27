@@ -4,7 +4,7 @@ const LANTERN_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";
 const LANTERN_PROGRESS_CLOCK_ID: &str = "lantern-keeper.light";
 const LANTERN_DANGER_CLOCK_ID: &str = "lantern-keeper.darkness";
 const PREVIOUS_WORLD_BUNDLE_HASH: &str =
-    "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d";
+    "sha256:7c25a5ffcec350dba6f9211c3e2866ad4c9bc77173b415e46e023214242eb1fe";
 const FINAL_ACTOR_ID: u64 = 9_800;
 const COMPANION_ACTOR_ID: u64 = 9_801;
 
@@ -210,6 +210,171 @@ fn runtime_ready_for_lantern_finale() -> (RuntimeWorld, Vec<u64>) {
 }
 
 #[test]
+fn lantern_question_projects_two_truthful_suggestions_and_replays_danger_memory() {
+    let actor_id = 9_850;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, actor_id, 800, "Road Reader");
+
+    let initial = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let initial_question = initial
+        .shared_questions
+        .iter()
+        .find(|question| question.id == LANTERN_JOB_ID)
+        .expect("Lantern question is visible before the finale strategy is legal");
+    assert!(initial_question.promoted);
+    assert_eq!(initial_question.presentation_state, "active");
+    assert_eq!(
+        (
+            initial_question.filled,
+            initial_question.segments,
+            initial_question.danger_filled,
+            initial_question.danger_segments,
+        ),
+        (0, 6, 0, 6)
+    );
+    assert!(!initial_question.danger_situation.is_empty());
+    assert!(!initial_question.danger_consequence.is_empty());
+    assert_eq!(initial_question.suggested_actions.len(), 2);
+    assert_eq!(
+        initial_question
+            .suggested_actions
+            .iter()
+            .map(|suggestion| suggestion.offer_id.as_str())
+            .collect::<Vec<_>>(),
+        initial
+            .action_hand
+            .entries
+            .iter()
+            .map(|entry| entry.offer_id.as_str())
+            .collect::<Vec<_>>()
+    );
+    assert!(initial_question.suggested_actions.iter().all(|suggestion| {
+        !suggestion.label.is_empty()
+            && !suggestion.target_label.is_empty()
+            && !suggestion.source.is_empty()
+            && suggestion.likely_effect.contains("current progress is 0/6")
+            && suggestion.likely_effect.contains("danger is 0/6")
+    }));
+
+    apply_projection(
+        &mut runtime,
+        actor_id,
+        80_100,
+        ProjectionMutation::SetTag {
+            tag: RpgTagState {
+                id: tired_tag_id(actor_id),
+                scope: "actor".to_string(),
+                scope_id: actor_id,
+                label: "tired".to_string(),
+                kind: "condition".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("after_rest".to_string()),
+            },
+            reason: "question_preview_fixture".to_string(),
+        },
+    );
+    let tired = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let rest = tired
+        .action_offers
+        .iter()
+        .find(|offer| offer.kind == "rest")
+        .expect("tired frontier traveler receives Rest");
+    assert_eq!(
+        runtime.rest_entitlement(actor_id).grade,
+        CW_REST_GRADE_HEARTH
+    );
+    assert_eq!(rest.effect.as_deref(), Some("helps you feel fresh"));
+    assert_eq!(rest.risk, None);
+    let stale_offer_id = rest.offer_id.clone();
+    let before_danger = RuntimeSnapshot::from_runtime(&runtime);
+    let danger_record = projection_record(
+        actor_id,
+        80_101,
+        ProjectionMutation::AdvanceClock {
+            clock_id: LANTERN_DANGER_CLOCK_ID.to_string(),
+            amount: 1,
+            reason: "rest".to_string(),
+        },
+    );
+    assert_eq!(runtime.apply_journal_record(&danger_record).0, CW_OK);
+
+    let after_danger = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let after_question = after_danger
+        .shared_questions
+        .iter()
+        .find(|question| question.id == LANTERN_JOB_ID)
+        .expect("Lantern question stays promoted after Rest");
+    assert_eq!(after_question.danger_filled, 1);
+    assert_eq!(
+        after_question.danger_situation,
+        "One more road lamp goes out. The dark now reaches the next bend."
+    );
+    assert!(after_question
+        .suggested_actions
+        .iter()
+        .all(|suggestion| suggestion.likely_effect.contains("danger is 1/6")));
+    assert!(!after_danger
+        .action_offers
+        .iter()
+        .any(|offer| offer.offer_id == stale_offer_id));
+
+    let mut replayed = before_danger
+        .into_runtime()
+        .expect("pre-Rest snapshot reconnects");
+    assert_eq!(replayed.apply_journal_record(&danger_record).0, CW_OK);
+    assert_eq!(
+        serde_json::to_value(
+            replayed
+                .state_response(Some(actor_id), &AccessContext::default())
+                .shared_questions
+        )
+        .unwrap(),
+        serde_json::to_value(after_danger.shared_questions).unwrap()
+    );
+
+    let failure_record = projection_record(
+        actor_id,
+        80_102,
+        ProjectionMutation::AdvanceClock {
+            clock_id: LANTERN_DANGER_CLOCK_ID.to_string(),
+            amount: 5,
+            reason: "rest".to_string(),
+        },
+    );
+    assert_eq!(runtime.apply_journal_record(&failure_record).0, CW_OK);
+    let failed = runtime.state_response(Some(actor_id), &AccessContext::default());
+    let memory = failed
+        .shared_questions
+        .iter()
+        .find(|question| question.id == LANTERN_JOB_ID)
+        .expect("failed Lantern question leaves a public memory");
+    assert_eq!(memory.presentation_state, "completed_memory");
+    assert_eq!(memory.resolution, "failed");
+    assert!(memory.suggested_actions.is_empty());
+    assert!(memory
+        .completion_memory
+        .as_deref()
+        .is_some_and(|text| text.contains("road went fully dark")));
+    assert!(memory
+        .participant_names
+        .iter()
+        .any(|name| name == "Road Reader"));
+    let reconnected = RuntimeSnapshot::from_runtime(&runtime)
+        .into_runtime()
+        .expect("failure memory survives reconnect");
+    assert_eq!(
+        serde_json::to_value(
+            reconnected
+                .state_response(Some(actor_id), &AccessContext::default())
+                .shared_questions
+        )
+        .unwrap(),
+        serde_json::to_value(failed.shared_questions).unwrap()
+    );
+}
+
+#[test]
 fn lantern_finale_is_absent_and_rejected_before_the_tower() {
     for (index, location_id) in [800, 801, 802, 803].into_iter().enumerate() {
         let actor_id = 9_900 + index as u64;
@@ -368,7 +533,7 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
         .expect("active finale strategy replaces the old snapshot contract");
     assert_eq!(restored_strategy.requirements.len(), 10);
     assert_eq!(restored_strategy.baseline_progress, 6);
-    assert_eq!(restored_strategy.pack_version, "0.1.6");
+    assert_eq!(restored_strategy.pack_version, "0.1.8");
     assert_eq!(
         restored.tags[&room_feature_use_tag_id(801, "cold_lamp_post", 8402)].source_event_seq,
         Some(321)
@@ -380,6 +545,23 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
 fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     let (mut runtime, expected_evidence) = runtime_ready_for_lantern_finale();
     assert_eq!(runtime.clocks[LANTERN_PROGRESS_CLOCK_ID].filled, 0);
+
+    let before_finale_view =
+        runtime.state_response(Some(FINAL_ACTOR_ID), &AccessContext::default());
+    let encountered_front = before_finale_view
+        .fronts
+        .iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("the Lantern journey reaches its larger trouble before the finale");
+    assert_eq!(encountered_front.presentation_state, "active");
+    assert_eq!(
+        encountered_front.premise,
+        "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper."
+    );
+    assert!(encountered_front.stakes_questions.iter().any(|question| {
+        question
+            == "Can Rowan be separated from the shadow without extinguishing the keeper's ember?"
+    }));
 
     assert_tag_source(
         &runtime,
@@ -471,6 +653,18 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         runtime.job_status(&runtime.jobs[LANTERN_JOB_ID]),
         "completed"
     );
+    let after_finale_view = runtime.state_response(Some(FINAL_ACTOR_ID), &AccessContext::default());
+    let persisted_front = after_finale_view
+        .fronts
+        .iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("the larger trouble remains visible after the beacon work");
+    assert_eq!(persisted_front.status, "active");
+    assert_eq!(persisted_front.presentation_state, "persisted");
+    assert_eq!(
+        persisted_front.outcome_statement,
+        "The immediate work is done, but the larger trouble remains unresolved."
+    );
     assert!(runtime
         .tags
         .get("room:804:beacon_rekindled")
@@ -489,6 +683,56 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         .expect("finale carries an inspectable contribution trace");
     assert_eq!(trace.requirement_source_event_seqs, expected_evidence);
     assert_eq!(trace.total_progress, 6);
+    let story_receipt = events
+        .iter()
+        .find_map(semantic_receipts::semantic_story_receipt)
+        .expect("finale emits one semantic story receipt");
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE)
+            .count(),
+        1,
+        "the preferred contribution path emits at most one story receipt"
+    );
+    assert_eq!(
+        story_receipt.narration_key, trace.narration_key,
+        "the authored contribution receipt remains preferred over the generic direct-fill receipt"
+    );
+    assert!(story_receipt
+        .text
+        .starts_with("Final Lantern Tender rekindles the dark Mothwood beacon."));
+    assert!(story_receipt
+        .text
+        .contains("The beacon burns again and makes the Mothwood road trustworthy after dusk."));
+    assert!(story_receipt.text.contains("Progress: 6/6."));
+    assert!(story_receipt
+        .text
+        .contains("The road remembers Final Lantern Tender's work."));
+    assert!(story_receipt
+        .text
+        .contains("Final Lantern Tender earns 2 Orbs."));
+    assert!(story_receipt
+        .text
+        .ends_with("Next: carry the relit road's news back to Mara Wick."));
+    assert_eq!(
+        semantic_receipts::semantic_story_events(&events)
+            .into_iter()
+            .filter(|event| event.actor_id == Some(FINAL_ACTOR_ID))
+            .map(|event| event.type_name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["story.receipt"]
+    );
+    assert_eq!(
+        room_memory_entries_chronological(804, &events)
+            .into_iter()
+            .map(|entry| entry.text)
+            .collect::<Vec<_>>(),
+        vec![
+            "Final Lantern Tender rekindled the Mothwood beacon; the road is trustworthy after dusk."
+                .to_string()
+        ]
+    );
 
     let completed_snapshot = RuntimeSnapshot::from_runtime(&runtime);
     assert_eq!(runtime.apply_journal_record(&final_record).0, CW_ERR_RULE);
@@ -502,7 +746,14 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     let mut replayed = before_finale
         .into_runtime()
         .expect("pre-finale snapshot reconnects");
-    assert_eq!(replayed.apply_journal_record(&final_record).0, CW_OK);
+    let (replay_status, replay_events) = replayed.apply_journal_record(&final_record);
+    assert_eq!(replay_status, CW_OK);
+    assert_eq!(
+        replay_events
+            .iter()
+            .find_map(semantic_receipts::semantic_story_receipt),
+        Some(story_receipt)
+    );
     assert_eq!(replayed.clocks[LANTERN_PROGRESS_CLOCK_ID].filled, 6);
     assert_eq!(
         replayed.job_status(&replayed.jobs[LANTERN_JOB_ID]),
@@ -519,6 +770,236 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
         "completed"
     );
     assert_eq!(reconnected.orb_balance(FINAL_ACTOR_ID), before_orbs + 2);
+    let reconnected_front = reconnected
+        .state_response(Some(FINAL_ACTOR_ID), &AccessContext::default())
+        .fronts
+        .into_iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("persisted larger trouble survives reconnect");
+    assert_eq!(reconnected_front.presentation_state, "persisted");
+    assert!(reconnected_front
+        .outcome_statement
+        .contains("remains unresolved"));
+}
+
+#[test]
+fn both_lantern_clock_fills_are_once_only_snapshot_and_replay_safe_story_beats() {
+    std::thread::Builder::new()
+        .name("lantern-clock-fill-proof".to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(assert_both_lantern_clock_fills_are_once_only)
+        .expect("Lantern clock proof thread starts")
+        .join()
+        .expect("Lantern clock proof thread completes");
+}
+
+fn assert_both_lantern_clock_fills_are_once_only() {
+    struct FillCase {
+        clock_id: &'static str,
+        expected_status: &'static str,
+        expected_tag_id: &'static str,
+        expected_narration_key: &'static str,
+        expected_story: &'static str,
+    }
+
+    for (index, case) in [
+        FillCase {
+            clock_id: LANTERN_PROGRESS_CLOCK_ID,
+            expected_status: "completed",
+            expected_tag_id: "room:804:beacon_rekindled",
+            expected_narration_key: "lantern-keeper.light-filled",
+            expected_story: "The beacon burns again and makes the Mothwood road trustworthy after dusk. Progress reaches 6/6, and the Lantern Keeper question is complete.",
+        },
+        FillCase {
+            clock_id: LANTERN_DANGER_CLOCK_ID,
+            expected_status: "failed",
+            expected_tag_id: "room:804:black_beacon",
+            expected_narration_key: "lantern-keeper.darkness-filled",
+            expected_story: "The borrowed shadows learn every traveler's shape. Danger reaches 6/6, and the Lantern Keeper question fails.",
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let actor_id = 9_870 + index as u64;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, actor_id, 804, "Lantern Clock Witness");
+        runtime = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("clock witness reconnects before replay proof");
+        let before_bytes =
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).expect("before snapshot");
+        let record = projection_record(
+            actor_id,
+            83_100 + index as u64,
+            ProjectionMutation::AdvanceClock {
+                clock_id: case.clock_id.to_string(),
+                amount: 6,
+                reason: "lantern_clock_fill_contract_test".to_string(),
+            },
+        );
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert_eq!(runtime.clocks[case.clock_id].filled, 6);
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[LANTERN_JOB_ID]),
+            case.expected_status
+        );
+        assert!(runtime
+            .tags
+            .get(case.expected_tag_id)
+            .is_some_and(|tag| tag.active));
+        let consequence_events = events
+            .iter()
+            .filter(|event| {
+                event.type_name == "job.updated"
+                    && event.content.as_deref().is_some_and(|content| {
+                        content.starts_with(&format!(
+                            "{LANTERN_JOB_ID}:{}:",
+                            case.expected_status
+                        ))
+                    })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            consequence_events.len(),
+            1,
+            "one authoritative status consequence"
+        );
+        let clock_event = events
+            .iter()
+            .find(|event| {
+                event.type_name == "clock.updated"
+                    && event.clock_id.as_deref() == Some(case.clock_id)
+                    && event.clock_filled == Some(6)
+            })
+            .expect("terminal clock update");
+        assert_eq!(
+            consequence_events[0].caused_by_event_seq,
+            Some(clock_event.seq),
+            "the consequence is causally linked to its committed fill"
+        );
+        let story_events = events
+            .iter()
+            .filter(|event| event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE)
+            .collect::<Vec<_>>();
+        assert_eq!(story_events.len(), 1, "one understandable story receipt");
+        let story = semantic_receipts::semantic_story_receipt(story_events[0])
+            .expect("story receipt parses");
+        assert_eq!(story.narration_key, case.expected_narration_key);
+        assert!(story.text.contains(case.expected_story), "{}", story.text);
+        assert!(story.event_seqs.contains(&clock_event.seq));
+        assert!(story
+            .event_seqs
+            .contains(&consequence_events[0].seq));
+        assert_eq!(
+            runtime
+                .rpg_claims
+                .iter()
+                .filter(|claim| claim.starts_with(&format!("clock_fill:{}:", case.clock_id)))
+                .count(),
+            1
+        );
+
+        let completed_bytes =
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).expect("completed snapshot");
+        let reconnected = serde_json::from_slice::<RuntimeSnapshot>(&completed_bytes)
+            .expect("completed snapshot parses")
+            .into_runtime()
+            .expect("completed snapshot reconnects");
+        assert_eq!(reconnected.clocks[case.clock_id].filled, 6);
+        assert_eq!(
+            reconnected.job_status(&reconnected.jobs[LANTERN_JOB_ID]),
+            case.expected_status
+        );
+        assert!(reconnected
+            .tags
+            .get(case.expected_tag_id)
+            .is_some_and(|tag| tag.active));
+        assert_eq!(
+            reconnected
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE
+                        && semantic_receipts::semantic_story_receipt(event)
+                            .is_some_and(|receipt| {
+                                receipt.narration_key == case.expected_narration_key
+                            })
+                })
+                .count(),
+            1,
+            "snapshot reconnect preserves one consequence receipt"
+        );
+        assert_eq!(
+            reconnected
+                .rpg_claims
+                .iter()
+                .filter(|claim| claim.starts_with(&format!("clock_fill:{}:", case.clock_id)))
+                .count(),
+            1,
+            "snapshot reconnect preserves the once-only claim"
+        );
+
+        let mut replayed = serde_json::from_slice::<RuntimeSnapshot>(&before_bytes)
+            .expect("before snapshot parses")
+            .into_runtime()
+            .expect("before snapshot reconnects");
+        let (replay_status, replay_events) = replayed.apply_journal_record(&record);
+        assert_eq!(replay_status, CW_OK);
+        assert_eq!(
+            serde_json::to_value(&replay_events).expect("replay events serialize"),
+            serde_json::to_value(&events).expect("first events serialize")
+        );
+        assert_eq!(
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&replayed))
+                .expect("replayed snapshot"),
+            completed_bytes,
+            "journal replay restores byte-identical state"
+        );
+
+        let (retry_status, retry_events) = runtime.apply_journal_record(&record);
+        assert_eq!(retry_status, CW_OK);
+        assert!(!retry_events
+            .iter()
+            .any(|event| event.type_name == "job.updated"));
+        assert!(!retry_events
+            .iter()
+            .any(|event| event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE));
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "job.updated"
+                        && event.content.as_deref().is_some_and(|content| {
+                            content.starts_with(&format!(
+                                "{LANTERN_JOB_ID}:{}:",
+                                case.expected_status
+                            ))
+                        })
+                })
+                .count(),
+            1,
+            "retry cannot duplicate the authoritative consequence"
+        );
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE
+                        && semantic_receipts::semantic_story_receipt(event)
+                            .is_some_and(|receipt| {
+                                receipt.narration_key == case.expected_narration_key
+                            })
+                })
+                .count(),
+            1,
+            "retry cannot duplicate the story receipt"
+        );
+    }
 }
 
 #[test]
@@ -553,6 +1034,16 @@ fn lantern_combat_is_evidence_and_danger_resolves_once() {
     );
     assert_eq!(runtime.apply_journal_record(&fail_record).0, CW_OK);
     assert_eq!(runtime.job_status(&runtime.jobs[LANTERN_JOB_ID]), "failed");
+    let escalated_front = runtime
+        .state_response(Some(FINAL_ACTOR_ID), &AccessContext::default())
+        .fronts
+        .into_iter()
+        .find(|front| front.id == "lantern-keeper:hollow-light")
+        .expect("failed beacon work escalates the larger trouble");
+    assert_eq!(escalated_front.presentation_state, "escalated");
+    assert!(escalated_front
+        .outcome_statement
+        .starts_with("The larger trouble has escalated."));
     assert!(runtime
         .tags
         .get("room:804:black_beacon")

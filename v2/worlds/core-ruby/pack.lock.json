@@ -85,7 +85,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -191,12 +191,12 @@
     },
     {
       "id": "cosyworld.composition.core-ruby",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": {
         "type": "workspace",
         "path": "../../content/core-ruby-bridge"
       },
-      "integrity": "sha256:af0f833ed3be83ff11e9652514bd14bc0112af0d55e4b55f2bcf725420e918ba",
+      "integrity": "sha256:043be83d5461318a4327125886b8e7b82b26cf9a4e0b0e1df2fa54363a83d143",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -318,7 +318,7 @@
     {
       "pack_id": "cosyworld.composition.core-ruby",
       "name": "CosyWorld Core + Ruby High Bridge",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.campaign.the-lantern-keeper",
   "name": "The Lantern Keeper",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "kind": "campaign",
   "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
   "license": "CC-BY-4.0",
@@ -74,5 +74,91 @@
     "fronts": "fronts.json",
     "cards": "cards.json",
     "lifecycle_hooks": "lifecycle_hooks.json"
+  },
+  "extensions": {
+    "x-cosyworld-generation": {
+      "schema_version": 1,
+      "policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+      "migration_version": 1,
+      "collision_namespace": "pack://cosyworld.campaign.the-lantern-keeper/generated/v1",
+      "generated_descendants": {
+        "owner": "source_route",
+        "composition": "active_bundle",
+        "subject_kinds": ["route", "waypoint", "place", "location_card"],
+        "on_upgrade": "require_declared_migration",
+        "on_unmount": "freeze_with_owner"
+      },
+      "prose": {
+        "profile_id": "cosyworld.pathway-prose.ecology/1",
+        "prompt_versions": ["pathway-content-v2"],
+        "ecology": {
+          "interpolation": "endpoint_blend/1",
+          "required_context": [
+            "route_id",
+            "route_version",
+            "origin",
+            "destination",
+            "travel_direction",
+            "segment_index",
+            "segment_count",
+            "biome",
+            "terrain",
+            "climate",
+            "landforms",
+            "geology",
+            "hydrology",
+            "vegetation",
+            "fauna",
+            "resource_cues",
+            "nearby_authored_descriptions"
+          ]
+        }
+      },
+      "media": {
+        "profile_id": "cosyworld.community-art.base/1",
+        "recipe_id": "replicate.flux1-dev-lora.base",
+        "provider_preference": {
+          "provider": "replicate",
+          "model": "black-forest-labs/flux-dev-lora",
+          "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917"
+        },
+        "prompt_version": "community-art/3",
+        "prompt_prefix": "MRQ, cozy hand-painted fantasy landscape, practical travel detail",
+        "aspect_ratios": ["16:9"],
+        "output_formats": ["webp"],
+        "negative_constraints": ["no text", "no logos", "no interface chrome"],
+        "subject_kinds": ["location_card"],
+        "authored_art": "permanent",
+        "community_art": "eligible",
+        "unexplored_placeholder": "common_unexplored/1",
+        "fallback": "unexplored_placeholder"
+      },
+      "topology": {
+        "profile_id": "linear_journey",
+        "directionality": "reciprocal_or_explicit_one_way",
+        "evacuation": "world_lifecycle_required",
+        "budgets": {
+          "components": { "min": 1, "max": 1 },
+          "roots": { "min": 1, "max": 2 },
+          "ingress": { "min": 0, "max": 1 },
+          "egress": { "min": 0, "max": 1 },
+          "weighted_distance": { "min": 3, "max": 6 },
+          "degree": { "min": 1, "max": 3 },
+          "cycle_rank": { "min": 0, "max": 1 },
+          "bridges": { "min": 3, "max": 4 },
+          "articulation_impact": { "min": 1, "max": 3 },
+          "terminal_spurs": { "min": 1, "max": 2 }
+        }
+      },
+      "migrations": [
+        {
+          "from_policy_id": "cosyworld.compatibility.host-generation/1",
+          "from_migration_version": 0,
+          "from_pack_version": "0.1.6",
+          "mode": "preserve_descendants"
+        }
+      ],
+      "cross_pack_routes": []
+    }
   }
 }

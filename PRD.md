@@ -1,6 +1,6 @@
 # CosyWorld Product Requirements
 
-Last major revision: 2026-07-19. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, and the card-composed world.
+Last major revision: 2026-07-27. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, and the card-composed world.
 
 Companion documents:
 
@@ -24,7 +24,7 @@ CosyWorld V2 is a playable, production-deployable game, live-tested with simulta
 
 - CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with compiled cards and complete room sheets validated by the content gate. Release counts are generated from the compiled worldpack rather than maintained in this prose.
 - The full verb surface: advancement-backed Chat (begin a friendship), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
-- The card-hand control surface: dealt action cards with art and labels, a detail/confirm surface, and shuffle — play feels like turns, not clicking.
+- The card-hand control surface: two dealt action cards with art and labels, a detail/confirm surface, and a free deterministic redeal — play feels like turns, not clicking.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.
 - Resident autonomy on played time: residents wander, remember, and hunt the items they desire — a resident reclaiming her own lost keepsake is now an observed, emergent story beat.
 - The RPG retention layer: Callings, first-class Bonds, sanctuary/frontier zoning, progress and danger clocks, seeded Jobs and Fronts, factions, the Visit Ledger with growth banking into skill steps and bond slots — all rendered in the shared transcript (arrivals, callings, clues, dice, growth).
@@ -42,7 +42,7 @@ Every feature must serve at least one of these; a feature that serves none does 
 2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
 3. **The world runs on played time.** World time advances only through committed player turns — never on a wall clock. A quiet world is still, not rotting; a busy world is alive because people are in it. "The world moved while you were away" is always true in a populated shard, and it always means other players moved it.
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
-5. **One meaningful action hand.** The resting UI is a dealt hand of at most three labeled action cards plus shuffle — one surface, server-derived from the player's cards, location cards, visible world state, and base rules. Each card shows its target, cost, and risk before commit. Playing a card is a turn. Speech (`say`, `/me`) is always available and never consumes a turn. The small action hand is a focus mechanism, not an inventory limit.
+5. **One meaningful action hand.** The resting UI is two labeled action cards plus a free redeal — one surface, server-derived from the player's cards, location cards, visible world state, and base rules. Redeal deterministically pages through the remaining legal offers before cycling; it never changes legality, rank, cost, or outcome. Each card shows its target, cost, and risk before commit. Playing a card is a turn; redealing and speech (`say`, `/me`) are turn-exempt. The small action hand is a focus mechanism, not an inventory limit, and there is no parallel **More Actions** list.
 6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Core world actions remain playable without inference. Dialogue is never fabricated from canned text: an explicit dialogue action fails visibly and without charge when inference is unavailable, while incidental resident speech is skipped.
 7. **Progression is earned, never bought.** Orbs buy only shared images — never Chat, power, access, success, or growth. Every ordinary world verb has a zero-Orb path.
 8. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
@@ -67,7 +67,7 @@ Two rules follow.
 
 Everything else is *fiction, not vocabulary*: a clock is "the trail feels safer lately," a job is "someone needs help," a front is weather and trouble, a faction is who a character stands with. System names (clock, front, claim key, projection, sanctuary/frontier) never appear in the player UI. A new feature must fit an existing noun or replace one — the budget does not grow by default.
 
-**Rule 2 — the action hand is the controller.** The shipped control surface is a dealt hand of action cards: at most three labeled cards plus shuffle, each opening a card-art detail surface that names target, cost, and risk before commit. It is a projection of a deeper card composition, not the ownership ledger or the player's physical inventory. This won over both the bare one-button rail and the unlabeled-emoji experiment because it makes each turn a readable, deliberate choice. The same contract projects onto every future transport: cards become Discord reactions, terminal keys, or voice intents without new server concepts — the v1 emoji grammar remains the prior art for the Discord revival. Three laws hold regardless of transport: every card carries a visible label (never a bare glyph), browsing the hand is free, and every legal core action remains reachable even when it is not among the three suggestions.
+**Rule 2 — the action hand is the controller.** The shipped control surface is a dealt hand of two labeled action cards plus a free redeal, each card opening a detail surface that names target, cost, and risk before commit. Redeal replaces the visible pair with the next pair from the finite, authoritative offer order, excluding already shown offers until that pool is exhausted and then cycling. It is browsing, not a random draw: it cannot change legality or silently re-rank the opening hand. This one surface won over the bare one-button rail, the unlabeled-emoji experiment, and a parallel grouped **More Actions** list because it keeps the controls small while making each turn readable and deliberate. The same contract projects onto every future transport: cards become Discord reactions, terminal keys, or voice intents without new server concepts — the v1 emoji grammar remains the prior art for the Discord revival. Three laws hold regardless of transport: every card carries a visible label (never a bare glyph), browsing/redeal is free, and every legal core action is reachable through finite deterministic redeals even when it is not in the opening pair.
 
 ## The Card-Composed World
 
@@ -125,7 +125,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 ### P0 — product law (held today; regressions are release blockers)
 
 - A human must create an avatar before acting; returning players recover their avatar (local session or signed wallet) instead of duplicating people.
-- The resting UI is one dealt hand: at most three labeled action cards plus shuffle, server-derived; no permanent composer, send button, or navigation sidebar. Browsing is free; playing spends a turn.
+- The resting UI is one dealt hand: two labeled action cards plus a free deterministic redeal, server-derived; no permanent composer, **More Actions** list, send button, or navigation sidebar. Redealing is free; playing spends a turn.
 - All world mutation resolves through the C kernel; AI and clients never decide outcomes, rewards, access, or affordability.
 - World time advances only through committed player turns; nothing mutates on a wall clock.
 - Every player-visible AI output is a shared room event; there are no private resident conversations.
@@ -195,7 +195,7 @@ Economy health:
 ## Risks
 
 - **Card-zone ambiguity creates duplicate authority.** Collection ownership, world possession, carried cards, equipped cards, spell preparation, and the action hand must never collapse into one field or be inferred from the browser. Migrate each legacy field through a versioned boundary and reject ambiguous state rather than guessing.
-- **Scene composition can become illegible.** The underlying merge may be deep while the resting surface stays small. Keep the three-card action hand, make precedence inspectable, and test that a legal core action remains reachable even when it is not suggested.
+- **Scene composition can become illegible.** The underlying merge may be deep while the resting surface stays small. Keep the two-card action hand, make precedence inspectable, and test that every legal core action is reachable through the deterministic redeal cycle even when it is not initially suggested.
 - **Retention layer under-delivers.** If Journal marks feel like chores, the whole Now bet fails. Keep marks tied to genuinely novel events (truths, bonds, frontier returns, witnessed moments), never grind.
 - **Crafting opens a generative moderation surface.** AI-decorated names/blurbs on player-triggered mints must pass the same sanitizer as speech, with authored fallbacks — and recipe outputs must never be kernel-arbitrary.
 - **Moderation debt blocks launch.** One shared world with open traffic and thin filtering is an incident, not a risk. Public-traffic moderation is a P1 gate.

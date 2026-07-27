@@ -19,6 +19,13 @@ function packResourceIds(registry, packId, resource, identity = "id") {
     .map((row) => String(row[identity])));
 }
 
+function packResourceIdsForPacks(registry, packIds, resource, identity = "id") {
+  return new Set(
+    [...packIds].flatMap((packId) =>
+      [...packResourceIds(registry, packId, resource, identity)]),
+  );
+}
+
 function hasId(ids, value) {
   return ids.has(Number(value));
 }
@@ -99,11 +106,20 @@ function restoreMapEntries(snapshot, field, frozen) {
   snapshot[field] = restored;
 }
 
-function restoreNestedMapEntries(parent, field, frozen) {
+function restoreNestedMapEntries(
+  parent,
+  parentField,
+  field,
+  frozen,
+  { allowIdentical = false } = {},
+) {
   const restored = { ...(parent[field] ?? {}) };
   for (const [key, value] of Object.entries(frozen ?? {})) {
     if (Object.hasOwn(restored, key)) {
-      throw new Error(`cannot remount: world_simulation.${field} identity ${key} is already active`);
+      if (allowIdentical && restored[key] === value) continue;
+      throw new Error(
+        `cannot remount: ${parentField}.${field} identity ${key} is already active`,
+      );
     }
     restored[key] = value;
   }
@@ -127,6 +143,16 @@ function samePackIdentity(left, right) {
     && left?.integrity === right?.integrity;
 }
 
+function packIsContentFreeCatalogMarker(pack) {
+  const counts = pack?.resource_counts;
+  return pack?.kind === "catalog"
+    && pack.default_ruleset === null
+    && (pack.entry_points ?? []).length === 0
+    && counts
+    && Object.keys(counts).length > 0
+    && Object.values(counts).every((count) => Number(count) === 0);
+}
+
 function requiredMountClosure(targetPacks, packId) {
   const required = new Set();
   const pending = [packId];
@@ -143,6 +169,106 @@ function requiredMountClosure(targetPacks, packId) {
     }
   }
   return required;
+}
+
+function subtractiveUnmountPlan(sourceRegistry, targetRegistry, packId) {
+  const sourcePacks = registryPacks(sourceRegistry);
+  const targetPacks = registryPacks(targetRegistry);
+  const targetOnlyPackIds = [];
+  if (!sourcePacks.has(packId)) {
+    throw new Error(`source registry does not mount pack ${packId}`);
+  }
+  if (targetPacks.has(packId)) {
+    throw new Error(`target registry still mounts pack ${packId}`);
+  }
+  for (const [targetPackId, targetPack] of targetPacks) {
+    const sourcePack = sourcePacks.get(targetPackId);
+    if (!sourcePack) {
+      if (packIsContentFreeCatalogMarker(targetPack)) {
+        targetOnlyPackIds.push(targetPackId);
+        continue;
+      }
+      throw new Error(`soft unmount target adds unrelated pack ${targetPackId}`);
+    }
+    if (!samePackIdentity(sourcePack, targetPack)) {
+      throw new Error(
+        `soft unmount cannot change retained pack identity ${targetPackId}`,
+      );
+    }
+  }
+
+  const allowed = new Set([packId]);
+  let foundDependentBridge = true;
+  while (foundDependentBridge) {
+    foundDependentBridge = false;
+    for (const pack of sourcePacks.values()) {
+      const composition = pack.extensions?.["x-cosyworld-composition"];
+      if (
+        allowed.has(pack.id)
+          || composition?.role !== "bridge"
+          || !(pack.dependency_closure ?? []).some((dependencyId) =>
+            allowed.has(dependencyId))
+      ) {
+        continue;
+      }
+      allowed.add(pack.id);
+      foundDependentBridge = true;
+    }
+  }
+
+  const removedPacks = (sourceRegistry.manifest?.packs ?? [])
+    .filter((pack) => !targetPacks.has(pack.id));
+  for (const pack of removedPacks) {
+    if (!allowed.has(pack.id)) {
+      throw new Error(`soft unmount target removes unrelated pack ${pack.id}`);
+    }
+  }
+  for (const allowedPackId of allowed) {
+    if (targetPacks.has(allowedPackId)) {
+      throw new Error(
+        `soft unmount target retains dependent bridge pack ${allowedPackId}`,
+      );
+    }
+  }
+  return { removedPacks, targetOnlyPackIds };
+}
+
+function restorativeRemountPlan(sourceRegistry, targetRegistry, frozen) {
+  const sourcePacks = registryPacks(sourceRegistry);
+  const targetPacks = registryPacks(targetRegistry);
+  const expectedSourceOnlyPackIds = [...(frozen.target_only_pack_ids ?? [])].sort();
+  const actualSourceOnlyPackIds = [...sourcePacks.keys()]
+    .filter((sourcePackId) => !targetPacks.has(sourcePackId))
+    .sort();
+  if (JSON.stringify(actualSourceOnlyPackIds) !== JSON.stringify(expectedSourceOnlyPackIds)) {
+    throw new Error(
+      `cannot remount ${frozen.pack_id}: source-only pack set does not match frozen state`,
+    );
+  }
+  for (const [sourcePackId, sourcePack] of sourcePacks) {
+    const targetPack = targetPacks.get(sourcePackId);
+    if (!targetPack) {
+      if (
+        expectedSourceOnlyPackIds.includes(sourcePackId)
+          && packIsContentFreeCatalogMarker(sourcePack)
+      ) continue;
+      throw new Error(`remount target removes unrelated pack ${sourcePackId}`);
+    }
+    if (!samePackIdentity(sourcePack, targetPack)) {
+      throw new Error(`remount cannot change retained pack identity ${sourcePackId}`);
+    }
+  }
+  const addedPackIds = (targetRegistry.manifest?.packs ?? [])
+    .filter((pack) => !sourcePacks.has(pack.id))
+    .map((pack) => pack.id)
+    .sort();
+  const expectedPackIds = [...(frozen.removed_pack_ids ?? [frozen.pack_id])].sort();
+  if (JSON.stringify(addedPackIds) !== JSON.stringify(expectedPackIds)) {
+    throw new Error(
+      `cannot remount ${frozen.pack_id}: target pack closure does not match frozen state`,
+    );
+  }
+  return addedPackIds;
 }
 
 function additiveMountPlan(sourceRegistry, targetRegistry, packId) {
@@ -209,13 +335,13 @@ function targetRulesets(registry) {
   });
 }
 
-function targetContentContext(current, targetRegistry, removedPackId = null) {
+function targetContentContext(current, targetRegistry, removedPackIds = new Set()) {
   const targetReferences = new Map((targetRegistry.content_references?.entries ?? [])
     .map((entry) => [entry.canonical_ref, entry]));
   return {
     mapping_version: targetRegistry.content_references?.mapping_version ?? 0,
     references: (current?.references ?? [])
-      .filter((reference) => reference.pack_id !== removedPackId)
+      .filter((reference) => !removedPackIds.has(reference.pack_id))
       .filter((reference) => targetReferences.has(reference.canonical_ref))
       .map((reference) => structuredClone(targetReferences.get(reference.canonical_ref))),
     active_rulesets: targetRulesets(targetRegistry),
@@ -409,6 +535,11 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
       `cannot unmount ${packId}: snapshot bundle does not match the source registry`,
     );
   }
+  const { removedPacks, targetOnlyPackIds } = subtractiveUnmountPlan(
+    sourceRegistry,
+    targetRegistry,
+    packId,
+  );
 
   const migrated = structuredClone(snapshot);
   const sourceRules = registryRuleBinding(sourceRegistry);
@@ -417,9 +548,32 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     throw new Error(`pack ${packId} is already soft-unmounted`);
   }
 
-  const actorIds = packHandles(sourceRegistry, packId, "actor");
-  const authoredItemIds = packHandles(sourceRegistry, packId, "item");
-  const locationIds = packHandles(sourceRegistry, packId, "location");
+  const removedPackIds = new Set(removedPacks.map((pack) => pack.id));
+  const actorIds = new Set(
+    [...removedPackIds].flatMap((removedPackId) =>
+      [...packHandles(sourceRegistry, removedPackId, "actor")]),
+  );
+  const authoredItemIds = new Set(
+    [...removedPackIds].flatMap((removedPackId) =>
+      [...packHandles(sourceRegistry, removedPackId, "item")]),
+  );
+  const authoredLocationIds = new Set(
+    [...removedPackIds].flatMap((removedPackId) =>
+      [...packHandles(sourceRegistry, removedPackId, "location")]),
+  );
+  const ownedGeneratedPathways = Object.entries(migrated.generated_pathways ?? {})
+    .filter(([, pathway]) =>
+      removedPackIds.has(pathway.owner_pack_id)
+        || hasId(authoredLocationIds, pathway.origin_location_id)
+        || hasId(authoredLocationIds, pathway.destination_location_id));
+  const ownedGeneratedPathwayIds = new Set(
+    ownedGeneratedPathways.map(([pathwayId]) => pathwayId),
+  );
+  const generatedLocationIds = new Set(
+    ownedGeneratedPathways.flatMap(([, pathway]) =>
+      (pathway.waypoints ?? []).map((waypoint) => Number(waypoint.id))),
+  );
+  const locationIds = new Set([...authoredLocationIds, ...generatedLocationIds]);
   const occupied = (migrated.world_actors ?? [])
     .filter((actor) =>
       !hasId(actorIds, actor.id) && hasId(locationIds, actor.location_id));
@@ -509,7 +663,7 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
 
   maps.clocks = takeMapKeys(
     migrated.clocks,
-    packResourceIds(sourceRegistry, packId, "clocks"),
+    packResourceIdsForPacks(sourceRegistry, removedPackIds, "clocks"),
   );
   Object.assign(
     maps.clocks,
@@ -517,7 +671,7 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   );
   maps.jobs = takeMapKeys(
     migrated.jobs,
-    packResourceIds(sourceRegistry, packId, "jobs"),
+    packResourceIdsForPacks(sourceRegistry, removedPackIds, "jobs"),
   );
   Object.assign(
     maps.jobs,
@@ -533,9 +687,31 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   );
   maps.generated_pathways = takeMapValues(
     migrated.generated_pathways,
-    (pathway) =>
-      hasId(locationIds, pathway.origin_location_id)
-        || hasId(locationIds, pathway.destination_location_id),
+    (_pathway, pathwayId) => ownedGeneratedPathwayIds.has(pathwayId),
+  );
+  maps.routes = takeMapValues(
+    migrated.routes,
+    (route) =>
+      removedPackIds.has(route.owner_pack_id)
+        || (route.edges ?? []).some((edge) =>
+          hasId(locationIds, edge.from_location_id)
+            || hasId(locationIds, edge.to_location_id)),
+  );
+  for (const field of [
+    "governance_decisions",
+    "settlement_buildings",
+    "building_footprint_claims",
+    "loot_allocations",
+  ]) {
+    maps[field] = takeMapValues(
+      migrated[field],
+      (entry) => hasId(locationIds, entry.location_id),
+    );
+  }
+  maps.community_art_generations = takeMapValues(
+    migrated.community_art_generations,
+    (entry) =>
+      entry.subject_kind === "location" && hasId(locationIds, entry.subject_id),
   );
   maps.journeys = takeMapValues(
     migrated.journeys,
@@ -559,6 +735,22 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     migrated.resident_continuities,
     (continuity) => hasId(actorIds, continuity.resident_id),
   );
+  maps.beliefs = takeMapValues(
+    migrated.beliefs,
+    (belief) =>
+      hasId(actorIds, belief.holder_actor_id)
+        || hasId(actorIds, belief.source_actor_id)
+        || hasId(actorIds, belief.related_actor_id)
+        || hasId(locationIds, belief.location_id)
+        || (belief.kind === "actor_location" && hasId(actorIds, belief.subject_id))
+        || (belief.kind === "item_location" && hasId(itemIds, belief.subject_id))
+        || (
+          ["seed_exit", "hidden_exit"].includes(belief.kind)
+          && hasId(locationIds, belief.subject_id)
+        ),
+  );
+  // Pre-v14 snapshots can still reach the pack migration tool before the
+  // orchestrator folds their two legacy maps into `beliefs`.
   maps.resident_memories = takeMapValues(
     migrated.resident_memories,
     (memory) =>
@@ -566,8 +758,8 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
         || hasId(actorIds, memory.source_actor_id)
         || hasId(actorIds, memory.holder_actor_id)
         || hasId(locationIds, memory.location_id)
-        || (memory.kind === "actor" && hasId(actorIds, memory.subject_id))
-        || (memory.kind === "item" && hasId(itemIds, memory.subject_id)),
+        || (memory.kind === "actor_location" && hasId(actorIds, memory.subject_id))
+        || (memory.kind === "item_location" && hasId(itemIds, memory.subject_id)),
   );
   maps.search_memories = takeMapValues(
     migrated.search_memories,
@@ -615,8 +807,21 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     locations: takeMapKeys(migrated.world_simulation.locations, locationIds),
     factions: takeMapKeys(
       migrated.world_simulation.factions,
-      packResourceIds(sourceRegistry, packId, "factions"),
+      packResourceIdsForPacks(sourceRegistry, removedPackIds, "factions"),
     ),
+  };
+  migrated.canonical_identities ??= {};
+  const canonicalLocationRefs = takeMapKeys(
+    migrated.canonical_identities.location_refs,
+    locationIds,
+  );
+  const canonicalEntityVersions = takeMapKeys(
+    migrated.canonical_identities.entity_versions,
+    new Set(Object.values(canonicalLocationRefs)),
+  );
+  const canonicalIdentities = {
+    location_refs: canonicalLocationRefs,
+    entity_versions: canonicalEntityVersions,
   };
   const removed = {
     actors: before.actors - migrated.world_actors.length,
@@ -627,11 +832,14 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   const frozen = {
     pack_id: packId,
     pack_version: packVersion(sourceRegistry, packId),
+    removed_pack_ids: [...removedPackIds],
+    target_only_pack_ids: targetOnlyPackIds,
     source_bundle_hash: sourceRegistry.manifest.bundle_hash,
     target_bundle_hash: targetRegistry.manifest.bundle_hash,
     content_context: structuredClone(migrated.content_context ?? {}),
     arrays,
     maps,
+    canonical_identities: canonicalIdentities,
     world_simulation: worldSimulation,
     invalidated: {
       transfer_offer_ids: invalidatedOfferIds,
@@ -644,13 +852,15 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   migrated.content_context = targetContentContext(
     migrated.content_context,
     targetRegistry,
-    packId,
+    removedPackIds,
   );
   const targetRules = applyRegistryBinding(migrated, targetRegistry);
   const transaction = appendTransaction(mountState, {
     operation: "soft_unmount",
     pack_id: packId,
     pack_version: frozen.pack_version,
+    removed_pack_ids: frozen.removed_pack_ids,
+    target_only_pack_ids: frozen.target_only_pack_ids,
     source_bundle_hash: frozen.source_bundle_hash,
     target_bundle_hash: frozen.target_bundle_hash,
     source_rules: sourceRules,
@@ -691,6 +901,14 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
   if (!frozen) {
     throw new Error(`pack ${packId} has no frozen soft-unmount state`);
   }
+  if (frozen.pack_id !== packId) {
+    throw new Error(`cannot remount ${packId}: frozen state belongs to ${frozen.pack_id}`);
+  }
+  const actualAddedPackIds = restorativeRemountPlan(
+    sourceRegistry,
+    targetRegistry,
+    frozen,
+  );
   if (frozen.target_bundle_hash !== sourceRegistry.manifest.bundle_hash) {
     throw new Error(`cannot remount ${packId}: current registry does not match the unmount target`);
   }
@@ -714,9 +932,24 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
   for (const [field, entries] of Object.entries(frozen.maps ?? {})) {
     restoreMapEntries(migrated, field, entries);
   }
+  migrated.canonical_identities ??= {};
+  for (const [field, entries] of Object.entries(frozen.canonical_identities ?? {})) {
+    restoreNestedMapEntries(
+      migrated.canonical_identities,
+      "canonical_identities",
+      field,
+      entries,
+      { allowIdentical: field === "entity_versions" },
+    );
+  }
   migrated.world_simulation ??= {};
   for (const [field, entries] of Object.entries(frozen.world_simulation ?? {})) {
-    restoreNestedMapEntries(migrated.world_simulation, field, entries);
+    restoreNestedMapEntries(
+      migrated.world_simulation,
+      "world_simulation",
+      field,
+      entries,
+    );
   }
   migrated.content_context = structuredClone(frozen.content_context);
   const targetRules = applyRegistryBinding(migrated, targetRegistry);
@@ -731,6 +964,7 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
     operation: "remount",
     pack_id: packId,
     pack_version: frozen.pack_version,
+    mounted_pack_ids: actualAddedPackIds,
     source_bundle_hash: sourceRegistry.manifest.bundle_hash,
     target_bundle_hash: targetRegistry.manifest.bundle_hash,
     source_rules: sourceRules,

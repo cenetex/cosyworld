@@ -2,7 +2,7 @@
   {
     "pack_id": "cosyworld.core",
     "pack_version": "1.3.10",
-    "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+    "pack_integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
     "provider": "cosyworld.core/assets",
     "mount": "generated/cards",
     "root": "core",
@@ -15,7 +15,7 @@
   {
     "pack_id": "cosyworld.core",
     "pack_version": "1.3.10",
-    "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+    "pack_integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
     "provider": "cosyworld.core/assets",
     "mount": "locations",
     "root": "core",
@@ -27,8 +27,8 @@
   },
   {
     "pack_id": "cosyworld.the-holy-land",
-    "pack_version": "1.1.3",
-    "pack_integrity": "sha256:5837c4ea7aa642d99e85c098fdcb75d6fa634f310f19850e2b872686e1412eae",
+    "pack_version": "1.1.4",
+    "pack_integrity": "sha256:08587e664291d870927a4f19e06017cd0bedd55573f4fb039f3a073dc95e0378",
     "provider": "cosyworld.the-holy-land/assets",
     "mount": "cards",
     "root": "the-holy-land",

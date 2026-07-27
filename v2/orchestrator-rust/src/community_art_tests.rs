@@ -1,9 +1,14 @@
 use super::*;
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::Engine as _;
-use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc,
+use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
+use sha2::{Digest as _, Sha256};
+use std::{
+    io::Cursor,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 fn test_art_config() -> ReplicateAvatarArtConfig {
@@ -18,6 +23,22 @@ fn test_art_config() -> ReplicateAvatarArtConfig {
         prompt_prefix: "cozy card art".to_string(),
         output_format: "png".to_string(),
     }
+}
+
+fn gate_png() -> Vec<u8> {
+    let pixels = ImageBuffer::from_fn(16, 9, |x, y| {
+        Rgba([
+            (x as u8).wrapping_mul(17),
+            (y as u8).wrapping_mul(29),
+            (x as u8 ^ y as u8).wrapping_mul(11),
+            255,
+        ])
+    });
+    let mut bytes = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(pixels)
+        .write_to(&mut bytes, ImageFormat::Png)
+        .expect("encode gate PNG");
+    bytes.into_inner()
 }
 
 #[test]
@@ -89,6 +110,102 @@ async fn location_art_funding_fails_before_debit_without_policy_review() {
 }
 
 #[tokio::test]
+async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Patron");
+    runtime.world.actors[..runtime.world.actor_count]
+        .iter_mut()
+        .find(|actor| actor.id == 5000)
+        .expect("test avatar exists")
+        .stats
+        .level = 2;
+    let before_tick = runtime.world.tick;
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    let prior_bytes = BASE64_STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC")
+        .expect("decode prior-level PNG");
+    let prior_prediction = "prior-level-prediction";
+    let prior_asset = register_generated_media_asset(
+        &state.generated_asset_dir,
+        "actor",
+        5000,
+        1,
+        &prior_bytes,
+        "image/png",
+        MediaAssetProvenance {
+            pack_id: "cosyworld.core".to_string(),
+            pack_version: "1.0.0".to_string(),
+            composition_id: "community-art:actor:5000:level:1".to_string(),
+            composition_revision: "1".to_string(),
+            provider: "replicate".to_string(),
+            model: "black-forest-labs/flux-dev-lora".to_string(),
+            model_version: "pinned-flux1".to_string(),
+            prompt_version: "community-art/3".to_string(),
+            prediction_id: Some(prior_prediction.to_string()),
+            source_event_seq: Some(1),
+            history_through_seq: 1,
+            ..MediaAssetProvenance::default()
+        },
+    )
+    .expect("stage prior-level asset");
+    assert!(reconcile_community_media_asset_status(
+        &state.generated_asset_dir,
+        "actor",
+        5000,
+        1,
+        "ready",
+        Some(prior_prediction),
+        Some(2),
+    )
+    .expect("approve prior-level asset"));
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+
+    let fund = |session: String, intent_id: &str| {
+        fund_community_image(
+            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
+            State(state.clone()),
+            Json(FundCommunityImageRequest {
+                actor_id: 5000,
+                actor_session: Some(session),
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                intent_id: intent_id.to_string(),
+            }),
+        )
+    };
+    let response = fund(actor_session.clone(), "test-community-endpoint-1")
+        .await
+        .0;
+    assert!(response.ok);
+    assert!(response
+        .events
+        .iter()
+        .any(|event| event.type_name == "community_art.funded"));
+    let duplicate = fund(actor_session, "test-community-endpoint-1").await.0;
+    assert!(duplicate.ok);
+    assert!(duplicate.events.is_empty());
+
+    let runtime = state.inner.lock().await;
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+    assert_eq!(runtime.world.tick, before_tick);
+    let generation =
+        &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
+    assert_eq!(generation.funded_orbs, 1);
+    assert_eq!(generation.required_orbs, 2);
+    assert_eq!(generation.status, "funding");
+    let evolution = generation
+        .evolution_job
+        .as_ref()
+        .expect("evolution job is durably frozen on first funding");
+    assert_eq!(evolution.prior_asset_id, prior_asset);
+    assert_eq!(
+        evolution.prior_asset_digest,
+        format!("{:x}", Sha256::digest(&prior_bytes))
+    );
+}
+
+#[tokio::test]
 async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
     let capability_contract_seen = Arc::new(AtomicBool::new(false));
     let app = Router::new().route(
@@ -145,6 +262,7 @@ async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
         vision_model: "test-vision-model".to_string(),
         reasoning_effort: None,
         vision_reasoning_effort: None,
+        ..AiConfig::default()
     };
 
     preflight_community_art_policy(Some(&config), CommunityArtImagePolicy::LocationLandscape)
@@ -172,6 +290,7 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
         subject_id: 181_730,
         level: 1,
         generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
         required_orbs: 1,
         history_through_seq: 99,
         prompt: build_community_art_prompt(
@@ -186,6 +305,11 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
         ),
         aspect_ratio: "16:9",
         image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
+        persisted_identity: "Quiet Rise".to_string(),
+        persisted_visual_description: "chalky lanes and reed beds".to_string(),
+        stable_traits: vec!["chalky lanes".to_string()],
+        public_history: Vec::new(),
+        evolution_job: None,
     };
 
     let prompt = community_art_generation_request(&config, &plan);
@@ -284,6 +408,7 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
         vision_model: "test-vision-model".to_string(),
         reasoning_effort: None,
         vision_reasoning_effort: None,
+        ..AiConfig::default()
     }));
     let (actor_session, _) = issue_actor_session(&state, 5000);
 
@@ -319,11 +444,17 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
             subject_id: waypoint_id,
             level: 1,
             generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+            generation_policy: GeneratedPolicyBinding::default(),
             required_orbs: 1,
             history_through_seq: 0,
             prompt: String::new(),
             aspect_ratio: "16:9",
             image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
+            persisted_identity: "test location".to_string(),
+            persisted_visual_description: "test landscape".to_string(),
+            stable_traits: vec!["test landscape".to_string()],
+            public_history: Vec::new(),
+            evolution_job: None,
         }
     ));
     server.abort();
@@ -383,15 +514,19 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         subject_id: 181_728,
         level: 1,
         generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
         required_orbs: 1,
         history_through_seq: 99,
         prompt: "A quiet rain-soft path with no figures.".to_string(),
         aspect_ratio: "16:9",
         image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
+        persisted_identity: "Quiet Rise".to_string(),
+        persisted_visual_description: "rain-soft path".to_string(),
+        stable_traits: vec!["rain-soft path".to_string()],
+        public_history: Vec::new(),
+        evolution_job: None,
     };
-    let image_bytes = BASE64_STANDARD
-        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC")
-        .expect("decode retained PNG fixture");
+    let image_bytes = gate_png();
     store_community_art_candidate(
         &generated_dir,
         &plan,
@@ -410,6 +545,7 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         vision_model: "test-vision-model".to_string(),
         reasoning_effort: None,
         vision_reasoning_effort: None,
+        ..AiConfig::default()
     };
 
     let first = generate_and_store_community_art(
@@ -440,6 +576,10 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
     .await;
     assert!(second.reused_candidate);
     assert!(second.result.is_ok());
+    assert!(
+        second.asset_id.is_some(),
+        "publication stages an immutable asset before the ready journal transition"
+    );
     assert_eq!(policy_requests.load(Ordering::SeqCst), 2);
     assert_eq!(
         fs::read(stored_community_art_image_path(
@@ -454,6 +594,114 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
     remove_community_art_candidate(&generated_dir, &plan).expect("remove retained fixture");
     let _ = fs::remove_dir_all(generated_dir);
     server.abort();
+}
+
+#[test]
+fn rollback_and_incumbent_routes_quarantine_a_stored_canary_before_publication() {
+    let frozen = FrozenCommunityArtEvolutionJob::freeze(
+        "actor",
+        5000,
+        "Rollback Patron",
+        "a rust-red fox with a green scarf",
+        vec!["green scarf".to_string(), "rust-red fur".to_string()],
+        &[PublicArtHistoryEvent {
+            seq: 72,
+            summary: "The patron planted a public moonflower.".to_string(),
+        }],
+        1,
+        "media-prior-level".to_string(),
+        "a".repeat(64),
+        "image/png".to_string(),
+        70,
+        72,
+        2,
+        1,
+        "2:3",
+    )
+    .expect("freeze rollback fixture");
+    let plan = CommunityArtPlan {
+        subject_kind: "actor".to_string(),
+        subject_id: 5000,
+        level: 2,
+        generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
+        required_orbs: 2,
+        history_through_seq: 72,
+        prompt: "incumbent prompt".to_string(),
+        aspect_ratio: "2:3",
+        image_policy: None,
+        persisted_identity: "Rollback Patron".to_string(),
+        persisted_visual_description: "a rust-red fox with a green scarf".to_string(),
+        stable_traits: vec!["green scarf".to_string(), "rust-red fur".to_string()],
+        public_history: vec![PublicArtHistoryEvent {
+            seq: 72,
+            summary: "The patron planted a public moonflower.".to_string(),
+        }],
+        evolution_job: Some(frozen),
+    };
+    let prior = DownloadedReplicateImage {
+        bytes: b"prior-approved-incumbent".to_vec(),
+        content_type: "image/png".to_string(),
+        source_url: "https://replicate.delivery/pbxt/prior.png".to_string(),
+        prediction_id: Some("prior-approved".to_string()),
+    };
+    let canary = DownloadedReplicateImage {
+        bytes: b"unapproved-flux2-canary".to_vec(),
+        content_type: "image/png".to_string(),
+        source_url: "https://replicate.delivery/pbxt/canary.png".to_string(),
+        prediction_id: Some("canary-pending-review".to_string()),
+    };
+
+    for (route, label) in [
+        (
+            EvolutionRolloutRoute::AutomaticRollback,
+            "automatic-rollback",
+        ),
+        (EvolutionRolloutRoute::Incumbent, "incumbent"),
+    ] {
+        let generated_dir = std::env::temp_dir().join(format!(
+            "cosyworld-route-candidate-{label}-{}-{}",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_dir_all(&generated_dir);
+        store_community_art_image(&generated_dir, &plan, &prior).expect("store prior public image");
+        store_community_art_candidate_with_route(&generated_dir, &plan, &canary, true)
+            .expect("store pending canary candidate");
+
+        assert!(
+            load_route_compatible_community_art_candidate(&generated_dir, &plan, route)
+                .expect("route compatibility check")
+                .is_none(),
+            "{label} must continue through incumbent generation"
+        );
+        assert!(!community_art_candidate_exists(&generated_dir, &plan));
+        assert!(
+            publish_community_art_candidate(&generated_dir, &plan).is_err(),
+            "{label} cannot publish the quarantined canary"
+        );
+        assert_eq!(
+            fs::read(stored_community_art_image_path(
+                &generated_dir,
+                "actor",
+                plan.subject_id
+            ))
+            .expect("read unchanged public image"),
+            prior.bytes
+        );
+        assert_eq!(
+            fs::read(
+                generated_dir
+                    .join("media-evolution-shadow")
+                    .join("actor")
+                    .join(plan.subject_id.to_string())
+                    .join("level-2.image")
+            )
+            .expect("read privately retained canary"),
+            canary.bytes
+        );
+        let _ = fs::remove_dir_all(generated_dir);
+    }
 }
 
 #[test]
@@ -484,6 +732,7 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
             intent_id: "test-provider-budget".to_string(),
             amount: 1,
             history_through_seq: 7055,
+            evolution_job: None,
         });
     assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
 
@@ -504,6 +753,7 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
                 level: 1,
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+                generation_policy: GeneratedPolicyBinding::default(),
             });
         record
             .projection_mutations
@@ -542,6 +792,154 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
 }
 
 #[test]
+fn failed_evolution_retries_charge_no_extra_orbs_and_keep_prior_art_public() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Evolving Patron",
+    );
+    runtime.world.actors[..runtime.world.actor_count]
+        .iter_mut()
+        .find(|actor| actor.id == 5000)
+        .expect("evolving actor")
+        .stats
+        .level = 2;
+    let frozen = FrozenCommunityArtEvolutionJob::freeze(
+        "actor",
+        5000,
+        "Evolving Patron — World Traveler",
+        "a rust-red fox with a green scarf",
+        vec!["green scarf".to_string(), "rust-red fur".to_string()],
+        &[PublicArtHistoryEvent {
+            seq: 72,
+            summary: "The patron planted a public moonflower.".to_string(),
+        }],
+        1,
+        "media-prior-level".to_string(),
+        "a".repeat(64),
+        "image/png".to_string(),
+        70,
+        72,
+        2,
+        1,
+        "2:3",
+    )
+    .expect("freeze test evolution");
+
+    let mut prior = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        },
+        70,
+    );
+    prior
+        .projection_mutations
+        .push(ProjectionMutation::FundCommunityArt {
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            level: 1,
+            required_orbs: 1,
+            contributor_actor_id: 5000,
+            intent_id: "prior-level".to_string(),
+            amount: 1,
+            history_through_seq: 69,
+            evolution_job: None,
+        });
+    prior
+        .projection_mutations
+        .push(ProjectionMutation::SetCommunityArtStatus {
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            level: 1,
+            status: "ready".to_string(),
+        });
+    assert_eq!(runtime.apply_journal_record(&prior).0, CW_OK);
+
+    let mut funding = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        },
+        72,
+    );
+    funding
+        .projection_mutations
+        .push(ProjectionMutation::FundCommunityArt {
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            level: 2,
+            required_orbs: 2,
+            contributor_actor_id: 5000,
+            intent_id: "evolution-level".to_string(),
+            amount: 2,
+            history_through_seq: 72,
+            evolution_job: Some(frozen.clone()),
+        });
+    funding.orb_deltas.push(OrbDelta {
+        actor_id: 5000,
+        delta: -2,
+        reason: "community_image_generation".to_string(),
+    });
+    assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
+    let balance_after_funding = runtime.orb_balance(5000);
+
+    for attempt in 1..=MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS {
+        let mut failure = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            72 + u64::from(attempt),
+        );
+        failure
+            .projection_mutations
+            .push(ProjectionMutation::BeginCommunityArtGeneration {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 2,
+                provider_attempt: true,
+                generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+                generation_policy: GeneratedPolicyBinding::default(),
+            });
+        failure
+            .projection_mutations
+            .push(ProjectionMutation::CompleteCommunityArtGeneration {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 2,
+                status: "failed".to_string(),
+                prediction_id: Some(format!("flux2-failed-{attempt}")),
+                error_code: Some("community_art_generation_failed".to_string()),
+            });
+        assert_eq!(runtime.apply_journal_record(&failure).0, CW_OK);
+        assert_eq!(runtime.orb_balance(5000), balance_after_funding);
+    }
+
+    let generation =
+        &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
+    assert_eq!(generation.evolution_job.as_ref(), Some(&frozen));
+    assert_eq!(generation.funded_orbs, 2);
+    let card = &runtime
+        .state_response(Some(5000), &AccessContext::default())
+        .cards
+        .actors[&5000];
+    assert_eq!(
+        card.image_url.as_deref(),
+        Some("/assets/generated/community/actor/5000.image?level=1&revision=1")
+    );
+    assert_eq!(
+        card.community_art.as_ref().map(|art| art.status.as_str()),
+        Some("failed")
+    );
+}
+
+#[test]
 fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(
@@ -570,6 +968,7 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
             intent_id: "test-paid-location-recovery".to_string(),
             amount: 1,
             history_through_seq: 7060,
+            evolution_job: None,
         });
     assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
 
@@ -596,6 +995,10 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
                 level: 1,
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+                generation_policy: runtime
+                    .generated_pathway_for_location(subject_id)
+                    .map(|pathway| pathway.generation_policy.clone())
+                    .unwrap_or_default(),
             });
         record
             .projection_mutations
@@ -639,6 +1042,10 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
             level: 1,
             provider_attempt: true,
             generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+            generation_policy: runtime
+                .generated_pathway_for_location(subject_id)
+                .map(|pathway| pathway.generation_policy.clone())
+                .unwrap_or_default(),
         });
     assert_eq!(runtime.apply_journal_record(&retry).0, CW_OK);
 
@@ -721,6 +1128,7 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
             intent_id: "test-pathway-policy-funding".to_string(),
             amount: 1,
             history_through_seq: 7052,
+            evolution_job: None,
         });
     assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
     let mut ready = JournalRecord::new(
@@ -740,6 +1148,11 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
             status: "ready".to_string(),
         });
     assert_eq!(runtime.apply_journal_record(&ready).0, CW_OK);
+    runtime
+        .community_art_generations
+        .get_mut(&community_art_generation_key("location", waypoint_id, 1))
+        .expect("ready community art generation")
+        .last_prediction_id = Some("pathway-approved-prediction".to_string());
     assert_eq!(
         runtime
             .state_response(Some(5000), &AccessContext::default())
@@ -770,7 +1183,14 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
         stored_community_art_content_type_path(&generated_dir, "location", waypoint_id);
     fs::create_dir_all(image_path.parent().expect("community art parent"))
         .expect("create community art fixture directory");
-    fs::write(&image_path, b"reviewed fixture bytes").expect("write ready art fixture");
+    let reviewed_bytes = base64::engine::general_purpose::STANDARD
+        .decode(
+            POLICY_PREFLIGHT_IMAGE_URL
+                .strip_prefix("data:image/png;base64,")
+                .expect("fixture prefix"),
+        )
+        .expect("decode reviewed PNG fixture");
+    fs::write(&image_path, &reviewed_bytes).expect("write ready art fixture");
     fs::write(&content_type_path, "image/png").expect("write ready art type fixture");
     let legacy_pathway_dir = generated_dir.join("pathways");
     fs::create_dir_all(&legacy_pathway_dir).expect("create legacy pathway directory");
@@ -794,6 +1214,25 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
         "legacy pathway bitmaps must never override the deterministic fallback"
     );
 
+    let ready_asset = generated_community_art_asset(
+        State(state.clone()),
+        AxumPath(("location".to_string(), format!("{waypoint_id}.image"))),
+        Query(BTreeMap::new()),
+    )
+    .await
+    .into_response();
+    assert_eq!(ready_asset.status(), StatusCode::OK);
+    let immutable_object = fs::read_dir(generated_dir.join("media-assets/objects/sha256"))
+        .expect("immutable object directory")
+        .next()
+        .expect("one immutable object")
+        .expect("immutable object entry")
+        .path();
+    assert_eq!(
+        fs::read(&immutable_object).expect("read immutable object"),
+        reviewed_bytes
+    );
+
     let mut headers = HeaderMap::new();
     headers.insert(
         header::AUTHORIZATION,
@@ -811,6 +1250,14 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
     assert!(rejected.retryable_without_orbs);
     assert!(!image_path.exists());
     assert!(!content_type_path.exists());
+    assert!(
+        immutable_object.exists(),
+        "rejection removes mutable aliases but preserves immutable evidence"
+    );
+    let graph = fs::read_to_string(generated_dir.join("media-assets/graph-v1.json"))
+        .expect("read immutable graph after rejection");
+    assert!(graph.contains("\"state\": \"rejected\""));
+    assert!(graph.contains("\"canonical\": {}"));
 
     let runtime = state.inner.lock().await;
     let card = &runtime
@@ -838,6 +1285,7 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
     let rejected_asset = generated_community_art_asset(
         State(state),
         AxumPath(("location".to_string(), format!("{waypoint_id}.image"))),
+        Query(BTreeMap::new()),
     )
     .await
     .into_response();

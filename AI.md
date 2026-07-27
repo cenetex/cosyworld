@@ -70,6 +70,15 @@ Official OpenRouter docs confirm the integration shape:
 
 - AI may propose text, media, and future content. The C kernel decides world state.
 - Every player-visible AI result is committed as a shared room event.
+- Generated character speech remains a private candidate until the deterministic
+  publication gate certifies its finish reason, voice budget, single-speaker
+  envelope, mode, context anchor, novelty, tone, safety, and action authority.
+- Rejected speech is represented durably only by hashes, stable check codes,
+  model attribution, prompt/context versions, latency, and token usage. Raw
+  rejected bytes never enter the Journal, room history, SSE, or player errors.
+- A certified generation identity may be journaled at most once. Its receipt is
+  part of the canonical speech record so snapshots and journal replay preserve
+  exactly-once publication across retries and restarts.
 - No DMs, no private resident conversations, no one-on-one teacher mode.
 - A connected user key changes who pays; it does not create a private world.
 - One user-paid action can benefit everyone present because the output is a public event.
@@ -126,7 +135,9 @@ Community image generation is different: the server validates a level-scoped sha
 
 ## AI Gateway
 
-The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
+The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Text selection uses a versioned immutable capability-registry snapshot: `voice`, `intent_json`, and `world_content` have independent declared pools, provider discovery cannot grant eligibility, and each request pins one candidate plus its prompt-adapter and catalog versions. Avatar voice publication adds durable, weighted selection without replacement, bounded attempts/hedges/latency/spend, separately dimensioned content and provider-health evidence, and exactly one publication-gated winner; replay returns the accepted receipt without rerunning selection. Resident `intent_json` composition is intentionally unchanged pending the voice/intent split. Mutable aliases require the provider response's concrete model for attribution. Production data policy permits a prompt to leave CosyWorld only after an explicit no-retention/no-training declaration passes. Persisted attribution is self-contained so refreshes cannot rewrite in-flight or historical identity. The complete contract is in `v2/docs/ai-capability-registry.md`.
+
+Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
 
 The first bounded world-content feature is `pathway_content`. When an Explorer first opens a multi-step route, the server creates all hidden waypoint identities together from trusted route biome and terrain context. The model may propose only a name, title, physical description, place persona, and visual detail. A strict JSON schema, unknown-field rejection, length and character limits, authority-language filtering, and deterministic fallback protect the projection. The generated identity and its provider/model/prompt-version provenance persist in the world snapshot, but each name remains hidden until the corresponding Explore edge is revealed. Movement, access, danger, projects, clocks, items, rewards, and all other world truth remain deterministic.
 
@@ -182,15 +193,35 @@ For every successful scene-card commit:
 4. Build authoritative channel context from the triggering card/event, up to ten
    recent room-log entries, recent spoken lines, current cast and location,
    durable room memory, goals, economy facts, and resident continuity.
-5. Ask AI for one bounded resident proposal. The direct event is answered first;
-   newer log facts override older ones.
-6. Validate the resident's speech contract and commit the accepted `CW_ACTION_SAY`
-   through the journal and C kernel.
-7. Complete the heartbeat only after the reply attempt, so cards played while
+5. On a decision beat, freeze the exact current `resident-planner-offers-v1`
+   candidate IDs and state revision, then make at most one `intent_json` planner
+   call. That closed policy currently covers reachable move, pickup, drop, give,
+   trade, and use-item offers; unsupported legal kinds such as search remain in
+   deterministic hands and are not mislabeled as planner candidates. Pickups
+   requiring an inventory exchange are excluded until the candidate schema can
+   encode the exact outgoing item. Ordinary conversation and directly
+   controlled proxy reactions skip this step.
+6. Validate the planner's exact candidate echo. Invalid, unavailable, illegal,
+   or stale output becomes a rejected/absent planner brief and no pending action.
+7. Ask a `voice` model for public speech only. Its brief distinguishes proposed,
+   accepted, committed, superseded, rejected, and absent intent and forbids
+   claims that an uncommitted action, cost, or outcome already happened.
+8. Re-enumerate the authoritative candidates before persisting any pending
+   action, validate the speech contract, and commit `CW_ACTION_SAY` through the
+   journal and C kernel. Later deterministic hands still re-plan against current
+   offers and the kernel remains the only mutation authority.
+9. Complete the heartbeat only after the reply attempt, so cards played while
    inference is running still cannot stack another reply.
 
 The human operator is never impersonated by this path. Human dialogue is the
-moderated `say` action.
+moderated `say` action. Planner reason text exists only in the resident-planning
+trace, never in the projected pending action, a belief, or a world fact. The
+speech journal stores the planning status and accepted publication receipt;
+eventual action decision traces carry the same generation, candidate, revision,
+and causal event fields. Only the matching executed plan is cleared. A newer
+accepted generation durably supersedes an older one, while a rejected attempt
+leaves the older accepted plan intact. Replay consumes those records and never
+calls inference.
 
 ### Structured Decisions
 
@@ -219,6 +250,86 @@ The C kernel and Rust validators must reject invalid or impossible proposals.
 
 Add a v2 `media_jobs` pipeline. Do not block the one-button chat loop on slow image work unless the current action explicitly asks for a photo.
 
+The host-owned recipe registry at `v2/media/recipes.json` is the frozen
+capability boundary in front of provider adapters. It records exact Replicate
+revision provenance for the incumbent FLUX.1 LoRA base recipe and uses a pinned
+version invocation for the reference-capable FLUX.2 recipe, along with
+operation, intent, input field, reference limits/order, formats, dimensions,
+seed/mask behavior, retry/cost policy, prompt version, output normalization,
+and stable-storage requirements. The same registry is compiled into Rust and
+read by the worldpack compiler, so pack profile validation cannot drift from
+runtime resolution.
+
+The initial pins were read from Replicate's published API pages on 2026-07-26:
+FLUX.1 LoRA revision
+`ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917`
+from `https://replicate.com/black-forest-labs/flux-dev-lora/api`, and FLUX.2
+dev revision
+`7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050`
+from
+`https://replicate.com/black-forest-labs/flux-2-dev/versions/7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050/api`.
+The latter's published input schema caps this exact recipe at four ordered
+`input_images`, constrains custom width and height to 256–1440 in multiples of
+32, and accepts an optional seed. The registry follows that version-specific
+schema rather than a broader model-family claim.
+
+References are an ordered list of typed `location`, `actor`, `item`,
+`prior_level`, or `style` slots. The resolved job retains that exact order and
+FLUX.2 prompts address it as image 1 through image N. Resolution rejects an
+unsupported slot, operation, intent, format, seed, mask, or over-limit list
+before a provider adapter can construct or send a request; it never truncates,
+sorts, or substitutes references.
+
+Approved media is recorded in an append-only asset graph under the generated
+asset root. Content-addressed objects are immutable; records bind their digest,
+dimensions, MIME type, subject/level/revision, worldpack and composition,
+rights basis, provider/model/prompt/seed/prediction history, and complete
+parent slot/order/crop/mask/transformation lineage. Approval moves a canonical
+pointer without rewriting or deleting prior revisions. Existing approved
+FLUX.1 outputs are lazily backfilled from their stored bytes and metadata, so
+the migration does not spend provider credits or regenerate art.
+
+Reference jobs cannot supply arbitrary URLs. The host resolves typed slots
+against approved canonical records, verifies object digests, checks explicit
+reference-reuse rights, selects the canonical revision as of the intent's
+journal boundary, and creates certified inputs in stable slot/subject order.
+Causal revisions keep same-subject IDs and canonical selection independent of
+pack ingestion order. Durable lifecycle evidence reconciles publication after
+restart; moderation uses a persisted reference hold until its journal result
+is reconciled. Pending, rejected, private, deleted, missing, corrupt, or
+rights-ineligible records fail closed before provider submission. Authored,
+on-chain, and imported sources default to non-derivable until an explicit
+policy grants reuse. A request beyond the recipe budget requires an explicit
+composition plan rather than truncation or unrelated fallback.
+
+`COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON` provides runtime-only
+`disabled_recipes`, `profile_overrides`, and per-profile
+`canaries` (`recipe` plus `percent`). Selection is deterministic from the job
+key. Parsing and registry validation fail closed on unknown fields, profiles,
+recipes, disallowed targets, or percentages above 100. A disabled recipe
+follows only its declared allowlisted fallback, which must still satisfy the
+complete job; an explicit profile override rolls back to a prior recipe. Pack
+compilation follows that same declared default/fallback chain and never picks
+an arbitrary enabled recipe. These controls do not change world state. The
+default base profile continues to use the existing FLUX.1 LoRA request and
+community Orb funding/output path.
+
+Later-level art freezes an approved canonical prior-level asset, including its
+content digest and history boundary, before funding commits. The persisted
+evolution job contains the subject's identity and visual description, stable
+traits, the bounded public event delta after that prior boundary, target
+level/revision/crop, and negative constraints. Only the pinned FLUX.2
+single-reference recipe may consume that certified `prior_level` input. The
+incumbent FLUX.1 recipe remains the default route; the reviewed evolution
+contract at `v2/media/evolution-canary.json` records completed shadow
+comparison and an independently gated 5% canary across avatar, item, and
+location dark/light profiles. Runtime observations automatically disable only
+the weak profile and route it back to the incumbent without changing world
+state. Candidates remain private until the durable ready transition, so a
+failed or rejected evolution spends no additional Orbs and leaves the prior
+approved image public. Run `npm run v2:media:evolution` for the checked corpus
+report and comparison chart.
+
 Media intents:
 
 - `avatar_portrait`: 1:1 usable crop for the player avatar and card top square.
@@ -228,6 +339,17 @@ Media intents:
 - `combat_scene`: 16:9 attacker/defender/location composition.
 - `evolution_card_art`: tall card or level-up art.
 - `pack_reveal`: card-pack reveal media.
+
+`room_scene` is a bounded server-sponsored composition over one committed
+public event: one location, one or two still-present event actors, and at most
+one event item. Its server-canonical job identity excludes callers and request
+tokens, freezes the projection digest, ordered approved references, prompt,
+recipe revision, and `server_sponsored_no_orb_debit/1` funding policy before
+provider spend. A durable per-job provider lease deduplicates concurrent
+workers and can be reclaimed only after its recipe-timeout expiry, consuming
+the next bounded attempt. Candidates remain private until moderator review;
+the server records its current committed event boundary as provenance and only
+then advances the location's approved canonical asset.
 
 Recommended provider path:
 

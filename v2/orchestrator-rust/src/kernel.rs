@@ -6,6 +6,9 @@ use std::os::raw::c_char;
 
 use serde::{Deserialize, Serialize};
 
+mod rejections;
+pub(crate) use rejections::*;
+
 pub const CW_MAX_ACTORS: usize = 512;
 pub const CW_MAX_ITEMS: usize = 1024;
 pub const CW_MAX_LOCATIONS: usize = 256;
@@ -17,7 +20,8 @@ pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-pub const CW_KERNEL_VERSION: u32 = 8;
+// Kernel version 9 is reserved by #411 for project-push ABI state.
+pub const CW_KERNEL_VERSION: u32 = 10;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_RULE: u32 = 4;
@@ -72,6 +76,14 @@ pub const CW_CARD_ZONE_CONTAINED: u8 = 6;
 pub const CW_CARD_ZONE_ESCROW: u8 = 7;
 pub const CW_CARD_ZONE_INSTALLED: u8 = 8;
 
+pub const CW_ITEM_RECOVERY_NONE: u8 = 0;
+pub const CW_ITEM_RECOVERY_REST: u8 = 1;
+
+pub const CW_REST_GRADE_NONE: u8 = 0;
+pub const CW_REST_GRADE_CAMP: u8 = 1;
+pub const CW_REST_GRADE_LODGED: u8 = 2;
+pub const CW_REST_GRADE_HEARTH: u8 = 3;
+
 pub const CW_ROLL_NORMAL: u8 = 0;
 pub const CW_ROLL_ADVANTAGE: u8 = 1;
 pub const CW_ROLL_DISADVANTAGE: u8 = 2;
@@ -107,12 +119,16 @@ pub const CW_ACTION_COMBAT_NEED_TIME: u8 = 27;
 pub const CW_ACTION_UNLOCK_EXIT: u8 = 28;
 pub const CW_ACTION_REVEAL_ITEM: u8 = 29;
 pub const CW_ACTION_RULES_UTILIZE_ITEM: u8 = 30;
+pub const CW_ACTION_PROJECT_PUSH: u8 = 31;
+// Action 31 is reserved by #411 for CW_ACTION_PROJECT_PUSH.
+pub const CW_ACTION_REST: u8 = 32;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
 pub const CW_EVENT_ITEM_USED: u8 = 8;
 pub const CW_EVENT_COMBAT_ATTACK_HIT: u8 = 11;
 pub const CW_EVENT_COMBAT_KNOCKOUT: u8 = 13;
+pub const CW_EVENT_RULE_REJECTED: u8 = 14;
 pub const CW_EVENT_ACTOR_MOVED: u8 = 15;
 pub const CW_EVENT_ITEM_GIVEN: u8 = 16;
 pub const CW_EVENT_AVATAR_EVOLVED: u8 = 17;
@@ -138,6 +154,36 @@ pub const CW_EVENT_ITEM_EXHAUSTED: u8 = 37;
 pub const CW_EVENT_ITEM_TRANSFORMED: u8 = 38;
 pub const CW_EVENT_EXIT_UNLOCKED: u8 = 39;
 pub const CW_EVENT_ITEM_REVEALED: u8 = 40;
+pub const CW_EVENT_PROJECT_PUSH_RESOLVED: u8 = 41;
+// Event 41 is reserved by #411 for CW_EVENT_PROJECT_PUSH_RESOLVED.
+pub const CW_EVENT_ITEM_REFRESHED: u8 = 42;
+
+// These append-only values mirror the authoritative `CW_REASON_*` enum in
+// core-c. The numeric value remains the replay contract; player-facing copy is
+// derived by the orchestrator and is never written back into a kernel action.
+pub const CW_REASON_INVALID_ACTION: u16 = 1;
+pub const CW_REASON_ACTOR_NOT_FOUND: u16 = 2;
+pub const CW_REASON_ACTOR_INACTIVE: u16 = 3;
+pub const CW_REASON_LOCATION_NOT_FOUND: u16 = 4;
+pub const CW_REASON_ITEM_NOT_FOUND: u16 = 5;
+pub const CW_REASON_ITEM_NOT_AVAILABLE: u16 = 6;
+pub const CW_REASON_TARGET_NOT_FOUND: u16 = 7;
+pub const CW_REASON_TARGET_UNAVAILABLE: u16 = 8;
+pub const CW_REASON_NOT_SAME_LOCATION: u16 = 9;
+pub const CW_REASON_COMBAT_NOT_ALLOWED: u16 = 10;
+pub const CW_REASON_SELF_TARGET: u16 = 11;
+pub const CW_REASON_NO_EXIT: u16 = 12;
+pub const CW_REASON_EXIT_LOCKED: u16 = 13;
+pub const CW_REASON_ENCOUNTER_NOT_FOUND: u16 = 14;
+pub const CW_REASON_ENCOUNTER_FULL: u16 = 15;
+pub const CW_REASON_NOT_PARTICIPANT: u16 = 16;
+pub const CW_REASON_NOT_CURRENT_TURN: u16 = 17;
+pub const CW_REASON_NOT_HOSTILE: u16 = 18;
+pub const CW_REASON_ENCOUNTER_ACTIVE: u16 = 19;
+pub const CW_REASON_COMBAT_ACTION_REQUIRED: u16 = 20;
+pub const CW_REASON_CAPACITY_EXCEEDED: u16 = 21;
+pub const CW_REASON_REST_GRADE_OVERCLAIMED: u16 = 22;
+pub const CW_REASON_MAX_KNOWN: u16 = CW_REASON_REST_GRADE_OVERCLAIMED;
 
 pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
 pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
@@ -217,6 +263,14 @@ pub struct CwItem {
     pub zone: u8,
     #[serde(default)]
     pub reserved: u8,
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub max_charges: u8,
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub recovery: u8,
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub recovery_zone: u8,
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub reserved2: u8,
     pub location_id: u64,
     pub holder_actor_id: u64,
     #[serde(default)]
@@ -232,6 +286,68 @@ fn default_item_weight_tenths() -> u16 {
 
 fn default_item_size_class() -> u8 {
     CW_ITEM_SIZE_SMALL
+}
+
+fn is_zero_u8(value: &u8) -> bool {
+    *value == 0
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwRestInput {
+    pub requested_grade: u8,
+    pub entitled_grade: u8,
+}
+
+impl CwRestInput {
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RestActionRequest {
+    pub requested_grade: u8,
+}
+
+pub fn rest_action_from_server_entitlement(
+    actor_id: u64,
+    request: RestActionRequest,
+    entitled_grade: u8,
+) -> Option<CwAction> {
+    if actor_id == 0
+        || !(CW_REST_GRADE_CAMP..=CW_REST_GRADE_HEARTH).contains(&request.requested_grade)
+        || !(CW_REST_GRADE_CAMP..=CW_REST_GRADE_HEARTH).contains(&entitled_grade)
+    {
+        return None;
+    }
+    Some(CwAction {
+        kind: CW_ACTION_REST,
+        actor_id,
+        rest: CwRestInput {
+            requested_grade: request.requested_grade,
+            entitled_grade,
+        },
+        ..CwAction::default()
+    })
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwProjectPushInput {
+    pub base_progress: u8,
+    pub prepared_bonus_progress: u8,
+    pub prepared: u8,
+    pub evidence_count: u8,
+    pub location_count: u8,
+    pub remaining_progress: u8,
+}
+
+impl CwProjectPushInput {
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 #[repr(C)]
@@ -278,6 +394,10 @@ pub struct CwAction {
     pub output_item_role: u8,
     #[serde(default)]
     pub reserved2: u16,
+    #[serde(default, skip_serializing_if = "CwProjectPushInput::is_empty")]
+    pub project_push: CwProjectPushInput,
+    #[serde(default, skip_serializing_if = "CwRestInput::is_empty")]
+    pub rest: CwRestInput,
 }
 
 #[repr(C)]
@@ -418,6 +538,13 @@ extern "C" {
         role: u8,
         container_capacity_tenths: u16,
     ) -> u32;
+    pub fn cw_world_set_item_recovery_profile(
+        world: *mut CwWorld,
+        item_id: u64,
+        max_charges: u8,
+        recovery: u8,
+        ready_zone: u8,
+    ) -> u32;
     pub fn cw_world_set_item_zone(
         world: *mut CwWorld,
         item_id: u64,
@@ -448,7 +575,93 @@ extern "C" {
         actor_id: u64,
         out_offers: *mut CwActionOffers,
     ) -> u32;
+    pub fn cw_rejection_reason_max() -> u16;
+    pub fn cw_resolve_project_push(input: *const CwProjectPushInput, out_progress: *mut u8) -> u32;
     pub fn cw_event_type_name(type_: u8) -> *const c_char;
     pub fn cw_actor_current_hp(actor: *const CwActor) -> i16;
     pub fn cw_actor_is_bloodied(actor: *const CwActor) -> i32;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_push_ffi_matches_single_and_multi_location_matrix() {
+        for (prepared, evidence_count, location_count, expected) in [
+            (0, 0, 1, 2),
+            (1, 0, 1, 3),
+            (1, 1, 1, 4),
+            (0, 1, 3, 2),
+            (1, 1, 3, 4),
+            (1, 3, 3, 5),
+        ] {
+            let input = CwProjectPushInput {
+                base_progress: 2,
+                prepared_bonus_progress: 1,
+                prepared,
+                evidence_count,
+                location_count,
+                remaining_progress: 6,
+            };
+            let mut progress = 0;
+            assert_eq!(
+                unsafe { cw_resolve_project_push(&input, &mut progress) },
+                CW_OK
+            );
+            assert_eq!(progress, expected);
+        }
+    }
+
+    #[test]
+    fn project_push_ffi_clamps_only_remaining_and_rejects_over_claims() {
+        let mut input = CwProjectPushInput {
+            base_progress: 2,
+            prepared_bonus_progress: 1,
+            prepared: 1,
+            evidence_count: 3,
+            location_count: 3,
+            remaining_progress: 1,
+        };
+        let mut progress = 0;
+        assert_eq!(
+            unsafe { cw_resolve_project_push(&input, &mut progress) },
+            CW_OK
+        );
+        assert_eq!(progress, 1);
+
+        input.evidence_count = 4;
+        assert_eq!(
+            unsafe { cw_resolve_project_push(&input, &mut progress) },
+            CW_ERR_RULE
+        );
+        input.evidence_count = 3;
+        input.prepared = 2;
+        assert_eq!(
+            unsafe { cw_resolve_project_push(&input, &mut progress) },
+            CW_ERR_RULE
+        );
+    }
+
+    #[test]
+    fn rest_adapter_never_accepts_client_entitlement_as_authority() {
+        assert_eq!(std::mem::size_of::<CwItem>(), 64);
+        assert_eq!(std::mem::offset_of!(CwItem, max_charges), 18);
+        assert_eq!(std::mem::offset_of!(CwItem, location_id), 24);
+        let tampered = serde_json::json!({
+            "requested_grade": CW_REST_GRADE_CAMP,
+            "entitled_grade": CW_REST_GRADE_HEARTH
+        });
+        assert!(serde_json::from_value::<RestActionRequest>(tampered).is_err());
+
+        let request: RestActionRequest = serde_json::from_value(serde_json::json!({
+            "requested_grade": CW_REST_GRADE_HEARTH
+        }))
+        .expect("bounded client Rest choice");
+        let action = rest_action_from_server_entitlement(5000, request, CW_REST_GRADE_CAMP)
+            .expect("server entitlement constructs the kernel action");
+        assert_eq!(action.kind, CW_ACTION_REST);
+        assert_eq!(action.rest.requested_grade, CW_REST_GRADE_HEARTH);
+        assert_eq!(action.rest.entitled_grade, CW_REST_GRADE_CAMP);
+    }
 }

@@ -297,6 +297,7 @@ pub(super) struct ExitView {
     pub(super) route_version: u64,
     pub(super) destination_location_id: u64,
     pub(super) destination_location_name: String,
+    pub(super) route_label: String,
     pub(super) direction: Option<String>,
     pub(super) distance: u8,
     pub(super) locked: bool,
@@ -304,6 +305,13 @@ pub(super) struct ExitView {
     pub(super) required_grant_id: Option<String>,
     pub(super) required_card_id: Option<String>,
     pub(super) access_reason: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub(super) struct ExpeditionRingView {
+    pub(super) filled_count: u8,
+    pub(super) pip_total: u8,
+    pub(super) needs_rest: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -323,9 +331,12 @@ pub(super) struct ActorView {
     pub(super) muted_by_you: bool,
     pub(super) blocked_by_you: bool,
     pub(super) location_id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) relationship: Option<RelationshipPreviewView>,
     pub(super) factions: Vec<FactionRefView>,
     #[serde(rename = "economy")]
     pub(super) resident_economy: Option<ResidentEconomyView>,
+    pub(super) expedition_ring: ExpeditionRingView,
     pub(super) hp: i16,
     pub(super) bloodied: bool,
     pub(super) stats: StatView,
@@ -539,6 +550,19 @@ pub(super) struct SharedQuestionMilestoneView {
     pub(super) text: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct SharedQuestionSuggestionView {
+    pub(super) offer_id: String,
+    pub(super) state_revision: u64,
+    pub(super) kind: String,
+    pub(super) label: String,
+    pub(super) target_label: String,
+    pub(super) source: String,
+    pub(super) likely_effect: String,
+    pub(super) likely_progress: Option<u8>,
+    pub(super) risk: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct SharedQuestionView {
     pub(super) id: String,
@@ -553,6 +577,7 @@ pub(super) struct SharedQuestionView {
     pub(super) presentation_state: String,
     pub(super) promoted: bool,
     pub(super) promotion_rank: Option<usize>,
+    pub(super) resolution: String,
     pub(super) situation: String,
     pub(super) stakes: String,
     pub(super) outcome: String,
@@ -562,8 +587,11 @@ pub(super) struct SharedQuestionView {
     pub(super) danger_clock_id: String,
     pub(super) danger_filled: u8,
     pub(super) danger_segments: u8,
+    pub(super) danger_situation: String,
+    pub(super) danger_consequence: String,
     pub(super) next_revelation: Option<SharedQuestionMilestoneView>,
     pub(super) strategies: Vec<SharedQuestionStrategyView>,
+    pub(super) suggested_actions: Vec<SharedQuestionSuggestionView>,
     pub(super) recent_contributions: Vec<SharedQuestionContributionView>,
     pub(super) completion_memory: Option<String>,
     pub(super) updated_event_seq: Option<u64>,
@@ -622,6 +650,8 @@ pub(super) struct FrontView {
     pub(super) premise: String,
     pub(super) zone: String,
     pub(super) status: String,
+    pub(super) presentation_state: String,
+    pub(super) outcome_statement: String,
     pub(super) location_ids: Vec<u64>,
     pub(super) participant_ids: Vec<u64>,
     pub(super) participant_names: Vec<String>,
@@ -629,6 +659,31 @@ pub(super) struct FrontView {
     pub(super) portent_clock_id: String,
     pub(super) job_ids: Vec<String>,
     pub(super) impending_outcome: String,
+}
+
+fn front_presentation(
+    authored_status: &str,
+    has_completed_job: bool,
+    has_failed_job: bool,
+    impending_outcome: &str,
+) -> (&'static str, String) {
+    let presentation_state = match authored_status {
+        "completed" => "resolved",
+        "failed" => "escalated",
+        "dormant" => "dormant",
+        _ if has_failed_job => "escalated",
+        _ if has_completed_job => "persisted",
+        _ => "active",
+    };
+    let outcome_statement = match presentation_state {
+        "resolved" => "The larger trouble is resolved.".to_string(),
+        "persisted" => {
+            "The immediate work is done, but the larger trouble remains unresolved.".to_string()
+        }
+        "escalated" => format!("The larger trouble has escalated. {impending_outcome}"),
+        _ => String::new(),
+    };
+    (presentation_state, outcome_statement)
 }
 
 #[derive(Debug, Serialize)]
@@ -699,6 +754,10 @@ pub(super) struct BondView {
     pub(super) statement: String,
     pub(super) strength: u8,
     pub(super) status: String,
+    pub(super) source_event_seq: Option<u64>,
+    pub(super) updated_event_seq: Option<u64>,
+    pub(super) dialogue_status: String,
+    pub(super) dialogue_event_seq: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1165,6 +1224,16 @@ impl RuntimeWorld {
         self.actor_view_for_client(actor, None)
     }
 
+    fn expedition_ring_view(&self, actor_id: u64) -> ExpeditionRingView {
+        let pip_total = self.frontier_travel_since_rest_required(actor_id) as u8;
+        let filled_count = self.frontier_travel_since_rest_count(actor_id) as u8;
+        ExpeditionRingView {
+            filled_count,
+            pip_total,
+            needs_rest: filled_count >= pip_total,
+        }
+    }
+
     pub(super) fn actor_view_for_client(
         &self,
         actor: CwActor,
@@ -1202,8 +1271,10 @@ impl RuntimeWorld {
                     .is_some_and(|safety| safety.blocked_actor_ids.contains(&actor.id))
             }),
             location_id: actor.location_id,
+            relationship: self.relationship_preview(actor.id),
             factions: faction_refs_for_actor(actor.id),
             resident_economy: self.resident_economy_view(actor, client_actor_id),
+            expedition_ring: self.expedition_ring_view(actor.id),
             hp: unsafe { cw_actor_current_hp(&actor) },
             bloodied: unsafe { cw_actor_is_bloodied(&actor) != 0 },
             stats: StatView {
@@ -1488,10 +1559,10 @@ impl RuntimeWorld {
             memory_location_name: memory
                 .as_ref()
                 .and_then(|memory| self.location_name(memory.location_id)),
-            holder_actor_id: memory.as_ref().and_then(|memory| memory.holder_actor_id),
+            holder_actor_id: memory.as_ref().and_then(|memory| memory.related_actor_id),
             holder_actor_name: memory
                 .as_ref()
-                .and_then(|memory| memory.holder_actor_id)
+                .and_then(|memory| memory.related_actor_id)
                 .and_then(|holder_actor_id| self.actor_name(holder_actor_id)),
             confidence: memory.as_ref().map(|memory| memory.confidence),
             salience: memory.as_ref().map(|memory| memory.salience),
@@ -1552,7 +1623,7 @@ impl RuntimeWorld {
             .map(|item_id| self.resident_sought_item_view(resident, item_id))
             .collect();
         let attached_item_ids = self.resident_attached_item_ids(resident.id);
-        let seek_memory = self.resident_memory_seek_target(resident);
+        let seek_memory = self.belief_seek_target(resident);
         let seeking_item_id = seek_memory.as_ref().map(|memory| memory.subject_id);
         let seeking_location_id = seek_memory.as_ref().map(|memory| memory.location_id);
         let seeking_location_name =
@@ -1627,7 +1698,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Item {item_id}"));
             if let Some(holder_name) = seek_memory
                 .as_ref()
-                .and_then(|memory| memory.holder_actor_id)
+                .and_then(|memory| memory.related_actor_id)
                 .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
             {
                 format!(
@@ -1697,6 +1768,8 @@ impl RuntimeWorld {
                     destination_location_name: self
                         .location_name(exit.to_location_id)
                         .unwrap_or_else(|| format!("Location {}", exit.to_location_id)),
+                    route_label: self
+                        .route_label_for_edge(exit.from_location_id, exit.to_location_id),
                     direction: self.exit_direction(exit.from_location_id, exit.to_location_id),
                     distance: self.pathway_distance(exit.from_location_id, exit.to_location_id),
                     locked: false,
@@ -1779,8 +1852,18 @@ impl RuntimeWorld {
         let chat_bond_claimed_target_ids = client_actor_id
             .map(|id| self.chat_bond_claimed_target_ids(id, location_id))
             .unwrap_or_default();
-        let (primary_action, action_offers) = self.legal_action_candidates(client_actor_id, access);
+        let (primary_action, action_offers) = self.legal_action_candidates_with_presence(
+            client_actor_id,
+            access,
+            active_direct_actor_ids,
+        );
         let action_hand = compose_action_hand(&action_offers);
+        let shared_questions = self.shared_question_views_with_actions(
+            location_id,
+            client_actor_id,
+            &action_offers,
+            &action_hand,
+        );
         let inspector = self.inspector_view(
             location_id,
             client_actor_id,
@@ -1820,7 +1903,7 @@ impl RuntimeWorld {
                 .map(|id| self.default_search_target(id).is_some())
                 .unwrap_or(false),
             clocks: self.clock_views(location_id),
-            shared_questions: self.shared_question_views(location_id, client_actor_id),
+            shared_questions,
             tags: self.tag_views(client_actor_id, location_id),
             jobs: self.job_views(location_id),
             fronts: self.front_views(location_id),
@@ -2307,6 +2390,21 @@ impl RuntimeWorld {
                     .clone()
                     .or(reached_situation)
                     .unwrap_or_else(|| progress.presentation.situation.clone());
+                let danger_situation = danger
+                    .and_then(|danger| {
+                        job.narrated_thresholds
+                            .iter()
+                            .filter(|threshold| {
+                                threshold.clock_id == danger.id && threshold.filled <= danger.filled
+                            })
+                            .max_by_key(|threshold| threshold.filled)
+                            .map(|threshold| threshold.text.clone())
+                    })
+                    .or_else(|| danger.map(|clock| clock.presentation.situation.clone()))
+                    .unwrap_or_default();
+                let danger_consequence = danger
+                    .map(|clock| clock.presentation.outcome.clone())
+                    .unwrap_or_default();
 
                 let natural_investigation = self
                     .natural_affordances
@@ -2344,12 +2442,7 @@ impl RuntimeWorld {
                     });
 
                 let strategies = self.shared_question_strategy_views(job, actor_id);
-                let available = strategies.iter().any(|strategy| strategy.available);
-                let mut recent = progress
-                    .recent_contributions
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let mut recent = progress.recent_contributions.to_vec();
                 if let Some(danger) = danger {
                     recent.extend(danger.recent_contributions.iter().cloned());
                 }
@@ -2391,7 +2484,7 @@ impl RuntimeWorld {
                     priority: progress.presentation.priority,
                     presentation_state: if terminal {
                         "completed_memory"
-                    } else if job_status == "active" && available {
+                    } else if job_status == "active" {
                         "active"
                     } else {
                         "unavailable"
@@ -2399,6 +2492,7 @@ impl RuntimeWorld {
                     .to_string(),
                     promoted: false,
                     promotion_rank: None,
+                    resolution: job_status,
                     situation,
                     stakes: progress.presentation.stakes.clone(),
                     outcome: progress.presentation.outcome.clone(),
@@ -2408,8 +2502,11 @@ impl RuntimeWorld {
                     danger_clock_id: danger.map(|clock| clock.id.clone()).unwrap_or_default(),
                     danger_filled: danger.map(|clock| clock.filled).unwrap_or_default(),
                     danger_segments: danger.map(|clock| clock.segments).unwrap_or_default(),
+                    danger_situation,
+                    danger_consequence,
                     next_revelation,
                     strategies,
+                    suggested_actions: Vec::new(),
                     recent_contributions,
                     completion_memory,
                     updated_event_seq: danger
@@ -2465,6 +2562,68 @@ impl RuntimeWorld {
         questions
     }
 
+    pub(super) fn shared_question_views_with_actions(
+        &self,
+        location_id: u64,
+        actor_id: Option<u64>,
+        action_offers: &[RankedActionOffer],
+        action_hand: &ActionHandView,
+    ) -> Vec<SharedQuestionView> {
+        let mut questions = self.shared_question_views(location_id, actor_id);
+        let suggestions = action_hand
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                let offer = action_offers
+                    .iter()
+                    .find(|offer| offer.offer_id == entry.offer_id)?;
+                let target_label = offer
+                    .target
+                    .as_ref()
+                    .and_then(|target| target.label.clone())
+                    .or_else(|| offer.project.as_ref().map(|project| project.label.clone()))
+                    .unwrap_or_else(|| {
+                        self.location_name(location_id)
+                            .unwrap_or_else(|| "this place".to_string())
+                    });
+                Some(SharedQuestionSuggestionView {
+                    offer_id: offer.offer_id.clone(),
+                    state_revision: offer.state_revision,
+                    kind: offer.kind.clone(),
+                    label: offer.accessible_label.clone(),
+                    target_label,
+                    source: offer.provider.reason.clone(),
+                    likely_effect: offer
+                        .effect
+                        .clone()
+                        .unwrap_or_else(|| "keeps the next choice open".to_string()),
+                    likely_progress: offer.progress,
+                    risk: offer.risk.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        for question in &mut questions {
+            if question.promoted && question.presentation_state == "active" {
+                question.suggested_actions = suggestions
+                    .iter()
+                    .cloned()
+                    .map(|mut suggestion| {
+                        suggestion.likely_effect = format!(
+                            "{}; current progress is {}/{} and danger is {}/{}",
+                            suggestion.likely_effect,
+                            question.filled,
+                            question.segments,
+                            question.danger_filled,
+                            question.danger_segments,
+                        );
+                        suggestion
+                    })
+                    .collect();
+            }
+        }
+        questions
+    }
+
     pub(super) fn tag_views(&self, actor_id: Option<u64>, location_id: u64) -> Vec<TagView> {
         self.tags
             .values()
@@ -2513,25 +2672,41 @@ impl RuntimeWorld {
             .fronts
             .iter()
             .filter(|front| front.location_ids.contains(&location_id))
-            .map(|front| FrontView {
-                id: front.id.clone(),
-                premise: front.premise.clone(),
-                zone: front.zone.clone(),
-                status: front.status.clone(),
-                location_ids: front.location_ids.clone(),
-                participant_ids: front.participant_ids.clone(),
-                participant_names: front
-                    .participant_ids
+            .map(|front| {
+                let job_statuses = front
+                    .job_ids
                     .iter()
-                    .map(|actor_id| {
-                        self.actor_name(*actor_id)
-                            .unwrap_or_else(|| format!("Actor {actor_id}"))
-                    })
-                    .collect(),
-                stakes_questions: front.stakes_questions.clone(),
-                portent_clock_id: front.portent_clock_id.clone(),
-                job_ids: front.job_ids.clone(),
-                impending_outcome: front.impending_outcome.clone(),
+                    .filter_map(|job_id| self.jobs.get(job_id))
+                    .map(|job| self.job_status(job))
+                    .collect::<Vec<_>>();
+                let (presentation_state, outcome_statement) = front_presentation(
+                    &front.status,
+                    job_statuses.iter().any(|status| status == "completed"),
+                    job_statuses.iter().any(|status| status == "failed"),
+                    &front.impending_outcome,
+                );
+                FrontView {
+                    id: front.id.clone(),
+                    premise: front.premise.clone(),
+                    zone: front.zone.clone(),
+                    status: front.status.clone(),
+                    presentation_state: presentation_state.to_string(),
+                    outcome_statement,
+                    location_ids: front.location_ids.clone(),
+                    participant_ids: front.participant_ids.clone(),
+                    participant_names: front
+                        .participant_ids
+                        .iter()
+                        .map(|actor_id| {
+                            self.actor_name(*actor_id)
+                                .unwrap_or_else(|| format!("Actor {actor_id}"))
+                        })
+                        .collect(),
+                    stakes_questions: front.stakes_questions.clone(),
+                    portent_clock_id: front.portent_clock_id.clone(),
+                    job_ids: front.job_ids.clone(),
+                    impending_outcome: front.impending_outcome.clone(),
+                }
             })
             .collect()
     }
@@ -2657,6 +2832,8 @@ impl RuntimeWorld {
             && offer.project.is_none()
         {
             "The action has no active project in the current scene.".to_string()
+        } else if !offer.ranked_hand_eligible {
+            "Rest is legal here, but nothing currently needs recovery, so it stays outside the two-card browser hand.".to_string()
         } else if hand_groups.contains(&action_offer_hand_group(offer)) {
             "A higher-ranked action from the same choice group occupies the browser hand."
                 .to_string()
@@ -3049,6 +3226,10 @@ impl RuntimeWorld {
                 statement: bond.statement.clone(),
                 strength: bond.strength,
                 status: bond.status.clone(),
+                source_event_seq: bond.source_event_seq,
+                updated_event_seq: bond.updated_event_seq,
+                dialogue_status: bond.dialogue_status.clone(),
+                dialogue_event_seq: bond.dialogue_event_seq,
             })
             .collect();
         bonds.sort_by(|a, b| {
@@ -3119,7 +3300,10 @@ impl RuntimeWorld {
             location_cards.insert(
                 location.id,
                 apply_location_access(
-                    card_for_location(location.id, &name, Some(&meta)),
+                    self.decorate_generated_location_card(
+                        card_for_location(location.id, &name, Some(&meta)),
+                        location.id,
+                    ),
                     location.id,
                     access,
                 ),
@@ -3198,7 +3382,10 @@ impl RuntimeWorld {
                     .cloned()
                     .unwrap_or_else(|| {
                         apply_location_access(
-                            card_for_location(location.id, &name, Some(&meta)),
+                            self.decorate_generated_location_card(
+                                card_for_location(location.id, &name, Some(&meta)),
+                                location.id,
+                            ),
                             location.id,
                             access,
                         )
@@ -3258,5 +3445,38 @@ impl RuntimeWorld {
             simulation: self.world_simulation_view(),
             locations,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::front_presentation;
+
+    #[test]
+    fn front_presentation_names_active_persisted_resolved_and_escalated_truths() {
+        let impending = "Every road lamp accepts the shadow as keeper.";
+        assert_eq!(
+            front_presentation("active", false, false, impending),
+            ("active", String::new())
+        );
+        assert_eq!(
+            front_presentation("active", true, false, impending),
+            (
+                "persisted",
+                "The immediate work is done, but the larger trouble remains unresolved."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            front_presentation("completed", false, false, impending),
+            ("resolved", "The larger trouble is resolved.".to_string())
+        );
+        assert_eq!(
+            front_presentation("active", false, true, impending),
+            (
+                "escalated",
+                format!("The larger trouble has escalated. {impending}")
+            )
+        );
     }
 }

@@ -60,6 +60,14 @@ function runChecker(root) {
   return spawnSync(process.execPath, [checkerPath, root], { encoding: "utf8" });
 }
 
+function updateExitCounts(root, exits) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+  for (const pack of manifest.packs) {
+    pack.resource_counts.exits = exits.filter((exit) => exit.pack_id === pack.id).length;
+  }
+  writeJson(root, "worldpack.json", manifest);
+}
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -258,7 +266,7 @@ describe("worldpack authored relationships", () => {
       "cosyworld.composition.core-ruby",
       "cosyworld.composition.core-holy-land",
     ]);
-    expect(locations).toHaveLength(48);
+    expect(locations).toHaveLength(49);
     expect(rules.map((bundle) => bundle.pack_id)).toEqual([
       "cosyworld.rules-srd-5.2.1",
       "cosyworld.rules-profile-srd5",
@@ -298,6 +306,184 @@ describe("worldpack authored relationships", () => {
     expect(sentences.filter((sentence) => sentence.shelf === "hearth").every((sentence) => (
       sentence.weight === 1 && [1, 50, 64, 65].every((id) => sentence.location_ids.includes(id))
     ))).toBe(true);
+  });
+});
+
+describe("canonical topology validation", () => {
+  it("rejects a reciprocal exit without its return edge", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"));
+    const forward = exits[0];
+    const withoutReturn = exits.filter((exit) =>
+      exit.from_location_id !== forward.to_location_id
+        || exit.to_location_id !== forward.from_location_id);
+    writeJson(root, "exits.json", withoutReturn);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `reciprocal exit ${forward.from_location_id}->${forward.to_location_id} is missing its return direction`,
+    );
+  });
+
+  it("rejects inconsistent reciprocal distance", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"));
+    const forward = exits[0];
+    const reverse = exits.find((exit) =>
+      exit.from_location_id === forward.to_location_id
+        && exit.to_location_id === forward.from_location_id);
+    reverse.distance = (forward.distance ?? 1) + 1;
+    writeJson(root, "exits.json", exits);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("have different distances");
+  });
+
+  it("requires an explicit reachable fallback for one-way entry", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"));
+    const forward = exits[0];
+    forward.directionality = "one_way";
+    const oneWay = exits.filter((exit) =>
+      exit.from_location_id !== forward.to_location_id
+        || exit.to_location_id !== forward.from_location_id);
+    writeJson(root, "exits.json", oneWay);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `one-way exit ${forward.from_location_id}->${forward.to_location_id} must declare a valid fallback_location_id`,
+    );
+  });
+
+  it("accepts an explicit one-way edge with a reachable fallback preview", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"));
+    const forward = exits.find((exit) =>
+      exit.from_location_id === 1 && exit.to_location_id === 2);
+    forward.directionality = "one_way";
+    forward.fallback_location_id = 3;
+    const oneWayExits = exits.filter((exit) =>
+      exit.from_location_id !== 2 || exit.to_location_id !== 1);
+    writeJson(root, "exits.json", oneWayExits);
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    for (const pack of manifest.packs) {
+      pack.resource_counts.exits = oneWayExits.filter(
+        (exit) => exit.pack_id === pack.id,
+      ).length;
+    }
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("worldpack ok");
+  });
+
+  it("rejects an isolated location without a declared component root", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"));
+    const isolatedLocationId = 2;
+    writeJson(root, "exits.json", exits.filter((exit) =>
+      exit.from_location_id !== isolatedLocationId
+        && exit.to_location_id !== isolatedLocationId));
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `isolated topology component ${isolatedLocationId} has no declared entry root`,
+    );
+  });
+
+  it("requires evacuation destinations to retain egress to the world root", () => {
+    const root = worldpackFixture();
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    const policy = manifest.pack_lifecycle.unmount.find(
+      (candidate) => candidate.pack_id === "ruby-high.first-bell",
+    );
+    policy.evacuation.destination_location = "cosyworld.campaign.the-lantern-keeper:location/800";
+    policy.evacuation.destination_pack_id = "cosyworld.campaign.the-lantern-keeper";
+    policy.evacuation.destination_location_id = 800;
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "evacuation destination has no surviving public authored egress to world root",
+    );
+  });
+
+  it("rejects evacuation egress that disappears with the pack dependency closure", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"))
+      .filter((exit) =>
+        !(
+          (exit.from_location_id === 3 && exit.to_location_id === 50)
+          || (exit.from_location_id === 50 && exit.to_location_id === 3)
+        ));
+    writeJson(root, "exits.json", exits);
+    updateExitCounts(root, exits);
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    const policy = manifest.pack_lifecycle.unmount.find(
+      (candidate) => candidate.pack_id === "ruby-high.first-bell",
+    );
+    policy.evacuation.destination_location = "cosyworld.core:location/50";
+    policy.evacuation.destination_pack_id = "cosyworld.core";
+    policy.evacuation.destination_location_id = 50;
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "evacuation destination has no surviving public authored egress to world root",
+    );
+  });
+
+  it("rejects evacuation egress that relies on a latent hidden exit", () => {
+    const root = worldpackFixture();
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    const policy = manifest.pack_lifecycle.unmount.find(
+      (candidate) => candidate.pack_id === "ruby-high.first-bell",
+    );
+    policy.evacuation.destination_location = "cosyworld.core:location/65";
+    policy.evacuation.destination_pack_id = "cosyworld.core";
+    policy.evacuation.destination_location_id = 65;
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "evacuation destination has no surviving public authored egress to world root",
+    );
+  });
+
+  it("rejects a one-way fallback that relies on a latent hidden exit", () => {
+    const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"));
+    const forward = exits.find((exit) =>
+      exit.from_location_id === 3 && exit.to_location_id === 50);
+    forward.directionality = "one_way";
+    forward.fallback_location_id = 65;
+    const oneWayExits = exits.filter((exit) =>
+      exit.from_location_id !== 50 || exit.to_location_id !== 3);
+    writeJson(root, "exits.json", oneWayExits);
+    updateExitCounts(root, oneWayExits);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "cannot reach fallback 65 over public authored topology",
+    );
   });
 });
 

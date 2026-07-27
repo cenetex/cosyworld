@@ -1,16 +1,207 @@
 use super::*;
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum PathwayWayClass {
+    #[default]
+    Route,
+    Track,
+    Path,
+    Trail,
+    Road,
+    Avenue,
+    Highway,
+}
+
+impl PathwayWayClass {
+    pub(super) fn for_traffic(traffic_count: u64) -> Self {
+        match traffic_count {
+            0 => Self::Route,
+            1..=3 => Self::Track,
+            4..=7 => Self::Path,
+            8..=15 => Self::Trail,
+            16..=31 => Self::Road,
+            32..=63 => Self::Avenue,
+            _ => Self::Highway,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Route => "Route",
+            Self::Track => "Track",
+            Self::Path => "Path",
+            Self::Trail => "Trail",
+            Self::Road => "Road",
+            Self::Avenue => "Avenue",
+            Self::Highway => "Highway",
+        }
+    }
+}
+
+pub(super) fn pathway_anchor_name_token(name: &str) -> String {
+    name.split_whitespace()
+        .find_map(|word| {
+            let word = word
+                .chars()
+                .filter(|character| character.is_ascii_alphabetic() || *character == '-')
+                .collect::<String>();
+            (!word.is_empty() && !word.eq_ignore_ascii_case("the")).then_some(word)
+        })
+        .unwrap_or_else(|| "Known".to_string())
+}
+
+pub(super) fn deterministic_pathway_collision_name(
+    pathway_canonical_id: &str,
+    waypoint_index: usize,
+    fallback_name: &str,
+    collision_attempt: u64,
+) -> String {
+    let mut value = stable_pathway_hash(&format!("{pathway_canonical_id}:{waypoint_index}"));
+    let mut token = String::with_capacity(5);
+    for _ in 0..5 {
+        token.push(char::from(b'a' + (value % 26) as u8));
+        value /= 26;
+    }
+    if collision_attempt == 0 {
+        return format!("{fallback_name}-{token}");
+    }
+    let mut attempt = collision_attempt - 1;
+    let mut attempt_token = String::new();
+    loop {
+        attempt_token.push(char::from(b'a' + (attempt % 26) as u8));
+        if attempt < 26 {
+            break;
+        }
+        attempt = attempt / 26 - 1;
+    }
+    let attempt_token = attempt_token.chars().rev().collect::<String>();
+    format!("{fallback_name}-{token}-{attempt_token}")
+}
+
+pub(super) fn reserve_unique_pathway_name(
+    occupied_names: &mut BTreeSet<String>,
+    proposed_name: &str,
+    fallback_name: &str,
+    pathway_canonical_id: &str,
+    waypoint_index: usize,
+) -> String {
+    if occupied_names.insert(proposed_name.to_ascii_lowercase()) {
+        return proposed_name.to_string();
+    }
+    if occupied_names.insert(fallback_name.to_ascii_lowercase()) {
+        return fallback_name.to_string();
+    }
+    let mut collision_attempt = 0u64;
+    loop {
+        let candidate = deterministic_pathway_collision_name(
+            pathway_canonical_id,
+            waypoint_index,
+            fallback_name,
+            collision_attempt,
+        );
+        if occupied_names.insert(candidate.to_ascii_lowercase()) {
+            return candidate;
+        }
+        collision_attempt = collision_attempt
+            .checked_add(1)
+            .expect("pathway collision namespace exhausted");
+    }
+}
+
+fn generated_pathway_edge_direction(
+    pathway: &GeneratedPathwayState,
+    from_location_id: u64,
+    to_location_id: u64,
+) -> Option<bool> {
+    let path = std::iter::once(pathway.origin_location_id)
+        .chain(pathway.waypoints.iter().map(|waypoint| waypoint.id))
+        .chain(std::iter::once(pathway.destination_location_id))
+        .collect::<Vec<_>>();
+    path.windows(2).find_map(|edge| {
+        if edge == [from_location_id, to_location_id] {
+            Some(true)
+        } else if edge == [to_location_id, from_location_id] {
+            Some(false)
+        } else {
+            None
+        }
+    })
+}
+
+pub(super) fn durable_pathway_traffic_evidence(
+    pathway: &GeneratedPathwayState,
+    committed_events: &[EventView],
+) -> u64 {
+    committed_events
+        .iter()
+        .filter(|event| event.success && event.type_name == "actor.moved")
+        .filter_map(|event| Some((event.location_id?, event.destination_location_id?)))
+        .filter(|(from_location_id, to_location_id)| {
+            generated_pathway_edge_direction(pathway, *from_location_id, *to_location_id).is_some()
+        })
+        .count() as u64
+}
+
 #[derive(Clone, Debug)]
 pub(super) enum MovementPlan {
     Adjacent(CwAction),
     Journey {
         action: CwAction,
-        mutation: ProjectionMutation,
+        mutation: Box<ProjectionMutation>,
         narration: JourneyNarrationPlan,
     },
 }
 
 impl RuntimeWorld {
+    fn generated_pathway_for_edge(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> Option<(&GeneratedPathwayState, bool)> {
+        self.generated_pathways.values().find_map(|pathway| {
+            generated_pathway_edge_direction(pathway, from_location_id, to_location_id)
+                .map(|forward| (pathway, forward))
+        })
+    }
+
+    pub(super) fn route_label_for_edge(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> String {
+        let (way_class, origin_location_id, destination_location_id) =
+            if let Some((pathway, forward)) =
+                self.generated_pathway_for_edge(from_location_id, to_location_id)
+            {
+                if forward {
+                    (
+                        pathway.way_class,
+                        pathway.origin_location_id,
+                        pathway.destination_location_id,
+                    )
+                } else {
+                    (
+                        pathway.way_class,
+                        pathway.destination_location_id,
+                        pathway.origin_location_id,
+                    )
+                }
+            } else {
+                (PathwayWayClass::Route, from_location_id, to_location_id)
+            };
+        let origin_name = self
+            .location_name(origin_location_id)
+            .unwrap_or_else(|| format!("Location {origin_location_id}"));
+        let destination_name = self
+            .location_name(destination_location_id)
+            .unwrap_or_else(|| format!("Location {destination_location_id}"));
+        format!(
+            "{} from {origin_name} to {destination_name}",
+            way_class.label()
+        )
+    }
+
     pub(super) fn first_tale_destination_reached(&self, actor_id: u64) -> bool {
         self.rpg_claims
             .contains(&first_tale_destination_claim_key(actor_id))
@@ -134,7 +325,7 @@ impl RuntimeWorld {
         {
             return Ok(MovementPlan::Journey {
                 action,
-                mutation,
+                mutation: Box::new(mutation),
                 narration,
             });
         }
@@ -218,13 +409,46 @@ impl RuntimeWorld {
             },
             exit.destination_location_name
         ));
+        let route = self.routes.get(&exit.route_id);
         offer.route = Some(RouteOfferBinding {
             route_id: exit.route_id,
             route_version: exit.route_version,
+            directionality: route.map(|route| route.directionality).unwrap_or_default(),
+            fallback_location_id: route.and_then(|route| route.fallback_location_id),
         });
+        if let Some(fallback_location_id) = offer
+            .route
+            .as_ref()
+            .filter(|route| route.directionality == RouteDirectionality::OneWay)
+            .and_then(|route| route.fallback_location_id)
+        {
+            let fallback_name = self
+                .location_name(fallback_location_id)
+                .unwrap_or_else(|| format!("Location {fallback_location_id}"));
+            offer.effect = Some(format!("One-way entry; fallback to {fallback_name}."));
+        }
         offer.target = Some(target.clone());
         offer.composition_trace.target = Some(target);
+        if offer.kind == "move" {
+            offer.risk =
+                self.full_expedition_ring_travel_risk(actor_id, exit.destination_location_id);
+        }
         offer
+    }
+
+    fn full_expedition_ring_travel_risk(
+        &self,
+        actor_id: u64,
+        destination_location_id: u64,
+    ) -> Option<String> {
+        let ring_is_full = self.frontier_travel_since_rest_count(actor_id)
+            >= self.frontier_travel_since_rest_required(actor_id);
+        let destination_extends_risk = self
+            .room_sheets
+            .get(&destination_location_id)
+            .is_some_and(|sheet| matches!(sheet.safety.trim(), "risky" | "dangerous"));
+        (ring_is_full && destination_extends_risk)
+            .then(|| "travelling farther at this depth may draw more trouble".to_string())
     }
 
     pub(super) fn expand_route_action_offers(
@@ -268,6 +492,142 @@ fn first_tale_destination_claim_key(actor_id: u64) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn route_labels_are_directional_and_traffic_does_not_reallocate_identity() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
+            .expect("Bethlehem-to-Jerusalem route");
+        let pathway_id = pathway.id.clone();
+        let waypoint_id = pathway.waypoints[0].id;
+        runtime.ensure_generated_pathway_route_records(&pathway);
+        runtime
+            .generated_pathways
+            .insert(pathway_id.clone(), pathway.clone());
+        let route_before = runtime
+            .routes
+            .values()
+            .find(|route| route.contains_edge(700, waypoint_id))
+            .expect("generated segment route")
+            .clone();
+        let journey = JourneyState {
+            actor_id: RATI_ACTOR_ID,
+            pathway_id: pathway_id.clone(),
+            origin_location_id: 700,
+            destination_location_id: 712,
+            destination_name: "Jerusalem".to_string(),
+            path: vec![700, waypoint_id, 712],
+            current_step: 0,
+            explorer: true,
+        };
+        runtime.journeys.insert(RATI_ACTOR_ID, journey.clone());
+        let identity_before = serde_json::to_vec(&(
+            pathway.id.clone(),
+            pathway.canonical_id.clone(),
+            pathway.source_route_id.clone(),
+            pathway.source_route_version,
+            pathway.owner_pack_id.clone(),
+            pathway.owner_pack_version.clone(),
+            pathway
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>(),
+        ))
+        .expect("serialize route identity");
+        let journey_before = serde_json::to_vec(&journey).expect("serialize journey");
+
+        assert_eq!(
+            runtime.route_label_for_edge(700, waypoint_id),
+            "Route from Bethlehem to Jerusalem"
+        );
+        assert_eq!(
+            runtime.route_label_for_edge(712, waypoint_id),
+            "Route from Jerusalem to Bethlehem"
+        );
+
+        for (traffic_count, expected_class, expected_label) in [
+            (1, PathwayWayClass::Track, "Track"),
+            (4, PathwayWayClass::Path, "Path"),
+            (8, PathwayWayClass::Trail, "Trail"),
+            (16, PathwayWayClass::Road, "Road"),
+            (32, PathwayWayClass::Avenue, "Avenue"),
+            (64, PathwayWayClass::Highway, "Highway"),
+        ] {
+            pathway.traffic_count = traffic_count;
+            pathway.way_class = PathwayWayClass::for_traffic(traffic_count);
+            runtime
+                .generated_pathways
+                .insert(pathway_id.clone(), pathway.clone());
+            assert_eq!(
+                runtime.generated_pathways[&pathway_id].way_class,
+                expected_class
+            );
+            assert_eq!(
+                runtime.route_label_for_edge(700, waypoint_id),
+                format!("{expected_label} from Bethlehem to Jerusalem")
+            );
+        }
+        runtime
+            .generated_pathways
+            .get_mut(&pathway_id)
+            .expect("pathway remains allocated")
+            .waypoints[0]
+            .name = "Rain-Silver Crossing".to_string();
+
+        let evolved = &runtime.generated_pathways[&pathway_id];
+        let identity_after = serde_json::to_vec(&(
+            evolved.id.clone(),
+            evolved.canonical_id.clone(),
+            evolved.source_route_id.clone(),
+            evolved.source_route_version,
+            evolved.owner_pack_id.clone(),
+            evolved.owner_pack_version.clone(),
+            evolved
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>(),
+        ))
+        .expect("serialize evolved identity");
+        assert_eq!(identity_after, identity_before);
+        assert_eq!(
+            serde_json::to_vec(&runtime.journeys[&RATI_ACTOR_ID]).expect("serialize journey"),
+            journey_before
+        );
+        assert_eq!(
+            runtime
+                .routes
+                .values()
+                .find(|route| route.contains_edge(700, waypoint_id))
+                .expect("segment remains allocated"),
+            &route_before
+        );
+        assert_eq!(
+            runtime.route_label_for_edge(712, waypoint_id),
+            "Highway from Jerusalem to Bethlehem"
+        );
+    }
+
+    #[test]
+    fn pathway_traffic_counts_only_committed_movement_on_its_exact_edges() {
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
+            .expect("Bethlehem-to-Jerusalem route");
+        let waypoint_id = pathway.waypoints[0].id;
+        let forward = runtime.append_actor_moved_event(RATI_ACTOR_ID, 700, waypoint_id);
+        let reverse = runtime.append_actor_moved_event(RATI_ACTOR_ID, waypoint_id, 700);
+        let unrelated = runtime.append_actor_moved_event(RATI_ACTOR_ID, 1, 2);
+        let mut rejected = forward.clone();
+        rejected.success = false;
+
+        assert_eq!(
+            durable_pathway_traffic_evidence(&pathway, &[forward, reverse, unrelated, rejected],),
+            2
+        );
+    }
+
     fn discover_seed_exit_for_test(
         runtime: &mut RuntimeWorld,
         from_location_id: u64,
@@ -307,9 +667,9 @@ mod tests {
         runtime.remember_search_discovery(
             actor_id,
             from_location_id,
-            SEARCH_MEMORY_KIND_SEED_EXIT,
+            BELIEF_KIND_SEED_EXIT,
             to_location_id,
-            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+            &seed_exit_belief_subject_key(from_location_id, to_location_id),
         );
     }
 

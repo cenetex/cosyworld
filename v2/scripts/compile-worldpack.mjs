@@ -21,6 +21,12 @@ import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
 import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
 import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
+import { validatePackMediaProfiles } from "./media-recipe-schema.mjs";
+import {
+  generationPolicyForPack,
+  validateCompiledGenerationPolicies,
+  worldpackMediaRegistry,
+} from "./world-generation-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -513,6 +519,19 @@ function validateContributions(pack, rowsByKind, knownActionIds) {
         assert(typeof row.subject.id === "string" || Number.isSafeInteger(row.subject.id), `offer ${row.id} requires subject.id`);
         assert(row.context && typeof row.context === "object" && !Array.isArray(row.context), `offer ${row.id} requires context predicates`);
         assert(typeof row.label === "string" && row.label.trim(), `offer ${row.id} requires a presentation label`);
+        if (row.cooperation !== undefined) {
+          assert(
+            row.cooperation
+              && row.cooperation.kind === "local_lead"
+              && row.based_on === "srd5.2.1:influence"
+              && row.subject.kind === "location"
+              && Number.isSafeInteger(row.cooperation.destination_location_id)
+              && row.cooperation.destination_location_id > 0
+              && typeof row.cooperation.destination_hint === "string"
+              && row.cooperation.destination_hint.trim(),
+            `offer ${row.id} has an invalid typed cooperation payload`,
+          );
+        }
       } else if (kind === "variants") {
         assert(/^.+\/\d+$/.test(row.id), `variant ${row.id} must be versioned`);
         assert(row.exact_delta && typeof row.exact_delta === "object" && !Array.isArray(row.exact_delta) && Object.keys(row.exact_delta).length, `variant ${row.id} requires exact_delta`);
@@ -619,6 +638,7 @@ for (const packId of world.packs) {
   const packRoot = path.resolve(worldDir, locked.source.path);
   const manifest = readJson(path.join(packRoot, "pack.json"));
   validateContentPackManifest(manifest, `${packId}/pack.json`);
+  validatePackMediaProfiles(manifest, `${packId}/pack.json`);
   const buildingArchetypes = manifest.extensions?.["x-cosyworld-building-archetypes"];
   if (buildingArchetypes !== undefined) {
     assertBuildingArchetypeConfig(
@@ -953,6 +973,16 @@ for (const [resourceName, paths] of [
     );
   }
 }
+validateCompiledGenerationPolicies(
+  packs.map(({ manifest }) => manifest),
+  resources,
+  world.pack_lifecycle,
+  "worldpack compiler",
+);
+const generationMediaRegistry = packs.some(({ manifest }) => {
+  const policy = generationPolicyForPack(manifest);
+  return policy?.media || policy?.cross_pack_routes?.length > 0;
+}) ? worldpackMediaRegistry() : null;
 const activeRulesExtensions = contributionBundles.flatMap((bundle) => bundle.extensions.map((row) => row.id)).sort();
 const activeRulesVariants = contributionBundles.flatMap((bundle) => bundle.variants.map((row) => row.id)).sort();
 const modifiedMaterial = ruleBundles.flatMap((bundle) => {
@@ -1050,6 +1080,7 @@ const bundleHash = sha256([
   json(modifiedMaterial),
   json(characterCreationBundles),
   json(contentReferences),
+  ...(generationMediaRegistry ? [json(generationMediaRegistry)] : []),
 ]);
 assert(
   !persistenceCompatibility?.replay_compatible_bundle_hashes.includes(bundleHash),
@@ -1071,6 +1102,7 @@ const manifest = {
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,
   ...(avatarNaming ? { avatar_naming: avatarNaming } : {}),
+  ...(generationMediaRegistry ? { generation_media_registry: generationMediaRegistry } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,
   files: resourceFiles,

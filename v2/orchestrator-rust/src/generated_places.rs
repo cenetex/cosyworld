@@ -22,6 +22,8 @@ pub(super) struct GeneratedBuildingProposalState {
 pub(super) struct GeneratedPlaceState {
     pub(super) schema_version: u8,
     pub(super) location_id: u64,
+    #[serde(default)]
+    pub(super) canonical_id: String,
     pub(super) pathway_id: String,
     pub(super) connected_from_location_id: u64,
     pub(super) discovered_by_actor_id: u64,
@@ -31,6 +33,8 @@ pub(super) struct GeneratedPlaceState {
     pub(super) source_generation: GenerationProvenance,
     pub(super) pack_id: String,
     pub(super) pack_version: String,
+    #[serde(default)]
+    pub(super) generation_policy: GeneratedPolicyBinding,
     pub(super) anchor_clock_id: String,
     pub(super) connection_clock_id: String,
     pub(super) settlement_clock_id: String,
@@ -51,6 +55,7 @@ pub(super) struct GeneratedPlaceView {
     pub(super) source_generation: GenerationProvenance,
     pub(super) pack_id: String,
     pub(super) pack_version: String,
+    pub(super) generation_policy: GeneratedPolicyBinding,
     pub(super) milestones: Vec<String>,
     pub(super) anchor_clock_id: String,
     pub(super) connection_clock_id: String,
@@ -211,14 +216,15 @@ impl RuntimeWorld {
         else {
             return;
         };
-        let pack_id = "cosyworld.core".to_string();
-        let pack_version = self.active_pack_version(&pack_id);
+        let pack_id = pathway.owner_pack_id.clone();
+        let pack_version = pathway.owner_pack_version.clone();
         let state =
             self.generated_places
                 .entry(location_id)
                 .or_insert_with(|| GeneratedPlaceState {
                     schema_version: GENERATED_PLACE_SCHEMA_VERSION,
                     location_id,
+                    canonical_id: waypoint.canonical_id.clone(),
                     pathway_id: pathway.id.clone(),
                     connected_from_location_id,
                     discovered_by_actor_id: pathway.created_by_actor_id,
@@ -226,6 +232,7 @@ impl RuntimeWorld {
                     source_generation: pathway.generation.clone(),
                     pack_id: pack_id.clone(),
                     pack_version: pack_version.clone(),
+                    generation_policy: pathway.generation_policy.clone(),
                     anchor_clock_id: generated_place_anchor_clock_id(location_id),
                     connection_clock_id: generated_place_connection_clock_id(location_id),
                     settlement_clock_id: generated_place_settlement_clock_id(location_id),
@@ -235,11 +242,9 @@ impl RuntimeWorld {
                     building_proposal: None,
                 });
         state.schema_version = GENERATED_PLACE_SCHEMA_VERSION;
-        if state.pack_id.is_empty() {
-            state.pack_id = pack_id;
-        }
-        if state.pack_version.is_empty() {
-            state.pack_version = pack_version;
+        state.canonical_id = waypoint.canonical_id.clone();
+        if state.generation_policy.is_empty() {
+            state.generation_policy = pathway.generation_policy.clone();
         }
         let state = state.clone();
         self.ensure_generated_place_projection(&state, &waypoint);
@@ -460,6 +465,19 @@ impl RuntimeWorld {
         sheet.projects.extend(projects);
         sheet.projects.sort();
         sheet.projects.dedup();
+        for job_id in [
+            &state.anchor_job_id,
+            &state.connection_job_id,
+            &state.settlement_job_id,
+        ] {
+            if let Some(job) = self.jobs.get_mut(job_id) {
+                job.pack_id = state.pack_id.clone();
+                for strategy in &mut job.contribution_strategies {
+                    strategy.pack_id = state.pack_id.clone();
+                    strategy.pack_version = state.pack_version.clone();
+                }
+            }
+        }
     }
 
     fn reconcile_generated_place_durable_progress(&mut self, state: &GeneratedPlaceState) {
@@ -652,6 +670,7 @@ impl RuntimeWorld {
             source_generation: state.source_generation.clone(),
             pack_id: state.pack_id.clone(),
             pack_version: state.pack_version.clone(),
+            generation_policy: state.generation_policy.clone(),
             milestones: self.generated_place_milestones(location_id),
             anchor_clock_id: state.anchor_clock_id.clone(),
             connection_clock_id: state.connection_clock_id.clone(),

@@ -465,6 +465,7 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         | CW_ACTION_DROP_ITEM
         | CW_ACTION_USE_ITEM
         | CW_ACTION_RULES_UTILIZE_ITEM
+        | CW_ACTION_PROJECT_PUSH
         | CW_ACTION_GIVE_ITEM
         | CW_ACTION_TRADE_ITEM
         | CW_ACTION_CRAFT
@@ -995,6 +996,104 @@ pub(super) fn combat_turn_view(
     actor_id: u64,
     room_id: u64,
 ) -> Option<RoomTurnView> {
+    focused_turn_view(runtime, actor_id, room_id, None)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TurnTimeoutRefusal {
+    NoFocusedScene,
+    RequesterHoldsTurn,
+    ParticipantsBelowTwo,
+    RequesterNotEligible,
+    Cooldown,
+}
+
+impl TurnTimeoutRefusal {
+    fn event_type(self) -> &'static str {
+        match self {
+            Self::NoFocusedScene => "turn.timeout_refused.no_focused_scene",
+            Self::RequesterHoldsTurn => "turn.timeout_refused.requester_holds_turn",
+            Self::ParticipantsBelowTwo => "turn.timeout_refused.participants_below_two",
+            Self::RequesterNotEligible => "turn.timeout_refused.requester_not_eligible",
+            Self::Cooldown => "turn.timeout_refused.cooldown",
+        }
+    }
+
+    fn status(self) -> u32 {
+        match self {
+            Self::Cooldown => 429,
+            Self::RequesterNotEligible => 403,
+            Self::NoFocusedScene | Self::RequesterHoldsTurn | Self::ParticipantsBelowTwo => 409,
+        }
+    }
+
+    fn message(self) -> &'static str {
+        match self {
+            Self::NoFocusedScene => {
+                "There is no ordered scene to nudge. Check what is here and choose an available action."
+            }
+            Self::RequesterHoldsTurn => {
+                "You already hold this turn. Play an action, pass, or ask for more time."
+            }
+            Self::ParticipantsBelowTwo => {
+                "Fewer than two eligible participants remain, so nobody can be nudged. The ordered scene will recover when another participant returns."
+            }
+            Self::RequesterNotEligible => {
+                "You are no longer an eligible participant in this ordered scene. Rejoin the scene before nudging its current player."
+            }
+            Self::Cooldown => {
+                "That player was nudged too recently. Give the scene a moment, then try again if the turn is still waiting."
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FocusedTimeoutEligibility {
+    focused: FocusedEncounterView,
+    eligible_participant_ids: Vec<u64>,
+}
+
+fn focused_timeout_eligibility(
+    runtime: &RuntimeWorld,
+    requester_actor_id: u64,
+    active_direct_actor_ids: &BTreeSet<u64>,
+) -> Result<FocusedTimeoutEligibility, TurnTimeoutRefusal> {
+    let focused = focused_encounter_for_actor(runtime, requester_actor_id)
+        .ok_or(TurnTimeoutRefusal::NoFocusedScene)?;
+    if focused.current_actor_id == requester_actor_id {
+        return Err(TurnTimeoutRefusal::RequesterHoldsTurn);
+    }
+    let eligible_participant_ids = focused
+        .participant_order
+        .iter()
+        .copied()
+        .filter(|participant_id| {
+            runtime
+                .actor_by_id(*participant_id)
+                .is_some_and(RuntimeWorld::actor_can_act)
+                && (runtime.actor_uses_inference(*participant_id)
+                    || active_direct_actor_ids.contains(participant_id))
+        })
+        .collect::<Vec<_>>();
+    if eligible_participant_ids.len() < FOCUSED_ENCOUNTER_MIN_PARTICIPANTS {
+        return Err(TurnTimeoutRefusal::ParticipantsBelowTwo);
+    }
+    if !eligible_participant_ids.contains(&requester_actor_id) {
+        return Err(TurnTimeoutRefusal::RequesterNotEligible);
+    }
+    Ok(FocusedTimeoutEligibility {
+        focused,
+        eligible_participant_ids,
+    })
+}
+
+fn focused_turn_view(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    room_id: u64,
+    active_direct_actor_ids: Option<&BTreeSet<u64>>,
+) -> Option<RoomTurnView> {
     let focused = focused_encounter_for_actor(runtime, actor_id)?;
     let current_actor_id = focused.current_actor_id;
     let current_actor_name = runtime.actor_name(current_actor_id);
@@ -1005,7 +1104,20 @@ pub(super) fn combat_turn_view(
     } else {
         focused_job_need_time_used(runtime, focused.encounter_id, current_actor_id)
     };
-    let waiting_actor_ids = focused.waiting_actor_ids();
+    let timeout_eligibility = active_direct_actor_ids
+        .map(|active_actor_ids| focused_timeout_eligibility(runtime, actor_id, active_actor_ids));
+    let waiting_actor_ids = timeout_eligibility
+        .as_ref()
+        .and_then(|eligibility| eligibility.as_ref().ok())
+        .map(|eligibility| {
+            eligibility
+                .eligible_participant_ids
+                .iter()
+                .copied()
+                .filter(|participant_id| *participant_id != current_actor_id)
+                .collect()
+        })
+        .unwrap_or_else(|| focused.waiting_actor_ids());
     let explanation = Some(format!(
         "{} {} acts now; chat and inspection stay available.",
         if is_combat {
@@ -1036,7 +1148,7 @@ pub(super) fn combat_turn_view(
         }),
         need_time_extension_ms: ORDERED_SCENE_NEED_TIME_MS,
         handoff_key: Some(focused.handoff_key()),
-        can_request_timeout: false,
+        can_request_timeout: timeout_eligibility.is_some_and(|eligibility| eligibility.is_ok()),
         timeout_requests: Vec::new(),
         waiting_actor_ids,
         ping_active: false,
@@ -1053,10 +1165,12 @@ pub(super) fn room_turn_view_for_runtime(
     runtime: &RuntimeWorld,
     location_id: u64,
     viewer_actor_id: Option<u64>,
-    _active_actor_ids: &BTreeSet<u64>,
+    active_actor_ids: &BTreeSet<u64>,
 ) -> RoomTurnView {
     viewer_actor_id
-        .and_then(|actor_id| combat_turn_view(runtime, actor_id, location_id))
+        .and_then(|actor_id| {
+            focused_turn_view(runtime, actor_id, location_id, Some(active_actor_ids))
+        })
         .unwrap_or_else(|| RoomTurnView::idle(location_id))
 }
 
@@ -1138,6 +1252,7 @@ pub(super) fn actor_action_turn_rejection(
         CW_ACTION_RULES_SEARCH | CW_ACTION_ABILITY_CHECK => "check",
         CW_ACTION_RULES_STUDY => "study",
         CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
+        CW_ACTION_PROJECT_PUSH => "work",
         _ => "",
     };
     if action.kind == CW_ACTION_SAY
@@ -1239,6 +1354,7 @@ pub(super) fn command_turn_rejected_response(
         command: resolved.command,
         verb: resolved.verb,
         output: view.explanation,
+        error_kind: None,
         action: resolved.action,
         receipt: None,
         events,
@@ -1408,7 +1524,7 @@ pub(super) async fn recover_available_focused_job_turns(
     Ok(events)
 }
 
-pub(super) async fn request_turn_timeout(
+pub(super) async fn request_turn_need_time(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(payload): Json<ActorRequest>,
@@ -1429,6 +1545,153 @@ pub(super) async fn request_turn_timeout(
         payload.actor_session.as_deref(),
     )
     .await
+}
+
+fn turn_timeout_refusal_response(
+    runtime: Option<&RuntimeWorld>,
+    actor_id: u64,
+    refusal: TurnTimeoutRefusal,
+) -> Json<ActionResponse> {
+    let focused = runtime.and_then(|runtime| focused_encounter_for_actor(runtime, actor_id));
+    Json(ActionResponse {
+        ok: false,
+        status: refusal.status(),
+        events: vec![EventView {
+            type_name: refusal.event_type().to_string(),
+            success: false,
+            actor_id: Some(actor_id),
+            actor_name: runtime.and_then(|runtime| runtime.actor_name(actor_id)),
+            target_actor_id: focused.as_ref().map(|focused| focused.current_actor_id),
+            target_actor_name: focused.as_ref().and_then(|focused| {
+                runtime.and_then(|runtime| runtime.actor_name(focused.current_actor_id))
+            }),
+            location_id: focused.as_ref().map(|focused| focused.location_id),
+            content_id: focused.as_ref().map(|focused| focused.encounter_id),
+            content: Some(refusal.message().to_string()),
+            ..EventView::default()
+        }],
+    })
+}
+
+pub(super) async fn request_turn_timeout(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "turn-timeout",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return turn_timeout_refusal_response(None, payload.actor_id, TurnTimeoutRefusal::Cooldown);
+    }
+
+    let was_active = payload
+        .actor_session
+        .as_deref()
+        .and_then(|token| {
+            actor_session_active_for_actor(&state.actor_sessions, payload.actor_id, token)
+        })
+        .unwrap_or(false);
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let active_direct_actor_ids = active_actor_ids_for_state(&state);
+    let eligibility =
+        match focused_timeout_eligibility(&runtime, payload.actor_id, &active_direct_actor_ids) {
+            Ok(eligibility) => eligibility,
+            Err(refusal) => {
+                return turn_timeout_refusal_response(Some(&runtime), payload.actor_id, refusal);
+            }
+        };
+    let focused = eligibility.focused;
+    let current_actor_id = focused.current_actor_id;
+    let turn_location_id = Some(focused.location_id);
+    let timeout_requested = EventView {
+        type_name: "turn.timeout_requested".to_string(),
+        success: true,
+        actor_id: Some(payload.actor_id),
+        actor_name: runtime.actor_name(payload.actor_id),
+        target_actor_id: Some(current_actor_id),
+        target_actor_name: runtime.actor_name(current_actor_id),
+        location_id: turn_location_id,
+        content_id: Some(focused.encounter_id),
+        content: Some(
+            "The waiting participant asked the current player to play or pass.".to_string(),
+        ),
+        ..EventView::default()
+    };
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: if focused.profile_id == FOCUSED_COMBAT_PROFILE_ID {
+                CW_ACTION_COMBAT_PASS
+            } else {
+                CW_ACTION_NONE
+            },
+            actor_id: current_actor_id,
+            content_id: focused.encounter_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_system();
+    if focused.profile_id != FOCUSED_COMBAT_PROFILE_ID {
+        record.bind_offer_kind("pass");
+        record
+            .projection_mutations
+            .push(ProjectionMutation::FocusedControl {
+                control: "pass".to_string(),
+            });
+        bind_focused_encounter_context(&runtime, &mut record);
+    }
+    let Ok((mut status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    if status == CW_OK && focused.profile_id == FOCUSED_COMBAT_PROFILE_ID {
+        status = drive_available_combat_turns(
+            &state,
+            &mut runtime,
+            focused.encounter_id,
+            current_actor_id,
+            &mut events,
+        )
+        .unwrap_or(500);
+    }
+    let observation = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        payload.actor_id,
+        status,
+        &mut events,
+    );
+    events.insert(0, timeout_requested);
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    if let Some(observation) = observation {
+        schedule_player_tick_observation(&state, observation);
+    }
+    if !was_active {
+        events.extend(commit_presence_event(&state, payload.actor_id, true).await);
+    }
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
 }
 
 pub(super) async fn pass_ordered_scene_turn(
@@ -1643,6 +1906,68 @@ mod tests {
         record
     }
 
+    fn focused_timeout_fixture() -> RuntimeWorld {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Current Worker",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Waiting Worker",
+        );
+        for actor_id in [5000, 5001] {
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+        }
+        {
+            let job = runtime
+                .jobs
+                .get_mut(FIRST_TALE_JOB_ID)
+                .expect("focused timeout fixture job");
+            job.status = "active".to_string();
+            job.focused_profile = Some(FOCUSED_WORK_PROFILE.to_string());
+            job.focused_encounter = None;
+        }
+        for clock_id in [
+            FIRST_TALE_PROGRESS_CLOCK_ID,
+            "rain-soft-garden.path-washes-out",
+        ] {
+            let clock = runtime
+                .clocks
+                .get_mut(clock_id)
+                .expect("focused timeout fixture clock");
+            clock.segments = 12;
+            clock.filled = 0;
+            clock.status = "active".to_string();
+            clock.recent_contributions.clear();
+            clock.completion = None;
+        }
+        let first = focused_work_record(&runtime, 5000, 83_100);
+        assert_eq!(runtime.apply_journal_record(&first).0, CW_OK);
+        let second = focused_work_record(&runtime, 5001, 83_101);
+        assert_eq!(runtime.apply_journal_record(&second).0, CW_OK);
+        assert_eq!(
+            focused_job_encounter(&runtime, 5000)
+                .expect("focused timeout fixture starts")
+                .current_actor_id,
+            5000
+        );
+        runtime
+    }
+
+    fn runtime_snapshot_bytes(runtime: &RuntimeWorld) -> Vec<u8> {
+        serde_json::to_vec(&RuntimeSnapshot::from_runtime(runtime))
+            .expect("runtime snapshot serializes")
+    }
+
     #[test]
     fn ordinary_operations_have_explicit_concurrency_policies() {
         assert_eq!(
@@ -1698,6 +2023,238 @@ mod tests {
         );
         assert!(!view.ping_active);
         assert_eq!(view.grace_period_ms, 0);
+    }
+
+    #[test]
+    fn timeout_refusal_contract_has_distinct_machine_stable_types() {
+        let refusals = [
+            TurnTimeoutRefusal::NoFocusedScene,
+            TurnTimeoutRefusal::RequesterHoldsTurn,
+            TurnTimeoutRefusal::ParticipantsBelowTwo,
+            TurnTimeoutRefusal::RequesterNotEligible,
+            TurnTimeoutRefusal::Cooldown,
+        ];
+        let event_types = refusals
+            .iter()
+            .map(|refusal| refusal.event_type())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(event_types.len(), refusals.len());
+        assert!(event_types
+            .iter()
+            .all(|event_type| event_type.starts_with("turn.timeout_refused.")));
+        assert!(refusals
+            .iter()
+            .all(|refusal| !refusal.message().trim().is_empty()));
+    }
+
+    #[tokio::test]
+    async fn current_holder_timeout_refusal_is_actionable_and_byte_unchanged() {
+        let state = test_app_state(focused_timeout_fixture(), None);
+        let (current_session, _) = issue_actor_session(&state, 5000);
+        let (waiting_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &current_session),
+            Some(5000)
+        );
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &waiting_session),
+            Some(5001)
+        );
+        let before = {
+            let runtime = state.inner.lock().await;
+            runtime_snapshot_bytes(&runtime)
+        };
+
+        let response = request_turn_timeout(
+            ConnectInfo("127.0.0.1:45170".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(current_session),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(!response.ok);
+        assert_eq!(response.status, 409);
+        assert_eq!(response.events.len(), 1);
+        assert_eq!(
+            response.events[0].type_name,
+            "turn.timeout_refused.requester_holds_turn"
+        );
+        assert_eq!(
+            response.events[0].content.as_deref(),
+            Some("You already hold this turn. Play an action, pass, or ask for more time.")
+        );
+        let after = {
+            let runtime = state.inner.lock().await;
+            runtime_snapshot_bytes(&runtime)
+        };
+        assert_eq!(after, before, "a holder refusal cannot mutate turn state");
+    }
+
+    #[tokio::test]
+    async fn participants_below_two_timeout_refusal_is_actionable_and_byte_unchanged() {
+        let state = test_app_state(focused_timeout_fixture(), None);
+        let (current_session, _) = issue_actor_session(&state, 5000);
+        let (waiting_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &current_session),
+            Some(5000)
+        );
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &waiting_session),
+            Some(5001)
+        );
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &current_session
+        ));
+        let active_actor_ids = active_actor_ids_for_state(&state);
+        let before = {
+            let runtime = state.inner.lock().await;
+            let turn = actor_room_turn_view(&state, &runtime, 5001, &active_actor_ids)
+                .expect("waiting actor projects a turn");
+            assert!(!turn.can_request_timeout);
+            runtime_snapshot_bytes(&runtime)
+        };
+
+        let response = request_turn_timeout(
+            ConnectInfo("127.0.0.1:45171".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5001,
+                actor_session: Some(waiting_session),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(!response.ok);
+        assert_eq!(response.status, 409);
+        assert_eq!(response.events.len(), 1);
+        assert_eq!(
+            response.events[0].type_name,
+            "turn.timeout_refused.participants_below_two"
+        );
+        assert_eq!(
+            response.events[0].content.as_deref(),
+            Some(
+                "Fewer than two eligible participants remain, so nobody can be nudged. The ordered scene will recover when another participant returns."
+            )
+        );
+        let after = {
+            let runtime = state.inner.lock().await;
+            runtime_snapshot_bytes(&runtime)
+        };
+        assert_eq!(
+            after, before,
+            "a participant-count refusal cannot mutate turn state"
+        );
+    }
+
+    #[tokio::test]
+    async fn projected_timeout_eligibility_matches_replayable_nudge_advancement() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-focused-timeout-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let runtime = RuntimeSnapshot::from_runtime(&focused_timeout_fixture())
+            .into_runtime()
+            .expect("timeout fixture reconnects before the replay test");
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (current_session, _) = issue_actor_session(&state, 5000);
+        let (waiting_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &current_session),
+            Some(5000)
+        );
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &waiting_session),
+            Some(5001)
+        );
+        let active_actor_ids = active_actor_ids_for_state(&state);
+        let replay_base = {
+            let runtime = state.inner.lock().await;
+            let eligibility = focused_timeout_eligibility(&runtime, 5001, &active_actor_ids)
+                .expect("waiting actor is eligible");
+            assert_eq!(eligibility.eligible_participant_ids, vec![5000, 5001]);
+            let turn = actor_room_turn_view(&state, &runtime, 5001, &active_actor_ids)
+                .expect("waiting actor projects a turn");
+            assert!(turn.can_request_timeout);
+            assert_eq!(turn.waiting_actor_ids, vec![5001]);
+            RuntimeSnapshot::from_runtime(&runtime)
+        };
+
+        let response = request_turn_timeout(
+            ConnectInfo("127.0.0.1:45172".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5001,
+                actor_session: Some(waiting_session),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "turn.timeout_requested"
+                && event.actor_id == Some(5001)
+                && event.target_actor_id == Some(5000)));
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "focused.pass" && event.actor_id == Some(5000)));
+        let (expected, committed_journal_seq) = {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                focused_job_encounter(&runtime, 5001)
+                    .expect("nudge keeps the focus active")
+                    .current_actor_id,
+                5001
+            );
+            (runtime_snapshot_bytes(&runtime), runtime.action_journal_seq)
+        };
+
+        let journal = read_action_journal(&path).expect("timeout journal");
+        assert_eq!(journal.len(), 1);
+        assert_eq!(journal[0].origin, JournalOrigin::System);
+        assert_eq!(journal[0].action.actor_id, 5000);
+        assert_eq!(journal[0].offer_kind.as_deref(), Some("pass"));
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("timeout replay base restores");
+        assert_eq!(replayed.apply_journal_record(&journal[0]).0, CW_OK);
+        // The reducer replays world state; the durable store supplies its row
+        // sequence separately when continuity restoration completes.
+        replayed.action_journal_seq = committed_journal_seq;
+        let replayed_bytes = runtime_snapshot_bytes(&replayed);
+        if replayed_bytes != expected {
+            let expected_value: serde_json::Value =
+                serde_json::from_slice(&expected).expect("expected snapshot parses");
+            let replayed_value: serde_json::Value =
+                serde_json::from_slice(&replayed_bytes).expect("replayed snapshot parses");
+            let differing_keys = expected_value
+                .as_object()
+                .expect("expected snapshot object")
+                .iter()
+                .filter_map(|(key, expected)| {
+                    (replayed_value.get(key) != Some(expected)).then_some(key.as_str())
+                })
+                .collect::<Vec<_>>();
+            panic!(
+                "the successful nudge must replay to the identical focused state; differing top-level keys: {differing_keys:?}"
+            );
+        }
+        let _ = fs::remove_file(path);
     }
 
     #[test]

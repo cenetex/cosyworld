@@ -590,7 +590,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:e2eb8afc02eacea57562cbe8d662793d3baad6b1d6df8bc04059ec0be6d7a907",
+  "bundle_hash": "sha256:d2491aef1974ae883d1f69f1e1bc815d5a993d7fbdbdc41d49b49c911bd17351",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -810,16 +810,16 @@
         "access_gates": 0,
         "factions": 11,
         "items": 13,
-        "locations": 22,
-        "exits": 46,
+        "locations": 23,
+        "exits": 48,
         "hidden_exits": 1,
-        "room_features": 16,
-        "room_sheets": 22,
+        "room_features": 17,
+        "room_sheets": 23,
         "clocks": 12,
         "jobs": 6,
         "action_vocabulary": 1,
         "fronts": 5,
-        "cards": 68,
+        "cards": 69,
         "card_bindings": 0,
         "lifecycle_hooks": 19,
         "evolution_tracks": 3,
@@ -1660,7 +1660,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f"
+      "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612"
     }
   ],
   "files": {

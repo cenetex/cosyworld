@@ -116,7 +116,22 @@ describe("independently mountable CosyWorld Core", () => {
         },
       },
       resident_continuities: { 1001: { resident_id: 1001 } },
-      resident_memories: { memory: { carrier_actor_id: 1001, kind: "item", subject_id: 2001, location_id: 3 } },
+      beliefs: {
+        memory: {
+          holder_actor_id: 1001,
+          kind: "item_location",
+          subject_id: 2001,
+          location_id: 3,
+        },
+      },
+      resident_memories: {
+        legacy: {
+          carrier_actor_id: 1001,
+          kind: "item_location",
+          subject_id: 2001,
+          location_id: 3,
+        },
+      },
       search_memories: { search: { actor_id: 5000, kind: "location", subject_id: 3, location_id: 3 } },
       tags: { tag: { scope_id: 3 } },
       world_simulation: { locations: { 3: {} }, factions: { hearthbound: {} } },
@@ -135,7 +150,7 @@ describe("independently mountable CosyWorld Core", () => {
     for (const field of ["world_evolution_tracks", "world_combat_encounters"]) {
       expect(result.snapshot[field]).toEqual([]);
     }
-    for (const field of ["actor_meta", "natural_affordances", "clocks", "jobs", "branches", "bonds", "resident_continuities", "resident_memories", "search_memories", "tags"]) {
+    for (const field of ["actor_meta", "natural_affordances", "clocks", "jobs", "branches", "bonds", "resident_continuities", "beliefs", "resident_memories", "search_memories", "tags"]) {
       expect(result.snapshot[field]).toEqual({});
     }
     expect(result.snapshot.world_simulation).toEqual({ locations: {}, factions: {} });
@@ -155,6 +170,8 @@ describe("independently mountable CosyWorld Core", () => {
       }),
     ]);
     const frozen = result.snapshot.pack_mount_state.frozen["cosyworld.core"];
+    expect(frozen.removed_pack_ids).toEqual(["cosyworld.core"]);
+    expect(frozen.target_only_pack_ids).toEqual(["cosyworld.services-fixture"]);
     expect(frozen.arrays.world_items[0].value).toMatchObject({
       id: 2001,
       holder_actor_id: 1001,
@@ -202,6 +219,7 @@ describe("independently mountable CosyWorld Core", () => {
       "branches",
       "bonds",
       "resident_continuities",
+      "beliefs",
       "resident_memories",
       "search_memories",
       "tags",
@@ -581,6 +599,205 @@ describe("independently mountable CosyWorld Core", () => {
       active_rules_variants: ["variant/source"],
       active_rules_extensions: ["extension/source"],
     });
+  });
+
+  it("rejects an unmount target that removes an unrelated pack", () => {
+    const snapshot = {
+      worldpack_bundle_hash: coreRuby.manifest.bundle_hash,
+      world_actors: [],
+      world_items: [],
+      world_locations: [{ id: 1 }, { id: 11 }],
+      world_exits: [],
+    };
+    const before = structuredClone(snapshot);
+    expect(() => migratePackUnmount(
+      snapshot,
+      coreRuby,
+      "ruby-high.first-bell",
+      servicesOnly,
+    )).toThrow(/removes unrelated pack cosyworld\.core/);
+    expect(snapshot).toEqual(before);
+
+    const unrelatedAddition = structuredClone(coreOnly);
+    unrelatedAddition.manifest.packs.push({
+      id: "fixture.unrelated-world",
+      version: "1.0.0",
+      integrity: "sha256:fixture",
+      resource_counts: { actors: 1 },
+    });
+    expect(() => migratePackUnmount(
+      snapshot,
+      coreRuby,
+      "ruby-high.first-bell",
+      unrelatedAddition,
+    )).toThrow(/adds unrelated pack fixture\.unrelated-world/);
+    expect(snapshot).toEqual(before);
+  });
+
+  it("freezes and byte-stably remounts the owned generated route subgraph", () => {
+    const waypointId = 777_777;
+    const pathwayId = "generated-pathway:route://cosyworld.composition.core-ruby/authored/ruby|core@1";
+    const generatedRouteId = `${pathwayId}/route/0`;
+    const dynamicSnapshot = {
+      worldpack_bundle_hash: coreRuby.manifest.bundle_hash,
+      world_actors: [],
+      world_items: [],
+      world_locations: [{ id: 1 }, { id: 12 }, { id: 50 }, { id: waypointId }],
+      world_exits: [
+        { from_location_id: 1, to_location_id: 50 },
+        { from_location_id: 12, to_location_id: 50 },
+        { from_location_id: 12, to_location_id: waypointId },
+      ],
+      routes: {
+        "route:core": {
+          owner_pack_id: "cosyworld.core",
+          edges: [{ from_location_id: 1, to_location_id: 50 }],
+        },
+        "route:bridge": {
+          owner_pack_id: "cosyworld.composition.core-ruby",
+          edges: [{ from_location_id: 12, to_location_id: 50 }],
+        },
+        [generatedRouteId]: {
+          owner_pack_id: "cosyworld.composition.core-ruby",
+          edges: [{ from_location_id: 12, to_location_id: waypointId }],
+        },
+      },
+      generated_pathways: {
+        [pathwayId]: {
+          id: pathwayId,
+          canonical_id: pathwayId,
+          owner_pack_id: "cosyworld.composition.core-ruby",
+          owner_pack_version: "1.0.0",
+          origin_location_id: 12,
+          destination_location_id: 50,
+          waypoints: [{
+            id: waypointId,
+            canonical_id: `${pathwayId}/waypoint/0`,
+          }],
+        },
+      },
+      generated_places: {
+        [waypointId]: {
+          location_id: waypointId,
+          pathway_id: pathwayId,
+          pack_id: "cosyworld.composition.core-ruby",
+        },
+      },
+      location_names: { 1: "Cottage", 12: "Library", 50: "Trail", [waypointId]: "Bridge Verge" },
+      location_meta: { [waypointId]: { title: "Bridge Verge" } },
+      room_sheets: { [waypointId]: { location_id: waypointId } },
+      natural_affordances: { [waypointId]: { location_id: waypointId } },
+      clocks: { dynamic: { scope_id: waypointId } },
+      jobs: { dynamic: { location_ids: [waypointId] } },
+      governance_decisions: { dynamic: { location_id: waypointId } },
+      settlement_buildings: { dynamic: { location_id: waypointId } },
+      building_footprint_claims: { dynamic: { location_id: waypointId } },
+      loot_allocations: { dynamic: { location_id: waypointId } },
+      community_art_generations: {
+        dynamic: { subject_kind: "location", subject_id: waypointId },
+      },
+      canonical_identities: {
+        location_refs: { [waypointId]: `${pathwayId}/waypoint/0` },
+        entity_versions: { [`${pathwayId}/waypoint/0`]: 4 },
+      },
+      world_simulation: { locations: { [waypointId]: { weather: "rain" } }, factions: {} },
+      content_context: {
+        mapping_version: coreRuby.content_references.mapping_version,
+        references: coreRuby.content_references.entries,
+      },
+    };
+    const before = structuredClone(dynamicSnapshot);
+    const unmounted = migratePackUnmount(
+      dynamicSnapshot,
+      coreRuby,
+      "ruby-high.first-bell",
+      coreOnly,
+    );
+    expect(dynamicSnapshot).toEqual(before);
+    expect(unmounted.snapshot.world_locations).toEqual([{ id: 1 }, { id: 50 }]);
+    expect(unmounted.snapshot.generated_pathways).toEqual({});
+    expect(unmounted.snapshot.generated_places).toEqual({});
+    expect(unmounted.snapshot.routes).toEqual({
+      "route:core": before.routes["route:core"],
+    });
+    for (const field of [
+      "room_sheets",
+      "natural_affordances",
+      "clocks",
+      "jobs",
+      "governance_decisions",
+      "settlement_buildings",
+      "building_footprint_claims",
+      "loot_allocations",
+      "community_art_generations",
+    ]) expect(unmounted.snapshot[field], field).toEqual({});
+    expect(unmounted.snapshot.canonical_identities).toEqual({
+      location_refs: {},
+      entity_versions: {},
+    });
+
+    const frozen = unmounted.snapshot.pack_mount_state.frozen["ruby-high.first-bell"];
+    expect(frozen.removed_pack_ids).toEqual([
+      "ruby-high.first-bell",
+      "cosyworld.composition.core-ruby",
+    ]);
+    expect(frozen.target_only_pack_ids).toEqual([]);
+    expect(frozen.maps.generated_pathways).toHaveProperty(pathwayId);
+    expect(frozen.maps.generated_places).toHaveProperty(String(waypointId));
+    expect(frozen.maps.routes).toHaveProperty(generatedRouteId);
+    expect(frozen.canonical_identities.location_refs).toHaveProperty(String(waypointId));
+
+    const rehydrated = structuredClone(unmounted.snapshot);
+    Object.assign(
+      rehydrated.canonical_identities.entity_versions,
+      frozen.canonical_identities.entity_versions,
+    );
+    const conflicting = structuredClone(rehydrated);
+    const [conflictingRef, conflictingVersion] = Object.entries(
+      frozen.canonical_identities.entity_versions,
+    )[0];
+    conflicting.canonical_identities.entity_versions[conflictingRef] =
+      conflictingVersion + 1;
+    expect(() =>
+      migratePackRemount(
+        conflicting,
+        coreOnly,
+        "ruby-high.first-bell",
+        coreRuby,
+      )).toThrow(
+      new RegExp(
+        `canonical_identities\\.entity_versions identity ${conflictingRef}`,
+      ),
+    );
+
+    const remounted = migratePackRemount(
+      rehydrated,
+      coreOnly,
+      "ruby-high.first-bell",
+      coreRuby,
+    );
+    for (const field of [
+      "world_locations",
+      "world_exits",
+      "routes",
+      "generated_pathways",
+      "generated_places",
+      "location_names",
+      "location_meta",
+      "room_sheets",
+      "natural_affordances",
+      "clocks",
+      "jobs",
+      "governance_decisions",
+      "settlement_buildings",
+      "building_footprint_claims",
+      "loot_allocations",
+      "community_art_generations",
+      "canonical_identities",
+      "world_simulation",
+      "content_context",
+    ]) expect(remounted.snapshot[field], field).toEqual(before[field]);
+    expect(remounted.transaction.state_hash).toBe(unmounted.transaction.state_hash);
   });
 
   it("requires an exact quiescent journal checkpoint for durable CLI migration", () => {

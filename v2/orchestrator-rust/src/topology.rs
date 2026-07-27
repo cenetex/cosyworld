@@ -10,6 +10,14 @@ pub(super) enum RouteLifecycle {
     Frozen,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum RouteDirectionality {
+    #[default]
+    Reciprocal,
+    OneWay,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct RouteEdgeState {
     pub(super) from_location_id: u64,
@@ -27,9 +35,21 @@ pub(super) struct RouteDiscoveryState {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct RouteRecordState {
     pub(super) id: String,
+    #[serde(default)]
+    pub(super) canonical_id: String,
     pub(super) edges: Vec<RouteEdgeState>,
     pub(super) owner: String,
+    #[serde(default)]
+    pub(super) owner_pack_id: String,
+    #[serde(default)]
+    pub(super) owner_pack_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) generation_policy: Option<GeneratedPolicyBinding>,
     pub(super) provenance: String,
+    #[serde(default)]
+    pub(super) directionality: RouteDirectionality,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) fallback_location_id: Option<u64>,
     pub(super) lifecycle: RouteLifecycle,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) discovery: Option<RouteDiscoveryState>,
@@ -40,6 +60,10 @@ pub(super) struct RouteRecordState {
 pub(super) struct RouteOfferBinding {
     pub(super) route_id: String,
     pub(super) route_version: u64,
+    #[serde(default)]
+    pub(super) directionality: RouteDirectionality,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) fallback_location_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -67,13 +91,52 @@ fn hidden_route_id(hidden_exit_id: &str) -> String {
     format!("route:hidden:{hidden_exit_id}")
 }
 
-fn generated_route_id(pathway_id: &str, left: u64, right: u64) -> String {
+fn canonical_location_route_component(location_id: u64) -> String {
+    content_registry()
+        .content_reference("location", location_id)
+        .map(|entry| entry.canonical_ref.clone())
+        .unwrap_or_else(|| format!("location:{location_id}"))
+}
+
+fn canonical_authored_route_id(pack_id: &str, left: u64, right: u64) -> String {
     let (left, right) = ordered_route_endpoints(left, right);
-    format!("route:generated:{pathway_id}:{left}:{right}")
+    format!(
+        "route://{pack_id}/authored/{}|{}",
+        canonical_location_route_component(left),
+        canonical_location_route_component(right)
+    )
+}
+
+fn canonical_one_way_route_id(pack_id: &str, from: u64, to: u64) -> String {
+    format!(
+        "route://{pack_id}/one-way/{}>{}",
+        canonical_location_route_component(from),
+        canonical_location_route_component(to)
+    )
+}
+
+fn canonical_hidden_route_id(pack_id: &str, hidden_exit_id: &str) -> String {
+    format!("route://{pack_id}/hidden/{hidden_exit_id}")
+}
+
+fn generated_route_id(pathway: &GeneratedPathwayState, left: u64, right: u64) -> Option<String> {
+    let mut path = Vec::with_capacity(pathway.waypoints.len() + 2);
+    path.push(pathway.origin_location_id);
+    path.extend(pathway.waypoints.iter().map(|waypoint| waypoint.id));
+    path.push(pathway.destination_location_id);
+    let segment = path.windows(2).position(|edge| {
+        (edge[0] == left && edge[1] == right) || (edge[0] == right && edge[1] == left)
+    })?;
+    let pathway_id = if pathway.canonical_id.is_empty() {
+        pathway.id.as_str()
+    } else {
+        pathway.canonical_id.as_str()
+    };
+    Some(format!("{pathway_id}/route/{segment}"))
 }
 
 impl RouteRecordState {
-    fn contains_edge(&self, from_location_id: u64, to_location_id: u64) -> bool {
+    pub(super) fn contains_edge(&self, from_location_id: u64, to_location_id: u64) -> bool {
         self.edges.iter().any(|edge| {
             edge.from_location_id == from_location_id && edge.to_location_id == to_location_id
         })
@@ -81,6 +144,1028 @@ impl RouteRecordState {
 }
 
 impl RuntimeWorld {
+    pub(super) fn restore_canonical_topology_for_snapshot(
+        &mut self,
+        snapshot_version: u32,
+        historical_bundle_hash: &str,
+    ) -> Result<(), String> {
+        self.migrate_canonical_topology_for_snapshot(snapshot_version)?;
+        if snapshot_version >= 14 {
+            self.validate_canonical_route_records()?;
+        }
+        self.ensure_authored_route_records();
+        self.migrate_generated_pathways_for_snapshot(snapshot_version, historical_bundle_hash)?;
+        self.validate_canonical_route_records()
+    }
+
+    pub(super) fn migrate_canonical_topology_for_snapshot(
+        &mut self,
+        snapshot_version: u32,
+    ) -> Result<(), String> {
+        let legacy_route_ids = self
+            .routes
+            .keys()
+            .filter(|route_id| {
+                route_id.starts_with("route:authored:") || route_id.starts_with("route:hidden:")
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if snapshot_version >= 14 && !legacy_route_ids.is_empty() {
+            return Err("current snapshot contains a legacy authored route identity".to_string());
+        }
+        for legacy_route_id in legacy_route_ids {
+            let mut route = self
+                .routes
+                .remove(&legacy_route_id)
+                .ok_or_else(|| format!("legacy route {legacy_route_id} disappeared"))?;
+            let (
+                canonical_route_id,
+                owner_pack_id,
+                provenance,
+                directionality,
+                fallback_location_id,
+            ) = if let Some(hidden_exit_id) = legacy_route_id.strip_prefix("route:hidden:") {
+                let hidden = active_content()
+                    .hidden_exits
+                    .iter()
+                    .find(|hidden| hidden.id == hidden_exit_id)
+                    .ok_or_else(|| {
+                        format!("legacy hidden route {legacy_route_id} has no authored exit")
+                    })?;
+                let owner_pack_id = if hidden.pack_id.is_empty() {
+                    active_content().manifest.id.clone()
+                } else {
+                    hidden.pack_id.clone()
+                };
+                (
+                    canonical_hidden_route_id(&owner_pack_id, hidden_exit_id),
+                    owner_pack_id,
+                    hidden.source.clone(),
+                    RouteDirectionality::Reciprocal,
+                    None,
+                )
+            } else {
+                let edge = route.edges.first().ok_or_else(|| {
+                    format!("legacy authored route {legacy_route_id} has no edge")
+                })?;
+                let exit = active_content()
+                    .exits
+                    .iter()
+                    .find(|exit| {
+                        exit.from_location_id == edge.from_location_id
+                            && exit.to_location_id == edge.to_location_id
+                    })
+                    .ok_or_else(|| {
+                        format!("legacy authored route {legacy_route_id} has no authored exit")
+                    })?;
+                let owner_pack_id = if exit.pack_id.is_empty() {
+                    active_content().manifest.id.clone()
+                } else {
+                    exit.pack_id.clone()
+                };
+                let canonical_route_id = match exit.directionality {
+                    RouteDirectionality::Reciprocal => canonical_authored_route_id(
+                        &owner_pack_id,
+                        exit.from_location_id,
+                        exit.to_location_id,
+                    ),
+                    RouteDirectionality::OneWay => canonical_one_way_route_id(
+                        &owner_pack_id,
+                        exit.from_location_id,
+                        exit.to_location_id,
+                    ),
+                };
+                (
+                    canonical_route_id,
+                    owner_pack_id,
+                    "authored_exit".to_string(),
+                    exit.directionality,
+                    exit.fallback_location_id,
+                )
+            };
+            if self.routes.contains_key(&canonical_route_id) {
+                return Err(format!(
+                    "legacy route {legacy_route_id} aliases canonical route {canonical_route_id}"
+                ));
+            }
+            route.id = canonical_route_id.clone();
+            route.canonical_id = canonical_route_id.clone();
+            route.owner = format!("worldpack:{owner_pack_id}");
+            route.owner_pack_version = self.active_pack_version(&owner_pack_id);
+            route.owner_pack_id = owner_pack_id;
+            route.provenance = provenance;
+            route.directionality = directionality;
+            route.fallback_location_id = fallback_location_id;
+            self.routes.insert(canonical_route_id, route);
+        }
+        Ok(())
+    }
+
+    pub(super) fn migrate_generated_pathways_for_snapshot(
+        &mut self,
+        snapshot_version: u32,
+        historical_bundle_hash: &str,
+    ) -> Result<(), String> {
+        let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
+        for pathway_id in pathway_ids {
+            let mut pathway = self
+                .generated_pathways
+                .get(&pathway_id)
+                .cloned()
+                .ok_or_else(|| "generated pathway disappeared during load".to_string())?;
+            self.normalize_generated_pathway_identity(
+                &mut pathway,
+                snapshot_version < 14,
+                Some(historical_bundle_hash),
+            )?;
+            self.generated_pathways.insert(pathway_id, pathway);
+        }
+        self.validate_generated_pathway_identity_claims()?;
+        self.validate_journey_topology()?;
+        if snapshot_version < 13 {
+            for pathway in self
+                .generated_pathways
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+            {
+                self.migrate_legacy_generated_route_records(&pathway)?;
+            }
+            self.routes
+                .retain(|route_id, _| !route_id.starts_with("route:generated:"));
+        } else if self
+            .routes
+            .keys()
+            .any(|route_id| route_id.starts_with("route:generated:"))
+        {
+            return Err("current snapshot contains a legacy generated route identity".to_string());
+        }
+        let bindings = self
+            .generated_pathways
+            .iter()
+            .map(|(id, pathway)| (id.clone(), pathway.generation_policy.clone()))
+            .collect::<BTreeMap<_, _>>();
+        for route in self.routes.values_mut() {
+            let Some(pathway_id) = route.provenance.strip_prefix("generated_pathway:") else {
+                continue;
+            };
+            let binding = bindings
+                .get(pathway_id)
+                .ok_or_else(|| format!("generated route {} has no pathway owner", route.id))?;
+            if route.generation_policy.is_none() && snapshot_version < 14 {
+                route.generation_policy = Some(binding.clone());
+            }
+            if route.generation_policy.as_ref() != Some(binding) {
+                return Err(format!(
+                    "generated route {} policy binding differs from its pathway",
+                    route.id
+                ));
+            }
+            if route.owner_pack_id != binding.owner_pack_id
+                || route.owner_pack_version != binding.owner_pack_version
+            {
+                return Err(format!(
+                    "generated route {} ownership differs from its policy binding",
+                    route.id
+                ));
+            }
+        }
+        for place in self.generated_places.values_mut() {
+            let pathway = self
+                .generated_pathways
+                .get(&place.pathway_id)
+                .ok_or_else(|| {
+                    format!("generated place {} has no pathway owner", place.location_id)
+                })?;
+            if !pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.id == place.location_id)
+            {
+                return Err(format!(
+                    "generated place {} is not a waypoint of its pathway owner",
+                    place.location_id
+                ));
+            }
+            let binding = bindings
+                .get(&place.pathway_id)
+                .expect("validated pathway has a binding");
+            if place.generation_policy.is_empty() && snapshot_version < 14 {
+                place.generation_policy = binding.clone();
+            }
+            if &place.generation_policy != binding {
+                return Err(format!(
+                    "generated place {} policy binding differs from its pathway",
+                    place.location_id
+                ));
+            }
+            if snapshot_version < 14 && place.pack_id.is_empty() {
+                place.pack_id = binding.owner_pack_id.clone();
+                place.pack_version = binding.owner_pack_version.clone();
+            }
+            if place.pack_id != binding.owner_pack_id
+                || place.pack_version != binding.owner_pack_version
+            {
+                return Err(format!(
+                    "generated place {} ownership differs from its policy binding",
+                    place.location_id
+                ));
+            }
+        }
+        for generation in self.community_art_generations.values_mut() {
+            if generation.subject_kind != "location" {
+                continue;
+            }
+            let Some(binding) = self.generated_pathways.values().find_map(|pathway| {
+                pathway
+                    .waypoints
+                    .iter()
+                    .any(|waypoint| waypoint.id == generation.subject_id)
+                    .then_some(&pathway.generation_policy)
+            }) else {
+                if !generation.generation_policy.is_empty() {
+                    return Err(format!(
+                        "bound generated media {} has no pathway owner",
+                        generation.subject_id
+                    ));
+                }
+                continue;
+            };
+            if generation.generation_policy.is_empty() && snapshot_version < 14 {
+                generation.generation_policy = binding.clone();
+            }
+            if &generation.generation_policy != binding {
+                return Err(format!(
+                    "generated media {} policy binding differs from its pathway",
+                    generation.subject_id
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn validate_canonical_route_records(&self) -> Result<(), String> {
+        let mut expected = BTreeMap::<String, RouteRecordState>::new();
+        for exit in &active_content().exits {
+            let owner_pack_id = if exit.pack_id.is_empty() {
+                active_content().manifest.id.clone()
+            } else {
+                exit.pack_id.clone()
+            };
+            let id = match exit.directionality {
+                RouteDirectionality::Reciprocal => canonical_authored_route_id(
+                    &owner_pack_id,
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ),
+                RouteDirectionality::OneWay => canonical_one_way_route_id(
+                    &owner_pack_id,
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ),
+            };
+            let owner_pack_version = self.active_pack_version(&owner_pack_id);
+            expected
+                .entry(id.clone())
+                .or_insert_with(|| RouteRecordState {
+                    canonical_id: id.clone(),
+                    id,
+                    edges: Vec::new(),
+                    owner: format!("worldpack:{owner_pack_id}"),
+                    owner_pack_id,
+                    owner_pack_version,
+                    generation_policy: None,
+                    provenance: "authored_exit".to_string(),
+                    directionality: exit.directionality,
+                    fallback_location_id: exit.fallback_location_id,
+                    lifecycle: RouteLifecycle::Open,
+                    discovery: None,
+                    entity_version: 1,
+                })
+                .edges
+                .push(RouteEdgeState {
+                    from_location_id: exit.from_location_id,
+                    to_location_id: exit.to_location_id,
+                    flags: exit.flags,
+                });
+        }
+        for hidden in &active_content().hidden_exits {
+            let owner_pack_id = if hidden.pack_id.is_empty() {
+                active_content().manifest.id.clone()
+            } else {
+                hidden.pack_id.clone()
+            };
+            let id = canonical_hidden_route_id(&owner_pack_id, &hidden.id);
+            let record = RouteRecordState {
+                canonical_id: id.clone(),
+                id: id.clone(),
+                edges: vec![
+                    RouteEdgeState {
+                        from_location_id: hidden.from_location_id,
+                        to_location_id: hidden.to_location_id,
+                        flags: 0,
+                    },
+                    RouteEdgeState {
+                        from_location_id: hidden.to_location_id,
+                        to_location_id: hidden.from_location_id,
+                        flags: 0,
+                    },
+                ],
+                owner: format!("worldpack:{owner_pack_id}"),
+                owner_pack_version: self.active_pack_version(&owner_pack_id),
+                owner_pack_id,
+                generation_policy: None,
+                provenance: hidden.source.clone(),
+                directionality: RouteDirectionality::Reciprocal,
+                fallback_location_id: None,
+                lifecycle: RouteLifecycle::Latent,
+                discovery: None,
+                entity_version: 1,
+            };
+            if expected.insert(id.clone(), record).is_some() {
+                return Err(format!("canonical hidden route {id} aliases another route"));
+            }
+        }
+        for pathway in self.generated_pathways.values() {
+            let mut path = Vec::with_capacity(pathway.waypoints.len() + 2);
+            path.push(pathway.origin_location_id);
+            path.extend(pathway.waypoints.iter().map(|waypoint| waypoint.id));
+            path.push(pathway.destination_location_id);
+            for edge in path.windows(2) {
+                let id = generated_route_id(pathway, edge[0], edge[1]).ok_or_else(|| {
+                    format!(
+                        "generated pathway {} has an unknown route shape",
+                        pathway.id
+                    )
+                })?;
+                let record = RouteRecordState {
+                    canonical_id: id.clone(),
+                    id: id.clone(),
+                    edges: vec![
+                        RouteEdgeState {
+                            from_location_id: edge[0],
+                            to_location_id: edge[1],
+                            flags: 0,
+                        },
+                        RouteEdgeState {
+                            from_location_id: edge[1],
+                            to_location_id: edge[0],
+                            flags: 0,
+                        },
+                    ],
+                    owner: format!("worldpack:{}", pathway.owner_pack_id),
+                    owner_pack_id: pathway.owner_pack_id.clone(),
+                    owner_pack_version: pathway.owner_pack_version.clone(),
+                    generation_policy: Some(pathway.generation_policy.clone()),
+                    provenance: format!("generated_pathway:{}", pathway.id),
+                    directionality: RouteDirectionality::Reciprocal,
+                    fallback_location_id: None,
+                    lifecycle: RouteLifecycle::Latent,
+                    discovery: None,
+                    entity_version: 1,
+                };
+                if expected.insert(id.clone(), record).is_some() {
+                    return Err(format!(
+                        "canonical generated route {id} aliases another route"
+                    ));
+                }
+            }
+        }
+
+        for (storage_key, route) in &self.routes {
+            if storage_key != &route.id
+                || route.canonical_id.is_empty()
+                || route.id != route.canonical_id
+            {
+                return Err(format!(
+                    "route {} is not stored under one canonical identity",
+                    route.id
+                ));
+            }
+            let Some(expected_route) = expected.get(&route.id) else {
+                return Err(format!(
+                    "route {} is not a canonical authored, hidden, or generated route",
+                    route.id
+                ));
+            };
+            let mut actual_edges = route.edges.clone();
+            actual_edges
+                .sort_by_key(|edge| (edge.from_location_id, edge.to_location_id, edge.flags));
+            let mut expected_edges = expected_route.edges.clone();
+            expected_edges
+                .sort_by_key(|edge| (edge.from_location_id, edge.to_location_id, edge.flags));
+            if actual_edges != expected_edges
+                || route.owner != expected_route.owner
+                || route.owner_pack_id != expected_route.owner_pack_id
+                || route.owner_pack_version != expected_route.owner_pack_version
+                || route.provenance != expected_route.provenance
+                || route.directionality != expected_route.directionality
+                || route.fallback_location_id != expected_route.fallback_location_id
+            {
+                return Err(format!(
+                    "route {} does not match its canonical owner, provenance, endpoints, or directionality",
+                    route.id
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn pathway_for_anchors(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> Option<&GeneratedPathwayState> {
+        let (origin_location_id, destination_location_id) =
+            canonical_pathway_anchors(from_location_id, to_location_id);
+        self.generated_pathways.values().find(|pathway| {
+            pathway.origin_location_id == origin_location_id
+                && pathway.destination_location_id == destination_location_id
+        })
+    }
+
+    pub(super) fn generated_pathway_for_location(
+        &self,
+        location_id: u64,
+    ) -> Option<&GeneratedPathwayState> {
+        self.generated_pathways.values().find(|pathway| {
+            pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.id == location_id)
+        })
+    }
+
+    pub(super) fn normalize_generated_pathway_identity(
+        &self,
+        pathway: &mut GeneratedPathwayState,
+        allow_legacy_backfill: bool,
+        historical_bundle_hash: Option<&str>,
+    ) -> Result<(), String> {
+        pathway.way_class = PathwayWayClass::for_traffic(pathway.traffic_count);
+        if pathway.origin_location_id == pathway.destination_location_id
+            || !(2..=8).contains(&pathway.distance)
+            || pathway.waypoints.len() != usize::from(pathway.distance.saturating_sub(1))
+        {
+            return Err(format!(
+                "generated pathway {} has invalid distance or waypoint bounds",
+                pathway.id
+            ));
+        }
+        let mut declared_path = Vec::with_capacity(pathway.waypoints.len() + 2);
+        declared_path.push(pathway.origin_location_id);
+        declared_path.extend(pathway.waypoints.iter().map(|waypoint| waypoint.id));
+        declared_path.push(pathway.destination_location_id);
+        if pathway.revealed_edges.iter().any(|edge| {
+            parse_pathway_edge_key(edge).is_none_or(|(left, right)| {
+                !declared_path.windows(2).any(|segment| {
+                    (segment[0] == left && segment[1] == right)
+                        || (segment[0] == right && segment[1] == left)
+                })
+            })
+        }) {
+            return Err(format!(
+                "generated pathway {} reveals an edge outside its waypoint bounds",
+                pathway.id
+            ));
+        }
+        if pathway.identity_version > 1 {
+            return Err(format!(
+                "generated pathway {} has an unsupported identity version",
+                pathway.id
+            ));
+        }
+        let identity_is_incomplete = pathway.canonical_id.is_empty()
+            || pathway.source_route_id.is_empty()
+            || pathway.source_route_version == 0
+            || pathway.owner_pack_id.is_empty()
+            || pathway.owner_pack_version.is_empty()
+            || pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.canonical_id.is_empty());
+        let policy_is_incomplete = pathway.generation_policy.is_empty()
+            || pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.generation_policy.is_empty());
+        if pathway.identity_version == 0 {
+            let is_unversioned_shape = pathway.canonical_id.is_empty()
+                && pathway.source_route_id.is_empty()
+                && pathway.source_route_version == 0
+                && pathway.owner_pack_id.is_empty()
+                && pathway.owner_pack_version.is_empty()
+                && pathway
+                    .waypoints
+                    .iter()
+                    .all(|waypoint| waypoint.canonical_id.is_empty());
+            if (identity_is_incomplete && (!allow_legacy_backfill || !is_unversioned_shape))
+                || (policy_is_incomplete && !allow_legacy_backfill)
+            {
+                return Err(format!(
+                    "generated pathway {} has incomplete current identity metadata",
+                    pathway.id
+                ));
+            }
+        } else if identity_is_incomplete || (policy_is_incomplete && !allow_legacy_backfill) {
+            return Err(format!(
+                "generated pathway {} has incomplete current identity metadata",
+                pathway.id
+            ));
+        }
+
+        let source_route = self
+            .routes
+            .values()
+            .find(|route| {
+                route.provenance == "authored_exit"
+                    && route
+                        .contains_edge(pathway.origin_location_id, pathway.destination_location_id)
+            })
+            .ok_or_else(|| {
+                format!(
+                    "generated pathway {} has no canonical authored source route",
+                    pathway.id
+                )
+            })?;
+        if source_route.canonical_id.is_empty()
+            || source_route.owner_pack_id.is_empty()
+            || source_route.owner_pack_version.is_empty()
+        {
+            return Err(format!(
+                "generated pathway {} source route has incomplete ownership",
+                pathway.id
+            ));
+        }
+        if pathway.source_route_id.is_empty() {
+            pathway.source_route_id = source_route.canonical_id.clone();
+        } else if pathway.source_route_id != source_route.canonical_id {
+            return Err(format!(
+                "generated pathway {} source route identity changed",
+                pathway.id
+            ));
+        }
+        if pathway.source_route_version == 0 {
+            pathway.source_route_version = source_route.entity_version;
+        } else if pathway.source_route_version > source_route.entity_version {
+            return Err(format!(
+                "generated pathway {} references a future source route version",
+                pathway.id
+            ));
+        }
+        if pathway.owner_pack_id.is_empty() {
+            pathway.owner_pack_id = source_route.owner_pack_id.clone();
+        } else if pathway.owner_pack_id != source_route.owner_pack_id {
+            return Err(format!(
+                "generated pathway {} owner pack changed",
+                pathway.id
+            ));
+        }
+        if pathway.owner_pack_version.is_empty() {
+            pathway.owner_pack_version = source_route.owner_pack_version.clone();
+        } else if pathway.owner_pack_version != source_route.owner_pack_version {
+            if pathway.generation_policy.is_empty() {
+                return Err(format!(
+                    "generated pathway {} has no policy binding for pack upgrade",
+                    pathway.id
+                ));
+            }
+            generation_policy_allows_upgrade(
+                &pathway.generation_policy,
+                &source_route.owner_pack_version,
+            )?;
+        }
+        if pathway.generation_policy.is_empty() {
+            if !allow_legacy_backfill {
+                return Err(format!(
+                    "generated pathway {} has no generation policy binding",
+                    pathway.id
+                ));
+            }
+            pathway.generation_policy = legacy_generated_policy_binding(
+                &pathway.owner_pack_id,
+                &pathway.owner_pack_version,
+                &active_content().manifest.id,
+                historical_bundle_hash
+                    .ok_or_else(|| "legacy pathway migration has no bundle identity".to_string())?,
+            );
+        }
+        if pathway.generation_policy.owner_pack_id != pathway.owner_pack_id
+            || pathway.generation_policy.owner_pack_version != pathway.owner_pack_version
+        {
+            return Err(format!(
+                "generated pathway {} policy binding ownership changed",
+                pathway.id
+            ));
+        }
+        validate_generated_policy_binding(&pathway.generation_policy)?;
+        let expected_pathway_id = format!(
+            "generated-pathway:{}@{}",
+            pathway.source_route_id, pathway.source_route_version
+        );
+        if pathway.canonical_id.is_empty() {
+            pathway.canonical_id = expected_pathway_id.clone();
+        } else if pathway.canonical_id != expected_pathway_id {
+            return Err(format!(
+                "generated pathway {} canonical identity changed",
+                pathway.id
+            ));
+        }
+        if pathway.identity_version == 1 && pathway.id != pathway.canonical_id {
+            return Err(format!(
+                "generated pathway {} does not use its canonical identity",
+                pathway.id
+            ));
+        }
+
+        let mut local_handles = BTreeSet::new();
+        for (index, waypoint) in pathway.waypoints.iter_mut().enumerate() {
+            let expected_canonical_id =
+                generated_waypoint_canonical_id(&pathway.canonical_id, index);
+            if waypoint.canonical_id.is_empty() {
+                waypoint.canonical_id = expected_canonical_id.clone();
+            } else if waypoint.canonical_id != expected_canonical_id {
+                return Err(format!(
+                    "generated waypoint {} canonical identity changed",
+                    waypoint.id
+                ));
+            }
+            if waypoint.generation_policy.is_empty() && allow_legacy_backfill {
+                waypoint.generation_policy = pathway.generation_policy.clone();
+            }
+            if waypoint.generation_policy != pathway.generation_policy {
+                return Err(format!(
+                    "generated waypoint {} policy binding differs from its pathway",
+                    waypoint.id
+                ));
+            }
+            if pathway.identity_version == 1
+                && waypoint.id != generated_pathway_location_id(&waypoint.canonical_id)
+            {
+                return Err(format!(
+                    "generated waypoint {} does not match its canonical identity",
+                    waypoint.id
+                ));
+            }
+            if !local_handles.insert(waypoint.id) {
+                return Err(format!(
+                    "generated pathway {} aliases waypoint handle {}",
+                    pathway.id, waypoint.id
+                ));
+            }
+            if self
+                .canonical_identities
+                .location_refs
+                .get(&waypoint.id)
+                .is_some_and(|canonical_id| canonical_id != &waypoint.canonical_id)
+            {
+                return Err(format!(
+                    "generated waypoint {} collides with another canonical location",
+                    waypoint.id
+                ));
+            }
+            if active_content()
+                .locations
+                .iter()
+                .any(|location| location.id == waypoint.id)
+            {
+                return Err(format!(
+                    "generated waypoint {} collides with an authored location",
+                    waypoint.id
+                ));
+            }
+            let existing_claim = self.generated_pathways.values().find_map(|existing| {
+                existing
+                    .waypoints
+                    .iter()
+                    .find(|candidate| candidate.id == waypoint.id)
+                    .map(|candidate| (existing.id.as_str(), candidate.canonical_id.as_str()))
+            });
+            if let Some((existing_pathway_id, existing_canonical_id)) = existing_claim {
+                let same_pathway = existing_pathway_id == pathway.id;
+                let same_identity = !existing_canonical_id.is_empty()
+                    && existing_canonical_id == waypoint.canonical_id;
+                if !same_pathway && !same_identity {
+                    return Err(format!(
+                        "generated waypoint {} collides with pathway {}",
+                        waypoint.id, existing_pathway_id
+                    ));
+                }
+            } else if self.world.locations[..self.world.location_count]
+                .iter()
+                .any(|location| location.id == waypoint.id)
+            {
+                return Err(format!(
+                    "generated waypoint {} collides with an unowned runtime location",
+                    waypoint.id
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_journey_topology(&self) -> Result<(), String> {
+        for (actor_id, journey) in &self.journeys {
+            if actor_id != &journey.actor_id || journey.current_step >= journey.path.len() {
+                return Err(format!("journey for actor {actor_id} has invalid bounds"));
+            }
+            let pathway = self
+                .generated_pathways
+                .get(&journey.pathway_id)
+                .ok_or_else(|| format!("journey for actor {actor_id} has no canonical pathway"))?;
+            let mut expected = Vec::with_capacity(pathway.waypoints.len() + 2);
+            expected.push(pathway.origin_location_id);
+            expected.extend(pathway.waypoints.iter().map(|waypoint| waypoint.id));
+            expected.push(pathway.destination_location_id);
+            let reverse = expected.iter().copied().rev().collect::<Vec<_>>();
+            if journey.path != expected && journey.path != reverse {
+                return Err(format!(
+                    "journey for actor {actor_id} escapes its canonical pathway"
+                ));
+            }
+            if journey.path.first().copied() != Some(journey.origin_location_id)
+                || journey.path.last().copied() != Some(journey.destination_location_id)
+            {
+                return Err(format!(
+                    "journey for actor {actor_id} has inconsistent endpoints"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn validate_generated_pathway_identity_claims(&self) -> Result<(), String> {
+        let mut pathway_claims = BTreeSet::new();
+        let mut waypoint_identity_claims = BTreeSet::new();
+        let mut waypoint_handle_claims = BTreeSet::new();
+        for (storage_key, pathway) in &self.generated_pathways {
+            if storage_key != &pathway.id {
+                return Err(format!(
+                    "generated pathway storage key {} aliases {}",
+                    storage_key, pathway.id
+                ));
+            }
+            if !pathway_claims.insert(pathway.canonical_id.as_str()) {
+                return Err(format!(
+                    "generated pathway {} aliases canonical pathway {}",
+                    pathway.id, pathway.canonical_id
+                ));
+            }
+            for waypoint in &pathway.waypoints {
+                if !waypoint_identity_claims.insert(waypoint.canonical_id.as_str()) {
+                    return Err(format!(
+                        "generated pathway {} aliases canonical waypoint {}",
+                        pathway.id, waypoint.canonical_id
+                    ));
+                }
+                if !waypoint_handle_claims.insert(waypoint.id) {
+                    return Err(format!(
+                        "generated pathway {} aliases waypoint handle {}",
+                        pathway.id, waypoint.id
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn migrate_legacy_generated_route_records(
+        &mut self,
+        pathway: &GeneratedPathwayState,
+    ) -> Result<(), String> {
+        let provenance = format!("generated_pathway:{}", pathway.id);
+        let legacy_route_ids = self
+            .routes
+            .iter()
+            .filter(|(route_id, route)| {
+                route_id.starts_with("route:generated:") && route.provenance == provenance
+            })
+            .map(|(route_id, _)| route_id.clone())
+            .collect::<Vec<_>>();
+        let mut path = Vec::with_capacity(pathway.waypoints.len() + 2);
+        path.push(pathway.origin_location_id);
+        path.extend(pathway.waypoints.iter().map(|waypoint| waypoint.id));
+        path.push(pathway.destination_location_id);
+        let mut migrations = Vec::new();
+        let mut canonical_route_claims = BTreeSet::new();
+        for legacy_route_id in legacy_route_ids {
+            let route = self
+                .routes
+                .get(&legacy_route_id)
+                .expect("collected legacy route remains present");
+            let matching_segments = path
+                .windows(2)
+                .filter(|edge| {
+                    route.contains_edge(edge[0], edge[1]) && route.contains_edge(edge[1], edge[0])
+                })
+                .collect::<Vec<_>>();
+            if matching_segments.len() != 1 {
+                return Err(format!(
+                    "legacy generated route {} does not identify one pathway segment",
+                    legacy_route_id
+                ));
+            }
+            let edge = matching_segments[0];
+            let canonical_route_id = generated_route_id(pathway, edge[0], edge[1])
+                .ok_or_else(|| format!("cannot canonicalize route {legacy_route_id}"))?;
+            if legacy_route_id != canonical_route_id
+                && self.routes.contains_key(&canonical_route_id)
+            {
+                return Err(format!(
+                    "legacy generated route {} aliases canonical route {}",
+                    legacy_route_id, canonical_route_id
+                ));
+            }
+            if !canonical_route_claims.insert(canonical_route_id.clone()) {
+                return Err(format!(
+                    "legacy generated route {} aliases canonical route {}",
+                    legacy_route_id, canonical_route_id
+                ));
+            }
+            migrations.push((legacy_route_id, canonical_route_id));
+        }
+        for (legacy_route_id, canonical_route_id) in migrations {
+            let mut route = self
+                .routes
+                .remove(&legacy_route_id)
+                .expect("validated legacy route remains present");
+            route.id = canonical_route_id.clone();
+            route.canonical_id = canonical_route_id.clone();
+            route.owner = format!("worldpack:{}", pathway.owner_pack_id);
+            route.owner_pack_id = pathway.owner_pack_id.clone();
+            route.owner_pack_version = pathway.owner_pack_version.clone();
+            route.generation_policy = Some(pathway.generation_policy.clone());
+            self.routes.insert(canonical_route_id, route);
+        }
+        Ok(())
+    }
+
+    fn generated_pathway_identity_is_compatible(
+        &self,
+        pathway: &GeneratedPathwayState,
+        allow_legacy_backfill: bool,
+        historical_bundle_hash: Option<&str>,
+    ) -> bool {
+        let mut normalized = pathway.clone();
+        self.normalize_generated_pathway_identity(
+            &mut normalized,
+            allow_legacy_backfill,
+            historical_bundle_hash,
+        )
+        .is_ok()
+    }
+
+    pub(super) fn generated_pathway(
+        &self,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+        distance: u8,
+    ) -> Result<GeneratedPathwayState, String> {
+        let (origin_location_id, destination_location_id) =
+            canonical_pathway_anchors(from_location_id, to_location_id);
+        let source_route = self
+            .routes
+            .values()
+            .find(|route| {
+                route.provenance == "authored_exit"
+                    && route.contains_edge(origin_location_id, destination_location_id)
+            })
+            .ok_or_else(|| {
+                format!(
+                    "no canonical authored route owns {origin_location_id}->{destination_location_id}"
+                )
+            })?;
+        if source_route.canonical_id.is_empty()
+            || source_route.owner_pack_id.is_empty()
+            || source_route.owner_pack_version.is_empty()
+        {
+            return Err("the canonical route has incomplete ownership metadata".to_string());
+        }
+        let origin_name = self
+            .location_name(origin_location_id)
+            .unwrap_or_else(|| "one known place".to_string());
+        let destination_name = self
+            .location_name(destination_location_id)
+            .unwrap_or_else(|| "another known place".to_string());
+        let origin_meta = self.location_meta_for(origin_location_id);
+        let destination_meta = self.location_meta_for(destination_location_id);
+        let pathway_id = generated_pathway_canonical_id(source_route);
+        let generation_policy =
+            generated_policy_binding(source_route, origin_location_id, destination_location_id)?;
+        let seed = stable_pathway_hash(&pathway_id);
+        let waypoint_count = usize::from(distance.saturating_sub(1));
+        let names = [
+            "Lantern Bend",
+            "Mossy Verge",
+            "Rain-Silver Crossing",
+            "Foxglove Turn",
+            "Quiet Rise",
+            "Bramble Mile",
+        ];
+        let route_name_prefix = format!(
+            "{}-{}",
+            pathway_anchor_name_token(&origin_name),
+            pathway_anchor_name_token(&destination_name),
+        );
+        let waypoints = (0..waypoint_count)
+            .map(|index| {
+                let landmark_name = format!(
+                    "{route_name_prefix} {}",
+                    names[(seed as usize + index) % names.len()]
+                );
+                let canonical_id = generated_waypoint_canonical_id(&pathway_id, index);
+                let id = generated_pathway_location_id(&canonical_id);
+                let art_prompt = format!(
+                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no characters, no creatures, no text, no logo, no watermark",
+                    step = index + 1,
+                    origin_biome = origin_meta.biome,
+                    destination_biome = destination_meta.biome,
+                    origin = origin_meta.description,
+                    destination = destination_meta.description,
+                );
+                let terrain = interpolated_pathway_terrain(
+                    &origin_meta,
+                    &destination_meta,
+                    index,
+                    waypoint_count,
+                );
+                let environment = interpolated_environment_profile(
+                    &origin_meta.environment,
+                    &destination_meta.environment,
+                    index,
+                    waypoint_count,
+                );
+                let natural_potentials = generated_potential_rules(&environment);
+                let terrain_phrase = terrain
+                    .iter()
+                    .take(3)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let description = format!(
+                    "At {landmark_name}, {terrain_phrase} mark a half-known stretch between {origin_name} and {destination_name}; weather and footprints are still deciding what belongs."
+                );
+                GeneratedWaypointState {
+                    id,
+                    canonical_id,
+                    name: landmark_name.clone(),
+                    meta: LocationMeta {
+                        title: "Newly Found Path".to_string(),
+                        description,
+                        persona: format!(
+                            "{landmark_name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
+                        ),
+                        memory: vec![format!(
+                            "An Explorer first drew this path between {origin_name} and {destination_name}."
+                        )],
+                        biome: format!("{} to {}", origin_meta.biome, destination_meta.biome),
+                        terrain,
+                        environment,
+                        natural_potentials,
+                        image_url: Some(format!("/assets/generated/pathways/{id}.svg")),
+                        art_prompt: Some(art_prompt),
+                    },
+                    generation_policy: generation_policy.clone(),
+                }
+            })
+            .collect();
+        let pathway = GeneratedPathwayState {
+            id: pathway_id.clone(),
+            identity_version: 1,
+            canonical_id: pathway_id,
+            source_route_id: source_route.canonical_id.clone(),
+            source_route_version: source_route.entity_version,
+            owner_pack_id: source_route.owner_pack_id.clone(),
+            owner_pack_version: source_route.owner_pack_version.clone(),
+            generation_policy,
+            origin_location_id,
+            destination_location_id,
+            distance,
+            created_by_actor_id: actor_id,
+            way_class: PathwayWayClass::Route,
+            traffic_count: 0,
+            waypoints,
+            generation: GenerationProvenance {
+                source: "deterministic_fallback".to_string(),
+                feature: PATHWAY_CONTENT_FEATURE.to_string(),
+                policy_mode: "fallback".to_string(),
+                prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+                provider: "none".to_string(),
+                model: "none".to_string(),
+                model_attribution: None,
+                attempts: 0,
+            },
+            revealed_edges: BTreeSet::new(),
+            art_eligible: distance >= 2,
+            familiar: false,
+        };
+        if !self.generated_pathway_identity_is_compatible(&pathway, false, None) {
+            return Err("generated pathway identity or numeric handle collides".to_string());
+        }
+        Ok(pathway)
+    }
+
     fn reconcile_route_record(&mut self, mut proposed: RouteRecordState) {
         proposed
             .edges
@@ -91,28 +1176,68 @@ impl RuntimeWorld {
             self.routes.insert(proposed.id.clone(), proposed);
             return;
         };
+        let metadata_backfill = current.canonical_id.is_empty()
+            && current.owner_pack_id.is_empty()
+            && current.owner_pack_version.is_empty();
         let structure_changed = current.edges != proposed.edges
+            || current.canonical_id != proposed.canonical_id
             || current.owner != proposed.owner
-            || current.provenance != proposed.provenance;
+            || current.owner_pack_id != proposed.owner_pack_id
+            || current.owner_pack_version != proposed.owner_pack_version
+            || current.generation_policy != proposed.generation_policy
+            || current.provenance != proposed.provenance
+            || current.directionality != proposed.directionality
+            || current.fallback_location_id != proposed.fallback_location_id;
         if structure_changed {
             current.edges = proposed.edges;
+            current.canonical_id = proposed.canonical_id;
             current.owner = proposed.owner;
+            current.owner_pack_id = proposed.owner_pack_id;
+            current.owner_pack_version = proposed.owner_pack_version;
+            current.generation_policy = proposed.generation_policy;
             current.provenance = proposed.provenance;
-            current.entity_version = current.entity_version.saturating_add(1).max(1);
+            current.directionality = proposed.directionality;
+            current.fallback_location_id = proposed.fallback_location_id;
+            if !metadata_backfill {
+                current.entity_version = current.entity_version.saturating_add(1).max(1);
+            }
         }
     }
 
     pub(super) fn ensure_authored_route_records(&mut self) {
         let mut records = BTreeMap::<String, RouteRecordState>::new();
         for exit in &active_content().exits {
-            let id = authored_route_id(exit.from_location_id, exit.to_location_id);
+            let owner_pack_id = if exit.pack_id.is_empty() {
+                active_content().manifest.id.clone()
+            } else {
+                exit.pack_id.clone()
+            };
+            let id = match exit.directionality {
+                RouteDirectionality::Reciprocal => canonical_authored_route_id(
+                    &owner_pack_id,
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ),
+                RouteDirectionality::OneWay => canonical_one_way_route_id(
+                    &owner_pack_id,
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ),
+            };
+            let owner_pack_version = self.active_pack_version(&owner_pack_id);
             records
                 .entry(id.clone())
                 .or_insert_with(|| RouteRecordState {
+                    canonical_id: id.clone(),
                     id,
                     edges: Vec::new(),
-                    owner: format!("worldpack:{}", active_content().manifest.id),
+                    owner: format!("worldpack:{owner_pack_id}"),
+                    owner_pack_id,
+                    owner_pack_version,
+                    generation_policy: None,
                     provenance: "authored_exit".to_string(),
+                    directionality: exit.directionality,
+                    fallback_location_id: exit.fallback_location_id,
                     lifecycle: RouteLifecycle::Open,
                     discovery: None,
                     entity_version: 1,
@@ -131,8 +1256,16 @@ impl RuntimeWorld {
 
     pub(super) fn ensure_hidden_route_records(&mut self) {
         for hidden in &active_content().hidden_exits {
+            let owner_pack_id = if hidden.pack_id.is_empty() {
+                active_content().manifest.id.clone()
+            } else {
+                hidden.pack_id.clone()
+            };
+            let owner_pack_version = self.active_pack_version(&owner_pack_id);
+            let id = canonical_hidden_route_id(&owner_pack_id, &hidden.id);
             self.reconcile_route_record(RouteRecordState {
-                id: hidden_route_id(&hidden.id),
+                canonical_id: id.clone(),
+                id,
                 edges: vec![
                     RouteEdgeState {
                         from_location_id: hidden.from_location_id,
@@ -145,8 +1278,13 @@ impl RuntimeWorld {
                         flags: 0,
                     },
                 ],
-                owner: format!("worldpack:{}", active_content().manifest.id),
+                owner: format!("worldpack:{owner_pack_id}"),
+                owner_pack_id,
+                owner_pack_version,
+                generation_policy: None,
                 provenance: hidden.source.clone(),
+                directionality: RouteDirectionality::Reciprocal,
+                fallback_location_id: None,
                 lifecycle: RouteLifecycle::Latent,
                 discovery: None,
                 entity_version: 1,
@@ -173,12 +1311,11 @@ impl RuntimeWorld {
             } else {
                 RouteLifecycle::Latent
             };
-            let id = generated_route_id(&pathway.id, from_location_id, to_location_id);
-            let owner = self
-                .canonical_ref("actor", pathway.created_by_actor_id)
-                .map(ToString::to_string)
-                .unwrap_or_else(|| format!("actor:{}", pathway.created_by_actor_id));
+            let Some(id) = generated_route_id(pathway, from_location_id, to_location_id) else {
+                continue;
+            };
             self.reconcile_route_record(RouteRecordState {
+                canonical_id: id.clone(),
                 id,
                 edges: vec![
                     RouteEdgeState {
@@ -192,8 +1329,13 @@ impl RuntimeWorld {
                         flags: 0,
                     },
                 ],
-                owner,
+                owner: format!("worldpack:{}", pathway.owner_pack_id),
+                owner_pack_id: pathway.owner_pack_id.clone(),
+                owner_pack_version: pathway.owner_pack_version.clone(),
+                generation_policy: Some(pathway.generation_policy.clone()),
                 provenance: format!("generated_pathway:{}", pathway.id),
+                directionality: RouteDirectionality::Reciprocal,
+                fallback_location_id: None,
                 lifecycle,
                 discovery: None,
                 entity_version: 1,
@@ -302,11 +1444,25 @@ impl RuntimeWorld {
                 .find(|event| event.seq == event_seq)
                 .and_then(|event| event.actor_id)
                 .unwrap_or(0);
-            discoveries
-                .entry(authored_route_id(
+            let owner_pack_id = if exit.pack_id.is_empty() {
+                active_content().manifest.id.as_str()
+            } else {
+                exit.pack_id.as_str()
+            };
+            let route_id = match exit.directionality {
+                RouteDirectionality::Reciprocal => canonical_authored_route_id(
+                    owner_pack_id,
                     exit.from_location_id,
                     exit.to_location_id,
-                ))
+                ),
+                RouteDirectionality::OneWay => canonical_one_way_route_id(
+                    owner_pack_id,
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ),
+            };
+            discoveries
+                .entry(route_id)
                 .or_insert_with(|| RouteDiscoveryState {
                     actor_id,
                     event_seq,
@@ -328,8 +1484,13 @@ impl RuntimeWorld {
                 .find(|event| event.seq == event_seq)
                 .and_then(|event| event.actor_id)
                 .unwrap_or(0);
+            let owner_pack_id = if hidden_exit.pack_id.is_empty() {
+                active_content().manifest.id.as_str()
+            } else {
+                hidden_exit.pack_id.as_str()
+            };
             discoveries
-                .entry(hidden_route_id(&hidden_exit.id))
+                .entry(canonical_hidden_route_id(owner_pack_id, &hidden_exit.id))
                 .or_insert_with(|| RouteDiscoveryState {
                     actor_id,
                     event_seq,
@@ -387,10 +1548,60 @@ impl RuntimeWorld {
             .find(|route| route.contains_edge(from_location_id, to_location_id))
     }
 
+    fn route_for_hidden_exit(&self, hidden_exit_id: &str) -> Option<&RouteRecordState> {
+        active_content()
+            .hidden_exits
+            .iter()
+            .find(|hidden| hidden.id == hidden_exit_id)
+            .and_then(|hidden| {
+                let owner_pack_id = if hidden.pack_id.is_empty() {
+                    active_content().manifest.id.as_str()
+                } else {
+                    hidden.pack_id.as_str()
+                };
+                self.routes
+                    .get(&canonical_hidden_route_id(owner_pack_id, hidden_exit_id))
+            })
+    }
+
+    fn route_for_persisted_id(&self, route_id: &str) -> Option<&RouteRecordState> {
+        if let Some(route) = self.routes.get(route_id) {
+            return Some(route);
+        }
+        if let Some(hidden_exit_id) = route_id.strip_prefix("route:hidden:") {
+            return self.route_for_hidden_exit(hidden_exit_id);
+        }
+        if let Some(endpoints) = route_id.strip_prefix("route:authored:") {
+            let mut parts = endpoints.split(':');
+            let left = parts.next()?.parse::<u64>().ok()?;
+            let right = parts.next()?.parse::<u64>().ok()?;
+            if parts.next().is_some() {
+                return None;
+            }
+            return self.routes.values().find(|route| {
+                route.provenance == "authored_exit"
+                    && (route.contains_edge(left, right) || route.contains_edge(right, left))
+            });
+        }
+        if route_id.starts_with("route:generated:") {
+            let mut parts = route_id.rsplit(':');
+            let right = parts.next()?.parse::<u64>().ok()?;
+            let left = parts.next()?.parse::<u64>().ok()?;
+            return self.routes.values().find(|route| {
+                route.provenance.starts_with("generated_pathway:")
+                    && route.contains_edge(left, right)
+                    && route.contains_edge(right, left)
+            });
+        }
+        None
+    }
+
     fn binding_for_route(route: &RouteRecordState) -> RouteOfferBinding {
         RouteOfferBinding {
             route_id: route.id.clone(),
             route_version: route.entity_version,
+            directionality: route.directionality,
+            fallback_location_id: route.fallback_location_id,
         }
     }
 
@@ -421,8 +1632,7 @@ impl RuntimeWorld {
     }
 
     pub(super) fn route_binding_is_current(&self, binding: &RouteOfferBinding) -> bool {
-        self.routes
-            .get(&binding.route_id)
+        self.route_for_persisted_id(&binding.route_id)
             .is_some_and(|route| route.entity_version == binding.route_version)
     }
 
@@ -432,7 +1642,13 @@ impl RuntimeWorld {
         expected_version: u64,
         lifecycle: RouteLifecycle,
     ) -> bool {
-        let Some(route) = self.routes.get_mut(route_id) else {
+        let Some(canonical_route_id) = self
+            .route_for_persisted_id(route_id)
+            .map(|route| route.id.clone())
+        else {
+            return false;
+        };
+        let Some(route) = self.routes.get_mut(&canonical_route_id) else {
             return false;
         };
         if route.lifecycle == lifecycle {
@@ -455,8 +1671,7 @@ impl RuntimeWorld {
         reason: &str,
     ) -> Option<EventView> {
         let changed = self
-            .routes
-            .get(route_id)
+            .route_for_persisted_id(route_id)
             .is_some_and(|route| route.lifecycle != lifecycle);
         if !self.transition_route(route_id, expected_version, lifecycle) {
             return None;
@@ -479,10 +1694,25 @@ impl RuntimeWorld {
     }
 
     pub(super) fn open_hidden_route(&mut self, hidden_exit_id: &str) {
-        let route_id = hidden_route_id(hidden_exit_id);
+        let Some(hidden) = active_content()
+            .hidden_exits
+            .iter()
+            .find(|hidden| hidden.id == hidden_exit_id)
+        else {
+            return;
+        };
+        let owner_pack_id = if hidden.pack_id.is_empty() {
+            active_content().manifest.id.as_str()
+        } else {
+            hidden.pack_id.as_str()
+        };
+        let route_id = canonical_hidden_route_id(owner_pack_id, hidden_exit_id);
         let Some(route) = self.routes.get(&route_id) else {
             return;
         };
+        if route.lifecycle != RouteLifecycle::Latent {
+            return;
+        }
         let version = route.entity_version;
         self.transition_route(&route_id, version, RouteLifecycle::Open);
     }
@@ -494,10 +1724,15 @@ impl RuntimeWorld {
         to_location_id: u64,
     ) {
         self.ensure_generated_pathway_route_records(pathway);
-        let route_id = generated_route_id(&pathway.id, from_location_id, to_location_id);
+        let Some(route_id) = generated_route_id(pathway, from_location_id, to_location_id) else {
+            return;
+        };
         let Some(route) = self.routes.get(&route_id) else {
             return;
         };
+        if route.lifecycle != RouteLifecycle::Latent {
+            return;
+        }
         let version = route.entity_version;
         self.transition_route(&route_id, version, RouteLifecycle::Open);
     }
@@ -531,6 +1766,22 @@ impl RuntimeWorld {
     }
 
     pub(super) fn route_record_preconditions_hold(&self, record: &JournalRecord) -> bool {
+        if !record
+            .projection_mutations
+            .iter()
+            .all(|mutation| match mutation {
+                ProjectionMutation::JourneyTransition { pathway, .. }
+                | ProjectionMutation::RefinePathway { pathway } => self
+                    .generated_pathway_identity_is_compatible(
+                        pathway,
+                        record.version < JOURNAL_RECORD_VERSION,
+                        Some(&record.worldpack_bundle_hash),
+                    ),
+                _ => true,
+            })
+        {
+            return false;
+        }
         if record
             .route_binding
             .as_ref()
@@ -542,10 +1793,11 @@ impl RuntimeWorld {
             let ProjectionMutation::SetRouteLifecycle(transition) = mutation else {
                 return true;
             };
-            self.routes.get(&transition.route_id).is_some_and(|route| {
-                route.lifecycle == transition.lifecycle
-                    || route.entity_version == transition.expected_version
-            })
+            self.route_for_persisted_id(&transition.route_id)
+                .is_some_and(|route| {
+                    route.lifecycle == transition.lifecycle
+                        || route.entity_version == transition.expected_version
+                })
         })
     }
 
@@ -585,8 +1837,7 @@ impl RuntimeWorld {
                         .route_for_edge_in_any_lifecycle(*from_location_id, *to_location_id)
                         .map(Self::binding_for_route),
                     ProjectionMutation::DiscoverHiddenExit { hidden_exit_id, .. } => self
-                        .routes
-                        .get(&hidden_route_id(hidden_exit_id))
+                        .route_for_hidden_exit(hidden_exit_id)
                         .map(Self::binding_for_route),
                     ProjectionMutation::RendezvousActor {
                         actor_id,
@@ -620,6 +1871,40 @@ impl RuntimeWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn legacy_pathway(
+        runtime: &RuntimeWorld,
+        origin_location_id: u64,
+        destination_location_id: u64,
+        distance: u8,
+        legacy_id: &str,
+    ) -> GeneratedPathwayState {
+        let mut pathway = runtime
+            .generated_pathway(
+                RATI_ACTOR_ID,
+                origin_location_id,
+                destination_location_id,
+                distance,
+            )
+            .expect("canonical source route");
+        pathway.id = legacy_id.to_string();
+        pathway.identity_version = 0;
+        pathway.canonical_id.clear();
+        pathway.source_route_id.clear();
+        pathway.source_route_version = 0;
+        pathway.owner_pack_id.clear();
+        pathway.owner_pack_version.clear();
+        pathway.generation_policy = GeneratedPolicyBinding::default();
+        for (index, waypoint) in pathway.waypoints.iter_mut().enumerate() {
+            waypoint.id = GENERATED_PATHWAY_LOCATION_ID_BASE
+                + (stable_pathway_hash(legacy_id) % 10_000) * 16
+                + index as u64;
+            waypoint.canonical_id.clear();
+            waypoint.generation_policy = GeneratedPolicyBinding::default();
+        }
+        pathway.revealed_edges.clear();
+        pathway
+    }
 
     #[test]
     fn canonical_routes_compile_kernel_exits_and_survive_snapshot() {
@@ -703,26 +1988,27 @@ mod tests {
     #[test]
     fn memory_decay_never_changes_shared_topology() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.search_memories.insert(
-            "route-memory".to_string(),
-            SearchMemoryState {
-                id: "route-memory".to_string(),
-                actor_id: RATI_ACTOR_ID,
-                kind: "exit".to_string(),
+        merge_belief(
+            &mut runtime.beliefs,
+            BeliefState {
+                id: String::new(),
+                holder_actor_id: RATI_ACTOR_ID,
+                kind: BELIEF_KIND_SEED_EXIT.to_string(),
                 location_id: COSY_COTTAGE_LOCATION_ID,
                 subject_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-                subject_key: "exit:1:2".to_string(),
                 confidence: 1,
                 salience: 1,
-                found_tick: 0,
-                last_used_tick: 0,
-                use_count: 0,
+                observed_tick: 1,
+                source_actor_id: Some(RATI_ACTOR_ID),
+                related_actor_id: None,
+                learned_tick: 1,
+                hops: 0,
             },
         );
         let routes = runtime.routes.clone();
         let exits = runtime.world.exits[..runtime.world.exit_count].to_vec();
-        runtime.world.tick = SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64;
-        runtime.decay_search_memories();
+        runtime.world.tick = BELIEF_TUNING.decay_interval_ticks * 64;
+        runtime.decay_beliefs();
         assert_eq!(runtime.routes, routes);
         assert_eq!(&runtime.world.exits[..runtime.world.exit_count], exits);
     }
@@ -773,8 +2059,8 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
+        runtime.decay_beliefs();
 
         assert!(
             runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
@@ -933,5 +2219,728 @@ mod tests {
         assert_eq!(discovery.actor_id, RATI_ACTOR_ID);
         assert!(discovery.event_seq > 0);
         assert_eq!(discovery.reason, "legacy_discovery_tag");
+    }
+
+    #[test]
+    fn generated_waypoint_allocation_is_mount_order_stable_and_collision_safe() {
+        let mut first_order = RuntimeWorld::seeded();
+        let core_pathway = first_order
+            .generated_pathway(RATI_ACTOR_ID, 3, 50, 3)
+            .expect("Core owns its long route");
+        first_order
+            .generated_pathways
+            .insert(core_pathway.id.clone(), core_pathway.clone());
+        let bridge_pathway = first_order
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .expect("the composition bridge owns its long route");
+
+        let mut reverse_order = RuntimeWorld::seeded();
+        let bridge_first = reverse_order
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .expect("the bridge route allocates first");
+        reverse_order
+            .generated_pathways
+            .insert(bridge_first.id.clone(), bridge_first.clone());
+        let core_second = reverse_order
+            .generated_pathway(RATI_ACTOR_ID, 3, 50, 3)
+            .expect("the Core route allocates second");
+
+        assert_eq!(core_pathway.id, core_second.id);
+        assert_eq!(core_pathway.canonical_id, core_second.canonical_id);
+        assert_eq!(
+            core_pathway
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>(),
+            core_second
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(bridge_pathway.id, bridge_first.id);
+        assert_eq!(
+            bridge_pathway
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>(),
+            bridge_first
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>()
+        );
+
+        let mut collision_runtime = RuntimeWorld::seeded();
+        let target = collision_runtime
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .expect("target pathway");
+        let mut blocker = collision_runtime
+            .generated_pathway(RATI_ACTOR_ID, 3, 50, 3)
+            .expect("blocker pathway");
+        blocker.waypoints[0].id = target.waypoints[0].id;
+        collision_runtime
+            .generated_pathways
+            .insert(blocker.id.clone(), blocker);
+        assert!(collision_runtime
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .is_err());
+        assert!(!collision_runtime
+            .generated_pathways
+            .contains_key(&target.id));
+
+        let mut canonical_collision = RuntimeWorld::seeded();
+        canonical_collision
+            .canonical_identities
+            .location_refs
+            .insert(
+                target.waypoints[0].id,
+                "opaque://another-location".to_string(),
+            );
+        assert!(canonical_collision
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .is_err());
+    }
+
+    #[test]
+    fn cross_pack_generated_subgraph_keeps_composition_ownership() {
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .expect("cross-pack long route");
+        assert_eq!(pathway.owner_pack_id, "cosyworld.composition.core-ruby");
+        assert_eq!(pathway.owner_pack_version, "1.0.1");
+        assert!(pathway
+            .source_route_id
+            .starts_with("route://cosyworld.composition.core-ruby/"));
+        runtime.ensure_generated_pathway_route_records(&pathway);
+        let generated_routes = runtime
+            .routes
+            .values()
+            .filter(|route| route.provenance == format!("generated_pathway:{}", pathway.id))
+            .collect::<Vec<_>>();
+        assert_eq!(generated_routes.len(), 3);
+        assert!(generated_routes.iter().all(|route| {
+            route.owner_pack_id == "cosyworld.composition.core-ruby"
+                && route.owner == "worldpack:cosyworld.composition.core-ruby"
+        }));
+
+        let waypoint_id = pathway.waypoints[0].id;
+        runtime.ensure_generated_pathway_edge(&pathway, 12, waypoint_id);
+        let place = runtime
+            .generated_places
+            .get(&waypoint_id)
+            .expect("generated waypoint has a place projection");
+        assert_eq!(place.canonical_id, pathway.waypoints[0].canonical_id);
+        assert_eq!(place.pack_id, "cosyworld.composition.core-ruby");
+        for job_id in [
+            &place.anchor_job_id,
+            &place.connection_job_id,
+            &place.settlement_job_id,
+        ] {
+            assert_eq!(
+                runtime.jobs[job_id].pack_id,
+                "cosyworld.composition.core-ruby"
+            );
+        }
+        if let Some(natural) = runtime.natural_affordances.get(&waypoint_id) {
+            assert_eq!(
+                natural.generation.pack_id,
+                "cosyworld.composition.core-ruby"
+            );
+        }
+    }
+
+    #[test]
+    fn generated_identity_and_ownership_replay_byte_stably() {
+        let source = RuntimeWorld::seeded();
+        let pathway = source
+            .generated_pathway(RATI_ACTOR_ID, 12, 50, 3)
+            .expect("cross-pack long route");
+        let first_waypoint_id = pathway.waypoints[0].id;
+        let record = JournalRecord {
+            projection_mutations: vec![ProjectionMutation::JourneyTransition {
+                pathway: pathway.clone(),
+                journey: None,
+                reveal_edges: vec![(12, first_waypoint_id)],
+                narration: "A stable bridge path appears.".to_string(),
+                event_type: "pathway.discovered".to_string(),
+            }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                318_001,
+            )
+        };
+        let replay_record: JournalRecord = serde_json::from_slice(
+            &serde_json::to_vec(&record).expect("serialize canonical pathway record"),
+        )
+        .expect("deserialize canonical pathway record");
+
+        let mut committed = RuntimeWorld::seeded();
+        let mut replayed = RuntimeWorld::seeded();
+        assert_eq!(committed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(replayed.apply_journal_record(&replay_record).0, CW_OK);
+        let generated_subgraph_bytes = |runtime: &RuntimeWorld| {
+            let routes = runtime
+                .routes
+                .iter()
+                .filter(|(_, route)| route.provenance.starts_with("generated_pathway:"))
+                .map(|(id, route)| (id.clone(), route.clone()))
+                .collect::<BTreeMap<_, _>>();
+            serde_json::to_vec(&(
+                runtime.generated_pathways.clone(),
+                runtime.generated_places.clone(),
+                routes,
+            ))
+            .expect("serialize generated subgraph")
+        };
+        let committed_bytes = generated_subgraph_bytes(&committed);
+        let replayed_bytes = generated_subgraph_bytes(&replayed);
+        assert_eq!(replayed_bytes, committed_bytes);
+
+        let restarted = RuntimeSnapshot::from_runtime(&committed)
+            .into_runtime()
+            .expect("restart generated subgraph");
+        assert_eq!(generated_subgraph_bytes(&restarted), committed_bytes);
+    }
+
+    #[test]
+    fn repeated_generated_names_fall_back_by_endpoint_and_replay_identically() {
+        let seed = RuntimeWorld::seeded();
+        let pathway_a = seed
+            .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
+            .expect("first generated route");
+        let pathway_b = seed
+            .generated_pathway(RATI_ACTOR_ID, 701, 703, 2)
+            .expect("second generated route");
+        let mut pathway_c = seed
+            .generated_pathway(RATI_ACTOR_ID, 703, 704, 2)
+            .expect("endpoint fallback fixture route");
+        let mut pathway_d = seed
+            .generated_pathway(RATI_ACTOR_ID, 704, 706, 2)
+            .expect("hashed fallback fixture route");
+        let fallback_b = pathway_b.waypoints[0].name.clone();
+        let repeated_name = "Rain-Silver Crossing";
+        let first_collision_name =
+            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, &fallback_b, 0);
+        pathway_c.waypoints[0].name = fallback_b.clone();
+        pathway_d.waypoints[0].name = first_collision_name.clone();
+        let discovery_record = |pathway: &GeneratedPathwayState, seed| JournalRecord {
+            projection_mutations: vec![ProjectionMutation::JourneyTransition {
+                pathway: pathway.clone(),
+                journey: None,
+                reveal_edges: vec![(pathway.origin_location_id, pathway.waypoints[0].id)],
+                narration: "A route becomes shared geography.".to_string(),
+                event_type: "pathway.discovered".to_string(),
+            }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+        };
+        let mut refined_a = pathway_a.clone();
+        let mut refined_b = pathway_b.clone();
+        refined_a.waypoints[0].name = repeated_name.to_string();
+        refined_b.waypoints[0].name = repeated_name.to_string();
+        let refine_record = |pathway: GeneratedPathwayState, seed| JournalRecord {
+            projection_mutations: vec![ProjectionMutation::RefinePathway { pathway }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+        };
+        let records = vec![
+            discovery_record(&pathway_a, 333_001),
+            discovery_record(&pathway_c, 333_002),
+            discovery_record(&pathway_d, 333_003),
+            discovery_record(&pathway_b, 333_004),
+            refine_record(refined_a, 333_005),
+            refine_record(refined_b, 333_006),
+        ];
+        let replay_records: Vec<JournalRecord> = serde_json::from_slice(
+            &serde_json::to_vec(&records).expect("serialize collision fixture"),
+        )
+        .expect("deserialize collision fixture");
+
+        let mut committed = RuntimeWorld::seeded();
+        let mut replayed = RuntimeWorld::seeded();
+        for record in &records {
+            assert_eq!(committed.apply_journal_record(record).0, CW_OK);
+        }
+        for record in &replay_records {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+
+        assert_eq!(
+            committed.generated_pathways[&pathway_a.id].waypoints[0].name,
+            repeated_name
+        );
+        assert_eq!(
+            committed.generated_pathways[&pathway_b.id].waypoints[0].name,
+            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, &fallback_b, 1)
+        );
+        assert_eq!(
+            committed.generated_pathways[&pathway_d.id].waypoints[0].name,
+            first_collision_name
+        );
+        let names = committed
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| pathway.waypoints.iter())
+            .map(|waypoint| waypoint.name.to_ascii_lowercase())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names.iter().collect::<BTreeSet<_>>().len(),
+            names.len(),
+            "every simultaneously offered generated destination stays unique"
+        );
+        let endpoint_prefix = format!(
+            "{}-{}",
+            pathway_anchor_name_token(
+                &committed
+                    .location_name(pathway_b.origin_location_id)
+                    .expect("origin name"),
+            ),
+            pathway_anchor_name_token(
+                &committed
+                    .location_name(pathway_b.destination_location_id)
+                    .expect("destination name"),
+            ),
+        );
+        assert!(fallback_b.starts_with(&endpoint_prefix));
+
+        let stable_projection = |runtime: &RuntimeWorld| {
+            serde_json::to_vec(&(
+                runtime.generated_pathways.clone(),
+                runtime
+                    .routes
+                    .iter()
+                    .filter(|(_, route)| route.provenance.starts_with("generated_pathway:"))
+                    .map(|(id, route)| (id.clone(), route.clone()))
+                    .collect::<BTreeMap<_, _>>(),
+            ))
+            .expect("serialize collision projection")
+        };
+        let committed_bytes = stable_projection(&committed);
+        assert_eq!(stable_projection(&replayed), committed_bytes);
+        let restarted = RuntimeSnapshot::from_runtime(&committed)
+            .into_runtime()
+            .expect("restart collision fixture");
+        assert_eq!(stable_projection(&restarted), committed_bytes);
+    }
+
+    #[test]
+    fn legacy_generated_routes_migrate_without_losing_lifecycle_or_discovery() {
+        let seed = RuntimeWorld::seeded();
+        let legacy_id = "pathway:12:50";
+        let pathway = legacy_pathway(&seed, 12, 50, 3, legacy_id);
+        let first_waypoint_id = pathway.waypoints[0].id;
+        let mut legacy_record = JournalRecord {
+            version: JOURNAL_RECORD_VERSION - 1,
+            projection_mutations: vec![ProjectionMutation::JourneyTransition {
+                pathway,
+                journey: None,
+                reveal_edges: vec![(12, first_waypoint_id)],
+                narration: "A legacy bridge path appears.".to_string(),
+                event_type: "pathway.discovered".to_string(),
+            }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                318_002,
+            )
+        };
+
+        let mut current_replay = RuntimeWorld::seeded();
+        legacy_record.version = JOURNAL_RECORD_VERSION;
+        assert_eq!(
+            current_replay.apply_journal_record(&legacy_record).0,
+            CW_ERR_RULE
+        );
+        assert!(current_replay.generated_pathways.is_empty());
+
+        legacy_record.version = JOURNAL_RECORD_VERSION - 1;
+        let mut replayed = RuntimeWorld::seeded();
+        assert_eq!(replayed.apply_journal_record(&legacy_record).0, CW_OK);
+        let generated_route_id = replayed
+            .routes
+            .iter()
+            .find(|(_, route)| route.provenance == format!("generated_pathway:{legacy_id}"))
+            .map(|(route_id, _)| route_id.clone())
+            .expect("legacy replay creates a canonical generated route");
+        let preserved_discovery = RouteDiscoveryState {
+            actor_id: RATI_ACTOR_ID,
+            event_seq: 318,
+            reason: "legacy_fixture".to_string(),
+        };
+        {
+            let route = replayed
+                .routes
+                .get_mut(&generated_route_id)
+                .expect("generated route remains present");
+            route.lifecycle = RouteLifecycle::Blocked;
+            route.discovery = Some(preserved_discovery.clone());
+            route.entity_version = 7;
+        }
+
+        let expected_pathways = replayed.generated_pathways.clone();
+        let expected_routes = replayed
+            .routes
+            .iter()
+            .filter(|(_, route)| route.provenance == format!("generated_pathway:{legacy_id}"))
+            .map(|(route_id, route)| (route_id.clone(), route.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let mut snapshot = RuntimeSnapshot::from_runtime(&replayed);
+        snapshot.version = 12;
+        let snapshot_pathway = snapshot
+            .generated_pathways
+            .get_mut(legacy_id)
+            .expect("legacy pathway is persisted");
+        snapshot_pathway.canonical_id.clear();
+        snapshot_pathway.source_route_id.clear();
+        snapshot_pathway.source_route_version = 0;
+        snapshot_pathway.owner_pack_id.clear();
+        snapshot_pathway.owner_pack_version.clear();
+        for waypoint in &mut snapshot_pathway.waypoints {
+            waypoint.canonical_id.clear();
+        }
+        let canonical_route_ids = snapshot
+            .routes
+            .iter()
+            .filter(|(_, route)| route.provenance == format!("generated_pathway:{legacy_id}"))
+            .map(|(route_id, _)| route_id.clone())
+            .collect::<Vec<_>>();
+        for canonical_route_id in canonical_route_ids {
+            let mut route = snapshot
+                .routes
+                .remove(&canonical_route_id)
+                .expect("canonical generated route is persisted");
+            let edge = route.edges.first().expect("generated route has an edge");
+            let (left, right) = ordered_route_endpoints(edge.from_location_id, edge.to_location_id);
+            let legacy_route_id = format!("route:generated:{legacy_id}:{left}:{right}");
+            route.id = legacy_route_id.clone();
+            route.canonical_id.clear();
+            route.owner = format!("actor:{}", RATI_ACTOR_ID);
+            route.owner_pack_id.clear();
+            route.owner_pack_version.clear();
+            snapshot.routes.insert(legacy_route_id, route);
+        }
+        snapshot.routes.insert(
+            "route:generated:orphan:1:2".to_string(),
+            RouteRecordState {
+                id: "route:generated:orphan:1:2".to_string(),
+                canonical_id: String::new(),
+                edges: vec![],
+                owner: "actor:1001".to_string(),
+                owner_pack_id: String::new(),
+                owner_pack_version: String::new(),
+                generation_policy: None,
+                provenance: "generated_pathway:orphan".to_string(),
+                directionality: RouteDirectionality::Reciprocal,
+                fallback_location_id: None,
+                lifecycle: RouteLifecycle::Latent,
+                discovery: None,
+                entity_version: 1,
+            },
+        );
+
+        let mut forged_current_snapshot: RuntimeSnapshot = serde_json::from_slice(
+            &serde_json::to_vec(&snapshot).expect("serialize downgraded fixture"),
+        )
+        .expect("clone downgraded fixture");
+        forged_current_snapshot.version = 14;
+        assert!(forged_current_snapshot.into_runtime().is_err());
+
+        let restored = snapshot
+            .into_runtime()
+            .expect("v12 generated identity and route aliases migrate");
+        let restored_routes = restored
+            .routes
+            .iter()
+            .filter(|(_, route)| route.provenance == format!("generated_pathway:{legacy_id}"))
+            .map(|(route_id, route)| (route_id.clone(), route.clone()))
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            serde_json::to_vec(&restored.generated_pathways).expect("serialize restored pathways"),
+            serde_json::to_vec(&expected_pathways).expect("serialize replayed pathways")
+        );
+        assert_eq!(restored_routes, expected_routes);
+        assert!(restored
+            .routes
+            .keys()
+            .all(|route_id| !route_id.starts_with("route:generated:")));
+        let restored_route = restored
+            .routes
+            .get(&generated_route_id)
+            .expect("canonical generated route replaces its alias");
+        assert_eq!(restored_route.lifecycle, RouteLifecycle::Blocked);
+        assert_eq!(restored_route.discovery, Some(preserved_discovery));
+        assert_eq!(restored_route.entity_version, 7);
+    }
+
+    #[test]
+    fn legacy_snapshot_rejects_pathway_and_waypoint_aliases() {
+        let seed = RuntimeWorld::seeded();
+        let mut canonical_alias = RuntimeSnapshot::from_runtime(&seed);
+        canonical_alias.version = 12;
+        let first = legacy_pathway(&seed, 12, 50, 3, "pathway:12:50");
+        let second = legacy_pathway(&seed, 12, 50, 3, "pathway:alias:12:50");
+        canonical_alias
+            .generated_pathways
+            .insert(first.id.clone(), first);
+        canonical_alias
+            .generated_pathways
+            .insert(second.id.clone(), second);
+        assert!(canonical_alias.into_runtime().is_err());
+
+        let mut waypoint_alias = RuntimeSnapshot::from_runtime(&seed);
+        waypoint_alias.version = 12;
+        let first = legacy_pathway(&seed, 12, 50, 3, "pathway:12:50");
+        let mut second = legacy_pathway(&seed, 3, 50, 3, "pathway:3:50");
+        second.waypoints[0].id = first.waypoints[0].id;
+        waypoint_alias
+            .generated_pathways
+            .insert(first.id.clone(), first);
+        waypoint_alias
+            .generated_pathways
+            .insert(second.id.clone(), second);
+        assert!(waypoint_alias.into_runtime().is_err());
+    }
+
+    #[test]
+    fn one_way_route_binding_previews_fallback_without_mutation() {
+        let mut runtime = RuntimeWorld::seeded();
+        let route_id = runtime
+            .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("authored route")
+            .id
+            .clone();
+        let route = runtime.routes.get_mut(&route_id).expect("route remains");
+        route.directionality = RouteDirectionality::OneWay;
+        route.fallback_location_id = Some(COSY_COTTAGE_LOCATION_ID);
+        route.discovery = Some(RouteDiscoveryState {
+            actor_id: RATI_ACTOR_ID,
+            event_seq: 319,
+            reason: "one-way-preview".to_string(),
+        });
+        route.edges.retain(|edge| {
+            edge.from_location_id == COSY_COTTAGE_LOCATION_ID
+                && edge.to_location_id == RAIN_SOFT_GARDEN_LOCATION_ID
+        });
+        runtime.rebuild_kernel_exits_from_routes();
+        let before = RuntimeSnapshot::from_runtime(&runtime);
+
+        let binding = runtime
+            .route_offer_binding(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("one-way entry has a preview binding");
+
+        assert_eq!(binding.directionality, RouteDirectionality::OneWay);
+        assert_eq!(binding.fallback_location_id, Some(COSY_COTTAGE_LOCATION_ID));
+        let offer = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "move"
+                    && offer
+                        .target
+                        .as_ref()
+                        .is_some_and(|target| target.id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+            })
+            .expect("one-way move offer is visible");
+        assert_eq!(
+            offer.effect.as_deref(),
+            Some("One-way entry; fallback to The Cosy Cottage.")
+        );
+        assert_eq!(offer.route, Some(binding));
+        assert_eq!(
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+                .expect("serialize after preview"),
+            serde_json::to_value(before).expect("serialize before preview")
+        );
+    }
+
+    #[test]
+    fn authored_and_hidden_route_history_migrates_idempotently_and_visibly() {
+        let mut runtime = RuntimeWorld::seeded();
+        let authored_canonical_id = runtime
+            .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("authored route")
+            .id
+            .clone();
+        let hidden = active_content()
+            .hidden_exits
+            .first()
+            .expect("hidden fixture");
+        let hidden_canonical_id = runtime
+            .route_for_hidden_exit(&hidden.id)
+            .expect("hidden route")
+            .id
+            .clone();
+        let authored_discovery = RouteDiscoveryState {
+            actor_id: RATI_ACTOR_ID,
+            event_seq: 319,
+            reason: "legacy-authored".to_string(),
+        };
+        {
+            let authored = runtime
+                .routes
+                .get_mut(&authored_canonical_id)
+                .expect("authored route remains");
+            authored.discovery = Some(authored_discovery.clone());
+            authored.entity_version = 9;
+            let hidden_route = runtime
+                .routes
+                .get_mut(&hidden_canonical_id)
+                .expect("hidden route remains");
+            hidden_route.lifecycle = RouteLifecycle::Blocked;
+            hidden_route.entity_version = 7;
+        }
+        runtime.rebuild_kernel_exits_from_routes();
+        let visible_before = runtime.world.exits[..runtime.world.exit_count].to_vec();
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.version = 13;
+        for (canonical_id, legacy_id) in [
+            (
+                authored_canonical_id.clone(),
+                authored_route_id(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID),
+            ),
+            (hidden_canonical_id.clone(), hidden_route_id(&hidden.id)),
+        ] {
+            let mut route = snapshot
+                .routes
+                .remove(&canonical_id)
+                .expect("canonical route in fixture");
+            route.id = legacy_id.clone();
+            route.canonical_id.clear();
+            route.owner_pack_id.clear();
+            route.owner_pack_version.clear();
+            snapshot.routes.insert(legacy_id, route);
+        }
+
+        let restored = snapshot.into_runtime().expect("v13 route history migrates");
+
+        assert!(restored.routes.keys().all(|route_id| {
+            !route_id.starts_with("route:authored:") && !route_id.starts_with("route:hidden:")
+        }));
+        assert_eq!(
+            restored.routes[&authored_canonical_id].discovery,
+            Some(authored_discovery)
+        );
+        assert_eq!(restored.routes[&authored_canonical_id].entity_version, 9);
+        assert_eq!(
+            restored.routes[&hidden_canonical_id].lifecycle,
+            RouteLifecycle::Blocked
+        );
+        assert_eq!(restored.routes[&hidden_canonical_id].entity_version, 7);
+        assert_eq!(
+            &restored.world.exits[..restored.world.exit_count],
+            visible_before
+        );
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("canonical migration is idempotent");
+        assert_eq!(replayed.routes, restored.routes);
+        assert_eq!(
+            &replayed.world.exits[..replayed.world.exit_count],
+            visible_before
+        );
+
+        let legacy_binding = RouteOfferBinding {
+            route_id: authored_route_id(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID),
+            route_version: 9,
+            directionality: RouteDirectionality::Reciprocal,
+            fallback_location_id: None,
+        };
+        assert!(replayed.route_binding_is_current(&legacy_binding));
+    }
+
+    #[test]
+    fn current_snapshot_rejects_route_aliases_and_forged_identity_metadata() {
+        let runtime = RuntimeWorld::seeded();
+        let canonical_route_id = runtime
+            .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("authored route")
+            .id
+            .clone();
+
+        let mut arbitrary_alias = RuntimeSnapshot::from_runtime(&runtime);
+        let mut aliased_route = arbitrary_alias.routes[&canonical_route_id].clone();
+        aliased_route.id = "route://evil".to_string();
+        aliased_route.canonical_id = "route://evil".to_string();
+        arbitrary_alias
+            .routes
+            .insert("route://evil".to_string(), aliased_route);
+        assert!(arbitrary_alias.into_runtime().is_err());
+
+        let mut wrong_owner = RuntimeSnapshot::from_runtime(&runtime);
+        wrong_owner
+            .routes
+            .get_mut(&canonical_route_id)
+            .expect("canonical route fixture")
+            .owner_pack_id = "evil.owner".to_string();
+        assert!(wrong_owner.into_runtime().is_err());
+
+        let mut wrong_endpoints = RuntimeSnapshot::from_runtime(&runtime);
+        wrong_endpoints
+            .routes
+            .get_mut(&canonical_route_id)
+            .expect("canonical route fixture")
+            .edges[0]
+            .to_location_id = 9_999_999;
+        assert!(wrong_endpoints.into_runtime().is_err());
+    }
+
+    #[test]
+    fn snapshot_rejects_invalid_waypoint_and_journey_bounds() {
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 3, 50, 3)
+            .expect("long authored route");
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        let mut invalid_waypoints = RuntimeSnapshot::from_runtime(&runtime);
+        invalid_waypoints
+            .generated_pathways
+            .get_mut(&pathway.id)
+            .expect("pathway fixture")
+            .waypoints
+            .pop();
+        assert!(invalid_waypoints.into_runtime().is_err());
+
+        let mut invalid_journey = RuntimeSnapshot::from_runtime(&runtime);
+        invalid_journey.journeys.insert(
+            RATI_ACTOR_ID,
+            JourneyState {
+                actor_id: RATI_ACTOR_ID,
+                pathway_id: pathway.id.clone(),
+                origin_location_id: pathway.origin_location_id,
+                destination_location_id: pathway.destination_location_id,
+                destination_name: "Invalid detour".to_string(),
+                path: vec![pathway.origin_location_id, pathway.destination_location_id],
+                current_step: 0,
+                explorer: true,
+            },
+        );
+        assert!(invalid_journey.into_runtime().is_err());
     }
 }

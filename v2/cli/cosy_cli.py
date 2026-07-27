@@ -235,6 +235,7 @@ class Game:
         self.print_items(state.get("items") or [])
         self.print_primary_action(state.get("primary_action") or {})
         self.print_action_hand(state.get("action_hand") or [])
+        self.print_shared_question(state.get("shared_questions") or [])
         self.remember_events(state.get("recent_events") or [])
 
     def who(self) -> None:
@@ -497,9 +498,10 @@ class Game:
         if not isinstance(response, dict):
             raise ClientError("command response was not an object")
         output = response.get("output")
-        if output:
+        events = response.get("events") or []
+        if output and not any(semantic_story_receipt(event) for event in events):
             print(str(output))
-        self.print_events(response.get("events") or [])
+        self.print_events(events)
         if not response.get("ok") and not output:
             print(f"Command failed with status {response.get('status')}.")
 
@@ -633,6 +635,67 @@ class Game:
         labels = ", ".join(str(offer.get("label") or offer.get("kind") or "action") for offer in offers)
         print(f"Hand: {labels}")
 
+    def print_shared_question(self, questions: object) -> None:
+        if not isinstance(questions, list):
+            return
+        question = next(
+            (
+                value
+                for value in questions
+                if isinstance(value, dict)
+                and value.get("promoted")
+                and value.get("presentation_state") == "active"
+            ),
+            None,
+        )
+        if question is None:
+            question = next(
+                (
+                    value
+                    for value in questions
+                    if isinstance(value, dict)
+                    and value.get("presentation_state") == "completed_memory"
+                ),
+                None,
+            )
+        if question is None:
+            return
+        if question.get("presentation_state") == "completed_memory":
+            memory = question.get("completion_memory") or question.get("situation")
+            contributors = ", ".join(
+                str(name) for name in question.get("participant_names") or [] if name
+            )
+            print(f"Shared result: {memory}")
+            if contributors:
+                print(f"Contributors: {contributors}")
+            return
+        print(f"Shared question: {question.get('question')}")
+        print(f"Situation: {question.get('situation')}")
+        print(
+            f"Progress: {int(question.get('filled') or 0)}/"
+            f"{int(question.get('segments') or 0)}. "
+            f"Danger: {int(question.get('danger_filled') or 0)}/"
+            f"{int(question.get('danger_segments') or 0)}."
+        )
+        print(f"Completion changes: {question.get('outcome')}")
+        print(
+            f"Danger now: {question.get('danger_situation')} "
+            f"If danger fills: {question.get('danger_consequence')}"
+        )
+        suggestions = [
+            value
+            for value in question.get("suggested_actions") or []
+            if isinstance(value, dict)
+        ][:2]
+        for index, suggestion in enumerate(suggestions, start=1):
+            risk = suggestion.get("risk") or "No special risk is expected."
+            print(
+                f"Suggestion {index} of {len(suggestions)}: {suggestion.get('label')}. "
+                f"Target: {suggestion.get('target_label')}. "
+                f"Source: {suggestion.get('source')}. "
+                f"Likely: {suggestion.get('likely_effect')}. Risk: {risk}"
+            )
+
     def print_events(self, events: list[dict[str, object]]) -> None:
         if not events:
             return
@@ -640,7 +703,7 @@ class Game:
             self.last_seq,
             *(int(event.get("seq") or 0) for event in events),
         )
-        for event in events:
+        for event in semantic_story_events(events):
             if event_is_hidden_context(event):
                 continue
             print(self.format_event(event))
@@ -684,6 +747,9 @@ class Game:
             event.get("destination_location_id")
         )
 
+        if type_name == "story.receipt":
+            receipt = semantic_story_receipt(event)
+            return f"[{seq}] ✦ {receipt.get('text') if receipt else 'The story moves forward.'}"
         if type_name == "message.created":
             return f"[{seq}] {actor}: {event.get('content', '')}"
         if type_name == "world.reset":
@@ -770,7 +836,8 @@ class Game:
             return f"[{seq}] {actor} banks the Visit Ledger: {event_label_tail(event)}."
         if type_name == "bond.created":
             target = event.get("target_actor_name") or "someone"
-            return f"[{seq}] {actor} writes a Bond with {target}."
+            status = "forming" if ":forming:" in str(event.get("content") or "") else "active"
+            return f"[{seq}] {actor} writes a {status} Bond with {target}."
         if type_name == "bond.revised":
             target = event.get("target_actor_name") or "someone"
             return f"[{seq}] {actor} revises a Bond with {target}."
@@ -780,6 +847,13 @@ class Game:
         if type_name == "bond.resolved":
             target = event.get("target_actor_name") or "someone"
             return f"[{seq}] {actor} settles a Bond with {target}."
+        if type_name == "relationship.beat":
+            return f"[{seq}] Relationship beat: {event.get('content') or 'a connection begins to form'}"
+        if type_name == "relationship.advanced":
+            return f"[{seq}] Relationship advanced: {event.get('content') or 'earned trust changes the relationship'}"
+        if type_name == "dialogue.unavailable":
+            target = event.get("target_actor_name") or "the resident"
+            return f"[{seq}] Dialogue unavailable with {target}; no substitute speech was created."
         if type_name == "combat.defend":
             return f"[{seq}] {actor} defends."
         if type_name == "combat.attack.attempt":
@@ -800,7 +874,10 @@ class Game:
         if type_name == "combat.flee.success":
             return f"[{seq}] {actor} flees from {location} to {destination}."
         if type_name == "rule.rejected":
-            return f"[{seq}] Rule rejected for {actor} (reason {event.get('reason')})."
+            reason = " ".join(str(event.get("content") or "").split())
+            if not reason:
+                reason = "That action could not be completed. Refresh the room and try again."
+            return f"[{seq}] {reason}"
         label = str(type_name or "event").replace(".", " ")
         content = " ".join(str(event.get("content") or "").split())
         if content and not content.startswith(("{", "[")):
@@ -1143,7 +1220,7 @@ class ButtonGame(Game):
             self.last_seq,
             *(int(event.get("seq") or 0) for event in events),
         )
-        for event in events:
+        for event in semantic_story_events(events):
             if event_is_hidden_context(event):
                 continue
             self.message_log.append(self.format_event(event))
@@ -1166,6 +1243,29 @@ def event_is_hidden_context(event: dict[str, object]) -> bool:
         "actor.presence",
         "action.receipt",
     }
+
+
+def semantic_story_receipt(event: dict[str, object]) -> dict[str, object] | None:
+    if event.get("type") != "story.receipt":
+        return None
+    try:
+        receipt = json.loads(str(event.get("content") or ""))
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(receipt, dict) or receipt.get("schema_version") != 1 or not receipt.get("text"):
+        return None
+    return receipt
+
+
+def semantic_story_events(events: list[dict[str, object]]) -> list[dict[str, object]]:
+    covered = {
+        int(seq)
+        for event in events
+        if (receipt := semantic_story_receipt(event))
+        for seq in receipt.get("event_seqs") or []
+        if str(seq).isdigit() and int(seq) > 0
+    }
+    return [event for event in events if int(event.get("seq") or 0) not in covered]
 
 
 def world_beat_is_renderable(event: dict[str, object]) -> bool:

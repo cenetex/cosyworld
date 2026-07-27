@@ -1,5 +1,12 @@
 use super::*;
 
+const LANTERN_KEEPER_PACK_ID: &str = "cosyworld.campaign.the-lantern-keeper";
+const LANTERN_KEEPER_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";
+const LANTERN_KEEPER_CLOCK_OUTCOMES: [(&str, &str); 2] = [
+    ("lantern-keeper.light", "completed"),
+    ("lantern-keeper.darkness", "failed"),
+];
+
 #[derive(Debug)]
 pub(super) struct SeedContent {
     #[cfg_attr(not(test), allow(dead_code))]
@@ -76,6 +83,8 @@ pub(super) struct SeedWorldpackManifest {
     pub(super) persistence_compatibility: SeedPersistenceCompatibility,
     #[serde(default)]
     pub(super) avatar_naming: Option<cosyworld_ai_model::AvatarNamingConfig>,
+    #[serde(default)]
+    pub(super) generation_media_registry: serde_json::Value,
     #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
     #[serde(default)]
@@ -267,7 +276,18 @@ pub(super) struct SeedContextualActionOffer {
     pub(super) context: serde_json::Value,
     pub(super) label: String,
     pub(super) target_predicate: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) cooperation: Option<SeedCooperationPayload>,
     pub(super) source_reference: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(super) enum SeedCooperationPayload {
+    LocalLead {
+        destination_location_id: u64,
+        destination_hint: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -664,6 +684,8 @@ pub(super) struct SeedActorContent {
     pub(super) desires: Vec<SeedResidentDesireContent>,
     #[serde(default)]
     pub(super) attachments: Vec<SeedResidentAttachmentContent>,
+    #[serde(default)]
+    pub(super) relationship: Option<SeedRelationshipContent>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -716,6 +738,8 @@ pub(super) struct SeedItemContent {
     pub(super) location_id: u64,
     #[serde(default = "default_seed_item_role")]
     pub(super) role: String,
+    #[serde(default)]
+    pub(super) capabilities: Vec<String>,
     #[serde(default = "default_seed_item_weight_tenths")]
     pub(super) weight_tenths: u16,
     #[serde(default = "default_seed_item_size")]
@@ -794,6 +818,8 @@ pub(super) struct SeedRoomFeatureContent {
     pub(super) search: String,
     #[serde(default)]
     pub(super) uses: Vec<SeedFeatureUseContent>,
+    #[serde(default)]
+    pub(super) lodging: Option<SeedLodgingContent>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -803,7 +829,21 @@ pub(super) struct SeedFeatureUseContent {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedLodgingContent {
+    pub(super) gate: SeedLodgingGateContent,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedLodgingGateContent {
+    pub(super) kind: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedExitContent {
+    #[serde(default)]
+    pub(super) pack_id: String,
     pub(super) from_location_id: u64,
     pub(super) to_location_id: u64,
     #[serde(default)]
@@ -812,10 +852,16 @@ pub(super) struct SeedExitContent {
     pub(super) flags: u32,
     #[serde(default = "default_pathway_distance")]
     pub(super) distance: u8,
+    #[serde(default)]
+    pub(super) directionality: RouteDirectionality,
+    #[serde(default)]
+    pub(super) fallback_location_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedHiddenExitContent {
+    #[serde(default)]
+    pub(super) pack_id: String,
     pub(super) id: String,
     pub(super) from_location_id: u64,
     pub(super) to_location_id: u64,
@@ -1861,11 +1907,35 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             }
         }
         for offer in &bundle.offers {
+            let cooperation_is_valid =
+                offer
+                    .cooperation
+                    .as_ref()
+                    .is_none_or(|payload| match payload {
+                        SeedCooperationPayload::LocalLead {
+                            destination_location_id,
+                            destination_hint,
+                        } => {
+                            offer.based_on == "srd5.2.1:influence"
+                                && offer.subject.kind == "location"
+                                && offer.subject.id != *destination_location_id
+                                && content
+                                    .locations
+                                    .iter()
+                                    .any(|location| location.id == *destination_location_id)
+                                && !destination_hint.trim().is_empty()
+                                && content.exits.iter().any(|exit| {
+                                    exit.from_location_id == offer.subject.id
+                                        && exit.to_location_id == *destination_location_id
+                                })
+                        }
+                    });
             if !offer.id.starts_with(&format!("{}:", bundle.pack_id))
                 || !action_ids.contains(offer.based_on.as_str())
                 || offer.label.trim().is_empty()
                 || offer.target_predicate.trim().is_empty()
                 || !offer.context.is_object()
+                || !cooperation_is_valid
                 || !matches!(
                     offer.subject.kind.as_str(),
                     "location" | "feature" | "actor" | "item" | "project"
@@ -1974,6 +2044,19 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             || seed_item_kind(item).is_none()
         {
             return Err(format!("seed item {} is missing name", item.id));
+        }
+        let capabilities = item.capabilities.iter().collect::<BTreeSet<_>>();
+        if capabilities.len() != item.capabilities.len()
+            || item
+                .capabilities
+                .iter()
+                .any(|capability| capability != CAMP_SHELTER_ITEM_CAPABILITY)
+            || (!item.capabilities.is_empty() && item.role != "tool")
+        {
+            return Err(format!(
+                "seed item {} has invalid or role-incompatible capabilities",
+                item.id
+            ));
         }
     }
 
@@ -2159,6 +2242,20 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 ));
             }
         }
+        if let Some(relationship) = actor.relationship.as_ref() {
+            if relationship.intent.trim().is_empty()
+                || relationship.statement.trim().is_empty()
+                || relationship.first_beat.trim().is_empty()
+                || relationship.reply_prompt.trim().is_empty()
+                || relationship.active_beat.trim().is_empty()
+                || !item_ids.contains(&relationship.active_on_gift_item_id)
+            {
+                return Err(format!(
+                    "seed actor {} has an invalid authored relationship",
+                    actor.id
+                ));
+            }
+        }
     }
 
     for actor in &content.actors {
@@ -2249,9 +2346,12 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
 
     let mut exit_keys = BTreeSet::new();
     let mut exit_direction_keys = BTreeSet::new();
+    let mut exits_by_pair = BTreeMap::new();
     for exit in &content.exits {
         if !location_ids.contains(&exit.from_location_id)
             || !location_ids.contains(&exit.to_location_id)
+            || exit.from_location_id == exit.to_location_id
+            || !(1..=8).contains(&exit.distance)
             || !exit_keys.insert((exit.from_location_id, exit.to_location_id))
         {
             return Err(format!(
@@ -2272,6 +2372,54 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     direction, exit.from_location_id
                 ));
             }
+        }
+        match exit.directionality {
+            RouteDirectionality::Reciprocal if exit.fallback_location_id.is_some() => {
+                return Err(format!(
+                    "reciprocal seed exit {} -> {} declares a fallback",
+                    exit.from_location_id, exit.to_location_id
+                ));
+            }
+            RouteDirectionality::OneWay
+                if exit
+                    .fallback_location_id
+                    .is_none_or(|location_id| !location_ids.contains(&location_id)) =>
+            {
+                return Err(format!(
+                    "one-way seed exit {} -> {} has no valid fallback",
+                    exit.from_location_id, exit.to_location_id
+                ));
+            }
+            _ => {}
+        }
+        exits_by_pair.insert((exit.from_location_id, exit.to_location_id), exit);
+    }
+    for exit in &content.exits {
+        let reverse = exits_by_pair.get(&(exit.to_location_id, exit.from_location_id));
+        match exit.directionality {
+            RouteDirectionality::Reciprocal => {
+                let Some(reverse) = reverse else {
+                    return Err(format!(
+                        "reciprocal seed exit {} -> {} is missing its return direction",
+                        exit.from_location_id, exit.to_location_id
+                    ));
+                };
+                if reverse.directionality != RouteDirectionality::Reciprocal
+                    || reverse.distance != exit.distance
+                {
+                    return Err(format!(
+                        "reciprocal seed exit {} -> {} has inconsistent return semantics",
+                        exit.from_location_id, exit.to_location_id
+                    ));
+                }
+            }
+            RouteDirectionality::OneWay if reverse.is_some() => {
+                return Err(format!(
+                    "one-way seed exit {} -> {} declares a reciprocal edge",
+                    exit.from_location_id, exit.to_location_id
+                ));
+            }
+            RouteDirectionality::OneWay => {}
         }
     }
 
@@ -2299,6 +2447,28 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 "duplicate or invalid room feature key {} in location {}",
                 feature.key, feature.location_id
             ));
+        }
+        match (command_key(&feature.key).as_str(), feature.lodging.as_ref()) {
+            ("lodging", Some(lodging)) if lodging.gate.kind == "open" => {}
+            ("lodging", Some(lodging)) => {
+                return Err(format!(
+                    "lodging room feature in location {} has unsupported gate kind {}",
+                    feature.location_id, lodging.gate.kind
+                ));
+            }
+            ("lodging", None) => {
+                return Err(format!(
+                    "lodging room feature in location {} is missing lodging gate fields",
+                    feature.location_id
+                ));
+            }
+            (_, Some(_)) => {
+                return Err(format!(
+                    "room feature {} in location {} may not declare lodging fields",
+                    feature.key, feature.location_id
+                ));
+            }
+            _ => {}
         }
         for use_case in &feature.uses {
             if !item_ids.contains(&use_case.item_id) || use_case.text.trim().is_empty() {
@@ -2987,6 +3157,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             &job_ids,
         )?;
     }
+    validate_lantern_clock_effect_contract(content)?;
 
     let mut all_item_ids = item_ids.clone();
     let mut recipe_ids = BTreeSet::new();
@@ -3225,6 +3396,74 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 _ => {}
             }
         }
+    }
+    Ok(())
+}
+
+fn validate_lantern_clock_effect_contract(content: &SeedContent) -> Result<(), String> {
+    if !content
+        .manifest
+        .packs
+        .iter()
+        .any(|pack| pack.id == LANTERN_KEEPER_PACK_ID)
+    {
+        return Ok(());
+    }
+
+    for (clock_id, expected_status) in LANTERN_KEEPER_CLOCK_OUTCOMES {
+        let clock = content
+            .clocks
+            .iter()
+            .find(|clock| clock.id == clock_id)
+            .ok_or_else(|| format!("Lantern Keeper pack is missing clock {clock_id}"))?;
+        if clock.on_fill.is_empty() {
+            return Err(format!(
+                "clock {clock_id} must directly declare a justified on_fill consequence"
+            ));
+        }
+        if clock.on_fill.iter().any(|effect| {
+            effect_descriptor_reason(effect)
+                .map(str::trim)
+                .unwrap_or_default()
+                .is_empty()
+        }) {
+            return Err(format!(
+                "clock {clock_id} on_fill effects must declare authored reasons"
+            ));
+        }
+        let authoritative = clock
+            .on_fill
+            .iter()
+            .filter(|effect| !matches!(effect, EffectDescriptor::SetTag { .. }))
+            .collect::<Vec<_>>();
+        if authoritative.is_empty() {
+            return Err(format!("clock {clock_id} on_fill cannot be tag-only"));
+        }
+        if !matches!(
+            authoritative.as_slice(),
+            [EffectDescriptor::SetJobStatus {
+                job_id,
+                status,
+                ..
+            }] if job_id == LANTERN_KEEPER_JOB_ID && status == expected_status
+        ) {
+            return Err(format!(
+                "clock {clock_id} must declare exactly one authoritative set_job_status consequence for {LANTERN_KEEPER_JOB_ID}:{expected_status}"
+            ));
+        }
+    }
+
+    if let Some(hook) = content.lifecycle_hooks.iter().find(|hook| {
+        hook.hook == "on_clock_fill"
+            && hook.target_kind == "clock"
+            && LANTERN_KEEPER_CLOCK_OUTCOMES
+                .iter()
+                .any(|(clock_id, _)| hook.target_id == *clock_id)
+    }) {
+        return Err(format!(
+            "clock {} must use direct on_fill as its sole authoritative consequence source",
+            hook.target_id
+        ));
     }
     Ok(())
 }

@@ -90,7 +90,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -162,12 +162,12 @@
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
-      "version": "0.1.6",
+      "version": "0.1.8",
       "source": {
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:01e84ccbcf5c952fad0d852d7fc1c5f15ead1a1060fd5e09a6805e3876345d2d",
+      "integrity": "sha256:bb4475d96fc6bd7c1b3e89a78a3927b6c5a7984da4f7a0472bbc1f46cfc43321",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -215,12 +215,12 @@
     },
     {
       "id": "cosyworld.the-holy-land",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "source": {
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:5837c4ea7aa642d99e85c098fdcb75d6fa634f310f19850e2b872686e1412eae",
+      "integrity": "sha256:08587e664291d870927a4f19e06017cd0bedd55573f4fb039f3a073dc95e0378",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -264,12 +264,12 @@
     },
     {
       "id": "cosyworld.composition.core-holy-land",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": {
         "type": "workspace",
         "path": "../../content/core-holy-land-bridge"
       },
-      "integrity": "sha256:0ed36b254e7eb3fb588db28f3e9401b31fc9ee1d66efd0f8e80292176c43a913",
+      "integrity": "sha256:afc7dd962c724c40bcf8c1f1f3953426433c5b267c2d94db8c05ec462f256247",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -381,12 +381,12 @@
     },
     {
       "id": "cosyworld.composition.core-ruby",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": {
         "type": "workspace",
         "path": "../../content/core-ruby-bridge"
       },
-      "integrity": "sha256:af0f833ed3be83ff11e9652514bd14bc0112af0d55e4b55f2bcf725420e918ba",
+      "integrity": "sha256:043be83d5461318a4327125886b8e7b82b26cf9a4e0b0e1df2fa54363a83d143",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -562,7 +562,7 @@
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
-      "version": "0.1.6",
+      "version": "0.1.8",
       "license_identifier": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "provenance": {
@@ -585,7 +585,7 @@
     {
       "pack_id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -598,7 +598,7 @@
     {
       "pack_id": "cosyworld.composition.core-holy-land",
       "name": "CosyWorld Core + Holy Land Bridge",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -624,7 +624,7 @@
     {
       "pack_id": "cosyworld.composition.core-ruby",
       "name": "CosyWorld Core + Ruby High Bridge",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {

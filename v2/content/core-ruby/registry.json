@@ -9,6 +9,12 @@
     "version": 1,
     "description": "The Core world and Ruby High mounted together as peer world packs.",
     "entry_location": "cosyworld.core:location/1",
+    "persistence_compatibility": {
+      "schema_version": 1,
+      "replay_compatible_bundle_hashes": [
+        "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca"
+      ]
+    },
     "pack_lifecycle": {
       "schema_version": 1,
       "unmount": [
@@ -606,7 +612,74 @@
         }
       ]
     },
-    "bundle_hash": "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
+    "generation_media_registry": {
+      "schema_version": 1,
+      "profiles": [
+        {
+          "id": "cosyworld.community-art.base/1",
+          "recipes": [
+            "replicate.flux1-dev-lora.base"
+          ]
+        },
+        {
+          "id": "cosyworld.holy-land.generated-landscape/1",
+          "recipes": [
+            "replicate.holy-land-b43l.base"
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "replicate.flux1-dev-lora.base",
+          "profile": "cosyworld.community-art.base/1",
+          "provider": "replicate",
+          "model": {
+            "owner": "black-forest-labs",
+            "name": "flux-dev-lora",
+            "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917"
+          },
+          "state": "enabled",
+          "intents": [
+            "location_card_art"
+          ],
+          "aspect_ratios": [
+            "16:9"
+          ],
+          "output_formats": [
+            "webp"
+          ],
+          "prompt_versions": [
+            "community-art/3"
+          ],
+          "lora": true
+        },
+        {
+          "id": "replicate.holy-land-b43l.base",
+          "profile": "cosyworld.holy-land.generated-landscape/1",
+          "provider": "replicate",
+          "model": {
+            "owner": "ratimics",
+            "name": "b43l",
+            "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
+          },
+          "state": "enabled",
+          "intents": [
+            "location_card_art"
+          ],
+          "aspect_ratios": [
+            "16:9"
+          ],
+          "output_formats": [
+            "webp"
+          ],
+          "prompt_versions": [
+            "holy-land-location/1"
+          ],
+          "lora": false
+        }
+      ]
+    },
+    "bundle_hash": "sha256:76d8753ca6fface8d0f2ac887257780807d8be3b036dd3bf02c0166b4015d53d",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -826,16 +899,16 @@
           "access_gates": 0,
           "factions": 11,
           "items": 13,
-          "locations": 22,
-          "exits": 46,
+          "locations": 23,
+          "exits": 48,
           "hidden_exits": 1,
-          "room_features": 16,
-          "room_sheets": 22,
+          "room_features": 17,
+          "room_sheets": 23,
           "clocks": 12,
           "jobs": 6,
           "action_vocabulary": 1,
           "fronts": 5,
-          "cards": 68,
+          "cards": 69,
           "card_bindings": 0,
           "lifecycle_hooks": 19,
           "evolution_tracks": 3,
@@ -1676,7 +1749,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f"
+        "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612"
       },
       {
         "id": "ruby-high.first-bell",
@@ -1891,7 +1964,7 @@
         "id": "cosyworld.composition.core-ruby",
         "name": "CosyWorld Core + Ruby High Bridge",
         "description": "Composition-owned paths connecting CosyWorld Core and Ruby High.",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "kind": "world",
         "license": "MIT",
         "license_url": "https://opensource.org/license/mit",
@@ -1978,6 +2051,110 @@
           "x-cosyworld-composition": {
             "schema_version": 1,
             "role": "bridge"
+          },
+          "x-cosyworld-generation": {
+            "schema_version": 1,
+            "policy_id": "cosyworld.composition.core-ruby/generation/1",
+            "migration_version": 1,
+            "collision_namespace": "pack://cosyworld.composition.core-ruby/generated/v1",
+            "migrations": [
+              {
+                "from_policy_id": "cosyworld.compatibility.host-generation/1",
+                "from_migration_version": 0,
+                "from_pack_version": "1.0.0",
+                "mode": "preserve_descendants"
+              }
+            ],
+            "cross_pack_routes": [
+              {
+                "endpoints": [
+                  {
+                    "pack_id": "cosyworld.core",
+                    "location_id": 1
+                  },
+                  {
+                    "pack_id": "ruby-high.first-bell",
+                    "location_id": 11
+                  }
+                ],
+                "route_owner": "cosyworld.composition.core-ruby",
+                "generated_descendant_owner": "cosyworld.composition.core-ruby",
+                "topology_authority": {
+                  "pack_id": "cosyworld.composition.core-ruby",
+                  "migration_version": 1
+                },
+                "ecology_transition": "endpoint_blend/1",
+                "media_profile_id": "cosyworld.community-art.base/1",
+                "unmount": "remove_with_route_owner",
+                "evacuation": "world_pack_lifecycle"
+              },
+              {
+                "endpoints": [
+                  {
+                    "pack_id": "ruby-high.first-bell",
+                    "location_id": 12
+                  },
+                  {
+                    "pack_id": "cosyworld.core",
+                    "location_id": 50
+                  }
+                ],
+                "route_owner": "cosyworld.composition.core-ruby",
+                "generated_descendant_owner": "cosyworld.composition.core-ruby",
+                "topology_authority": {
+                  "pack_id": "cosyworld.composition.core-ruby",
+                  "migration_version": 1
+                },
+                "ecology_transition": "endpoint_blend/1",
+                "media_profile_id": "cosyworld.community-art.base/1",
+                "unmount": "remove_with_route_owner",
+                "evacuation": "world_pack_lifecycle"
+              },
+              {
+                "endpoints": [
+                  {
+                    "pack_id": "ruby-high.first-bell",
+                    "location_id": 15
+                  },
+                  {
+                    "pack_id": "cosyworld.core",
+                    "location_id": 32
+                  }
+                ],
+                "route_owner": "cosyworld.composition.core-ruby",
+                "generated_descendant_owner": "cosyworld.composition.core-ruby",
+                "topology_authority": {
+                  "pack_id": "cosyworld.composition.core-ruby",
+                  "migration_version": 1
+                },
+                "ecology_transition": "endpoint_blend/1",
+                "media_profile_id": "cosyworld.community-art.base/1",
+                "unmount": "remove_with_route_owner",
+                "evacuation": "world_pack_lifecycle"
+              },
+              {
+                "endpoints": [
+                  {
+                    "pack_id": "cosyworld.core",
+                    "location_id": 44
+                  },
+                  {
+                    "pack_id": "ruby-high.first-bell",
+                    "location_id": 14
+                  }
+                ],
+                "route_owner": "cosyworld.composition.core-ruby",
+                "generated_descendant_owner": "cosyworld.composition.core-ruby",
+                "topology_authority": {
+                  "pack_id": "cosyworld.composition.core-ruby",
+                  "migration_version": 1
+                },
+                "ecology_transition": "endpoint_blend/1",
+                "media_profile_id": "cosyworld.community-art.base/1",
+                "unmount": "remove_with_route_owner",
+                "evacuation": "world_pack_lifecycle"
+              }
+            ]
           }
         },
         "rules_profile": "cosyworld.srd5/1",
@@ -1985,7 +2162,7 @@
           "type": "workspace",
           "path": "../../content/core-ruby-bridge"
         },
-        "integrity": "sha256:af0f833ed3be83ff11e9652514bd14bc0112af0d55e4b55f2bcf725420e918ba"
+        "integrity": "sha256:043be83d5461318a4327125886b8e7b82b26cf9a4e0b0e1df2fa54363a83d143"
       }
     ],
     "files": {
@@ -3433,7 +3610,10 @@
         "kind": "potion",
         "charges": 1,
         "location_id": 1,
-        "role": "consumable",
+        "role": "tool",
+        "capabilities": [
+          "camp_shelter"
+        ],
         "weight_tenths": 5,
         "size": "small",
         "mechanics": {
@@ -3825,6 +4005,25 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "id": 4,
+        "name": "Mossbell Inn",
+        "title": "Beds Beside the Rain",
+        "description": "A slate-roofed inn stands beside the west road. Four guest-room windows glow above a boot rack.",
+        "persona": "Mossbell Inn keeps practical comforts ready and treats a dry pair of socks as serious hospitality.",
+        "biome": "rainy roadside",
+        "terrain": [
+          "gravel yard",
+          "covered porch",
+          "warm common room"
+        ],
+        "memory": [
+          "The Cosy Cottage is one short walk east.",
+          "Four upstairs rooms stay ready for wet travelers."
+        ],
+        "allow_combat": false,
+        "pack_id": "cosyworld.core"
+      },
+      {
         "id": 30,
         "name": "The Heavens",
         "title": "Forbidden Mountain",
@@ -4179,6 +4378,20 @@
         "to_location_id": 1,
         "flags": 0,
         "direction": "west",
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "from_location_id": 1,
+        "to_location_id": 4,
+        "flags": 0,
+        "direction": "west",
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "from_location_id": 4,
+        "to_location_id": 1,
+        "flags": 0,
+        "direction": "east",
         "pack_id": "cosyworld.core"
       },
       {
@@ -4753,6 +4966,25 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "location_id": 4,
+        "key": "lodging",
+        "name": "Guest Rooms",
+        "aliases": [
+          "bed",
+          "beds",
+          "rooms",
+          "upstairs"
+        ],
+        "look": "Four small rooms open from the upstairs landing. Each has a narrow bed and a folded wool blanket.",
+        "search": "Each washstand holds a filled basin. The clean towels are stacked by room number.",
+        "lodging": {
+          "gate": {
+            "kind": "open"
+          }
+        },
+        "pack_id": "cosyworld.core"
+      },
+      {
         "location_id": 2,
         "key": "broad_leaves",
         "name": "Broad Leaves",
@@ -5016,6 +5248,29 @@
         "projects": [
           "moonlit-trail:quiet-the-echo"
         ],
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "id": "room:4",
+        "location_id": 4,
+        "name": "Mossbell Inn",
+        "safety": "safe",
+        "zone": "frontier",
+        "aspects": [
+          "drying boots",
+          "four small guest rooms"
+        ],
+        "boons": [
+          "travelers can sleep without returning to the Cottage"
+        ],
+        "hooks": [
+          "a sealed note lies beneath cup seven"
+        ],
+        "resources": {
+          "beds": 4,
+          "broth": 2
+        },
+        "projects": [],
         "pack_id": "cosyworld.core"
       },
       {
@@ -7676,6 +7931,30 @@
       },
       {
         "subject_kind": "location",
+        "subject_id": 4,
+        "card_id": "location-mossbell-inn",
+        "display_name": "Mossbell Inn",
+        "role": "location",
+        "rarity": "free",
+        "title": "Beds Beside the Rain",
+        "blurb": "A slate-roofed inn stands beside the west road. Four guest-room windows glow above a boot rack.",
+        "aspect": "wide",
+        "source": "cosyworld_seed",
+        "asset_status": "pending_art",
+        "subject": "Beds Beside the Rain",
+        "art": {
+          "label": "Mossbell Inn",
+          "role": "location",
+          "aspect": "wide",
+          "bg": "#283026",
+          "ink": "#f5e6b8",
+          "accent": "#efc96b",
+          "glyph": "MI"
+        },
+        "pack_id": "cosyworld.core"
+      },
+      {
+        "subject_kind": "location",
         "subject_id": 30,
         "card_id": "location-the-heavens",
         "display_name": "The Heavens",
@@ -9648,7 +9927,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
-      "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "pack_integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -9661,7 +9940,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
-      "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "pack_integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",
@@ -11085,6 +11364,11 @@
           },
           "label": "Ask for a local lead",
           "target_predicate": "active_npc_same_location",
+          "cooperation": {
+            "kind": "local_lead",
+            "destination_location_id": 2,
+            "destination_hint": "the rain-soft garden beyond the eastern cottage door"
+          },
           "source_reference": "CosyWorld Core — Blue Cottage bounded cooperation"
         }
       ],
@@ -11222,7 +11506,7 @@
     {
       "pack_id": "cosyworld.composition.core-ruby",
       "name": "CosyWorld Core + Ruby High Bridge",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -12678,6 +12962,14 @@
         "runtime_handle": 6580883718503069
       },
       {
+        "canonical_ref": "pack://cosyworld.core/card/location-mossbell-inn",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.10",
+        "kind": "card",
+        "local_id": "location-mossbell-inn",
+        "runtime_handle": 1828177118382624
+      },
+      {
         "canonical_ref": "pack://cosyworld.core/card/location-old-oak-tree",
         "pack_id": "cosyworld.core",
         "pack_version": "1.3.10",
@@ -13229,6 +13521,15 @@
         "runtime_handle": 36
       },
       {
+        "canonical_ref": "pack://cosyworld.core/location/4",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.10",
+        "kind": "location",
+        "local_id": "4",
+        "legacy_runtime_id": 4,
+        "runtime_handle": 4
+      },
+      {
         "canonical_ref": "pack://cosyworld.core/location/40",
         "pack_id": "cosyworld.core",
         "pack_version": "1.3.10",
@@ -13479,6 +13780,14 @@
         "kind": "room-sheet",
         "local_id": "room:36",
         "runtime_handle": 1278082739662403
+      },
+      {
+        "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A4",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.10",
+        "kind": "room-sheet",
+        "local_id": "room:4",
+        "runtime_handle": 7088628016282642
       },
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A40",

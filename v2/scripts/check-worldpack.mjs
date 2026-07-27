@@ -19,8 +19,15 @@ import {
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
+import { lanternClockEffectValidationErrors } from "./lantern-clock-contract.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 import { versionedRecipeValidationErrors } from "./recipe-schema.mjs";
+import {
+  generationPolicyForPack,
+  validateCompiledGenerationPolicies,
+  worldpackMediaRegistry,
+} from "./world-generation-policy.mjs";
+import { roomFeatureSchemaValidationErrors } from "./room-feature-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -87,6 +94,7 @@ const supportedRulesAdapters = new Map([
   ])],
 ]);
 const allowedItemRoles = new Set(["generic", "consumable", "weapon", "skill_charm", "spell", "container", "tool", "relic"]);
+const allowedItemCapabilities = new Set(["camp_shelter"]);
 const allowedItemSizes = new Set(["tiny", "small", "medium", "large"]);
 const routableJobContributionActionKinds = new Set([
   "work",
@@ -966,6 +974,16 @@ for (const bundle of contributionBundles) {
         if (!isObject(row.subject) || !isObject(row.context) || !isNonEmptyString(row.label)) {
           fail(`contextual offer ${row.id} is incomplete`);
         }
+        if (row.cooperation !== undefined
+          && (!isObject(row.cooperation)
+            || row.cooperation.kind !== "local_lead"
+            || row.based_on !== "srd5.2.1:influence"
+            || row.subject?.kind !== "location"
+            || !Number.isSafeInteger(row.cooperation.destination_location_id)
+            || row.cooperation.destination_location_id <= 0
+            || !isNonEmptyString(row.cooperation.destination_hint))) {
+          fail(`contextual offer ${row.id} has an invalid typed cooperation payload`);
+        }
       } else if (kind === "variants") {
         compiledVariants.push(row.id);
         if (!/^.+\/\d+$/.test(row.id) || !isObject(row.exact_delta) || !Object.keys(row.exact_delta).length || !Array.isArray(row.fixtures) || !row.fixtures.length) {
@@ -1240,6 +1258,14 @@ const itemIds = idSet("items", items, (item) => item.id);
 const locationIds = idSet("locations", locations, (location) => location.id);
 const locationPackById = new Map(locations.map((location) => [location.id, location.pack_id]));
 const packById = new Map(packs.map((pack) => [pack.id, pack]));
+function dependentUnmountClosure(packId) {
+  return new Set(
+    packs
+      .filter((pack) =>
+        pack.id === packId || (pack.dependency_closure ?? []).includes(packId))
+      .map((pack) => pack.id),
+  );
+}
 idSet("sentences", sentences, (sentence) => sentence.id);
 const clockIds = idSet("clocks", clocks, (clock) => clock.id);
 const jobIds = idSet("jobs", jobs, (job) => job.id);
@@ -1339,6 +1365,7 @@ if (manifest.pack_lifecycle !== undefined) {
       }
       const destinationId = Number(evacuation.destination_location_id);
       const destinationPackId = locationPackById.get(destinationId);
+      const removedPackIds = dependentUnmountClosure(policy.pack_id);
       const expectedReference = `${destinationPackId}:location/${destinationId}`;
       if (!Number.isInteger(destinationId) || !has(locationIds, destinationId)) {
         fail(`worldpack pack_lifecycle ${policy.pack_id} references missing evacuation destination`);
@@ -1347,13 +1374,37 @@ if (manifest.pack_lifecycle !== undefined) {
           || evacuation.destination_location !== expectedReference
       ) {
         fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination identity does not match`);
-      } else if (destinationPackId === policy.pack_id) {
+      } else if (removedPackIds.has(destinationPackId)) {
         fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination would unmount`);
       } else if (gateByLocationId.has(destinationId)) {
         fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination must be public`);
       }
     }
   }
+}
+try {
+  validateCompiledGenerationPolicies(
+    packs,
+    { locations, exits, hidden_exits: hiddenExits },
+    manifest.pack_lifecycle,
+    "compiled worldpack",
+  );
+  const requiresGenerationMediaRegistry = packs.some((pack) => {
+    const policy = generationPolicyForPack(pack);
+    return policy?.media || policy?.cross_pack_routes?.length > 0;
+  });
+  if (requiresGenerationMediaRegistry) {
+    if (
+      JSON.stringify(manifest.generation_media_registry)
+      !== JSON.stringify(worldpackMediaRegistry())
+    ) {
+      fail("worldpack generation_media_registry does not match the reviewed registry");
+    }
+  } else if (manifest.generation_media_registry !== undefined) {
+    fail("worldpack must not publish an unused generation_media_registry");
+  }
+} catch (error) {
+  fail(error.message);
 }
 
 for (const profile of characterCreationProfiles) {
@@ -1450,6 +1501,22 @@ for (const actor of actors) {
     }
   }
   const desiredItemIds = new Set();
+  if (actor.relationship !== undefined) {
+    if (!isObject(actor.relationship)) {
+      fail(`actor ${actor.id} has invalid relationship`);
+    } else {
+      validateRequiredStrings(`actor ${actor.id} relationship`, actor.relationship, [
+        "intent",
+        "statement",
+        "first_beat",
+        "reply_prompt",
+        "active_beat",
+      ]);
+      if (!has(itemIds, actor.relationship.active_on_gift_item_id)) {
+        fail(`actor ${actor.id} relationship references missing gift item ${actor.relationship.active_on_gift_item_id}`);
+      }
+    }
+  }
   for (const desire of actor.desires ?? []) {
     if (!has(itemIds, desire.item_id) || !isNonEmptyString(desire.reason) || desiredItemIds.has(desire.item_id)) {
       fail(`actor ${actor.id} has invalid desire for item ${desire.item_id}`);
@@ -1480,6 +1547,15 @@ for (const item of items) {
   }
   if (!allowedItemRoles.has(item.role)) {
     fail(`item ${item.id} has invalid role ${item.role}`);
+  }
+  const itemCapabilities = item.capabilities ?? [];
+  if (!Array.isArray(itemCapabilities)
+    || new Set(itemCapabilities).size !== itemCapabilities.length
+    || itemCapabilities.some((capability) => !allowedItemCapabilities.has(capability))) {
+    fail(`item ${item.id} has invalid capabilities`);
+  }
+  if (itemCapabilities.length && item.role !== "tool") {
+    fail(`item ${item.id} capabilities require the tool role`);
   }
   if (!allowedItemSizes.has(item.size)) {
     fail(`item ${item.id} has invalid size ${item.size}`);
@@ -1611,9 +1687,33 @@ for (const location of locations) {
 
 const exitPairs = new Set();
 const exitDirections = new Set();
+const exitOwnerByEndpoints = new Map();
+const exitsByPair = new Map();
 for (const exit of exits) {
   if (!has(locationIds, exit.from_location_id) || !has(locationIds, exit.to_location_id)) {
     fail(`exit ${exit.from_location_id}->${exit.to_location_id} references missing location`);
+  }
+  if (exit.from_location_id === exit.to_location_id) {
+    fail(`exit ${exit.from_location_id}->${exit.to_location_id} cannot return to the same location`);
+  }
+  const distance = exit.distance ?? 1;
+  if (!Number.isInteger(distance) || distance < 1 || distance > 8) {
+    fail(`exit ${exit.from_location_id}->${exit.to_location_id} has invalid distance ${exit.distance}`);
+  }
+  const directionality = exit.directionality ?? "reciprocal";
+  if (!["reciprocal", "one_way"].includes(directionality)) {
+    fail(`exit ${exit.from_location_id}->${exit.to_location_id} has invalid directionality ${directionality}`);
+  }
+  if (!isNonEmptyString(exit.direction)) {
+    fail(`exit ${exit.from_location_id}->${exit.to_location_id} must declare a direction`);
+  }
+  if (directionality === "one_way") {
+    if (!Number.isInteger(exit.fallback_location_id)
+        || !has(locationIds, exit.fallback_location_id)) {
+      fail(`one-way exit ${exit.from_location_id}->${exit.to_location_id} must declare a valid fallback_location_id`);
+    }
+  } else if (exit.fallback_location_id !== undefined) {
+    fail(`reciprocal exit ${exit.from_location_id}->${exit.to_location_id} must not declare fallback_location_id`);
   }
   const fromPackId = locationPackById.get(exit.from_location_id);
   const toPackId = locationPackById.get(exit.to_location_id);
@@ -1633,6 +1733,19 @@ for (const exit of exits) {
     fail(`duplicate exit ${pair}`);
   }
   exitPairs.add(pair);
+  exitsByPair.set(pair, exit);
+  const endpointKey = [
+    Number(exit.from_location_id),
+    Number(exit.to_location_id),
+  ].sort((left, right) => left - right).join(":");
+  const reciprocalOwner = exitOwnerByEndpoints.get(endpointKey);
+  if (reciprocalOwner !== undefined && reciprocalOwner !== exit.pack_id) {
+    fail(
+      `reciprocal exits between ${endpointKey} have different owners ${reciprocalOwner} and ${exit.pack_id}`,
+    );
+  } else {
+    exitOwnerByEndpoints.set(endpointKey, exit.pack_id);
+  }
   if (isNonEmptyString(exit.direction)) {
     const directionKey = `${exit.from_location_id}:${exit.direction.trim().toLowerCase()}`;
     if (exitDirections.has(directionKey)) {
@@ -1642,9 +1755,47 @@ for (const exit of exits) {
   }
 }
 
+for (const exit of exits) {
+  const pair = `${exit.from_location_id}->${exit.to_location_id}`;
+  const reverse = exitsByPair.get(`${exit.to_location_id}->${exit.from_location_id}`);
+  const directionality = exit.directionality ?? "reciprocal";
+  if (directionality === "reciprocal" && !reverse) {
+    fail(`reciprocal exit ${pair} is missing its return direction`);
+  } else if (directionality === "reciprocal"
+      && reverse
+      && (reverse.directionality ?? "reciprocal") !== "reciprocal") {
+    fail(`reciprocal exit ${pair} has a one-way return`);
+  } else if (directionality === "reciprocal"
+      && reverse
+      && (reverse.distance ?? 1) !== (exit.distance ?? 1)) {
+    fail(`reciprocal exits ${pair} and ${exit.to_location_id}->${exit.from_location_id} have different distances`);
+  } else if (directionality === "one_way" && reverse) {
+    fail(`one-way exit ${pair} must not declare a reciprocal edge`);
+  }
+}
+
+for (const bundle of contributionBundles) {
+  for (const offer of bundle.offers ?? []) {
+    if (offer.cooperation?.kind !== "local_lead") continue;
+    const destinationId = offer.cooperation.destination_location_id;
+    const originId = Number(offer.subject?.id);
+    if (!has(locationIds, destinationId)
+        || originId === destinationId
+        || !exitPairs.has(`${originId}->${destinationId}`)) {
+      fail(`contextual offer ${offer.id} local lead must name an authored outbound destination`);
+    }
+  }
+}
+
 const featureKeys = new Set();
 for (const feature of roomFeatures) {
   validateRequiredStrings("room feature", feature, ["key", "name", "look", "search"]);
+  for (const error of roomFeatureSchemaValidationErrors(
+    feature,
+    `room feature ${feature.location_id}:${feature.key}`,
+  )) {
+    fail(error);
+  }
   if (!has(locationIds, feature.location_id)) {
     fail(`feature ${feature.key} references missing location ${feature.location_id}`);
   }
@@ -1705,6 +1856,159 @@ for (const hiddenExit of hiddenExits) {
 
 const entryLocationMatch = String(manifest.entry_location).match(/location\/(\d+)$/);
 const entryLocationId = Number(entryLocationMatch?.[1] ?? 0);
+const topologyAdjacency = new Map(
+  [...locationIds].map((locationId) => [locationId, new Set()]),
+);
+const topologyUndirected = new Map(
+  [...locationIds].map((locationId) => [locationId, new Set()]),
+);
+function addTopologyEdge(fromLocationId, toLocationId) {
+  topologyAdjacency.get(fromLocationId)?.add(toLocationId);
+  topologyUndirected.get(fromLocationId)?.add(toLocationId);
+  topologyUndirected.get(toLocationId)?.add(fromLocationId);
+}
+for (const exit of exits) addTopologyEdge(exit.from_location_id, exit.to_location_id);
+for (const hiddenExit of hiddenExits) {
+  addTopologyEdge(hiddenExit.from_location_id, hiddenExit.to_location_id);
+  addTopologyEdge(hiddenExit.to_location_id, hiddenExit.from_location_id);
+}
+
+function publicAuthoredTopology(removedPackIds = new Set()) {
+  const adjacency = new Map();
+  for (const locationId of locationIds) {
+    const locationPackId = locationPackById.get(locationId);
+    if (!removedPackIds.has(locationPackId) && !gateByLocationId.has(locationId)) {
+      adjacency.set(locationId, new Set());
+    }
+  }
+  for (const exit of exits) {
+    if (removedPackIds.has(exit.pack_id)
+        || !adjacency.has(exit.from_location_id)
+        || !adjacency.has(exit.to_location_id)) {
+      continue;
+    }
+    adjacency.get(exit.from_location_id).add(exit.to_location_id);
+  }
+  return adjacency;
+}
+
+function canReachInTopology(adjacency, startLocationId, destinationLocationId) {
+  if (!adjacency.has(startLocationId) || !adjacency.has(destinationLocationId)) {
+    return false;
+  }
+  const pending = [startLocationId];
+  const visited = new Set([startLocationId]);
+  while (pending.length > 0) {
+    const locationId = pending.shift();
+    if (locationId === destinationLocationId) return true;
+    for (const nextLocationId of adjacency.get(locationId) ?? []) {
+      if (!visited.has(nextLocationId)) {
+        visited.add(nextLocationId);
+        pending.push(nextLocationId);
+      }
+    }
+  }
+  return false;
+}
+
+const topologyRoots = new Map();
+for (const pack of packs) {
+  for (const entryPoint of pack.entry_points ?? []) {
+    if (entryPoint.kind !== "location") continue;
+    const match = String(entryPoint.id).match(/^location\/([1-9]\d*)$/);
+    const locationId = Number(match?.[1] ?? 0);
+    if (!match || !has(locationIds, locationId)
+        || locationPackById.get(locationId) !== pack.id) {
+      fail(`pack ${pack.id} has invalid topology root ${entryPoint.id}`);
+      continue;
+    }
+    topologyRoots.set(locationId, pack.id);
+  }
+}
+if (has(locationIds, entryLocationId)) {
+  topologyRoots.set(entryLocationId, locationPackById.get(entryLocationId));
+}
+
+function canReachTopologyRoot(startLocationId, candidateRoots) {
+  const pending = [startLocationId];
+  const visited = new Set([startLocationId]);
+  while (pending.length > 0) {
+    const locationId = pending.shift();
+    if (candidateRoots.has(locationId)) return true;
+    for (const nextLocationId of topologyAdjacency.get(locationId) ?? []) {
+      if (!visited.has(nextLocationId)) {
+        visited.add(nextLocationId);
+        pending.push(nextLocationId);
+      }
+    }
+  }
+  return false;
+}
+
+const unmountPolicyPackIds = new Set(
+  (manifest.pack_lifecycle?.unmount ?? []).map((policy) => policy.pack_id),
+);
+const unvisitedTopologyLocations = new Set(locationIds);
+while (unvisitedTopologyLocations.size > 0) {
+  const firstLocationId = unvisitedTopologyLocations.values().next().value;
+  const component = new Set([firstLocationId]);
+  const pending = [firstLocationId];
+  unvisitedTopologyLocations.delete(firstLocationId);
+  while (pending.length > 0) {
+    const locationId = pending.shift();
+    for (const nextLocationId of topologyUndirected.get(locationId) ?? []) {
+      if (unvisitedTopologyLocations.delete(nextLocationId)) {
+        component.add(nextLocationId);
+        pending.push(nextLocationId);
+      }
+    }
+  }
+  const componentRoots = new Set(
+    [...component].filter((locationId) => topologyRoots.has(locationId)),
+  );
+  if (componentRoots.size === 0) {
+    fail(`isolated topology component ${[...component].sort((left, right) => left - right).join(",")} has no declared entry root`);
+    continue;
+  }
+  if (!component.has(entryLocationId)) {
+    const componentPackIds = new Set(
+      [...component].map((locationId) => locationPackById.get(locationId)),
+    );
+    for (const packId of componentPackIds) {
+      if (!unmountPolicyPackIds.has(packId)) {
+        fail(`isolated topology component rooted at ${[...componentRoots].join(",")} has no exit/evacuation policy for ${packId}`);
+      }
+    }
+  }
+  for (const locationId of component) {
+    if (!canReachTopologyRoot(locationId, componentRoots)) {
+      fail(`location ${locationId} has no directed return/egress path to a topology root`);
+    }
+  }
+}
+
+for (const exit of exits.filter((candidate) =>
+  (candidate.directionality ?? "reciprocal") === "one_way")) {
+  if (!canReachInTopology(
+    publicAuthoredTopology(),
+    exit.to_location_id,
+    exit.fallback_location_id,
+  )) {
+    fail(`one-way exit ${exit.from_location_id}->${exit.to_location_id} cannot reach fallback ${exit.fallback_location_id} over public authored topology`);
+  }
+}
+
+for (const policy of manifest.pack_lifecycle?.unmount ?? []) {
+  const destinationId = Number(policy.evacuation?.destination_location_id);
+  const survivingTopology = publicAuthoredTopology(
+    dependentUnmountClosure(policy.pack_id),
+  );
+  if (has(locationIds, destinationId)
+      && has(locationIds, entryLocationId)
+      && !canReachInTopology(survivingTopology, destinationId, entryLocationId)) {
+    fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination has no surviving public authored egress to world root ${entryLocationId}`);
+  }
+}
 const publicReachableLocationIds = new Set();
 if (worldBearingPacks.length === 0 && locationIds.size === 0) {
   // A services-only composition intentionally has no playable entry point.
@@ -2255,6 +2559,14 @@ for (const hook of lifecycleHooks) {
   for (const effect of hook.effects ?? []) {
     validateEffectDescriptor(`hook ${hook.hook}`, effect);
   }
+}
+
+for (const error of lanternClockEffectValidationErrors({
+  clocks,
+  lifecycleHooks,
+  packs: manifest.packs,
+})) {
+  fail(error);
 }
 
 const allItemIds = new Set(itemIds);

@@ -324,6 +324,43 @@
       border-color: rgba(226, 187, 121, 0.28);
       background: rgba(24, 19, 10, 0.66);
     }
+    .story-front {
+      border-color: rgba(226, 187, 121, 0.34);
+      background:
+        linear-gradient(110deg, rgba(45, 31, 13, 0.45), rgba(8, 19, 12, 0.76));
+    }
+    .story-front.persisted,
+    .story-front.escalated {
+      border-color: rgba(226, 187, 121, 0.5);
+    }
+    .story-front-stakes {
+      margin-top: 8px;
+      display: grid;
+      gap: 5px;
+    }
+    .story-front-question,
+    .story-front-reference,
+    .story-front-outcome {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .story-front-question {
+      color: var(--text);
+      font-weight: 700;
+    }
+    .story-front-reference {
+      margin-top: 8px;
+      color: var(--dim);
+    }
+    .story-front-outcome {
+      margin-top: 8px;
+      border-top: 1px solid rgba(226, 187, 121, 0.2);
+      padding-top: 7px;
+      color: var(--amber);
+      font-weight: 700;
+    }
     .shared-question-heading {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -394,6 +431,54 @@
     }
     .shared-question-strategies .unavailable {
       color: var(--faint);
+    }
+    .shared-question-meters {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .shared-question-meter {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 8px;
+      color: var(--dim);
+      font-size: 11px;
+    }
+    .shared-question-meter strong {
+      color: var(--amber);
+      text-transform: uppercase;
+    }
+    .shared-question-meter-track {
+      grid-column: 1 / -1;
+      height: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(129, 255, 167, 0.2);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.42);
+    }
+    .shared-question-meter-track span {
+      display: block;
+      width: var(--meter-fill);
+      height: 100%;
+      background: var(--green);
+    }
+    .shared-question-meter.danger .shared-question-meter-track span {
+      background: var(--amber);
+    }
+    .shared-question-suggestions {
+      margin: 8px 0 0;
+      padding: 7px 0 0 18px;
+      border-top: 1px solid rgba(129, 255, 167, 0.14);
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .shared-question-suggestions li + li {
+      margin-top: 6px;
+    }
+    .shared-question-suggestions strong {
+      color: var(--text);
     }
     .memory-summary {
       min-width: 0;
@@ -516,14 +601,25 @@
     .room-avatar-rail:empty {
       display: none;
     }
+    .room-avatar-frame {
+      position: relative;
+      width: 50px;
+      height: 50px;
+      flex: 0 0 50px;
+      display: grid;
+      place-items: center;
+      isolation: isolate;
+    }
     .room-avatar-pfp {
       width: 42px;
       height: 42px;
-      flex: 0 0 42px;
+      flex: none;
       border-radius: 999px;
       border: 2px solid rgba(216, 247, 220, 0.64);
       background-color: rgba(16, 25, 18, 0.86);
       box-shadow: 0 8px 22px rgba(0, 0, 0, 0.44);
+      position: relative;
+      z-index: 1;
     }
     .room-avatar-pfp {
       padding: 0;
@@ -537,6 +633,56 @@
     }
     .room-avatar-pfp.evolved {
       border-color: rgba(239, 201, 107, 0.95);
+    }
+    .expedition-ring {
+      --ring-segment-color: rgba(216, 247, 220, 0.2);
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+    .expedition-ring-segment {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: conic-gradient(
+        from var(--ring-start),
+        var(--ring-segment-color) 0 var(--ring-sweep),
+        transparent var(--ring-sweep)
+      );
+      -webkit-mask: radial-gradient(
+        farthest-side,
+        transparent calc(100% - 3px),
+        #000 calc(100% - 2px)
+      );
+      mask: radial-gradient(
+        farthest-side,
+        transparent calc(100% - 3px),
+        #000 calc(100% - 2px)
+      );
+    }
+    .expedition-ring-segment.filled {
+      --ring-segment-color: rgba(239, 201, 107, 0.92);
+      filter: drop-shadow(0 0 2px rgba(239, 201, 107, 0.38));
+    }
+    .room-avatar-frame.needs-rest .room-avatar-pfp {
+      filter: saturate(0.58) brightness(0.82);
+    }
+    .room-avatar-frame.needs-rest .expedition-ring-segment {
+      --ring-segment-color: rgba(190, 198, 174, 0.24);
+    }
+    .room-avatar-frame.needs-rest .expedition-ring-segment.filled {
+      --ring-segment-color: rgba(190, 198, 174, 0.68);
+      filter: none;
+    }
+    .expedition-ring.committed-change {
+      animation: expedition-ring-commit 360ms ease-out both;
+    }
+    @keyframes expedition-ring-commit {
+      0% { opacity: 0.52; transform: scale(0.94); }
+      70% { opacity: 1; transform: scale(1.035); }
+      100% { opacity: 1; transform: scale(1); }
     }
     .room-tags {
       display: flex;
@@ -860,6 +1006,7 @@
     @media (prefers-reduced-motion: reduce) {
       .chat-thinking-dots > i { animation: none; opacity: 0.72; }
       .arrival-scene::before { animation: none; opacity: 0.9; }
+      .expedition-ring.committed-change { animation: none; }
     }
     .chat-pfp {
       width: 32px;
@@ -2562,8 +2709,12 @@
       .room-avatar-pfp {
         width: 34px;
         height: 34px;
-        flex-basis: 34px;
         border-width: 2px;
+      }
+      .room-avatar-frame {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
       }
       .room-tag { font-size: 11px; padding: 2px 6px; }
       .room-title {
@@ -3292,6 +3443,24 @@
       line-height: 1.4;
       overflow-wrap: anywhere;
     }
+    .journal-row-inspector {
+      flex-basis: 100%;
+      margin: 2px 0 0;
+      padding: 6px 0 0;
+      border-top: 1px solid var(--line);
+      list-style: none;
+      color: var(--dim);
+      font-size: 10px;
+    }
+    .journal-row.story .journal-row-detail {
+      flex-wrap: wrap;
+    }
+    .journal-row-inspector li {
+      display: grid;
+      grid-template-columns: minmax(15ch, auto) 1fr;
+      gap: 8px;
+      padding: 2px 0;
+    }
     .journal-row-detail button {
       flex: 0 0 auto;
       border: 0;
@@ -3687,6 +3856,7 @@
         </div>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
+        <section class="shared-questions" id="promoted-question" aria-live="polite" aria-label="Current story and shared question" hidden></section>
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
         <header class="journal-heading">
@@ -3865,6 +4035,7 @@
     const clockPresentationContractVersion = 1;
     const clockPresentationReceiptState = new Map();
     let clockPresentationVisibilityFrame = null;
+    const expeditionRingRenderState = new Map();
     let streamReplayFloorSeq = 0;
     let stream = null;
     let refreshInFlight = null;
@@ -4836,6 +5007,8 @@
         const firstChat = chatCandidates[0];
         const oneChat = chatCandidates.length === 1;
         const firstTargetName = firstChat.name || actorLabel(firstChat);
+        const firstRelationship = firstChat.relationship || null;
+        const authoredRelationship = firstRelationship?.initial_status === "forming";
         const chatAction = {
           ...semanticAction(chatOffer, "chat"),
           kind: "advancement-chat",
@@ -4854,11 +5027,16 @@
           targetName: oneChat ? firstTargetName : "",
           modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
           modalSummary: oneChat
-            ? `Use one advancement point to begin a friendship with ${firstTargetName}.`
+            ? (authoredRelationship
+              ? `Use one advancement point to begin this forming relationship: “${firstRelationship.statement}”`
+              : `Use one advancement point to begin a friendship with ${firstTargetName}.`)
             : "Choose someone nearby. Chat uses one advancement point and begins a friendship.",
           effect: oneChat
-            ? `your friendship with ${firstTargetName} begins`
+            ? (authoredRelationship
+              ? firstRelationship.deterministic_consequence
+              : `your friendship with ${firstTargetName} begins`)
             : "a new friendship begins",
+          relationship: firstRelationship,
           ...(oneChat ? {} : {
             choices: chatCandidates.map((actor) => {
               const card = cardForActor(actor.id);
@@ -4878,7 +5056,7 @@
         chatAction.selectedPayload = () => ({
           actor_id: actorId,
           target_actor_id: Number(chatAction.selectedTarget().id),
-          statement: defaultBondStatement(
+          statement: chatAction.selectedTarget().relationship?.statement || defaultBondStatement(
             chatAction.selectedTarget().name || actorLabel(chatAction.selectedTarget())
           ),
         });
@@ -4887,6 +5065,29 @@
       };
       if (turn.enabled && !turn.is_current_actor) {
         const currentName = turn.current_actor_name || "another avatar";
+        const waitingActions = [];
+        if (turn.can_request_timeout) {
+          waitingActions.push({
+            handProvider: {
+              kind: "rules",
+              id: "rules:ordered-scene-timeout",
+              label: "Ordered scene",
+              reason: "Ask the current participant to play or pass",
+              priority: 0,
+            },
+            label: "nudge",
+            detail: `ask ${currentName} to play or pass`,
+            command: "nudge",
+            focusKey: "scene-timeout",
+            card: cardForActor(turn.current_actor_id) || cardForLocation(view.location?.id),
+            shape: "avatar",
+            priority: 0,
+            modalTitle: `gently nudge ${currentName}`,
+            modalSummary: `Ask ${currentName} to play or pass so this ordered scene can continue.`,
+            effect: "passes the ordered floor to the next eligible participant",
+            run: () => action("/actions/timeout", { actor_id: actorId }),
+          });
+        }
         const waitingAction = {
           handProvider: {
             kind: "rules",
@@ -4907,7 +5108,8 @@
           effect: "shows the current combat order without taking an action",
           run: () => runCommandText("look"),
         };
-        return [waitingAction].map(decorateActionHand);
+        waitingActions.push(waitingAction);
+        return waitingActions.map(decorateActionHand);
       }
 
       const built = [];
@@ -5492,7 +5694,12 @@
               modalTitle: `use ${item.name} with ${featureName}`,
               modalSummary: `See what ${item.name} awakens in ${featureName}.`,
               effect,
-              run: () => runCommandText(command),
+              run: () => action("/actions/use-item", {
+                actor_id: actorId,
+                item_id: item.id,
+                location_id: currentLocationId,
+                feature_key: featureKey,
+              }),
             });
           }
         }
@@ -5566,10 +5773,11 @@
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
               choices: groupedExits.map((exit) => ({
-                label: exit.destination_location_name,
+                label: exit.route_label || exit.destination_location_name,
                 detail: searchingPathway
-                  ? `${Number(exit.distance || 1)} stretches`
-                  : (exit.direction ? `${exit.direction} path` : "open path"),
+                  ? `${Number(exit.distance || 1)} stretches toward ${exit.destination_location_name}`
+                  : `${exit.destination_location_name}${exit.direction ? ` · ${exit.direction}` : ""}`,
+                previewAlt: exit.destination_location_name,
                 value: String(exit.destination_location_id),
                 card: cardForLocation(exit.destination_location_id),
               })),
@@ -5805,12 +6013,14 @@
           run: () => action("/actions/prepare", { actor_id: actorId }),
         });
       }
-      const actorTired = (view.tags || []).some((tag) => (
-        tag.label === "tired"
-        && (!tag.scope_id || Number(tag.scope_id) === Number(actorId))
-      ));
-      if (options.has("rest") && actorTired) {
-        const offer = offerFor("rest");
+      const restOffer = offerFor("rest");
+      const restInProjectedHand = (view.action_hand?.entries || [])
+        .some((entry) => String(entry?.kind || "") === "rest");
+      const restEligible = Boolean(restOffer)
+        && !restOffer.disabled
+        && (options.has("rest") || restInProjectedHand);
+      if (restEligible) {
+        const offer = restOffer;
         const warmedRest = String(offer?.effect || "").includes("hearth tonic warmth");
         const restPriority = frontierRoom ? 25 : 84;
         built.push({
@@ -6648,7 +6858,9 @@
       };
       if (path === "/actions/use-item") {
         const selected = actionCard?.selectedMode?.()?.source || actionCard;
-        return (selected?.offerKinds || []).filter((kind) => kind === "use_item");
+        return (selected?.offerKinds || []).filter((kind) => (
+          kind === "use_item" || kind === "use_feature"
+        ));
       }
       const explicitKinds = new Set(actionCard?.offerKinds || []);
       return (byPath[path] || []).filter((kind) => explicitKinds.has(kind));
@@ -6668,6 +6880,9 @@
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
+      if (path === "/actions/use-item" && targetKind === "feature") {
+        return Number(payload.location_id || 0);
+      }
       return 0;
     }
 
@@ -6685,7 +6900,14 @@
           || Number(offer.target.id) === submittedTarget;
         const providerMatches = path !== "/actions/use-item"
           || offer?.provider?.id === `item:${Number(payload.item_id || 0)}`;
-        return contributionMatches && targetMatches && providerMatches;
+        const featureMatches = path !== "/actions/use-item"
+          || offer.kind !== "use_feature"
+          || String(offer.id || "").startsWith(
+            `use_feature:${Number(payload.item_id || 0)}:${Number(payload.location_id || 0)}:`
+          ) && String(offer.id || "").slice(
+            `use_feature:${Number(payload.item_id || 0)}:${Number(payload.location_id || 0)}:`.length
+          ) === String(payload.feature_key || "");
+        return contributionMatches && targetMatches && providerMatches && featureMatches;
       }) || null;
     }
 
@@ -6714,7 +6936,7 @@
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
-      } else if (["/actions/move", "/actions/flee", "/actions/explore-path"].includes(path)) {
+      } else if (["/actions/move", "/actions/flee", "/actions/explore-path", "/actions/timeout"].includes(path)) {
         await refresh();
       }
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
@@ -6730,6 +6952,12 @@
       const status = Number(result.status || 0);
       const conflict = (result.events || []).find((event) => event?.type === "action.conflict");
       if (conflict?.content) return String(conflict.content);
+      const timeoutRefusal = (result.events || []).find((event) => (
+        String(event?.type || "").startsWith("turn.timeout_refused.")
+      ));
+      if (path === "/actions/timeout" && timeoutRefusal?.content) {
+        return String(timeoutRefusal.content);
+      }
       if (status === 402 && path.includes("fund-image")) {
         return "You need one Orb to add to this community image.";
       }
@@ -6919,8 +7147,10 @@
 
     function narratedTranscriptEvents(events) {
       const narrated = [];
+      const coveredSeqs = semanticReceiptCoveredSeqs(events);
       for (let index = 0; index < (events || []).length; index += 1) {
         const event = events[index];
+        if (coveredSeqs.has(Number(event?.seq || 0))) continue;
         const next = events[index + 1];
         if (eventsShareAJourneyBeat(event, next)) {
           narrated.push(String(event.type || "").startsWith("journey.") ? event : next);
@@ -6937,6 +7167,25 @@
         narrated.push(event);
       }
       return narrated;
+    }
+
+    function semanticStoryReceipt(event) {
+      if (event?.type !== "story.receipt" || !event.content) return null;
+      try {
+        const receipt = JSON.parse(event.content);
+        return receipt?.schema_version === 1 && receipt?.text ? receipt : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function semanticReceiptCoveredSeqs(events) {
+      return new Set((events || [])
+        .map(semanticStoryReceipt)
+        .filter(Boolean)
+        .flatMap((receipt) => receipt.event_seqs || [])
+        .map(Number)
+        .filter((seq) => Number.isSafeInteger(seq) && seq > 0));
     }
 
     function eventIsSearchBeat(event) {
@@ -7189,6 +7438,9 @@
       "pathway.discovered",
       "pathway.familiarized",
       "chat.failed",
+      "dialogue.unavailable",
+      "relationship.beat",
+      "relationship.advanced",
       "ability_check.rolled",
       "study.resolved",
       "feature.searched",
@@ -7206,6 +7458,7 @@
       "clock.threshold",
       "natural_feature.revealed",
       "job.updated",
+      "story.receipt",
       "ledger.banked",
       "calling.revised",
       "skill.stepped",
@@ -7365,33 +7618,35 @@
     function acknowledgeVisibleClockPresentations() {
       if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
       if (libraryPanelPinned || accountPanelPinned) return;
-      const panel = $("shared-questions");
-      if (!panel || panel.hidden || panel.getClientRects().length === 0) return;
-      for (const row of panel.querySelectorAll("[data-clock-presentation][data-clock-id]")) {
-        if (!clockPresentationRowIsActuallyVisible(row, panel)) continue;
-        const clockId = String(row.dataset.clockId || "");
-        const question = (state?.shared_questions || []).find((candidate) => (
-          String(candidate?.progress_clock_id || "") === clockId
-        ));
-        if (!question) continue;
-        const interaction = row.dataset.questionState === "completed_memory"
-          ? "completion_seen"
-          : "promoted_seen";
-        void acknowledgeClockPresentation(question, interaction);
-        const updatedEventSeq = Number(question.updated_event_seq || 0);
-        const lastSeenEventSeq = clockPresentationLastSeenEventSeq(clockId);
-        if (
-          lastSeenEventSeq > 0
-          && updatedEventSeq > lastSeenEventSeq
-          && (
-            (question.recent_contributions || []).some((entry) => Number(entry.event_seq || 0) > lastSeenEventSeq)
-            || question.presentation_state === "completed_memory"
-          )
-        ) {
-          void acknowledgeClockPresentation(question, "return_change_seen");
-        }
-        if (updatedEventSeq > lastSeenEventSeq) {
-          rememberClockPresentationEventSeq(clockId, updatedEventSeq);
+      const panels = [$("promoted-question"), $("shared-questions")]
+        .filter((panel) => panel && !panel.hidden && panel.getClientRects().length > 0);
+      for (const panel of panels) {
+        for (const row of panel.querySelectorAll("[data-clock-presentation][data-clock-id]")) {
+          if (!clockPresentationRowIsActuallyVisible(row, panel)) continue;
+          const clockId = String(row.dataset.clockId || "");
+          const question = (state?.shared_questions || []).find((candidate) => (
+            String(candidate?.progress_clock_id || "") === clockId
+          ));
+          if (!question) continue;
+          const interaction = row.dataset.questionState === "completed_memory"
+            ? "completion_seen"
+            : "promoted_seen";
+          void acknowledgeClockPresentation(question, interaction);
+          const updatedEventSeq = Number(question.updated_event_seq || 0);
+          const lastSeenEventSeq = clockPresentationLastSeenEventSeq(clockId);
+          if (
+            lastSeenEventSeq > 0
+            && updatedEventSeq > lastSeenEventSeq
+            && (
+              (question.recent_contributions || []).some((entry) => Number(entry.event_seq || 0) > lastSeenEventSeq)
+              || question.presentation_state === "completed_memory"
+            )
+          ) {
+            void acknowledgeClockPresentation(question, "return_change_seen");
+          }
+          if (updatedEventSeq > lastSeenEventSeq) {
+            rememberClockPresentationEventSeq(clockId, updatedEventSeq);
+          }
         }
       }
     }
@@ -7501,6 +7756,7 @@
         || event.type === "actor.presence"
         || event.type === "chat.queued"
         || event.type === "chat.completed"
+        || event.type === "dialogue.delivered"
         || event.type === "avatar.refined"
         || event.type === "pathway.refined";
     }
@@ -7527,6 +7783,10 @@
         || event.type === "turn.timeout_passed"
         || event.type === "message.created"
         || event.type === "chat.failed"
+        || event.type === "dialogue.unavailable"
+        || event.type === "dialogue.delivered"
+        || event.type === "relationship.beat"
+        || event.type === "relationship.advanced"
         || event.type === "avatar.refined"
         || event.type === "pathway.refined"
         || event.type === "move.blocked"
@@ -7557,6 +7817,7 @@
         || event.type === "bond.revised"
         || event.type === "bond.resolved"
         || event.type === "job.updated"
+        || event.type === "story.receipt"
         || event.type === "combat.defend"
         || event.type === "combat.attack.attempt"
         || event.type === "combat.attack.hit"
@@ -7664,6 +7925,7 @@
         document.querySelector(".room")?.classList.add("collapsed");
       }
       renderRoomCopy(location.id);
+      renderPromotedQuestion();
       renderSharedQuestions();
       renderTimelines();
       renderCommands();
@@ -7741,12 +8003,59 @@
       return view?.cards?.locations?.[String(id)] || null;
     }
 
+    function committedStateRevision(view = state) {
+      return Math.max(
+        0,
+        Number(view?.state_revision || 0),
+        Number(view?.world_seq || 0),
+      );
+    }
+
+    function expeditionRingPresentation(actor, stateRevision) {
+      const projected = actor?.expedition_ring;
+      if (!projected || typeof projected !== "object") {
+        return { html: "", needsRest: false };
+      }
+      const pipTotal = Math.max(1, Math.min(4, Math.trunc(Number(projected.pip_total) || 1)));
+      const filledCount = Math.max(
+        0,
+        Math.min(pipTotal, Math.trunc(Number(projected.filled_count) || 0)),
+      );
+      const needsRest = projected.needs_rest === true;
+      const actorKey = String(actor?.id || "");
+      const prior = expeditionRingRenderState.get(actorKey);
+      const committedChange = Boolean(
+        prior
+        && stateRevision > prior.stateRevision
+        && (filledCount !== prior.filledCount || needsRest !== prior.needsRest),
+      );
+      if (!prior || stateRevision >= prior.stateRevision) {
+        expeditionRingRenderState.set(actorKey, {
+          filledCount,
+          needsRest,
+          stateRevision,
+        });
+      }
+      const gapDegrees = pipTotal === 1 ? 18 : 10;
+      const sweepDegrees = (360 / pipTotal) - gapDegrees;
+      const segments = Array.from({ length: pipTotal }, (_, index) => {
+        const startDegrees = (index * 360 / pipTotal) + (gapDegrees / 2);
+        return `<span class="expedition-ring-segment${index < filledCount ? " filled" : ""}" style="--ring-start:${startDegrees}deg;--ring-sweep:${sweepDegrees}deg"></span>`;
+      }).join("");
+      const classes = `expedition-ring${committedChange ? " committed-change" : ""}`;
+      return {
+        needsRest,
+        html: `<span class="${classes}" aria-hidden="true" data-filled-count="${filledCount}" data-pip-total="${pipTotal}" data-state-revision="${stateRevision}">${segments}</span>`,
+      };
+    }
+
     function roomAvatarRailHtml(view) {
       const actors = [...(view.actors || [])].sort((a, b) => {
         if (a.id === actorId) return -1;
         if (b.id === actorId) return 1;
         return String(a.name || "").localeCompare(String(b.name || ""));
       });
+      const stateRevision = committedStateRevision(view);
       return actors.map((actor) => {
         const card = cardForActor(actor.id);
         const fallback = card || {
@@ -7758,7 +8067,8 @@
         const you = actor.id === actorId;
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
-        return `<button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>`;
+        const ring = expeditionRingPresentation(actor, stateRevision);
+        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
       }).join("");
     }
 
@@ -7796,6 +8106,7 @@
       kind = "",
       attrs = "",
       action = "",
+      inspector = [],
     } = {}) {
       const compactSummary = journalSummary(summary || detail || "Something changed");
       const sentence = journalSentence(detail || summary || "Something changed");
@@ -7803,8 +8114,11 @@
       const progressHtml = progress
         ? `<span class="journal-row-progress"${progressParts ? ` role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="${Number(progressParts[2])}" aria-valuenow="${Number(progressParts[1])}"` : ""}>${escapeHtml(progress)}</span>`
         : "";
-      const detailHtml = sentence
-        ? `<div class="journal-row-detail"><p>${escapeHtml(sentence)}</p>${action}</div>`
+      const inspectorHtml = inspector.length
+        ? `<ul class="journal-row-inspector" aria-label="Raw events">${inspector.map((entry) => `<li><code>#${Number(entry.seq || 0)} ${escapeHtml(entry.type || "event")}</code><span>${escapeHtml(cleanStatusText(eventText(entry)))}</span></li>`).join("")}</ul>`
+        : "";
+      const detailHtml = sentence || inspectorHtml
+        ? `<div class="journal-row-detail">${sentence ? `<p>${escapeHtml(sentence)}</p>` : ""}${inspectorHtml}${action}</div>`
         : "";
       const aria = [label, compactSummary, progress].filter(Boolean).join(". ");
       return `<details class="journal-row ${escapeAttr(kind)}"${attrs} aria-label="${escapeAttr(aria)}"><summary><span class="journal-row-label">${escapeHtml(label)}</span><span class="journal-row-summary">${escapeHtml(compactSummary)}</span>${progressHtml}<span class="journal-row-marker" aria-hidden="true"></span></summary>${detailHtml}</details>`;
@@ -8053,6 +8367,46 @@
         .slice(0, 1);
     }
 
+    function frontsForPresentation(view = state) {
+      const fronts = Array.isArray(view?.fronts) ? view.fronts : [];
+      return fronts.filter((front) => front.presentation_state !== "dormant");
+    }
+
+    function narrativeNames(names) {
+      const values = (names || []).map((name) => String(name || "").trim()).filter(Boolean);
+      if (values.length < 2) return values[0] || "";
+      if (values.length === 2) return `${values[0]} and ${values[1]}`;
+      return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+    }
+
+    function promotedFrontHtml(front, index = 0) {
+      const stateName = String(front.presentation_state || "active");
+      const idBase = `story-front-${String(front.id || index).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+      const titleId = `${idBase}-title`;
+      const stakes = (front.stakes_questions || []).filter(Boolean);
+      const stakeIds = stakes.map((_, stakeIndex) => `${idBase}-stake-${stakeIndex + 1}`);
+      const names = narrativeNames(front.participant_names);
+      const referenceId = names ? `${idBase}-reference` : "";
+      const outcome = String(front.outcome_statement || "").trim();
+      const outcomeId = outcome ? `${idBase}-outcome` : "";
+      const describedBy = [...stakeIds, referenceId, outcomeId].filter(Boolean).join(" ");
+      const kicker = {
+        persisted: "the larger trouble persists",
+        resolved: "the larger trouble is resolved",
+        escalated: "the larger trouble has escalated",
+      }[stateName] || "larger trouble";
+      const stakeHtml = stakes.length
+        ? `<div class="story-front-stakes">${stakes.map((stake, stakeIndex) => `<p class="story-front-question" id="${stakeIds[stakeIndex]}">${escapeHtml(stake)}</p>`).join("")}</div>`
+        : "";
+      const referenceHtml = names
+        ? `<p class="story-front-reference" id="${referenceId}">${escapeHtml(`The answer still matters to ${names}.`)}</p>`
+        : "";
+      const outcomeHtml = outcome
+        ? `<p class="story-front-outcome" id="${outcomeId}">${escapeHtml(outcome)}</p>`
+        : "";
+      return `<article class="shared-question story-front ${escapeAttr(stateName)}" role="region" aria-labelledby="${titleId}"${describedBy ? ` aria-describedby="${describedBy}"` : ""}><span class="shared-question-kicker">${escapeHtml(kicker)}</span><h2 id="${titleId}">${escapeHtml(front.premise)}</h2>${stakeHtml}${referenceHtml}${outcomeHtml}</article>`;
+    }
+
     function sharedQuestionHtml(question) {
       const completed = question.presentation_state === "completed_memory";
       const rhythm = String(question.rhythm || "shared").replaceAll("_", " ");
@@ -8091,8 +8445,13 @@
       const detail = [
         journalClause(question.situation),
         `progress is ${progress}`,
+        question.danger_segments ? `danger is ${Number(question.danger_filled || 0)}/${Number(question.danger_segments || 0)}` : "",
+        question.danger_situation ? `danger now: ${journalClause(question.danger_situation)}` : "",
+        question.danger_consequence ? `if danger fills: ${lowerInitial(journalClause(question.danger_consequence))}` : "",
         question.outcome ? `finishing could ${lowerInitial(journalClause(question.outcome))}` : "",
-        helpers.length ? `help by ${helpers.join(", ")}` : "",
+        (question.suggested_actions || []).length
+          ? `suggested now: ${question.suggested_actions.map((suggestion) => journalClause(suggestion.label)).join(", ")}`
+          : (helpers.length ? `help by ${helpers.join(", ")}` : ""),
       ].filter(Boolean).join("; ");
       return journalRowHtml({
         label: `${rhythm} question`,
@@ -8103,6 +8462,54 @@
         attrs,
         action,
       });
+    }
+
+    function sharedQuestionMeterHtml(label, filled, segments, kind = "") {
+      const total = Math.max(0, Number(segments || 0));
+      const current = Math.min(total, Math.max(0, Number(filled || 0)));
+      const percent = total ? Math.round((current / total) * 100) : 0;
+      return `<div class="shared-question-meter ${escapeAttr(kind)}" role="progressbar" aria-label="${escapeAttr(label)}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${current}" aria-valuetext="${current} of ${total}"><strong>${escapeHtml(label)}</strong><span>${current}/${total}</span><span class="shared-question-meter-track" aria-hidden="true"><span style="--meter-fill:${percent}%"></span></span></div>`;
+    }
+
+    function promotedQuestionHtml(question) {
+      const completed = question.presentation_state === "completed_memory";
+      const attrs = ` data-clock-presentation data-clock-id="${escapeAttr(question.progress_clock_id || "")}" data-question-state="${completed ? "completed_memory" : "active"}"`;
+      const contributors = (question.participant_names || []).filter(Boolean);
+      if (completed) {
+        const result = String(question.completion_memory || question.situation || "The shared question is settled.");
+        const contributorCopy = contributors.length ? `Contributors: ${contributors.join(", ")}.` : "";
+        return `<article class="shared-question completed-memory"${attrs} role="note" aria-label="${escapeAttr([result, contributorCopy].filter(Boolean).join(" "))}"><span class="shared-question-kicker">${question.resolution === "failed" ? "the road changed" : "the beacon changed"}</span><h2>${escapeHtml(result)}</h2>${contributorCopy ? `<p class="shared-question-situation">${escapeHtml(contributorCopy)}</p>` : ""}</article>`;
+      }
+      const suggestions = (question.suggested_actions || []).slice(0, 2);
+      const suggestionHtml = suggestions.length
+        ? `<ol class="shared-question-suggestions" aria-label="${suggestions.length} suggested ${suggestions.length === 1 ? "action" : "actions"}">${suggestions.map((suggestion, index) => {
+          const ordinal = `Suggestion ${index + 1} of ${suggestions.length}`;
+          const risk = suggestion.risk || "No special risk is expected.";
+          const rationale = `${ordinal}. ${suggestion.label}. Target: ${suggestion.target_label}. Source: ${suggestion.source}. Likely effect: ${suggestion.likely_effect}. Risk: ${risk}`;
+          return `<li aria-label="${escapeAttr(rationale)}"><strong>${escapeHtml(`${ordinal}: ${suggestion.label}`)}</strong><br />Target: ${escapeHtml(suggestion.target_label)} · Source: ${escapeHtml(suggestion.source)} · Likely: ${escapeHtml(suggestion.likely_effect)} · Risk: ${escapeHtml(risk)}</li>`;
+        }).join("")}</ol>`
+        : "";
+      const aria = [
+        question.question,
+        question.situation,
+        `Progress ${Number(question.filled || 0)} of ${Number(question.segments || 0)}`,
+        `Danger ${Number(question.danger_filled || 0)} of ${Number(question.danger_segments || 0)}`,
+        `Completion changes: ${question.outcome}`,
+        `Danger consequence: ${question.danger_consequence}`,
+      ].filter(Boolean).join(". ");
+      return `<article class="shared-question active-question"${attrs} role="region" aria-label="${escapeAttr(aria)}"><div class="shared-question-heading"><span><span class="shared-question-kicker">current question</span><h2>${escapeHtml(question.question)}</h2></span><span class="shared-question-progress">${Number(question.filled || 0)}/${Number(question.segments || 0)}</span></div><p class="shared-question-situation">${escapeHtml(question.situation)}</p><div class="shared-question-meters">${sharedQuestionMeterHtml("Progress", question.filled, question.segments)}${sharedQuestionMeterHtml("Danger", question.danger_filled, question.danger_segments, "danger")}</div><div class="shared-question-detail"><span><strong>Completion changes</strong><br />${escapeHtml(question.outcome || "")}</span><span><strong>Danger now</strong><br />${escapeHtml(question.danger_situation || "")}</span><span><strong>If danger fills</strong><br />${escapeHtml(question.danger_consequence || "")}</span></div>${suggestionHtml}</article>`;
+    }
+
+    function renderPromotedQuestion() {
+      const panel = $("promoted-question");
+      const fronts = frontsForPresentation();
+      const questions = sharedQuestionsForPresentation();
+      panel.hidden = fronts.length === 0 && questions.length === 0;
+      panel.innerHTML = [
+        ...fronts.slice(0, 1).map(promotedFrontHtml),
+        ...questions.slice(0, 1).map(promotedQuestionHtml),
+      ].join("");
+      if (questions.length) scheduleVisibleClockPresentationReceipts();
     }
 
     function renderSharedQuestions() {
@@ -8137,6 +8544,17 @@
     }
 
     function journalEventHtml(event) {
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) {
+        const covered = new Set((storyReceipt.event_seqs || []).map(Number));
+        return journalRowHtml({
+          label: "story",
+          summary: journalSummary(storyReceipt.text),
+          detail: storyReceipt.text,
+          kind: "story",
+          inspector: logEvents.filter((candidate) => covered.has(Number(candidate?.seq || 0))),
+        });
+      }
       if (event.type === "message.created") {
         const text = eventText(event);
         return journalRowHtml({
@@ -8477,6 +8895,10 @@
     function statusUpdateMeta(event) {
       const repeat = Number(event.repeat_count || 0);
       const repeatSuffix = repeat > 1 ? ` x${repeat}` : "";
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) {
+        return { kind: "story", label: "story", text: cleanStatusText(storyReceipt.text) };
+      }
       if (event.type === "ledger.marked") {
         return { kind: "ledger", label: "memory", text: cleanStatusText(ledgerEventLabel(event)) };
       }
@@ -8488,6 +8910,15 @@
       }
       if (event.type === "skill.stepped") {
         return { kind: "skill", label: "ability", text: cleanStatusText(skillEventLabel(event)) };
+      }
+      if (event.type === "relationship.beat") {
+        return { kind: "bond", label: "relationship", text: cleanStatusText(event.content || "a relationship begins to form") };
+      }
+      if (event.type === "relationship.advanced") {
+        return { kind: "bond", label: "relationship", text: cleanStatusText(event.content || "earned trust changes the relationship") };
+      }
+      if (event.type === "dialogue.unavailable") {
+        return { kind: "bond", label: "dialogue unavailable", text: "The promised resident reply could not run. No substitute speech was created." };
       }
       if (event.type === "calling.set") {
         if (event.actor_id === actorId) {
@@ -8505,7 +8936,10 @@
         return { kind: "bond", label: "friendship", text: `closer to ${event.target_actor_name || "someone"}` };
       }
       if (event.type === "bond.created") {
-        return { kind: "bond", label: "friendship", text: `${event.target_actor_name || "someone"} now matters to you` };
+        const forming = String(event.content || "").includes(":forming:");
+        return forming
+          ? { kind: "bond", label: "relationship", text: `a connection with ${event.target_actor_name || "someone"} is forming` }
+          : { kind: "bond", label: "friendship", text: `${event.target_actor_name || "someone"} now matters to you` };
       }
       if (event.type === "bond.revised") {
         return { kind: "bond", label: "friendship", text: `what ${event.target_actor_name || "someone"} means to you changed` };
@@ -8800,7 +9234,7 @@
           Number(entry.item_id) === Number(card.id) && entry.status === "materialized"
         ));
         const actionParts = [];
-        if (["weapon", "container"].includes(String(card.role || ""))) {
+        if (["weapon", "container", "tool"].includes(String(card.role || ""))) {
           const equipped = card.zone === "equipped";
           actionParts.push(`<button class="account-button secondary" type="button" data-set-item-equipped="${card.id}" data-equipped="${equipped ? "false" : "true"}">${equipped ? "unequip" : "equip"}</button>`);
         } else if (card.zone === "contained") {
@@ -9182,10 +9616,12 @@
         return `${charm.name} — ${skill}${bonus ? ` +${bonus}` : ""}`;
       }).join(", ") : "find a skill charm, then wear it from Deck"));
       const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
-      rows.push(accountRow("friends", bonds.length ? bonds.map((bond) => {
+      rows.push(accountRow("relationships", bonds.length ? bonds.map((bond) => {
         const name = String(bond.target_actor_name || "someone").trim();
         const statement = String(bond.statement || "").trim();
-        const closeness = Number(bond.strength || 0) >= 3 ? "close friend" : (Number(bond.strength || 0) >= 2 ? "getting closer" : "new friend");
+        const closeness = bond.status === "forming"
+          ? "forming acquaintance"
+          : (Number(bond.strength || 0) >= 3 ? "close friend" : (Number(bond.strength || 0) >= 2 ? "getting closer" : "new friend"));
         return `${name} — ${statement || closeness}${statement ? ` (${closeness})` : ""}`;
       }).join(" · ") : "someone new is waiting to meet you"));
       const marks = Array.isArray(ledger.unbanked_marks) ? ledger.unbanked_marks : [];
@@ -9377,6 +9813,8 @@
     function sceneCardEventText(event) {
       const actor = String(event?.actor_name || "Someone").trim() || "Someone";
       const type = String(event?.type || "");
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) return cleanStatusText(storyReceipt.text);
       if (type === "actor.created") {
         const title = actorTitleForEvent(event);
         return `${event.location_name || "The room"} makes room for ${actor}${title ? `, ${title}` : ""}.`;
@@ -9386,6 +9824,12 @@
       }
       if (type === "chat.failed") {
         return "The conversation slipped away before it could begin. Your Orb came back.";
+      }
+      if (type === "dialogue.unavailable") {
+        return "Dialogue unavailable: Mara's promised reply could not run. The authored relationship beat still stands, and no substitute speech was created.";
+      }
+      if (type === "relationship.beat" || type === "relationship.advanced") {
+        return finishSentence(cleanStatusText(event.content || "The relationship changes through a visible deed"));
       }
       if (type === "world.weather.shifted") {
         return finishSentence(cleanStatusText(event.content || "The weather changes its mind"));
@@ -9494,6 +9938,9 @@
         return `${actor} finds a truer answer to what draws them in: ${withoutFinalPeriod(callingEventLabel(event))}.`;
       }
       if (type === "bond.created") {
+        if (String(event.content || "").includes(":forming:")) {
+          return `A cautious connection begins forming between ${actor} and ${event.target_actor_name || "someone new"}; friendship has not been claimed.`;
+        }
         return `Somewhere between ${actor} and ${event.target_actor_name || "someone new"}, a friendship begins.`;
       }
       if (type === "bond.revised") {
@@ -9733,6 +10180,8 @@
     }
 
     function eventText(event) {
+      const storyReceipt = semanticStoryReceipt(event);
+      if (storyReceipt) return storyReceipt.text;
       if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
       if (event.type === "feature.searched" || event.type === "location.searched") return searchEventText(event);
@@ -9821,7 +10270,13 @@
       if (event.type === "skill_charm.unequipped") return `removes ${event.item_name || "a skill charm"}.`;
       if (event.type === "skill.stepped") return `${skillEventLabel(event)}.`;
       if (event.type === "bond.deepened") return `grows closer to ${event.target_actor_name || "someone"}.`;
-      if (event.type === "bond.created") return `became friends with ${event.target_actor_name || "someone"}.`;
+      if (event.type === "relationship.beat" || event.type === "relationship.advanced") return finishSentence(cleanStatusText(event.content || "the relationship changes"));
+      if (event.type === "dialogue.unavailable") return "Dialogue unavailable; no substitute speech was created.";
+      if (event.type === "bond.created") {
+        return String(event.content || "").includes(":forming:")
+          ? `began a forming relationship with ${event.target_actor_name || "someone"}.`
+          : `became friends with ${event.target_actor_name || "someone"}.`;
+      }
       if (event.type === "bond.revised") return `sees ${event.target_actor_name || "someone"} a little differently.`;
       if (event.type === "bond.resolved") return `keeps what mattered with ${event.target_actor_name || "someone"}.`;
       if (event.type === "job.updated") return `${jobEventLabel(event)}.`;
@@ -9834,7 +10289,10 @@
       if (event.type === "combat.knockout") return `${event.target_actor_name}'s light falls quiet for now.`;
       if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}, carrying the trail's silver hush.`;
       if (event.type === "encounter.reset") return `${event.target_actor_name || "The frontier"} stirs again in ${event.location_name || "the frontier"}.`;
-      if (event.type === "rule.rejected") return `hesitates.`;
+      if (event.type === "rule.rejected") {
+        return String(event.content || "").trim()
+          || "That action could not be completed. Refresh the room and try again.";
+      }
       return event.type;
     }
 
@@ -10753,7 +11211,7 @@
       art?.classList.remove("avatar", "item", "location");
       art?.classList.add(shapeForCard(card));
       $("action-modal-image").src = actionImage(action);
-      $("action-modal-image").alt = choice?.label || card?.display_name || action?.detail || actionTitle(action);
+      $("action-modal-image").alt = choice?.previewAlt || choice?.label || card?.display_name || action?.detail || actionTitle(action);
     }
 
     function smallNumberWord(value) {
@@ -10913,6 +11371,16 @@
         ].filter((row) => String(row[1] || "").trim());
       }
       if (String(action?.label || "").toLowerCase() === "chat") {
+        const selectedRelationship = action?.selectedTarget?.()?.relationship || action?.relationship;
+        if (selectedRelationship?.initial_status === "forming") {
+          return [
+            ["Relationship", selectedRelationship.statement],
+            ["Status", "forming acquaintance; this does not claim friendship"],
+            ["Campaign beat", selectedRelationship.deterministic_consequence],
+            ["Spend", "one advancement point"],
+            ["Dialogue", selectedRelationship.dialogue_contract],
+          ];
+        }
         if (action?.choices?.length) {
           return [
             ["Choose", "who you want to begin a friendship with"],
@@ -11014,6 +11482,21 @@
       ].filter((row) => String(row[1] || "").trim());
     }
 
+    function renderActionModalRows(action) {
+      const selectedRelationship = action?.selectedTarget?.()?.relationship || action?.relationship;
+      const authoredRelationship = String(action?.label || "").toLowerCase() === "chat"
+        && selectedRelationship?.initial_status === "forming";
+      const rows = (authoredRelationship ? actionModalRows(action) : [])
+        .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim());
+      const meta = $("action-modal-meta");
+      meta.innerHTML = rows.map(([key, value]) => {
+        const label = String(key).trim();
+        const detail = String(value).trim();
+        const risk = /^watch for$/i.test(label) ? " risk" : "";
+        return `<div class="action-row${risk}" role="group" aria-label="${escapeAttr(label)}"><span class="action-row-key">${escapeHtml(label)}</span><span class="action-row-value">${escapeHtml(detail)}</span></div>`;
+      }).join("");
+    }
+
     function actionSummary(action) {
       if (action?.modalSummary) return String(action.modalSummary);
       if (["nudge", "ping"].includes(String(action?.label || "").toLowerCase())) {
@@ -11082,7 +11565,7 @@
       syncActionChoicePreview(action, selectedChoice);
       $("action-modal-title").textContent = label;
       $("action-modal-summary").textContent = journalSentence(actionSummary(action));
-      $("action-modal-meta").innerHTML = "";
+      renderActionModalRows(action);
       renderActionChoices(action);
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
       $("action-modal-cancel").textContent = action?.creationStage === "origin" ? "back" : "cancel";
@@ -11145,6 +11628,7 @@
       action.selectedChoice = choice.value;
       renderActionChoices(action);
       syncActionChoicePreview(action, choice);
+      renderActionModalRows(action);
     }
 
     function closeActionModal() {
@@ -11656,9 +12140,10 @@
       ].filter(Boolean).join("; ");
       if (title) button.title = title;
       else button.removeAttribute("title");
-      const actionIndex = Number.isInteger(action.actionIndex) ? action.actionIndex : actions.indexOf(action);
-      const count = !state?.branch && actionIndex >= 0 && actions.length > 1
-        ? `${actionIndex + 1} of ${actions.length}`
+      const suggestionIndex = Number(action.suggestionIndex);
+      const suggestionCount = Number(action.suggestionCount);
+      const count = Number.isInteger(suggestionIndex) && suggestionIndex >= 0 && suggestionCount > 0
+        ? `${suggestionIndex + 1} of ${suggestionCount}`
         : "";
       const pendingDetail = action.busy
         ? (typeof action.busyDetail === "function" ? action.busyDetail() : action.busyDetail)
@@ -11672,7 +12157,7 @@
           handProviderReason(action),
           storyGuideLabel,
           keepsakeName ? `matching kept-close art: ${keepsakeName}` : "",
-          count ? `action ${count}` : "",
+          count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
       );
@@ -11832,7 +12317,13 @@
       const visibleActions = actionBarActions().slice(0, handCapacity());
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
-        const visibleAction = visibleActions[index] || null;
+        const visibleAction = visibleActions[index]
+          ? {
+              ...visibleActions[index],
+              suggestionIndex: index,
+              suggestionCount: visibleActions.length,
+            }
+          : null;
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
       }

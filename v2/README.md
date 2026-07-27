@@ -365,6 +365,22 @@ COSYWORLD_AI_VISION_MODEL=openai/gpt-5-image-mini
 COSYWORLD_AI_VISION_REASONING_EFFORT=low
 ```
 
+Text selection can instead use a versioned capability registry and
+capability-specific configured defaults:
+
+```sh
+COSYWORLD_AI_REGISTRY_JSON='{"schema_version":1,"snapshot_version":"catalog-1","declared":[...],"discovered":[...]}'
+COSYWORLD_AI_CAPABILITY_MODELS_JSON='{"voice":"provider/tiny-chat","intent_json":"provider/planner","world_content":"provider/generator"}'
+```
+
+The immutable snapshot may retain hundreds of candidates, but a request pins
+and sends only one. Provider discovery never grants eligibility by itself,
+mutable aliases require concrete returned-model attribution, and production
+text inference fails closed unless the selected declaration explicitly
+prohibits retention and training. See
+[`docs/ai-capability-registry.md`](docs/ai-capability-registry.md) for the
+schema, capability boundaries, privacy contract, and replay provenance.
+
 Server-side generative world content is separately controlled and defaults to
 off. Enable only reviewed features, or run them in shadow mode to validate and
 audit proposals without publishing them:
@@ -405,6 +421,51 @@ names, `COSYWORLD_REPLICATE_AVATAR_LORA_SCALE`,
 local setups that define `REPLICATE_BASE_MODEL`, `REPLICATE_LORA_WEIGHTS`,
 `REPLICATE_MODEL`, `REPLICATE_LORA_TRIGGER`, or `LORA_TRIGGER_WORD` are also
 supported as fallbacks.
+
+The provider-neutral media registry in `media/recipes.json` freezes model
+revision provenance and the capability contract used before a Replicate
+request. FLUX.2 calls use their pinned version ID; FLUX.1 LoRA remains the
+default zero-reference community-art recipe and retains its existing
+official-model invocation.
+`COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON` can deterministically canary, disable,
+fall back, or roll back an allowlisted recipe without changing world state. For
+example:
+
+```sh
+COSYWORLD_MEDIA_RECIPE_CONTROLS_JSON='{"canaries":{"cosyworld.community-art.base/1":{"recipe":"replicate.flux2-dev.references","percent":5}},"disabled_recipes":[],"profile_overrides":{}}'
+```
+
+Unknown fields, profiles, recipes, disallowed profile targets, and canary
+percentages above 100 fail before recipe selection.
+
+Reference-capable callers pass an ordered typed list of `location`, `actor`,
+`item`, `prior_level`, or `style` inputs. Resolution preserves that list
+exactly and rejects unsupported or over-limit jobs before provider submission.
+The pinned FLUX.2 revision accepts at most four references, custom dimensions
+from 256 through 1440 in multiples of 32, and an optional reproducibility seed.
+
+Ready community art is also captured in
+`$COSYWORLD_GENERATED_ASSET_DIR/media-assets/graph-v1.json`, with immutable
+content-addressed objects below `media-assets/objects/sha256/`. A record
+includes digest/dimensions/MIME, stable storage, subject level and revision,
+worldpack/composition provenance, provider/model/prompt/prediction history,
+rights, moderation, and complete parent reference lineage. New output remains
+ineligible until its `ready` journal transition commits. Replacement advances
+only the approved canonical pointer; old objects, records, lineage, and
+moderation history remain audit evidence. The generated community-art route
+backfills approved legacy FLUX.1 files on first read without regeneration.
+
+Reference resolution accepts authoritative typed subject slots rather than
+caller URLs, verifies approved canonical objects by digest, and orders them
+deterministically. It resolves canonical history as of the request's journal
+boundary, while causal revisions make same-subject ingestion order irrelevant.
+Durable ready/rejected evidence idempotently reconciles graph state after a
+restart, and an in-flight moderation transaction persists a fail-closed
+reference hold until its journal result is known. Missing, corrupt, pending,
+rejected, private, deleted, and rights-ineligible assets fail before provider
+spend. Authored, on-chain, and imported art is non-derivable by default.
+Requests over a recipe's reference budget require an explicit composition
+plan.
 
 Avatar art prompts start with the configured LoRA trigger and combine a stable,
 persisted physical description with the avatar's current species, origin,
@@ -524,7 +585,7 @@ Returning players keep their local avatar id plus an opaque `actor_session` mint
 
 When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same live human actor and issue a fresh actor session without emitting duplicate `actor.created` world events. Dev reset clears those links along with the reseeded world.
 
-Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, and actor-target commands use the same active-presence projection as `/state` and `/world`, so closed-tab humans do not linger in terminal room descriptions or target matching. If a stale but valid actor session runs a typed command or accepted direct action, the server emits the same hidden active-presence event as `/presence/ping` so co-located clients refresh, and command/action responses include that presence event when it was created for the request. The browser pings `/presence/ping` before boot refresh when it has a stored actor session, keeps a lightweight heartbeat while connected, and sends `/presence/leave` on page hide. The terminal client does the same on startup and while waiting at the prompt, then sends `/presence/leave` on quit. NPC residents stay visible according to world placement. This keeps shared rooms lively without filling them with closed-tab or old smoke-test avatars.
+Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, `/state`, and `/world` use the same room-roster projection. The one bounded exception is a lapsed avatar who still owns a focused turn: that holder stays visible on every roster until turn recovery hands off, but remains absent from actor-target offers and commands. If a stale but valid actor session runs a typed command or accepted direct action, the server emits the same hidden active-presence event as `/presence/ping` so co-located clients refresh, and command/action responses include that presence event when it was created for the request. The browser pings `/presence/ping` before boot refresh when it has a stored actor session, keeps a lightweight heartbeat while connected, and sends `/presence/leave` on page hide. The terminal client does the same on startup and while waiting at the prompt, then sends `/presence/leave` on quit. NPC residents stay visible according to world placement. This keeps shared rooms lively without filling them with closed-tab or old smoke-test avatars.
 
 Visible actors, items, and locations now resolve through `state.cards`:
 
@@ -691,10 +752,12 @@ Locations are live channels:
   kernel actor kind.
 - `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header. A lagged broadcast receiver is closed so EventSource reconnects from its last delivered id instead of silently skipping room lines. If the bounded replay cannot reach the subscribe-time sequence, the stream emits a named `gap` event and the browser reloads `/state` before continuing live updates.
 - `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. The response is `{ "world_id": "world://cosyworld/official", "world_epoch": 1, "events": [...], "next_after": 123, "through_seq": 123, "caught_up": true }`, so each event's `seq` completes its canonical public identity tuple. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500. Polling clients pass `next_after` into the next request so the cursor advances across events hidden by room or card visibility; each request scans at most 1,000 raw events.
-- Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions; durable old avatars are not treated as online occupants.
+- Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions, with the same temporary focused-turn-holder exception used by MUD room rosters; durable old avatars are not treated as online occupants or actor-action targets.
 - `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
 - When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Journal settlement is part of successful discovery rather than a separate waiting-room card. Loadout changes live in Deck & Loadout and do not take the shared room turn. The gentle Nudge / I'm here handoff remains beside scene choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
-- The browser appends only `message.created` speech to group chat. Other matching live events refresh state and remain available through the location's Journal.
+- The browser appends only `message.created` speech to group chat. Other matching live events refresh state and remain available through the location's Journal. Lantern Keeper actions additionally end in one persisted `story.receipt`: browser and CLI lead with that authored consequence, replay projects the same receipt without duplicate bookkeeping lines, and expanding its Journal row reveals the covered raw event sequence for inspection.
+- An active Lantern Keeper scene promotes one shared question outside the Journal with fiction-first situation text, exact progress and danger meters, the completion change, the current danger beat, and its fill consequence. Its rationale list is derived from the same two-entry authoritative action hand as the playable cards; screen-reader labels say `suggestion 1 of 2` and `suggestion 2 of 2`, never count the larger legal offer set. Browser, `look`, CLI reconnect, stale-offer refresh, journal replay, success, and failure all project the same question state. Once either clock resolves it, the live task bars retire to a concise public memory naming its contributors.
+- The Lantern Keeper's light and darkness clocks directly declare their own justified fill effects. Each terminal fill journals exactly one authoritative job outcome and one authored `story.receipt`; retry, reconnect, and journal replay cannot duplicate either. Official worldpack validation requires both direct declarations, their expected completed/failed status, and an authored reason, and rejects a missing, tag-only, or duplicate lifecycle source without imposing the Lantern contract on other pack compositions.
 - Moving between locations swaps to that room's transcript instead of carrying the prior room log forward.
 
 This keeps AI output one-to-many: a resident reply is committed as a world event and broadcast to everyone present, not regenerated as a private response for each player.
@@ -765,15 +828,20 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /collection/unmaterialize`
 - `POST /commands`
 
+`POST /actions/use-item` accepts either an actor use (`item_id` plus
+`target_actor_id`) or an exact room-feature use (`item_id`, `location_id`, and
+`feature_key`). Both forms must match a current authoritative offer; typed
+clients never need to round-trip a `use_feature` offer through command prose.
+
 `POST /commands` is the canonical mutation gateway. New callers send the
-authenticated numeric actor handle plus the stable envelope advertised by
-`/state`:
+authenticated numeric actor handle, an `offer_id` from the current `/state`
+projection, and the stable envelope:
 
 ```json
 {
   "actor_id": 5000,
   "actor_session": "...",
-  "command": "go east",
+  "offer_id": "cosyworld.srd5/1:92811:move:202",
   "envelope": {
     "world_id": "world://cosyworld/official",
     "intent_id": "client:018f...",
@@ -783,6 +851,14 @@ authenticated numeric actor handle plus the stable envelope advertised by
   }
 }
 ```
+
+The identifier's embedded state revision is checked while resolving the exact
+projected offer. Failures expose `error_kind` as `invalid_offer_id`,
+`stale_offer`, `unknown_offer`, or `disabled_offer` and commit no presence or
+world mutation. The prose `command` field is retained as a legacy convenience
+for the palette and older clients; its failures use `parse_failure`. It is not
+the authoritative offer submission contract, and `offer_id` takes precedence
+when both fields are present.
 
 The response includes a durable `receipt` with the same world/intent/actor,
 the committed `world_epoch` and `world_seq`, affected canonical entity
@@ -835,7 +911,9 @@ Public action endpoints accept active human actors only when the matching `actor
 
 `POST /actions/report` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "target_actor_id": 1001, "reason": "..." }`. The reporter and target must both be in the same room, and human targets must be visible in active room presence. Success returns `200` plus a durable report id for moderator review; reports do not broadcast into the room timeline.
 
-`POST /actions/timeout` accepts JSON `{ "actor_id": 5000, "actor_session": "..." }`. It is only useful for an active human waiting on another active human's room turn. The first request gently nudges the current player and starts an eight-second wait; later requests tell the room that those players are still here. If the current player remains away, the next choice passes to an eligible responder. The durable event names remain `turn.ping_started`, `turn.pong`, and `turn.ping_skipped` for compatibility, but the browser presents only the warmer Nudge / I'm here language.
+`POST /actions/timeout` accepts JSON `{ "actor_id": 5000, "actor_session": "..." }`. It is available to an active participant waiting on another active participant in an explicitly ordered combat or cooperative-work scene. A successful nudge journals a system Pass for the current holder and advances to the next eligible participant. Refusals return actionable events with stable types: `turn.timeout_refused.requester_holds_turn`, `turn.timeout_refused.participants_below_two`, `turn.timeout_refused.requester_not_eligible`, `turn.timeout_refused.no_focused_scene`, or `turn.timeout_refused.cooldown`. Refusal checks happen before any world mutation.
+
+`POST /actions/need-time` uses the same actor payload for the current ordered-scene holder's one nonpunitive grace extension. It does not pass the turn or advance world time.
 
 Public mutation endpoints also pass through lightweight in-memory rate limits before they touch the world reducer:
 

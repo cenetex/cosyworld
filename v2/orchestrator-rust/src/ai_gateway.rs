@@ -1,12 +1,32 @@
-use serde::Deserialize;
+#[path = "ai_registry.rs"]
+mod registry;
+
+use super::{
+    compact_whitespace, AppState, GeneratedPathwayState, GeneratedWaypointState, LocationMeta,
+    NaturalPotentialPolicy,
+};
+use crate::ai_voice_routing::VoiceRoutingConfig;
+pub(crate) use registry::{
+    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
+    PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, fmt, time::Duration};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    sync::Arc,
+    time::Duration,
+};
 use tokio::time::{sleep, Instant};
 
 pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
+pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
+pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v2";
 const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -104,10 +124,14 @@ pub(crate) struct AiConfig {
     pub(crate) vision_model: String,
     pub(crate) reasoning_effort: Option<String>,
     pub(crate) vision_reasoning_effort: Option<String>,
+    pub(crate) registry: Option<Arc<CapabilityRegistrySnapshot>>,
+    pub(crate) capability_models: BTreeMap<ModelCapability, String>,
+    pub(crate) data_policy_mode: DataPolicyMode,
+    pub(crate) voice_routing: VoiceRoutingConfig,
 }
 
 impl AiConfig {
-    pub(crate) fn from_env() -> Option<Self> {
+    pub(crate) fn from_env() -> Result<Option<Self>, String> {
         let api_key = std::env::var("COSYWORLD_AI_API_KEY")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
@@ -129,19 +153,33 @@ impl AiConfig {
         let api_key = match api_key {
             Some(key) => key,
             None if local_ai_base_url(&base_url) => "local-ai".to_string(),
-            None => return None,
+            None => return Ok(None),
         };
-        let model = std::env::var("COSYWORLD_AI_MODEL")
+        let configured_model = std::env::var("COSYWORLD_AI_MODEL")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_CHAT_MODEL").ok())
-            .or_else(|| std::env::var("OPENAI_MODEL").ok())
-            .unwrap_or_else(|| {
-                if using_openrouter {
-                    DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
-                } else {
-                    DEFAULT_OPENAI_CHAT_MODEL.to_string()
-                }
-            });
+            .or_else(|| std::env::var("OPENAI_MODEL").ok());
+        let registry = std::env::var(AI_REGISTRY_ENV)
+            .ok()
+            .map(|value| {
+                CapabilityRegistrySnapshot::from_json(&value)
+                    .map(Arc::new)
+                    .map_err(|error| format!("{AI_REGISTRY_ENV}: {error}"))
+            })
+            .transpose()?;
+        let model = configured_model.unwrap_or_else(|| {
+            registry
+                .as_deref()
+                .and_then(|snapshot| snapshot.first_model_for(ModelCapability::Voice))
+                .map(ToString::to_string)
+                .unwrap_or_else(|| {
+                    if using_openrouter {
+                        DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
+                    } else {
+                        DEFAULT_OPENAI_CHAT_MODEL.to_string()
+                    }
+                })
+        });
         let vision_model = std::env::var("COSYWORLD_AI_VISION_MODEL")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_VISION_MODEL").ok())
@@ -161,21 +199,170 @@ impl AiConfig {
             .map(|effort| effort.trim().to_ascii_lowercase())
             .filter(|effort| !effort.is_empty())
             .or_else(|| reasoning_effort.clone());
+        let capability_models =
+            parse_capability_models(std::env::var(AI_CAPABILITY_MODELS_ENV).ok().as_deref())?;
+        let data_policy_mode = if std::env::var("COSYWORLD_DEPLOY_PROFILE")
+            .map(|profile| profile.eq_ignore_ascii_case("production"))
+            .unwrap_or(false)
+        {
+            DataPolicyMode::Production
+        } else {
+            DataPolicyMode::Development
+        };
+        let voice_routing = VoiceRoutingConfig::from_env()?;
 
-        Some(Self {
+        Ok(Some(Self {
             api_key,
             base_url,
             model,
             vision_model,
             reasoning_effort,
             vision_reasoning_effort,
-        })
+            registry,
+            capability_models,
+            data_policy_mode,
+            voice_routing,
+        }))
     }
+
+    fn pin_model(
+        &self,
+        capability: ModelCapability,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let fallback_registry;
+        let registry = if let Some(registry) = self.registry.as_deref() {
+            registry
+        } else {
+            fallback_registry = CapabilityRegistrySnapshot::legacy(
+                "legacy-config-v1",
+                ai_provider_name(Some(self)),
+                &self.model,
+            )?;
+            &fallback_registry
+        };
+        let configured = if let Some(model) = self.capability_models.get(&capability) {
+            Some(model.as_str())
+        } else if self.registry.is_none()
+            || registry
+                .pin(capability, Some(self.model.as_str()), self.data_policy_mode)
+                .is_ok()
+        {
+            Some(self.model.as_str())
+        } else {
+            None
+        };
+        registry.pin(capability, configured, self.data_policy_mode)
+    }
+
+    pub(crate) fn pin_models(
+        &self,
+        capability: ModelCapability,
+    ) -> Result<Vec<PinnedModelSelection>, RegistryError> {
+        if let Some(registry) = self.registry.as_deref() {
+            return registry.pin_all(capability, self.data_policy_mode);
+        }
+        CapabilityRegistrySnapshot::legacy(
+            "legacy-config-v1",
+            ai_provider_name(Some(self)),
+            &self.model,
+        )?
+        .pin_all(capability, self.data_policy_mode)
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct GenerationProvenance {
+    pub(crate) source: String,
+    pub(crate) feature: String,
+    pub(crate) policy_mode: String,
+    pub(crate) prompt_version: String,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) model_attribution: Option<ModelAttribution>,
+    pub(crate) attempts: u8,
+}
+
+impl GenerationProvenance {
+    pub(crate) fn for_pathway(
+        mode: GenerationMode,
+        config: Option<&AiConfig>,
+        model_attribution: Option<&ModelAttribution>,
+        source: &str,
+        attempts: u8,
+    ) -> Self {
+        Self::for_feature(
+            PATHWAY_CONTENT_FEATURE,
+            PATHWAY_CONTENT_PROMPT_VERSION,
+            mode,
+            config,
+            model_attribution,
+            source,
+            attempts,
+        )
+    }
+
+    pub(crate) fn for_feature(
+        feature: &str,
+        prompt_version: &str,
+        mode: GenerationMode,
+        config: Option<&AiConfig>,
+        model_attribution: Option<&ModelAttribution>,
+        source: &str,
+        attempts: u8,
+    ) -> Self {
+        let provider = model_attribution
+            .map(|attribution| attribution.provider.clone())
+            .unwrap_or_else(|| ai_provider_name(config).to_string());
+        let model = model_attribution
+            .map(|attribution| attribution.resolved_model_id.clone())
+            .unwrap_or_else(|| ai_model_name(config));
+        Self {
+            source: source.to_string(),
+            feature: feature.to_string(),
+            policy_mode: mode.as_str().to_string(),
+            prompt_version: prompt_version.to_string(),
+            provider,
+            model,
+            model_attribution: model_attribution.cloned(),
+            attempts,
+        }
+    }
+}
+
+fn parse_capability_models(
+    value: Option<&str>,
+) -> Result<BTreeMap<ModelCapability, String>, String> {
+    let raw = match value.map(str::trim) {
+        None | Some("") => return Ok(BTreeMap::new()),
+        Some(value) => serde_json::from_str::<BTreeMap<ModelCapability, String>>(value)
+            .map_err(|error| {
+                format!(
+                    "{AI_CAPABILITY_MODELS_ENV} must map voice, intent_json, or world_content to model ids: {error}"
+                )
+            })?,
+    };
+    raw.into_iter()
+        .map(|(capability, model)| {
+            let model = model.trim().to_string();
+            if model.is_empty() {
+                Err(format!(
+                    "{AI_CAPABILITY_MODELS_ENV} contains an empty {capability} model"
+                ))
+            } else {
+                Ok((capability, model))
+            }
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AiFailureKind {
     Unconfigured,
+    Registry,
+    Capability,
+    Privacy,
+    Alias,
     Client,
     Timeout,
     Transport,
@@ -187,6 +374,10 @@ impl AiFailureKind {
     pub(crate) fn code(self) -> &'static str {
         match self {
             Self::Unconfigured => "inference_unconfigured",
+            Self::Registry => "inference_registry_error",
+            Self::Capability => "inference_capability_mismatch",
+            Self::Privacy => "inference_privacy_rejected",
+            Self::Alias => "inference_alias_unresolved",
             Self::Client => "inference_client_error",
             Self::Timeout => "inference_timeout",
             Self::Transport => "inference_transport_error",
@@ -214,17 +405,33 @@ impl AiGatewayError {
         }
     }
 
-    pub(crate) fn invalid_response(message: impl Into<String>) -> Self {
+    fn registry(feature: &str, error: RegistryError) -> Self {
+        let kind = match error.code() {
+            "inference_capability_mismatch" => AiFailureKind::Capability,
+            "inference_privacy_rejected" => AiFailureKind::Privacy,
+            "inference_alias_unresolved" => AiFailureKind::Alias,
+            _ => AiFailureKind::Registry,
+        };
         Self {
-            kind: AiFailureKind::InvalidResponse,
-            message: message.into(),
-            attempts: 1,
+            kind,
+            message: format!("AI {feature} registry rejected the request: {error}"),
+            attempts: 0,
             latency: Duration::ZERO,
         }
     }
 
     pub(crate) fn code(&self) -> &'static str {
         self.kind.code()
+    }
+
+    pub(crate) fn affects_provider_health(&self) -> bool {
+        matches!(
+            self.kind,
+            AiFailureKind::Timeout
+                | AiFailureKind::Transport
+                | AiFailureKind::Provider
+                | AiFailureKind::InvalidResponse
+        )
     }
 }
 
@@ -244,6 +451,8 @@ impl fmt::Display for AiGatewayError {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ChatCompletionRequest<'a> {
     pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) capability: ModelCapability,
     pub(crate) system: &'a str,
     pub(crate) user: &'a str,
     pub(crate) temperature: f64,
@@ -259,6 +468,18 @@ pub(crate) struct AiCompletion {
     pub(crate) text: String,
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
+    pub(crate) model_attribution: Option<ModelAttribution>,
+    pub(crate) finish_reason: String,
+    pub(crate) usage: AiTokenUsage,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct AiTokenUsage {
+    pub(crate) prompt_tokens: Option<u64>,
+    pub(crate) completion_tokens: Option<u64>,
+    pub(crate) total_tokens: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -290,9 +511,13 @@ pub(crate) async fn request_chat_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
+    let selection = config
+        .pin_model(request.capability)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
     request_completion(
         config,
         request.feature,
+        request.prompt_version,
         request.system,
         Value::String(request.user.to_string()),
         Some(request.temperature),
@@ -301,8 +526,33 @@ pub(crate) async fn request_chat_completion(
         request.max_attempts,
         request.referer,
         request.response_format,
-        &config.model,
+        selection.requested_model_id(),
         config.reasoning_effort.as_deref(),
+        Some(&selection),
+    )
+    .await
+}
+
+pub(crate) async fn request_chat_completion_with_selection(
+    config: &AiConfig,
+    request: ChatCompletionRequest<'_>,
+    selection: &PinnedModelSelection,
+) -> Result<AiCompletion, AiGatewayError> {
+    request_completion(
+        config,
+        request.feature,
+        request.prompt_version,
+        request.system,
+        Value::String(request.user.to_string()),
+        Some(request.temperature),
+        request.max_tokens,
+        request.timeout,
+        request.max_attempts,
+        request.referer,
+        request.response_format,
+        selection.requested_model_id(),
+        config.reasoning_effort.as_deref(),
+        Some(selection),
     )
     .await
 }
@@ -329,9 +579,20 @@ pub(crate) async fn request_image_policy_decision(
                                 "person",
                                 "character",
                                 "creature",
+                                "safety",
                                 "text",
                                 "logo",
-                                "watermark"
+                                "watermark",
+                                "system_leak",
+                                "ui_chrome",
+                                "missing_subject",
+                                "extra_subject",
+                                "identity_drift",
+                                "missing_item",
+                                "wrong_holder",
+                                "wrong_environment",
+                                "bad_crop",
+                                "pack_negative"
                             ]
                         }
                     },
@@ -357,6 +618,7 @@ pub(crate) async fn request_image_policy_decision(
     let completion = request_completion(
         config,
         request.feature,
+        "image-policy-v1",
         "You are a strict image publication gate. Inspect only visible pixels. Return the required JSON and no prose.",
         user_content,
         None,
@@ -367,6 +629,7 @@ pub(crate) async fn request_image_policy_decision(
         Some(&response_format),
         &config.vision_model,
         config.vision_reasoning_effort.as_deref(),
+        None,
     )
     .await?;
     parse_image_policy_decision(&completion.text).map_err(|message| AiGatewayError {
@@ -393,9 +656,20 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
         "person",
         "character",
         "creature",
+        "safety",
         "text",
         "logo",
         "watermark",
+        "system_leak",
+        "ui_chrome",
+        "missing_subject",
+        "extra_subject",
+        "identity_drift",
+        "missing_item",
+        "wrong_holder",
+        "wrong_environment",
+        "bad_crop",
+        "pack_negative",
     ];
     if raw
         .violations
@@ -418,6 +692,7 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
 async fn request_completion(
     config: &AiConfig,
     feature: &'static str,
+    prompt_version: &'static str,
     system: &str,
     user_content: Value,
     temperature: Option<f64>,
@@ -428,8 +703,46 @@ async fn request_completion(
     response_format: Option<&Value>,
     model: &str,
     reasoning_effort: Option<&str>,
+    selection: Option<&PinnedModelSelection>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
+    let context_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(feature.as_bytes());
+        hasher.update([0]);
+        hasher.update(prompt_version.as_bytes());
+        hasher.update([0]);
+        hasher.update(system.as_bytes());
+        hasher.update([0]);
+        hasher.update(user_content.to_string().as_bytes());
+        format!("{:x}", hasher.finalize())
+    };
+    if let Some(selection) = selection {
+        let parameters = selection.candidate().supported_parameters();
+        let structured_type = response_format
+            .and_then(|format| format.get("type"))
+            .and_then(Value::as_str);
+        if structured_type == Some("json_schema") && !parameters.structured_output {
+            return Err(AiGatewayError::registry(
+                feature,
+                RegistryError::CapabilityMismatch {
+                    model: model.to_string(),
+                    capability: ModelCapability::WorldContent,
+                },
+            ));
+        }
+        if structured_type == Some("json_object")
+            && !(parameters.json_mode || parameters.structured_output)
+        {
+            return Err(AiGatewayError::registry(
+                feature,
+                RegistryError::CapabilityMismatch {
+                    model: model.to_string(),
+                    capability: ModelCapability::IntentJson,
+                },
+            ));
+        }
+    }
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -443,6 +756,16 @@ async fn request_completion(
     let max_attempts = max_attempts.max(1);
 
     for attempt in 1..=max_attempts {
+        let candidate_output_cap = selection
+            .map(|selection| {
+                let candidate = selection.candidate();
+                candidate
+                    .output_limit()
+                    .unwrap_or(u32::MAX)
+                    .min(candidate.sampling().hard_output_cap)
+            })
+            .unwrap_or(u32::MAX);
+        let max_tokens = max_tokens.min(candidate_output_cap);
         let mut payload = json!({
             "model": model,
             "messages": [
@@ -451,6 +774,9 @@ async fn request_completion(
             ],
             "max_tokens": max_tokens
         });
+        let temperature = selection
+            .and_then(|selection| selection.candidate().sampling().temperature)
+            .or(temperature);
         if let Some(temperature) = temperature {
             payload["temperature"] = json!(temperature);
         }
@@ -464,6 +790,21 @@ async fn request_completion(
         }
         if let Some(reasoning_effort) = reasoning_effort {
             payload["reasoning"] = json!({ "effort": reasoning_effort });
+        }
+        if let Some(selection) = selection {
+            let candidate = selection.candidate();
+            let defaults = candidate.sampling();
+            if let Some(top_p) = defaults.top_p {
+                payload["top_p"] = json!(top_p);
+            }
+            if candidate.supported_parameters().seed {
+                if let Some(seed) = defaults.seed {
+                    payload["seed"] = json!(seed);
+                }
+            }
+            if candidate.supported_parameters().stop && !defaults.stop.is_empty() {
+                payload["stop"] = json!(defaults.stop);
+            }
         }
         let response = client
             .post(&url)
@@ -525,10 +866,17 @@ async fn request_completion(
             attempts: attempt,
             latency: started_at.elapsed(),
         })?;
-        let text = body
+        let first_choice = body
             .get("choices")
             .and_then(|choices| choices.get(0))
-            .and_then(|choice| choice.get("message"))
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response did not include a choice"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        let text = first_choice
+            .get("message")
             .and_then(|message| message.get("content"))
             .and_then(|content| content.as_str())
             .map(str::trim)
@@ -540,11 +888,48 @@ async fn request_completion(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
+        let finish_reason = first_choice
+            .get("finish_reason")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let usage = body.get("usage");
+        let usage = AiTokenUsage {
+            prompt_tokens: usage
+                .and_then(|usage| usage.get("prompt_tokens"))
+                .and_then(Value::as_u64),
+            completion_tokens: usage
+                .and_then(|usage| usage.get("completion_tokens"))
+                .and_then(Value::as_u64),
+            total_tokens: usage
+                .and_then(|usage| usage.get("total_tokens"))
+                .and_then(Value::as_u64),
+        };
+        let model_attribution = selection
+            .map(|selection| {
+                let provider_model = body.get("model").and_then(Value::as_str);
+                selection.attribute_response(provider_model)
+            })
+            .transpose()
+            .map_err(|error| {
+                let mut gateway_error = AiGatewayError::registry(feature, error);
+                gateway_error.attempts = attempt;
+                gateway_error.latency = started_at.elapsed();
+                gateway_error
+            })?;
 
         tracing::info!(
             feature,
             provider = ai_provider_name(Some(config)),
-            model,
+            requested_model = model,
+            resolved_model = model_attribution
+                .as_ref()
+                .map(|attribution| attribution.resolved_model_id.as_str())
+                .unwrap_or(model),
+            registry_snapshot = model_attribution
+                .as_ref()
+                .map(|attribution| attribution.catalog_snapshot_version.as_str())
+                .unwrap_or("vision-config"),
             attempts = attempt,
             latency_ms = started_at.elapsed().as_millis() as u64,
             "CosyWorld AI inference completed"
@@ -553,6 +938,11 @@ async fn request_completion(
             text,
             attempts: attempt,
             latency: started_at.elapsed(),
+            model_attribution,
+            finish_reason,
+            usage,
+            context_hash,
+            prompt_version: prompt_version.to_string(),
         });
     }
 
@@ -619,9 +1009,403 @@ pub(crate) fn ai_model_name(config: Option<&AiConfig>) -> String {
         .unwrap_or_else(|| "none".to_string())
 }
 
+pub(super) struct PathwayContentPromptContext {
+    pub(super) prompt: String,
+    pub(super) origin_name: String,
+    pub(super) destination_name: String,
+    pub(super) occupied_names: BTreeSet<String>,
+}
+
+fn ecosystem_labels(meta: &LocationMeta) -> Vec<&'static str> {
+    meta.natural_potentials
+        .iter()
+        .filter(|potential| potential.policy != NaturalPotentialPolicy::Impossible)
+        .map(|potential| potential.resource_kind.label())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn ecosystem_label_subset<'a>(labels: &'a [&'static str], accepted: &[&str]) -> Vec<&'a str> {
+    labels
+        .iter()
+        .copied()
+        .filter(|label| accepted.iter().any(|needle| label.contains(needle)))
+        .collect()
+}
+
+fn pathway_ecosystem_context(meta: &LocationMeta) -> String {
+    let environment = serde_json::to_value(&meta.environment).unwrap_or_else(|_| json!({}));
+    let list = |key: &str| {
+        environment
+            .get(key)
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "none authored".to_string())
+    };
+    let labels = ecosystem_labels(meta);
+    let vegetation = ecosystem_label_subset(&labels, &["woodland", "herb", "soil"]);
+    let fauna = ecosystem_label_subset(&labels, &["fish"]);
+    let joined_or_none = |values: &[&str]| {
+        if values.is_empty() {
+            "none authored".to_string()
+        } else {
+            values.join(", ")
+        }
+    };
+    format!(
+        "biome: {biome}; terrain: {terrain}; climate: {climate}; landforms: {landforms}; geology: {geology}; hydrology: {hydrology}; vegetation cues: {vegetation}; fauna cues: {fauna}; ecosystem/resource cues: {ecosystem}",
+        biome = meta.biome,
+        terrain = if meta.terrain.is_empty() {
+            "none authored".to_string()
+        } else {
+            meta.terrain.join(", ")
+        },
+        climate = environment
+            .get("climate")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown"),
+        landforms = list("landforms"),
+        geology = list("geology"),
+        hydrology = list("hydrology"),
+        vegetation = joined_or_none(&vegetation),
+        fauna = joined_or_none(&fauna),
+        ecosystem = joined_or_none(&labels),
+    )
+}
+
+struct PathwayRoutePromptContext<'a> {
+    route_id: &'a str,
+    route_version: u64,
+    origin_name: &'a str,
+    destination_name: &'a str,
+    direction: &'a str,
+    origin_meta: &'a LocationMeta,
+    destination_meta: &'a LocationMeta,
+}
+
+fn generated_pathway_content_prompt(
+    pathway: &GeneratedPathwayState,
+    route: &PathwayRoutePromptContext<'_>,
+) -> String {
+    let waypoint_context = pathway
+        .waypoints
+        .iter()
+        .enumerate()
+        .map(|(index, waypoint)| {
+            format!(
+                "{step}. segment index/count: {step}/{segments}; fallback name: {fallback}; {ecology}",
+                step = index + 1,
+                segments = pathway.distance.max(1),
+                fallback = waypoint.name,
+                ecology = pathway_ecosystem_context(&waypoint.meta),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "Create {count} distinct hidden waypoint identities for successive segments of one cozy storybook route. They are generated together now but players encounter them one at a time through Scout.\nCanonical route ID: {route_id}\nCanonical route version: {route_version}\nRoute endpoints: origin {origin_name}; destination {destination_name}\nTravel direction: {direction}, from {origin_name} toward {destination_name}.\nNearby authored origin description: {origin_description}\nNearby authored origin persona: {origin_persona}\nOrigin ecology: {origin_ecology}\nNearby authored destination description: {destination_description}\nNearby authored destination persona: {destination_persona}\nDestination ecology: {destination_ecology}\n{waypoint_context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Ground every field in the supplied direction, endpoint descriptions, biome, terrain, climate, hydrology, vegetation, fauna, and ecosystem cues. You may name and describe a waypoint, but you must not choose or change topology, route identity, endpoints, directionality, ownership, route version, segment count, access, or rules. Do not introduce named people, items, quests, rewards, danger outcomes, magic powers, or unsupported ecological facts. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Segment, either route endpoint, or duplicates.",
+        count = pathway.waypoints.len(),
+        route_id = route.route_id,
+        route_version = route.route_version,
+        direction = route.direction,
+        origin_name = route.origin_name,
+        destination_name = route.destination_name,
+        origin_description = route.origin_meta.description,
+        origin_persona = route.origin_meta.persona,
+        origin_ecology = pathway_ecosystem_context(route.origin_meta),
+        destination_description = route.destination_meta.description,
+        destination_persona = route.destination_meta.persona,
+        destination_ecology = pathway_ecosystem_context(route.destination_meta),
+    )
+}
+
+pub(super) async fn pathway_content_generation_context(
+    state: &AppState,
+    pathway: &GeneratedPathwayState,
+) -> PathwayContentPromptContext {
+    let runtime = state.inner.lock().await;
+    let origin_name = runtime
+        .location_name(pathway.origin_location_id)
+        .unwrap_or_else(|| "one known place".to_string());
+    let destination_name = runtime
+        .location_name(pathway.destination_location_id)
+        .unwrap_or_else(|| "another known place".to_string());
+    let direction = runtime
+        .exit_direction(pathway.origin_location_id, pathway.destination_location_id)
+        .unwrap_or_else(|| "endpoint-to-endpoint".to_string());
+    let origin_meta = runtime.location_meta_for(pathway.origin_location_id);
+    let destination_meta = runtime.location_meta_for(pathway.destination_location_id);
+    let occupied_names = runtime
+        .generated_pathways
+        .values()
+        .filter(|existing| existing.id != pathway.id)
+        .flat_map(|existing| existing.waypoints.iter())
+        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+        .chain(
+            runtime
+                .locations
+                .iter()
+                .filter(|(location_id, _)| {
+                    !pathway
+                        .waypoints
+                        .iter()
+                        .any(|waypoint| waypoint.id == **location_id)
+                })
+                .map(|(_, name)| name.to_ascii_lowercase()),
+        )
+        .collect();
+    let route_id = if pathway.source_route_id.is_empty() {
+        pathway.id.as_str()
+    } else {
+        pathway.source_route_id.as_str()
+    };
+    let route_version = pathway.source_route_version.max(1);
+    let prompt = generated_pathway_content_prompt(
+        pathway,
+        &PathwayRoutePromptContext {
+            route_id,
+            route_version,
+            origin_name: &origin_name,
+            destination_name: &destination_name,
+            direction: &direction,
+            origin_meta: &origin_meta,
+            destination_meta: &destination_meta,
+        },
+    );
+    PathwayContentPromptContext {
+        prompt,
+        origin_name,
+        destination_name,
+        occupied_names,
+    }
+}
+
+pub(super) fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
+    let name = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = name.split_whitespace().count();
+    let char_count = name.chars().count();
+    let lower = name.to_ascii_lowercase();
+    if !(2..=5).contains(&word_count)
+        || !(4..=40).contains(&char_count)
+        || lower.contains("pathway")
+        || lower.contains("stretch")
+        || generated_label_contains_authority_language(&lower)
+        || !name
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(name)
+}
+
+fn generated_label_contains_authority_language(value: &str) -> bool {
+    value
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|token| {
+            matches!(
+                token,
+                "access"
+                    | "award"
+                    | "awards"
+                    | "clock"
+                    | "damage"
+                    | "health"
+                    | "inventory"
+                    | "item"
+                    | "items"
+                    | "orb"
+                    | "orbs"
+                    | "quest"
+                    | "quests"
+                    | "reward"
+                    | "rewards"
+                    | "unlock"
+                    | "unlocks"
+                    | "wallet"
+            )
+        })
+}
+
+fn sanitize_generated_content_text(
+    value: &str,
+    min_chars: usize,
+    max_chars: usize,
+) -> Option<String> {
+    let text = compact_whitespace(value.trim().trim_matches('"'));
+    let char_count = text.chars().count();
+    let lowered = format!(" {} ", text.to_ascii_lowercase());
+    if !(min_chars..=max_chars).contains(&char_count)
+        || text.chars().any(char::is_control)
+        || text.chars().any(|character| "{}<>\"".contains(character))
+        || [
+            " http://",
+            " https://",
+            " ignore previous",
+            " system prompt",
+            " developer message",
+            " assistant message",
+            " ai model",
+            " policy",
+            " wallet",
+            " orb ",
+            " orbs ",
+            " item ",
+            " items ",
+            " inventory ",
+            " reward",
+            " award",
+            " damage",
+            " health ",
+            " hit point",
+            " level up",
+            " grants ",
+            " gives you ",
+            " unlock",
+            " access gate",
+            " allows entry",
+            " opens access",
+            " locked until",
+            " quest",
+            " clock",
+        ]
+        .iter()
+        .any(|needle| lowered.contains(needle))
+    {
+        return None;
+    }
+    Some(text)
+}
+
+pub(super) fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
+    let title = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = title.split_whitespace().count();
+    if !(1..=6).contains(&word_count)
+        || !(4..=48).contains(&title.chars().count())
+        || title.to_ascii_lowercase().contains("pathway to")
+        || generated_label_contains_authority_language(&title.to_ascii_lowercase())
+        || !title
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(title)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GeneratedWaypointContentProposal {
+    pub(super) name: String,
+    pub(super) title: String,
+    pub(super) description: String,
+    pub(super) persona: String,
+    pub(super) visual_detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratedPathwayContentProposal {
+    waypoints: Vec<GeneratedWaypointContentProposal>,
+}
+
+pub(super) fn parse_generated_pathway_content(
+    text: &str,
+    expected: usize,
+) -> Option<Vec<GeneratedWaypointContentProposal>> {
+    let cleaned = text
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let json_text = if cleaned.starts_with('{') {
+        cleaned
+    } else {
+        let start = cleaned.find('{')?;
+        let end = cleaned.rfind('}')?;
+        cleaned.get(start..=end)?
+    };
+    let proposal: GeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
+    if proposal.waypoints.len() != expected {
+        return None;
+    }
+    let waypoints = proposal
+        .waypoints
+        .into_iter()
+        .map(|waypoint| {
+            Some(GeneratedWaypointContentProposal {
+                name: sanitize_generated_pathway_name(&waypoint.name)?,
+                title: sanitize_generated_pathway_title(&waypoint.title)?,
+                description: sanitize_generated_content_text(&waypoint.description, 24, 240)?,
+                persona: sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
+                visual_detail: sanitize_generated_content_text(&waypoint.visual_detail, 12, 180)?,
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let unique = waypoints
+        .iter()
+        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    (unique.len() == waypoints.len()).then_some(waypoints)
+}
+
+pub(super) fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
+    let name = compact_whitespace(name).to_ascii_lowercase();
+    anchors.iter().all(|anchor| {
+        let anchor = compact_whitespace(anchor).to_ascii_lowercase();
+        anchor.is_empty() || !name.contains(&anchor)
+    })
+}
+
+pub(super) fn apply_generated_waypoint_content(
+    waypoint: &mut GeneratedWaypointState,
+    content: GeneratedWaypointContentProposal,
+) {
+    waypoint.name = content.name.clone();
+    waypoint.meta.title = content.title;
+    waypoint.meta.description = content.description;
+    waypoint.meta.persona = content.persona;
+    waypoint.meta.art_prompt = Some(format!(
+        "cozy storybook landscape, {detail}, {name}, {biome}, terrain of {terrain}, no people, no characters, no creatures, no text, no logo, no watermark",
+        detail = content.visual_detail,
+        name = content.name,
+        biome = waypoint.meta.biome,
+        terrain = waypoint.meta.terrain.join(", "),
+    ));
+}
+
+pub(super) fn set_pathway_generation_provenance(
+    pathway: &mut GeneratedPathwayState,
+    mode: GenerationMode,
+    config: Option<&AiConfig>,
+    source: &str,
+    attempts: u8,
+) {
+    pathway.generation = GenerationProvenance {
+        source: source.to_string(),
+        feature: PATHWAY_CONTENT_FEATURE.to_string(),
+        policy_mode: mode.as_str().to_string(),
+        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+        provider: ai_provider_name(config).to_string(),
+        model: ai_model_name(config),
+        model_attribution: None,
+        attempts,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RuntimeWorld;
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use base64::Engine;
     use std::sync::{
@@ -629,6 +1413,48 @@ mod tests {
         Arc,
     };
     use tokio::net::TcpListener;
+
+    #[test]
+    fn pathway_prompt_carries_route_direction_ecology_and_authored_context() {
+        let runtime = RuntimeWorld::seeded();
+        let pathway = runtime
+            .generated_pathway(5000, 700, 712, 2)
+            .expect("Bethlehem-to-Jerusalem route");
+        let origin_meta = runtime.location_meta_for(700);
+        let destination_meta = runtime.location_meta_for(712);
+        let prompt = generated_pathway_content_prompt(
+            &pathway,
+            &PathwayRoutePromptContext {
+                route_id: "route://cosyworld.the-holy-land/authored/bethlehem|jerusalem",
+                route_version: 3,
+                origin_name: "Bethlehem",
+                destination_name: "Jerusalem",
+                direction: "north",
+                origin_meta: &origin_meta,
+                destination_meta: &destination_meta,
+            },
+        );
+
+        assert!(prompt.contains("Canonical route ID: route://cosyworld.the-holy-land"));
+        assert!(prompt.contains("Canonical route version: 3"));
+        assert!(prompt.contains("Route endpoints: origin Bethlehem; destination Jerusalem"));
+        assert!(prompt.contains("Travel direction: north, from Bethlehem toward Jerusalem"));
+        assert!(prompt.contains(&origin_meta.description));
+        assert!(prompt.contains(&destination_meta.description));
+        assert!(prompt.contains("segment index/count: 1/2"));
+        for field in [
+            "biome:",
+            "terrain:",
+            "climate:",
+            "hydrology:",
+            "vegetation cues:",
+            "fauna cues:",
+            "ecosystem/resource cues:",
+        ] {
+            assert!(prompt.contains(field), "missing {field} from {prompt}");
+        }
+        assert!(prompt.contains("must not choose or change topology"));
+    }
 
     #[test]
     fn provider_names_follow_the_configured_endpoint() {
@@ -639,6 +1465,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
             vision_reasoning_effort: None,
+            ..AiConfig::default()
         };
         assert_eq!(
             ai_provider_name(Some(&config("https://openrouter.ai/api/v1"))),
@@ -670,7 +1497,13 @@ mod tests {
             "inference_unconfigured"
         );
         assert_eq!(
-            AiGatewayError::invalid_response("bad response").code(),
+            AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: "bad response".to_string(),
+                attempts: 1,
+                latency: Duration::ZERO,
+            }
+            .code(),
             "inference_invalid_response"
         );
     }
@@ -750,6 +1583,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: Some("none".to_string()),
             vision_reasoning_effort: Some("low".to_string()),
+            ..AiConfig::default()
         };
         let response_format = json!({
             "type": "json_schema",
@@ -764,6 +1598,8 @@ mod tests {
             &config,
             ChatCompletionRequest {
                 feature: "retry_test",
+                prompt_version: "retry-test-v1",
+                capability: ModelCapability::WorldContent,
                 system: "system",
                 user: "user",
                 temperature: 0.0,
@@ -782,6 +1618,178 @@ mod tests {
         assert_eq!(attempts.load(Ordering::SeqCst), 2);
         assert!(structured_format_seen.load(Ordering::SeqCst));
         assert!(reasoning_none_seen.load(Ordering::SeqCst));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn gateway_sends_one_pinned_alias_and_attributes_the_concrete_model() {
+        let request_seen = Arc::new(AtomicBool::new(false));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_seen = request_seen.clone();
+                move |Json(body): Json<Value>| {
+                    let request_seen = request_seen.clone();
+                    async move {
+                        request_seen.store(
+                            body.get("model").and_then(Value::as_str) == Some("provider/auto")
+                                && body.get("max_tokens").and_then(Value::as_u64) == Some(33)
+                                && body.pointer("/stop/0").and_then(Value::as_str) == Some("<END>"),
+                            Ordering::SeqCst,
+                        );
+                        Json(json!({
+                            "model": "provider/concrete-2026-07-26",
+                            "choices": [{ "message": { "content": "A small hello." } }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind pinned alias gateway test server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "gateway-alias-1",
+              "declared": [{
+                "requested_model_id": "provider/auto",
+                "provider": "test-provider",
+                "mutable_alias": true,
+                "input_modalities": ["text"],
+                "output_modalities": ["text"],
+                "supported_parameters": {"stop": true},
+                "data_policy": {"retention": "none", "training": "prohibited"},
+                "prompt_adapter": {"id": "cosy-chat", "version": "3"},
+                "sampling": {"stop": ["<END>"], "hard_output_cap": 33},
+                "capabilities": ["voice"]
+              }]
+            }"#,
+        )
+        .expect("valid alias registry");
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "provider/auto".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            registry: Some(Arc::new(registry)),
+            capability_models: BTreeMap::from([(
+                ModelCapability::Voice,
+                "provider/auto".to_string(),
+            )]),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+
+        let completion = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "alias_test",
+                prompt_version: "alias-test-v1",
+                capability: ModelCapability::Voice,
+                system: "system",
+                user: "user",
+                temperature: 0.6,
+                max_tokens: 200,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+            },
+        )
+        .await
+        .expect("alias request");
+        let attribution = completion
+            .model_attribution
+            .expect("resolved model attribution");
+
+        assert!(request_seen.load(Ordering::SeqCst));
+        assert_eq!(attribution.requested_model_id, "provider/auto");
+        assert_eq!(
+            attribution.resolved_model_id,
+            "provider/concrete-2026-07-26"
+        );
+        assert_eq!(attribution.catalog_snapshot_version, "gateway-alias-1");
+        assert_eq!(attribution.prompt_adapter_version, "3");
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn production_privacy_rejection_happens_before_network_io() {
+        let request_seen = Arc::new(AtomicBool::new(false));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_seen = request_seen.clone();
+                move || {
+                    let request_seen = request_seen.clone();
+                    async move {
+                        request_seen.store(true, Ordering::SeqCst);
+                        Json(json!({
+                            "choices": [{ "message": { "content": "must not run" } }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind privacy gateway test server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "privacy-unknown-1",
+              "declared": [{
+                "requested_model_id": "provider/unknown-policy",
+                "provider": "test-provider",
+                "concrete_model": {"model_id": "provider/unknown-policy"},
+                "input_modalities": ["text"],
+                "output_modalities": ["text"],
+                "capabilities": ["voice"]
+              }]
+            }"#,
+        )
+        .expect("valid unknown-policy registry");
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "provider/unknown-policy".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            registry: Some(Arc::new(registry)),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+
+        let error = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "privacy_test",
+                prompt_version: "privacy-test-v1",
+                capability: ModelCapability::Voice,
+                system: "private system",
+                user: "private prompt",
+                temperature: 0.0,
+                max_tokens: 20,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+            },
+        )
+        .await
+        .expect_err("unknown production policy must fail closed");
+
+        assert_eq!(error.code(), "inference_privacy_rejected");
+        assert_eq!(error.attempts, 0);
+        assert!(!request_seen.load(Ordering::SeqCst));
         server.abort();
     }
 
@@ -842,6 +1850,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
             vision_reasoning_effort: Some("low".to_string()),
+            ..AiConfig::default()
         };
 
         let decision = request_image_policy_decision(
@@ -894,6 +1903,7 @@ mod tests {
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
             vision_reasoning_effort: None,
+            ..AiConfig::default()
         };
 
         let error = request_image_policy_decision(

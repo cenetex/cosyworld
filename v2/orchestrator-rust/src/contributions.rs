@@ -16,9 +16,14 @@ impl RuntimeWorld {
             if let Some(existing_job) = self.jobs.get_mut(&authored_job.id) {
                 let status = existing_job.status.clone();
                 let focused_encounter = existing_job.focused_encounter.clone();
+                let mut participant_ids = existing_job.participant_ids.clone();
+                participant_ids.extend(&authored_job.participant_ids);
+                participant_ids.sort_unstable();
+                participant_ids.dedup();
                 *existing_job = authored_job.clone();
                 existing_job.status = status;
                 existing_job.focused_encounter = focused_encounter;
+                existing_job.participant_ids = participant_ids;
             } else {
                 self.jobs
                     .insert(authored_job.id.clone(), authored_job.clone());
@@ -307,6 +312,12 @@ impl RuntimeWorld {
             })
             .all(|intent| {
                 self.job_contribution_intent_preconditions_hold(record.action.actor_id, intent)
+                    && (record.action.kind != CW_ACTION_PROJECT_PUSH
+                        || self.project_push_input(
+                            record.action.actor_id,
+                            intent,
+                            record.action.project_push.prepared == 1,
+                        ) == Some(record.action.project_push))
             })
     }
 
@@ -468,6 +479,12 @@ impl RuntimeWorld {
         let prepared = self
             .actor_by_id(actor_id)
             .is_some_and(|actor| self.prepared_tag_active(actor_id, actor.location_id));
+        if intent.strategy.action_kind == "work" {
+            return self
+                .project_push_input(actor_id, intent, prepared)
+                .and_then(Self::resolve_project_push)
+                .unwrap_or(0);
+        }
         intent
             .strategy
             .baseline_progress
@@ -477,6 +494,143 @@ impl RuntimeWorld {
             } else {
                 0
             })
+    }
+
+    pub(super) fn project_push_input(
+        &self,
+        actor_id: u64,
+        intent: &JobContributionIntent,
+        prepared: bool,
+    ) -> Option<CwProjectPushInput> {
+        if intent.strategy.action_kind != "work"
+            || !matches!(
+                intent.strategy.resolution,
+                ContributionResolutionPolicy::Certain
+            )
+        {
+            return None;
+        }
+        let job = self.jobs.get(&intent.job_id)?;
+        let clock = self.clocks.get(&intent.strategy.clock_id)?;
+        let remaining_progress = clock.segments.checked_sub(clock.filled)?;
+        let location_count = u8::try_from(job.location_ids.len()).ok()?;
+        let evidence_count =
+            u8::try_from(self.project_location_evidence_count(actor_id, job)).ok()?;
+        let base_progress = intent
+            .strategy
+            .baseline_progress
+            .checked_add(intent.strategy.success_progress)?;
+        let input = CwProjectPushInput {
+            base_progress,
+            prepared_bonus_progress: intent.strategy.prepared_bonus_progress,
+            prepared: u8::from(prepared),
+            evidence_count,
+            location_count,
+            remaining_progress,
+        };
+        Self::resolve_project_push(input).map(|_| input)
+    }
+
+    pub(super) fn resolve_project_push(input: CwProjectPushInput) -> Option<u8> {
+        let mut progress = 0;
+        let status = unsafe { cw_resolve_project_push(&input, &mut progress) };
+        (status == CW_OK).then_some(progress)
+    }
+
+    pub(super) fn project_push_progress(
+        &self,
+        actor_id: u64,
+        intent: &JobContributionIntent,
+        prepared: bool,
+    ) -> Option<u8> {
+        self.project_push_input(actor_id, intent, prepared)
+            .and_then(Self::resolve_project_push)
+    }
+
+    fn project_push_evidence_effect(input: CwProjectPushInput) -> u8 {
+        if input.evidence_count == 0 {
+            0
+        } else if input.location_count > 1 && input.evidence_count == input.location_count {
+            2
+        } else {
+            1
+        }
+    }
+
+    fn project_push_evidence_text(input: CwProjectPushInput) -> String {
+        let evidence_effect = Self::project_push_evidence_effect(input);
+        if input.location_count == 1 {
+            if input.evidence_count == 1 {
+                "Evidence complete: 1/1 location (+1 prepared segment).".to_string()
+            } else {
+                "Evidence: 0/1 location; finding it adds 1 prepared segment.".to_string()
+            }
+        } else if input.evidence_count == input.location_count {
+            format!(
+                "Evidence complete: {}/{} locations (+{evidence_effect} prepared segments).",
+                input.evidence_count, input.location_count
+            )
+        } else if input.evidence_count > 0 {
+            format!(
+                "Partial evidence: {}/{} locations (+{evidence_effect} prepared segment now); complete evidence adds 2.",
+                input.evidence_count, input.location_count
+            )
+        } else {
+            format!(
+                "Evidence: 0/{} locations; any evidence adds 1 prepared segment, complete evidence adds 2.",
+                input.location_count
+            )
+        }
+    }
+
+    pub(super) fn project_push_effect_text(
+        &self,
+        actor_id: u64,
+        intent: &JobContributionIntent,
+        prepared: bool,
+        prepare_preview: bool,
+    ) -> Option<String> {
+        let input = self.project_push_input(actor_id, intent, prepared)?;
+        let amount = Self::resolve_project_push(input)?;
+        let evidence_text = Self::project_push_evidence_text(input);
+        if prepare_preview {
+            let direct_input = self.project_push_input(actor_id, intent, false)?;
+            let direct = Self::resolve_project_push(direct_input)?;
+            return Some(format!(
+                "Next Push advances {amount} {}; Push now advances {direct}. {evidence_text}",
+                if amount == 1 { "segment" } else { "segments" }
+            ));
+        }
+
+        let gross = u16::from(input.base_progress)
+            + if prepared {
+                u16::from(input.prepared_bonus_progress.max(1))
+                    + u16::from(Self::project_push_evidence_effect(input))
+            } else {
+                0
+            };
+        let breakdown = if prepared {
+            format!(
+                "{} base + {} preparation + {} evidence",
+                input.base_progress,
+                input.prepared_bonus_progress.max(1),
+                Self::project_push_evidence_effect(input)
+            )
+        } else {
+            format!("{} base", input.base_progress)
+        };
+        let cap = if u16::from(amount) < gross {
+            format!(
+                " Only {} remain, so {amount} of {gross} gross segments apply.",
+                input.remaining_progress
+            )
+        } else {
+            String::new()
+        };
+        Some(format!(
+            "Advances {amount} {} now ({breakdown}).{cap} {evidence_text}",
+            if amount == 1 { "segment" } else { "segments" }
+        ))
     }
 
     fn contribution_project_view(
@@ -681,6 +835,18 @@ impl RuntimeWorld {
             cleared.extend(self.clear_job_resolved_tags(&job_id, actor_id, "job_resolved"));
         }
         cleared
+    }
+
+    pub(super) fn record_job_clock_participant(&mut self, clock_id: &str, actor_id: u64) {
+        for job in self
+            .jobs
+            .values_mut()
+            .filter(|job| job.progress_clock_id == clock_id || job.danger_clock_id == clock_id)
+        {
+            job.participant_ids.push(actor_id);
+            job.participant_ids.sort_unstable();
+            job.participant_ids.dedup();
+        }
     }
 
     fn clear_job_resolved_tags(
@@ -1105,6 +1271,7 @@ mod tests {
                         actor_id: 5000,
                         actor_session: None,
                         command: offer.command.clone(),
+                        offer_id: None,
                         wallet_address: None,
                         wallet: None,
                         wallet_session: None,

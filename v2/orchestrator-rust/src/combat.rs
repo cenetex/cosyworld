@@ -540,7 +540,7 @@ fn drive_combat_inference_turns(
     Ok(CW_OK)
 }
 
-fn drive_available_combat_turns(
+pub(super) fn drive_available_combat_turns(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     encounter_id: u64,
@@ -1028,6 +1028,7 @@ mod tests {
             actor_id,
             actor_session: None,
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,
@@ -1062,9 +1063,9 @@ mod tests {
         runtime.remember_search_discovery(
             RATI_ACTOR_ID,
             from_location_id,
-            SEARCH_MEMORY_KIND_SEED_EXIT,
+            BELIEF_KIND_SEED_EXIT,
             to_location_id,
-            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+            &seed_exit_belief_subject_key(from_location_id, to_location_id),
         );
     }
 

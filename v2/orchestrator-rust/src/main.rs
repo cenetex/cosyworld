@@ -4,7 +4,12 @@ mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
 mod ai_gateway;
+mod ai_publication;
+mod ai_resident_planning;
+mod ai_voice_routing;
 mod avatar_identity;
+#[cfg(test)]
+mod beliefs_tests;
 mod canonical_journal;
 mod canonical_world;
 mod cards;
@@ -21,6 +26,7 @@ mod content_registry;
 mod contributions;
 mod crafting;
 mod generated_places;
+mod generation_policy;
 mod hosted_access;
 mod jobs;
 mod journal_checkpoint;
@@ -28,18 +34,29 @@ mod kernel;
 #[cfg(test)]
 mod lantern_keeper_tests;
 mod legacy_import;
+mod local_leads;
+mod media_evolution;
+mod media_recipes;
 mod moderation;
 mod movement;
 mod mud;
 mod natural_affordances;
+mod offer_commands;
 mod ownership;
+#[cfg(test)]
+mod project_push_tests;
 mod prompts;
 mod quest_loot;
 mod rate_limit;
+mod relationships;
 mod resident_offer_scoring;
+mod residents;
+mod rest;
+mod room_scene;
 mod routes;
 mod rpg;
 mod rules_context;
+mod semantic_receipts;
 mod settlement_buildings;
 mod story_metrics;
 #[cfg(test)]
@@ -51,12 +68,13 @@ mod uses;
 mod views;
 mod world_causality;
 mod world_simulation;
-
 use account_auth::*;
 use activation::*;
 use actor_practice::*;
 use actor_rules_facets::*;
 use ai_gateway::*;
+use ai_publication::*;
+use ai_resident_planning::*;
 use avatar_identity::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
@@ -79,24 +97,32 @@ use content_packs::*;
 use content_policy::*;
 use content_registry::*;
 use contributions::*;
-use cosyworld_ai_model::ResidentReplyModelInput;
 use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use generated_places::*;
+use generation_policy::*;
 use hosted_access::*;
 use jobs::*;
 use kernel::*;
 use legacy_import::*;
+use local_leads::*;
+use media_evolution::*;
+use media_recipes::*;
 use moderation::*;
 use movement::*;
 use mud::*;
 use natural_affordances::*;
+use offer_commands::*;
 use ownership::*;
 use prompts::*;
 use qrcode::{render::svg, QrCode};
 use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
+use relationships::*;
+use residents::*;
+use rest::*;
+use room_scene::*;
 use rpg::*;
 use rules_context::*;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -131,10 +157,10 @@ use tokio_stream::{
 use topology::*;
 use tracing::{error, info, warn};
 use turns::*;
+use uses::*;
 use views::*;
 use world_causality::*;
 use world_simulation::*;
-
 #[derive(Clone)]
 struct AppState {
     inner: Arc<Mutex<RuntimeWorld>>,
@@ -187,51 +213,43 @@ struct AppState {
     story_metrics_retention: StoryMetricsRetention,
     allow_unsigned_wallet_claims: bool,
 }
-
 const CANONICAL_WORLD_PARTITION: &str = "world";
 const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
 const DEFAULT_CANONICAL_CONVERGENCE_POLL: Duration = Duration::from_millis(100);
 const DEFAULT_CANONICAL_REGION_ID: &str = "local";
 const CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER: u32 = 3;
 const CANONICAL_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
-
 #[derive(Clone, Debug, Default)]
 struct CanonicalRoutingConfig {
     base_url: Option<String>,
     token: Option<String>,
 }
-
 #[derive(Clone, Debug)]
 struct CanonicalRecoveryConfig {
     replica_path: PathBuf,
     region_id: String,
 }
-
 impl CanonicalRoutingConfig {
     fn enabled(&self) -> bool {
         self.base_url.is_some() && self.token.is_some()
     }
 }
-
 #[derive(Clone, Debug)]
 struct RegionalPresence {
     active: bool,
     last_seen_at: Instant,
 }
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct CanonicalPresenceRelay {
     source_owner_id: String,
     events: Vec<EventView>,
 }
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ForwardedCanonicalCommand {
     source_process_id: String,
     client_addr: String,
     payload: CommandRequest,
 }
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CanonicalHandoffRequest {
@@ -240,7 +258,6 @@ struct CanonicalHandoffRequest {
     expected_world_seq: u64,
     reason: String,
 }
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CanonicalRecoveryPromotionRequest {
@@ -481,28 +498,40 @@ const RESIDENT_DESIRED_ITEM_SCORE: i16 = 100;
 const RESIDENT_ATTACHED_ITEM_SCORE: i16 = 120;
 const RESIDENT_USEFUL_ITEM_SCORE: i16 = 35;
 const RESIDENT_DEFAULT_ITEM_SCORE: i16 = 20;
-const RESIDENT_MEMORY_KIND_ITEM_LOCATION: &str = "item_location";
-const RESIDENT_MEMORY_KIND_ACTOR_LOCATION: &str = "actor_location";
-const RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM: &str = "actor_wants_item";
-const RESIDENT_MEMORY_CAPACITY: usize = 32;
-const RESIDENT_OBSERVED_MEMORY_CONFIDENCE: u8 = 240;
-const RESIDENT_OBSERVED_MEMORY_SALIENCE: u8 = 210;
-const RESIDENT_GOSSIP_CONFIDENCE_DECAY: u8 = 28;
-const RESIDENT_GOSSIP_SALIENCE_DECAY: u8 = 18;
-const RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE: u8 = 80;
-const RESIDENT_MEMORY_TIME_DECAY_INTERVAL_TICKS: u64 = 12;
-const RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY: u8 = 6;
-const RESIDENT_MEMORY_TIME_SALIENCE_DECAY: u8 = 8;
-const SEARCH_MEMORY_KIND_SEED_EXIT: &str = "seed_exit";
-const SEARCH_MEMORY_KIND_HIDDEN_EXIT: &str = "hidden_exit";
-const SEARCH_MEMORY_KIND_AVATAR: &str = "avatar";
-const SEARCH_MEMORY_KIND_ITEM: &str = "item";
-const SEARCH_MEMORY_CONFIDENCE: u8 = 240;
-const SEARCH_MEMORY_SALIENCE: u8 = 220;
-const SEARCH_MEMORY_MIN_CONFIDENCE: u8 = 80;
-const SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS: u64 = 18;
-const SEARCH_MEMORY_TIME_CONFIDENCE_DECAY: u8 = 6;
-const SEARCH_MEMORY_TIME_SALIENCE_DECAY: u8 = 8;
+const BELIEF_KIND_ITEM_LOCATION: &str = "item_location";
+const BELIEF_KIND_ACTOR_LOCATION: &str = "actor_location";
+const BELIEF_KIND_ACTOR_WANTS_ITEM: &str = "actor_wants_item";
+const BELIEF_KIND_SEED_EXIT: &str = "seed_exit";
+const BELIEF_KIND_HIDDEN_EXIT: &str = "hidden_exit";
+
+#[derive(Clone, Copy)]
+struct BeliefTuning {
+    capacity: usize,
+    firsthand_confidence: u8,
+    firsthand_salience: u8,
+    minimum_action_confidence: u8,
+    decay_interval_ticks: u64,
+    confidence_decay: u8,
+    salience_decay: u8,
+    gossip_confidence_decay: u8,
+    gossip_salience_decay: u8,
+}
+
+// The former stores agreed on confidence, threshold, and decay amounts. The
+// unified policy keeps search's slightly stronger initial salience while using
+// resident autonomy's shorter decay interval so stale beliefs stop driving
+// actions promptly.
+const BELIEF_TUNING: BeliefTuning = BeliefTuning {
+    capacity: 32,
+    firsthand_confidence: 240,
+    firsthand_salience: 220,
+    minimum_action_confidence: 80,
+    decay_interval_ticks: 12,
+    confidence_decay: 6,
+    salience_decay: 8,
+    gossip_confidence_decay: 28,
+    gossip_salience_decay: 18,
+};
 const RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_REPLY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_PLACEMENT_ROTATION_TICKS: u64 = 96;
@@ -515,6 +544,7 @@ const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
 const OLD_OAK_TREE_LOCATION_ID: u64 = 40;
 #[cfg(test)]
 const CIRCLE_OF_MOON_LOCATION_ID: u64 = 35;
+#[cfg(test)]
 const HEARTH_TONIC_WARMTH_TAG_ID: &str = "room:3:hearth_tonic_used";
 const FEATURE_BOND_TARGETS: &[FeatureBondTarget] = &[
     FeatureBondTarget {
@@ -555,6 +585,7 @@ const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
 const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
 const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 const GENERATED_PATHWAY_LOCATION_ID_BASE: u64 = 100_000;
+const GENERATED_PATHWAY_LOCATION_ID_LIMIT: u64 = 1_000_000_000_000;
 const EXPLORER_CALLING_STATEMENT: &str = "I explore the paths nobody has named yet.";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -588,34 +619,42 @@ struct LocationMeta {
     art_prompt: Option<String>,
 }
 
-const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
-const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-struct GenerationProvenance {
-    source: String,
-    feature: String,
-    policy_mode: String,
-    prompt_version: String,
-    provider: String,
-    model: String,
-    attempts: u8,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedWaypointState {
     id: u64,
+    #[serde(default)]
+    canonical_id: String,
     name: String,
     meta: LocationMeta,
+    #[serde(default)]
+    generation_policy: GeneratedPolicyBinding,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedPathwayState {
     id: String,
+    #[serde(default)]
+    identity_version: u8,
+    #[serde(default)]
+    canonical_id: String,
+    #[serde(default)]
+    source_route_id: String,
+    #[serde(default)]
+    source_route_version: u64,
+    #[serde(default)]
+    owner_pack_id: String,
+    #[serde(default)]
+    owner_pack_version: String,
+    #[serde(default)]
+    generation_policy: GeneratedPolicyBinding,
     origin_location_id: u64,
     destination_location_id: u64,
     distance: u8,
     created_by_actor_id: u64,
+    #[serde(default)]
+    way_class: PathwayWayClass,
+    #[serde(default)]
+    traffic_count: u64,
     waypoints: Vec<GeneratedWaypointState>,
     #[serde(default)]
     generation: GenerationProvenance,
@@ -786,6 +825,12 @@ struct JobContributionTrace {
     baseline_progress: u8,
     success_progress: u8,
     prepared_bonus_progress: u8,
+    #[serde(default)]
+    project_push_prepared: bool,
+    #[serde(default)]
+    project_evidence_count: u8,
+    #[serde(default)]
+    project_location_count: u8,
     total_progress: u8,
     clock_id: String,
     claim_key: Option<String>,
@@ -936,6 +981,12 @@ enum ProjectionMutation {
         status: String,
         reason: String,
     },
+    SetRelationshipDialogueStatus {
+        relationship_actor_id: u64,
+        target_actor_id: u64,
+        status: String,
+        reason: String,
+    },
     RefreshAvatarIdentity {
         actor_id: u64,
         #[serde(default)]
@@ -951,6 +1002,8 @@ enum ProjectionMutation {
         intent_id: String,
         amount: i32,
         history_through_seq: u64,
+        #[serde(default)]
+        evolution_job: Option<FrozenCommunityArtEvolutionJob>,
     },
     SetCommunityArtStatus {
         subject_kind: String,
@@ -965,6 +1018,8 @@ enum ProjectionMutation {
         provider_attempt: bool,
         #[serde(default = "legacy_community_art_generation_profile_version")]
         generation_profile_version: u8,
+        #[serde(default)]
+        generation_policy: GeneratedPolicyBinding,
     },
     CompleteCommunityArtGeneration {
         subject_kind: String,
@@ -1261,21 +1316,30 @@ struct AdvancementSpendState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct BondState {
+struct BeliefState {
     id: String,
-    actor_id: u64,
-    target_actor_id: u64,
-    statement: String,
-    strength: u8,
-    status: String,
+    holder_actor_id: u64,
+    kind: String,
+    subject_id: u64,
+    location_id: u64,
+    confidence: u8,
+    salience: u8,
+    observed_tick: u64,
     #[serde(default)]
-    source_event_seq: Option<u64>,
+    source_actor_id: Option<u64>,
     #[serde(default)]
-    updated_event_seq: Option<u64>,
+    related_actor_id: Option<u64>,
+    #[serde(default)]
+    learned_tick: u64,
+    #[serde(default)]
+    hops: u8,
 }
 
+// Snapshot-only adapters for the two stores that preceded the unified belief
+// model. They never enter RuntimeWorld and are removed when a snapshot is
+// migrated.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct ResidentMemoryState {
+struct LegacyResidentMemoryState {
     id: String,
     carrier_actor_id: u64,
     kind: String,
@@ -1295,7 +1359,7 @@ struct ResidentMemoryState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct SearchMemoryState {
+struct LegacySearchMemoryState {
     id: String,
     actor_id: u64,
     kind: String,
@@ -1311,65 +1375,72 @@ struct SearchMemoryState {
     use_count: u32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct ResidentContinuityState {
-    resident_id: u64,
-    stable_identity: String,
-    relationship_notes_by_actor: BTreeMap<u64, String>,
-    memory_atoms: Vec<ResidentContinuityAtom>,
-    #[serde(default)]
-    beliefs: Vec<ResidentContinuityNote>,
-    #[serde(default)]
-    desires: Vec<ResidentContinuityNote>,
-    #[serde(default)]
-    promises: Vec<ResidentContinuityNote>,
-    #[serde(default)]
-    refusals: Vec<ResidentContinuityNote>,
-    #[serde(default)]
-    pending_action: Option<AvatarProposedAction>,
-    open_obligations: Vec<String>,
-    current_intent: Option<String>,
-    last_observed_event_seq: u64,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct ResidentContinuityAtom {
-    kind: String,
+fn belief_id(
+    holder_actor_id: u64,
+    kind: &str,
     subject_id: u64,
-    text: String,
-    confidence: u8,
-    salience: u8,
-    observed_tick: u64,
+    location_id: u64,
+    related_actor_id: Option<u64>,
+) -> String {
+    match kind {
+        BELIEF_KIND_SEED_EXIT | BELIEF_KIND_HIDDEN_EXIT => {
+            format!("belief:{holder_actor_id}:{kind}:{location_id}:{subject_id}")
+        }
+        BELIEF_KIND_ACTOR_WANTS_ITEM => format!(
+            "belief:{holder_actor_id}:{kind}:{}:{subject_id}",
+            related_actor_id.unwrap_or_default()
+        ),
+        _ => format!("belief:{holder_actor_id}:{kind}:{subject_id}"),
+    }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct ResidentContinuityNote {
-    text: String,
-    source: String,
-    source_event_seq: Option<u64>,
-    confidence: u8,
+fn belief_is_preferred(candidate: &BeliefState, existing: &BeliefState) -> bool {
+    candidate.observed_tick > existing.observed_tick
+        || (candidate.observed_tick == existing.observed_tick
+            && (candidate.confidence > existing.confidence
+                || (candidate.confidence == existing.confidence
+                    && candidate.learned_tick >= existing.learned_tick)))
 }
 
-impl ResidentContinuityState {
-    fn empty(resident_id: u64, identity: String) -> Self {
-        Self {
-            resident_id,
-            stable_identity: identity,
-            relationship_notes_by_actor: BTreeMap::new(),
-            memory_atoms: Vec::new(),
-            beliefs: Vec::new(),
-            desires: Vec::new(),
-            promises: Vec::new(),
-            refusals: Vec::new(),
-            pending_action: None,
-            open_obligations: Vec::new(),
-            current_intent: None,
-            last_observed_event_seq: 0,
+fn merge_belief(beliefs: &mut BTreeMap<String, BeliefState>, mut belief: BeliefState) {
+    belief.id = belief_id(
+        belief.holder_actor_id,
+        &belief.kind,
+        belief.subject_id,
+        belief.location_id,
+        belief.related_actor_id,
+    );
+    match beliefs.get_mut(&belief.id) {
+        Some(existing) if belief_is_preferred(&belief, existing) => *existing = belief,
+        Some(existing) => existing.salience = existing.salience.max(belief.salience),
+        None => {
+            beliefs.insert(belief.id.clone(), belief);
         }
     }
 }
 
+fn belief_decay_at_tick(belief: &BeliefState, now: u64) -> (u64, u8, u8) {
+    let baseline = belief.learned_tick.max(belief.observed_tick);
+    let steps = if baseline == 0 {
+        0
+    } else {
+        now.saturating_sub(baseline) / BELIEF_TUNING.decay_interval_ticks
+    };
+    let confidence_loss = steps
+        .saturating_mul(BELIEF_TUNING.confidence_decay as u64)
+        .min(u8::MAX as u64) as u8;
+    let salience_loss = steps
+        .saturating_mul(BELIEF_TUNING.salience_decay as u64)
+        .min(u8::MAX as u64) as u8;
+    (
+        steps,
+        belief.confidence.saturating_sub(confidence_loss),
+        belief.salience.saturating_sub(salience_loss),
+    )
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 struct AvatarIntentProposal {
     speech: String,
     #[serde(default)]
@@ -1495,7 +1566,8 @@ struct ActorAutonomyState {
     attention_credits: u8,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 struct AvatarProposedAction {
     kind: String,
     #[serde(default)]
@@ -1503,7 +1575,19 @@ struct AvatarProposedAction {
     #[serde(default)]
     item_id: Option<u64>,
     #[serde(default)]
+    target_item_id: Option<u64>,
+    #[serde(default)]
     destination_location_id: Option<u64>,
+    #[serde(default)]
+    candidate_id: Option<String>,
+    #[serde(default)]
+    composition_id: Option<String>,
+    #[serde(default)]
+    state_revision: Option<u64>,
+    #[serde(default)]
+    planning_generation_id: Option<String>,
+    #[serde(default)]
+    speech_act: Option<ResidentSpeechAct>,
     #[serde(default)]
     reason: Option<String>,
 }
@@ -1571,6 +1655,7 @@ struct RuntimeWorld {
     world: CwWorld,
     canonical_identities: CanonicalIdentityState,
     command_receipts: BTreeMap<String, StoredCommandResponse>,
+    ai_publications: BTreeMap<String, AiPublicationReceipt>,
     actors: BTreeMap<u64, ActorMeta>,
     items: BTreeMap<u64, ItemMeta>,
     locations: BTreeMap<u64, String>,
@@ -1598,14 +1683,14 @@ struct RuntimeWorld {
     equipped_charms: BTreeMap<u64, BTreeSet<u64>>,
     prepared_spells: BTreeMap<u64, BTreeSet<u64>>,
     npc_cooperation: BTreeMap<String, NpcCooperationState>,
+    local_leads: BTreeMap<String, LocalLeadState>,
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
     craft_receipts: BTreeMap<String, CraftReceiptState>,
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
-    resident_memories: BTreeMap<String, ResidentMemoryState>,
-    search_memories: BTreeMap<String, SearchMemoryState>,
+    beliefs: BTreeMap<String, BeliefState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
     actor_rules_facets: BTreeMap<u64, BTreeMap<String, ActorRulesFacetState>>,
@@ -1655,6 +1740,8 @@ struct RuntimeSnapshot {
     canonical_identities: CanonicalIdentityState,
     #[serde(default)]
     command_receipts: BTreeMap<String, StoredCommandResponse>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    ai_publications: BTreeMap<String, AiPublicationReceipt>,
     world_actors: Vec<CwActor>,
     world_items: Vec<CwItem>,
     world_locations: Vec<CwLocation>,
@@ -1715,6 +1802,8 @@ struct RuntimeSnapshot {
     #[serde(default)]
     npc_cooperation: BTreeMap<String, NpcCooperationState>,
     #[serde(default)]
+    local_leads: BTreeMap<String, LocalLeadState>,
+    #[serde(default)]
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     #[serde(default)]
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
@@ -1727,9 +1816,11 @@ struct RuntimeSnapshot {
     #[serde(default)]
     bonds: BTreeMap<String, BondState>,
     #[serde(default)]
-    resident_memories: BTreeMap<String, ResidentMemoryState>,
-    #[serde(default)]
-    search_memories: BTreeMap<String, SearchMemoryState>,
+    beliefs: BTreeMap<String, BeliefState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    resident_memories: BTreeMap<String, LegacyResidentMemoryState>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    search_memories: BTreeMap<String, LegacySearchMemoryState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
@@ -1764,16 +1855,6 @@ struct RuntimeSnapshot {
     next_actor_id: u64,
     next_content_id: u64,
     next_seed: u64,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct ResidentContinuitySnapshot {
-    version: u32,
-    #[serde(default)]
-    worldpack_bundle_hash: String,
-    world_tick: u64,
-    latest_event_seq: u64,
-    residents: BTreeMap<u64, ResidentContinuityState>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -1848,6 +1929,12 @@ struct ResidentDecisionTrace {
     choice: ResidentDecisionChoiceTrace,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     outcome: Option<ResidentDecisionOutcomeTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    planning_generation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    planner_candidate_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    planner_state_revision: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1881,6 +1968,10 @@ struct JournalRecord {
     source_location_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     resident_decision: Option<ResidentDecisionTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resident_planning: Option<ResidentPlanningTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ai_publication: Option<AiPublicationReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     focused_encounter: Option<FocusedEncounterJournalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1923,7 +2014,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 11;
+const JOURNAL_RECORD_VERSION: u32 = 13;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -1960,6 +2051,8 @@ impl JournalRecord {
             observed_through_seq: None,
             source_location_id: None,
             resident_decision: None,
+            resident_planning: None,
+            ai_publication: None,
             focused_encounter,
             offer_kind: None,
             focused_policy_version: 1,
@@ -2124,6 +2217,8 @@ struct PlayerTickObservation {
     allow_ordinary_speech: bool,
     source_events: Vec<EventView>,
     ripple_source: Option<RippleSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    relationship_reply: Option<RelationshipReplyExpectation>,
 }
 
 #[derive(Clone, Debug)]
@@ -2872,6 +2967,8 @@ struct RankedActionOffer {
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
+    #[serde(skip)]
+    ranked_hand_eligible: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -3507,6 +3604,16 @@ struct ItemRequest {
     item_id: u64,
     target_item_id: Option<u64>,
     target_actor_id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UseItemRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    item_id: u64,
+    target_actor_id: Option<u64>,
+    location_id: Option<u64>,
+    feature_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -4206,6 +4313,10 @@ fn seed_item_kind_from_str(kind: &str) -> Option<u8> {
         "keepsake" => Some(CW_ITEM_KEEPSAKE),
         _ => None,
     }
+}
+
+fn seed_item_recovery_profile(item: &SeedItemContent) -> (u8, u8, u8) {
+    declared_item_recovery_profile(item.charges, item.mechanics.as_ref())
 }
 
 fn placement_target_kind_from_str(kind: &str) -> Option<u8> {
@@ -5379,7 +5490,7 @@ impl AppState {
             .map(Arc::new);
         let moderation_report_retention = ModerationReportRetention::from_env()?;
         let story_metrics_retention = StoryMetricsRetention::from_env()?;
-        let ai_config = Arc::new(AiConfig::from_env());
+        let ai_config = Arc::new(AiConfig::from_env().map_err(deployment_config_error)?);
         let generation_controls =
             Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
         let avatar_art_config = Arc::new(ReplicateAvatarArtConfig::from_env());
@@ -6064,8 +6175,10 @@ fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> 
         CW_ACTION_GIVE_ITEM => "give_item",
         CW_ACTION_TRADE_ITEM => "trade_item",
         CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
+        CW_ACTION_PROJECT_PUSH => "work",
         CW_ACTION_CRAFT => "craft",
         CW_ACTION_THEFT => "theft",
+        CW_ACTION_REST => "rest",
         CW_ACTION_SAY => "chat",
         _ => return None,
     };
@@ -6142,7 +6255,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 12,
+            version: 14,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6156,6 +6269,7 @@ impl RuntimeSnapshot {
             next_event_seq: runtime.world.next_event_seq,
             canonical_identities: runtime.canonical_identities.clone(),
             command_receipts: runtime.command_receipts.clone(),
+            ai_publications: runtime.ai_publications.clone(),
             world_actors: runtime.world.actors[..runtime.world.actor_count].to_vec(),
             world_items: runtime.world.items[..runtime.world.item_count].to_vec(),
             world_locations: runtime.world.locations[..runtime.world.location_count].to_vec(),
@@ -6193,14 +6307,16 @@ impl RuntimeSnapshot {
             equipped_charms: runtime.equipped_charms.clone(),
             prepared_spells: runtime.prepared_spells.clone(),
             npc_cooperation: runtime.npc_cooperation.clone(),
+            local_leads: runtime.local_leads.clone(),
             item_provenance: runtime.item_provenance.clone(),
             materialization_receipts: runtime.materialization_receipts.clone(),
             craft_receipts: runtime.craft_receipts.clone(),
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
-            resident_memories: runtime.resident_memories.clone(),
-            search_memories: runtime.search_memories.clone(),
+            beliefs: runtime.beliefs.clone(),
+            resident_memories: BTreeMap::new(),
+            search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: runtime.actor_autonomy.clone(),
             actor_rules_facets: runtime.snapshot_actor_rules_facets(),
@@ -6225,6 +6341,7 @@ impl RuntimeSnapshot {
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
         let snapshot_version = self.version;
+        let compatibility_bundle_hash = self.worldpack_bundle_hash.clone();
         let compatibility =
             persisted_worldpack_replay_compatibility(&self.worldpack_bundle_hash, "snapshot")?;
         if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
@@ -6372,10 +6489,56 @@ impl RuntimeSnapshot {
             world.next_event_seq = 1;
         }
 
+        let mut beliefs = self.beliefs;
+        for legacy in self.resident_memories.into_values() {
+            merge_belief(
+                &mut beliefs,
+                BeliefState {
+                    id: String::new(),
+                    holder_actor_id: legacy.carrier_actor_id,
+                    kind: legacy.kind,
+                    subject_id: legacy.subject_id,
+                    location_id: legacy.location_id,
+                    confidence: legacy.confidence,
+                    salience: legacy.salience,
+                    observed_tick: legacy.observed_tick,
+                    source_actor_id: legacy.source_actor_id,
+                    related_actor_id: legacy.holder_actor_id,
+                    learned_tick: legacy.learned_tick,
+                    hops: legacy.hops,
+                },
+            );
+        }
+        for legacy in self.search_memories.into_values() {
+            let kind = match legacy.kind.as_str() {
+                "avatar" => BELIEF_KIND_ACTOR_LOCATION,
+                "item" => BELIEF_KIND_ITEM_LOCATION,
+                _ => legacy.kind.as_str(),
+            };
+            merge_belief(
+                &mut beliefs,
+                BeliefState {
+                    id: String::new(),
+                    holder_actor_id: legacy.actor_id,
+                    kind: kind.to_string(),
+                    subject_id: legacy.subject_id,
+                    location_id: legacy.location_id,
+                    confidence: legacy.confidence,
+                    salience: legacy.salience,
+                    observed_tick: legacy.found_tick,
+                    source_actor_id: Some(legacy.actor_id),
+                    related_actor_id: None,
+                    learned_tick: legacy.last_used_tick.max(legacy.found_tick),
+                    hops: 0,
+                },
+            );
+        }
+
         Ok(RuntimeWorld {
             world,
             canonical_identities: self.canonical_identities,
             command_receipts: self.command_receipts,
+            ai_publications: self.ai_publications,
             actors: self.actor_meta,
             items: self.item_meta,
             locations: self.location_names,
@@ -6403,14 +6566,14 @@ impl RuntimeSnapshot {
             equipped_charms: self.equipped_charms,
             prepared_spells: self.prepared_spells,
             npc_cooperation: self.npc_cooperation,
+            local_leads: self.local_leads,
             item_provenance: self.item_provenance,
             materialization_receipts: self.materialization_receipts,
             craft_receipts: self.craft_receipts,
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
-            resident_memories: self.resident_memories,
-            search_memories: self.search_memories,
+            beliefs,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
             actor_rules_facets: self.actor_rules_facets,
@@ -6434,7 +6597,13 @@ impl RuntimeSnapshot {
             next_content_id: self.next_content_id,
             next_seed: self.next_seed,
         })
-        .map(move |mut runtime| {
+        .and_then(move |mut runtime| {
+            runtime
+                .restore_canonical_topology_for_snapshot(
+                    snapshot_version,
+                    &compatibility_bundle_hash,
+                )
+                .map_err(snapshot_error)?;
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
             if snapshot_version < 12 {
@@ -6456,19 +6625,8 @@ impl RuntimeSnapshot {
             let mint_seed = runtime.next_seed;
             runtime.ensure_canonical_identities(mint_seed);
             runtime.refresh_all_canonical_events();
-            runtime
+            Ok(runtime)
         })
-    }
-}
-impl ResidentContinuitySnapshot {
-    fn from_runtime(runtime: &RuntimeWorld) -> Self {
-        Self {
-            version: 1,
-            worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
-            world_tick: runtime.world.tick,
-            latest_event_seq: runtime.world.next_event_seq.saturating_sub(1),
-            residents: runtime.resident_continuities.clone(),
-        }
     }
 }
 fn default_zone() -> String {
@@ -6559,6 +6717,17 @@ fn zone_for_safety(safety: &str) -> &'static str {
 
 impl RuntimeWorld {
     fn ensure_canonical_identities(&mut self, mint_seed: u64) {
+        let generated_location_refs = self
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| {
+                pathway
+                    .waypoints
+                    .iter()
+                    .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+            })
+            .filter(|(_, canonical_id)| !canonical_id.is_empty())
+            .collect::<BTreeMap<_, _>>();
         let actor_ids = self.world.actors[..self.world.actor_count]
             .iter()
             .map(|actor| actor.id)
@@ -6618,6 +6787,7 @@ impl RuntimeWorld {
             let canonical_ref = content_registry()
                 .content_reference("location", location_id)
                 .map(|entry| entry.canonical_ref.clone())
+                .or_else(|| generated_location_refs.get(&location_id).cloned())
                 .unwrap_or_else(|| {
                     opaque_runtime_ref("location", &format!("{location_id}:{mint_seed}"))
                 });
@@ -6770,6 +6940,7 @@ impl RuntimeWorld {
             world,
             canonical_identities: CanonicalIdentityState::default(),
             command_receipts: BTreeMap::new(),
+            ai_publications: BTreeMap::new(),
             actors: seed_actor_meta(),
             items: seed_item_meta(),
             locations: seed_location_names(),
@@ -6797,14 +6968,14 @@ impl RuntimeWorld {
             equipped_charms: BTreeMap::new(),
             prepared_spells: BTreeMap::new(),
             npc_cooperation: BTreeMap::new(),
+            local_leads: BTreeMap::new(),
             item_provenance: BTreeMap::new(),
             materialization_receipts: BTreeMap::new(),
             craft_receipts: BTreeMap::new(),
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
-            resident_memories: BTreeMap::new(),
-            search_memories: BTreeMap::new(),
+            beliefs: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
             actor_rules_facets: BTreeMap::new(),
@@ -7513,19 +7684,25 @@ impl RuntimeWorld {
     }
 
     fn ensure_revealed_generated_natural_affordances(&mut self) {
-        let location_ids = self
+        let locations = self
             .generated_pathways
             .values()
-            .flat_map(|pathway| pathway.waypoints.iter().map(|waypoint| waypoint.id))
-            .filter(|location_id| self.generated_location_is_revealed(*location_id))
+            .flat_map(|pathway| {
+                pathway.waypoints.iter().map(|waypoint| {
+                    (
+                        waypoint.id,
+                        pathway.owner_pack_id.clone(),
+                        pathway.owner_pack_version.clone(),
+                    )
+                })
+            })
+            .filter(|(location_id, _, _)| self.generated_location_is_revealed(*location_id))
             .collect::<Vec<_>>();
-        let pack_id = "cosyworld.core";
-        let pack_version = self.active_pack_version(pack_id);
-        for location_id in location_ids {
+        for (location_id, pack_id, pack_version) in locations {
             self.ensure_natural_affordance_for_location(
                 location_id,
                 "generated_environment",
-                pack_id,
+                &pack_id,
                 &pack_version,
             );
         }
@@ -7926,6 +8103,13 @@ impl RuntimeWorld {
             focused_profile: None,
             focused_encounter: None,
         });
+        if let Some(job) = self.jobs.get_mut(&job_id) {
+            job.pack_id = state.generation.pack_id.clone();
+            for strategy in &mut job.contribution_strategies {
+                strategy.pack_id = state.generation.pack_id.clone();
+                strategy.pack_version = state.generation.pack_version.clone();
+            }
+        }
         if revealed {
             if let Some(clock) = self.clocks.get_mut(&state.investigation_clock_id) {
                 clock.filled = clock.segments;
@@ -8141,6 +8325,17 @@ impl RuntimeWorld {
                 )
             };
             debug_assert_eq!(status, CW_OK);
+            let (max_charges, recovery, ready_zone) = seed_item_recovery_profile(item);
+            let recovery_status = unsafe {
+                cw_world_set_item_recovery_profile(
+                    &mut self.world,
+                    item.id,
+                    max_charges,
+                    recovery,
+                    ready_zone,
+                )
+            };
+            debug_assert_eq!(recovery_status, CW_OK);
             if role == CW_ITEM_ROLE_WEAPON {
                 if let Some(world_item) = self.world.items[..self.world.item_count]
                     .iter_mut()
@@ -8265,9 +8460,18 @@ impl RuntimeWorld {
     fn ensure_generated_pathway_topology(&mut self) {
         let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
         for pathway_id in pathway_ids {
-            let Some(pathway_snapshot) = self.generated_pathways.get(&pathway_id).cloned() else {
+            let Some(mut pathway_snapshot) = self.generated_pathways.get(&pathway_id).cloned()
+            else {
                 continue;
             };
+            if self
+                .normalize_generated_pathway_identity(&mut pathway_snapshot, false, None)
+                .is_err()
+            {
+                continue;
+            }
+            self.generated_pathways
+                .insert(pathway_id.clone(), pathway_snapshot.clone());
             let origin_meta = self.location_meta_for(pathway_snapshot.origin_location_id);
             let destination_meta = self.location_meta_for(pathway_snapshot.destination_location_id);
             let waypoint_count = pathway_snapshot.waypoints.len();
@@ -8285,6 +8489,7 @@ impl RuntimeWorld {
                     prompt_version: "legacy".to_string(),
                     provider: "none".to_string(),
                     model: "none".to_string(),
+                    model_attribution: None,
                     attempts: 0,
                 };
             }
@@ -8342,11 +8547,19 @@ impl RuntimeWorld {
             self.location_meta
                 .entry(waypoint.id)
                 .or_insert_with(|| waypoint.meta.clone());
+            self.canonical_identities
+                .location_refs
+                .entry(waypoint.id)
+                .or_insert_with(|| waypoint.canonical_id.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(waypoint.canonical_id.clone())
+                .or_insert(1);
         }
         self.open_generated_pathway_route(pathway, from_location_id, to_location_id);
         self.rebuild_kernel_exits_from_routes();
-        let pack_id = "cosyworld.core";
-        let pack_version = self.active_pack_version(pack_id);
+        let pack_id = pathway.owner_pack_id.clone();
+        let pack_version = pathway.owner_pack_version.clone();
         for location_id in [from_location_id, to_location_id] {
             if pathway
                 .waypoints
@@ -8356,9 +8569,17 @@ impl RuntimeWorld {
                 self.ensure_natural_affordance_for_location(
                     location_id,
                     "generated_environment",
-                    pack_id,
+                    &pack_id,
                     &pack_version,
                 );
+                if let Some(state) = self.natural_affordances.get_mut(&location_id) {
+                    state.generation.pack_id = pack_id.clone();
+                    state.generation.pack_version = pack_version.clone();
+                    if let Some(feature) = state.revealed_feature.as_mut() {
+                        feature.generation.pack_id = pack_id.clone();
+                        feature.generation.pack_version = pack_version.clone();
+                    }
+                }
                 let connected_from_location_id = if location_id == from_location_id {
                     to_location_id
                 } else {
@@ -9773,7 +9994,10 @@ impl RuntimeWorld {
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
-            content: Some(format!("{}:{}:{reason}", bond.id, bond.strength)),
+            content: Some(format!(
+                "{}:{}:{}:{reason}",
+                bond.id, bond.strength, bond.status
+            )),
             item_id: None,
             item_name: None,
             target_item_id: None,
@@ -9867,71 +10091,6 @@ impl RuntimeWorld {
         Ok(())
     }
 
-    fn load_resident_continuity_snapshot(&mut self, path: &Path) -> io::Result<usize> {
-        let bytes = fs::read(path)?;
-        let snapshot: ResidentContinuitySnapshot = serde_json::from_slice(&bytes)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        if snapshot.version != 1 {
-            return Err(snapshot_error(
-                "unsupported resident continuity snapshot version",
-            ));
-        }
-        let compatibility = persisted_worldpack_replay_compatibility(
-            &snapshot.worldpack_bundle_hash,
-            "resident continuity",
-        )?;
-        if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
-            warn!(
-                "loading resident continuity through declared worldpack migration: {} -> {}",
-                snapshot.worldpack_bundle_hash,
-                active_content().manifest.bundle_hash
-            );
-        }
-        Ok(self.apply_resident_continuity_snapshot(snapshot))
-    }
-
-    fn apply_resident_continuity_snapshot(
-        &mut self,
-        snapshot: ResidentContinuitySnapshot,
-    ) -> usize {
-        let mut applied = 0;
-        for (resident_id, continuity) in snapshot.residents {
-            let Some(resident) = self.actor_by_id(resident_id) else {
-                continue;
-            };
-            if !Self::actor_can_act(resident) {
-                continue;
-            }
-            let current_seq = self
-                .resident_continuities
-                .get(&resident_id)
-                .map(|current| current.last_observed_event_seq)
-                .unwrap_or(0);
-            if continuity.last_observed_event_seq >= current_seq {
-                self.resident_continuities.insert(resident_id, continuity);
-                applied += 1;
-            }
-        }
-        self.refresh_all_resident_continuities();
-        applied
-    }
-
-    fn save_resident_continuity_snapshot(&self, path: &Path) -> io::Result<()> {
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent)?;
-            }
-        }
-
-        let tmp = path.with_extension("json.tmp");
-        let snapshot = ResidentContinuitySnapshot::from_runtime(self);
-        let bytes = serde_json::to_vec_pretty(&snapshot)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        fs::write(&tmp, bytes)?;
-        fs::rename(tmp, path)?;
-        Ok(())
-    }
-
     fn next_seed_value(&self) -> u64 {
         self.next_seed
             .wrapping_mul(6364136223846793005)
@@ -9963,6 +10122,7 @@ impl RuntimeWorld {
         if !focused_encounter_journal_context_is_supported(self, record)
             || !self.route_record_preconditions_hold(record)
             || !self.job_contribution_record_preconditions_hold(record)
+            || !self.ai_publication_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
@@ -9980,6 +10140,7 @@ impl RuntimeWorld {
 
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
+        let resident_planning_lifecycle = self.resident_planning_lifecycle_snapshot(&action);
         let advances_world_tick = record.advances_world_tick();
         let authoritative_contribution_clock_ids = record
             .projection_mutations
@@ -10008,8 +10169,12 @@ impl RuntimeWorld {
             self.apply_action_with_seed(action, record.seed, advances_world_tick)
         };
         if status == CW_OK {
+            if let Some(receipt) = record.ai_publication.as_ref() {
+                self.ai_publications
+                    .insert(receipt.generation_id.clone(), receipt.clone());
+            }
             if advances_world_tick {
-                self.decay_search_memories();
+                self.decay_beliefs();
             }
             let listen_context = self.listen_context_for_action(&action, &events);
             let was_repeat_listen = listen_context
@@ -10071,6 +10236,8 @@ impl RuntimeWorld {
                 &committed_events,
                 &record.projection_mutations,
                 enforce_active_contribution_contract,
+                record.version < JOURNAL_RECORD_VERSION,
+                &record.worldpack_bundle_hash,
             ));
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
@@ -10079,7 +10246,7 @@ impl RuntimeWorld {
             events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
             let committed_events = events.clone();
             events.extend(self.apply_influence_projection(&action, &committed_events));
-            self.reinforce_search_memories_from_events(&events);
+            self.reinforce_beliefs_from_search_events(&events);
             self.record_first_tale_destination_arrivals(&events);
             let committed_events = events.clone();
             events.extend(self.apply_event_lifecycle_hooks(
@@ -10126,9 +10293,6 @@ impl RuntimeWorld {
             for delta in &record.orb_deltas {
                 self.apply_orb_delta(delta.actor_id, delta.delta);
             }
-            if action.kind != CW_ACTION_SAY {
-                self.clear_resident_pending_action(action.actor_id);
-            }
             self.reconcile_card_zones();
             let delivery_evidence = self.update_item_provenance(&events);
             let logistics_events = self.apply_actor_causal_logistics(delivery_evidence);
@@ -10145,7 +10309,7 @@ impl RuntimeWorld {
             let loot_sources = events.clone();
             events.extend(self.reconcile_quest_loot(&loot_sources));
             self.project_qualifying_deeds(&events);
-            self.apply_resident_memory_projection(&action, &events);
+            self.apply_belief_projection(&action, &events);
             if advances_world_tick {
                 let committed_events = events.clone();
                 events.extend(self.apply_player_tick_frontier_resets(&action, &committed_events));
@@ -10161,6 +10325,7 @@ impl RuntimeWorld {
             events.extend(self.apply_rules_context_transition_projection(&committed_events));
             self.record_autonomous_action(record);
             self.refresh_craft_event_presentation(&mut events);
+            self.append_lantern_story_receipt(record, &mut events);
             if record.source_world_tick.is_some() {
                 for event in &mut events {
                     event.apply_async_causality(record);
@@ -10177,6 +10342,7 @@ impl RuntimeWorld {
                 }
             }
         }
+        self.apply_resident_planning_lifecycle(record, status, resident_planning_lifecycle);
         self.ensure_canonical_identities(record.seed);
         if status == CW_OK {
             self.ensure_active_actor_rules_facets();
@@ -10192,6 +10358,8 @@ impl RuntimeWorld {
         committed_events: &[EventView],
         mutations: &[ProjectionMutation],
         enforce_active_contribution_contract: bool,
+        allow_legacy_generated_identity_backfill: bool,
+        historical_bundle_hash: &str,
     ) -> Vec<EventView> {
         let mut events = Vec::new();
         for mutation in mutations {
@@ -10279,6 +10447,19 @@ impl RuntimeWorld {
                         Some(reason.clone()),
                     ));
                 }
+                ProjectionMutation::SetRelationshipDialogueStatus {
+                    relationship_actor_id,
+                    target_actor_id,
+                    status,
+                    reason,
+                } => {
+                    events.extend(self.set_relationship_dialogue_status(
+                        *relationship_actor_id,
+                        *target_actor_id,
+                        status,
+                        reason,
+                    ));
+                }
                 ProjectionMutation::RefreshAvatarIdentity {
                     actor_id,
                     physical_description,
@@ -10305,6 +10486,7 @@ impl RuntimeWorld {
                     intent_id,
                     amount,
                     history_through_seq,
+                    evolution_job,
                 } => {
                     if let Some(event) = self.apply_fund_community_art_projection(
                         subject_kind,
@@ -10315,6 +10497,7 @@ impl RuntimeWorld {
                         intent_id,
                         *amount,
                         *history_through_seq,
+                        evolution_job.clone(),
                     ) {
                         events.push(event);
                     }
@@ -10341,7 +10524,27 @@ impl RuntimeWorld {
                     level,
                     provider_attempt,
                     generation_profile_version,
+                    generation_policy,
                 } => {
+                    let generation_policy = if generation_policy.is_empty()
+                        && subject_kind == "location"
+                    {
+                        if let Some(pathway) = self.generated_pathway_for_location(*subject_id) {
+                            if !allow_legacy_generated_identity_backfill {
+                                continue;
+                            }
+                            legacy_generated_policy_binding(
+                                &pathway.owner_pack_id,
+                                &pathway.owner_pack_version,
+                                &active_content().manifest.id,
+                                historical_bundle_hash,
+                            )
+                        } else {
+                            GeneratedPolicyBinding::default()
+                        }
+                    } else {
+                        generation_policy.clone()
+                    };
                     if let Some(event) = self.apply_begin_community_art_generation_projection(
                         action.actor_id,
                         subject_kind,
@@ -10349,6 +10552,7 @@ impl RuntimeWorld {
                         *level,
                         *provider_attempt,
                         *generation_profile_version,
+                        &generation_policy,
                     ) {
                         events.push(event);
                     }
@@ -10375,11 +10579,72 @@ impl RuntimeWorld {
                 }
                 ProjectionMutation::RefinePathway { pathway } => {
                     let mut refined = pathway.clone();
-                    if let Some(current) = self.generated_pathways.get(&pathway.id) {
-                        refined
-                            .revealed_edges
-                            .extend(current.revealed_edges.clone());
-                        refined.familiar |= current.familiar;
+                    if self
+                        .normalize_generated_pathway_identity(
+                            &mut refined,
+                            allow_legacy_generated_identity_backfill,
+                            Some(historical_bundle_hash),
+                        )
+                        .is_err()
+                    {
+                        continue;
+                    }
+                    let Some(current) = self.generated_pathways.get(&pathway.id).cloned() else {
+                        for waypoint in &refined.waypoints {
+                            self.locations.insert(waypoint.id, waypoint.name.clone());
+                            self.location_meta
+                                .insert(waypoint.id, waypoint.meta.clone());
+                        }
+                        self.generated_pathways
+                            .insert(refined.id.clone(), refined.clone());
+                        events.push(self.append_async_job_event(
+                            "pathway.refined",
+                            refined.created_by_actor_id,
+                            None,
+                            Some(refined.id),
+                        ));
+                        continue;
+                    };
+                    refined
+                        .revealed_edges
+                        .extend(current.revealed_edges.clone());
+                    refined.familiar |= current.familiar;
+                    refined.traffic_count = current.traffic_count;
+                    refined.way_class = PathwayWayClass::for_traffic(refined.traffic_count);
+                    let current_waypoint_ids = current
+                        .waypoints
+                        .iter()
+                        .map(|waypoint| waypoint.id)
+                        .collect::<BTreeSet<_>>();
+                    let mut occupied_names = self
+                        .generated_pathways
+                        .values()
+                        .filter(|existing| existing.id != refined.id)
+                        .flat_map(|existing| existing.waypoints.iter())
+                        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+                        .chain(
+                            self.locations
+                                .iter()
+                                .filter(|(location_id, _)| {
+                                    !current_waypoint_ids.contains(location_id)
+                                })
+                                .map(|(_, name)| name.to_ascii_lowercase()),
+                        )
+                        .collect::<BTreeSet<_>>();
+                    let pathway_canonical_id = refined.canonical_id.clone();
+                    for (index, (waypoint, fallback)) in refined
+                        .waypoints
+                        .iter_mut()
+                        .zip(&current.waypoints)
+                        .enumerate()
+                    {
+                        waypoint.name = reserve_unique_pathway_name(
+                            &mut occupied_names,
+                            &waypoint.name,
+                            &fallback.name,
+                            &pathway_canonical_id,
+                            index,
+                        );
                     }
                     for waypoint in &refined.waypoints {
                         self.locations.insert(waypoint.id, waypoint.name.clone());
@@ -10447,11 +10712,22 @@ impl RuntimeWorld {
                     narration,
                     event_type,
                 } => {
+                    let mut proposed_pathway = pathway.clone();
+                    if self
+                        .normalize_generated_pathway_identity(
+                            &mut proposed_pathway,
+                            allow_legacy_generated_identity_backfill,
+                            Some(historical_bundle_hash),
+                        )
+                        .is_err()
+                    {
+                        continue;
+                    }
                     let mut next_pathway = self
                         .generated_pathways
-                        .get(&pathway.id)
+                        .get(&proposed_pathway.id)
                         .cloned()
-                        .unwrap_or_else(|| pathway.clone());
+                        .unwrap_or(proposed_pathway);
                     self.ensure_generated_pathway_route_records(&next_pathway);
                     for (from_location_id, to_location_id) in reveal_edges {
                         next_pathway
@@ -10463,6 +10739,12 @@ impl RuntimeWorld {
                             *to_location_id,
                         );
                     }
+                    let traffic_delta =
+                        durable_pathway_traffic_evidence(&next_pathway, committed_events);
+                    next_pathway.traffic_count =
+                        next_pathway.traffic_count.saturating_add(traffic_delta);
+                    next_pathway.way_class =
+                        PathwayWayClass::for_traffic(next_pathway.traffic_count);
                     self.generated_pathways
                         .insert(next_pathway.id.clone(), next_pathway.clone());
                     if let Some(journey) = journey {
@@ -10689,6 +10971,13 @@ impl RuntimeWorld {
                         event.seq,
                         reason,
                     );
+                    self.settle_local_leads_for_route(
+                        action.actor_id,
+                        *from_location_id,
+                        *to_location_id,
+                        reason,
+                        event.seq,
+                    );
                     events.push(event.clone());
 
                     let mut discovered_exits = vec![exit];
@@ -10705,9 +10994,9 @@ impl RuntimeWorld {
                         self.remember_search_discovery_for_actor_ids(
                             &witness_actor_ids,
                             discovered_exit.from_location_id,
-                            SEARCH_MEMORY_KIND_SEED_EXIT,
+                            BELIEF_KIND_SEED_EXIT,
                             discovered_exit.to_location_id,
-                            &seed_exit_search_memory_subject_key(
+                            &seed_exit_belief_subject_key(
                                 discovered_exit.from_location_id,
                                 discovered_exit.to_location_id,
                             ),
@@ -10758,7 +11047,7 @@ impl RuntimeWorld {
                     events.push(event.clone());
                     self.remember_search_discovery_for_witnesses(
                         hidden_exit.from_location_id,
-                        SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+                        BELIEF_KIND_HIDDEN_EXIT,
                         hidden_exit.to_location_id,
                         hidden_exit.id.clone(),
                     );
@@ -10803,7 +11092,7 @@ impl RuntimeWorld {
                     events.push(event.clone());
                     self.remember_search_discovery_for_witnesses(
                         *location_id,
-                        SEARCH_MEMORY_KIND_AVATAR,
+                        BELIEF_KIND_ACTOR_LOCATION,
                         *actor_id,
                         actor_id.to_string(),
                     );
@@ -10831,7 +11120,7 @@ impl RuntimeWorld {
                     };
                     self.remember_search_discovery_for_witnesses(
                         *location_id,
-                        SEARCH_MEMORY_KIND_ITEM,
+                        BELIEF_KIND_ITEM_LOCATION,
                         *item_id,
                         item_id.to_string(),
                     );
@@ -11553,6 +11842,8 @@ impl RuntimeWorld {
                 status: "active".to_string(),
                 source_event_seq: Some(source_event_seq),
                 updated_event_seq: None,
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
             });
             bond.strength = bond.strength.saturating_add(1).min(3);
             bond.status = "active".to_string();
@@ -11584,14 +11875,23 @@ impl RuntimeWorld {
             else {
                 continue;
             };
-            projected.extend(self.deepen_bond_from_event(
+            if let Some(events) = self.deepen_authored_relationship_from_gift(
                 actor_id,
                 target_actor_id,
+                item_id,
                 event.seq,
-                gift_bond_claim_key(actor_id, target_actor_id, item_id),
-                "resident_gift",
-                &format!("gift:{actor_id}:{target_actor_id}:{item_id}:bond"),
-            ));
+            ) {
+                projected.extend(events);
+            } else {
+                projected.extend(self.deepen_bond_from_event(
+                    actor_id,
+                    target_actor_id,
+                    event.seq,
+                    gift_bond_claim_key(actor_id, target_actor_id, item_id),
+                    "resident_gift",
+                    &format!("gift:{actor_id}:{target_actor_id}:{item_id}:bond"),
+                ));
+            }
         }
         projected
     }
@@ -11909,62 +12209,6 @@ impl RuntimeWorld {
         .collect()
     }
 
-    fn apply_influence_projection(
-        &mut self,
-        action: &CwAction,
-        events: &[EventView],
-    ) -> Vec<EventView> {
-        if action.kind != CW_ACTION_RULES_INFLUENCE {
-            return Vec::new();
-        }
-        let Some(target) = self.actor_by_id(action.target_actor_id) else {
-            return Vec::new();
-        };
-        if !Self::actor_can_act(target) {
-            return Vec::new();
-        }
-        let Some(check) = events.iter().find(|event| {
-            event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
-        }) else {
-            return Vec::new();
-        };
-        let succeeded = check
-            .total
-            .zip(check.dc)
-            .is_some_and(|(total, dc)| total >= dc);
-        let outcome = if succeeded { "cooperates" } else { "declines" };
-        let attitude = if succeeded { "cooperative" } else { "cautious" };
-        let key = format!("{}:{}", action.actor_id, action.target_actor_id);
-        let attempts = self
-            .npc_cooperation
-            .get(&key)
-            .map(|state| state.attempts.saturating_add(1))
-            .unwrap_or(1);
-        self.npc_cooperation.insert(
-            key,
-            NpcCooperationState {
-                actor_id: action.actor_id,
-                target_actor_id: action.target_actor_id,
-                desired_cooperation: "share one useful local lead".to_string(),
-                attitude: attitude.to_string(),
-                outcome: outcome.to_string(),
-                attempts,
-                source_event_seq: check.seq,
-            },
-        );
-        let target_name = self
-            .actor_name(action.target_actor_id)
-            .unwrap_or_else(|| format!("Resident {}", action.target_actor_id));
-        vec![self.append_async_job_event(
-            "influence.committed",
-            action.actor_id,
-            Some(action.target_actor_id),
-            Some(format!(
-                "{target_name} {outcome}: the authored request was to share one useful local lead."
-            )),
-        )]
-    }
-
     fn apply_listen_ledger_projection(
         &mut self,
         actor_id: u64,
@@ -12056,6 +12300,7 @@ impl RuntimeWorld {
             });
         }
         let clock = clock.clone();
+        self.record_job_clock_participant(clock_id, actor_id);
         let update_event = self.append_clock_event(
             "clock.updated",
             actor_id,
@@ -12310,6 +12555,22 @@ impl RuntimeWorld {
             };
         let mut source_event_seqs = requirement_source_event_seqs.clone();
         source_event_seqs.extend(resolution_source_event_seqs);
+        let project_push_event = if action.kind == CW_ACTION_PROJECT_PUSH {
+            let expected_progress = Self::resolve_project_push(action.project_push);
+            committed_events.iter().find(|event| {
+                event.type_name == "project.push.resolved"
+                    && event.actor_id == Some(action.actor_id)
+                    && event.total.and_then(|total| u8::try_from(total).ok()) == expected_progress
+            })
+        } else {
+            None
+        };
+        if action.kind == CW_ACTION_PROJECT_PUSH && project_push_event.is_none() {
+            return Vec::new();
+        }
+        if let Some(event) = project_push_event {
+            source_event_seqs.push(event.seq);
+        }
         source_event_seqs.sort_unstable();
         source_event_seqs.dedup();
 
@@ -12318,7 +12579,15 @@ impl RuntimeWorld {
                 return Vec::new();
             }
         }
-        let prepared_bonus_progress = if self
+        let project_push_prepared =
+            action.kind == CW_ACTION_PROJECT_PUSH && action.project_push.prepared == 1;
+        let prepared_bonus_progress = if action.kind == CW_ACTION_PROJECT_PUSH {
+            if project_push_prepared {
+                action.project_push.prepared_bonus_progress
+            } else {
+                0
+            }
+        } else if self
             .actor_by_id(action.actor_id)
             .is_some_and(|actor| self.prepared_tag_active(action.actor_id, actor.location_id))
         {
@@ -12331,11 +12600,18 @@ impl RuntimeWorld {
         } else {
             0
         };
-        let total_progress = intent
-            .strategy
-            .baseline_progress
-            .saturating_add(success_progress)
-            .saturating_add(prepared_bonus_progress);
+        let total_progress = if let Some(event) = project_push_event {
+            event
+                .total
+                .and_then(|total| u8::try_from(total).ok())
+                .expect("validated project Push event total")
+        } else {
+            intent
+                .strategy
+                .baseline_progress
+                .saturating_add(success_progress)
+                .saturating_add(prepared_bonus_progress)
+        };
         if total_progress > 0 {
             if let Some(job) = self.jobs.get_mut(&intent.job_id) {
                 job.participant_ids.push(action.actor_id);
@@ -12358,6 +12634,17 @@ impl RuntimeWorld {
             baseline_progress: intent.strategy.baseline_progress,
             success_progress,
             prepared_bonus_progress,
+            project_push_prepared,
+            project_evidence_count: action
+                .project_push
+                .evidence_count
+                .checked_mul(u8::from(action.kind == CW_ACTION_PROJECT_PUSH))
+                .unwrap_or(0),
+            project_location_count: action
+                .project_push
+                .location_count
+                .checked_mul(u8::from(action.kind == CW_ACTION_PROJECT_PUSH))
+                .unwrap_or(0),
             total_progress,
             clock_id: intent.strategy.clock_id.clone(),
             claim_key: claim_key.clone(),
@@ -12587,105 +12874,6 @@ impl RuntimeWorld {
         };
         self.callings.insert(actor_id, calling.clone());
         events.push(self.append_calling_event("calling.revised", &calling, reason));
-        events
-    }
-
-    fn create_bond(
-        &mut self,
-        actor_id: u64,
-        target_actor_id: u64,
-        statement: &str,
-        cost: u8,
-        reason: &str,
-    ) -> Vec<EventView> {
-        let id = bond_id(actor_id, target_actor_id);
-        if cost == 0
-            || self.advancement_points_available(actor_id) < usize::from(cost)
-            || self.active_bond(actor_id, target_actor_id).is_some()
-        {
-            return Vec::new();
-        }
-
-        let spend_seq = self.world.next_event_seq;
-        let target_name = self
-            .actor_name(target_actor_id)
-            .unwrap_or_else(|| format!("Resident {target_actor_id}"));
-        let spend = AdvancementSpendState {
-            id: advancement_spend_id(actor_id, "bond_slot", spend_seq),
-            actor_id,
-            kind: "bond_slot".to_string(),
-            label: format!("Friendship with {target_name}"),
-            cost,
-            source_event_seq: spend_seq,
-        };
-        if self.advancement_spends.contains_key(&spend.id) {
-            return Vec::new();
-        }
-        self.advancement_spends
-            .insert(spend.id.clone(), spend.clone());
-        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
-
-        let bond = BondState {
-            id: id.clone(),
-            actor_id,
-            target_actor_id,
-            statement: statement.to_string(),
-            strength: 1,
-            status: "active".to_string(),
-            source_event_seq: Some(self.world.next_event_seq),
-            updated_event_seq: Some(self.world.next_event_seq),
-        };
-        self.bonds.insert(id, bond.clone());
-        events.push(self.append_bond_event("bond.created", &bond, reason));
-        events
-    }
-
-    fn revise_bond(
-        &mut self,
-        actor_id: u64,
-        target_actor_id: u64,
-        statement: &str,
-        cost: u8,
-        reason: &str,
-    ) -> Vec<EventView> {
-        let id = bond_id(actor_id, target_actor_id);
-        if cost == 0 || self.advancement_points_available(actor_id) < usize::from(cost) {
-            return Vec::new();
-        }
-        let Some(existing) = self.bonds.get(&id) else {
-            return Vec::new();
-        };
-        if existing.status == "resolved"
-            || existing.strength == 0
-            || existing.statement == statement
-        {
-            return Vec::new();
-        }
-
-        let spend_seq = self.world.next_event_seq;
-        let spend = AdvancementSpendState {
-            id: advancement_spend_id(actor_id, "bond_revision", spend_seq),
-            actor_id,
-            kind: "bond_revision".to_string(),
-            label: "Friendship changed".to_string(),
-            cost,
-            source_event_seq: spend_seq,
-        };
-        if self.advancement_spends.contains_key(&spend.id) {
-            return Vec::new();
-        }
-        self.advancement_spends
-            .insert(spend.id.clone(), spend.clone());
-        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
-
-        let Some(bond) = self.bonds.get_mut(&id) else {
-            return events;
-        };
-        bond.statement = statement.to_string();
-        bond.status = "active".to_string();
-        bond.updated_event_seq = Some(self.world.next_event_seq);
-        let bond = bond.clone();
-        events.push(self.append_bond_event("bond.revised", &bond, reason));
         events
     }
 
@@ -12951,7 +13139,10 @@ impl RuntimeWorld {
             return Vec::new();
         };
         if item.holder_actor_id != actor_id
-            || !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
+            || !matches!(
+                item.role,
+                CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER | CW_ITEM_ROLE_TOOL
+            )
             || item.container_item_id != 0
         {
             return Vec::new();
@@ -13080,7 +13271,7 @@ impl RuntimeWorld {
     fn materialize_item(
         &mut self,
         receipt: MaterializationReceiptState,
-        item: CwItem,
+        mut item: CwItem,
         meta: ItemMeta,
         reason: &str,
     ) -> Vec<EventView> {
@@ -13092,6 +13283,13 @@ impl RuntimeWorld {
             || self.world.item_count >= CW_MAX_ITEMS
         {
             return Vec::new();
+        }
+        if item.max_charges == 0 {
+            let (max_charges, recovery, recovery_zone) =
+                declared_item_recovery_profile(item.charges, meta.mechanics.as_ref());
+            item.max_charges = max_charges;
+            item.recovery = recovery;
+            item.recovery_zone = recovery_zone;
         }
         self.world.items[self.world.item_count] = item;
         self.world.item_count += 1;
@@ -13481,7 +13679,7 @@ impl RuntimeWorld {
         }
         let from_location_id = event.location_id;
         let to_location_id = event.destination_location_id;
-        let memory = self.resident_memory_seek_target(actor)?;
+        let memory = self.belief_seek_target(actor)?;
         if self.next_unlocked_step_toward(from_location_id, memory.location_id)
             != Some(to_location_id)
         {
@@ -13566,7 +13764,7 @@ impl RuntimeWorld {
             destination_location_id: opt_id(event.destination_location_id),
             destination_location_name: self.location_name(event.destination_location_id),
             content_id: opt_id(event.content_id),
-            content: self.event_content(event),
+            content: rule_rejection_content(event).or_else(|| self.event_content(event)),
             item_id: opt_id(event.item_id),
             item_name: self.item_name(event.item_id),
             target_item_id: opt_id(event.target_item_id),
@@ -13658,24 +13856,6 @@ impl RuntimeWorld {
             .is_some_and(|calling| calling_statement_is_explorer(&calling.statement))
     }
 
-    fn pathway_for_anchors(
-        &self,
-        from_location_id: u64,
-        to_location_id: u64,
-    ) -> Option<&GeneratedPathwayState> {
-        self.generated_pathways
-            .get(&generated_pathway_id(from_location_id, to_location_id))
-    }
-
-    fn generated_pathway_for_location(&self, location_id: u64) -> Option<&GeneratedPathwayState> {
-        self.generated_pathways.values().find(|pathway| {
-            pathway
-                .waypoints
-                .iter()
-                .any(|waypoint| waypoint.id == location_id)
-        })
-    }
-
     fn generated_pathway_id_for_progress_clock(&self, clock_id: &str) -> Option<String> {
         self.generated_pathways
             .values()
@@ -13705,112 +13885,6 @@ impl RuntimeWorld {
             })
             .map(|exit| exit.distance.max(1))
             .unwrap_or(1)
-    }
-
-    fn generated_pathway(
-        &self,
-        actor_id: u64,
-        from_location_id: u64,
-        to_location_id: u64,
-        distance: u8,
-    ) -> GeneratedPathwayState {
-        let (origin_location_id, destination_location_id) =
-            canonical_pathway_anchors(from_location_id, to_location_id);
-        let origin_name = self
-            .location_name(origin_location_id)
-            .unwrap_or_else(|| "one known place".to_string());
-        let destination_name = self
-            .location_name(destination_location_id)
-            .unwrap_or_else(|| "another known place".to_string());
-        let origin_meta = self.location_meta_for(origin_location_id);
-        let destination_meta = self.location_meta_for(destination_location_id);
-        let pathway_id = generated_pathway_id(origin_location_id, destination_location_id);
-        let seed = stable_pathway_hash(&pathway_id);
-        let waypoint_count = usize::from(distance.saturating_sub(1));
-        let names = [
-            "Lantern Bend",
-            "Mossy Verge",
-            "Rain-Silver Crossing",
-            "Foxglove Turn",
-            "Quiet Rise",
-            "Bramble Mile",
-        ];
-        let waypoints = (0..waypoint_count)
-            .map(|index| {
-                let landmark_name = names[(seed as usize + index) % names.len()].to_string();
-                let id = generated_pathway_location_id(&pathway_id, index);
-                let art_prompt = format!(
-                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no characters, no creatures, no text, no logo, no watermark",
-                    step = index + 1,
-                    origin_biome = origin_meta.biome,
-                    destination_biome = destination_meta.biome,
-                    origin = origin_meta.description,
-                    destination = destination_meta.description,
-                );
-                let terrain = interpolated_pathway_terrain(
-                    &origin_meta,
-                    &destination_meta,
-                    index,
-                    waypoint_count,
-                );
-                let environment = interpolated_environment_profile(
-                    &origin_meta.environment,
-                    &destination_meta.environment,
-                    index,
-                    waypoint_count,
-                );
-                let natural_potentials = generated_potential_rules(&environment);
-                let terrain_phrase = terrain
-                    .iter()
-                    .take(3)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let description = format!(
-                    "At {landmark_name}, {terrain_phrase} mark a half-known stretch between {origin_name} and {destination_name}; weather and footprints are still deciding what belongs."
-                );
-                GeneratedWaypointState {
-                    id,
-                    name: landmark_name.clone(),
-                    meta: LocationMeta {
-                        title: "Newly Found Path".to_string(),
-                        description,
-                        persona: format!(
-                            "{landmark_name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
-                        ),
-                        memory: vec![format!(
-                            "An Explorer first drew this path between {origin_name} and {destination_name}."
-                        )],
-                        biome: format!("{} to {}", origin_meta.biome, destination_meta.biome),
-                        terrain,
-                        environment,
-                        natural_potentials,
-                        image_url: Some(format!("/assets/generated/pathways/{id}.svg")),
-                        art_prompt: Some(art_prompt),
-                    },
-                }
-            })
-            .collect();
-        GeneratedPathwayState {
-            id: pathway_id,
-            origin_location_id,
-            destination_location_id,
-            distance,
-            created_by_actor_id: actor_id,
-            waypoints,
-            generation: GenerationProvenance {
-                source: "deterministic_fallback".to_string(),
-                feature: PATHWAY_CONTENT_FEATURE.to_string(),
-                policy_mode: "fallback".to_string(),
-                prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
-                provider: "none".to_string(),
-                model: "none".to_string(),
-                attempts: 0,
-            },
-            revealed_edges: BTreeSet::new(),
-            art_eligible: distance >= 2,
-            familiar: false,
-        }
     }
 
     fn pathway_path(
@@ -14026,14 +14100,15 @@ impl RuntimeWorld {
             .pathway_for_anchors(actor.location_id, requested_destination_id)
             .cloned();
         let discovering_pathway = existing_pathway.is_none();
-        let pathway = existing_pathway.unwrap_or_else(|| {
-            self.generated_pathway(
+        let pathway = match existing_pathway {
+            Some(pathway) => pathway,
+            None => self.generated_pathway(
                 actor_id,
                 actor.location_id,
                 requested_destination_id,
                 distance,
-            )
-        });
+            )?,
+        };
         let path = self.pathway_path(&pathway, actor.location_id, requested_destination_id);
         let first_edge = (path[0], path[1]);
         let next_journey = JourneyState {
@@ -14326,52 +14401,6 @@ impl RuntimeWorld {
         })
     }
 
-    fn plan_rest_mutations(&self, actor_id: u64) -> Result<Vec<ProjectionMutation>, String> {
-        if !self.rest_available(actor_id) {
-            return Err("Rest is not needed here.".to_string());
-        }
-        let location_id = self
-            .actor_by_id(actor_id)
-            .map(|actor| actor.location_id)
-            .ok_or_else(|| "Rest requires an active avatar.".to_string())?;
-        let mut mutations = vec![
-            ProjectionMutation::ClearTag {
-                tag_id: tired_tag_id(actor_id),
-                reason: "rest".to_string(),
-            },
-            ProjectionMutation::ClearTag {
-                tag_id: trained_since_rest_tag_id(actor_id),
-                reason: "rest".to_string(),
-            },
-        ];
-        mutations.extend(
-            self.frontier_travel_since_rest_tag_ids(actor_id)
-                .into_iter()
-                .map(|tag_id| ProjectionMutation::ClearTag {
-                    tag_id,
-                    reason: "rest".to_string(),
-                }),
-        );
-        if let Some(clock_id) = self
-            .active_danger_clock_id_for_location(location_id)
-            .filter(|clock_id| self.clock_is_frontier(clock_id))
-        {
-            if self.hearth_tonic_warmth_guards_rest(location_id) {
-                mutations.push(ProjectionMutation::ClearTag {
-                    tag_id: HEARTH_TONIC_WARMTH_TAG_ID.to_string(),
-                    reason: "rest_warmed".to_string(),
-                });
-            } else {
-                mutations.push(ProjectionMutation::AdvanceClock {
-                    clock_id,
-                    amount: 1,
-                    reason: "rest".to_string(),
-                });
-            }
-        }
-        Ok(mutations)
-    }
-
     fn plan_scout_offer(
         &self,
         actor_id: u64,
@@ -14395,9 +14424,14 @@ impl RuntimeWorld {
             }
             return self.plan_pathway_search(actor_id);
         }
-        if let Some(plan) =
+        if let Some(mut plan) =
             self.plan_direct_authored_route_discovery(actor_id, destination_location_id)
         {
+            if let Some(lead) = self.local_lead_for_offer(actor_id, &current_offer) {
+                if let ProjectionMutation::DiscoverSeedExit { reason, .. } = &mut plan.1 {
+                    *reason = format!("follow_local_lead:{}", lead.id);
+                }
+            }
             return Ok(plan);
         }
         self.plan_journey_move(actor_id, destination_location_id)?
@@ -14851,46 +14885,33 @@ impl RuntimeWorld {
     }
 
     fn avatar_discovered(&self, actor_id: u64) -> bool {
-        self.search_memories.values().any(|memory| {
-            memory.kind == SEARCH_MEMORY_KIND_AVATAR
-                && memory.subject_id == actor_id
-                && self.search_memory_active(memory)
+        self.beliefs.values().any(|belief| {
+            belief.kind == BELIEF_KIND_ACTOR_LOCATION
+                && belief.subject_id == actor_id
+                && self.belief_active(belief)
         })
     }
 
-    fn search_memory_active(&self, memory: &SearchMemoryState) -> bool {
-        self.actor_by_id(memory.actor_id)
+    fn belief_active(&self, belief: &BeliefState) -> bool {
+        self.actor_by_id(belief.holder_actor_id)
             .is_some_and(Self::actor_is_present)
             && self
-                .search_memory_effective_values(memory)
+                .belief_effective_values(belief)
                 .is_some_and(|(confidence, salience)| {
-                    confidence >= SEARCH_MEMORY_MIN_CONFIDENCE && salience > 0
+                    confidence >= BELIEF_TUNING.minimum_action_confidence && salience > 0
                 })
     }
 
-    fn search_memory_effective_values(&self, memory: &SearchMemoryState) -> Option<(u8, u8)> {
-        let baseline = memory.last_used_tick.max(memory.found_tick);
-        if baseline == 0 {
-            return Some((memory.confidence, memory.salience));
-        }
-        let now = self.world.tick;
-        let steps = now.saturating_sub(baseline) / SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS;
-        let confidence_loss = steps
-            .saturating_mul(SEARCH_MEMORY_TIME_CONFIDENCE_DECAY as u64)
-            .min(u8::MAX as u64) as u8;
-        let salience_loss = steps
-            .saturating_mul(SEARCH_MEMORY_TIME_SALIENCE_DECAY as u64)
-            .min(u8::MAX as u64) as u8;
-        let confidence = memory.confidence.saturating_sub(confidence_loss);
-        let salience = memory.salience.saturating_sub(salience_loss);
+    fn belief_effective_values(&self, belief: &BeliefState) -> Option<(u8, u8)> {
+        let (_, confidence, salience) = belief_decay_at_tick(belief, self.world.tick);
         (confidence > 0 && salience > 0).then_some((confidence, salience))
     }
 
     fn search_item_remembered(&self, item_id: u64) -> bool {
-        self.search_memories.values().any(|memory| {
-            memory.kind == SEARCH_MEMORY_KIND_ITEM
-                && memory.subject_id == item_id
-                && self.search_memory_active(memory)
+        self.beliefs.values().any(|belief| {
+            belief.kind == BELIEF_KIND_ITEM_LOCATION
+                && belief.subject_id == item_id
+                && self.belief_active(belief)
         })
     }
 
@@ -14906,10 +14927,6 @@ impl RuntimeWorld {
             && item.location_id == location_id
             && self.search_item_found(item.id)
             && !self.search_item_remembered(item.id)
-    }
-
-    fn search_memory_id(actor_id: u64, kind: &str, location_id: u64, subject_key: &str) -> String {
-        format!("search_memory:{actor_id}:{kind}:{location_id}:{subject_key}")
     }
 
     fn search_witness_actor_ids(&self, location_id: u64) -> Vec<u64> {
@@ -14960,80 +14977,24 @@ impl RuntimeWorld {
         location_id: u64,
         kind: &str,
         subject_id: u64,
-        subject_key: &str,
+        _subject_key: &str,
     ) {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return;
-        };
-        if !Self::actor_is_present(actor) {
-            return;
-        }
-        let id = Self::search_memory_id(actor_id, kind, location_id, subject_key);
-        let now = self.world.tick;
-        match self.search_memories.get_mut(&id) {
-            Some(memory) => {
-                memory.confidence = memory.confidence.max(SEARCH_MEMORY_CONFIDENCE);
-                memory.salience = memory.salience.max(SEARCH_MEMORY_SALIENCE);
-                memory.last_used_tick = now;
-                memory.use_count = memory.use_count.saturating_add(1);
-            }
-            None => {
-                self.search_memories.insert(
-                    id.clone(),
-                    SearchMemoryState {
-                        id,
-                        actor_id,
-                        kind: kind.to_string(),
-                        location_id,
-                        subject_id,
-                        subject_key: subject_key.to_string(),
-                        confidence: SEARCH_MEMORY_CONFIDENCE,
-                        salience: SEARCH_MEMORY_SALIENCE,
-                        found_tick: now,
-                        last_used_tick: now,
-                        use_count: 1,
-                    },
-                );
-            }
-        }
+        self.remember_belief(
+            actor_id,
+            kind,
+            subject_id,
+            location_id,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
+            Some(actor_id),
+        );
     }
 
     fn decay_search_memories(&mut self) {
-        let now = self.world.tick;
-        let mut expired = Vec::new();
-        for memory in self.search_memories.values_mut() {
-            let baseline = memory.last_used_tick.max(memory.found_tick);
-            if baseline == 0 {
-                memory.last_used_tick = now;
-                continue;
-            }
-            if now <= baseline {
-                continue;
-            }
-            let steps = (now - baseline) / SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS;
-            if steps == 0 {
-                continue;
-            }
-            let confidence_loss = steps
-                .saturating_mul(SEARCH_MEMORY_TIME_CONFIDENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            let salience_loss = steps
-                .saturating_mul(SEARCH_MEMORY_TIME_SALIENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            memory.confidence = memory.confidence.saturating_sub(confidence_loss);
-            memory.salience = memory.salience.saturating_sub(salience_loss);
-            memory.last_used_tick = now;
-            if memory.confidence == 0 || memory.salience == 0 {
-                expired.push(memory.id.clone());
-            }
-        }
-        for memory_id in expired {
-            self.search_memories.remove(&memory_id);
-        }
-        self.return_forgotten_search_items_to_pool();
+        self.decay_beliefs();
     }
 
-    fn reinforce_search_memories_from_events(&mut self, events: &[EventView]) {
+    fn reinforce_beliefs_from_search_events(&mut self, events: &[EventView]) {
         for event in events.iter().filter(|event| event.success) {
             match event.type_name.as_str() {
                 "actor.moved" => {
@@ -15051,9 +15012,9 @@ impl RuntimeWorld {
                         self.remember_search_discovery(
                             actor_id,
                             from_location_id,
-                            SEARCH_MEMORY_KIND_SEED_EXIT,
+                            BELIEF_KIND_SEED_EXIT,
                             to_location_id,
-                            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+                            &seed_exit_belief_subject_key(from_location_id, to_location_id),
                         );
                         if self
                             .seed_exit_by_locations(to_location_id, from_location_id)
@@ -15062,12 +15023,9 @@ impl RuntimeWorld {
                             self.remember_search_discovery(
                                 actor_id,
                                 to_location_id,
-                                SEARCH_MEMORY_KIND_SEED_EXIT,
+                                BELIEF_KIND_SEED_EXIT,
                                 from_location_id,
-                                &seed_exit_search_memory_subject_key(
-                                    to_location_id,
-                                    from_location_id,
-                                ),
+                                &seed_exit_belief_subject_key(to_location_id, from_location_id),
                             );
                         }
                     }
@@ -15077,7 +15035,7 @@ impl RuntimeWorld {
                         self.remember_search_discovery(
                             actor_id,
                             hidden_exit.from_location_id,
-                            SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+                            BELIEF_KIND_HIDDEN_EXIT,
                             hidden_exit.to_location_id,
                             &hidden_exit.id,
                         );
@@ -15107,7 +15065,7 @@ impl RuntimeWorld {
                     }
                     self.remember_search_discovery_for_witnesses(
                         location_id,
-                        SEARCH_MEMORY_KIND_ITEM,
+                        BELIEF_KIND_ITEM_LOCATION,
                         item_id,
                         item_id.to_string(),
                     );
@@ -15554,114 +15512,21 @@ impl RuntimeWorld {
     }
 
     fn hide_loose_items_at_location(&mut self, location_id: u64) {
+        let hidden_item_ids = self.world.items[..self.world.item_count]
+            .iter()
+            .filter(|item| item.holder_actor_id == 0 && item.location_id == location_id)
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
         for item in &mut self.world.items[..self.world.item_count] {
-            if item.holder_actor_id == 0 && item.location_id == location_id {
+            if hidden_item_ids.contains(&item.id) {
                 item.location_id = 0;
                 item.held_since_tick = 0;
             }
         }
-    }
-
-    fn resident_evolution_item_ids(&self, actor_id: u64) -> Vec<u64> {
-        evolution_track_item_ids(actor_id).unwrap_or_default()
-    }
-
-    fn resident_evolution_item_ids_for_target_kind(
-        &self,
-        actor_id: u64,
-        target_kind: &str,
-    ) -> Vec<u64> {
-        active_content()
-            .evolution_tracks
-            .iter()
-            .find(|track| track.actor_id == actor_id)
-            .map(|track| {
-                track
-                    .requirements
-                    .iter()
-                    .filter(|requirement| requirement.target_kind == target_kind)
-                    .map(|requirement| requirement.item_id)
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    fn resident_calling_desired_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) || resident.stats.level >= 2 {
-            return Vec::new();
-        }
-        self.resident_evolution_item_ids(resident.id)
-    }
-
-    fn resident_calling_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) || resident.stats.level >= 2 {
-            return Vec::new();
-        }
-        self.resident_evolution_item_ids_for_target_kind(resident.id, "actor_hand")
-    }
-
-    fn resident_personal_desires(&self, resident_id: u64) -> Vec<SeedResidentDesireContent> {
-        active_content()
-            .actors
-            .iter()
-            .find(|actor| actor.id == resident_id)
-            .map(|actor| actor.desires.clone())
-            .unwrap_or_default()
-    }
-
-    fn resident_personal_desire_for_item(
-        &self,
-        resident_id: u64,
-        item_id: u64,
-    ) -> Option<SeedResidentDesireContent> {
-        self.resident_personal_desires(resident_id)
-            .into_iter()
-            .find(|desire| desire.item_id == item_id)
-    }
-
-    fn resident_personal_attachments(
-        &self,
-        resident_id: u64,
-    ) -> Vec<SeedResidentAttachmentContent> {
-        active_content()
-            .actors
-            .iter()
-            .find(|actor| actor.id == resident_id)
-            .map(|actor| actor.attachments.clone())
-            .unwrap_or_default()
-    }
-
-    fn resident_personal_attachment_for_item(
-        &self,
-        resident_id: u64,
-        item_id: u64,
-    ) -> Option<SeedResidentAttachmentContent> {
-        self.resident_personal_attachments(resident_id)
-            .into_iter()
-            .find(|attachment| attachment.item_id == item_id)
-    }
-
-    fn resident_attachment_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) {
-            return Vec::new();
-        }
-        self.resident_personal_attachments(resident.id)
-            .into_iter()
-            .map(|attachment| attachment.item_id)
-            .collect()
-    }
-
-    fn resident_desired_item_ids(&self, resident: CwActor) -> Vec<u64> {
-        if !Self::actor_can_act(resident) {
-            return Vec::new();
-        }
-        let mut item_ids = self.resident_calling_desired_item_ids(resident);
-        for desire in self.resident_personal_desires(resident.id) {
-            if !item_ids.contains(&desire.item_id) {
-                item_ids.push(desire.item_id);
-            }
-        }
-        item_ids
+        self.beliefs.retain(|_, belief| {
+            belief.kind != BELIEF_KIND_ITEM_LOCATION
+                || !hidden_item_ids.contains(&belief.subject_id)
+        });
     }
 
     fn item_by_id(&self, item_id: u64) -> Option<CwItem> {
@@ -15671,7 +15536,7 @@ impl RuntimeWorld {
             .find(|item| item.id == item_id)
     }
 
-    fn resident_healing_target(&self, resident: CwActor) -> Option<CwActor> {
+    fn merged_inline_resident_healing_target(&self, resident: CwActor) -> Option<CwActor> {
         if !Self::actor_can_act(resident) {
             return None;
         }
@@ -15690,7 +15555,7 @@ impl RuntimeWorld {
             .min_by_key(|target| (target.id != resident.id, target.id))
     }
 
-    fn resident_held_healing_item_for_target(
+    fn merged_inline_resident_held_healing_item_for_target(
         &self,
         resident: CwActor,
     ) -> Option<(CwItem, CwActor)> {
@@ -15703,14 +15568,14 @@ impl RuntimeWorld {
         Some((item, target))
     }
 
-    fn resident_needs_medicine(&self, resident: CwActor) -> bool {
+    fn merged_inline_resident_needs_medicine(&self, resident: CwActor) -> bool {
         self.resident_healing_target(resident).is_some()
             && self
                 .resident_held_healing_item_for_target(resident)
                 .is_none()
     }
 
-    fn resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
+    fn merged_inline_resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
         if !Self::actor_can_act(resident) {
             return Vec::new();
         }
@@ -15734,7 +15599,7 @@ impl RuntimeWorld {
         item_ids
     }
 
-    fn resident_item_is_sought(&self, resident: CwActor, item_id: u64) -> bool {
+    fn merged_inline_resident_item_is_sought(&self, resident: CwActor, item_id: u64) -> bool {
         let wants_item = self
             .resident_calling_sought_item_ids(resident)
             .into_iter()
@@ -15780,7 +15645,7 @@ impl RuntimeWorld {
         false
     }
 
-    fn resident_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
+    fn merged_inline_resident_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
         let held_item_ids: BTreeSet<u64> = self
             .actor_held_items(resident.id)
             .into_iter()
@@ -15790,12 +15655,12 @@ impl RuntimeWorld {
         let mut sought = Vec::new();
         if self.resident_needs_medicine(resident) {
             let mut remembered_potions: Vec<_> = self
-                .resident_memories
+                .beliefs
                 .values()
                 .filter(|memory| {
-                    memory.carrier_actor_id == resident.id
-                        && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                        && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                    memory.holder_actor_id == resident.id
+                        && memory.kind == BELIEF_KIND_ITEM_LOCATION
+                        && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                         && !held_item_ids.contains(&memory.subject_id)
                 })
                 .filter_map(|memory| {
@@ -15852,7 +15717,7 @@ impl RuntimeWorld {
         sought
     }
 
-    fn resident_memory_seek_target(&self, resident: CwActor) -> Option<ResidentMemoryState> {
+    fn belief_seek_target(&self, resident: CwActor) -> Option<BeliefState> {
         let sought_item_ids: BTreeSet<u64> = self
             .resident_sought_item_ids(resident)
             .into_iter()
@@ -15862,12 +15727,12 @@ impl RuntimeWorld {
         }
 
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident.id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                memory.holder_actor_id == resident.id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                     && sought_item_ids.contains(&memory.subject_id)
             })
             .cloned()
@@ -15891,25 +15756,22 @@ impl RuntimeWorld {
         memories.into_iter().next()
     }
 
-    fn resident_item_memory_resolved_by_actor_memory(
-        &self,
-        memory: ResidentMemoryState,
-    ) -> ResidentMemoryState {
-        if memory.kind != RESIDENT_MEMORY_KIND_ITEM_LOCATION {
+    fn resident_item_memory_resolved_by_actor_memory(&self, memory: BeliefState) -> BeliefState {
+        if memory.kind != BELIEF_KIND_ITEM_LOCATION {
             return memory;
         }
-        let Some(holder_actor_id) = memory.holder_actor_id else {
+        let Some(holder_actor_id) = memory.related_actor_id else {
             return memory;
         };
-        let actor_memory_id = Self::resident_memory_id(
-            memory.carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+        let actor_memory_id = Self::belief_id(
+            memory.holder_actor_id,
+            BELIEF_KIND_ACTOR_LOCATION,
             holder_actor_id,
         );
-        let Some(actor_memory) = self.resident_memories.get(&actor_memory_id) else {
+        let Some(actor_memory) = self.beliefs.get(&actor_memory_id) else {
             return memory;
         };
-        if actor_memory.confidence < RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+        if actor_memory.confidence < BELIEF_TUNING.minimum_action_confidence
             || actor_memory.observed_tick < memory.observed_tick
         {
             return memory;
@@ -15925,19 +15787,15 @@ impl RuntimeWorld {
         resolved
     }
 
-    fn resident_best_item_memory(
-        &self,
-        carrier_actor_id: u64,
-        item_id: u64,
-    ) -> Option<ResidentMemoryState> {
+    fn resident_best_item_memory(&self, holder_actor_id: u64, item_id: u64) -> Option<BeliefState> {
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == carrier_actor_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
+                memory.holder_actor_id == holder_actor_id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
                     && memory.subject_id == item_id
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
             })
             .cloned()
             .map(|memory| self.resident_item_memory_resolved_by_actor_memory(memory))
@@ -15955,82 +15813,77 @@ impl RuntimeWorld {
 
     fn resident_has_fresh_loose_item_observation(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         item_id: u64,
         location_id: u64,
     ) -> bool {
-        let memory_id = Self::resident_memory_id(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            item_id,
-        );
-        self.resident_memories
-            .get(&memory_id)
-            .is_some_and(|memory| {
-                memory.location_id == location_id
-                    && memory.holder_actor_id.is_none()
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
-                    && memory.observed_tick == self.world.tick
-                    && memory.source_actor_id == Some(carrier_actor_id)
-            })
+        let memory_id = Self::belief_id(holder_actor_id, BELIEF_KIND_ITEM_LOCATION, item_id);
+        self.beliefs.get(&memory_id).is_some_and(|memory| {
+            memory.location_id == location_id
+                && memory.related_actor_id.is_none()
+                && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
+                && memory.observed_tick == self.world.tick
+                && memory.source_actor_id == Some(holder_actor_id)
+        })
     }
 
     fn resident_actor_location_memory(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         subject_actor_id: u64,
-    ) -> Option<ResidentMemoryState> {
-        let memory_id = Self::resident_memory_id(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+    ) -> Option<BeliefState> {
+        let memory_id = Self::belief_id(
+            holder_actor_id,
+            BELIEF_KIND_ACTOR_LOCATION,
             subject_actor_id,
         );
-        self.resident_memories
+        self.beliefs
             .get(&memory_id)
-            .filter(|memory| memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE)
+            .filter(|memory| memory.confidence >= BELIEF_TUNING.minimum_action_confidence)
             .cloned()
     }
 
     fn resident_remembers_actor_at(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         subject_actor_id: u64,
         location_id: u64,
     ) -> bool {
-        self.resident_actor_location_memory(carrier_actor_id, subject_actor_id)
+        self.resident_actor_location_memory(holder_actor_id, subject_actor_id)
             .is_some_and(|memory| memory.location_id == location_id)
     }
 
     fn resident_actor_wants_item_memory(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         target_actor_id: u64,
         item_id: u64,
-    ) -> Option<ResidentMemoryState> {
-        let memory_id = Self::resident_memory_key(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM,
+    ) -> Option<BeliefState> {
+        let memory_id = Self::belief_key(
+            holder_actor_id,
+            BELIEF_KIND_ACTOR_WANTS_ITEM,
             item_id,
+            0,
             Some(target_actor_id),
         );
-        self.resident_memories
+        self.beliefs
             .get(&memory_id)
-            .filter(|memory| memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE)
+            .filter(|memory| memory.confidence >= BELIEF_TUNING.minimum_action_confidence)
             .cloned()
     }
 
     fn resident_remembers_actor_holding_item_at(
         &self,
-        carrier_actor_id: u64,
         holder_actor_id: u64,
+        related_actor_id: u64,
         item_id: u64,
         location_id: u64,
     ) -> bool {
-        self.resident_remembers_actor_at(carrier_actor_id, holder_actor_id, location_id)
+        self.resident_remembers_actor_at(holder_actor_id, related_actor_id, location_id)
             && self
-                .resident_best_item_memory(carrier_actor_id, item_id)
+                .resident_best_item_memory(holder_actor_id, item_id)
                 .is_some_and(|memory| {
-                    memory.holder_actor_id == Some(holder_actor_id)
+                    memory.related_actor_id == Some(related_actor_id)
                         && memory.location_id == location_id
                 })
     }
@@ -16038,176 +15891,12 @@ impl RuntimeWorld {
     #[cfg(test)]
     fn resident_remembers_actor_wants_item(
         &self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         target_actor_id: u64,
         item_id: u64,
     ) -> bool {
-        self.resident_actor_wants_item_memory(carrier_actor_id, target_actor_id, item_id)
+        self.resident_actor_wants_item_memory(holder_actor_id, target_actor_id, item_id)
             .is_some()
-    }
-
-    fn resident_item_is_attached(&self, resident_id: u64, item: CwItem) -> bool {
-        if self
-            .resident_personal_attachment_for_item(resident_id, item.id)
-            .is_some()
-        {
-            return true;
-        }
-        if evolution_item_matches_resident(item.id, resident_id) {
-            return true;
-        }
-        if evolution_item_belongs_to_another_resident(item.id, resident_id) {
-            return false;
-        }
-        if self.resident_item_has_feature_use_attachment(resident_id, item.id) {
-            return true;
-        }
-        item.holder_actor_id == resident_id
-            && item.held_since_tick > 0
-            && self.world.tick.saturating_sub(item.held_since_tick) >= 12
-    }
-
-    fn resident_item_has_feature_use_attachment(&self, resident_id: u64, item_id: u64) -> bool {
-        if evolution_item_belongs_to_another_resident(item_id, resident_id) {
-            return false;
-        }
-        let prefix = format!("actor:{resident_id}:feature_use:");
-        let suffix = format!(":{item_id}");
-        self.tags.values().any(|tag| {
-            tag.active
-                && tag.scope == "actor"
-                && tag.scope_id == resident_id
-                && tag.id.starts_with(&prefix)
-                && tag.id.ends_with(&suffix)
-        })
-    }
-
-    fn resident_attached_item_ids(&self, resident_id: u64) -> Vec<u64> {
-        self.actor_held_items(resident_id)
-            .into_iter()
-            .filter(|item| self.resident_item_is_attached(resident_id, *item))
-            .map(|item| item.id)
-            .collect()
-    }
-
-    fn resident_item_attachment_reason(&self, resident: CwActor, item_id: u64) -> String {
-        let resident_name = self
-            .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| format!("Item {item_id}"));
-        if evolution_item_matches_resident(item_id, resident.id) {
-            format!("{resident_name} is attached to {item_name} because it belongs to their evolution track.")
-        } else if self.resident_item_has_feature_use_attachment(resident.id, item_id) {
-            format!(
-                "{resident_name} is attached to {item_name} because it mattered in a room moment."
-            )
-        } else if let Some(attachment) =
-            self.resident_personal_attachment_for_item(resident.id, item_id)
-        {
-            format!(
-                "{resident_name} is attached to {item_name}: {}",
-                attachment.reason.trim_end_matches('.')
-            )
-        } else {
-            format!("{resident_name} is attached to {item_name}.")
-        }
-    }
-
-    fn resident_item_recovery_reason(&self, resident: CwActor, item_id: u64) -> Option<String> {
-        let attachment = self.resident_personal_attachment_for_item(resident.id, item_id)?;
-        let resident_name = self
-            .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| format!("Item {item_id}"));
-        Some(format!(
-            "{resident_name} wants {item_name} back: {}",
-            attachment.reason.trim_end_matches('.')
-        ))
-    }
-
-    fn resident_sought_item_source(&self, resident: CwActor, item_id: u64) -> &'static str {
-        if self.resident_needs_medicine(resident)
-            && self
-                .item_by_id(item_id)
-                .is_some_and(|item| item.kind == CW_ITEM_POTION)
-        {
-            return "medicine";
-        }
-        if self
-            .resident_personal_desire_for_item(resident.id, item_id)
-            .is_some()
-        {
-            return "personal";
-        }
-        if self
-            .resident_calling_desired_item_ids(resident)
-            .into_iter()
-            .any(|desired_item_id| desired_item_id == item_id)
-        {
-            return "calling";
-        }
-        if self
-            .resident_personal_attachment_for_item(resident.id, item_id)
-            .is_some()
-        {
-            return "attachment";
-        }
-        if self
-            .resident_feature_use_match_for_item(resident, item_id)
-            .is_some()
-        {
-            return "room_feature";
-        }
-        "memory"
-    }
-
-    fn resident_item_request_reason(&self, resident: CwActor, item_id: u64) -> String {
-        let resident_name = self
-            .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| format!("Item {item_id}"));
-        let item = self.item_by_id(item_id);
-        let healing_target = self.resident_healing_target(resident);
-        if let Some(desire) = self.resident_personal_desire_for_item(resident.id, item_id) {
-            format!(
-                "{resident_name} wants {item_name}: {}.",
-                desire.reason.trim_end_matches('.')
-            )
-        } else if self
-            .resident_calling_desired_item_ids(resident)
-            .into_iter()
-            .any(|desired_item_id| desired_item_id == item_id)
-        {
-            format!("{resident_name} wants {item_name}.")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION)
-            && healing_target.is_some_and(|target| target.id == resident.id)
-        {
-            format!("{resident_name} needs {item_name}.")
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) && healing_target.is_some() {
-            let target = healing_target.expect("healing target checked");
-            let target_name = self
-                .actor_name(target.id)
-                .unwrap_or_else(|| format!("Resident {}", target.id));
-            format!("{resident_name} wants {item_name} for {target_name}.")
-        } else if let Some(reason) = self.resident_item_recovery_reason(resident, item_id) {
-            format!("{reason}.")
-        } else if let Some(candidate) = self.resident_feature_use_match_for_item(resident, item_id)
-        {
-            format!(
-                "{resident_name} could use {item_name} with {}.",
-                candidate.feature_name
-            )
-        } else if item.is_some_and(|item| item.kind == CW_ITEM_POTION) {
-            format!("{resident_name} could use {item_name}.")
-        } else {
-            format!("{resident_name} values {item_name}.")
-        }
     }
 
     fn resident_waits_for_player_gift(&self, resident: CwActor) -> bool {
@@ -16247,7 +15936,7 @@ impl RuntimeWorld {
             ));
         }
 
-        let memory_notes = self.resident_memory_prompt_notes(resident.id);
+        let memory_notes = self.belief_prompt_notes(resident.id);
         if !memory_notes.is_empty() {
             parts.push(format!("carried memories: {}", memory_notes.join(" | ")));
         }
@@ -16414,7 +16103,7 @@ impl RuntimeWorld {
         resident: CwActor,
         excluding_item_id: u64,
     ) -> Option<String> {
-        let memory = self.resident_memory_seek_target(resident)?;
+        let memory = self.belief_seek_target(resident)?;
         if memory.location_id != resident.location_id || memory.subject_id == excluding_item_id {
             return None;
         }
@@ -16463,6 +16152,9 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         })
     }
 
@@ -16554,13 +16246,13 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_memory_prompt_notes(&self, resident_id: u64) -> Vec<String> {
+    fn belief_prompt_notes(&self, resident_id: u64) -> Vec<String> {
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                memory.holder_actor_id == resident_id
+                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
             })
             .cloned()
             .collect();
@@ -16587,7 +16279,7 @@ impl RuntimeWorld {
                 .location_name(memory.location_id)
                 .unwrap_or_else(|| format!("Location {}", memory.location_id));
             let note = match memory.kind.as_str() {
-                RESIDENT_MEMORY_KIND_ACTOR_LOCATION => {
+                BELIEF_KIND_ACTOR_LOCATION => {
                     if memory.subject_id == resident_id {
                         continue;
                     }
@@ -16596,12 +16288,12 @@ impl RuntimeWorld {
                         .unwrap_or_else(|| format!("Resident {}", memory.subject_id));
                     format!("{route} {actor_name} near {location_name}")
                 }
-                RESIDENT_MEMORY_KIND_ITEM_LOCATION => {
+                BELIEF_KIND_ITEM_LOCATION => {
                     let item_name = self
                         .item_name(memory.subject_id)
                         .unwrap_or_else(|| format!("Item {}", memory.subject_id));
                     if let Some(holder_name) = memory
-                        .holder_actor_id
+                        .related_actor_id
                         .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
                     {
                         format!("{route} {item_name} with {holder_name} near {location_name}")
@@ -16609,8 +16301,8 @@ impl RuntimeWorld {
                         format!("{route} {item_name} near {location_name}")
                     }
                 }
-                RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM => {
-                    let Some(target_actor_id) = memory.holder_actor_id else {
+                BELIEF_KIND_ACTOR_WANTS_ITEM => {
+                    let Some(target_actor_id) = memory.related_actor_id else {
                         continue;
                     };
                     let target_name = self
@@ -16633,7 +16325,7 @@ impl RuntimeWorld {
         notes
     }
 
-    fn resident_continuity_for(&self, resident: CwActor) -> ResidentContinuityState {
+    fn merged_inline_resident_continuity_for(&self, resident: CwActor) -> ResidentContinuityState {
         let identity = self.resident_stable_identity(resident);
         let mut continuity = self
             .resident_continuities
@@ -16660,7 +16352,7 @@ impl RuntimeWorld {
         continuity
     }
 
-    fn refresh_resident_continuity(&mut self, resident_id: u64) {
+    fn merged_inline_refresh_resident_continuity(&mut self, resident_id: u64) {
         let Some(resident) = self.actor_by_id(resident_id) else {
             self.resident_continuities.remove(&resident_id);
             return;
@@ -16673,7 +16365,7 @@ impl RuntimeWorld {
         self.resident_continuities.insert(resident_id, continuity);
     }
 
-    fn refresh_all_resident_continuities(&mut self) {
+    fn merged_inline_refresh_all_resident_continuities(&mut self) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
@@ -16776,7 +16468,7 @@ impl RuntimeWorld {
             CW_ACTION_RULES_MAGIC => CW_OFFER_USE_ITEM,
             CW_ACTION_PICK_UP_ITEM => CW_OFFER_PICK_UP,
             CW_ACTION_USE_ITEM => CW_OFFER_USE_ITEM,
-            CW_ACTION_RULES_UTILIZE_ITEM => return true,
+            CW_ACTION_RULES_UTILIZE_ITEM | CW_ACTION_PROJECT_PUSH => return true,
             CW_ACTION_ATTACK => CW_OFFER_ATTACK,
             CW_ACTION_DEFEND => CW_OFFER_DEFEND,
             CW_ACTION_GIVE_ITEM => CW_OFFER_GIVE_ITEM,
@@ -16817,7 +16509,7 @@ impl RuntimeWorld {
         })
     }
 
-    fn apply_resident_intent_projection(
+    fn merged_inline_apply_resident_intent_projection(
         &mut self,
         resident_id: u64,
         proposal: &AvatarIntentProposal,
@@ -16855,20 +16547,6 @@ impl RuntimeWorld {
                 190,
             );
         }
-        if let Some(text) = proposal
-            .proposed_action
-            .as_ref()
-            .and_then(|action| action.reason.as_deref())
-            .and_then(|reason| sanitize_continuity_note_text(Some(reason)))
-        {
-            push_resident_continuity_note(
-                &mut continuity.desires,
-                text,
-                reason,
-                source_event_seq,
-                150,
-            );
-        }
         if let Some(text) = sanitize_continuity_note_text(proposal.promise.as_deref()) {
             push_resident_continuity_note(
                 &mut continuity.promises,
@@ -16887,7 +16565,7 @@ impl RuntimeWorld {
                 220,
             );
         }
-        if reason != "resident_autonomy_intent" {
+        if reason != "resident_autonomy_intent" && proposal.proposed_action.is_some() {
             continuity.pending_action = proposal.proposed_action.clone();
         }
         if let Some(source_event_seq) = source_event_seq {
@@ -16896,13 +16574,13 @@ impl RuntimeWorld {
         }
     }
 
-    fn clear_resident_pending_action(&mut self, resident_id: u64) {
+    fn merged_inline_clear_resident_pending_action(&mut self, resident_id: u64) {
         if let Some(continuity) = self.resident_continuities.get_mut(&resident_id) {
             continuity.pending_action = None;
         }
     }
 
-    fn resident_stable_identity(&self, resident: CwActor) -> String {
+    fn merged_inline_resident_stable_identity(&self, resident: CwActor) -> String {
         let name = self
             .actor_name(resident.id)
             .unwrap_or_else(|| format!("Resident {}", resident.id));
@@ -16922,7 +16600,7 @@ impl RuntimeWorld {
         format!("{name} / {title} / speech:{speech_mode} / {description}")
     }
 
-    fn resident_relationship_notes(&self, resident_id: u64) -> BTreeMap<u64, String> {
+    fn merged_inline_resident_relationship_notes(&self, resident_id: u64) -> BTreeMap<u64, String> {
         let mut notes = BTreeMap::new();
         for bond in self.bonds.values() {
             if bond.status == "resolved" {
@@ -16939,25 +16617,30 @@ impl RuntimeWorld {
                 .actor_name(other_id)
                 .unwrap_or_else(|| format!("Actor {}", other_id));
             let statement = bond.statement.trim();
+            let relationship_label = if bond.status == "forming" {
+                "Forming relationship"
+            } else {
+                "Friendship"
+            };
             let text = if statement.is_empty() {
                 format!("{other_name} matters to them.")
             } else {
-                format!("Friendship with {other_name}: {statement}")
+                format!("{relationship_label} with {other_name}: {statement}")
             };
             notes.insert(other_id, text);
         }
         notes
     }
 
-    fn resident_continuity_atoms(
+    fn merged_inline_resident_continuity_atoms(
         &self,
         resident_id: u64,
         limit: usize,
     ) -> Vec<ResidentContinuityAtom> {
         let mut memories: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
-            .filter(|memory| memory.carrier_actor_id == resident_id)
+            .filter(|memory| memory.holder_actor_id == resident_id)
             .cloned()
             .collect();
         memories.sort_by_key(|memory| {
@@ -16973,7 +16656,7 @@ impl RuntimeWorld {
         memories
             .into_iter()
             .filter_map(|memory| {
-                self.resident_memory_atom_text(&memory)
+                self.belief_atom_text(&memory)
                     .map(|text| ResidentContinuityAtom {
                         kind: memory.kind,
                         subject_id: memory.subject_id,
@@ -16987,8 +16670,8 @@ impl RuntimeWorld {
             .collect()
     }
 
-    fn resident_memory_atom_text(&self, memory: &ResidentMemoryState) -> Option<String> {
-        let route = if memory.source_actor_id == Some(memory.carrier_actor_id) && memory.hops == 0 {
+    fn belief_atom_text(&self, memory: &BeliefState) -> Option<String> {
+        let route = if memory.source_actor_id == Some(memory.holder_actor_id) && memory.hops == 0 {
             "saw"
         } else {
             "heard"
@@ -16997,8 +16680,8 @@ impl RuntimeWorld {
             .location_name(memory.location_id)
             .unwrap_or_else(|| format!("Location {}", memory.location_id));
         match memory.kind.as_str() {
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION => {
-                if memory.subject_id == memory.carrier_actor_id {
+            BELIEF_KIND_ACTOR_LOCATION => {
+                if memory.subject_id == memory.holder_actor_id {
                     return None;
                 }
                 let actor_name = self
@@ -17006,12 +16689,12 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Actor {}", memory.subject_id));
                 Some(format!("{route} {actor_name} near {location_name}"))
             }
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION => {
+            BELIEF_KIND_ITEM_LOCATION => {
                 let item_name = self
                     .item_name(memory.subject_id)
                     .unwrap_or_else(|| format!("Item {}", memory.subject_id));
                 if let Some(holder_name) = memory
-                    .holder_actor_id
+                    .related_actor_id
                     .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
                 {
                     Some(format!(
@@ -17021,8 +16704,8 @@ impl RuntimeWorld {
                     Some(format!("{route} {item_name} near {location_name}"))
                 }
             }
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM => {
-                let target_actor_id = memory.holder_actor_id?;
+            BELIEF_KIND_ACTOR_WANTS_ITEM => {
+                let target_actor_id = memory.related_actor_id?;
                 let target_name = self
                     .actor_name(target_actor_id)
                     .unwrap_or_else(|| format!("Actor {}", target_actor_id));
@@ -17037,7 +16720,7 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_open_obligations_and_intent(
+    fn merged_inline_resident_open_obligations_and_intent(
         &self,
         resident: CwActor,
     ) -> (Vec<String>, Option<String>) {
@@ -17086,7 +16769,7 @@ impl RuntimeWorld {
         (obligations, current_intent)
     }
 
-    fn latest_observed_event_seq_for_resident(&self, resident: CwActor) -> u64 {
+    fn merged_inline_latest_observed_event_seq_for_resident(&self, resident: CwActor) -> u64 {
         self.event_log
             .iter()
             .filter(|event| {
@@ -17121,28 +16804,29 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_memory_id(carrier_actor_id: u64, kind: &str, subject_id: u64) -> String {
-        format!("resident_memory:{carrier_actor_id}:{kind}:{subject_id}")
+    fn belief_id(holder_actor_id: u64, kind: &str, subject_id: u64) -> String {
+        belief_id(holder_actor_id, kind, subject_id, 0, None)
     }
 
-    fn resident_memory_key(
-        carrier_actor_id: u64,
+    fn belief_key(
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
-        holder_actor_id: Option<u64>,
+        location_id: u64,
+        related_actor_id: Option<u64>,
     ) -> String {
-        if kind == RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM {
-            let target_actor_id = holder_actor_id.unwrap_or_default();
-            return format!(
-                "resident_memory:{carrier_actor_id}:{kind}:{target_actor_id}:{subject_id}"
-            );
-        }
-        Self::resident_memory_id(carrier_actor_id, kind, subject_id)
+        belief_id(
+            holder_actor_id,
+            kind,
+            subject_id,
+            location_id,
+            related_actor_id,
+        )
     }
 
-    fn remember_resident_memory(
+    fn remember_belief(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
         location_id: u64,
@@ -17150,8 +16834,8 @@ impl RuntimeWorld {
         salience: u8,
         source_actor_id: Option<u64>,
     ) {
-        self.remember_resident_memory_with_provenance(
-            carrier_actor_id,
+        self.remember_belief_with_provenance(
+            holder_actor_id,
             kind,
             subject_id,
             location_id,
@@ -17165,26 +16849,26 @@ impl RuntimeWorld {
         );
     }
 
-    fn remember_resident_memory_with_holder(
+    fn remember_belief_with_related_actor(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
         location_id: u64,
         confidence: u8,
         salience: u8,
         source_actor_id: Option<u64>,
-        holder_actor_id: Option<u64>,
+        related_actor_id: Option<u64>,
     ) {
-        self.remember_resident_memory_with_provenance(
-            carrier_actor_id,
+        self.remember_belief_with_provenance(
+            holder_actor_id,
             kind,
             subject_id,
             location_id,
             confidence,
             salience,
             source_actor_id,
-            holder_actor_id,
+            related_actor_id,
             self.world.tick,
             self.world.tick,
             0,
@@ -17193,7 +16877,7 @@ impl RuntimeWorld {
 
     fn remember_resident_wants_item_memory(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         wanting_actor_id: u64,
         item_id: u64,
         location_id: u64,
@@ -17204,9 +16888,9 @@ impl RuntimeWorld {
         if wanting_actor_id == 0 || item_id == 0 {
             return;
         }
-        self.remember_resident_memory_with_holder(
-            carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM,
+        self.remember_belief_with_related_actor(
+            holder_actor_id,
+            BELIEF_KIND_ACTOR_WANTS_ITEM,
             item_id,
             location_id,
             confidence,
@@ -17216,31 +16900,41 @@ impl RuntimeWorld {
         );
     }
 
-    fn remember_resident_memory_with_provenance(
+    fn remember_belief_with_provenance(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         kind: &str,
         subject_id: u64,
         location_id: u64,
         confidence: u8,
         salience: u8,
         source_actor_id: Option<u64>,
-        holder_actor_id: Option<u64>,
+        related_actor_id: Option<u64>,
         observed_tick: u64,
         learned_tick: u64,
         hops: u8,
     ) {
-        let Some(carrier) = self.actor_by_id(carrier_actor_id) else {
+        let Some(holder) = self.actor_by_id(holder_actor_id) else {
             return;
         };
-        if !Self::actor_can_act(carrier) || location_id == 0 {
+        if !Self::actor_is_present(holder) || location_id == 0 {
             return;
         }
 
-        let id = Self::resident_memory_key(carrier_actor_id, kind, subject_id, holder_actor_id);
-        let memory = ResidentMemoryState {
-            id: id.clone(),
-            carrier_actor_id,
+        let related_actor_id = (kind == BELIEF_KIND_ITEM_LOCATION
+            || kind == BELIEF_KIND_ACTOR_WANTS_ITEM)
+            .then_some(related_actor_id)
+            .flatten()
+            .filter(|related_id| *related_id != 0);
+        let belief = BeliefState {
+            id: Self::belief_key(
+                holder_actor_id,
+                kind,
+                subject_id,
+                location_id,
+                related_actor_id,
+            ),
+            holder_actor_id,
             kind: kind.to_string(),
             subject_id,
             location_id,
@@ -17248,39 +16942,19 @@ impl RuntimeWorld {
             salience,
             observed_tick,
             source_actor_id,
-            holder_actor_id: (kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                || kind == RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM)
-                .then_some(holder_actor_id)
-                .flatten()
-                .filter(|holder_id| *holder_id != 0),
+            related_actor_id,
             learned_tick,
             hops,
         };
-        match self.resident_memories.get_mut(&id) {
-            Some(existing) => {
-                if memory.observed_tick > existing.observed_tick
-                    || (memory.observed_tick == existing.observed_tick
-                        && (memory.confidence > existing.confidence
-                            || (memory.confidence == existing.confidence
-                                && memory.learned_tick >= existing.learned_tick)))
-                {
-                    *existing = memory;
-                } else {
-                    existing.salience = existing.salience.max(salience);
-                }
-            }
-            None => {
-                self.resident_memories.insert(id, memory);
-            }
-        }
-        self.prune_resident_memories(carrier_actor_id);
+        merge_belief(&mut self.beliefs, belief);
+        self.prune_beliefs(holder_actor_id);
     }
 
-    fn prune_resident_memories(&mut self, carrier_actor_id: u64) {
+    fn prune_beliefs(&mut self, holder_actor_id: u64) {
         let mut owned: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
-            .filter(|memory| memory.carrier_actor_id == carrier_actor_id)
+            .filter(|memory| memory.holder_actor_id == holder_actor_id)
             .map(|memory| {
                 (
                     memory.id.clone(),
@@ -17290,7 +16964,7 @@ impl RuntimeWorld {
                 )
             })
             .collect();
-        if owned.len() <= RESIDENT_MEMORY_CAPACITY {
+        if owned.len() <= BELIEF_TUNING.capacity {
             return;
         }
         owned.sort_by_key(|(_, salience, confidence, observed_tick)| {
@@ -17298,18 +16972,18 @@ impl RuntimeWorld {
         });
         for (id, _, _, _) in owned
             .into_iter()
-            .take(self.resident_memory_overflow_count(carrier_actor_id))
+            .take(self.belief_overflow_count(holder_actor_id))
         {
-            self.resident_memories.remove(&id);
+            self.beliefs.remove(&id);
         }
     }
 
-    fn resident_memory_overflow_count(&self, carrier_actor_id: u64) -> usize {
-        self.resident_memories
+    fn belief_overflow_count(&self, holder_actor_id: u64) -> usize {
+        self.beliefs
             .values()
-            .filter(|memory| memory.carrier_actor_id == carrier_actor_id)
+            .filter(|memory| memory.holder_actor_id == holder_actor_id)
             .count()
-            .saturating_sub(RESIDENT_MEMORY_CAPACITY)
+            .saturating_sub(BELIEF_TUNING.capacity)
     }
 
     fn item_is_observable_at_location(&self, item_id: u64, location_id: u64) -> bool {
@@ -17326,33 +17000,33 @@ impl RuntimeWorld {
             })
     }
 
-    fn item_memory_has_current_holder_location(&self, memory: &ResidentMemoryState) -> bool {
-        if memory.kind != RESIDENT_MEMORY_KIND_ITEM_LOCATION {
+    fn item_memory_has_current_holder_location(&self, memory: &BeliefState) -> bool {
+        if memory.kind != BELIEF_KIND_ITEM_LOCATION {
             return false;
         }
-        let Some(holder_actor_id) = memory.holder_actor_id else {
+        let Some(holder_actor_id) = memory.related_actor_id else {
             return false;
         };
-        let actor_memory_id = Self::resident_memory_id(
-            memory.carrier_actor_id,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+        let actor_memory_id = Self::belief_id(
+            memory.holder_actor_id,
+            BELIEF_KIND_ACTOR_LOCATION,
             holder_actor_id,
         );
-        self.resident_memories
+        self.beliefs
             .get(&actor_memory_id)
             .is_some_and(|actor_memory| {
-                actor_memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                actor_memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                     && actor_memory.observed_tick >= memory.observed_tick
             })
     }
 
     fn clear_disproved_item_location_memories(&mut self, resident_id: u64, location_id: u64) {
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
+                memory.holder_actor_id == resident_id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
                     && memory.location_id == location_id
                     && !self.item_is_observable_at_location(memory.subject_id, location_id)
                     && !self.item_memory_has_current_holder_location(memory)
@@ -17360,7 +17034,7 @@ impl RuntimeWorld {
             .map(|memory| memory.id.clone())
             .collect();
         for memory_id in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
         }
     }
 
@@ -17371,11 +17045,11 @@ impl RuntimeWorld {
         observed_actor_ids: &BTreeSet<u64>,
     ) -> BTreeSet<u64> {
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ACTOR_LOCATION
+                memory.holder_actor_id == resident_id
+                    && memory.kind == BELIEF_KIND_ACTOR_LOCATION
                     && memory.location_id == location_id
                     && !observed_actor_ids.contains(&memory.subject_id)
             })
@@ -17383,7 +17057,7 @@ impl RuntimeWorld {
             .collect();
         let mut disproved_actor_ids = BTreeSet::new();
         for (memory_id, subject_id) in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
             disproved_actor_ids.insert(subject_id);
         }
         disproved_actor_ids
@@ -17398,49 +17072,49 @@ impl RuntimeWorld {
             return;
         }
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == resident_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
+                memory.holder_actor_id == resident_id
+                    && memory.kind == BELIEF_KIND_ITEM_LOCATION
                     && memory
-                        .holder_actor_id
+                        .related_actor_id
                         .is_some_and(|holder_actor_id| holder_actor_ids.contains(&holder_actor_id))
             })
             .map(|memory| memory.id.clone())
             .collect();
         for memory_id in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
         }
     }
 
     fn clear_disproved_actor_wants_item_memories(
         &mut self,
-        carrier_actor_id: u64,
+        holder_actor_id: u64,
         target_actor_id: u64,
         current_item_ids: &BTreeSet<u64>,
     ) {
         let memory_ids: Vec<_> = self
-            .resident_memories
+            .beliefs
             .values()
             .filter(|memory| {
-                memory.carrier_actor_id == carrier_actor_id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM
-                    && memory.holder_actor_id == Some(target_actor_id)
+                memory.holder_actor_id == holder_actor_id
+                    && memory.kind == BELIEF_KIND_ACTOR_WANTS_ITEM
+                    && memory.related_actor_id == Some(target_actor_id)
                     && !current_item_ids.contains(&memory.subject_id)
             })
             .map(|memory| memory.id.clone())
             .collect();
         for memory_id in memory_ids {
-            self.resident_memories.remove(&memory_id);
+            self.beliefs.remove(&memory_id);
         }
     }
 
-    fn observe_room_for_resident(&mut self, resident_id: u64, location_id: u64) {
+    fn observe_room_for_actor(&mut self, resident_id: u64, location_id: u64) {
         let Some(resident) = self.actor_by_id(resident_id) else {
             return;
         };
-        if !Self::actor_can_act(resident) || resident.location_id != location_id {
+        if !Self::actor_is_present(resident) || resident.location_id != location_id {
             return;
         }
 
@@ -17454,13 +17128,13 @@ impl RuntimeWorld {
             .map(|item| item.id)
             .collect();
         for item_id in loose_item_ids {
-            self.remember_resident_memory(
+            self.remember_belief(
                 resident_id,
-                RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+                BELIEF_KIND_ITEM_LOCATION,
                 item_id,
                 location_id,
-                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                BELIEF_TUNING.firsthand_confidence,
+                BELIEF_TUNING.firsthand_salience,
                 Some(resident_id),
             );
         }
@@ -17471,17 +17145,19 @@ impl RuntimeWorld {
                 actor.id != resident_id
                     && Self::actor_is_present(**actor)
                     && actor.location_id == location_id
+                    && (!self.avatar_hidden_until_discovered(**actor)
+                        || self.avatar_discovered(actor.id))
             })
             .map(|actor| actor.id)
             .collect();
         for actor_id in actor_ids.iter().copied() {
-            self.remember_resident_memory(
+            self.remember_belief(
                 resident_id,
-                RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+                BELIEF_KIND_ACTOR_LOCATION,
                 actor_id,
                 location_id,
-                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                BELIEF_TUNING.firsthand_confidence,
+                BELIEF_TUNING.firsthand_salience,
                 Some(resident_id),
             );
         }
@@ -17508,8 +17184,8 @@ impl RuntimeWorld {
                     actor.id,
                     item_id,
                     location_id,
-                    RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                    RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                    BELIEF_TUNING.firsthand_confidence,
+                    BELIEF_TUNING.firsthand_salience,
                     Some(resident_id),
                 );
             }
@@ -17529,47 +17205,47 @@ impl RuntimeWorld {
             .map(|item| (item.id, item.holder_actor_id))
             .collect();
         for (item_id, holder_actor_id) in carried_items {
-            self.remember_resident_memory_with_holder(
+            self.remember_belief_with_related_actor(
                 resident_id,
-                RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+                BELIEF_KIND_ITEM_LOCATION,
                 item_id,
                 location_id,
-                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                BELIEF_TUNING.firsthand_confidence,
+                BELIEF_TUNING.firsthand_salience,
                 Some(resident_id),
                 Some(holder_actor_id),
             );
         }
     }
 
-    fn observe_room_for_residents(&mut self, location_id: u64) {
+    fn observe_room_for_actors(&mut self, location_id: u64) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
+            .filter(|actor| Self::actor_is_present(**actor) && actor.location_id == location_id)
             .map(|actor| actor.id)
             .collect();
         for resident_id in resident_ids {
-            self.observe_room_for_resident(resident_id, location_id);
+            self.observe_room_for_actor(resident_id, location_id);
         }
     }
 
-    fn exchange_resident_memories_at(&mut self, location_id: u64) {
+    fn exchange_beliefs_at(&mut self, location_id: u64) {
         let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
             .iter()
-            .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
+            .filter(|actor| Self::actor_is_present(**actor) && actor.location_id == location_id)
             .map(|actor| actor.id)
             .collect();
         if resident_ids.len() < 2 {
             return;
         }
 
-        let carried: Vec<(u64, Vec<ResidentMemoryState>)> = resident_ids
+        let carried: Vec<(u64, Vec<BeliefState>)> = resident_ids
             .iter()
             .map(|resident_id| {
                 let memories = self
-                    .resident_memories
+                    .beliefs
                     .values()
-                    .filter(|memory| memory.carrier_actor_id == *resident_id)
+                    .filter(|memory| memory.holder_actor_id == *resident_id)
                     .cloned()
                     .collect();
                 (*resident_id, memories)
@@ -17581,14 +17257,14 @@ impl RuntimeWorld {
                 for memory in &memories {
                     let confidence = memory
                         .confidence
-                        .saturating_sub(RESIDENT_GOSSIP_CONFIDENCE_DECAY);
+                        .saturating_sub(BELIEF_TUNING.gossip_confidence_decay);
                     let salience = memory
                         .salience
-                        .saturating_sub(RESIDENT_GOSSIP_SALIENCE_DECAY);
+                        .saturating_sub(BELIEF_TUNING.gossip_salience_decay);
                     if confidence == 0 || salience == 0 {
                         continue;
                     }
-                    self.remember_resident_memory_with_provenance(
+                    self.remember_belief_with_provenance(
                         target_id,
                         &memory.kind,
                         memory.subject_id,
@@ -17596,7 +17272,7 @@ impl RuntimeWorld {
                         confidence,
                         salience,
                         Some(source_id),
-                        memory.holder_actor_id,
+                        memory.related_actor_id,
                         memory.observed_tick,
                         self.world.tick,
                         memory.hops.saturating_add(1),
@@ -17606,7 +17282,7 @@ impl RuntimeWorld {
         }
     }
 
-    fn apply_resident_memory_projection(&mut self, action: &CwAction, events: &[EventView]) {
+    fn apply_belief_projection(&mut self, action: &CwAction, events: &[EventView]) {
         let mut locations = BTreeSet::new();
         for event in events.iter().filter(|event| event.success) {
             if let Some(location_id) = event.location_id {
@@ -17625,19 +17301,19 @@ impl RuntimeWorld {
                         .iter()
                         .filter(|actor| {
                             actor.id != actor_id
-                                && Self::actor_can_act(**actor)
+                                && Self::actor_is_present(**actor)
                                 && actor.location_id == from_location_id
                         })
                         .map(|actor| actor.id)
                         .collect();
                     for observer_id in observers.iter().copied() {
-                        self.remember_resident_memory(
+                        self.remember_belief(
                             observer_id,
-                            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+                            BELIEF_KIND_ACTOR_LOCATION,
                             actor_id,
                             to_location_id,
-                            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                            BELIEF_TUNING.firsthand_confidence,
+                            BELIEF_TUNING.firsthand_salience,
                             Some(observer_id),
                         );
                     }
@@ -17648,13 +17324,13 @@ impl RuntimeWorld {
                         .collect();
                     for observer_id in observers.iter().copied() {
                         for item_id in &carried_item_ids {
-                            self.remember_resident_memory_with_holder(
+                            self.remember_belief_with_related_actor(
                                 observer_id,
-                                RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+                                BELIEF_KIND_ITEM_LOCATION,
                                 *item_id,
                                 to_location_id,
-                                RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-                                RESIDENT_OBSERVED_MEMORY_SALIENCE,
+                                BELIEF_TUNING.firsthand_confidence,
+                                BELIEF_TUNING.firsthand_salience,
                                 Some(observer_id),
                                 Some(actor_id),
                             );
@@ -17665,14 +17341,14 @@ impl RuntimeWorld {
         }
 
         if let Some(actor) = self.actor_by_id(action.actor_id) {
-            if Self::actor_can_act(actor) {
+            if Self::actor_is_present(actor) {
                 locations.insert(actor.location_id);
             }
         }
 
         for location_id in locations {
-            self.observe_room_for_residents(location_id);
-            self.exchange_resident_memories_at(location_id);
+            self.observe_room_for_actors(location_id);
+            self.exchange_beliefs_at(location_id);
             let resident_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
                 .iter()
                 .filter(|actor| Self::actor_can_act(**actor) && actor.location_id == location_id)
@@ -18047,10 +17723,6 @@ impl RuntimeWorld {
                     .is_some_and(|actor| self.location_is_frontier(actor.location_id)))
     }
 
-    fn rest_available(&self, actor_id: u64) -> bool {
-        self.tired_tag_active(actor_id)
-    }
-
     fn frontier_travel_since_rest_tag_ids(&self, actor_id: u64) -> Vec<String> {
         let prefix = frontier_travel_since_rest_tag_prefix(actor_id);
         let mut tag_ids: Vec<_> = self
@@ -18066,6 +17738,18 @@ impl RuntimeWorld {
             .collect();
         tag_ids.sort();
         tag_ids
+    }
+
+    fn frontier_travel_since_rest_required(&self, actor_id: u64) -> usize {
+        self.actor_by_id(actor_id)
+            .map(|actor| usize::from(actor.stats.level.clamp(1, 4)))
+            .unwrap_or(1)
+    }
+
+    fn frontier_travel_since_rest_count(&self, actor_id: u64) -> usize {
+        self.frontier_travel_since_rest_tag_ids(actor_id)
+            .len()
+            .min(self.frontier_travel_since_rest_required(actor_id))
     }
 
     fn tired_tag_active(&self, actor_id: u64) -> bool {
@@ -18104,15 +17788,6 @@ impl RuntimeWorld {
             .unwrap_or_else(|| default_zone_for_scope("room", location_id) == ZONE_FRONTIER)
     }
 
-    fn hearth_tonic_warmth_guards_rest(&self, location_id: u64) -> bool {
-        location_id == MOONLIT_TRAIL_LOCATION_ID
-            && self
-                .tags
-                .get(HEARTH_TONIC_WARMTH_TAG_ID)
-                .map(|tag| tag.active)
-                .unwrap_or(false)
-    }
-
     fn prepare_available(&self, actor_id: u64) -> bool {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
@@ -18123,26 +17798,34 @@ impl RuntimeWorld {
         {
             return true;
         }
-        let clock_id = if let Some(job) = self.active_job_for_location(actor.location_id) {
-            if !focused_job_action_available(self, actor_id, &job.id, "prepare") {
-                return false;
-            }
-            if !job
-                .contribution_strategies
-                .iter()
-                .any(|strategy| strategy.prepared_bonus_progress > 0)
-            {
-                return false;
-            }
-            job.progress_clock_id.clone()
-        } else {
-            let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id)
-            else {
-                return false;
+        let (clock_id, work_intent) =
+            if let Some(job) = self.active_job_for_location(actor.location_id) {
+                if !focused_job_action_available(self, actor_id, &job.id, "prepare") {
+                    return false;
+                }
+                let Some(intent) =
+                    self.job_contribution_intent(actor_id, "work", Some(&job.id), None, None)
+                else {
+                    return false;
+                };
+                (job.progress_clock_id.clone(), intent)
+            } else {
+                let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id)
+                else {
+                    return false;
+                };
+                let Some(intent) = self.job_contribution_intent(actor_id, "work", None, None, None)
+                else {
+                    return false;
+                };
+                (clock_id, intent)
             };
-            clock_id
-        };
+        let preparation_improves_push = self
+            .project_push_progress(actor_id, &work_intent, false)
+            .zip(self.project_push_progress(actor_id, &work_intent, true))
+            .is_some_and(|(unprepared, prepared)| prepared > unprepared);
         actor.status == CW_ACTOR_ACTIVE
+            && preparation_improves_push
             && !self.prepared_tag_active(actor_id, actor.location_id)
             && !self.project_preparation_spent_for_clock(actor_id, actor.location_id, &clock_id)
             && !self.tired_tag_active(actor_id)
@@ -19135,22 +18818,13 @@ impl RuntimeWorld {
     }
 
     fn prepared_project_progress_amount(&self, actor_id: u64, location_id: u64) -> u8 {
-        let Some(job) = self.active_job_for_location(location_id) else {
-            return 2;
-        };
-        if job.location_ids.len() > 1 {
-            let needed = job.location_ids.len();
-            let found = self.project_location_evidence_count(actor_id, job);
-            if found >= needed {
-                3
-            } else {
-                2
-            }
-        } else if self.searched_room_feature_count(actor_id, location_id) > 0 {
-            3
-        } else {
-            2
-        }
+        self.job_contribution_intent(actor_id, "work", None, None, None)
+            .filter(|_| {
+                self.actor_by_id(actor_id)
+                    .is_some_and(|actor| actor.location_id == location_id)
+            })
+            .and_then(|intent| self.project_push_progress(actor_id, &intent, true))
+            .unwrap_or(0)
     }
 
     #[cfg(test)]
@@ -19245,21 +18919,7 @@ impl RuntimeWorld {
     }
 
     fn default_bondable_resident(&self, actor_id: u64) -> Option<CwActor> {
-        let actor = self.actor_by_id(actor_id)?;
-        if self.advancement_points_available(actor_id) < usize::from(BOND_SLOT_COST) {
-            return None;
-        }
-        self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .find(|target| {
-                target.id != actor_id
-                    && Self::actor_can_act(*target)
-                    && target.location_id == actor.location_id
-                    && !self.actors_blocked(actor_id, target.id)
-                    && self.actor_visible_in_projection(*target, Some(actor_id), None)
-                    && self.active_bond(actor_id, target.id).is_none()
-            })
+        self.default_bondable_resident_with_presence(actor_id, None)
     }
 
     fn default_bond_command(&self, actor_id: u64) -> Option<String> {
@@ -19433,11 +19093,23 @@ impl RuntimeWorld {
         subject_kind: &str,
         subject_id: u64,
     ) -> CardView {
+        if subject_kind == "location" {
+            card = self.decorate_generated_location_card(card, subject_id);
+        }
         let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
             return card;
         };
         let key = community_art_generation_key(subject_kind, subject_id, level);
         let generation = self.community_art_generations.get(&key);
+        let published_generation = (1..=level).rev().find_map(|published_level| {
+            self.community_art_generations
+                .get(&community_art_generation_key(
+                    subject_kind,
+                    subject_id,
+                    published_level,
+                ))
+                .filter(|state| state.status == "ready")
+        });
         let required_orbs = i32::from(level.max(1));
         let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
         let status =
@@ -19449,12 +19121,12 @@ impl RuntimeWorld {
         let retryable_without_orbs = generation.is_some_and(|state| {
             community_art_generation_retryable_for_profile(state, false, generation_profile_version)
         });
-        if status == "ready" {
+        if let Some(published) = published_generation {
             card.image_url = Some(community_art_image_url(
                 subject_kind,
                 subject_id,
-                level,
-                generation.map(|state| state.revision).unwrap_or(0),
+                published.level,
+                published.revision,
             ));
             card.asset_status = "community_art".to_string();
         }
@@ -19474,277 +19146,6 @@ impl RuntimeWorld {
             retryable_without_orbs,
         });
         card
-    }
-
-    fn actor_community_art_details(&self, actor_id: u64, card: &CardView) -> String {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return String::new();
-        };
-        let mut facts = vec![format!("authoritative level {}", actor.stats.level)];
-        if let Some(identity) = self.character_identities.get(&actor_id) {
-            if let Some(profile) = character_creation_profile(Some(&identity.profile_id)) {
-                if let Some(species) = profile
-                    .species
-                    .iter()
-                    .find(|species| species.id == identity.species_id)
-                {
-                    facts.push(format!("species: {}", species.label));
-                    facts.push(format!("species appearance: {}", species.visual_prompt));
-                }
-                if let Some(origin) = profile
-                    .origins
-                    .iter()
-                    .find(|origin| origin.id == identity.origin_id)
-                {
-                    facts.push(format!("origin: {}", origin.label));
-                    facts.push(format!("origin details: {}", origin.visual_prompt));
-                }
-                if let Some(class) = identity.class_id.as_deref().and_then(|class_id| {
-                    profile.choices.iter().find(|choice| choice.id == class_id)
-                }) {
-                    facts.push(format!("class: {}", class.label));
-                    facts.push(format!("class gear and bearing: {}", class.description));
-                } else {
-                    facts.push("class: classless traveler".to_string());
-                }
-            }
-            if !identity.physical_description.trim().is_empty() {
-                facts.push(format!(
-                    "stable physical description: {}",
-                    identity.physical_description
-                ));
-            }
-        } else {
-            facts.push(format!(
-                "stable physical description: {}",
-                avatar_visual_prompt(&card.display_name, &card.title, &card.blurb)
-            ));
-        }
-        if let Some(calling) = self.callings.get(&actor_id) {
-            facts.push(format!("calling: {}", calling.statement));
-        }
-        if let Some(location) = self.location_name(actor.location_id) {
-            facts.push(format!("current setting: {location}"));
-        }
-        let carried = self
-            .actor_held_items(actor_id)
-            .into_iter()
-            .take(8)
-            .map(|item| {
-                let name = self
-                    .item_name(item.id)
-                    .unwrap_or_else(|| format!("Item {}", item.id));
-                format!(
-                    "{name} ({})",
-                    card_zone(item.zone, item.holder_actor_id, item.location_id)
-                )
-            })
-            .collect::<Vec<_>>();
-        if carried.is_empty() {
-            facts.push("carried items: none".to_string());
-        } else {
-            facts.push(format!(
-                "carried and equipped items: {}",
-                carried.join(", ")
-            ));
-        }
-        facts.join(". ")
-    }
-
-    fn item_community_art_details(&self, item: CwItem) -> String {
-        let mut facts = vec![
-            format!("item type: {}", item_kind(item.kind)),
-            format!("equipment role: {}", item_role(item.role)),
-            format!("size: {}", item_size(item.size_class)),
-        ];
-        if item.charges > 0 {
-            facts.push(format!("remaining charges: {}", item.charges));
-        }
-        if item.holder_actor_id != 0 {
-            facts.push(format!(
-                "carried by: {}",
-                self.actor_name(item.holder_actor_id)
-                    .unwrap_or_else(|| format!("Avatar {}", item.holder_actor_id))
-            ));
-            facts.push(format!(
-                "card zone: {}",
-                card_zone(item.zone, item.holder_actor_id, item.location_id)
-            ));
-        } else if let Some(location) = self.location_name(item.location_id) {
-            facts.push(format!("current setting: {location}"));
-        }
-        facts.join(". ")
-    }
-
-    fn location_community_art_details(&self, location_id: u64) -> String {
-        let meta = self.location_meta_for(location_id);
-        let mut facts = Vec::new();
-        if !meta.biome.trim().is_empty() {
-            facts.push(format!("biome: {}", meta.biome));
-        }
-        if !meta.terrain.is_empty() {
-            facts.push(format!("terrain: {}", meta.terrain.join(", ")));
-        }
-        if let Some(art_prompt) = meta
-            .art_prompt
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            facts.push(format!("reviewed landscape brief: {art_prompt}"));
-        }
-        if let Some(sheet) = self.room_sheets.get(&location_id) {
-            if !sheet.aspects.is_empty() {
-                facts.push(format!("defining aspects: {}", sheet.aspects.join(", ")));
-            }
-            if !sheet.boons.is_empty() {
-                facts.push(format!("visible boons: {}", sheet.boons.join(", ")));
-            }
-            if !sheet.hooks.is_empty() {
-                facts.push(format!("visible hooks: {}", sheet.hooks.join(", ")));
-            }
-        }
-        facts.join(". ")
-    }
-
-    fn community_art_plan(
-        &self,
-        contributor_actor_id: u64,
-        subject_kind: &str,
-        subject_id: u64,
-    ) -> Result<CommunityArtPlan, String> {
-        let contributor = self
-            .actor_by_id(contributor_actor_id)
-            .filter(|actor| Self::actor_can_act(*actor))
-            .ok_or_else(|| "The contributing avatar is no longer active.".to_string())?;
-        let level = self
-            .community_art_subject_level(subject_kind, subject_id)
-            .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
-        let (card, visible, aspect_ratio, subject_details, image_policy) = match subject_kind {
-            "actor" => {
-                let actor = self
-                    .actor_by_id(subject_id)
-                    .ok_or_else(|| "That avatar is no longer here.".to_string())?;
-                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
-                    name: format!("Avatar {subject_id}"),
-                    speech_mode: "prose".to_string(),
-                    title: "World Traveler".to_string(),
-                    description: String::new(),
-                });
-                let card = card_for_actor(
-                    subject_id,
-                    &meta.name,
-                    &meta.title,
-                    &meta.description,
-                    actor.stats.level,
-                );
-                (
-                    card.clone(),
-                    actor.location_id == contributor.location_id,
-                    "2:3",
-                    self.actor_community_art_details(subject_id, &card),
-                    None,
-                )
-            }
-            "item" => {
-                let item = self.world.items[..self.world.item_count]
-                    .iter()
-                    .find(|item| item.id == subject_id)
-                    .ok_or_else(|| "That item is no longer in the world.".to_string())?;
-                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
-                    name: format!("Item {subject_id}"),
-                    description: "A found keepsake.".to_string(),
-                    skill_id: None,
-                    skill_bonus: 0,
-                    mechanics: None,
-                });
-                (
-                    card_for_item(subject_id, &meta.name, &meta.description),
-                    item.holder_actor_id == contributor_actor_id
-                        || (item.holder_actor_id == 0
-                            && item.location_id == contributor.location_id),
-                    "1:1",
-                    self.item_community_art_details(*item),
-                    None,
-                )
-            }
-            "location" => {
-                let name = self
-                    .location_name(subject_id)
-                    .ok_or_else(|| "That location is no longer on the shared map.".to_string())?;
-                let visible = subject_id == contributor.location_id
-                    || self.world.exits[..self.world.exit_count]
-                        .iter()
-                        .any(|exit| {
-                            exit.from_location_id == contributor.location_id
-                                && exit.to_location_id == subject_id
-                        });
-                (
-                    card_for_location(subject_id, &name, Some(&self.location_meta_for(subject_id))),
-                    visible,
-                    "16:9",
-                    self.location_community_art_details(subject_id),
-                    Some(CommunityArtImagePolicy::LocationLandscape),
-                )
-            }
-            _ => return Err("Unknown community-art subject.".to_string()),
-        };
-        if !visible {
-            return Err("That card is not visible from here.".to_string());
-        }
-        let history_through_seq = self.world.next_event_seq.saturating_sub(1);
-        let history_entries = self
-            .event_log
-            .iter()
-            .rev()
-            .filter(|event| match subject_kind {
-                "actor" => {
-                    event.actor_id == Some(subject_id) || event.target_actor_id == Some(subject_id)
-                }
-                "item" => {
-                    event.item_id == Some(subject_id) || event.target_item_id == Some(subject_id)
-                }
-                "location" => {
-                    event.location_id == Some(subject_id)
-                        || event.destination_location_id == Some(subject_id)
-                }
-                _ => false,
-            })
-            .take(12)
-            .map(|event| {
-                event
-                    .content
-                    .as_deref()
-                    .filter(|content| !content.trim().is_empty())
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| event.type_name.replace('.', " "))
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>();
-        let history = community_art_prompt_history(subject_kind, &history_entries);
-        let prompt = build_community_art_prompt(
-            subject_kind,
-            &card.display_name,
-            &card.title,
-            &card.blurb,
-            level,
-            &subject_details,
-            &history,
-            image_policy,
-        );
-        Ok(CommunityArtPlan {
-            subject_kind: subject_kind.to_string(),
-            subject_id,
-            level,
-            generation_profile_version: community_art_generation_profile_version(subject_kind),
-            required_orbs: i32::from(level.max(1)),
-            history_through_seq,
-            prompt,
-            aspect_ratio,
-            image_policy,
-        })
     }
 
     fn branch_is_active(&self, branch: &DialogueBranch) -> bool {
@@ -19828,7 +19229,9 @@ impl RuntimeWorld {
         let has_authored_contribution = !self
             .job_contribution_intents(actor_id, None, None, None, None)
             .is_empty();
-        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution) {
+        let can_rest = self.rest_available(actor_id);
+        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution && !can_rest)
+        {
             return PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
@@ -19860,7 +19263,6 @@ impl RuntimeWorld {
         let can_use_item_contribution = self
             .job_contribution_intent(actor_id, "use_item", None, None, None)
             .is_some();
-        let can_rest = self.rest_available(actor_id);
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
         let can_cast_spell = self.default_spell_card(actor_id).is_some();
@@ -20544,13 +19946,13 @@ impl RuntimeWorld {
                 continue;
             }
             let target_memories: Vec<_> = self
-                .resident_memories
+                .beliefs
                 .values()
                 .filter(|memory| {
-                    memory.carrier_actor_id == actor.id
-                        && memory.kind == RESIDENT_MEMORY_KIND_ACTOR_LOCATION
+                    memory.holder_actor_id == actor.id
+                        && memory.kind == BELIEF_KIND_ACTOR_LOCATION
                         && memory.subject_id != actor.id
-                        && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
+                        && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
                 })
                 .cloned()
                 .collect();
@@ -21034,6 +20436,7 @@ impl RuntimeWorld {
             .find_map(|line| self.conversation_subject(line, target_actor_id));
 
         Some(AvatarChatPlan {
+            actor_id,
             location_id: actor.location_id,
             actor_name: self
                 .actor_name(actor_id)
@@ -21065,6 +20468,7 @@ impl RuntimeWorld {
             recent_lines,
             fresh_subject,
             missing_need,
+            publication_beat_id: String::new(),
         })
     }
 
@@ -21422,6 +20826,9 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         })
     }
 
@@ -21565,6 +20972,9 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         })
     }
 
@@ -21688,7 +21098,7 @@ impl RuntimeWorld {
         if waiting_for_player_gift {
             return None;
         }
-        if let Some(memory) = self.resident_memory_seek_target(actor) {
+        if let Some(memory) = self.belief_seek_target(actor) {
             if memory.location_id == actor.location_id {
                 if self.resident_has_fresh_loose_item_observation(
                     actor.id,
@@ -22072,6 +21482,19 @@ impl RuntimeWorld {
                     None
                 }
             }
+            "trade" => {
+                let target_actor_id = proposal.target_actor_id?;
+                let item_id = proposal.item_id?;
+                let target_item_id = proposal.target_item_id?;
+                Some(CwAction {
+                    kind: CW_ACTION_TRADE_ITEM,
+                    actor_id: actor.id,
+                    target_actor_id,
+                    item_id,
+                    target_item_id,
+                    ..CwAction::default()
+                })
+            }
             "use" => {
                 let item_id = proposal.item_id?;
                 if !self
@@ -22189,7 +21612,17 @@ impl RuntimeWorld {
                     ..CwAction::default()
                 }
             }
-            ("prepare" | "work" | "help", _) => CwAction {
+            ("work", ContributionResolutionPolicy::Certain) => CwAction {
+                kind: CW_ACTION_PROJECT_PUSH,
+                actor_id: actor.id,
+                project_push: self.project_push_input(
+                    actor.id,
+                    &intent,
+                    self.prepared_tag_active(actor.id, actor.location_id),
+                )?,
+                ..CwAction::default()
+            },
+            ("prepare" | "help", _) => CwAction {
                 kind: CW_ACTION_NONE,
                 actor_id: actor.id,
                 ..CwAction::default()
@@ -22227,16 +21660,12 @@ impl RuntimeWorld {
             .saturating_sub(RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW);
         let mut record = match offer.kind.as_str() {
             "rest" => {
-                let mutations = self.plan_rest_mutations(actor.id).ok()?;
-                let mut record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_NONE,
-                        actor_id: actor.id,
-                        ..CwAction::default()
-                    },
-                    seed,
-                )
-                .into_actor_consequence(self.world.tick, None);
+                if !self.rest_has_recovery_target(actor.id) {
+                    return None;
+                }
+                let (action, mutations) = self.plan_rest_action(actor.id).ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
                 record.bind_offer_kind("rest");
                 record.projection_mutations.extend(mutations);
                 record
@@ -22409,10 +21838,7 @@ impl RuntimeWorld {
             .unwrap_or_else(|| format!("Resident {}", actor.id));
         let mut proposed_action = AvatarProposedAction {
             kind: "wait".to_string(),
-            target_actor_id: None,
-            item_id: None,
-            destination_location_id: None,
-            reason: None,
+            ..AvatarProposedAction::default()
         };
         let intent = match action.kind {
             CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => {
@@ -22528,6 +21954,10 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Actor {}", action.target_actor_id));
                 format!("{actor_name} intends to ask {target} for a useful local lead.")
             }
+            CW_ACTION_REST => {
+                proposed_action.kind = "rest".to_string();
+                format!("{actor_name} intends to rest.")
+            }
             CW_ACTION_NONE => record
                 .projection_mutations
                 .iter()
@@ -22614,8 +22044,8 @@ impl RuntimeWorld {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return None;
         }
-        self.observe_room_for_resident(actor.id, actor.location_id);
-        self.exchange_resident_memories_at(actor.location_id);
+        self.observe_room_for_actor(actor.id, actor.location_id);
+        self.exchange_beliefs_at(actor.location_id);
         self.actor_by_id(actor_id)
     }
 
@@ -22708,6 +22138,7 @@ impl RuntimeWorld {
             }
             CW_ACTION_DEFEND | CW_ACTION_COMBAT_DODGE => "defend",
             CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => "flee",
+            CW_ACTION_REST => "rest",
             _ => "act",
         }
         .to_string()
@@ -22832,6 +22263,7 @@ impl RuntimeWorld {
                 target.kind == "actor"
                     && self.combat_target_for_actor(action.content_id, action.actor_id) == target.id
             }),
+            CW_ACTION_REST if offer.kind == "rest" => offer.target.is_none(),
             CW_ACTION_NONE if offer.kind == "rest" => {
                 offer.target.is_none()
                     && record.projection_mutations.iter().any(|mutation| {
@@ -22889,6 +22321,7 @@ impl RuntimeWorld {
                 }
             })
             .collect();
+        let planner = self.resident_planner_proposal_for_action(actor, &candidate.record.action);
         ResidentDecisionTrace {
             schema_version: 1,
             actor_id: candidate.actor_id,
@@ -22915,6 +22348,10 @@ impl RuntimeWorld {
                 action: candidate.record.action,
             },
             outcome: None,
+            planning_generation_id: planner
+                .and_then(|proposal| proposal.planning_generation_id.clone()),
+            planner_candidate_id: planner.and_then(|proposal| proposal.candidate_id.clone()),
+            planner_state_revision: planner.and_then(|proposal| proposal.state_revision),
         }
     }
 
@@ -23000,10 +22437,10 @@ impl RuntimeWorld {
             .map(|candidate| candidate.record.action)
     }
 
-    fn decay_resident_memories_for_autonomy(&mut self) {
+    fn decay_beliefs(&mut self) {
         let now = self.world.tick;
         let mut expired = Vec::new();
-        for memory in self.resident_memories.values_mut() {
+        for memory in self.beliefs.values_mut() {
             let baseline = memory.learned_tick.max(memory.observed_tick);
             if baseline == 0 {
                 memory.learned_tick = now;
@@ -23012,41 +22449,52 @@ impl RuntimeWorld {
             if now <= baseline {
                 continue;
             }
-            let steps = (now - baseline) / RESIDENT_MEMORY_TIME_DECAY_INTERVAL_TICKS;
+            let (steps, confidence, salience) = belief_decay_at_tick(memory, now);
             if steps == 0 {
                 continue;
             }
-            let confidence_loss = steps
-                .saturating_mul(RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            let salience_loss = steps
-                .saturating_mul(RESIDENT_MEMORY_TIME_SALIENCE_DECAY as u64)
-                .min(u8::MAX as u64) as u8;
-            memory.confidence = memory.confidence.saturating_sub(confidence_loss);
-            memory.salience = memory.salience.saturating_sub(salience_loss);
+            memory.confidence = confidence;
+            memory.salience = salience;
             memory.learned_tick = now;
             if memory.confidence == 0 || memory.salience == 0 {
                 expired.push(memory.id.clone());
             }
         }
+        let mut forgotten_local_leads = Vec::new();
         for memory_id in expired {
-            self.resident_memories.remove(&memory_id);
+            if let Some(memory) = self.beliefs.get(&memory_id) {
+                if memory.kind == LOCAL_LEAD_MEMORY_KIND {
+                    forgotten_local_leads.push((memory.holder_actor_id, memory.subject_id));
+                }
+            }
+            self.beliefs.remove(&memory_id);
         }
+        for (actor_id, destination_location_id) in forgotten_local_leads {
+            for lead in self.local_leads.values_mut().filter(|lead| {
+                lead.actor_id == actor_id
+                    && lead.destination_location_id == destination_location_id
+                    && !lead.consumed
+                    && !lead.settled
+            }) {
+                lead.forgotten = true;
+            }
+        }
+        self.return_forgotten_search_items_to_pool();
     }
 
-    fn refresh_resident_memories_for_autonomy(&mut self) {
-        self.decay_resident_memories_for_autonomy();
+    fn refresh_beliefs_for_autonomy(&mut self) {
+        self.decay_beliefs();
     }
 
     #[cfg(test)]
     fn ambient_autonomy_action(&mut self) -> Option<CwAction> {
-        self.refresh_resident_memories_for_autonomy();
+        self.refresh_beliefs_for_autonomy();
         self.resident_economy_autonomy_action_by_priority()
     }
 
     #[cfg(test)]
     fn ambient_autonomy_record(&mut self, seed: u64) -> Option<JournalRecord> {
-        self.refresh_resident_memories_for_autonomy();
+        self.refresh_beliefs_for_autonomy();
         self.resident_economy_autonomy_record_for_seed(seed)
     }
 
@@ -23058,7 +22506,7 @@ impl RuntimeWorld {
         if context.budget.resident_actions == 0 {
             return None;
         }
-        self.refresh_resident_memories_for_autonomy();
+        self.refresh_beliefs_for_autonomy();
         if let Some(mut record) = self.resident_ripple_record_for_seed(context, seed) {
             record.origin = JournalOrigin::ActorConsequence;
             record.source_world_tick = Some(self.world.tick);
@@ -26193,7 +25641,7 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/cast-spell" => kind == "cast_spell",
         "/actions/pick-up" => kind == "pick_up",
         "/actions/drop" => kind == "drop_item",
-        "/actions/use-item" => kind == "use_item",
+        "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
         "/actions/give-item" => kind == "give_item",
         "/actions/trade-item" => kind == "trade_item",
         "/actions/theft" => kind == "theft",
@@ -26267,10 +25715,10 @@ async fn submit_action_offer(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let validation = {
-        let runtime = state.inner.lock().await;
-        runtime.validate_action_offer_submission(actor_id, &access, &submission)
-    };
+    let active_direct_actors = active_actor_ids_for_state(&state);
+    let runtime = state.inner.lock().await;
+    let validation = runtime.validate_offer(actor_id, &access, &submission, &active_direct_actors);
+    drop(runtime);
     if let Err(reason) = validation {
         return action_offer_rejected(reason);
     }
@@ -26369,7 +25817,7 @@ async fn submit_action_offer(
             use_item(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(parsed!(ItemRequest)),
+                Json(parsed!(UseItemRequest)),
             )
             .await
         }
@@ -26556,7 +26004,7 @@ async fn fund_community_image(
         });
     }
 
-    let initial_plan = {
+    let mut initial_plan = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -26581,6 +26029,13 @@ async fn fund_community_image(
             }
         }
     };
+    if freeze_community_art_evolution(&state.generated_asset_dir, &mut initial_plan).is_err() {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
     if let Some(policy) = initial_plan.image_policy {
         let started_at = Instant::now();
         if let Err(error) =
@@ -26624,7 +26079,7 @@ async fn fund_community_image(
     ) {
         return client_actor_rejected_response();
     }
-    let plan = match runtime.community_art_plan(
+    let mut plan = match runtime.community_art_plan(
         payload.actor_id,
         payload.subject_kind.trim(),
         payload.subject_id,
@@ -26638,6 +26093,13 @@ async fn fund_community_image(
             });
         }
     };
+    if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
     let candidate_exists = community_art_candidate_exists(&state.generated_asset_dir, &plan);
@@ -26703,6 +26165,7 @@ async fn fund_community_image(
                 intent_id: intent_id.to_string(),
                 amount: contribution,
                 history_through_seq: plan.history_through_seq,
+                evolution_job: plan.evolution_job.clone(),
             });
         record.orb_deltas.push(OrbDelta {
             actor_id: payload.actor_id,
@@ -26789,7 +26252,6 @@ async fn commit_chat_status(
         Vec::new()
     }
 }
-
 async fn complete_queued_orb_chat(
     state: &AppState,
     actor_id: u64,
@@ -26799,15 +26261,17 @@ async fn complete_queued_orb_chat(
     source_world_tick: Option<u64>,
     observed_through_seq: Option<u64>,
 ) {
+    let plan = plan.with_publication_beat("avatar-chat", queue_event_id, source_world_tick);
     let started_at = Instant::now();
     let usage_config = state.ai_config.as_ref().clone();
     if state.avatar_chat_delay > Duration::ZERO {
         tokio::time::sleep(state.avatar_chat_delay).await;
     }
-    let content = match avatar_chat_text(usage_config.as_ref(), &plan).await {
+    let certified = match avatar_chat_text(state, &plan).await {
         Ok(content) => content,
         Err(error) => {
             warn!("queued AI avatar inference failed: {}", error);
+            record_rejected_ai_publication(state, &error);
             commit_chat_status(
                 state,
                 actor_id,
@@ -26835,7 +26299,7 @@ async fn complete_queued_orb_chat(
             return;
         }
     };
-
+    let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
     let committed = {
         let mut runtime = state.inner.lock().await;
         let still_together = runtime
@@ -26865,16 +26329,19 @@ async fn complete_queued_orb_chat(
             record.observed_through_seq = observed_through_seq;
             record.source_location_id = Some(plan.location_id);
             record.content_upserts.insert(content_id, content.clone());
+            record.ai_publication = Some(publication_receipt);
             match commit_journal_record(state, &mut runtime, record) {
                 Ok((CW_OK, events)) if !events.is_empty() => {
                     let reply_plan = runtime
                         .resident_reply_plan_for_target(actor_id, target_actor_id, &content)
-                        .map(|mut reply_plan| {
-                            reply_plan.caused_by_event_seq = queue_event_id;
-                            reply_plan.source_world_tick = source_world_tick;
-                            reply_plan.observed_through_seq = observed_through_seq;
-                            reply_plan.source_location_id = Some(plan.location_id);
-                            reply_plan
+                        .map(|reply_plan| {
+                            reply_plan.with_publication_causality(
+                                "avatar-chat-reply",
+                                queue_event_id,
+                                source_world_tick,
+                                observed_through_seq,
+                                Some(plan.location_id),
+                            )
                         });
                     Some((content_id, events, reply_plan))
                 }
@@ -27114,6 +26581,7 @@ fn narrative_move_rejected_response(
         command: command.into(),
         verb: String::new(),
         output: Some(output.into()),
+        error_kind: None,
         action: None,
         receipt: None,
         events: Vec::new(),
@@ -27279,6 +26747,7 @@ async fn submit_narrative_move(
             actor_id: payload.character_id,
             actor_session: Some(actor_session),
             command: command_text,
+            offer_id: None,
             wallet_address: Some(wallet_address),
             wallet: None,
             wallet_session: Some(session_id),
@@ -28036,6 +27505,7 @@ fn canonical_command_error(
         command: normalize_command_text(command),
         verb: String::new(),
         output: Some(output.into()),
+        error_kind: None,
         action: None,
         receipt: None,
         events: Vec::new(),
@@ -28267,7 +27737,7 @@ async fn command_with_forwarding(
 
     let request_hash = command_request_hash(
         &envelope.actor_ref,
-        &normalize_command_text(&payload.command),
+        &command_submission_identity(&payload),
         &envelope.observed,
         envelope.last_world_seq,
     );
@@ -28441,7 +27911,7 @@ async fn command_with_forwarding(
     let command_context = Arc::new(CanonicalCommandCommitContext {
         envelope: envelope.clone(),
         request_hash: request_hash.clone(),
-        normalized_command: normalize_command_text(&payload.command),
+        normalized_command: command_submission_identity(&payload),
         compatibility_envelope,
         leases,
         phase: AtomicU8::new(0),
@@ -28456,6 +27926,10 @@ async fn command_with_forwarding(
             ),
         )
         .await;
+
+    if payload.offer_id.is_some() && response.error_kind.is_some() {
+        return Json(response);
+    }
 
     if !command_context.committed() {
         if let Some(path) = state.event_store_path.as_deref() {
@@ -29094,10 +28568,12 @@ async fn command_inner(
         })
         .unwrap_or(false);
     let normalized_command = normalize_command_text(&payload.command);
-    if matches!(
-        normalized_command.as_str(),
-        "pass" | "need time" | "need-time"
-    ) {
+    if payload.offer_id.is_none()
+        && matches!(
+            normalized_command.as_str(),
+            "pass" | "need time" | "need-time"
+        )
+    {
         let request = ActorRequest {
             actor_id: payload.actor_id,
             actor_session: payload.actor_session,
@@ -29105,7 +28581,7 @@ async fn command_inner(
         let Json(response) = if normalized_command == "pass" {
             pass_ordered_scene_turn(ConnectInfo(client_addr), State(state), Json(request)).await
         } else {
-            request_turn_timeout(ConnectInfo(client_addr), State(state), Json(request)).await
+            request_turn_need_time(ConnectInfo(client_addr), State(state), Json(request)).await
         };
         let output = if response.ok {
             if response
@@ -29134,58 +28610,17 @@ async fn command_inner(
                 "need".to_string()
             },
             output: Some(output.to_string()),
+            error_kind: None,
             action: None,
             receipt: None,
             events: response.events,
         });
     }
-    let resolved = {
-        let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return Json(CommandResponse {
-                ok: false,
-                status: 403,
-                command: normalize_command_text(&payload.command),
-                verb: String::new(),
-                output: Some(
-                    "Your avatar slipped out of reach. Begin again or reconnect your account."
-                        .to_string(),
-                ),
-                action: None,
-                receipt: None,
-                events: Vec::new(),
-            });
-        }
-        let active_direct_actors = active_actor_ids_for_state(&state);
-        runtime.resolve_command_with_presence(&payload, &access, Some(&active_direct_actors))
-    };
-
-    let presence_events = if was_active {
-        Vec::new()
-    } else {
-        commit_presence_event(&state, payload.actor_id, true).await
-    };
-
-    let resolved = match resolved {
-        Ok(resolved) => resolved,
-        Err(error) => {
-            return Json(CommandResponse {
-                ok: false,
-                status: error.status,
-                command: error.command,
-                verb: error.verb,
-                output: Some(error.output),
-                action: None,
-                receipt: None,
-                events: presence_events,
-            });
-        }
-    };
+    let (resolved, presence_events) =
+        match resolve_command_submission_at_boundary(&state, &payload, &access, was_active).await {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
 
     if command_dispatch_consumes_room_turn(&resolved.dispatch) {
         let runtime = state.inner.lock().await;
@@ -29211,6 +28646,7 @@ async fn command_inner(
             command: resolved.command,
             verb: resolved.verb,
             output: Some(output),
+            error_kind: None,
             action: resolved.action,
             receipt: None,
             events: presence_events,
@@ -29221,6 +28657,7 @@ async fn command_inner(
             command: resolved.command,
             verb: resolved.verb,
             output: Some(output),
+            error_kind: None,
             action: resolved.action,
             receipt: None,
             events: presence_events,
@@ -29376,12 +28813,13 @@ async fn command_inner(
             let Json(response) = use_item(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(ItemRequest {
+                Json(UseItemRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     item_id,
-                    target_item_id: None,
                     target_actor_id: Some(target_actor_id),
+                    location_id: None,
+                    feature_key: None,
                 }),
             )
             .await;
@@ -29418,6 +28856,7 @@ async fn command_inner(
                         "Your avatar slipped out of reach. Begin again or reconnect your account."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29433,12 +28872,13 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some("You are no longer in that room.".to_string()),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
                 });
             }
-            runtime.decay_search_memories();
+            runtime.decay_beliefs();
             let candidates =
                 runtime.search_reveal_candidates_for_feature(location_id, &feature_key);
             if candidates.is_empty() && feature_key == "room" {
@@ -29458,6 +28898,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(output.to_string()),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29484,6 +28925,7 @@ async fn command_inner(
                         "That choice got lost before the room could answer. Try once more."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29520,117 +28962,36 @@ async fn command_inner(
             feature_key,
             output,
         } => {
-            if !allow_actor_mutation(
+            let outcome = execute_feature_use_action(
                 &state,
                 client_addr,
                 payload.actor_id,
-                "action-actor",
-                GENERAL_ACTION_LIMIT,
-            ) {
-                return command_rate_limited_response_with_events(resolved, presence_events);
-            }
-            let mut runtime = state.inner.lock().await;
-            if !client_actor_authorized_for_state(
-                &runtime,
-                &state,
-                payload.actor_id,
                 payload.actor_session.as_deref(),
-            ) {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 403,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(
-                        "Your avatar slipped out of reach. Begin again or reconnect your account."
-                            .to_string(),
-                    ),
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            }
-            let candidate = match runtime.plan_feature_use_choice(
-                payload.actor_id,
                 item_id,
                 location_id,
                 &feature_key,
-            ) {
-                Ok(candidate) => candidate,
-                Err(reason) => {
-                    return Json(CommandResponse {
-                        ok: false,
-                        status: 409,
-                        command: resolved.command,
-                        verb: resolved.verb,
-                        output: Some(reason),
-                        action: resolved.action,
-                        receipt: None,
-                        events: presence_events,
-                    });
-                }
-            };
-            debug_assert_eq!(output, candidate.content);
-            let output = candidate.content.clone();
-            let mut record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_NONE,
-                    actor_id: payload.actor_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
             )
-            .into_player_card();
-            record.bind_offer_kind("use_feature");
-            record
-                .projection_mutations
-                .push(ProjectionMutation::UseFeature {
-                    item_id: candidate.item_id,
-                    location_id: candidate.location_id,
-                    feature_key: candidate.feature_key,
-                    content: candidate.content,
-                    reason: "use_feature".to_string(),
-                });
-            let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
-            else {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 500,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some(
-                        "That choice got lost before the room could answer. Try once more."
-                            .to_string(),
-                    ),
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            };
-            let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
-                &state,
-                &mut runtime,
-                Some(location_id),
-                payload.actor_id,
-                status,
-                &mut events,
-            );
-            drop(runtime);
-            broadcast_events(&state, &events);
-            if let Some(plan) = ripple_reply_plan {
-                schedule_player_tick_observation(&state, plan);
-            }
-            let response = ActionResponse {
-                ok: status == CW_OK && !events.is_empty(),
-                status: if events.is_empty() { 409 } else { status },
-                events,
-            };
-            command_action_response_with_prefix_and_events(
+            .await;
+            debug_assert!(outcome
+                .output
+                .as_deref()
+                .is_none_or(|value| value == output));
+            let success_output = outcome
+                .response
+                .ok
+                .then(|| outcome.output.clone())
+                .flatten();
+            let rejected_output = (!outcome.response.ok).then_some(outcome.output).flatten();
+            let mut response = command_action_response_with_prefix_and_events(
                 resolved,
-                response,
-                Some(output),
+                outcome.response,
+                success_output,
                 presence_events,
-            )
+            );
+            if let Some(output) = rejected_output {
+                response.0.output = Some(output);
+            }
+            response
         }
         CommandDispatch::GiveItem {
             item_id,
@@ -29873,6 +29234,7 @@ async fn command_inner(
                         "Your avatar slipped out of reach. Begin again or reconnect your account."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29885,6 +29247,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(output),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -29918,6 +29281,7 @@ async fn command_inner(
                         "That choice got lost before the room could answer. Try once more."
                             .to_string(),
                     ),
+                    error_kind: None,
                     action: resolved.action,
                     receipt: None,
                     events: presence_events,
@@ -30148,6 +29512,7 @@ async fn command_inner(
                 command: resolved.command,
                 verb: resolved.verb,
                 output,
+                error_kind: None,
                 action: resolved.action,
                 receipt: None,
                 events: presence_events,
@@ -30156,21 +29521,32 @@ async fn command_inner(
     }
 }
 
-async fn complete_avatar_reply(state: &AppState, plan: AvatarReplyPlan) -> Result<(), String> {
-    let proposal = match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &plan).await {
+async fn complete_avatar_reply(
+    state: &AppState,
+    plan: AvatarReplyPlan,
+    relationship_reply: Option<&RelationshipReplyExpectation>,
+) -> Result<bool, String> {
+    let plan = {
+        let runtime = state.inner.lock().await;
+        runtime.prepare_resident_planner_snapshot(plan)
+    };
+    let proposal = match avatar_reply_intent(state, &plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
             warn!("AI resident inference failed; skipping dialogue: {}", error);
+            record_rejected_ai_publication(state, &error);
             return Err(error.to_string());
         }
     };
     let mut runtime = state.inner.lock().await;
-    let Some(events) = commit_resident_reply_record(state, &mut runtime, &plan, proposal) else {
-        return Ok(());
+    let Some(events) =
+        commit_resident_reply_record(state, &mut runtime, &plan, proposal, relationship_reply)
+    else {
+        return Ok(false);
     };
     drop(runtime);
     broadcast_events(state, &events);
-    Ok(())
+    Ok(true)
 }
 
 async fn complete_orb_chat_exchange(
@@ -30179,20 +29555,20 @@ async fn complete_orb_chat_exchange(
     target_actor_id: u64,
     first_reply_plan: AvatarReplyPlan,
 ) {
-    let first_proposal =
-        match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &first_reply_plan).await {
-            Ok(proposal) => proposal,
-            Err(error) => {
-                warn!(
-                    "AI resident inference failed; ending chat exchange: {}",
-                    error
-                );
-                return;
-            }
-        };
+    let first_proposal = match avatar_reply_intent(state, &first_reply_plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!(
+                "AI resident inference failed; ending chat exchange: {}",
+                error
+            );
+            record_rejected_ai_publication(state, &error);
+            return;
+        }
+    };
     let first_reply_events = {
         let mut runtime = state.inner.lock().await;
-        commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal)
+        commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal, None)
     };
     let Some(first_reply_events) = first_reply_events else {
         return;
@@ -30208,22 +29584,24 @@ async fn complete_orb_chat_exchange(
         if let (Some(plan), Some(subject)) = (plan.as_mut(), anchored_subject) {
             plan.fresh_subject = Some(subject);
         }
-        plan
+        plan.map(|plan| plan.with_reply_beat("avatar-chat-followup", &first_reply_plan))
     };
     let Some(followup_plan) = followup_plan else {
         return;
     };
-    let proposed_followup =
-        match avatar_chat_followup_text(state.ai_config.as_ref().as_ref(), &followup_plan).await {
-            Ok(followup) => followup,
-            Err(error) => {
-                warn!(
-                    "AI avatar follow-up inference failed; ending chat exchange: {}",
-                    error
-                );
-                return;
-            }
-        };
+    let certified_followup = match avatar_chat_followup_text(state, &followup_plan).await {
+        Ok(followup) => followup,
+        Err(error) => {
+            warn!(
+                "AI avatar follow-up inference failed; ending chat exchange: {}",
+                error
+            );
+            record_rejected_ai_publication(state, &error);
+            return;
+        }
+    };
+    let (proposed_followup, followup_receipt) =
+        into_recorded_speech_parts(state, certified_followup);
     let (followup_events, closing_plan) = {
         let mut runtime = state.inner.lock().await;
         if runtime
@@ -30252,6 +29630,7 @@ async fn complete_orb_chat_exchange(
         record.observed_through_seq = first_reply_plan.observed_through_seq;
         record.source_location_id = first_reply_plan.source_location_id;
         record.content_upserts.insert(content_id, followup.clone());
+        record.ai_publication = Some(followup_receipt);
         record
             .projection_mutations
             .push(ProjectionMutation::MarkVisitLedger {
@@ -30273,12 +29652,14 @@ async fn complete_orb_chat_exchange(
         }
         let plan = runtime
             .resident_reply_plan_for_target(actor_id, target_actor_id, &followup)
-            .map(|mut plan| {
-                plan.caused_by_event_seq = first_reply_plan.caused_by_event_seq;
-                plan.source_world_tick = first_reply_plan.source_world_tick;
-                plan.observed_through_seq = first_reply_plan.observed_through_seq;
-                plan.source_location_id = first_reply_plan.source_location_id;
-                plan
+            .map(|plan| {
+                plan.with_publication_causality(
+                    "avatar-chat-closing",
+                    first_reply_plan.caused_by_event_seq,
+                    first_reply_plan.source_world_tick,
+                    first_reply_plan.observed_through_seq,
+                    first_reply_plan.source_location_id,
+                )
             });
         (events, plan)
     };
@@ -30288,20 +29669,20 @@ async fn complete_orb_chat_exchange(
     let Some(closing_plan) = closing_plan else {
         return;
     };
-    let closing_proposal =
-        match avatar_reply_intent(state.ai_config.as_ref().as_ref(), &closing_plan).await {
-            Ok(proposal) => proposal,
-            Err(error) => {
-                warn!(
-                    "AI resident closing inference failed; ending chat exchange: {}",
-                    error
-                );
-                return;
-            }
-        };
+    let closing_proposal = match avatar_reply_intent(state, &closing_plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!(
+                "AI resident closing inference failed; ending chat exchange: {}",
+                error
+            );
+            record_rejected_ai_publication(state, &error);
+            return;
+        }
+    };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
-        commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal)
+        commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal, None)
     };
     if let Some(events) = closing_events {
         broadcast_events(state, &events);
@@ -30312,14 +29693,37 @@ fn commit_resident_reply_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     plan: &AvatarReplyPlan,
-    mut proposal: AvatarIntentProposal,
+    certified: CertifiedAvatarIntent,
+    relationship_reply: Option<&RelationshipReplyExpectation>,
 ) -> Option<Vec<EventView>> {
+    let CertifiedAvatarIntent {
+        mut proposal,
+        speech,
+        mut planning,
+    } = certified;
+    let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
         return None;
     }
     if runtime.actor_uses_inference(speaker.id) {
         proposal = runtime.collision_safe_resident_proposal(plan, proposal)?;
+        if proposal
+            .proposed_action
+            .as_ref()
+            .is_some_and(|action| !runtime.resident_planner_proposal_is_current(plan, action))
+        {
+            proposal.proposed_action = None;
+            planning.reject("planner_stale_or_illegal");
+        } else if proposal.proposed_action.is_some() {
+            planning.status = ResidentPlanningStatus::Accepted;
+            planning.supersedes_generation_id = runtime
+                .resident_continuities
+                .get(&speaker.id)
+                .and_then(|continuity| continuity.pending_planning.as_ref())
+                .filter(|pending| pending.generation_id != planning.generation_id)
+                .map(|pending| pending.generation_id.clone());
+        }
     } else {
         proposal.speech =
             runtime.collision_safe_avatar_followup(plan.speaker_actor_id, &proposal.speech)?;
@@ -30339,13 +29743,25 @@ fn commit_resident_reply_record(
     record
         .content_upserts
         .insert(content_id, proposal.speech.clone());
-    if runtime.actor_uses_inference(speaker.id) {
+    record.ai_publication = Some(publication_receipt);
+    record.resident_planning = Some(planning);
+    if runtime.actor_uses_inference(speaker.id) && relationship_reply.is_none() {
         record
             .projection_mutations
             .push(ProjectionMutation::UpdateResidentContinuity {
                 resident_id: plan.speaker_actor_id,
                 proposal,
                 reason: "resident_intent".to_string(),
+            });
+    }
+    if let Some(expectation) = relationship_reply {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetRelationshipDialogueStatus {
+                relationship_actor_id: expectation.actor_id,
+                target_actor_id: expectation.target_actor_id,
+                status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
+                reason: "one grounded resident reply was delivered".to_string(),
             });
     }
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
@@ -30440,31 +29856,49 @@ fn player_tick_observation(
         allow_ordinary_speech,
         source_events: events.to_vec(),
         ripple_source,
+        relationship_reply: relationship_reply_expectation(runtime, actor_id, events),
     })
 }
 
 async fn complete_player_tick_observation(
     state: &AppState,
     observation: PlayerTickObservation,
-) -> Result<Option<AvatarReplyPlan>, String> {
+) -> Result<
+    (
+        Option<AvatarReplyPlan>,
+        Option<RelationshipReplyExpectation>,
+    ),
+    String,
+> {
+    let relationship_reply = observation.relationship_reply.clone();
     let active_direct_actor_ids = active_actor_ids_for_state(state);
     let (ripple_events, reply_plan) = {
         let mut runtime = state.inner.lock().await;
         // A worker may be reclaimed after its reaction committed but before the
         // outbox row was acknowledged. The source tick is globally unique, so
         // an already-recorded autonomous result makes the retry a no-op.
-        if runtime.player_tick_already_has_autonomous_result(observation.source_world_tick) {
-            return Ok(None);
+        if relationship_reply
+            .as_ref()
+            .is_some_and(|expectation| !runtime.relationship_reply_pending(expectation))
+        {
+            return Ok((None, relationship_reply));
+        }
+        if relationship_reply.is_none()
+            && runtime.player_tick_already_has_autonomous_result(observation.source_world_tick)
+        {
+            return Ok((None, None));
         }
         runtime.observe_player_tick_for_autonomy(&observation);
-        let card_reaction_plan = if observation.allow_ordinary_speech {
+        let card_reaction_plan = if relationship_reply.is_some() {
+            runtime.relationship_reply_plan(&observation)
+        } else if observation.allow_ordinary_speech {
             runtime
                 .next_room_card_reaction_plan(
                     observation.source_actor_id,
                     &observation.source_events,
                     Some(&active_direct_actor_ids),
                 )
-                .map(|plan| plan.with_observation(&observation))
+                .map(|plan| plan.with_observation(&observation).requesting_planner())
         } else {
             runtime.direct_observation_reply_plan(&observation)
         }
@@ -30542,7 +29976,7 @@ async fn complete_player_tick_observation(
     if !ripple_events.is_empty() {
         broadcast_events(state, &ripple_events);
     }
-    Ok(reply_plan)
+    Ok((reply_plan, relationship_reply))
 }
 
 fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObservation) {
@@ -30556,28 +29990,33 @@ fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObs
     let Some(location_id) = observation.source_location_id else {
         return;
     };
-    let heartbeat_armed = state
-        .room_chat_heartbeats
-        .lock()
-        .map(|mut rooms| rooms.insert(location_id))
-        .unwrap_or(false);
+    let dedicated_relationship_heartbeat = observation.relationship_reply.is_some();
+    let heartbeat_armed = dedicated_relationship_heartbeat
+        || state
+            .room_chat_heartbeats
+            .lock()
+            .map(|mut rooms| rooms.insert(location_id))
+            .unwrap_or(false);
     if !heartbeat_armed {
         return;
     }
     let state = state.clone();
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(CARD_REACTION_HEARTBEAT_DELAY_MS)).await;
-        match complete_player_tick_observation(&state, observation).await {
-            Ok(Some(plan)) => {
-                if let Err(error) = complete_avatar_reply(&state, plan).await {
+        match complete_player_tick_observation(&state, observation.clone()).await {
+            Ok((plan, relationship_reply)) => {
+                if let Err(error) =
+                    complete_player_tick_reply(&state, &observation, plan, relationship_reply).await
+                {
                     warn!("asynchronous resident dialogue failed: {}", error);
                 }
             }
-            Ok(None) => {}
             Err(error) => warn!("resident turn failed: {}", error),
         }
-        if let Ok(mut rooms) = state.room_chat_heartbeats.lock() {
-            rooms.remove(&location_id);
+        if !dedicated_relationship_heartbeat {
+            if let Ok(mut rooms) = state.room_chat_heartbeats.lock() {
+                rooms.remove(&location_id);
+            }
         }
     });
 }
@@ -30711,12 +30150,22 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                         if job.actor_id == observation.source_actor_id =>
                     {
                         match complete_player_tick_observation(&state, observation.clone()).await {
-                            Ok(Some(plan)) => {
+                            Ok((plan, relationship_reply))
+                                if plan.is_some() || relationship_reply.is_some() =>
+                            {
                                 let reply_state = state.clone();
                                 let reply_path = path.to_path_buf();
                                 let reply_job = job.clone();
+                                let reply_observation = observation.clone();
                                 tokio::spawn(async move {
-                                    match complete_avatar_reply(&reply_state, plan).await {
+                                    match complete_player_tick_reply(
+                                        &reply_state,
+                                        &reply_observation,
+                                        plan,
+                                        relationship_reply,
+                                    )
+                                    .await
+                                    {
                                         Ok(()) => {
                                             if let Err(error) =
                                                 complete_actor_job(&reply_path, reply_job.id)
@@ -30747,7 +30196,7 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                                 });
                                 Ok(false)
                             }
-                            Ok(None) => Ok(true),
+                            Ok(_) => Ok(true),
                             Err(error) => Err(error),
                         }
                     }
@@ -30908,7 +30357,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
             broadcast_events(&state, &events);
         }
         if let Some(plan) = reply_plan {
-            let _ = complete_avatar_reply(&state, plan).await;
+            let _ = complete_avatar_reply(&state, plan, None).await;
         }
         return;
     }
@@ -30920,13 +30369,14 @@ async fn maybe_emit_ambient_event(state: AppState) {
     };
     drop(runtime);
 
-    let proposal = match request_ai_avatar_intent(&config, &plan).await {
+    let proposal = match request_ai_avatar_intent(&config, None, &plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
             warn!(
                 "AI ambient resident intent failed; skipping ambient chat: {}",
                 error
             );
+            record_rejected_ai_publication(&state, &error);
             return;
         }
     };
@@ -30941,38 +30391,12 @@ async fn maybe_emit_ambient_event(state: AppState) {
     if !RuntimeWorld::actor_can_act(speaker) || !runtime.actor_uses_inference(speaker.id) {
         return;
     }
-    if runtime.resident_reply_repeats_recent_event(
-        plan.speaker_actor_id,
-        speaker.location_id,
-        &proposal.speech,
-    ) {
-        return;
-    }
-    let content_id = runtime.next_content_id_value();
-    let action = CwAction {
-        kind: CW_ACTION_SAY,
-        actor_id: plan.speaker_actor_id,
-        content_id,
-        ..CwAction::default()
-    };
-    let mut record = JournalRecord::new(action, runtime.next_seed_value());
-    record
-        .content_upserts
-        .insert(content_id, proposal.speech.clone());
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UpdateResidentContinuity {
-            resident_id: plan.speaker_actor_id,
-            proposal,
-            reason: "resident_ambient_intent".to_string(),
-        });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+    let Some(events) = commit_resident_reply_record(&state, &mut runtime, &plan, proposal, None)
+    else {
         return;
     };
     drop(runtime);
-    if status == CW_OK {
-        broadcast_events(&state, &events);
-    }
+    broadcast_events(&state, &events);
 }
 
 fn room_memory_view_for_state(
@@ -31360,8 +30784,8 @@ fn room_memory_entries_chronological(
     location_id: u64,
     events: &[EventView],
 ) -> Vec<RoomMemoryEntryView> {
-    events
-        .iter()
+    semantic_receipts::semantic_story_events(events)
+        .into_iter()
         .rev()
         .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
         .collect::<Vec<_>>()
@@ -31411,6 +30835,7 @@ fn room_memory_entry_for_event_at_location(
 
 fn room_memory_label(event: &EventView) -> String {
     match event.type_name.as_str() {
+        semantic_receipts::STORY_RECEIPT_EVENT_TYPE => "story",
         "actor.moved" | "combat.flee.success" => "move",
         "actor.created" | "actor.entered_location" => "join",
         "move.blocked" => "locked",
@@ -31448,6 +30873,7 @@ fn room_memory_label(event: &EventView) -> String {
 
 fn room_memory_kind(event: &EventView) -> String {
     match event.type_name.as_str() {
+        semantic_receipts::STORY_RECEIPT_EVENT_TYPE => "story",
         "message.created" => "chat",
         "ability_check.rolled" | "combat.attack.attempt" => "roll",
         type_name if type_name.starts_with("item.") => "item",
@@ -31488,6 +30914,9 @@ fn room_memory_log_text(event: &EventView) -> Option<String> {
 fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Option<String> {
     let actor_name = event.actor_name.as_deref().unwrap_or("someone");
     let text = match event.type_name.as_str() {
+        semantic_receipts::STORY_RECEIPT_EVENT_TYPE => {
+            semantic_receipts::semantic_story_memory_text(event)?
+        }
         "actor.created" => format!(
             "{} entered {}",
             event.actor_name.as_deref().unwrap_or("someone"),
@@ -32073,6 +31502,8 @@ async fn request_ai_room_memory_summary(
         config,
         ChatCompletionRequest {
             feature: "room_memory",
+            prompt_version: "room-memory-v1",
+            capability: ModelCapability::Voice,
             system,
             user: &user,
             temperature: 0.45,
@@ -32184,6 +31615,8 @@ async fn request_ai_avatar_identity(
         config,
         ChatCompletionRequest {
             feature: "avatar_identity",
+            prompt_version: "avatar-identity-v1",
+            capability: ModelCapability::WorldContent,
             system,
             user: &user,
             temperature: 1.0,
@@ -32202,7 +31635,7 @@ async fn request_ai_avatar_identity(
 
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
 
-async fn request_replicate_art(
+async fn request_replicate_avatar_art_legacy(
     config: &ReplicateAvatarArtConfig,
     prompt: String,
     aspect_ratio: &str,
@@ -32451,150 +31884,14 @@ fn replicate_image_content_type(header_value: &str, output_url: &str) -> Result<
     ))
 }
 
-fn sanitize_continuity_note_text(value: Option<&str>) -> Option<String> {
-    let text = compact_whitespace(value?.trim().trim_matches('"'));
-    if text.is_empty() {
-        return None;
-    }
-    let lowered = format!(" {} ", text.to_lowercase());
-    if [" prompt ", " model ", " policy ", " tool ", " system "]
-        .iter()
-        .any(|needle| lowered.contains(needle))
-    {
-        return None;
-    }
-    Some(trim_to_chars(&text, 180))
-}
-
-fn push_resident_continuity_note(
-    notes: &mut Vec<ResidentContinuityNote>,
-    text: String,
-    source: &str,
-    source_event_seq: Option<u64>,
-    confidence: u8,
-) {
-    if notes
-        .iter()
-        .any(|note| note.text.eq_ignore_ascii_case(text.as_str()))
-    {
-        return;
-    }
-    notes.insert(
-        0,
-        ResidentContinuityNote {
-            text,
-            source: source.to_string(),
-            source_event_seq,
-            confidence,
-        },
-    );
-    notes.truncate(8);
-}
-
-fn resident_proposed_action_intent(action: &AvatarProposedAction) -> Option<String> {
-    let kind = sanitize_continuity_note_text(Some(&action.kind))?;
-    let mut parts = vec![format!("propose {kind}")];
-    if let Some(target_actor_id) = action.target_actor_id {
-        parts.push(format!("target actor {target_actor_id}"));
-    }
-    if let Some(item_id) = action.item_id {
-        parts.push(format!("item {item_id}"));
-    }
-    if let Some(destination_location_id) = action.destination_location_id {
-        parts.push(format!("destination {destination_location_id}"));
-    }
-    if let Some(reason) = sanitize_continuity_note_text(action.reason.as_deref()) {
-        parts.push(reason);
-    }
-    Some(trim_to_chars(&parts.join("; "), 180))
-}
-
 fn sanitize_avatar_chat(text: &str) -> Option<String> {
     cosyworld_ai_model::sanitize_avatar_chat(text)
 }
 
-fn parse_resident_intent_json(text: &str, plan: &AvatarReplyPlan) -> Option<AvatarIntentProposal> {
-    let cleaned = text
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-    let json_text = if cleaned.starts_with('{') {
-        cleaned
-    } else {
-        let start = cleaned.find('{')?;
-        let end = cleaned.rfind('}')?;
-        cleaned.get(start..=end)?
-    };
-    let value: serde_json::Value = serde_json::from_str(json_text).ok()?;
-    resident_intent_from_json_value(&value, plan)
-}
-
-fn resident_intent_from_json_value(
-    value: &serde_json::Value,
-    plan: &AvatarReplyPlan,
-) -> Option<AvatarIntentProposal> {
-    let speech = value
-        .get("speech")
-        .and_then(|value| value.as_str())
-        .and_then(|speech| sanitize_resident_reply(plan, speech))?;
-    Some(AvatarIntentProposal {
-        speech,
-        intent: sanitize_continuity_note_text(value.get("intent").and_then(|value| value.as_str())),
-        belief: sanitize_continuity_note_text(value.get("belief").and_then(|value| value.as_str())),
-        desire: sanitize_continuity_note_text(value.get("desire").and_then(|value| value.as_str())),
-        promise: sanitize_continuity_note_text(
-            value.get("promise").and_then(|value| value.as_str()),
-        ),
-        refusal: sanitize_continuity_note_text(
-            value.get("refusal").and_then(|value| value.as_str()),
-        ),
-        proposed_action: value
-            .get("proposed_action")
-            .and_then(resident_proposed_action_from_json_value),
-    })
-}
-
-fn resident_proposed_action_from_json_value(
-    value: &serde_json::Value,
-) -> Option<AvatarProposedAction> {
-    if value.is_null() {
-        return None;
-    }
-    let kind = sanitize_continuity_note_text(value.get("kind").and_then(|value| value.as_str()))?;
-    let kind = kind.to_ascii_lowercase().replace([' ', '-'], "_");
-    if !matches!(
-        kind.as_str(),
-        "wait"
-            | "speak"
-            | "move"
-            | "pick_up"
-            | "drop"
-            | "give"
-            | "trade"
-            | "use"
-            | "search"
-            | "refuse"
-    ) {
-        return None;
-    }
-    Some(AvatarProposedAction {
-        kind,
-        target_actor_id: value
-            .get("target_actor_id")
-            .and_then(|value| value.as_u64()),
-        item_id: value.get("item_id").and_then(|value| value.as_u64()),
-        destination_location_id: value
-            .get("destination_location_id")
-            .and_then(|value| value.as_u64()),
-        reason: sanitize_continuity_note_text(value.get("reason").and_then(|value| value.as_str())),
-    })
-}
-
+#[cfg(test)]
 fn sanitize_resident_reply(plan: &AvatarReplyPlan, text: &str) -> Option<String> {
     cosyworld_ai_model::sanitize_resident_reply(
-        &ResidentReplyModelInput {
+        &cosyworld_ai_model::ResidentReplyModelInput {
             npc_actor_id: plan.speaker_actor_id,
             npc_name: plan.speaker_name.clone(),
             speech_mode: plan.speech_mode.clone(),
@@ -32632,7 +31929,7 @@ fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
     )
 }
 
-fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
+fn legacy_sanitize_generated_pathway_name(value: &str) -> Option<String> {
     let name = compact_whitespace(value.trim().trim_matches('"'));
     let word_count = name.split_whitespace().count();
     let char_count = name.chars().count();
@@ -32641,7 +31938,7 @@ fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
         || !(4..=40).contains(&char_count)
         || lower.contains("pathway")
         || lower.contains("stretch")
-        || generated_label_contains_authority_language(&lower)
+        || legacy_generated_label_contains_authority_language(&lower)
         || !name
             .chars()
             .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
@@ -32651,7 +31948,7 @@ fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
     Some(name)
 }
 
-fn generated_label_contains_authority_language(value: &str) -> bool {
+fn legacy_generated_label_contains_authority_language(value: &str) -> bool {
     value
         .split(|character: char| !character.is_ascii_alphanumeric())
         .any(|token| {
@@ -32679,7 +31976,7 @@ fn generated_label_contains_authority_language(value: &str) -> bool {
         })
 }
 
-fn sanitize_generated_content_text(
+fn legacy_sanitize_generated_content_text(
     value: &str,
     min_chars: usize,
     max_chars: usize,
@@ -32729,13 +32026,13 @@ fn sanitize_generated_content_text(
     Some(text)
 }
 
-fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
+fn legacy_sanitize_generated_pathway_title(value: &str) -> Option<String> {
     let title = compact_whitespace(value.trim().trim_matches('"'));
     let word_count = title.split_whitespace().count();
     if !(1..=6).contains(&word_count)
         || !(4..=48).contains(&title.chars().count())
         || title.to_ascii_lowercase().contains("pathway to")
-        || generated_label_contains_authority_language(&title.to_ascii_lowercase())
+        || legacy_generated_label_contains_authority_language(&title.to_ascii_lowercase())
         || !title
             .chars()
             .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
@@ -32747,7 +32044,7 @@ fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GeneratedWaypointContentProposal {
+struct LegacyGeneratedWaypointContentProposal {
     name: String,
     title: String,
     description: String,
@@ -32757,14 +32054,14 @@ struct GeneratedWaypointContentProposal {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GeneratedPathwayContentProposal {
-    waypoints: Vec<GeneratedWaypointContentProposal>,
+struct LegacyGeneratedPathwayContentProposal {
+    waypoints: Vec<LegacyGeneratedWaypointContentProposal>,
 }
 
-fn parse_generated_pathway_content(
+fn legacy_parse_generated_pathway_content(
     text: &str,
     expected: usize,
-) -> Option<Vec<GeneratedWaypointContentProposal>> {
+) -> Option<Vec<LegacyGeneratedWaypointContentProposal>> {
     let cleaned = text
         .trim()
         .trim_start_matches("```json")
@@ -32778,7 +32075,7 @@ fn parse_generated_pathway_content(
         let end = cleaned.rfind('}')?;
         cleaned.get(start..=end)?
     };
-    let proposal: GeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
+    let proposal: LegacyGeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
     if proposal.waypoints.len() != expected {
         return None;
     }
@@ -32786,12 +32083,20 @@ fn parse_generated_pathway_content(
         .waypoints
         .into_iter()
         .map(|waypoint| {
-            Some(GeneratedWaypointContentProposal {
+            Some(LegacyGeneratedWaypointContentProposal {
                 name: sanitize_generated_pathway_name(&waypoint.name)?,
                 title: sanitize_generated_pathway_title(&waypoint.title)?,
-                description: sanitize_generated_content_text(&waypoint.description, 24, 240)?,
-                persona: sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
-                visual_detail: sanitize_generated_content_text(&waypoint.visual_detail, 12, 180)?,
+                description: legacy_sanitize_generated_content_text(
+                    &waypoint.description,
+                    24,
+                    240,
+                )?,
+                persona: legacy_sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
+                visual_detail: legacy_sanitize_generated_content_text(
+                    &waypoint.visual_detail,
+                    12,
+                    180,
+                )?,
             })
         })
         .collect::<Option<Vec<_>>>()?;
@@ -32802,7 +32107,7 @@ fn parse_generated_pathway_content(
     (unique.len() == waypoints.len()).then_some(waypoints)
 }
 
-fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
+fn legacy_generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
     let name = compact_whitespace(name).to_ascii_lowercase();
     anchors.iter().all(|anchor| {
         let anchor = compact_whitespace(anchor).to_ascii_lowercase();
@@ -32810,9 +32115,9 @@ fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
     })
 }
 
-fn apply_generated_waypoint_content(
+fn legacy_apply_generated_waypoint_content(
     waypoint: &mut GeneratedWaypointState,
-    content: GeneratedWaypointContentProposal,
+    content: LegacyGeneratedWaypointContentProposal,
 ) {
     waypoint.name = content.name.clone();
     waypoint.meta.title = content.title;
@@ -32825,24 +32130,6 @@ fn apply_generated_waypoint_content(
         biome = waypoint.meta.biome,
         terrain = waypoint.meta.terrain.join(", "),
     ));
-}
-
-fn set_pathway_generation_provenance(
-    pathway: &mut GeneratedPathwayState,
-    mode: GenerationMode,
-    config: Option<&AiConfig>,
-    source: &str,
-    attempts: u8,
-) {
-    pathway.generation = GenerationProvenance {
-        source: source.to_string(),
-        feature: PATHWAY_CONTENT_FEATURE.to_string(),
-        policy_mode: mode.as_str().to_string(),
-        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
-        provider: ai_provider_name(config).to_string(),
-        model: ai_model_name(config),
-        attempts,
-    };
 }
 
 async fn generate_hidden_pathway_content(
@@ -32859,7 +32146,8 @@ async fn generate_hidden_pathway_content(
     let mode = state.generation_controls.mode(PATHWAY_CONTENT_FEATURE);
     let config = state.ai_config.as_ref().as_ref();
     if mode == GenerationMode::Off {
-        set_pathway_generation_provenance(pathway, mode, config, "deterministic_fallback", 0);
+        pathway.generation =
+            GenerationProvenance::for_pathway(mode, config, None, "deterministic_fallback", 0);
         record_ai_usage(
             state,
             Some(pathway.created_by_actor_id),
@@ -32875,7 +32163,8 @@ async fn generate_hidden_pathway_content(
         return;
     }
     let Some(config) = config else {
-        set_pathway_generation_provenance(pathway, mode, None, "deterministic_fallback", 0);
+        pathway.generation =
+            GenerationProvenance::for_pathway(mode, None, None, "deterministic_fallback", 0);
         record_ai_usage(
             state,
             Some(pathway.created_by_actor_id),
@@ -32890,28 +32179,7 @@ async fn generate_hidden_pathway_content(
         );
         return;
     };
-    let waypoint_context = pathway
-        .waypoints
-        .iter()
-        .enumerate()
-        .map(|(index, waypoint)| {
-            format!(
-                "{}. fallback name: {}; biome: {}; terrain: {}",
-                index + 1,
-                waypoint.name,
-                waypoint.meta.biome,
-                waypoint.meta.terrain.join(", ")
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let prompt = format!(
-        "Create {count} distinct hidden waypoint identities for successive stretches of one cozy storybook route. They are generated together now but players encounter them one at a time through Explore. Route: {origin} toward {destination}.\n{context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Do not introduce people, creatures, items, quests, rewards, rules, danger outcomes, access, magic powers, or facts beyond the listed biome and terrain. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Stretch, the route destination, or duplicates.",
-        count = pathway.waypoints.len(),
-        origin = narration_plan.from_name,
-        destination = narration_plan.destination_name,
-        context = waypoint_context,
-    );
+    let prompt_context = pathway_content_generation_context(state, pathway).await;
     let response_format = serde_json::json!({
         "type": "json_schema",
         "json_schema": {
@@ -32947,8 +32215,10 @@ async fn generate_hidden_pathway_content(
         config,
         ChatCompletionRequest {
             feature: PATHWAY_CONTENT_FEATURE,
+            prompt_version: PATHWAY_CONTENT_PROMPT_VERSION,
+            capability: ModelCapability::WorldContent,
             system: "You create bounded hidden geography in CosyWorld. Return only JSON matching the supplied schema. World rules and rewards are outside your authority.",
-            user: &prompt,
+            user: &prompt_context.prompt,
             temperature: 0.8,
             max_tokens: 600,
             timeout: Duration::from_secs(12),
@@ -32961,10 +32231,10 @@ async fn generate_hidden_pathway_content(
     {
         Ok(completion) => completion,
         Err(error) => {
-            set_pathway_generation_provenance(
-                pathway,
+            pathway.generation = GenerationProvenance::for_pathway(
                 mode,
                 Some(config),
+                None,
                 "deterministic_fallback",
                 error.attempts,
             );
@@ -32988,15 +32258,20 @@ async fn generate_hidden_pathway_content(
             contents.iter().all(|content| {
                 generated_pathway_name_avoids_anchors(
                     &content.name,
-                    &[&narration_plan.from_name, &narration_plan.destination_name],
-                )
+                    &[
+                        &prompt_context.origin_name,
+                        &prompt_context.destination_name,
+                    ],
+                ) && !prompt_context
+                    .occupied_names
+                    .contains(&content.name.to_ascii_lowercase())
             })
         });
     let Some(contents) = contents else {
-        set_pathway_generation_provenance(
-            pathway,
+        pathway.generation = GenerationProvenance::for_pathway(
             mode,
             Some(config),
+            completion.model_attribution.as_ref(),
             "deterministic_fallback",
             completion.attempts,
         );
@@ -33015,10 +32290,10 @@ async fn generate_hidden_pathway_content(
         return;
     };
     if mode == GenerationMode::Shadow {
-        set_pathway_generation_provenance(
-            pathway,
+        pathway.generation = GenerationProvenance::for_pathway(
             mode,
             Some(config),
+            completion.model_attribution.as_ref(),
             "deterministic_fallback",
             completion.attempts,
         );
@@ -33044,7 +32319,13 @@ async fn generate_hidden_pathway_content(
             narration_plan.to_name = next_name;
         }
     }
-    set_pathway_generation_provenance(pathway, mode, Some(config), "ai", completion.attempts);
+    pathway.generation = GenerationProvenance::for_pathway(
+        mode,
+        Some(config),
+        completion.model_attribution.as_ref(),
+        "ai",
+        completion.attempts,
+    );
     record_ai_usage(
         state,
         Some(pathway.created_by_actor_id),
@@ -33203,11 +32484,11 @@ async fn move_actor(
         if let ProjectionMutation::JourneyTransition {
             narration: stored_narration,
             ..
-        } = &mut mutation
+        } = mutation.as_mut()
         {
             *stored_narration = narration;
         }
-        let content_generation = mutation.clone();
+        let content_generation = (*mutation).clone();
         let turn_action_kind = if action.kind == CW_ACTION_MOVE {
             CW_ACTION_MOVE
         } else {
@@ -33220,7 +32501,7 @@ async fn move_actor(
         let response = apply_journey_transition_with_hosted_access(
             state.clone(),
             action,
-            mutation,
+            *mutation,
             payload.actor_session.as_deref(),
             turn_action_kind,
             hosted_access_grant,
@@ -33583,8 +32864,31 @@ async fn drop_item(
 async fn use_item(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(payload): Json<ItemRequest>,
+    Json(payload): Json<UseItemRequest>,
 ) -> Json<ActionResponse> {
+    match (payload.location_id, payload.feature_key.as_deref()) {
+        (Some(location_id), Some(feature_key)) if payload.target_actor_id.is_none() => {
+            return Json(
+                execute_feature_use_action(
+                    &state,
+                    client_addr,
+                    payload.actor_id,
+                    payload.actor_session.as_deref(),
+                    payload.item_id,
+                    location_id,
+                    feature_key,
+                )
+                .await
+                .response,
+            );
+        }
+        (None, None) => {}
+        _ => {
+            return action_offer_rejected(
+                "Use needs either one avatar target or one exact room-feature binding.",
+            );
+        }
+    }
     if !allow_actor_mutation(
         &state,
         client_addr,
@@ -34644,7 +33948,15 @@ async fn work(
     };
     let clock_id = intent.strategy.clock_id.clone();
     let prepared = runtime.prepared_tag_active(payload.actor_id, location_id);
-    let progress_amount = runtime.contribution_progress_amount(payload.actor_id, &intent);
+    let Some(project_push) = runtime.project_push_input(payload.actor_id, &intent, prepared) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let progress_amount =
+        RuntimeWorld::resolve_project_push(project_push).expect("validated project Push input");
     let progress_reason = if prepared && progress_amount > 2 {
         "informed_work"
     } else if prepared {
@@ -34655,8 +33967,9 @@ async fn work(
     let pathway_upgrade_id = runtime.generated_pathway_id_for_progress_clock(&clock_id);
     let mut record = JournalRecord::new(
         CwAction {
-            kind: CW_ACTION_NONE,
+            kind: CW_ACTION_PROJECT_PUSH,
             actor_id: payload.actor_id,
+            project_push,
             ..CwAction::default()
         },
         runtime.next_seed_value(),
@@ -34961,22 +34274,14 @@ async fn rest(
     if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
         return response;
     }
-    let Ok(mutations) = runtime.plan_rest_mutations(payload.actor_id) else {
+    let Ok((action, mutations)) = runtime.plan_rest_action(payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
             status: 400,
             events: Vec::new(),
         });
     };
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    )
-    .into_player_card();
+    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
     record.bind_offer_kind("rest");
     record.projection_mutations.extend(mutations);
 
@@ -35724,10 +35029,14 @@ async fn materialize_collection_item(
         });
     };
     let item_id = materialized_item_id(receipt_id);
+    let (max_charges, recovery, recovery_zone) = seed_item_recovery_profile(seed_item);
     let item = CwItem {
         id: item_id,
         kind: seed_item_kind(seed_item).unwrap_or(CW_ITEM_KEEPSAKE),
         charges: seed_item.charges,
+        max_charges,
+        recovery,
+        recovery_zone,
         weight_tenths: seed_item.weight_tenths,
         container_capacity_tenths: seed_item.container_capacity_tenths,
         size_class: seed_item_size(seed_item).unwrap_or(CW_ITEM_SIZE_SMALL),
@@ -35929,6 +35238,7 @@ async fn create_bond(
         });
     };
 
+    let active_direct_actors = active_actor_ids_for_state(&state);
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
         &runtime,
@@ -35959,8 +35269,7 @@ async fn create_bond(
         });
     };
     if target.id == actor.id
-        || !RuntimeWorld::actor_can_act(target)
-        || target.location_id != actor.location_id
+        || !runtime.actor_offer_target_visible(actor, target, &active_direct_actors)
         || runtime.actors_blocked(actor.id, target.id)
         || runtime
             .active_bond(payload.actor_id, payload.target_actor_id)
@@ -36752,6 +36061,7 @@ fn broadcast_events_inner(state: &AppState, events: &[EventView], relay_presence
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut presence_events = Vec::new();
+    let covered_event_seqs = semantic_receipts::semantic_receipt_covered_event_seqs(events);
     for event in events
         .iter()
         .filter(|event| event.type_name != "action.receipt")
@@ -36771,6 +36081,9 @@ fn broadcast_events_inner(state: &AppState, events: &[EventView], relay_presence
             state
                 .canonical_fanout_seq
                 .store(event.seq, AtomicOrdering::Release);
+            if covered_event_seqs.contains(&event.seq) {
+                continue;
+            }
         } else if event.type_name == "actor.presence" {
             if let Some(actor_id) = event.actor_id {
                 if let Ok(mut presence) = state.regional_presence.lock() {
@@ -37622,7 +36935,7 @@ fn seed_exit_discovered_tag_id(from_location_id: u64, to_location_id: u64) -> St
     format!("seed_exit:{from_location_id}:{to_location_id}:discovered")
 }
 
-fn seed_exit_search_memory_subject_key(from_location_id: u64, to_location_id: u64) -> String {
+fn seed_exit_belief_subject_key(from_location_id: u64, to_location_id: u64) -> String {
     format!("{from_location_id}:{to_location_id}")
 }
 
@@ -37742,9 +37055,15 @@ fn canonical_pathway_anchors(left: u64, right: u64) -> (u64, u64) {
     }
 }
 
-fn generated_pathway_id(left: u64, right: u64) -> String {
-    let (origin, destination) = canonical_pathway_anchors(left, right);
-    format!("pathway:{origin}:{destination}")
+fn generated_pathway_canonical_id(source_route: &RouteRecordState) -> String {
+    format!(
+        "generated-pathway:{}@{}",
+        source_route.canonical_id, source_route.entity_version
+    )
+}
+
+fn generated_waypoint_canonical_id(pathway_id: &str, index: usize) -> String {
+    format!("{pathway_id}/waypoint/{index}")
 }
 
 fn generated_pathway_progress_clock_id(pathway_id: &str) -> String {
@@ -37853,10 +37172,9 @@ fn materialized_item_id(receipt_id: &str) -> u64 {
     MATERIALIZED_ITEM_ID_BASE + stable_pathway_hash(receipt_id) % MATERIALIZED_ITEM_ID_RANGE
 }
 
-fn generated_pathway_location_id(pathway_id: &str, index: usize) -> u64 {
-    GENERATED_PATHWAY_LOCATION_ID_BASE
-        + (stable_pathway_hash(pathway_id) % 10_000) * 16
-        + index as u64
+fn generated_pathway_location_id(waypoint_canonical_id: &str) -> u64 {
+    let range = GENERATED_PATHWAY_LOCATION_ID_LIMIT - GENERATED_PATHWAY_LOCATION_ID_BASE;
+    GENERATED_PATHWAY_LOCATION_ID_BASE + stable_pathway_hash(waypoint_canonical_id) % range
 }
 
 fn interpolated_pathway_terrain(
@@ -38480,7 +37798,7 @@ fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
     const CAPACITY: usize = 2;
     let mut candidates: Vec<_> = offers
         .iter()
-        .filter(|offer| action_offer_is_reachable(offer))
+        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
         .collect();
     candidates.sort_by(|left, right| {
         left.provider
@@ -39079,6 +38397,7 @@ fn canonical_fallback_command_response(
             "The command committed before its full response was delivered. Refresh to continue."
                 .to_string(),
         ),
+        error_kind: None,
         action: None,
         receipt: Some(CanonicalCommandReceipt {
             world_id: OFFICIAL_WORLD_ID.to_string(),
@@ -39325,6 +38644,9 @@ fn commit_journal_record(
                 &pre_orb_reward_claims,
             );
             if status == CW_OK {
+                if let Some(receipt) = record.ai_publication.as_ref() {
+                    insert_ai_publication_attempt(&tx, receipt, "certified", None)?;
+                }
                 insert_orb_ledger_entries(&tx, &ledger_entries)?;
             }
             insert_world_events_strict(&tx, &events)?;
@@ -39614,30 +38936,6 @@ fn snapshot_path_from_env() -> Option<PathBuf> {
     }
 }
 
-fn resident_continuity_path_from_env(snapshot_path: Option<&PathBuf>) -> Option<PathBuf> {
-    match std::env::var("COSYWORLD_V2_RESIDENT_CONTINUITY_PATH") {
-        Ok(value) if value.trim().is_empty() => None,
-        Ok(value) if value.eq_ignore_ascii_case("off") || value.eq_ignore_ascii_case("none") => {
-            None
-        }
-        Ok(value) => Some(PathBuf::from(value)),
-        Err(_) => Some(default_resident_continuity_path(snapshot_path)),
-    }
-}
-
-fn default_resident_continuity_path(snapshot_path: Option<&PathBuf>) -> PathBuf {
-    let Some(snapshot_path) = snapshot_path else {
-        return PathBuf::from(".runtime/cosyworld-v2-resident-continuity.json");
-    };
-    let stem = snapshot_path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .filter(|value| !value.is_empty())
-        .unwrap_or("cosyworld-v2");
-    let base = stem.strip_suffix("-snapshot").unwrap_or(stem);
-    snapshot_path.with_file_name(format!("{base}-resident-continuity.json"))
-}
-
 #[cfg(test)]
 fn load_snapshot_or_seed(snapshot_path: Option<&PathBuf>) -> RuntimeWorld {
     load_snapshot_or_seed_with_policy(snapshot_path, false)
@@ -39882,6 +39180,8 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             ON economy_reconciliation_runs(created_at_ms);",
     )
     .map_err(sqlite_error)?;
+    init_ai_publication_store(&conn)?;
+    ai_voice_routing::init_ai_voice_routing_store(&conn)?;
     ensure_sqlite_column(
         &conn,
         "world_events",
@@ -40087,17 +39387,19 @@ fn actor_job_dedupe_key(observation: &PlayerTickObservation) -> String {
 }
 
 fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> io::Result<bool> {
-    if let Some(location_id) = observation.source_location_id {
-        let active_heartbeat_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM actor_jobs
+    if observation.relationship_reply.is_none() {
+        if let Some(location_id) = observation.source_location_id {
+            let active_heartbeat_count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM actor_jobs
                  WHERE kind = ?1 AND location_id = ?2 AND status IN ('pending', 'running')",
-                params![ACTOR_JOB_KIND_PLAYER_TICK, location_id as i64],
-                |row| row.get(0),
-            )
-            .map_err(sqlite_error)?;
-        if active_heartbeat_count > 0 {
-            return Ok(false);
+                    params![ACTOR_JOB_KIND_PLAYER_TICK, location_id as i64],
+                    |row| row.get(0),
+                )
+                .map_err(sqlite_error)?;
+            if active_heartbeat_count > 0 {
+                return Ok(false);
+            }
         }
     }
     let payload = ActorJobPayload::PlayerTick(observation.clone());
@@ -41139,6 +40441,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM moderation_reports;
          DELETE FROM orb_ledger;
          DELETE FROM ai_usage_ledger;
+         DELETE FROM ai_publication_attempts;
          DELETE FROM wooden_box_receipts;
          DELETE FROM avatar_pack_openings;
          DELETE FROM economy_reconciliation_runs;
@@ -41900,6 +41203,22 @@ fn now_millis() -> u64 {
 }
 
 #[cfg(test)]
+fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+    CommandRequest {
+        actor_id,
+        actor_session: None,
+        command: command.to_string(),
+        offer_id: None,
+        wallet_address: None,
+        wallet: None,
+        wallet_session: None,
+        owned_card_ids: None,
+        cards: None,
+        envelope: None,
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use axum::{
@@ -42017,6 +41336,7 @@ mod tests {
             actor_id,
             actor_session: None,
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,
@@ -43549,6 +42869,7 @@ mod tests {
             actor_id,
             actor_session: Some(actor_session.to_string()),
             command: command.to_string(),
+            offer_id: None,
             wallet_address: None,
             wallet: None,
             wallet_session: None,
@@ -44450,20 +43771,17 @@ mod tests {
     }
 
     async fn run_hot_room_and_regional_chaos() {
-        let primary_path = std::env::temp_dir().join(format!(
-            "cosyworld-hot-room-primary-{}-{}.sqlite",
+        let fixture_root = std::env::temp_dir().join(format!(
+            "cosyworld-hot-room-{}-{}",
             std::process::id(),
-            now_seed()
+            random_hex(16)
         ));
-        let recovery_path = std::env::temp_dir().join(format!(
-            "cosyworld-hot-room-recovery-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let quarantine_path = primary_path.with_extension("isolated.sqlite");
-        for path in [&primary_path, &recovery_path, &quarantine_path] {
-            let _ = fs::remove_file(path);
-        }
+        fs::create_dir(&fixture_root).expect("create unique hot-room fixture directory");
+        let primary_path = fixture_root.join("primary.sqlite");
+        let recovery_path = fixture_root.join("recovery.sqlite");
+        let isolated_path = fixture_root.join("isolated.sqlite");
+        initialize_test_event_store(&primary_path);
+        initialize_test_event_store(&isolated_path);
 
         let listener_a = TcpListener::bind("127.0.0.1:0")
             .await
@@ -44471,10 +43789,17 @@ mod tests {
         let listener_b = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind hot-room process B");
+        let listener_isolated = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind isolated hot-room process");
         let addr_a = listener_a.local_addr().expect("hot-room process A address");
         let addr_b = listener_b.local_addr().expect("hot-room process B address");
+        let isolated_addr = listener_isolated
+            .local_addr()
+            .expect("isolated hot-room process address");
         let url_a = format!("http://{addr_a}");
         let url_b = format!("http://{addr_b}");
+        let isolated_url = format!("http://{isolated_addr}");
         let router_token = "hot-room-regional-router-token";
         let lease_ttl = Duration::from_millis(1_500);
         let actor_hot = 5100;
@@ -44522,25 +43847,18 @@ mod tests {
         );
         let store_id = state_a.canonical_store_id.as_ref().clone();
         assert_eq!(state_b.canonical_store_id.as_str(), store_id);
+        let mut isolated_state = state_b.clone();
+        isolated_state.event_store_path = Some(Arc::new(isolated_path.clone()));
 
-        let app_a = routes::app_router(state_a.clone());
-        let app_b = routes::app_router(state_b.clone());
-        let server_a = tokio::spawn(async move {
-            axum::serve(
-                listener_a,
-                app_a.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve hot-room process A");
-        });
-        let server_b = tokio::spawn(async move {
-            axum::serve(
-                listener_b,
-                app_b.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve hot-room process B");
-        });
+        let server_a =
+            spawn_test_app_server(listener_a, state_a.clone(), "serve hot-room process A");
+        let server_b =
+            spawn_test_app_server(listener_b, state_b.clone(), "serve hot-room process B");
+        let isolated_server = spawn_test_app_server(
+            listener_isolated,
+            isolated_state.clone(),
+            "serve isolated hot-room process",
+        );
         let convergence_a =
             start_canonical_capacity_scheduler(state_a.clone()).expect("hot-room convergence A");
         let convergence_b =
@@ -44830,13 +44148,11 @@ mod tests {
             before_cross_location
         );
 
-        // Network isolation cannot bootstrap a second world at the same path:
-        // a fresh file has no pinned store identity and every mutation rejects.
-        convergence_a.abort();
-        convergence_b.abort();
-        fs::rename(&primary_path, &quarantine_path).expect("isolate primary store");
+        // Network isolation cannot bootstrap a second world: the isolated
+        // worker starts on a complete schema with no pinned store identity, so
+        // every mutation rejects without replacing the live primary database.
         let isolated_request = {
-            let runtime = state_b.inner.lock().await;
+            let runtime = isolated_state.inner.lock().await;
             canonical_test_command_request(
                 &runtime,
                 actor_hot,
@@ -44846,7 +44162,7 @@ mod tests {
             )
         };
         let isolated: CommandResponse = client
-            .post(format!("{url_b}/commands"))
+            .post(format!("{isolated_url}/commands"))
             .json(&isolated_request)
             .send()
             .await
@@ -44856,7 +44172,7 @@ mod tests {
             .expect("isolated command json");
         assert!(!isolated.ok);
         assert_eq!(isolated.status, 503);
-        let isolated_conn = open_event_store(&primary_path).expect("fresh isolated store");
+        let isolated_conn = open_event_store(&isolated_path).expect("fresh isolated store");
         let isolated_actions: i64 = isolated_conn
             .query_row("SELECT COUNT(*) FROM action_journal", [], |row| row.get(0))
             .unwrap();
@@ -44867,18 +44183,14 @@ mod tests {
             .unwrap();
         assert_eq!((isolated_actions, isolated_identity), (0, 0));
         drop(isolated_conn);
-        fs::remove_file(&primary_path).expect("remove isolated empty store");
-        fs::rename(&quarantine_path, &primary_path).expect("restore primary store");
-        let convergence_a =
-            start_canonical_capacity_scheduler(state_a.clone()).expect("restart convergence A");
-        let convergence_b =
-            start_canonical_capacity_scheduler(state_b.clone()).expect("restart convergence B");
         converge_capacity_for_read(&state_a, Some(&session_hot)).await;
 
         // Kill the hot-room owner. The surviving process takes the expired
         // range at a higher fence without changing actor identity or history.
         convergence_b.abort();
         server_b.abort();
+        let _ = convergence_b.await;
+        let _ = server_b.await;
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
         let process_loss_request = {
             let runtime = state_a.inner.lock().await;
@@ -44942,6 +44254,8 @@ mod tests {
         assert!(checkpoint.prefix_hash.starts_with("sha256:"));
         convergence_a.abort();
         server_a.abort();
+        let _ = convergence_a.await;
+        let _ = server_a.await;
         let promotion = promote_recovery_region(
             &recovery_path,
             OFFICIAL_WORLD_ID,
@@ -45003,15 +44317,11 @@ mod tests {
             router_token,
             lease_ttl,
         );
-        let recovery_app = routes::app_router(recovery_state.clone());
-        let recovery_server = tokio::spawn(async move {
-            axum::serve(
-                listener_recovery,
-                recovery_app.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve recovery writer");
-        });
+        let recovery_server = spawn_test_app_server(
+            listener_recovery,
+            recovery_state.clone(),
+            "serve recovery writer",
+        );
         let recovery_convergence = start_canonical_capacity_scheduler(recovery_state.clone())
             .expect("recovery convergence");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
@@ -45059,15 +44369,11 @@ mod tests {
             router_token,
             lease_ttl,
         );
-        let reconnect_app = routes::app_router(reconnect_state.clone());
-        let reconnect_server = tokio::spawn(async move {
-            axum::serve(
-                listener_reconnect,
-                reconnect_app.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .await
-            .expect("serve reconnect edge");
-        });
+        let reconnect_server = spawn_test_app_server(
+            listener_reconnect,
+            reconnect_state.clone(),
+            "serve reconnect edge",
+        );
         let reconnect_convergence = start_canonical_capacity_scheduler(reconnect_state.clone())
             .expect("reconnect convergence");
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
@@ -45174,10 +44480,25 @@ mod tests {
         reconnect_convergence.abort();
         recovery_server.abort();
         reconnect_server.abort();
-        drop(client);
-        for path in [&primary_path, &recovery_path, &quarantine_path] {
-            let _ = fs::remove_file(path);
+        isolated_server.abort();
+        for task in [
+            recovery_convergence,
+            reconnect_convergence,
+            recovery_server,
+            reconnect_server,
+            isolated_server,
+        ] {
+            let _ = task.await;
         }
+        drop(client);
+        drop((
+            state_a,
+            state_b,
+            isolated_state,
+            recovery_state,
+            reconnect_state,
+        ));
+        fs::remove_dir_all(&fixture_root).expect("remove hot-room fixture directory");
     }
 
     #[tokio::test]
@@ -45373,9 +44694,9 @@ mod tests {
         runtime.remember_search_discovery(
             RATI_ACTOR_ID,
             from_location_id,
-            SEARCH_MEMORY_KIND_SEED_EXIT,
+            BELIEF_KIND_SEED_EXIT,
             to_location_id,
-            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+            &seed_exit_belief_subject_key(from_location_id, to_location_id),
         );
     }
 
@@ -45604,10 +44925,7 @@ mod tests {
         ));
         assert!(!action_path_accepts_kind("/actions/explore-path", "search"));
         assert!(action_path_accepts_kind("/actions/use-item", "use_item"));
-        assert!(!action_path_accepts_kind(
-            "/actions/use-item",
-            "use_feature"
-        ));
+        assert!(action_path_accepts_kind("/actions/use-item", "use_feature"));
     }
 
     #[test]
@@ -47297,12 +46615,14 @@ mod tests {
     #[test]
     fn generated_pathway_content_can_change_narrative_fields_only() {
         let runtime = RuntimeWorld::seeded();
-        let mut pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let mut pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint = pathway
             .waypoints
             .first_mut()
@@ -47346,7 +46666,8 @@ mod tests {
         assert!(art_prompt.contains("no watermark"));
         assert!(art_prompt.contains(&biome));
 
-        set_pathway_generation_provenance(&mut pathway, GenerationMode::AutoBounded, None, "ai", 2);
+        pathway.generation =
+            GenerationProvenance::for_pathway(GenerationMode::AutoBounded, None, None, "ai", 2);
         assert_eq!(pathway.generation.feature, PATHWAY_CONTENT_FEATURE);
         assert_eq!(
             pathway.generation.prompt_version,
@@ -47362,6 +46683,7 @@ mod tests {
             "/chat/completions",
             post(|| async {
                 Json(serde_json::json!({
+                    "model": "test-resolved-structured-model",
                     "choices": [{
                         "message": {
                             "content": r#"{"waypoints":[{"name":"Rain-Silver Crossing","title":"Silverwater Bend","description":"Rain threads the flat stones while foxglove leans over the crossing.","persona":"The crossing brightens after rain and keeps every footprint briefly visible.","visual_detail":"silver rain on flat stones beneath leaning foxglove"},{"name":"Foxglove Turn","title":"Blooming Corner","description":"Foxglove crowds a soft bend where moss gathers beneath the old roots.","persona":"The turn feels close and sheltered, opening only as travelers round it.","visual_detail":"dense foxglove around a mossy root-lined bend"}]}"#
@@ -47379,7 +46701,6 @@ mod tests {
         let server = tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
         });
-
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -47444,10 +46765,9 @@ mod tests {
         };
         assert_eq!(pathway.generation.source, "ai");
         assert_eq!(pathway.generation.policy_mode, "auto_bounded");
-        assert_eq!(pathway.generation.model, "test-structured-model");
+        assert_eq!(pathway.generation.model, "test-resolved-structured-model");
         assert_eq!(pathway.waypoints[0].name, "Rain-Silver Crossing");
         assert_eq!(pathway.waypoints[1].name, "Foxglove Turn");
-
         let first_waypoint_id = pathway.waypoints[0].id;
         let second_waypoint_id = pathway.waypoints[1].id;
         let mut runtime = state.inner.lock().await;
@@ -47455,7 +46775,26 @@ mod tests {
         assert_eq!(runtime.location_name(second_waypoint_id), None);
         let mut record = JournalRecord::new(action, 987_001);
         record.projection_mutations.push(mutation);
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let replayed_record: JournalRecord = serde_json::from_str(
+            &serde_json::to_string(&record).expect("serialize pathway generation record"),
+        )
+        .expect("replay pathway generation record");
+        assert_eq!(runtime.apply_journal_record(&replayed_record).0, CW_OK);
+        let replayed_pathway = runtime
+            .generated_pathways
+            .values()
+            .next()
+            .expect("replayed generated pathway");
+        let attribution = replayed_pathway
+            .generation
+            .model_attribution
+            .as_ref()
+            .expect("replayed model attribution");
+        assert_eq!(attribution.catalog_snapshot_version, "legacy-config-v1");
+        assert_eq!(
+            attribution.resolved_model_id,
+            "test-resolved-structured-model"
+        );
         assert_eq!(
             runtime.location_name(first_waypoint_id).as_deref(),
             Some("Rain-Silver Crossing")
@@ -47584,6 +46923,14 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == first_waypoint_id));
+        assert_eq!(
+            after_first_search
+                .exits
+                .iter()
+                .find(|exit| exit.destination_location_id == first_waypoint_id)
+                .map(|exit| exit.route_label.as_str()),
+            Some("Route from Rain-Soft Garden to Moonlit Trail")
+        );
         assert!(!after_first_search
             .exits
             .iter()
@@ -47631,6 +46978,11 @@ mod tests {
             runtime.actor_by_id(5000).unwrap().location_id,
             first_waypoint_id
         );
+        let traveled_pathway = runtime
+            .pathway_for_anchors(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("travel updates the shared pathway");
+        assert_eq!(traveled_pathway.traffic_count, 1);
+        assert_eq!(traveled_pathway.way_class, PathwayWayClass::Track);
         let frontier_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(frontier_state.location.name, first_waypoint_name);
         assert_eq!(
@@ -47856,6 +47208,16 @@ mod tests {
 
     #[test]
     fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable() {
+        std::thread::Builder::new()
+            .name("generated-place-lifecycle".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(generated_place_lifecycle_is_typed_causal_bounded_and_replayable_inner)
+            .expect("generated-place lifecycle test thread starts")
+            .join()
+            .expect("generated-place lifecycle test thread completes");
+    }
+
+    fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable_inner() {
         fn apply_pair(
             first: &mut RuntimeWorld,
             replay: &mut RuntimeWorld,
@@ -47901,12 +47263,14 @@ mod tests {
             &mut replay,
             &avatar_record(5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Trail Builder", 910_000),
         );
-        let rejected_pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let rejected_pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let rejected_waypoint_id = rejected_pathway.waypoints[0].id;
         let mut rejected_record = JournalRecord::new(
             CwAction {
@@ -47944,8 +47308,7 @@ mod tests {
         search_record.projection_mutations.push(search_mutation);
         let discovery_events = apply_pair(&mut runtime, &mut replay, &search_record);
 
-        let pathway_id =
-            generated_pathway_id(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID);
+        let pathway_id = runtime.journeys[&5000].pathway_id.clone();
         let first_waypoint_id = runtime.journeys[&5000].path[1];
         let place = runtime.generated_places[&first_waypoint_id].clone();
         assert_eq!(place.schema_version, GENERATED_PLACE_SCHEMA_VERSION);
@@ -48814,7 +48177,6 @@ mod tests {
         assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
         assert!(INDEX_HTML.contains("kind: \"advancement-chat\""));
         assert!(!INDEX_HTML.contains("label: \"grow closer\""));
-        assert!(INDEX_HTML.contains("return [waitingAction].map(decorateActionHand);"));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
@@ -51434,7 +50796,8 @@ mod tests {
         let encounter = replayed
             .combat_encounter(9003)
             .expect("combat/3 encounter start remains replayable");
-        let actual = serde_json::json!({
+        assert_eq!(replayed.world.version, CW_KERNEL_VERSION);
+        let mut actual = serde_json::json!({
             "rules_profile": active_content().manifest.rules_profile,
             "kernel_version": replayed.world.version,
             "world_tick": replayed.world.tick,
@@ -51460,12 +50823,19 @@ mod tests {
             },
             "events": events
         });
+        let expected = fixture
+            .get("expected")
+            .cloned()
+            .expect("golden expected result exists");
+        let historical_kernel_version = expected
+            .get("kernel_version")
+            .cloned()
+            .expect("golden records their historical kernel version");
+        assert_eq!(historical_kernel_version, serde_json::json!(9));
+        actual["kernel_version"] = historical_kernel_version;
         assert_eq!(
             actual,
-            fixture
-                .get("expected")
-                .cloned()
-                .expect("golden expected result exists"),
+            expected,
             "authoritative replay output changed; preserve legacy meaning or version the fixture intentionally"
         );
     }
@@ -51854,6 +51224,7 @@ mod tests {
             allow_ordinary_speech: true,
             source_events: Vec::new(),
             ripple_source: None,
+            relationship_reply: None,
         };
         let first_observation = observation(41, 401);
         let second_observation = observation(42, 402);
@@ -51933,6 +51304,7 @@ mod tests {
             allow_ordinary_speech: true,
             source_events: Vec::new(),
             ripple_source: None,
+            relationship_reply: None,
         };
         assert!(append_actor_job(&path, &observation).expect("queue gameplay turn"));
 
@@ -52169,7 +51541,7 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         let sought_item_id =
             evolution_track_item_ids(RATI_ACTOR_ID).expect("Rati has evolution items")[0];
         for item in &mut runtime.world.items[..runtime.world.item_count] {
@@ -52178,13 +51550,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -52486,7 +51858,7 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
         hide_seed_items(&mut runtime);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
             if actor.kind == CW_ACTOR_NPC
                 && actor.id != RATI_ACTOR_ID
@@ -52538,7 +51910,7 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Path Player");
         hide_seed_items(&mut runtime);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
             if actor.kind != CW_ACTOR_NPC {
                 continue;
@@ -53159,7 +52531,7 @@ mod tests {
     fn player_ripple_context_scopes_resident_candidates_to_touched_rooms() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -53831,6 +53203,7 @@ mod tests {
                     intent_id: format!("test-community-art-{seed}"),
                     amount: 1,
                     history_through_seq: seed,
+                    evolution_job: None,
                 });
             assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
         }
@@ -53870,74 +53243,6 @@ mod tests {
             card.image_url.as_deref(),
             Some("/assets/generated/community/actor/5000.image?level=2&revision=1")
         );
-    }
-
-    #[tokio::test]
-    async fn community_image_endpoint_pools_one_orb_without_taking_a_turn() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Patron");
-        runtime.world.actors[..runtime.world.actor_count]
-            .iter_mut()
-            .find(|actor| actor.id == 5000)
-            .expect("test avatar exists")
-            .stats
-            .level = 2;
-        let before_tick = runtime.world.tick;
-        let mut state = test_app_state(runtime, None);
-        state.avatar_art_config = Arc::new(Some(ReplicateAvatarArtConfig {
-            api_token: "test-token".to_string(),
-            model: "test/model".to_string(),
-            version: None,
-            lora_url: None,
-            lora_input_key: "lora_weights".to_string(),
-            lora_scale_input_key: "lora_scale".to_string(),
-            lora_scale: 1.0,
-            prompt_prefix: "cozy card art".to_string(),
-            output_format: "png".to_string(),
-        }));
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-
-        let response = fund_community_image(
-            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
-            State(state.clone()),
-            Json(FundCommunityImageRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session.clone()),
-                subject_kind: "actor".to_string(),
-                subject_id: 5000,
-                intent_id: "test-community-endpoint-1".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(response.ok);
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "community_art.funded"));
-        let duplicate = fund_community_image(
-            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
-            State(state.clone()),
-            Json(FundCommunityImageRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                subject_kind: "actor".to_string(),
-                subject_id: 5000,
-                intent_id: "test-community-endpoint-1".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(duplicate.ok);
-        assert!(duplicate.events.is_empty());
-        let runtime = state.inner.lock().await;
-        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
-        assert_eq!(runtime.world.tick, before_tick);
-        let generation =
-            &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
-        assert_eq!(generation.funded_orbs, 1);
-        assert_eq!(generation.required_orbs, 2);
-        assert_eq!(generation.status, "funding");
     }
 
     #[test]
@@ -53991,6 +53296,7 @@ mod tests {
                 intent_id: "test-community-ledger-1".to_string(),
                 amount: 1,
                 history_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+                evolution_job: None,
             });
         art_record.orb_deltas.push(OrbDelta {
             actor_id: 5000,
@@ -54402,195 +53708,6 @@ mod tests {
                 && clock.filled == 0
                 && clock.segments == NATURAL_INVESTIGATION_SEGMENTS
         }));
-    }
-
-    #[test]
-    fn listen_and_rest_move_public_clocks_and_tags() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7084);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Rest Tester".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Clock-Touched Listener".to_string(),
-                description: "A test avatar checking Listen and Rest projection.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-        let initial_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(
-            initial_state
-                .calling
-                .as_ref()
-                .map(|calling| calling.statement.as_str()),
-            Some(default_calling_statement())
-        );
-        assert_eq!(initial_state.ledger.unbanked_count, 0);
-        if let Some(actor) = runtime
-            .world
-            .actors
-            .iter_mut()
-            .take(runtime.world.actor_count)
-            .find(|actor| actor.id == 5000)
-        {
-            actor.stats.wisdom = 32;
-        }
-
-        let mut listen = CwAction::default();
-        listen.kind = CW_ACTION_ABILITY_CHECK;
-        listen.actor_id = 5000;
-        listen.ability = LISTEN_ABILITY;
-        listen.dc = LISTEN_DC;
-        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(listen, 7085));
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
-                && event.clock_filled == Some(1)
-        }));
-        assert!(events
-            .iter()
-            .any(|event| event.type_name == "ledger.marked"));
-        assert_eq!(
-            runtime
-                .clocks
-                .get(MOONLIT_PROGRESS_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(1)
-        );
-        let listened_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(listened_state.ledger.unbanked_count, 2);
-        assert!(listened_state
-            .ledger
-            .unbanked_marks
-            .iter()
-            .any(|mark| mark.category == "learned_truth"));
-        assert!(listened_state
-            .ledger
-            .unbanked_marks
-            .iter()
-            .any(|mark| mark.category == "calling"));
-
-        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(listen, 7086));
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("tired")
-        }));
-        assert!(!events
-            .iter()
-            .any(|event| event.type_name == "ledger.marked"));
-        assert_eq!(
-            runtime
-                .clocks
-                .get(MOONLIT_PROGRESS_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(1)
-        );
-        let tired_tag = tired_tag_id(5000);
-        assert!(runtime
-            .tags
-            .get(&tired_tag)
-            .map(|tag| tag.active)
-            .unwrap_or(false));
-        let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
-        assert_eq!(tired_state.ledger.unbanked_count, 0);
-        assert_eq!(tired_state.ledger.banked_count, 2);
-        assert!(runtime.rest_available(5000));
-        assert!(tired_state
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "rest"));
-
-        let mut rest_action = CwAction::default();
-        rest_action.kind = CW_ACTION_NONE;
-        rest_action.actor_id = 5000;
-        let mut rest_record = JournalRecord::new(rest_action, 7087);
-        rest_record
-            .projection_mutations
-            .push(ProjectionMutation::ClearTag {
-                tag_id: tired_tag.clone(),
-                reason: "rest".to_string(),
-            });
-        for tag_id in runtime.frontier_travel_since_rest_tag_ids(5000) {
-            rest_record
-                .projection_mutations
-                .push(ProjectionMutation::ClearTag {
-                    tag_id,
-                    reason: "rest".to_string(),
-                });
-        }
-        rest_record
-            .projection_mutations
-            .push(ProjectionMutation::AdvanceClock {
-                clock_id: MOONLIT_DANGER_CLOCK_ID.to_string(),
-                amount: 1,
-                reason: "rest".to_string(),
-            });
-        let (status, events) = runtime.apply_journal_record(&rest_record);
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("tired")
-        }));
-        assert!(events.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.clock_id.as_deref() == Some(MOONLIT_DANGER_CLOCK_ID)
-                && event.clock_filled == Some(1)
-        }));
-        let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(!rested_state.tags.iter().any(|tag| tag.label == "tired"));
-        assert!(!rested_state
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "rest"));
-        assert_eq!(
-            rested_state
-                .clocks
-                .iter()
-                .find(|clock| clock.id == MOONLIT_DANGER_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(1)
-        );
-
-        let restored = RuntimeSnapshot::from_runtime(&runtime)
-            .into_runtime()
-            .expect("snapshot restores RPG projection state");
-        assert_eq!(
-            restored
-                .clocks
-                .get(MOONLIT_PROGRESS_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(1)
-        );
-        assert_eq!(
-            restored
-                .clocks
-                .get(MOONLIT_DANGER_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(1)
-        );
-        assert!(!restored
-            .tags
-            .get(&tired_tag)
-            .map(|tag| tag.active)
-            .unwrap_or(false));
-        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(
-            restored_state
-                .calling
-                .as_ref()
-                .map(|calling| calling.statement.as_str()),
-            Some(default_calling_statement())
-        );
-        assert_eq!(restored_state.ledger.unbanked_count, 0);
-        assert_eq!(restored_state.ledger.banked_count, 2);
     }
 
     #[test]
@@ -56003,11 +55120,17 @@ mod tests {
             event.type_name == "tag.cleared" && event.tag_id.as_deref() == Some(tired_tag.as_str())
         }));
         let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(!rested_state
+        assert!(rested_state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "rest"));
+        assert!(!runtime.rest_has_recovery_target(5000));
+        assert!(!rested_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
         assert!(rested_state
             .action_offers
             .iter()
@@ -56882,9 +56005,18 @@ mod tests {
                 reason: "prepare".to_string(),
             });
         assert_eq!(runtime.apply_journal_record(&prepare_record).0, CW_OK);
+        let work_intent = runtime
+            .job_contribution_intent(5000, "work", Some(MOONLIT_JOB_ID), None, None)
+            .expect("searched Moonlit project offers Push");
+        let prepared_input = runtime
+            .project_push_input(5000, &work_intent, true)
+            .expect("searched prepared Push snapshot");
+        assert_eq!(prepared_input.evidence_count, 1);
+        assert_eq!(prepared_input.location_count, 1);
+        assert_eq!(RuntimeWorld::resolve_project_push(prepared_input), Some(4));
         assert_eq!(
             runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-            3
+            4
         );
         discover_all_seed_exits_for_test(&mut runtime);
         let ready_features = runtime.room_feature_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000));
@@ -56914,10 +56046,14 @@ mod tests {
 
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| { event.type_name == "project.push.resolved" && event.total == Some(4) }));
         assert!(response.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
-                && event.clock_delta == Some(3)
+                && event.clock_delta == Some(4)
                 && event.content.as_deref()
                     == Some("job_contribution:moonlit-trail:quiet-the-echo:steady-trail")
         }));
@@ -56948,12 +56084,12 @@ mod tests {
                 .clocks
                 .get(MOONLIT_PROGRESS_CLOCK_ID)
                 .map(|clock| clock.filled),
-            Some(3)
+            Some(4)
         );
         assert!(!runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
-        assert!(runtime.project_preparation_spent_for_actor(5000));
+        assert!(!runtime.project_preparation_spent_for_actor(5000));
         assert!(!runtime.prepare_available(5000));
-        assert!(runtime.work_available(5000));
+        assert!(!runtime.work_available(5000));
         let post_work_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(!post_work_state
             .primary_action
@@ -56961,34 +56097,10 @@ mod tests {
             .iter()
             .any(|option| option.kind == "prepare"));
         assert_eq!(post_work_state.primary_action.kind, "pick_up");
-        assert!(post_work_state.primary_action.options.iter().any(|option| {
-            option.kind == "work" && option.label == "Finish" && option.command == "work"
-        }));
-        let finish_offer = post_work_state
+        assert!(!post_work_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "work")
-            .expect("finish-ready work offer is exposed");
-        assert_eq!(finish_offer.label, "Push Quiet the echo");
-        assert_eq!(finish_offer.intention, "contribute");
-        assert_eq!(finish_offer.command, "contribute steady-trail");
-        assert_eq!(finish_offer.rank, 36);
-        assert!(finish_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("finishes the shared work")));
-        assert!(finish_offer.progress.is_some_and(|amount| amount > 0));
-        let finish_help_offer = post_work_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "help")
-            .expect("finish-ready help offer is exposed");
-        assert!(finish_help_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("finishes the shared work")
-                && effect.contains("first help brings you closer")));
-        assert!(finish_help_offer.progress.is_some_and(|amount| amount > 0));
+            .any(|offer| matches!(offer.kind.as_str(), "prepare" | "work" | "help")));
     }
 
     #[test]
@@ -57722,7 +56834,8 @@ mod tests {
             panic!("look must be a read-only command");
         };
         let question = runtime
-            .shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000))
+            .state_response(Some(5000), &AccessContext::default())
+            .shared_questions
             .into_iter()
             .find(|question| question.promoted)
             .expect("Moonlit Trail has one promoted question");
@@ -57730,12 +56843,10 @@ mod tests {
         assert!(output.contains(&question.question));
         assert!(output.contains(&question.situation));
         assert!(output.contains(&question.outcome));
-        for strategy in question
-            .strategies
-            .iter()
-            .filter(|strategy| strategy.available)
-        {
-            assert!(output.contains(&format!("target {}", strategy.target_label)));
+
+        assert_eq!(question.suggested_actions.len(), 2);
+        for suggestion in &question.suggested_actions {
+            assert!(output.contains(&format!("target {}", suggestion.target_label)));
         }
         assert!(!output.contains(MOONLIT_PROGRESS_CLOCK_ID));
         assert!(!output.contains(MOONLIT_JOB_ID));
@@ -58106,116 +57217,6 @@ mod tests {
     }
 
     #[test]
-    fn multi_room_project_needs_evidence_from_each_room_for_best_prepared_progress() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 36;
-        let mut create_record = JournalRecord::new(create, 7143);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Two-Sided Listener".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Bell Mediator".to_string(),
-                description: "A test avatar checking multi-room project evidence.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
-
-        let mut solar_search_record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: 5000,
-                ..CwAction::default()
-            },
-            7144,
-        );
-        solar_search_record
-            .projection_mutations
-            .push(ProjectionMutation::SearchFeature {
-                location_id: 36,
-                feature_key: "sun_bell".to_string(),
-                feature_name: "Missing Sun Bell".to_string(),
-                content: "The empty bracket hums downward.".to_string(),
-                reason: "search_feature".to_string(),
-            });
-        assert_eq!(runtime.apply_journal_record(&solar_search_record).0, CW_OK);
-        assert_eq!(
-            runtime.project_location_evidence_count(
-                5000,
-                runtime
-                    .active_job_for_location(36)
-                    .expect("solar job remains active")
-            ),
-            1
-        );
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
-        let partial_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let partial_prepare = partial_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "prepare")
-            .and_then(|offer| offer.effect.as_deref())
-            .expect("partial prepare effect is exposed");
-        assert!(partial_prepare.contains("clues you found here"));
-        assert!(partial_prepare.contains("makes the next try count"));
-        assert_eq!(
-            partial_state
-                .action_offers
-                .iter()
-                .find(|offer| offer.kind == "prepare")
-                .and_then(|offer| offer.progress),
-            Some(2)
-        );
-
-        runtime
-            .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, DARKEST_OCEAN_LOCATION_ID));
-        assert_eq!(
-            runtime.project_location_evidence_count(
-                5000,
-                runtime
-                    .active_job_for_location(36)
-                    .expect("solar job remains active")
-            ),
-            2
-        );
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
-        runtime
-            .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, DARK_ABYSS_LOCATION_ID));
-        assert_eq!(
-            runtime.project_location_evidence_count(
-                5000,
-                runtime
-                    .active_job_for_location(36)
-                    .expect("solar job remains active")
-            ),
-            3
-        );
-        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 3);
-        let complete_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let complete_prepare = complete_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "prepare")
-            .and_then(|offer| offer.effect.as_deref())
-            .expect("complete prepare effect is exposed");
-        assert!(complete_prepare.contains("every clue you found"));
-        assert_eq!(
-            complete_state
-                .action_offers
-                .iter()
-                .find(|offer| offer.kind == "prepare")
-                .and_then(|offer| offer.progress),
-            Some(3)
-        );
-    }
-
-    #[test]
     fn project_feature_use_advances_moonlit_clock_once() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -58565,6 +57566,19 @@ mod tests {
             RAIN_SOFT_GARDEN_LOCATION_ID,
             "Garden Path Worker",
         );
+        let initial = runtime.state_response(Some(5000), &AccessContext::default());
+        let initial_rest = initial
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("a player who never left sanctuary can Rest at home");
+        assert!(!initial_rest.disabled);
+        assert!(!initial_rest.ranked_hand_eligible);
+        assert!(!initial
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "rest"));
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -58578,21 +57592,20 @@ mod tests {
         )
         .await
         .0;
-        assert!(!unneeded_rest.ok);
-        assert_eq!(unneeded_rest.status, 400);
-        assert!(unneeded_rest.events.is_empty());
+        assert!(unneeded_rest.ok);
+        assert_eq!(unneeded_rest.status, CW_OK);
+        assert!(!unneeded_rest.events.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "item.refreshed" | "tag.cleared" | "clock.updated"
+            )
+        }));
         {
             let runtime = state.inner.lock().await;
             let command = runtime
                 .resolve_command(&command_request(5000, "rest"), &AccessContext::default())
                 .expect("Rest command resolves while recovery is unnecessary");
-            match command.dispatch {
-                CommandDispatch::Disabled { status, output } => {
-                    assert_eq!(status, 400);
-                    assert_eq!(output, "You are already steady enough to keep going.");
-                }
-                other => panic!("unneeded Rest should be disabled, got {other:?}"),
-            }
+            assert!(matches!(command.dispatch, CommandDispatch::Rest));
         }
 
         for step in 1..=4 {
@@ -58632,6 +57645,9 @@ mod tests {
                     .iter()
                     .find(|offer| offer.kind == "rest")
                     .expect("tired sanctuary worker can Rest immediately");
+                assert!(rest_offer.ranked_hand_eligible);
+                assert_eq!(rest_offer.provider.id, "rules:recovery");
+                assert_eq!(rest_offer.provider.priority, 0);
                 assert!(rest_offer.risk.is_none());
                 assert_eq!(rest_offer.effect.as_deref(), Some("helps you feel fresh"));
                 assert!(!tired_state
@@ -58801,6 +57817,10 @@ mod tests {
         .await
         .0;
         assert!(first_work.ok);
+        assert!(first_work
+            .events
+            .iter()
+            .any(|event| { event.type_name == "project.push.resolved" && event.total == Some(2) }));
         assert!(first_work.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some("solar-abyss.drowned-bell")
@@ -58812,6 +57832,22 @@ mod tests {
             assert!(runtime.tired_tag_active(5000));
             move_test_actor(&mut runtime, 5000, 30, 71511);
             move_test_actor(&mut runtime, 5000, 36, 71512);
+            let item_count = runtime.world.item_count;
+            let tonic = runtime
+                .world
+                .items
+                .iter_mut()
+                .take(item_count)
+                .find(|item| item.id == HEARTH_TONIC_ITEM_ID)
+                .expect("Hearth Tonic exists");
+            tonic.location_id = 0;
+            tonic.holder_actor_id = 5000;
+            tonic.zone = CW_CARD_ZONE_CARRIED;
+            tonic.container_item_id = 0;
+            assert!(runtime
+                .set_item_equipped(5000, HEARTH_TONIC_ITEM_ID, true, "solar_rest_shelter")
+                .iter()
+                .any(|event| event.type_name == "item.equipped"));
             assert!(runtime.rest_available(5000));
         }
 
@@ -58845,6 +57881,10 @@ mod tests {
         .await
         .0;
         assert!(finishing_work.ok);
+        assert!(finishing_work
+            .events
+            .iter()
+            .any(|event| { event.type_name == "project.push.resolved" && event.total == Some(2) }));
         assert!(finishing_work.events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some("solar-abyss.drowned-bell")
@@ -58866,204 +57906,6 @@ mod tests {
                 .map(|clock| clock.filled),
             Some(1)
         );
-    }
-
-    #[tokio::test]
-    async fn hearth_tonic_warmth_spends_to_block_frontier_rest_danger() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7152);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Warm Rest Tester".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Hearth Carrier".to_string(),
-                description: "A test avatar checking warmed frontier rest.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-
-        let mut warm_record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: 5000,
-                ..CwAction::default()
-            },
-            7153,
-        );
-        warm_record
-            .projection_mutations
-            .push(ProjectionMutation::SetTag {
-                tag: RpgTagState {
-                    id: tired_tag_id(5000),
-                    scope: "actor".to_string(),
-                    scope_id: 5000,
-                    label: "tired".to_string(),
-                    kind: "condition".to_string(),
-                    active: true,
-                    source_event_seq: None,
-                    expires: Some("after_rest".to_string()),
-                },
-                reason: "test_tired".to_string(),
-            });
-        warm_record
-            .projection_mutations
-            .push(ProjectionMutation::SetTag {
-                tag: RpgTagState {
-                    id: HEARTH_TONIC_WARMTH_TAG_ID.to_string(),
-                    scope: "room".to_string(),
-                    scope_id: MOONLIT_TRAIL_LOCATION_ID,
-                    label: "hearth tonic warmth".to_string(),
-                    kind: "memory".to_string(),
-                    active: true,
-                    source_event_seq: None,
-                    expires: Some("after_rest".to_string()),
-                },
-                reason: "test_warmth".to_string(),
-            });
-        assert_eq!(runtime.apply_journal_record(&warm_record).0, CW_OK);
-
-        move_test_actor(&mut runtime, 5000, 2, 71531);
-        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 71532);
-        let warm_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let rest_offer = warm_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "rest")
-            .expect("rest offer is exposed while tired");
-        assert!(rest_offer.risk.is_none());
-        assert!(rest_offer.effect.as_deref().is_some_and(|effect| effect
-            .contains("tonic's warmth")
-            && effect.contains("trouble stays back")));
-
-        let state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-        let rest_response = rest(
-            ConnectInfo("127.0.0.1:43111".parse().expect("client address")),
-            State(state.clone()),
-            Json(ActorRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-            }),
-        )
-        .await
-        .0;
-        assert!(rest_response.ok);
-        assert_eq!(rest_response.status, CW_OK);
-        assert!(rest_response.events.iter().any(|event| {
-            event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("tired")
-        }));
-        assert!(rest_response.events.iter().any(|event| {
-            event.type_name == "tag.cleared"
-                && event.tag_id.as_deref() == Some(HEARTH_TONIC_WARMTH_TAG_ID)
-        }));
-        assert!(!rest_response.events.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.clock_id.as_deref() == Some(MOONLIT_DANGER_CLOCK_ID)
-        }));
-
-        let runtime = state.inner.lock().await;
-        assert!(!runtime.tired_tag_active(5000));
-        assert!(!runtime.hearth_tonic_warmth_guards_rest(MOONLIT_TRAIL_LOCATION_ID));
-        assert_eq!(
-            runtime
-                .clocks
-                .get(MOONLIT_DANGER_CLOCK_ID)
-                .map(|clock| clock.filled),
-            Some(0)
-        );
-    }
-
-    #[test]
-    fn defend_sets_up_active_room_project() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7160);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Guard Worker".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Shielded Helper".to_string(),
-                description: "A test avatar turning defense into project preparation.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-
-        let initial = runtime.state_response(Some(5000), &AccessContext::default());
-        let defend_offer = initial
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "defend")
-            .expect("defend offer is exposed in combat project room");
-        assert_eq!(defend_offer.progress, Some(2));
-        assert_eq!(
-            defend_offer.effect.as_deref(),
-            Some("guards carefully and makes the next try count")
-        );
-        for offer in &initial.action_offers {
-            let player_copy = format!(
-                "{} {}",
-                offer.effect.as_deref().unwrap_or_default(),
-                offer.risk.as_deref().unwrap_or_default()
-            )
-            .to_ascii_lowercase();
-            for forbidden in ["progress", "clock", "ledger", "tag", "projection", "kernel"] {
-                assert!(
-                    !player_copy.contains(forbidden),
-                    "{} offer leaked {forbidden}: {player_copy}",
-                    offer.kind
-                );
-            }
-            assert!(
-                !player_copy.contains(" +"),
-                "{} offer leaked arithmetic: {player_copy}",
-                offer.kind
-            );
-        }
-        assert_eq!(
-            runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-            1
-        );
-
-        let mut defend_action = CwAction::default();
-        defend_action.kind = CW_ACTION_DEFEND;
-        defend_action.actor_id = 5000;
-        let (status, events) =
-            runtime.apply_journal_record(&JournalRecord::new(defend_action, 7161));
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "combat.defend"
-                && event.actor_id == Some(5000)
-                && event.location_id == Some(MOONLIT_TRAIL_LOCATION_ID)
-        }));
-        assert!(events.iter().any(|event| {
-            event.type_name == "tag.applied"
-                && event.tag_id.as_deref()
-                    == Some(prepared_tag_id(5000, MOONLIT_TRAIL_LOCATION_ID).as_str())
-                && event.tag_label.as_deref() == Some("prepared")
-                && event.content.as_deref() == Some("defend_prepare")
-        }));
-        assert!(runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
-        assert_eq!(
-            runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
-            2
-        );
-
-        let prepared = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(prepared
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "defend")
-            .and_then(|offer| offer.effect.as_deref())
-            .is_some_and(|effect| effect.contains("careful guard")));
     }
 
     #[test]
@@ -59948,12 +58790,14 @@ mod tests {
     #[test]
     fn durable_frontier_projects_never_reset_as_encounters_and_repair_from_evidence() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut pathway = runtime.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let mut pathway = runtime
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint_id = pathway.waypoints[0].id;
         pathway
             .revealed_edges
@@ -60154,12 +58998,14 @@ mod tests {
     #[test]
     fn canonical_natural_feature_restores_legacy_generated_place_projection() {
         let mut source = RuntimeWorld::seeded();
-        let mut pathway = source.generated_pathway(
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            2,
-        );
+        let mut pathway = source
+            .generated_pathway(
+                5000,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                2,
+            )
+            .expect("canonical generated pathway");
         let waypoint = pathway.waypoints[0].clone();
         pathway
             .revealed_edges
@@ -61675,8 +60521,8 @@ mod tests {
             .expect("core pack includes a carrying container");
         assert_eq!(satchel.role, "container");
         assert_eq!(satchel.container_capacity_tenths, 300);
-        assert_eq!(content.locations.len(), 48);
-        assert_eq!(content.exits.len(), 110);
+        assert_eq!(content.locations.len(), 49);
+        assert_eq!(content.exits.len(), 112);
 
         assert!(content.exits.iter().any(|exit| {
             exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
@@ -61687,8 +60533,22 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 37);
-        assert_eq!(content.room_sheets.len(), 48);
+        assert_eq!(content.room_features.len(), 39);
+        assert_eq!(content.room_sheets.len(), 49);
+        for location_id in [4, 800] {
+            let lodging = content
+                .room_features
+                .iter()
+                .find(|feature| feature.location_id == location_id && feature.key == "lodging")
+                .unwrap_or_else(|| panic!("location {location_id} declares lodging"));
+            assert_eq!(
+                lodging
+                    .lodging
+                    .as_ref()
+                    .map(|value| value.gate.kind.as_str()),
+                Some("open")
+            );
+        }
         assert_eq!(content.clocks.len(), 14);
         assert_eq!(content.jobs.len(), 7);
         assert!(content
@@ -61706,8 +60566,8 @@ mod tests {
             1
         );
         assert_eq!(content.fronts.len(), 6);
-        assert_eq!(content.cards.len(), 118);
-        assert_eq!(content.lifecycle_hooks.len(), 21);
+        assert_eq!(content.cards.len(), 119);
+        assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 8);
         assert_eq!(content.rules.len(), 3);
@@ -62469,8 +61329,8 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
+        runtime.decay_beliefs();
 
         assert!(!runtime.avatar_discovered(AZAZOTH_ACTOR_ID));
         assert!(runtime
@@ -62496,6 +61356,7 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
+        runtime.beliefs.clear();
         assert!(!runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID
@@ -62543,8 +61404,8 @@ mod tests {
         runtime.world.tick = runtime
             .world
             .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
+            .saturating_add(BELIEF_TUNING.decay_interval_ticks * 64);
+        runtime.decay_beliefs();
 
         assert!(!runtime.search_item_remembered(STORY_BUTTON_ITEM_ID));
         assert_eq!(
@@ -62787,6 +61648,8 @@ mod tests {
                 status: "active".to_string(),
                 source_event_seq: Some(90_002),
                 updated_event_seq: Some(90_002),
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
             },
         );
         let friendship_state =
@@ -62972,7 +61835,10 @@ mod tests {
         assert_eq!(work_offer.intention, "contribute");
         assert_eq!(work_offer.verb, "Push");
         assert_eq!(work_offer.accessible_label, "Push Quiet the echo");
-        assert_eq!(work_offer.effect.as_deref(), Some("makes good headway"));
+        assert!(work_offer.effect.as_deref().is_some_and(|effect| {
+            effect.contains("Advances 2 segments now (2 base)")
+                && effect.contains("Evidence: 0/1 location")
+        }));
         assert_eq!(work_offer.progress, Some(2));
         assert!(work_offer
             .risk
@@ -63009,8 +61875,10 @@ mod tests {
         assert!(!suggested.disabled);
         assert!(state.action_offers.iter().any(|offer| {
             offer.kind == "prepare"
-                && offer.progress == Some(2)
-                && offer.effect.as_deref() == Some("makes the next try count")
+                && offer.progress == Some(3)
+                && offer.effect.as_deref().is_some_and(|effect| {
+                    effect.contains("Next Push advances 3 segments; Push now advances 2")
+                })
         }));
         assert!(inspector
             .fronts
@@ -64056,7 +62924,7 @@ mod tests {
         assert_eq!(sought_story.holder_actor_id, Some(5000));
         assert_eq!(
             sought_story.confidence,
-            Some(RESIDENT_OBSERVED_MEMORY_CONFIDENCE)
+            Some(BELIEF_TUNING.firsthand_confidence)
         );
         assert_eq!(economy.inventory_count, 1);
         assert_eq!(economy.inventory_capacity, 0);
@@ -64306,79 +63174,6 @@ mod tests {
     }
 
     #[test]
-    fn content_authored_personal_desires_drive_requests_and_reasons() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 0;
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 40;
-        let mut create_record = JournalRecord::new(create, 78332);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Button Courier".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Desire Tester".to_string(),
-                description: "A test avatar carrying an item with authored local demand."
-                    .to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            if item.id == DEWBRIGHT_BUTTON_ITEM_ID {
-                item.location_id = 0;
-                item.holder_actor_id = 5000;
-                item.held_since_tick = runtime.world.tick;
-            }
-        }
-
-        let mouse = runtime
-            .actor_by_id(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Doctor Cogwhisker exists");
-        assert!(runtime
-            .resident_desired_item_ids(mouse)
-            .contains(&DEWBRIGHT_BUTTON_ITEM_ID));
-        assert_eq!(
-            runtime.resident_sought_item_source(mouse, DEWBRIGHT_BUTTON_ITEM_ID),
-            "personal"
-        );
-        let request_reason = runtime.resident_item_request_reason(mouse, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert!(request_reason.contains("tiny rain engine"));
-        let immediate_request = runtime
-            .resident_request_for_holder(mouse, 5000)
-            .expect("same-room player-held personal desire is requestable");
-        assert_eq!(immediate_request.item_id, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert!(immediate_request.reason.contains("tiny rain engine"));
-        runtime.record_economy_disclosure(5000, STEAMPUNK_MOUSE_ACTOR_ID);
-
-        let mouse = runtime
-            .prepare_resident_local_memories(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Doctor Cogwhisker observes the courier");
-        let economy = runtime
-            .resident_economy_view(mouse, Some(5000))
-            .expect("resident economy view");
-        let sought = economy
-            .sought_items
-            .iter()
-            .find(|item| item.item_id == DEWBRIGHT_BUTTON_ITEM_ID)
-            .expect("personal desire appears in sought items");
-        assert_eq!(sought.source, "personal");
-        assert!(sought.reason.contains("tiny rain engine"));
-        assert_eq!(sought.holder_actor_id, Some(5000));
-        let request = economy
-            .request
-            .as_ref()
-            .expect("resident asks for observed player-held personal desire");
-        assert_eq!(request.item_id, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert!(request.reason.contains("tiny rain engine"));
-        assert!(economy.motive.contains("tiny rain engine"));
-        assert!(runtime
-            .actor_gift_is_legal(5000, STEAMPUNK_MOUSE_ACTOR_ID, DEWBRIGHT_BUTTON_ITEM_ID)
-            .is_ok());
-    }
-
-    #[test]
     fn content_authored_personal_desires_explain_trade_offers_and_events() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
@@ -64505,7 +63300,7 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
@@ -64721,7 +63516,7 @@ mod tests {
                 item.holder_actor_id = 5000;
             }
         }
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         let skull = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
         let request = runtime
@@ -65099,7 +63894,7 @@ mod tests {
     fn content_authored_attachments_drive_recovery_seeking() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 HEARTH_TONIC_ITEM_ID => {
@@ -65484,7 +64279,7 @@ mod tests {
     fn non_track_resident_uses_attached_item_with_room_feature() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 40;
@@ -66738,7 +65533,7 @@ mod tests {
     fn resident_economy_autonomy_can_act_without_human_presence() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         assert!(runtime.ambient_line().is_none());
         assert!(runtime.ambient_reply_plan().is_none());
@@ -66751,13 +65546,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -66774,7 +65569,7 @@ mod tests {
     fn resident_economy_autonomy_record_projects_chosen_intent() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
 
@@ -66786,13 +65581,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -66835,7 +65630,7 @@ mod tests {
     fn resident_pending_proposed_action_executes_and_clears_after_kernel_commit() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
         discover_seed_exit_pair_for_test(
@@ -66863,10 +65658,9 @@ mod tests {
                 refusal: None,
                 proposed_action: Some(AvatarProposedAction {
                     kind: "move".to_string(),
-                    target_actor_id: None,
-                    item_id: None,
                     destination_location_id: Some(offered_destination),
                     reason: Some("the offered path is the next reachable room".to_string()),
+                    ..AvatarProposedAction::default()
                 }),
             },
             "resident_intent",
@@ -66899,7 +65693,7 @@ mod tests {
     fn resident_proposal_outside_the_enumerated_target_fails_closed() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
         discover_seed_exit_pair_for_test(
@@ -66932,10 +65726,9 @@ mod tests {
                 refusal: None,
                 proposed_action: Some(AvatarProposedAction {
                     kind: "move".to_string(),
-                    target_actor_id: None,
-                    item_id: None,
                     destination_location_id: Some(proposed_destination),
                     reason: Some("model-selected alternative".to_string()),
+                    ..AvatarProposedAction::default()
                 }),
             },
             "resident_intent",
@@ -67127,10 +65920,8 @@ mod tests {
             .expect("the exact drop offer plans");
         let exact_proposal = AvatarProposedAction {
             kind: "drop".to_string(),
-            target_actor_id: None,
             item_id: Some(STORY_BUTTON_ITEM_ID),
-            destination_location_id: None,
-            reason: None,
+            ..AvatarProposedAction::default()
         };
         assert!(runtime.resident_proposed_action_matches_legal_offer(
             5000,
@@ -67321,7 +66112,7 @@ mod tests {
     fn resident_scout_uses_the_player_offer_and_replays_pathway_discovery() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.callings.remove(&RATI_ACTOR_ID);
         runtime
             .world
@@ -67621,6 +66412,12 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             98_202,
         );
+        move_test_actor(
+            &mut runtime,
+            RATI_ACTOR_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            98_203,
+        );
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let offer = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
@@ -67628,13 +66425,16 @@ mod tests {
             .into_iter()
             .find(|offer| offer.kind == "rest")
             .expect("the player candidate surface offers Rest");
-        let player_mutations = runtime
-            .plan_rest_mutations(actor.id)
+        let (player_action, player_mutations) = runtime
+            .plan_rest_action(actor.id)
             .expect("the player Rest planner accepts the current offer");
         let record = runtime
-            .resident_economy_autonomy_record(actor, 98_203)
+            .resident_economy_autonomy_record(actor, 98_204)
             .expect("urgent resident autonomy selects the same Rest offer");
-        assert_eq!(record.action.kind, CW_ACTION_NONE);
+        assert_eq!(player_action.kind, CW_ACTION_REST);
+        assert_eq!(record.action.kind, player_action.kind);
+        assert_eq!(record.action.actor_id, player_action.actor_id);
+        assert_eq!(record.action.rest, player_action.rest);
         assert_eq!(record.rules_action, offer.rules_action);
         assert_eq!(record.operation, offer.operation);
         assert_eq!(record.resolver.as_deref(), Some(offer.resolver.as_str()));
@@ -67695,9 +66495,10 @@ mod tests {
         assert!(travel_tags
             .iter()
             .all(|tag_id| { runtime.tags.get(tag_id).is_some_and(|tag| !tag.active) }));
-        assert!(!runtime.rest_available(actor.id));
+        assert!(runtime.rest_available(actor.id));
+        assert!(!runtime.rest_has_recovery_target(actor.id));
         assert!(runtime
-            .resident_record_for_shared_offer(actor, &offer, 98_204)
+            .resident_record_for_shared_offer(actor, &offer, 98_205)
             .is_none());
         let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
             .expect("state serializes");
@@ -67807,7 +66608,7 @@ mod tests {
     fn ambient_autonomy_residents_notice_visible_sought_items_without_prior_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 HEARTH_TONIC_ITEM_ID => {
@@ -67829,13 +66630,13 @@ mod tests {
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
         assert_eq!(action.item_id, STORY_BUTTON_ITEM_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("room observation records the visible item");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
@@ -67846,7 +66647,7 @@ mod tests {
     fn ambient_autonomy_prioritizes_local_keepsake_pickup_over_remote_walking() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -67868,13 +66669,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -67910,7 +66711,7 @@ mod tests {
     fn ambient_autonomy_record_residents_use_held_room_feature_items() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -67992,7 +66793,7 @@ mod tests {
         ));
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -68067,76 +66868,6 @@ mod tests {
     }
 
     #[test]
-    fn resident_memories_decay_with_time_before_autonomy() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 1;
-        runtime.resident_memories.clear();
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            if item.id == STORY_BUTTON_ITEM_ID {
-                item.location_id = MOONLIT_TRAIL_LOCATION_ID;
-                item.holder_actor_id = 0;
-            }
-        }
-        runtime.remember_resident_memory(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
-            Some(RATI_ACTOR_ID),
-        );
-        runtime.world.tick = 25;
-
-        runtime.decay_resident_memories_for_autonomy();
-
-        let memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-        );
-        let memory = runtime
-            .resident_memories
-            .get(&memory_id)
-            .expect("aged memory remains above zero");
-        assert_eq!(
-            memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - (2 * RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY)
-        );
-        assert_eq!(
-            memory.salience,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE - (2 * RESIDENT_MEMORY_TIME_SALIENCE_DECAY)
-        );
-        assert_eq!(memory.learned_tick, 25);
-    }
-
-    #[test]
-    fn resident_memories_expire_when_time_decay_exhausts_them() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.world.tick = 1;
-        runtime.resident_memories.clear();
-        runtime.remember_resident_memory(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-            MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE,
-            RESIDENT_MEMORY_TIME_SALIENCE_DECAY,
-            Some(RATI_ACTOR_ID),
-        );
-        runtime.world.tick = 13;
-
-        runtime.decay_resident_memories_for_autonomy();
-
-        let memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
-        );
-        assert!(runtime.resident_memories.get(&memory_id).is_none());
-    }
-
-    #[test]
     fn ambient_autonomy_residents_pick_up_sought_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -68164,14 +66895,14 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.resident_memories.clear();
-        runtime.remember_resident_memory(
+        runtime.beliefs.clear();
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             actor.location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
 
@@ -68221,7 +66952,7 @@ mod tests {
     fn resident_pickup_requires_fresh_local_observation_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 1;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let sought_item_id = runtime
             .resident_sought_item_ids(actor)
@@ -68234,13 +66965,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             actor.location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
         runtime.world.tick = 2;
@@ -68275,7 +67006,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 2004 => {
@@ -68291,13 +67022,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -68346,7 +67077,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 30;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
             if actor.kind == CW_ACTOR_NPC && actor.id != RATI_ACTOR_ID {
                 actor.status = 0;
@@ -68400,13 +67131,13 @@ mod tests {
             .expect("Rati has a non-attached item to make room");
         assert_eq!(expendable.id, DEWBRIGHT_BUTTON_ITEM_ID);
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2004,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -68462,7 +67193,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 30;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -68499,13 +67230,13 @@ mod tests {
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert!(runtime.actor_inventory_full(RATI_ACTOR_ID));
         assert!(runtime.resident_expendable_item_for_pickup(rati).is_none());
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2004,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -68535,7 +67266,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         runtime
             .world
@@ -68598,7 +67329,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         runtime
             .world
@@ -68656,7 +67387,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         hide_seed_items(&mut runtime);
         runtime
             .world
@@ -68683,13 +67414,13 @@ mod tests {
             "without a grounded memory, the inference controller does nothing"
         );
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2001,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
@@ -68714,7 +67445,7 @@ mod tests {
         );
         assert_eq!(
             sought_tonic.confidence,
-            Some(RESIDENT_OBSERVED_MEMORY_CONFIDENCE)
+            Some(BELIEF_TUNING.firsthand_confidence)
         );
 
         let action = runtime
@@ -68729,7 +67460,7 @@ mod tests {
     fn remembered_healing_item_does_not_peek_at_current_charges() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -68751,19 +67482,19 @@ mod tests {
             }
         }
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2001,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("Rati trusts remembered medicine without remote charge inspection");
         assert_eq!(memory.subject_id, 2001);
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
@@ -68815,20 +67546,20 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         assert!(
             runtime.resident_economy_autonomy_action(actor).is_none(),
             "without a grounded memory, the inference controller does nothing"
         );
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             destination_location_id,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
 
@@ -68869,7 +67600,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         let actor = runtime
             .ambient_actor()
@@ -68883,13 +67614,13 @@ mod tests {
                 item.holder_actor_id = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             actor.id,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             sought_item_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(actor.id),
         );
 
@@ -68920,33 +67651,30 @@ mod tests {
     #[test]
     fn resident_item_memories_spread_by_gossip() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         let observed_tick = runtime.world.tick;
-        let whiskerwind_memory_id = RuntimeWorld::resident_memory_id(
+        let whiskerwind_memory_id = RuntimeWorld::belief_id(
             WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             DEWBRIGHT_BUTTON_ITEM_ID,
         );
-        assert!(runtime
-            .resident_memories
-            .get(&whiskerwind_memory_id)
-            .is_none());
+        assert!(runtime.beliefs.get(&whiskerwind_memory_id).is_none());
 
-        runtime.exchange_resident_memories_at(COSY_COTTAGE_LOCATION_ID);
+        runtime.exchange_beliefs_at(COSY_COTTAGE_LOCATION_ID);
 
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&whiskerwind_memory_id)
             .expect("co-located resident learns carried item memory");
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
@@ -68955,7 +67683,7 @@ mod tests {
         assert_eq!(memory.hops, 1);
         assert_eq!(
             memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - RESIDENT_GOSSIP_CONFIDENCE_DECAY
+            BELIEF_TUNING.firsthand_confidence - BELIEF_TUNING.gossip_confidence_decay
         );
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
 
@@ -68976,16 +67704,16 @@ mod tests {
     #[test]
     fn resident_continuity_projects_memories_and_survives_snapshots() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.resident_continuities.clear();
 
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.refresh_resident_continuity(RATI_ACTOR_ID);
@@ -69059,7 +67787,7 @@ mod tests {
     #[test]
     fn resident_observation_removes_disproved_item_location_memory() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69080,44 +67808,40 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             2004,
             MOONLIT_TRAIL_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.minimum_action_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(
             runtime
-                .resident_memory_seek_target(rati)
+                .belief_seek_target(rati)
                 .expect("stale higher-priority memory")
                 .subject_id,
             2004
         );
 
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, MOONLIT_TRAIL_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, MOONLIT_TRAIL_LOCATION_ID);
 
-        let stale_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            2004,
-        );
-        assert!(runtime.resident_memories.get(&stale_id).is_none());
+        let stale_id = RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ITEM_LOCATION, 2004);
+        assert!(runtime.beliefs.get(&stale_id).is_none());
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let next_memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("resident falls through to another remembered wanted item");
         assert_eq!(next_memory.subject_id, STORY_BUTTON_ITEM_ID);
         assert_eq!(next_memory.location_id, COSY_COTTAGE_LOCATION_ID);
@@ -69126,32 +67850,32 @@ mod tests {
     #[test]
     fn resident_observation_keeps_item_memory_when_holder_is_present() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
                 item.holder_actor_id = WHISKERWIND_ACTOR_ID;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("item memory remains true while the holder is present");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
@@ -69160,7 +67884,7 @@ mod tests {
     #[test]
     fn resident_observation_remembers_items_carried_by_present_actors() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -69168,94 +67892,95 @@ mod tests {
             }
         }
 
-        runtime.observe_room_for_resident(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
+        runtime.observe_room_for_actor(RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("resident notices an item carried in the room");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
-        assert_eq!(memory.holder_actor_id, Some(WHISKERWIND_ACTOR_ID));
+        assert_eq!(memory.related_actor_id, Some(WHISKERWIND_ACTOR_ID));
     }
 
     #[test]
     fn resident_gossip_preserves_memory_provenance() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.world.tick = 17;
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 23;
 
-        runtime.exchange_resident_memories_at(COSY_COTTAGE_LOCATION_ID);
+        runtime.exchange_beliefs_at(COSY_COTTAGE_LOCATION_ID);
 
-        let memory_id = RuntimeWorld::resident_memory_id(
+        let memory_id = RuntimeWorld::belief_id(
             WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("co-located resident learns item memory through gossip");
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
-        assert_eq!(memory.holder_actor_id, Some(5000));
+        assert_eq!(memory.related_actor_id, Some(5000));
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
         assert_eq!(memory.observed_tick, 17);
         assert_eq!(memory.learned_tick, 23);
         assert_eq!(memory.hops, 1);
         assert_eq!(
             memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - RESIDENT_GOSSIP_CONFIDENCE_DECAY
+            BELIEF_TUNING.firsthand_confidence - BELIEF_TUNING.gossip_confidence_decay
         );
     }
 
     #[test]
     fn resident_desire_memories_spread_by_gossip() {
         let mut runtime = RuntimeWorld::seeded();
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime.world.tick = 31;
         runtime.remember_resident_wants_item_memory(
             RATI_ACTOR_ID,
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.world.tick = 37;
 
-        let memory_id = RuntimeWorld::resident_memory_key(
+        let memory_id = RuntimeWorld::belief_key(
             WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_WANTS_ITEM,
+            BELIEF_KIND_ACTOR_WANTS_ITEM,
             DEWBRIGHT_BUTTON_ITEM_ID,
+            0,
             Some(WHISKERWIND_ACTOR_ID),
         );
-        assert!(runtime.resident_memories.get(&memory_id).is_none());
+        assert!(runtime.beliefs.get(&memory_id).is_none());
 
-        runtime.exchange_resident_memories_at(COSY_COTTAGE_LOCATION_ID);
+        runtime.exchange_beliefs_at(COSY_COTTAGE_LOCATION_ID);
 
         let memory = runtime
-            .resident_memories
+            .beliefs
             .get(&memory_id)
             .expect("co-located resident learns desire memory through gossip");
         assert_eq!(memory.subject_id, DEWBRIGHT_BUTTON_ITEM_ID);
-        assert_eq!(memory.holder_actor_id, Some(WHISKERWIND_ACTOR_ID));
+        assert_eq!(memory.related_actor_id, Some(WHISKERWIND_ACTOR_ID));
         assert_eq!(memory.location_id, COSY_COTTAGE_LOCATION_ID);
         assert_eq!(memory.source_actor_id, Some(RATI_ACTOR_ID));
         assert_eq!(memory.observed_tick, 31);
@@ -69263,7 +67988,7 @@ mod tests {
         assert_eq!(memory.hops, 1);
         assert_eq!(
             memory.confidence,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE - RESIDENT_GOSSIP_CONFIDENCE_DECAY
+            BELIEF_TUNING.firsthand_confidence - BELIEF_TUNING.gossip_confidence_decay
         );
     }
 
@@ -69271,7 +67996,7 @@ mod tests {
     fn fulfilled_desire_memories_clear_for_witnesses_not_absent_residents() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 41;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69292,8 +68017,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -69301,8 +68026,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -69361,7 +68086,7 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
         runtime.world.tick = 10;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -69372,33 +68097,33 @@ mod tests {
                 item.held_since_tick = 0;
             }
         }
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 12;
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WHISKERWIND_ACTOR_ID),
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("Rati follows held item memory");
         assert_eq!(memory.subject_id, STORY_BUTTON_ITEM_ID);
-        assert_eq!(memory.holder_actor_id, Some(5000));
+        assert_eq!(memory.related_actor_id, Some(5000));
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
         let economy = runtime
             .resident_economy_view(rati, None)
@@ -69427,7 +68152,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 10;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         let rati_desired_items = evolution_track_item_ids(RATI_ACTOR_ID).unwrap_or_default();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
@@ -69444,24 +68169,24 @@ mod tests {
             }
         }
 
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 12;
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -69475,10 +68200,10 @@ mod tests {
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let memory = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("Rati resolves held item through carried actor memory");
         assert_eq!(memory.subject_id, STORY_BUTTON_ITEM_ID);
-        assert_eq!(memory.holder_actor_id, Some(5000));
+        assert_eq!(memory.related_actor_id, Some(5000));
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
         assert_eq!(
             runtime
@@ -69510,7 +68235,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 10;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
@@ -69526,33 +68251,33 @@ mod tests {
             .expect("carrier exists")
             .location_id = MOONLIT_TRAIL_LOCATION_ID;
 
-        runtime.remember_resident_memory_with_holder(
+        runtime.remember_belief_with_related_actor(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
             Some(5000),
         );
         runtime.world.tick = 12;
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let stale = runtime
-            .resident_memory_seek_target(rati)
+            .belief_seek_target(rati)
             .expect("stale carrier memory points at Rain-Soft Garden");
         assert_eq!(stale.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
-        assert_eq!(stale.holder_actor_id, Some(5000));
+        assert_eq!(stale.related_actor_id, Some(5000));
 
         let mut rati_move = CwAction::default();
         rati_move.kind = CW_ACTION_MOVE;
@@ -69565,22 +68290,19 @@ mod tests {
             CW_OK
         );
 
-        let actor_memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
+        let actor_memory_id =
+            RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
         assert!(
-            runtime.resident_memories.get(&actor_memory_id).is_none(),
+            runtime.beliefs.get(&actor_memory_id).is_none(),
             "Rati should stop believing the absent carrier is in the checked room"
         );
-        let item_memory_id = RuntimeWorld::resident_memory_id(
+        let item_memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         assert!(
-            runtime.resident_memories.get(&item_memory_id).is_none(),
+            runtime.beliefs.get(&item_memory_id).is_none(),
             "Rati should clear held-item memory protected only by the disproved carrier rumor"
         );
     }
@@ -69598,7 +68320,7 @@ mod tests {
                 .0,
             CW_OK
         );
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -69617,26 +68339,23 @@ mod tests {
             CW_OK
         );
 
-        let actor_memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
+        let actor_memory_id =
+            RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
         assert_eq!(
             runtime
-                .resident_memories
+                .beliefs
                 .get(&actor_memory_id)
                 .expect("resident remembers where the carrier went")
                 .location_id,
             11
         );
-        let item_memory_id = RuntimeWorld::resident_memory_id(
+        let item_memory_id = RuntimeWorld::belief_id(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ITEM_LOCATION,
+            BELIEF_KIND_ITEM_LOCATION,
             STORY_BUTTON_ITEM_ID,
         );
         let item_memory = runtime
-            .resident_memories
+            .beliefs
             .get(&item_memory_id)
             .expect("resident remembers the carried item moved too");
         assert_eq!(item_memory.location_id, 11);
@@ -69655,7 +68374,7 @@ mod tests {
                 .0,
             CW_OK
         );
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -69675,26 +68394,17 @@ mod tests {
             CW_OK
         );
 
-        let rati_memory_id = RuntimeWorld::resident_memory_id(
-            RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
+        let rati_memory_id =
+            RuntimeWorld::belief_id(RATI_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
         let rati_memory = runtime
-            .resident_memories
+            .beliefs
             .get(&rati_memory_id)
             .expect("source-room resident observes where the player went");
         assert_eq!(rati_memory.location_id, 11);
 
-        let whiskerwind_memory_id = RuntimeWorld::resident_memory_id(
-            WHISKERWIND_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
-            5000,
-        );
-        assert!(runtime
-            .resident_memories
-            .get(&whiskerwind_memory_id)
-            .is_none());
+        let whiskerwind_memory_id =
+            RuntimeWorld::belief_id(WHISKERWIND_ACTOR_ID, BELIEF_KIND_ACTOR_LOCATION, 5000);
+        assert!(runtime.beliefs.get(&whiskerwind_memory_id).is_none());
 
         let mut rati_move = CwAction::default();
         rati_move.kind = CW_ACTION_MOVE;
@@ -69708,11 +68418,11 @@ mod tests {
         );
 
         let carried_memory = runtime
-            .resident_memories
+            .beliefs
             .get(&whiskerwind_memory_id)
             .expect("memory travels with Rati and spreads on contact");
         assert_eq!(carried_memory.location_id, 11);
-        assert!(carried_memory.confidence < RESIDENT_OBSERVED_MEMORY_CONFIDENCE);
+        assert!(carried_memory.confidence < BELIEF_TUNING.firsthand_confidence);
         assert_eq!(carried_memory.source_actor_id, Some(RATI_ACTOR_ID));
     }
 
@@ -69730,7 +68440,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -69755,13 +68465,13 @@ mod tests {
             runtime.resident_mutual_trade_candidate(actor).is_none(),
             "resident trade needs carried actor-location memory, not just live room state"
         );
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         assert!(
@@ -69773,8 +68483,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         assert!(
@@ -69892,7 +68602,7 @@ mod tests {
     async fn ambient_autonomy_trade_without_ai_emits_no_fallback_speech() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -69964,7 +68674,7 @@ mod tests {
             CW_OK
         );
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -70230,7 +68940,7 @@ mod tests {
     fn resident_gifts_non_track_room_feature_item_from_desire_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.holder_actor_id = WOODLAND_BEAR_ACTOR_ID;
@@ -70313,7 +69023,7 @@ mod tests {
     fn resident_gifts_requested_non_evolution_attachment_from_memory() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -70378,7 +69088,7 @@ mod tests {
     fn resident_delivers_requested_non_evolution_attachment_from_memory() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -70394,13 +69104,13 @@ mod tests {
                 item.charges = 1;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             WOODLAND_BEAR_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             RATI_ACTOR_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -70408,8 +69118,8 @@ mod tests {
             RATI_ACTOR_ID,
             HEARTH_TONIC_ITEM_ID,
             COSY_COTTAGE_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
 
@@ -70450,7 +69160,7 @@ mod tests {
     fn resident_delivers_non_track_room_feature_item_to_remembered_want() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -70465,13 +69175,13 @@ mod tests {
                 item.held_since_tick = 0;
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             WOODLAND_BEAR_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             OLD_OAK_TREE_ACTOR_ID,
             40,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -70479,8 +69189,8 @@ mod tests {
             OLD_OAK_TREE_ACTOR_ID,
             STORY_BUTTON_ITEM_ID,
             40,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WOODLAND_BEAR_ACTOR_ID),
         );
 
@@ -70518,7 +69228,7 @@ mod tests {
     fn ambient_autonomy_residents_carry_sought_items_to_remembered_residents() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -70541,13 +69251,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -70561,8 +69271,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         assert!(runtime.resident_remembers_actor_wants_item(
@@ -70608,7 +69318,7 @@ mod tests {
     fn resident_delivery_follows_stale_actor_memory_instead_of_global_truth() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         runtime
             .world
             .actors
@@ -70631,13 +69341,13 @@ mod tests {
                 _ => {}
             }
         }
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -70645,8 +69355,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -70676,7 +69386,7 @@ mod tests {
     fn resident_delivery_uses_carried_actor_memory_not_live_target_room() {
         let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
-        runtime.resident_memories.clear();
+        runtime.beliefs.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
                 DEWBRIGHT_BUTTON_ITEM_ID => {
@@ -70699,13 +69409,13 @@ mod tests {
                 .location_id,
             COSY_COTTAGE_LOCATION_ID
         );
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
         runtime.remember_resident_wants_item_memory(
@@ -70713,8 +69423,8 @@ mod tests {
             WHISKERWIND_ACTOR_ID,
             DEWBRIGHT_BUTTON_ITEM_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
 
@@ -70787,6 +69497,9 @@ mod tests {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            publication_beat_id: String::new(),
+            planner_requested: false,
+            planner_candidates: Vec::new(),
         }
     }
 
@@ -70860,57 +69573,6 @@ mod tests {
         assert_eq!(resident.user_text, "What changed here?");
     }
     #[test]
-    fn resident_intent_json_parses_speech_and_taxonomy() {
-        let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
-        let proposal = parse_resident_intent_json(
-            r#"```json
-            {
-              "speech": "\"I will keep one stitch open for the room.\"",
-              "intent": "listen for the next room need",
-              "belief": "the cottage is waiting on a small kindness",
-              "desire": "find who needs Moonwool Thread",
-              "promise": "keep one stitch open",
-              "refusal": "do not pretend the button has already moved",
-              "proposed_action": {
-                "kind": "search",
-                "target_actor_id": null,
-                "item_id": 2002,
-                "destination_location_id": null,
-                "reason": "the scarf basket still has an unanswered clue"
-              }
-            }
-            ```"#,
-            &plan,
-        )
-        .expect("structured resident intent parses");
-
-        assert_eq!(proposal.speech, "I will keep one stitch open for the room.");
-        assert_eq!(
-            proposal.intent.as_deref(),
-            Some("listen for the next room need")
-        );
-        assert_eq!(
-            proposal.belief.as_deref(),
-            Some("the cottage is waiting on a small kindness")
-        );
-        assert_eq!(
-            proposal.desire.as_deref(),
-            Some("find who needs Moonwool Thread")
-        );
-        assert_eq!(proposal.promise.as_deref(), Some("keep one stitch open"));
-        assert_eq!(
-            proposal.refusal.as_deref(),
-            Some("do not pretend the button has already moved")
-        );
-        let action = proposal
-            .proposed_action
-            .as_ref()
-            .expect("proposed action retained");
-        assert_eq!(action.kind, "search");
-        assert_eq!(action.item_id, Some(2002));
-    }
-
-    #[test]
     fn resident_intent_projection_records_typed_continuity_notes() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.resident_continuities.clear();
@@ -70924,10 +69586,9 @@ mod tests {
             refusal: Some("do not pretend the button has already moved".to_string()),
             proposed_action: Some(AvatarProposedAction {
                 kind: "search".to_string(),
-                target_actor_id: None,
                 item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
-                destination_location_id: None,
                 reason: Some("the scarf basket still has an unanswered clue".to_string()),
+                ..AvatarProposedAction::default()
             }),
         };
         let content_id = runtime.next_content_id_value();
@@ -71152,13 +69813,13 @@ mod tests {
         );
         let (status, _) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
-        runtime.remember_resident_memory(
+        runtime.remember_belief(
             RATI_ACTOR_ID,
-            RESIDENT_MEMORY_KIND_ACTOR_LOCATION,
+            BELIEF_KIND_ACTOR_LOCATION,
             WHISKERWIND_ACTOR_ID,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
-            RESIDENT_OBSERVED_MEMORY_SALIENCE,
+            BELIEF_TUNING.firsthand_confidence,
+            BELIEF_TUNING.firsthand_salience,
             Some(WHISKERWIND_ACTOR_ID),
         );
         runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
