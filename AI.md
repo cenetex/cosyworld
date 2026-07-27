@@ -193,15 +193,35 @@ For every successful scene-card commit:
 4. Build authoritative channel context from the triggering card/event, up to ten
    recent room-log entries, recent spoken lines, current cast and location,
    durable room memory, goals, economy facts, and resident continuity.
-5. Ask AI for one bounded resident proposal. The direct event is answered first;
-   newer log facts override older ones.
-6. Validate the resident's speech contract and commit the accepted `CW_ACTION_SAY`
-   through the journal and C kernel.
-7. Complete the heartbeat only after the reply attempt, so cards played while
+5. On a decision beat, freeze the exact current `resident-planner-offers-v1`
+   candidate IDs and state revision, then make at most one `intent_json` planner
+   call. That closed policy currently covers reachable move, pickup, drop, give,
+   trade, and use-item offers; unsupported legal kinds such as search remain in
+   deterministic hands and are not mislabeled as planner candidates. Pickups
+   requiring an inventory exchange are excluded until the candidate schema can
+   encode the exact outgoing item. Ordinary conversation and directly
+   controlled proxy reactions skip this step.
+6. Validate the planner's exact candidate echo. Invalid, unavailable, illegal,
+   or stale output becomes a rejected/absent planner brief and no pending action.
+7. Ask a `voice` model for public speech only. Its brief distinguishes proposed,
+   accepted, committed, superseded, rejected, and absent intent and forbids
+   claims that an uncommitted action, cost, or outcome already happened.
+8. Re-enumerate the authoritative candidates before persisting any pending
+   action, validate the speech contract, and commit `CW_ACTION_SAY` through the
+   journal and C kernel. Later deterministic hands still re-plan against current
+   offers and the kernel remains the only mutation authority.
+9. Complete the heartbeat only after the reply attempt, so cards played while
    inference is running still cannot stack another reply.
 
 The human operator is never impersonated by this path. Human dialogue is the
-moderated `say` action.
+moderated `say` action. Planner reason text exists only in the resident-planning
+trace, never in the projected pending action, a belief, or a world fact. The
+speech journal stores the planning status and accepted publication receipt;
+eventual action decision traces carry the same generation, candidate, revision,
+and causal event fields. Only the matching executed plan is cleared. A newer
+accepted generation durably supersedes an older one, while a rejected attempt
+leaves the older accepted plan intact. Replay consumes those records and never
+calls inference.
 
 ### Structured Decisions
 
