@@ -3522,7 +3522,7 @@ impl RuntimeWorld {
                 candidate.id != actor.id && candidate.location_id == actor.location_id
             })
             .filter(|candidate| {
-                self.actor_visible_in_projection(
+                self.actor_target_visible_in_projection(
                     *candidate,
                     Some(actor.id),
                     active_direct_actor_ids,
@@ -3549,7 +3549,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|candidate| candidate.id != actor.id)
             .filter(|candidate| {
-                self.actor_visible_in_projection(
+                self.actor_target_visible_in_projection(
                     *candidate,
                     Some(actor.id),
                     active_direct_actor_ids,

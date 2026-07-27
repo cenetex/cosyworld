@@ -234,7 +234,7 @@ impl RuntimeWorld {
                 .id
                 .and_then(|target_actor_id| self.actor_by_id(target_actor_id))
                 .is_some_and(|target_actor| {
-                    self.actor_visible_in_projection(
+                    self.actor_target_visible_in_projection(
                         target_actor,
                         actor_id,
                         active_direct_actor_ids,
