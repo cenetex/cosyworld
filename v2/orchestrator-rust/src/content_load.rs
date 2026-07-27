@@ -814,6 +814,10 @@ pub(super) struct SeedExitContent {
     pub(super) flags: u32,
     #[serde(default = "default_pathway_distance")]
     pub(super) distance: u8,
+    #[serde(default)]
+    pub(super) directionality: RouteDirectionality,
+    #[serde(default)]
+    pub(super) fallback_location_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2253,9 +2257,12 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
 
     let mut exit_keys = BTreeSet::new();
     let mut exit_direction_keys = BTreeSet::new();
+    let mut exits_by_pair = BTreeMap::new();
     for exit in &content.exits {
         if !location_ids.contains(&exit.from_location_id)
             || !location_ids.contains(&exit.to_location_id)
+            || exit.from_location_id == exit.to_location_id
+            || !(1..=8).contains(&exit.distance)
             || !exit_keys.insert((exit.from_location_id, exit.to_location_id))
         {
             return Err(format!(
@@ -2276,6 +2283,54 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     direction, exit.from_location_id
                 ));
             }
+        }
+        match exit.directionality {
+            RouteDirectionality::Reciprocal if exit.fallback_location_id.is_some() => {
+                return Err(format!(
+                    "reciprocal seed exit {} -> {} declares a fallback",
+                    exit.from_location_id, exit.to_location_id
+                ));
+            }
+            RouteDirectionality::OneWay
+                if exit
+                    .fallback_location_id
+                    .is_none_or(|location_id| !location_ids.contains(&location_id)) =>
+            {
+                return Err(format!(
+                    "one-way seed exit {} -> {} has no valid fallback",
+                    exit.from_location_id, exit.to_location_id
+                ));
+            }
+            _ => {}
+        }
+        exits_by_pair.insert((exit.from_location_id, exit.to_location_id), exit);
+    }
+    for exit in &content.exits {
+        let reverse = exits_by_pair.get(&(exit.to_location_id, exit.from_location_id));
+        match exit.directionality {
+            RouteDirectionality::Reciprocal => {
+                let Some(reverse) = reverse else {
+                    return Err(format!(
+                        "reciprocal seed exit {} -> {} is missing its return direction",
+                        exit.from_location_id, exit.to_location_id
+                    ));
+                };
+                if reverse.directionality != RouteDirectionality::Reciprocal
+                    || reverse.distance != exit.distance
+                {
+                    return Err(format!(
+                        "reciprocal seed exit {} -> {} has inconsistent return semantics",
+                        exit.from_location_id, exit.to_location_id
+                    ));
+                }
+            }
+            RouteDirectionality::OneWay if reverse.is_some() => {
+                return Err(format!(
+                    "one-way seed exit {} -> {} declares a reciprocal edge",
+                    exit.from_location_id, exit.to_location_id
+                ));
+            }
+            RouteDirectionality::OneWay => {}
         }
     }
 

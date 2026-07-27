@@ -218,10 +218,24 @@ impl RuntimeWorld {
             },
             exit.destination_location_name
         ));
+        let route = self.routes.get(&exit.route_id);
         offer.route = Some(RouteOfferBinding {
             route_id: exit.route_id,
             route_version: exit.route_version,
+            directionality: route.map(|route| route.directionality).unwrap_or_default(),
+            fallback_location_id: route.and_then(|route| route.fallback_location_id),
         });
+        if let Some(fallback_location_id) = offer
+            .route
+            .as_ref()
+            .filter(|route| route.directionality == RouteDirectionality::OneWay)
+            .and_then(|route| route.fallback_location_id)
+        {
+            let fallback_name = self
+                .location_name(fallback_location_id)
+                .unwrap_or_else(|| format!("Location {fallback_location_id}"));
+            offer.effect = Some(format!("One-way entry; fallback to {fallback_name}."));
+        }
         offer.target = Some(target.clone());
         offer.composition_trace.target = Some(target);
         offer

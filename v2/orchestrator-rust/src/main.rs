@@ -6157,7 +6157,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 13,
+            version: 14,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6450,9 +6450,8 @@ impl RuntimeSnapshot {
             next_seed: self.next_seed,
         })
         .and_then(move |mut runtime| {
-            runtime.ensure_authored_route_records();
             runtime
-                .migrate_generated_pathways_for_snapshot(snapshot_version)
+                .restore_canonical_topology_for_snapshot(snapshot_version)
                 .map_err(snapshot_error)?;
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
