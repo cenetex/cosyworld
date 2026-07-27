@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 8u
+#define CW_KERNEL_VERSION 9u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -185,7 +185,10 @@ typedef enum {
   CW_ACTION_REVEAL_ITEM = 29,
   /* Project use records an authored item contribution without inheriting the
      healing-and-consumption semantics of legacy USE_ITEM journals. */
-  CW_ACTION_RULES_UTILIZE_ITEM = 30
+  CW_ACTION_RULES_UTILIZE_ITEM = 30,
+  /* Append-only project resolution. Legacy action-0 project journals retain
+     their projection-owned meaning. */
+  CW_ACTION_PROJECT_PUSH = 31
 } cw_action_kind;
 
 typedef enum {
@@ -229,7 +232,8 @@ typedef enum {
   CW_EVENT_ITEM_EXHAUSTED = 37,
   CW_EVENT_ITEM_TRANSFORMED = 38,
   CW_EVENT_EXIT_UNLOCKED = 39,
-  CW_EVENT_ITEM_REVEALED = 40
+  CW_EVENT_ITEM_REVEALED = 40,
+  CW_EVENT_PROJECT_PUSH_RESOLVED = 41
 } cw_event_type;
 
 typedef enum {
@@ -318,6 +322,15 @@ typedef struct {
 } cw_item;
 
 typedef struct {
+  uint8_t base_progress;
+  uint8_t prepared_bonus_progress;
+  uint8_t prepared;
+  uint8_t evidence_count;
+  uint8_t location_count;
+  uint8_t remaining_progress;
+} cw_project_push_input;
+
+typedef struct {
   uint8_t kind;
   uint8_t ability;
   uint16_t dc;
@@ -343,6 +356,7 @@ typedef struct {
   uint8_t output_item_size_class;
   uint8_t output_item_role;
   uint16_t reserved2;
+  cw_project_push_input project_push;
 } cw_action;
 
 typedef struct {
@@ -435,6 +449,7 @@ cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed
 cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events);
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers);
 uint16_t cw_rejection_reason_max(void);
+cw_status cw_resolve_project_push(const cw_project_push_input *input, uint8_t *out_progress);
 const char *cw_event_type_name(uint8_t type);
 int16_t cw_actor_current_hp(const cw_actor *actor);
 int cw_actor_is_bloodied(const cw_actor *actor);

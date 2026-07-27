@@ -1434,6 +1434,85 @@ static void test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides(v
   assert(test_combat_side(encounter, explicit_npc->id) == 1);
 }
 
+static void test_project_push_resolution_matrix_and_action_event(void) {
+  const struct {
+    uint8_t prepared;
+    uint8_t evidence_count;
+    uint8_t location_count;
+    uint8_t expected;
+  } cases[] = {
+    {0, 0, 1, 2},
+    {1, 0, 1, 3},
+    {1, 1, 1, 4},
+    {0, 1, 3, 2},
+    {1, 1, 3, 4},
+    {1, 3, 3, 5},
+  };
+  for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+    cw_project_push_input input = {
+      .base_progress = 2,
+      .prepared_bonus_progress = 1,
+      .prepared = cases[i].prepared,
+      .evidence_count = cases[i].evidence_count,
+      .location_count = cases[i].location_count,
+      .remaining_progress = 6,
+    };
+    uint8_t progress = 0;
+    assert(cw_resolve_project_push(&input, &progress) == CW_OK);
+    assert(progress == cases[i].expected);
+  }
+
+  cw_project_push_input near_complete = {
+    .base_progress = 2,
+    .prepared_bonus_progress = 1,
+    .prepared = 1,
+    .evidence_count = 3,
+    .location_count = 3,
+    .remaining_progress = 1,
+  };
+  uint8_t progress = 0;
+  assert(cw_resolve_project_push(&near_complete, &progress) == CW_OK);
+  assert(progress == 1);
+
+  cw_project_push_input malformed = near_complete;
+  malformed.evidence_count = 4;
+  assert(cw_resolve_project_push(&malformed, &progress) == CW_ERR_RULE);
+  malformed = near_complete;
+  malformed.prepared = 2;
+  assert(cw_resolve_project_push(&malformed, &progress) == CW_ERR_RULE);
+  malformed = near_complete;
+  malformed.remaining_progress = 0;
+  assert(cw_resolve_project_push(&malformed, &progress) == CW_ERR_RULE);
+
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+  cw_action push = {0};
+  push.kind = CW_ACTION_PROJECT_PUSH;
+  push.actor_id = 1001;
+  push.content_id = 411;
+  push.project_push = (cw_project_push_input) {
+    .base_progress = 2,
+    .prepared_bonus_progress = 1,
+    .prepared = 1,
+    .evidence_count = 1,
+    .location_count = 3,
+    .remaining_progress = 6,
+  };
+  assert(cw_world_apply(&world, &push, 411, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_PROJECT_PUSH_RESOLVED);
+  assert(events.events[0].actor_id == 1001);
+  assert(events.events[0].total == 4);
+  assert(strcmp(cw_event_type_name(events.events[0].type), "project.push.resolved") == 0);
+
+  push.project_push.evidence_count = 4;
+  assert(cw_world_apply(&world, &push, 412, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+}
+
 static void apply_replay_sequence(cw_world *world, cw_event *events, size_t *event_count) {
   cw_event_buffer buffer;
   *event_count = 0;
@@ -1511,6 +1590,7 @@ int main(void) {
   test_search_and_craft_create_without_consuming_inputs();
   test_authoritative_world_effect_actions();
   test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides();
+  test_project_push_resolution_matrix_and_action_event();
   test_deterministic_replay();
   puts("cosy kernel tests passed");
   return 0;

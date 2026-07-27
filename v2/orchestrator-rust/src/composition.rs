@@ -1646,24 +1646,10 @@ impl RuntimeWorld {
                         self.contribution_progress_amount(actor_id, &intent),
                     ));
                 }
-                let amount = self.prepared_project_progress_amount(actor_id, actor.location_id);
-                let setup_effect = "makes the next try count";
-                let multi_room_partial = self
-                    .active_job_for_location(actor.location_id)
-                    .is_some_and(|job| {
-                        job.location_ids.len() > 1
-                            && self.project_location_evidence_count(actor_id, job)
-                                < job.location_ids.len()
-                    });
-                if amount > 2 {
-                    Some(format!(
-                        "brings together every clue you found; {setup_effect}"
-                    ))
-                } else if multi_room_partial {
-                    Some(format!("uses the clues you found here; {setup_effect}"))
-                } else {
-                    Some(setup_effect.to_string())
-                }
+                self.job_contribution_intent(actor_id, "work", None, None, None)
+                    .and_then(|intent| {
+                        self.project_push_effect_text(actor_id, &intent, true, true)
+                    })
             }
             "defend" if self.prepare_available(actor_id) => {
                 Some("guards carefully and makes the next try count".to_string())
@@ -1672,10 +1658,9 @@ impl RuntimeWorld {
             "work" => self
                 .job_contribution_intent(actor_id, "work", None, None, None)
                 .map(|intent| {
-                    self.project_headway_text(
-                        &intent.strategy.clock_id,
-                        self.contribution_progress_amount(actor_id, &intent),
-                    )
+                    let prepared = self.prepared_tag_active(actor_id, actor.location_id);
+                    self.project_push_effect_text(actor_id, &intent, prepared, false)
+                        .unwrap_or_else(|| "Push inputs are no longer valid.".to_string())
                 }),
             "help" => self
                 .job_contribution_intent(actor_id, "help", None, None, None)
