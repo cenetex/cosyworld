@@ -513,6 +513,19 @@ function validateContributions(pack, rowsByKind, knownActionIds) {
         assert(typeof row.subject.id === "string" || Number.isSafeInteger(row.subject.id), `offer ${row.id} requires subject.id`);
         assert(row.context && typeof row.context === "object" && !Array.isArray(row.context), `offer ${row.id} requires context predicates`);
         assert(typeof row.label === "string" && row.label.trim(), `offer ${row.id} requires a presentation label`);
+        if (row.cooperation !== undefined) {
+          assert(
+            row.cooperation
+              && row.cooperation.kind === "local_lead"
+              && row.based_on === "srd5.2.1:influence"
+              && row.subject.kind === "location"
+              && Number.isSafeInteger(row.cooperation.destination_location_id)
+              && row.cooperation.destination_location_id > 0
+              && typeof row.cooperation.destination_hint === "string"
+              && row.cooperation.destination_hint.trim(),
+            `offer ${row.id} has an invalid typed cooperation payload`,
+          );
+        }
       } else if (kind === "variants") {
         assert(/^.+\/\d+$/.test(row.id), `variant ${row.id} must be versioned`);
         assert(row.exact_delta && typeof row.exact_delta === "object" && !Array.isArray(row.exact_delta) && Object.keys(row.exact_delta).length, `variant ${row.id} requires exact_delta`);

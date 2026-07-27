@@ -606,7 +606,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
+    "bundle_hash": "sha256:fa486ea93c8018491038c5aeba2f700dda96aad85116f03f7c3d750a6a00979c",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -1676,7 +1676,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f"
+        "integrity": "sha256:d0b83fd083003dff495c8ba2b2891f057a380acff5ebf1aa7e2cfb54077a03cd"
       },
       {
         "id": "ruby-high.first-bell",
@@ -9648,7 +9648,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
-      "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "pack_integrity": "sha256:d0b83fd083003dff495c8ba2b2891f057a380acff5ebf1aa7e2cfb54077a03cd",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -9661,7 +9661,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.10",
-      "pack_integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f",
+      "pack_integrity": "sha256:d0b83fd083003dff495c8ba2b2891f057a380acff5ebf1aa7e2cfb54077a03cd",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",
@@ -11085,6 +11085,11 @@
           },
           "label": "Ask for a local lead",
           "target_predicate": "active_npc_same_location",
+          "cooperation": {
+            "kind": "local_lead",
+            "destination_location_id": 2,
+            "destination_hint": "the rain-soft garden beyond the eastern cottage door"
+          },
           "source_reference": "CosyWorld Core — Blue Cottage bounded cooperation"
         }
       ],

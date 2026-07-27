@@ -966,6 +966,16 @@ for (const bundle of contributionBundles) {
         if (!isObject(row.subject) || !isObject(row.context) || !isNonEmptyString(row.label)) {
           fail(`contextual offer ${row.id} is incomplete`);
         }
+        if (row.cooperation !== undefined
+          && (!isObject(row.cooperation)
+            || row.cooperation.kind !== "local_lead"
+            || row.based_on !== "srd5.2.1:influence"
+            || row.subject?.kind !== "location"
+            || !Number.isSafeInteger(row.cooperation.destination_location_id)
+            || row.cooperation.destination_location_id <= 0
+            || !isNonEmptyString(row.cooperation.destination_hint))) {
+          fail(`contextual offer ${row.id} has an invalid typed cooperation payload`);
+        }
       } else if (kind === "variants") {
         compiledVariants.push(row.id);
         if (!/^.+\/\d+$/.test(row.id) || !isObject(row.exact_delta) || !Object.keys(row.exact_delta).length || !Array.isArray(row.fixtures) || !row.fixtures.length) {
@@ -1639,6 +1649,19 @@ for (const exit of exits) {
       fail(`duplicate direction ${exit.direction} from location ${exit.from_location_id}`);
     }
     exitDirections.add(directionKey);
+  }
+}
+
+for (const bundle of contributionBundles) {
+  for (const offer of bundle.offers ?? []) {
+    if (offer.cooperation?.kind !== "local_lead") continue;
+    const destinationId = offer.cooperation.destination_location_id;
+    const originId = Number(offer.subject?.id);
+    if (!has(locationIds, destinationId)
+        || originId === destinationId
+        || !exitPairs.has(`${originId}->${destinationId}`)) {
+      fail(`contextual offer ${offer.id} local lead must name an authored outbound destination`);
+    }
   }
 }
 

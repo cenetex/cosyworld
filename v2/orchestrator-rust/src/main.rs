@@ -28,6 +28,7 @@ mod kernel;
 #[cfg(test)]
 mod lantern_keeper_tests;
 mod legacy_import;
+mod local_leads;
 mod moderation;
 mod movement;
 mod mud;
@@ -88,6 +89,7 @@ use hosted_access::*;
 use jobs::*;
 use kernel::*;
 use legacy_import::*;
+use local_leads::*;
 use moderation::*;
 use movement::*;
 use mud::*;
@@ -1519,6 +1521,7 @@ struct RuntimeWorld {
     equipped_charms: BTreeMap<u64, BTreeSet<u64>>,
     prepared_spells: BTreeMap<u64, BTreeSet<u64>>,
     npc_cooperation: BTreeMap<String, NpcCooperationState>,
+    local_leads: BTreeMap<String, LocalLeadState>,
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
     craft_receipts: BTreeMap<String, CraftReceiptState>,
@@ -1635,6 +1638,8 @@ struct RuntimeSnapshot {
     prepared_spells: BTreeMap<u64, BTreeSet<u64>>,
     #[serde(default)]
     npc_cooperation: BTreeMap<String, NpcCooperationState>,
+    #[serde(default)]
+    local_leads: BTreeMap<String, LocalLeadState>,
     #[serde(default)]
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     #[serde(default)]
@@ -6114,6 +6119,7 @@ impl RuntimeSnapshot {
             equipped_charms: runtime.equipped_charms.clone(),
             prepared_spells: runtime.prepared_spells.clone(),
             npc_cooperation: runtime.npc_cooperation.clone(),
+            local_leads: runtime.local_leads.clone(),
             item_provenance: runtime.item_provenance.clone(),
             materialization_receipts: runtime.materialization_receipts.clone(),
             craft_receipts: runtime.craft_receipts.clone(),
@@ -6324,6 +6330,7 @@ impl RuntimeSnapshot {
             equipped_charms: self.equipped_charms,
             prepared_spells: self.prepared_spells,
             npc_cooperation: self.npc_cooperation,
+            local_leads: self.local_leads,
             item_provenance: self.item_provenance,
             materialization_receipts: self.materialization_receipts,
             craft_receipts: self.craft_receipts,
@@ -6707,6 +6714,7 @@ impl RuntimeWorld {
             equipped_charms: BTreeMap::new(),
             prepared_spells: BTreeMap::new(),
             npc_cooperation: BTreeMap::new(),
+            local_leads: BTreeMap::new(),
             item_provenance: BTreeMap::new(),
             materialization_receipts: BTreeMap::new(),
             craft_receipts: BTreeMap::new(),
@@ -10536,6 +10544,13 @@ impl RuntimeWorld {
                         event.seq,
                         reason,
                     );
+                    self.settle_local_leads_for_route(
+                        action.actor_id,
+                        *from_location_id,
+                        *to_location_id,
+                        reason,
+                        event.seq,
+                    );
                     events.push(event.clone());
 
                     let mut discovered_exits = vec![exit];
@@ -11754,62 +11769,6 @@ impl RuntimeWorld {
         )
         .into_iter()
         .collect()
-    }
-
-    fn apply_influence_projection(
-        &mut self,
-        action: &CwAction,
-        events: &[EventView],
-    ) -> Vec<EventView> {
-        if action.kind != CW_ACTION_RULES_INFLUENCE {
-            return Vec::new();
-        }
-        let Some(target) = self.actor_by_id(action.target_actor_id) else {
-            return Vec::new();
-        };
-        if !Self::actor_can_act(target) {
-            return Vec::new();
-        }
-        let Some(check) = events.iter().find(|event| {
-            event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
-        }) else {
-            return Vec::new();
-        };
-        let succeeded = check
-            .total
-            .zip(check.dc)
-            .is_some_and(|(total, dc)| total >= dc);
-        let outcome = if succeeded { "cooperates" } else { "declines" };
-        let attitude = if succeeded { "cooperative" } else { "cautious" };
-        let key = format!("{}:{}", action.actor_id, action.target_actor_id);
-        let attempts = self
-            .npc_cooperation
-            .get(&key)
-            .map(|state| state.attempts.saturating_add(1))
-            .unwrap_or(1);
-        self.npc_cooperation.insert(
-            key,
-            NpcCooperationState {
-                actor_id: action.actor_id,
-                target_actor_id: action.target_actor_id,
-                desired_cooperation: "share one useful local lead".to_string(),
-                attitude: attitude.to_string(),
-                outcome: outcome.to_string(),
-                attempts,
-                source_event_seq: check.seq,
-            },
-        );
-        let target_name = self
-            .actor_name(action.target_actor_id)
-            .unwrap_or_else(|| format!("Resident {}", action.target_actor_id));
-        vec![self.append_async_job_event(
-            "influence.committed",
-            action.actor_id,
-            Some(action.target_actor_id),
-            Some(format!(
-                "{target_name} {outcome}: the authored request was to share one useful local lead."
-            )),
-        )]
     }
 
     fn apply_listen_ledger_projection(
@@ -14243,9 +14202,14 @@ impl RuntimeWorld {
             }
             return self.plan_pathway_search(actor_id);
         }
-        if let Some(plan) =
+        if let Some(mut plan) =
             self.plan_direct_authored_route_discovery(actor_id, destination_location_id)
         {
+            if let Some(lead) = self.local_lead_for_offer(actor_id, &current_offer) {
+                if let ProjectionMutation::DiscoverSeedExit { reason, .. } = &mut plan.1 {
+                    *reason = format!("follow_local_lead:{}", lead.id);
+                }
+            }
             return Ok(plan);
         }
         self.plan_journey_move(actor_id, destination_location_id)?
@@ -14876,6 +14840,12 @@ impl RuntimeWorld {
             }
         }
         for memory_id in expired {
+            if let Some(memory) = self.search_memories.get(&memory_id) {
+                if memory.kind == LOCAL_LEAD_MEMORY_KIND {
+                    let lead_id = memory.subject_key.clone();
+                    self.forget_local_lead_memory(&lead_id);
+                }
+            }
             self.search_memories.remove(&memory_id);
         }
         self.return_forgotten_search_items_to_pool();

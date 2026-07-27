@@ -189,6 +189,7 @@ impl RuntimeWorld {
                 offer.based_on == rules_action
                     && offer.subject.kind == "location"
                     && offer.subject.id == location_id
+                    && self.contextual_cooperation_available(actor_id, offer)
             })
             .collect::<Vec<_>>();
         reskins.sort_by(|left, right| left.id.cmp(&right.id));
@@ -510,6 +511,10 @@ impl RuntimeWorld {
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
+            let local_lead = self
+                .actionable_local_lead(actor_id)
+                .filter(|lead| target.id == Some(lead.destination_location_id))
+                .cloned();
             let kind = "explore_path";
             let binding = resolved_action_binding(kind)
                 .expect("explore_path must resolve through the SRD search action");
@@ -526,7 +531,12 @@ impl RuntimeWorld {
             let state_revision = self.world.next_event_seq.saturating_sub(1);
             let source_collectible = self.location_source_collectible(actor_id);
             let source_card_instances = source_collectible.clone().into_iter().collect();
-            let legacy_id = format!("explore_path:{}", target.id.clone().unwrap_or_default());
+            let legacy_id = local_lead
+                .as_ref()
+                .map(|lead| local_lead_offer_id(&lead.id))
+                .unwrap_or_else(|| {
+                    format!("explore_path:{}", target.id.clone().unwrap_or_default())
+                });
             let offer_id = format!(
                 "{}:{}:{}",
                 active_content().manifest.rules_profile,
@@ -576,16 +586,38 @@ impl RuntimeWorld {
                 disabled: false,
                 disabled_reason: None,
                 zone: zone.clone(),
-                source: "journey+exit_projection".to_string(),
+                source: if local_lead.is_some() {
+                    "local_lead+exit_projection".to_string()
+                } else {
+                    "journey+exit_projection".to_string()
+                },
                 provider,
                 target: Some(target),
                 project: None,
                 cost: None,
                 risk: None,
-                effect: Some("reveals the next adjacent route segment without moving".to_string()),
+                effect: Some(
+                    local_lead
+                        .as_ref()
+                        .map(|lead| {
+                            format!(
+                                "follows the lead from {}: {}",
+                                self.actor_name(lead.source_actor_id)
+                                    .unwrap_or_else(|| "a local resident".to_string()),
+                                lead.destination_hint
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            "reveals the next adjacent route segment without moving".to_string()
+                        }),
+                ),
                 progress: None,
-                claim_key: None,
-                reason: "ranked from an unrevealed journey edge or long route".to_string(),
+                claim_key: local_lead.as_ref().map(|lead| lead.id.clone()),
+                reason: if local_lead.is_some() {
+                    "ranked from durable authored local-lead knowledge".to_string()
+                } else {
+                    "ranked from an unrevealed journey edge or long route".to_string()
+                },
             });
         }
         for offer in &mut offers {
@@ -1075,6 +1107,13 @@ impl RuntimeWorld {
         access: &AccessContext,
     ) -> Option<ActionTargetView> {
         let actor = self.actor_by_id(actor_id)?;
+        if let Some(lead) = self.actionable_local_lead(actor_id) {
+            return Some(ActionTargetView {
+                kind: "location".to_string(),
+                id: Some(lead.destination_location_id),
+                label: self.location_name(lead.destination_location_id),
+            });
+        }
         let exits = self.exit_views(actor.location_id, access);
         if let Some(journey) = self.journey_view(actor_id) {
             let next_is_revealed = journey.next_location_id.is_some_and(|next_id| {
