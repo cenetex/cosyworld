@@ -517,9 +517,20 @@ pub(crate) async fn request_image_policy_decision(
                                 "person",
                                 "character",
                                 "creature",
+                                "safety",
                                 "text",
                                 "logo",
-                                "watermark"
+                                "watermark",
+                                "system_leak",
+                                "ui_chrome",
+                                "missing_subject",
+                                "extra_subject",
+                                "identity_drift",
+                                "missing_item",
+                                "wrong_holder",
+                                "wrong_environment",
+                                "bad_crop",
+                                "pack_negative"
                             ]
                         }
                     },
@@ -583,9 +594,20 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
         "person",
         "character",
         "creature",
+        "safety",
         "text",
         "logo",
         "watermark",
+        "system_leak",
+        "ui_chrome",
+        "missing_subject",
+        "extra_subject",
+        "identity_drift",
+        "missing_item",
+        "wrong_holder",
+        "wrong_environment",
+        "bad_crop",
+        "pack_negative",
     ];
     if raw
         .violations

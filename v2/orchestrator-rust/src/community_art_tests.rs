@@ -1,10 +1,14 @@
 use super::*;
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::Engine as _;
+use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
 use sha2::{Digest as _, Sha256};
-use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc,
+use std::{
+    io::Cursor,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 fn test_art_config() -> ReplicateAvatarArtConfig {
@@ -19,6 +23,22 @@ fn test_art_config() -> ReplicateAvatarArtConfig {
         prompt_prefix: "cozy card art".to_string(),
         output_format: "png".to_string(),
     }
+}
+
+fn gate_png() -> Vec<u8> {
+    let pixels = ImageBuffer::from_fn(16, 9, |x, y| {
+        Rgba([
+            (x as u8).wrapping_mul(17),
+            (y as u8).wrapping_mul(29),
+            (x as u8 ^ y as u8).wrapping_mul(11),
+            255,
+        ])
+    });
+    let mut bytes = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(pixels)
+        .write_to(&mut bytes, ImageFormat::Png)
+        .expect("encode gate PNG");
+    bytes.into_inner()
 }
 
 #[test]
@@ -503,9 +523,7 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         public_history: Vec::new(),
         evolution_job: None,
     };
-    let image_bytes = BASE64_STANDARD
-        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC")
-        .expect("decode retained PNG fixture");
+    let image_bytes = gate_png();
     store_community_art_candidate(
         &generated_dir,
         &plan,

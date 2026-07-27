@@ -121,6 +121,15 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/moderation/economy", get(moderation_economy_view))
         .route(
+            "/moderation/media-verdicts",
+            get(media_recipes::media_verdict::moderation_media_verdicts),
+        )
+        .route(
+            "/moderation/media-verdicts/{record_id}",
+            get(media_recipes::media_verdict::moderation_media_verdict)
+                .post(media_recipes::media_verdict::moderation_update_media_verdict),
+        )
+        .route(
             "/moderation/community-art/{subject_kind}/{subject_id}/reject",
             post(moderation_reject_community_art),
         )
