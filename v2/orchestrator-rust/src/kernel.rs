@@ -478,6 +478,7 @@ extern "C" {
         actor_id: u64,
         out_offers: *mut CwActionOffers,
     ) -> u32;
+    pub fn cw_rejection_reason_max() -> u16;
     pub fn cw_event_type_name(type_: u8) -> *const c_char;
     pub fn cw_actor_current_hp(actor: *const CwActor) -> i16;
     pub fn cw_actor_is_bloodied(actor: *const CwActor) -> i32;

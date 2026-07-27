@@ -75,6 +75,11 @@ mod tests {
 
     #[test]
     fn kernel_rejection_messages_cover_the_current_reason_contract() {
+        assert_eq!(
+            unsafe { cw_rejection_reason_max() },
+            CW_REASON_MAX_KNOWN,
+            "a new authoritative kernel rejection needs player-facing copy"
+        );
         let messages = (1..=CW_REASON_MAX_KNOWN)
             .map(kernel_rejection_message)
             .collect::<Vec<_>>();

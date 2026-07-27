@@ -2,31 +2,6 @@
 
 #include <string.h>
 
-enum {
-  CW_REASON_NONE = 0,
-  CW_REASON_INVALID_ACTION = 1,
-  CW_REASON_ACTOR_NOT_FOUND = 2,
-  CW_REASON_ACTOR_INACTIVE = 3,
-  CW_REASON_LOCATION_NOT_FOUND = 4,
-  CW_REASON_ITEM_NOT_FOUND = 5,
-  CW_REASON_ITEM_NOT_AVAILABLE = 6,
-  CW_REASON_TARGET_NOT_FOUND = 7,
-  CW_REASON_TARGET_UNAVAILABLE = 8,
-  CW_REASON_NOT_SAME_LOCATION = 9,
-  CW_REASON_COMBAT_NOT_ALLOWED = 10,
-  CW_REASON_SELF_TARGET = 11,
-  CW_REASON_NO_EXIT = 12,
-  CW_REASON_EXIT_LOCKED = 13,
-  CW_REASON_ENCOUNTER_NOT_FOUND = 14,
-  CW_REASON_ENCOUNTER_FULL = 15,
-  CW_REASON_NOT_PARTICIPANT = 16,
-  CW_REASON_NOT_CURRENT_TURN = 17,
-  CW_REASON_NOT_HOSTILE = 18,
-  CW_REASON_ENCOUNTER_ACTIVE = 19,
-  CW_REASON_COMBAT_ACTION_REQUIRED = 20,
-  CW_REASON_CAPACITY_EXCEEDED = 21
-};
-
 static uint64_t splitmix64(uint64_t *state) {
   uint64_t z = (*state += 0x9E3779B97F4A7C15ull);
   z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
@@ -2398,4 +2373,8 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_REVEALED: return "item.revealed";
     default: return "unknown";
   }
+}
+
+uint16_t cw_rejection_reason_max(void) {
+  return (uint16_t)(CW_REASON_COUNT - 1);
 }
