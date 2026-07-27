@@ -298,6 +298,26 @@ impl ModelCandidate {
         self.output_limit
     }
 
+    pub(crate) fn provider(&self) -> &str {
+        &self.provider
+    }
+
+    pub(crate) fn family(&self) -> Option<&str> {
+        self.family.as_deref()
+    }
+
+    pub(crate) fn concrete_model(&self) -> Option<&ConcreteModelIdentity> {
+        self.concrete_model.as_ref()
+    }
+
+    pub(crate) fn prompt_adapter(&self) -> &PromptAdapterRef {
+        &self.prompt_adapter
+    }
+
+    pub(crate) fn observations(&self) -> &CandidateObservations {
+        &self.observations
+    }
+
     #[cfg(test)]
     fn declared_capabilities(&self) -> &BTreeSet<ModelCapability> {
         &self.declared_capabilities
@@ -532,6 +552,29 @@ impl CapabilityRegistrySnapshot {
             capability,
             candidate,
         })
+    }
+
+    pub(crate) fn pin_all(
+        &self,
+        capability: ModelCapability,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Vec<PinnedModelSelection>, RegistryError> {
+        let mut pinned = Vec::new();
+        for model in self
+            .pools
+            .get(&capability)
+            .ok_or(RegistryError::EmptyCapabilityPool(capability))?
+        {
+            match self.pin(capability, Some(model), policy_mode) {
+                Ok(selection) => pinned.push(selection),
+                Err(RegistryError::PrivacyRejected { .. }) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        if pinned.is_empty() {
+            return Err(RegistryError::EmptyCapabilityPool(capability));
+        }
+        Ok(pinned)
     }
 
     #[cfg(test)]

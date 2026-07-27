@@ -25,6 +25,14 @@ impl SpeechMode {
             _ => Self::Prose,
         }
     }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Prose => "prose",
+            Self::EmojiOnly => "emoji_only",
+            Self::EmoteOnly => "emote_only",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Serialize)]
@@ -123,7 +131,6 @@ impl CertifiedSpeech {
         &self.text
     }
 
-    #[cfg(test)]
     pub(crate) fn receipt(&self) -> &AiPublicationReceipt {
         &self.receipt
     }
@@ -138,6 +145,14 @@ impl CertifiedSpeech {
     ) -> Self {
         self.prior_rejections = prior_rejections;
         self
+    }
+
+    pub(crate) fn restore(text: String, receipt: AiPublicationReceipt) -> Option<Self> {
+        receipt_matches_text(&receipt, &text).then_some(Self {
+            text,
+            receipt,
+            prior_rejections: Vec::new(),
+        })
     }
 
     pub(crate) fn prior_rejections(&self) -> &[PublicationRejection] {
@@ -166,16 +181,7 @@ pub(crate) fn certify_speech(
     let text = bounded_normalize(candidate_text);
     let candidate_hash = sha256_hex(completion.text.as_bytes());
     let output_hash = sha256_hex(text.as_bytes());
-    let generation_id = sha256_hex(
-        format!(
-            "{}\0{}\0{}\0{}",
-            context.feature,
-            completion.prompt_version,
-            context.generation_key,
-            context.speaker_actor_id
-        )
-        .as_bytes(),
-    );
+    let generation_id = publication_generation_id(&context, &completion.prompt_version);
     let candidate_id = sha256_hex(
         format!(
             "{}\0{}\0{}",
@@ -242,6 +248,19 @@ pub(crate) fn certify_speech(
         receipt,
         prior_rejections: Vec::new(),
     })
+}
+
+pub(crate) fn publication_generation_id(
+    context: &SpeechGateContext,
+    prompt_version: &str,
+) -> String {
+    sha256_hex(
+        format!(
+            "{}\0{}\0{}\0{}",
+            context.feature, prompt_version, context.generation_key, context.speaker_actor_id
+        )
+        .as_bytes(),
+    )
 }
 
 pub(crate) fn receipt_matches_text(receipt: &AiPublicationReceipt, text: &str) -> bool {

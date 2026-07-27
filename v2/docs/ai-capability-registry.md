@@ -98,8 +98,61 @@ COSYWORLD_AI_CAPABILITY_MODELS_JSON='{"voice":"provider/tiny-chat","intent_json"
 
 If no capability-specific model is configured, the gateway uses the legacy
 `COSYWORLD_AI_MODEL` only when it is eligible for that capability, then falls
-back to the first candidate in the capability pool. Scheduling and exploration
-weights are separate work; a generation still sends one pinned model.
+back to the first candidate in the capability pool. Direct capability requests
+still pin one candidate. Avatar voice publication uses the bounded exploration
+router described below.
+
+## Bounded voice exploration
+
+Avatar chat and its follow-up select `voice` candidates by deterministic
+weighted sampling without replacement. The inspectable decision record includes
+Beta-smoothed publication-gate evidence, stable actor/family affinity, family
+novelty, provider health, expected latency and cost, the nonzero exploration
+floor, and the derived random/key values. Content evidence is keyed by resolved
+model and revision, prompt-adapter ID and version, speech mode, and feature.
+Endpoint availability and cooldown are stored separately, so transport failure
+cannot count as a content failure.
+
+The router is bounded by:
+
+- `COSYWORLD_AI_VOICE_MAX_ATTEMPTS` (1–3, default 2);
+- `COSYWORLD_AI_VOICE_HEDGE_WIDTH` (1–3 and no greater than attempts, default 1);
+- `COSYWORLD_AI_VOICE_LATENCY_CEILING_MS` (default 12000);
+- `COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS` (default 2000);
+- `COSYWORLD_AI_VOICE_UNKNOWN_COST_MICRODOLLARS` (default 250); and
+- `COSYWORLD_AI_VOICE_EXPLORATION_FLOOR_BPS` (default 500, or 5%).
+
+Each generation is a durable leased job in the orchestrator SQLite store.
+Every provider request is pinned to one selected candidate with provider-local
+retries disabled. The first publication-gate pass wins an atomic compare-and-set
+and cancels remaining hedges. Duplicate or restarted work returns the accepted
+text and receipt without selecting again; an expired lease receives at most one
+named retry. Exhausted bounds return a stable typed unavailable code. Rejected
+candidates persist hashes, evidence, and decision metadata, never raw output
+bytes. The existing publication journal precondition remains the single writer
+for the final world-visible line.
+
+Resident intelligence uses the same bounded Voice router for public prose.
+Decision beats make one separate `intent_json` request containing only the
+triggering public event, bounded continuity/goals, and the exact current
+planner-eligible candidate IDs plus their state revision. The declared
+`resident-planner-offers-v1` policy is closed over reachable move, pickup, drop,
+give, trade, and use-item offers. Other legal kinds, including search, stay in
+deterministic hands; pickups needing an inventory exchange are excluded until
+the schema can name the exact outgoing item. The strict response may echo only
+a candidate ID/revision, closed speech act, and proposal reason.
+Conversation-only beats and directly controlled proxy reactions skip the
+planner.
+
+Planner failure does not consume the Voice budget and degrades to rejected or
+absent intent with no action. Before a pending action is journaled, the server
+re-enumerates and compares the full authoritative candidate identity and fields.
+The C kernel remains the only mutation authority. Journaled planning,
+publication, causality, and eventual decision links replay without inference;
+raw planner reasoning remains only in the planning trace and is never copied
+into projected action state or promoted to world truth. Matching execution
+durably records committed or rejected disposition; a newer accepted generation
+supersedes the prior one, while a rejected new attempt does not mutate it.
 
 ## Privacy and attribution
 
