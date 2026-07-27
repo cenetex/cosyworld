@@ -770,6 +770,8 @@ mod tests {
             destination_location_id: location_id,
             distance: 1,
             created_by_actor_id: RATI_ACTOR_ID,
+            way_class: PathwayWayClass::Route,
+            traffic_count: 0,
             waypoints: vec![GeneratedWaypointState {
                 id: location_id,
                 canonical_id: String::new(),
@@ -1043,6 +1045,8 @@ mod tests {
             destination_location_id: location_id,
             distance: 1,
             created_by_actor_id: RATI_ACTOR_ID,
+            way_class: PathwayWayClass::Route,
+            traffic_count: 0,
             waypoints: vec![GeneratedWaypointState {
                 id: location_id,
                 canonical_id: String::new(),

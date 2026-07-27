@@ -489,6 +489,7 @@ impl RuntimeWorld {
         pathway: &mut GeneratedPathwayState,
         allow_legacy_backfill: bool,
     ) -> Result<(), String> {
+        pathway.way_class = PathwayWayClass::for_traffic(pathway.traffic_count);
         if pathway.origin_location_id == pathway.destination_location_id
             || !(2..=8).contains(&pathway.distance)
             || pathway.waypoints.len() != usize::from(pathway.distance.saturating_sub(1))
@@ -895,9 +896,17 @@ impl RuntimeWorld {
             "Quiet Rise",
             "Bramble Mile",
         ];
+        let route_name_prefix = format!(
+            "{}-{}",
+            pathway_anchor_name_token(&origin_name),
+            pathway_anchor_name_token(&destination_name),
+        );
         let waypoints = (0..waypoint_count)
             .map(|index| {
-                let landmark_name = names[(seed as usize + index) % names.len()].to_string();
+                let landmark_name = format!(
+                    "{route_name_prefix} {}",
+                    names[(seed as usize + index) % names.len()]
+                );
                 let canonical_id = generated_waypoint_canonical_id(&pathway_id, index);
                 let id = generated_pathway_location_id(&canonical_id);
                 let art_prompt = format!(
@@ -965,6 +974,8 @@ impl RuntimeWorld {
             destination_location_id,
             distance,
             created_by_actor_id: actor_id,
+            way_class: PathwayWayClass::Route,
+            traffic_count: 0,
             waypoints,
             generation: GenerationProvenance {
                 source: "deterministic_fallback".to_string(),
@@ -2218,6 +2229,139 @@ mod tests {
             .into_runtime()
             .expect("restart generated subgraph");
         assert_eq!(generated_subgraph_bytes(&restarted), committed_bytes);
+    }
+
+    #[test]
+    fn repeated_generated_names_fall_back_by_endpoint_and_replay_identically() {
+        let seed = RuntimeWorld::seeded();
+        let pathway_a = seed
+            .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
+            .expect("first generated route");
+        let pathway_b = seed
+            .generated_pathway(RATI_ACTOR_ID, 701, 703, 2)
+            .expect("second generated route");
+        let mut pathway_c = seed
+            .generated_pathway(RATI_ACTOR_ID, 703, 704, 2)
+            .expect("endpoint fallback fixture route");
+        let mut pathway_d = seed
+            .generated_pathway(RATI_ACTOR_ID, 704, 706, 2)
+            .expect("hashed fallback fixture route");
+        let fallback_b = pathway_b.waypoints[0].name.clone();
+        let repeated_name = "Rain-Silver Crossing";
+        let first_collision_name =
+            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, &fallback_b, 0);
+        pathway_c.waypoints[0].name = fallback_b.clone();
+        pathway_d.waypoints[0].name = first_collision_name.clone();
+        let discovery_record = |pathway: &GeneratedPathwayState, seed| JournalRecord {
+            projection_mutations: vec![ProjectionMutation::JourneyTransition {
+                pathway: pathway.clone(),
+                journey: None,
+                reveal_edges: vec![(pathway.origin_location_id, pathway.waypoints[0].id)],
+                narration: "A route becomes shared geography.".to_string(),
+                event_type: "pathway.discovered".to_string(),
+            }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+        };
+        let mut refined_a = pathway_a.clone();
+        let mut refined_b = pathway_b.clone();
+        refined_a.waypoints[0].name = repeated_name.to_string();
+        refined_b.waypoints[0].name = repeated_name.to_string();
+        let refine_record = |pathway: GeneratedPathwayState, seed| JournalRecord {
+            projection_mutations: vec![ProjectionMutation::RefinePathway { pathway }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+        };
+        let records = vec![
+            discovery_record(&pathway_a, 333_001),
+            discovery_record(&pathway_c, 333_002),
+            discovery_record(&pathway_d, 333_003),
+            discovery_record(&pathway_b, 333_004),
+            refine_record(refined_a, 333_005),
+            refine_record(refined_b, 333_006),
+        ];
+        let replay_records: Vec<JournalRecord> = serde_json::from_slice(
+            &serde_json::to_vec(&records).expect("serialize collision fixture"),
+        )
+        .expect("deserialize collision fixture");
+
+        let mut committed = RuntimeWorld::seeded();
+        let mut replayed = RuntimeWorld::seeded();
+        for record in &records {
+            assert_eq!(committed.apply_journal_record(record).0, CW_OK);
+        }
+        for record in &replay_records {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+
+        assert_eq!(
+            committed.generated_pathways[&pathway_a.id].waypoints[0].name,
+            repeated_name
+        );
+        assert_eq!(
+            committed.generated_pathways[&pathway_b.id].waypoints[0].name,
+            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, &fallback_b, 1)
+        );
+        assert_eq!(
+            committed.generated_pathways[&pathway_d.id].waypoints[0].name,
+            first_collision_name
+        );
+        let names = committed
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| pathway.waypoints.iter())
+            .map(|waypoint| waypoint.name.to_ascii_lowercase())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names.iter().collect::<BTreeSet<_>>().len(),
+            names.len(),
+            "every simultaneously offered generated destination stays unique"
+        );
+        let endpoint_prefix = format!(
+            "{}-{}",
+            pathway_anchor_name_token(
+                &committed
+                    .location_name(pathway_b.origin_location_id)
+                    .expect("origin name"),
+            ),
+            pathway_anchor_name_token(
+                &committed
+                    .location_name(pathway_b.destination_location_id)
+                    .expect("destination name"),
+            ),
+        );
+        assert!(fallback_b.starts_with(&endpoint_prefix));
+
+        let stable_projection = |runtime: &RuntimeWorld| {
+            serde_json::to_vec(&(
+                runtime.generated_pathways.clone(),
+                runtime
+                    .routes
+                    .iter()
+                    .filter(|(_, route)| route.provenance.starts_with("generated_pathway:"))
+                    .map(|(id, route)| (id.clone(), route.clone()))
+                    .collect::<BTreeMap<_, _>>(),
+            ))
+            .expect("serialize collision projection")
+        };
+        let committed_bytes = stable_projection(&committed);
+        assert_eq!(stable_projection(&replayed), committed_bytes);
+        let restarted = RuntimeSnapshot::from_runtime(&committed)
+            .into_runtime()
+            .expect("restart collision fixture");
+        assert_eq!(stable_projection(&restarted), committed_bytes);
     }
 
     #[test]
