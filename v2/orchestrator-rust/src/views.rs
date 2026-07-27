@@ -2657,6 +2657,8 @@ impl RuntimeWorld {
             && offer.project.is_none()
         {
             "The action has no active project in the current scene.".to_string()
+        } else if !offer.ranked_hand_eligible {
+            "Rest is legal here, but nothing currently needs recovery, so it stays outside the two-card browser hand.".to_string()
         } else if hand_groups.contains(&action_offer_hand_group(offer)) {
             "A higher-ranked action from the same choice group occupies the browser hand."
                 .to_string()

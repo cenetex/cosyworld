@@ -4148,7 +4148,7 @@ async function main() {
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
   }
 
-  async function assertTiredRestPriorityFollowsRoomDanger() {
+  async function assertServerEligibleRestPriorityFollowsRoomDanger() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -4225,6 +4225,78 @@ async function main() {
             ],
             items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", location_id: 1, charges: 1 }],
           }),
+          exhaustedRecoveryItem: actionsFor({
+            tags: [],
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              rank: 84,
+              effect: "restores one exhausted keepsake",
+            }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:77:rest:rest", kind: "rest", state_revision: 77 }],
+            },
+            items: [{
+              id: 2001,
+              name: "Hearth Tonic",
+              kind: "potion",
+              holder_actor_id: 5000,
+              charges: 0,
+              max_charges: 1,
+              recovery: 1,
+            }],
+          }),
+          trainedSinceRest: actionsFor({
+            tags: [{
+              id: "actor:5000:trained_since_rest",
+              scope: "actor",
+              scope_id: 5000,
+              label: "trained since rest",
+            }],
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{ kind: "rest", rank: 84 }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:78:rest:rest", kind: "rest", state_revision: 78 }],
+            },
+          }),
+          expeditionRecovery: actionsFor({
+            tags: [{
+              id: "actor:5000:frontier_travel_since_rest:79",
+              scope: "actor",
+              scope_id: 5000,
+              label: "frontier travel since rest",
+            }],
+            location: { id: 3, name: "Moonlit Trail" },
+            room_sheet: { zone: "frontier", safety: "dangerous" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "rest" }, { kind: "move" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              rank: 25,
+              risk: "trouble may draw nearer while you rest",
+            }],
+            action_hand: {
+              schema_version: 1,
+              capacity: 2,
+              entries: [{ offer_id: "cosy:79:rest:rest", kind: "rest", state_revision: 79 }],
+            },
+          }),
         };
       } finally {
         state = previousState;
@@ -4245,6 +4317,16 @@ async function main() {
     assert(sanctuaryRestIndex > sanctuaryTravelIndex, `sanctuary rest should stay available without hijacking travel: ${JSON.stringify(result)}`);
     assert(result.sanctuary[sanctuaryRestIndex]?.detail === "feel fresh", `sanctuary rest should name the concrete payoff in natural language: ${JSON.stringify(result)}`);
     assert(result.sanctuary[sanctuaryRestIndex]?.summary === "Catch your breath.", `sanctuary Rest should stay simple and calm: ${JSON.stringify(result)}`);
+    for (const [target, actions] of Object.entries({
+      exhaustedRecoveryItem: result.exhaustedRecoveryItem,
+      trainedSinceRest: result.trainedSinceRest,
+      expeditionRecovery: result.expeditionRecovery,
+    })) {
+      assert(
+        actions.some((action) => action.label === "rest"),
+        `${target} should render server-authorized Rest without a tired tag: ${JSON.stringify(result)}`,
+      );
+    }
     assert(!JSON.stringify(result).includes("Risk:"), `Rest confirmations should not use a rules-like Risk label: ${JSON.stringify(result)}`);
   }
 
@@ -8993,7 +9075,7 @@ async function main() {
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();
-  await assertTiredRestPriorityFollowsRoomDanger();
+  await assertServerEligibleRestPriorityFollowsRoomDanger();
   await assertFailureCopyStaysContextual();
   await assertCompactDescriptionAndCardModal();
   await assertRoomSummaryStaysFlatAndMechanical();
