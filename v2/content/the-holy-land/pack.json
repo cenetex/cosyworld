@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "kind": "world",
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
@@ -69,5 +69,91 @@
       "public_prefix": "/assets/the-holy-land/cards",
       "optional": false
     }
-  ]
+  ],
+  "extensions": {
+    "x-cosyworld-generation": {
+      "schema_version": 1,
+      "policy_id": "cosyworld.the-holy-land/generation/1",
+      "migration_version": 1,
+      "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
+      "generated_descendants": {
+        "owner": "source_route",
+        "composition": "active_bundle",
+        "subject_kinds": ["route", "waypoint", "place", "location_card"],
+        "on_upgrade": "require_declared_migration",
+        "on_unmount": "freeze_with_owner"
+      },
+      "prose": {
+        "profile_id": "cosyworld.pathway-prose.ecology/1",
+        "prompt_versions": ["pathway-content-v1"],
+        "ecology": {
+          "interpolation": "endpoint_blend/1",
+          "required_context": [
+            "route_id",
+            "route_version",
+            "origin",
+            "destination",
+            "travel_direction",
+            "segment_index",
+            "segment_count",
+            "biome",
+            "terrain",
+            "climate",
+            "landforms",
+            "geology",
+            "hydrology",
+            "vegetation",
+            "fauna",
+            "resource_cues",
+            "nearby_authored_descriptions"
+          ]
+        }
+      },
+      "media": {
+        "profile_id": "cosyworld.holy-land.generated-landscape/1",
+        "recipe_id": "replicate.holy-land-b43l.base",
+        "provider_preference": {
+          "provider": "replicate",
+          "model": "ratimics/b43l",
+          "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
+        },
+        "prompt_version": "holy-land-location/1",
+        "prompt_prefix": "B43L, watercolor pilgrimage landscape, historically grounded Levantine ecology",
+        "aspect_ratios": ["16:9"],
+        "output_formats": ["webp"],
+        "negative_constraints": ["no text", "no logos", "no depiction of Jesus"],
+        "subject_kinds": ["location_card"],
+        "authored_art": "permanent",
+        "community_art": "eligible",
+        "unexplored_placeholder": "common_unexplored/1",
+        "fallback": "unexplored_placeholder"
+      },
+      "topology": {
+        "profile_id": "regional_mesh",
+        "directionality": "reciprocal_or_explicit_one_way",
+        "evacuation": "world_lifecycle_required",
+        "budgets": {
+          "components": { "min": 1, "max": 1 },
+          "roots": { "min": 1, "max": 2 },
+          "ingress": { "min": 1, "max": 3 },
+          "egress": { "min": 1, "max": 3 },
+          "weighted_distance": { "min": 20, "max": 32 },
+          "degree": { "min": 3, "max": 5 },
+          "cycle_rank": { "min": 1, "max": 4 },
+          "bridges": { "min": 8, "max": 12 },
+          "articulation_impact": { "min": 3, "max": 8 },
+          "terminal_spurs": { "min": 3, "max": 6 }
+        }
+      },
+      "migrations": [
+        {
+          "from_policy_id": "cosyworld.compatibility.host-generation/1",
+          "from_migration_version": 0,
+          "from_pack_version": "1.1.3",
+          "mode": "preserve_descendants"
+        }
+      ],
+      "cross_pack_routes": []
+    }
+  }
 }

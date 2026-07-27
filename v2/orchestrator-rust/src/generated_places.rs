@@ -33,6 +33,8 @@ pub(super) struct GeneratedPlaceState {
     pub(super) source_generation: GenerationProvenance,
     pub(super) pack_id: String,
     pub(super) pack_version: String,
+    #[serde(default)]
+    pub(super) generation_policy: GeneratedPolicyBinding,
     pub(super) anchor_clock_id: String,
     pub(super) connection_clock_id: String,
     pub(super) settlement_clock_id: String,
@@ -53,6 +55,7 @@ pub(super) struct GeneratedPlaceView {
     pub(super) source_generation: GenerationProvenance,
     pub(super) pack_id: String,
     pub(super) pack_version: String,
+    pub(super) generation_policy: GeneratedPolicyBinding,
     pub(super) milestones: Vec<String>,
     pub(super) anchor_clock_id: String,
     pub(super) connection_clock_id: String,
@@ -229,6 +232,7 @@ impl RuntimeWorld {
                     source_generation: pathway.generation.clone(),
                     pack_id: pack_id.clone(),
                     pack_version: pack_version.clone(),
+                    generation_policy: pathway.generation_policy.clone(),
                     anchor_clock_id: generated_place_anchor_clock_id(location_id),
                     connection_clock_id: generated_place_connection_clock_id(location_id),
                     settlement_clock_id: generated_place_settlement_clock_id(location_id),
@@ -239,8 +243,9 @@ impl RuntimeWorld {
                 });
         state.schema_version = GENERATED_PLACE_SCHEMA_VERSION;
         state.canonical_id = waypoint.canonical_id.clone();
-        state.pack_id = pack_id;
-        state.pack_version = pack_version;
+        if state.generation_policy.is_empty() {
+            state.generation_policy = pathway.generation_policy.clone();
+        }
         let state = state.clone();
         self.ensure_generated_place_projection(&state, &waypoint);
     }
@@ -665,6 +670,7 @@ impl RuntimeWorld {
             source_generation: state.source_generation.clone(),
             pack_id: state.pack_id.clone(),
             pack_version: state.pack_version.clone(),
+            generation_policy: state.generation_policy.clone(),
             milestones: self.generated_place_milestones(location_id),
             anchor_clock_id: state.anchor_clock_id.clone(),
             connection_clock_id: state.connection_clock_id.clone(),
