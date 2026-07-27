@@ -10,6 +10,23 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:804:beacon_rekindled",
+        "scope": "room",
+        "scope_id": 804,
+        "label": "beacon rekindled",
+        "kind": "memory",
+        "reason": "lantern_keeper_completed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "status": "completed",
+        "reason": "lantern_keeper_completed"
+      }
+    ],
     "presentation": {
       "version": 1,
       "question": "Can travelers find Rowan Vale and rekindle the Mothwood beacon?",
@@ -33,6 +50,23 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:804:black_beacon",
+        "scope": "room",
+        "scope_id": 804,
+        "label": "black beacon",
+        "kind": "hook",
+        "reason": "lantern_keeper_failed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "status": "failed",
+        "reason": "lantern_keeper_failed"
+      }
+    ],
     "presentation": {
       "version": 1,
       "question": "Will the Mothwood road go fully dark before the beacon returns?",

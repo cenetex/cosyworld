@@ -1340,6 +1340,121 @@ mod tests {
     }
 
     #[test]
+    fn lantern_clock_contract_rejects_missing_tag_only_and_wrong_status_effects() {
+        let path = configured_content_root().join("official/registry.json");
+        let original: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(path).expect("compiled registry reads"))
+                .expect("compiled registry parses");
+
+        for clock_id in ["lantern-keeper.light", "lantern-keeper.darkness"] {
+            let mutate_clock =
+                |value: &mut serde_json::Value, mutation: &dyn Fn(&mut serde_json::Value)| {
+                    let clock = value["resources"]["clocks"]
+                        .as_array_mut()
+                        .expect("clock resources are an array")
+                        .iter_mut()
+                        .find(|clock| clock["id"] == clock_id)
+                        .expect("Lantern clock is compiled");
+                    mutation(clock);
+                };
+
+            let mut missing = original.clone();
+            mutate_clock(&mut missing, &|clock| {
+                clock
+                    .as_object_mut()
+                    .expect("clock is an object")
+                    .remove("on_fill");
+            });
+            let error = ContentRegistry::from_json(&missing.to_string(), env!("CARGO_PKG_VERSION"))
+                .expect_err("missing direct fill consequence is rejected");
+            assert!(error.contains("must directly declare"), "{error}");
+
+            let mut tag_only = original.clone();
+            mutate_clock(&mut tag_only, &|clock| {
+                clock["on_fill"]
+                    .as_array_mut()
+                    .expect("on_fill is an array")
+                    .retain(|effect| effect["op"] == "set_tag");
+            });
+            let error =
+                ContentRegistry::from_json(&tag_only.to_string(), env!("CARGO_PKG_VERSION"))
+                    .expect_err("tag-only fill consequence is rejected");
+            assert!(error.contains("cannot be tag-only"), "{error}");
+
+            let mut wrong_status = original.clone();
+            mutate_clock(&mut wrong_status, &|clock| {
+                let effect = clock["on_fill"]
+                    .as_array_mut()
+                    .expect("on_fill is an array")
+                    .iter_mut()
+                    .find(|effect| effect["op"] == "set_job_status")
+                    .expect("authoritative status effect");
+                effect["status"] = serde_json::json!(if clock_id == "lantern-keeper.light" {
+                    "failed"
+                } else {
+                    "completed"
+                });
+            });
+            let expected_status = if clock_id == "lantern-keeper.light" {
+                "completed"
+            } else {
+                "failed"
+            };
+            let error =
+                ContentRegistry::from_json(&wrong_status.to_string(), env!("CARGO_PKG_VERSION"))
+                    .expect_err("wrong status consequence is rejected");
+            assert!(error.contains(&format!(":{expected_status}")), "{error}");
+        }
+    }
+
+    #[test]
+    fn lantern_clock_contract_rejects_unjustified_or_duplicate_sources() {
+        let path = configured_content_root().join("official/registry.json");
+        let original: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(path).expect("compiled registry reads"))
+                .expect("compiled registry parses");
+
+        let mut unjustified = original.clone();
+        let clock = unjustified["resources"]["clocks"]
+            .as_array_mut()
+            .expect("clock resources are an array")
+            .iter_mut()
+            .find(|clock| clock["id"] == "lantern-keeper.light")
+            .expect("Lantern light clock is compiled");
+        clock["on_fill"][0]
+            .as_object_mut()
+            .expect("effect is an object")
+            .remove("reason");
+        let error = ContentRegistry::from_json(&unjustified.to_string(), env!("CARGO_PKG_VERSION"))
+            .expect_err("unjustified effect is rejected");
+        assert!(error.contains("effect without a reason"), "{error}");
+
+        let mut duplicate = original;
+        duplicate["resources"]["lifecycle_hooks"]
+            .as_array_mut()
+            .expect("lifecycle hooks are an array")
+            .push(serde_json::json!({
+                "hook": "on_clock_fill",
+                "target_kind": "clock",
+                "target_id": "lantern-keeper.light",
+                "claim_scope": "event_once",
+                "effects": [{
+                    "op": "set_job_status",
+                    "job_id": "lantern-keeper:rekindle-the-beacon",
+                    "status": "completed",
+                    "reason": "duplicate_source_test"
+                }],
+                "pack_id": "cosyworld.campaign.the-lantern-keeper"
+            }));
+        let error = ContentRegistry::from_json(&duplicate.to_string(), env!("CARGO_PKG_VERSION"))
+            .expect_err("duplicate fill source is rejected");
+        assert!(
+            error.contains("sole authoritative consequence source"),
+            "{error}"
+        );
+    }
+
+    #[test]
     fn runtime_rejects_wallet_identity_embedded_in_world_entity_state() {
         let path = configured_content_root().join("official/registry.json");
         let mut value: serde_json::Value =

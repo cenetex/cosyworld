@@ -137,6 +137,39 @@ fn clock_progress(events: &[EventView], clock_id: &str) -> Option<(u8, u8)> {
         .and_then(|event| event.clock_filled.zip(event.clock_segments))
 }
 
+fn lantern_terminal_fill(events: &[EventView], actor_id: u64) -> Option<(&str, u8, u8)> {
+    [
+        (LANTERN_PROGRESS_CLOCK_ID, "completed"),
+        (LANTERN_DANGER_CLOCK_ID, "failed"),
+    ]
+    .into_iter()
+    .find_map(|(clock_id, status)| {
+        let clock_event = events.iter().find(|event| {
+            event.actor_id == Some(actor_id)
+                && event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(clock_id)
+                && event
+                    .clock_filled
+                    .zip(event.clock_segments)
+                    .is_some_and(|(filled, segments)| filled >= segments)
+        })?;
+        let (filled, segments) = clock_event.clock_filled.zip(clock_event.clock_segments)?;
+        if !events.iter().any(|event| {
+            event.actor_id == Some(actor_id)
+                && event.type_name == "job.updated"
+                && event.caused_by_event_seq == Some(clock_event.seq)
+                && event.content.as_deref().is_some_and(|content| {
+                    job_id_from_event_content(content)
+                        .is_some_and(|job_id| job_id == LANTERN_JOB_ID)
+                        && job_status_from_event_content(content) == Some(status)
+                })
+        }) {
+            return None;
+        }
+        Some((clock_id, filled, segments))
+    })
+}
+
 fn contribution_receipt(
     actor: &str,
     trace: &JobContributionTrace,
@@ -253,6 +286,26 @@ fn build_lantern_story_receipt(
             .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())?;
         let (text, next) = contribution_receipt(actor, &trace, events);
         (trace.narration_key, text, next)
+    } else if let Some((clock_id, filled, segments)) = lantern_terminal_fill(events, actor_id) {
+        if clock_id == LANTERN_PROGRESS_CLOCK_ID {
+            let next = "carry the relit road's news back to Mara Wick.".to_string();
+            (
+                "lantern-keeper.light-filled".to_string(),
+                format!(
+                    "{actor} rekindles the dark Mothwood beacon. The beacon burns again and makes the Mothwood road trustworthy after dusk. Progress reaches {filled}/{segments}, and the Lantern Keeper question is complete. Next: {next}"
+                ),
+                next,
+            )
+        } else {
+            let next = "carry a warning about the dark road back to Mara Wick.".to_string();
+            (
+                "lantern-keeper.darkness-filled".to_string(),
+                format!(
+                    "{actor} sees the Mothwood road go fully dark. The borrowed shadows learn every traveler's shape. Danger reaches {filled}/{segments}, and the Lantern Keeper question fails. Next: {next}"
+                ),
+                next,
+            )
+        }
     } else if kind == "prepare"
         && events.iter().any(|event| {
             event.actor_id == Some(actor_id)
@@ -446,6 +499,42 @@ mod tests {
 
     fn receipt(kind: &str, events: &[EventView]) -> SemanticStoryReceipt {
         build_lantern_story_receipt(&record(kind), events).expect("Lantern action receipt")
+    }
+
+    #[test]
+    fn lantern_terminal_receipt_requires_the_terminal_fills_causal_job_update() {
+        let mut progress = event(1, "clock.updated");
+        progress.clock_id = Some(LANTERN_PROGRESS_CLOCK_ID.to_string());
+        progress.clock_filled = Some(5);
+        progress.clock_segments = Some(6);
+
+        let mut terminal = event(2, "clock.updated");
+        terminal.clock_id = Some(LANTERN_PROGRESS_CLOCK_ID.to_string());
+        terminal.clock_filled = Some(6);
+        terminal.clock_segments = Some(6);
+        let terminal_seq = terminal.seq;
+
+        let mut consequence = event(3, "job.updated");
+        consequence.content = Some(format!(
+            "{LANTERN_JOB_ID}:completed:lantern_keeper_completed"
+        ));
+        consequence.caused_by_event_seq = Some(progress.seq);
+
+        let mut events = vec![progress, terminal, consequence];
+        assert_eq!(lantern_terminal_fill(&events, 42), None);
+        assert!(build_lantern_story_receipt(&record("advance_clock"), &events).is_none());
+
+        events[2].caused_by_event_seq = Some(terminal_seq);
+        assert_eq!(
+            lantern_terminal_fill(&events, 42),
+            Some((LANTERN_PROGRESS_CLOCK_ID, 6, 6))
+        );
+        assert_eq!(
+            build_lantern_story_receipt(&record("advance_clock"), &events)
+                .expect("causal terminal fill produces a receipt")
+                .narration_key,
+            "lantern-keeper.light-filled"
+        );
     }
 
     #[test]

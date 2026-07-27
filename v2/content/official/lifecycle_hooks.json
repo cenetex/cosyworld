@@ -388,53 +388,5 @@
       }
     ],
     "pack_id": "cosyworld.core"
-  },
-  {
-    "hook": "on_clock_fill",
-    "target_kind": "clock",
-    "target_id": "lantern-keeper.light",
-    "claim_scope": "event_once",
-    "effects": [
-      {
-        "op": "set_tag",
-        "tag_id": "room:804:beacon_rekindled",
-        "scope": "room",
-        "scope_id": 804,
-        "label": "beacon rekindled",
-        "kind": "memory",
-        "reason": "lantern_keeper_completed"
-      },
-      {
-        "op": "set_job_status",
-        "job_id": "lantern-keeper:rekindle-the-beacon",
-        "status": "completed",
-        "reason": "lantern_keeper_completed"
-      }
-    ],
-    "pack_id": "cosyworld.campaign.the-lantern-keeper"
-  },
-  {
-    "hook": "on_clock_fill",
-    "target_kind": "clock",
-    "target_id": "lantern-keeper.darkness",
-    "claim_scope": "event_once",
-    "effects": [
-      {
-        "op": "set_tag",
-        "tag_id": "room:804:black_beacon",
-        "scope": "room",
-        "scope_id": 804,
-        "label": "black beacon",
-        "kind": "hook",
-        "reason": "lantern_keeper_failed"
-      },
-      {
-        "op": "set_job_status",
-        "job_id": "lantern-keeper:rekindle-the-beacon",
-        "status": "failed",
-        "reason": "lantern_keeper_failed"
-      }
-    ],
-    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   }
 ]

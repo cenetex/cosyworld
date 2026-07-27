@@ -19,6 +19,7 @@ import {
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
+import { lanternClockEffectValidationErrors } from "./lantern-clock-contract.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 import { versionedRecipeValidationErrors } from "./recipe-schema.mjs";
 
@@ -2255,6 +2256,14 @@ for (const hook of lifecycleHooks) {
   for (const effect of hook.effects ?? []) {
     validateEffectDescriptor(`hook ${hook.hook}`, effect);
   }
+}
+
+for (const error of lanternClockEffectValidationErrors({
+  clocks,
+  lifecycleHooks,
+  packs: manifest.packs,
+})) {
+  fail(error);
 }
 
 const allItemIds = new Set(itemIds);
