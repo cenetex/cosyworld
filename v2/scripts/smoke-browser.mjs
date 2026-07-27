@@ -5582,6 +5582,18 @@ async function main() {
         branch: null,
         location: { ...(state?.location || {}), id: 804, name: "Lantern Tower" },
         primary_action: { kind: "act", options: [{ kind: "use_feature" }, { kind: "rest" }] },
+        fronts: [{
+          id: "lantern-keeper:hollow-light",
+          premise: "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper.",
+          status: "active",
+          presentation_state: "active",
+          outcome_statement: "",
+          participant_names: ["Pip Thistle", "Moth-Eaten Knight", "Rowan Vale"],
+          stakes_questions: [
+            "Can Rowan be separated from the shadow without extinguishing the keeper's ember?",
+            "Will the party restore a guiding light or merely another weapon against the dark?",
+          ],
+        }],
         shared_questions: [{
           job_id: "lantern-keeper:rekindle-the-beacon",
           question: "Can the Mothwood beacon be relit before the road goes fully dark?",
@@ -5646,7 +5658,8 @@ async function main() {
       focusedKey = "";
       playerPromotedHandKey = "";
       render();
-      const question = document.querySelector("#promoted-question .shared-question");
+      const front = document.querySelector("#promoted-question .story-front");
+      const question = document.querySelector("#promoted-question .active-question");
       const meters = [...question.querySelectorAll('[role="progressbar"]')].map((meter) => ({
         label: meter.getAttribute("aria-label"),
         now: meter.getAttribute("aria-valuenow"),
@@ -5663,6 +5676,15 @@ async function main() {
         };
       });
       return {
+        frontText: front?.textContent || "",
+        frontLabelledBy: front?.getAttribute("aria-labelledby") || "",
+        frontDescribedBy: front?.getAttribute("aria-describedby") || "",
+        frontDescription: (front?.getAttribute("aria-describedby") || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => document.getElementById(id)?.textContent || "")
+          .join(" "),
+        frontRosterLists: front?.querySelectorAll("ul, ol").length || 0,
         questionText: question?.textContent || "",
         questionAria: question?.getAttribute("aria-label") || "",
         meters,
@@ -5671,6 +5693,15 @@ async function main() {
           .map((item) => item.getAttribute("aria-label") || ""),
       };
     });
+    assert(
+      evidence.frontText.includes("beacon's shadow has learned Rowan's shape")
+        && evidence.frontText.includes("Can Rowan be separated from the shadow")
+        && evidence.frontText.includes("Will the party restore a guiding light")
+        && evidence.frontText.includes("The answer still matters to Pip Thistle, Moth-Eaten Knight, and Rowan Vale.")
+        && evidence.frontDescription.includes("Can Rowan be separated from the shadow")
+        && evidence.frontRosterLists === 0,
+      `ordinary scene should present the front as accessible narrative, not a roster: ${JSON.stringify(evidence)}`,
+    );
     assert(evidence.questionText.includes("Progress2/6") && evidence.questionText.includes("Danger1/6"), `ordinary scene should show both exact clocks: ${JSON.stringify(evidence)}`);
     assert(evidence.questionText.includes("Completion changes") && evidence.questionText.includes("If danger fills"), `ordinary scene should explain both outcomes: ${JSON.stringify(evidence)}`);
     assert(
@@ -5695,10 +5726,60 @@ async function main() {
     );
     await page.setViewportSize({ width: 1100, height: 900 });
     await page.screenshot({ path: screenshotPath, fullPage: false });
+    evidence.frontOutcomes = await page.evaluate(() => {
+      const cases = [
+        {
+          presentation_state: "persisted",
+          outcome_statement: "The immediate work is done, but the larger trouble remains unresolved.",
+        },
+        {
+          presentation_state: "resolved",
+          outcome_statement: "The larger trouble is resolved.",
+        },
+        {
+          presentation_state: "escalated",
+          outcome_statement: "The larger trouble has escalated. Every road lamp accepts the shadow as keeper.",
+        },
+      ];
+      return cases.map((frontCase) => {
+        state = {
+          ...state,
+          fronts: [{ ...state.fronts[0], ...frontCase }],
+        };
+        render();
+        const front = document.querySelector("#promoted-question .story-front");
+        const describedBy = front?.getAttribute("aria-describedby") || "";
+        return {
+          presentationState: frontCase.presentation_state,
+          text: front?.textContent || "",
+          describedText: describedBy
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((id) => document.getElementById(id)?.textContent || "")
+            .join(" "),
+        };
+      });
+    });
+    assert(
+      evidence.frontOutcomes.every((outcome) => (
+        outcome.text.includes(outcome.presentationState === "persisted"
+          ? "remains unresolved"
+          : `larger trouble ${outcome.presentationState === "resolved" ? "is resolved" : "has escalated"}`)
+        && outcome.describedText.includes(outcome.presentationState === "persisted"
+          ? "remains unresolved"
+          : `larger trouble ${outcome.presentationState === "resolved" ? "is resolved" : "has escalated"}`)
+      )),
+      `front outcomes should keep their visible and described story truth aligned: ${JSON.stringify(evidence)}`,
+    );
     evidence.terminal = await page.evaluate(() => {
       const activeQuestion = state.shared_questions[0];
       state = {
         ...state,
+        fronts: [{
+          ...state.fronts[0],
+          presentation_state: "persisted",
+          outcome_statement: "The immediate work is done, but the larger trouble remains unresolved.",
+        }],
         shared_questions: [{
           ...activeQuestion,
           promoted: false,
@@ -5710,15 +5791,18 @@ async function main() {
         }],
       };
       render();
+      const front = document.querySelector("#promoted-question .story-front");
       const memory = document.querySelector("#promoted-question .completed-memory");
       return {
+        frontText: front?.textContent || "",
         text: memory?.textContent || "",
         progressbars: memory?.querySelectorAll('[role="progressbar"]').length || 0,
         suggestions: memory?.querySelectorAll(".shared-question-suggestions li").length || 0,
       };
     });
     assert(
-      evidence.terminal.text.includes("road went fully dark")
+      evidence.terminal.frontText.includes("the larger trouble remains unresolved")
+        && evidence.terminal.text.includes("road went fully dark")
         && evidence.terminal.text.includes("Contributors: Mara Wick, Road Reader")
         && evidence.terminal.progressbars === 0
         && evidence.terminal.suggestions === 0,
