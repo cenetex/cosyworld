@@ -1,6 +1,13 @@
-name: Documentation Pages
+name: Documentation
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/pages.yml"
+      - "docs/**"
+      - "scripts/build-docs.mjs"
+      - "package.json"
+      - "package-lock.json"
   push:
     branches: [main]
     paths:
@@ -12,8 +19,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: github-pages
-  cancel-in-progress: false
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -34,27 +41,11 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
       - name: Build documentation
         run: npm run docs
 
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
+      - name: Upload rendered documentation
+        uses: actions/upload-artifact@v4
         with:
+          name: cosyworld-documentation
           path: dist/docs
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
