@@ -32,7 +32,19 @@ pub(super) struct GeneratedPolicyBinding {
     pub(super) topology_profile_id: String,
     pub(super) unmount_behavior: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) place_anchor: Option<GeneratedPlaceAnchorTerminology>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) media: Option<GeneratedMediaBinding>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct GeneratedPlaceAnchorTerminology {
+    pub(super) action_label: String,
+    pub(super) target_label: String,
+    pub(super) question: String,
+    pub(super) description: String,
+    pub(super) completion_memory: String,
+    pub(super) visual_description: String,
 }
 
 impl GeneratedPolicyBinding {
@@ -73,6 +85,20 @@ pub(super) fn validate_generated_policy_binding(
     }) {
         return Err("generated media binding is incomplete".to_string());
     }
+    if binding.place_anchor.as_ref().is_some_and(|anchor| {
+        [
+            &anchor.action_label,
+            &anchor.target_label,
+            &anchor.question,
+            &anchor.description,
+            &anchor.completion_memory,
+            &anchor.visual_description,
+        ]
+        .into_iter()
+        .any(|value| value.trim().is_empty())
+    }) {
+        return Err("generated place anchor terminology is incomplete".to_string());
+    }
     Ok(())
 }
 
@@ -81,6 +107,8 @@ struct PolicyManifest {
     policy_id: String,
     migration_version: u32,
     collision_namespace: String,
+    #[serde(default)]
+    place_anchor: Option<GeneratedPlaceAnchorTerminology>,
     #[serde(default)]
     prose: Option<PolicyProse>,
     #[serde(default)]
@@ -371,6 +399,7 @@ pub(super) fn generated_policy_binding(
         unmount_behavior: cross_route
             .map(|route| route.unmount.clone())
             .unwrap_or_else(|| "freeze_with_owner".to_string()),
+        place_anchor: policy.place_anchor,
         media,
     })
 }
@@ -560,6 +589,12 @@ mod tests {
             active_content().manifest.bundle_hash
         );
         assert_eq!(waypoint.generation_policy, binding);
+        let anchor = binding
+            .place_anchor
+            .as_ref()
+            .expect("Holy Land binds authored place-anchor terminology");
+        assert_eq!(anchor.action_label, "Build a cairn");
+        assert!(anchor.visual_description.contains("local fieldstones"));
 
         runtime
             .generated_pathways
@@ -578,6 +613,12 @@ mod tests {
         assert_eq!(
             runtime.generated_places[&waypoint.id].generation_policy,
             binding
+        );
+        let anchor_job = &runtime.jobs[&generated_place_anchor_job_id(waypoint.id)];
+        assert_eq!(anchor_job.premise, "Build a cairn.");
+        assert_eq!(
+            anchor_job.action_copy.summary,
+            "Stack local stones into a durable trail marker that future travelers can inspect."
         );
         assert_eq!(
             runtime
@@ -680,20 +721,26 @@ mod tests {
 
     #[test]
     fn upgrade_requires_the_exact_declared_migration_tuple() {
-        let declared = legacy_generated_policy_binding(
+        let legacy = legacy_generated_policy_binding(
             "cosyworld.the-holy-land",
             "1.1.3",
             "cosyworld.official",
             "sha256:historical",
         );
-        assert!(generation_policy_allows_upgrade(&declared, "1.1.4").is_ok());
+        assert!(generation_policy_allows_upgrade(&legacy, "1.1.5").is_ok());
+
+        let mut declared = legacy;
+        declared.policy_id = "cosyworld.the-holy-land/generation/1".to_string();
+        declared.migration_version = 1;
+        declared.owner_pack_version = "1.1.4".to_string();
+        assert!(generation_policy_allows_upgrade(&declared, "1.1.5").is_ok());
 
         let mut wrong_version = declared.clone();
         wrong_version.owner_pack_version = "1.1.2".to_string();
-        assert!(generation_policy_allows_upgrade(&wrong_version, "1.1.4").is_err());
+        assert!(generation_policy_allows_upgrade(&wrong_version, "1.1.5").is_err());
         let mut wrong_policy = declared;
         wrong_policy.policy_id = "cosyworld.other/generation/1".to_string();
-        assert!(generation_policy_allows_upgrade(&wrong_policy, "1.1.4").is_err());
+        assert!(generation_policy_allows_upgrade(&wrong_policy, "1.1.5").is_err());
     }
 
     #[test]

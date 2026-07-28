@@ -723,7 +723,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:92d4a8da6242409c46e49bae371644446084f0aaa0cf7c1aee13bc0e8922fcc9",
+  "bundle_hash": "sha256:29b86c0b1f9185aa59e7a8ffeb051749960f07029c4b77ecb0a23eb28247b3cc",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2135,7 +2135,7 @@
       "id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
       "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2227,7 +2227,7 @@
         "x-cosyworld-generation": {
           "schema_version": 1,
           "policy_id": "cosyworld.the-holy-land/generation/1",
-          "migration_version": 1,
+          "migration_version": 2,
           "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
           "generated_descendants": {
             "owner": "source_route",
@@ -2240,6 +2240,14 @@
             ],
             "on_upgrade": "require_declared_migration",
             "on_unmount": "freeze_with_owner"
+          },
+          "place_anchor": {
+            "action_label": "Build a cairn",
+            "target_label": "a cairn",
+            "question": "Can someone build a cairn here?",
+            "description": "Stack local stones into a durable trail marker that future travelers can inspect.",
+            "completion_memory": "A cairn now marks this place for future travelers.",
+            "visual_description": "A small hand-built cairn of weathered local fieldstones, stable and human-scaled, using the same geology and watercolor palette as its surroundings; no writing, symbols, plaque, people, logo, or modern material."
           },
           "prose": {
             "profile_id": "cosyworld.pathway-prose.ecology/1",
@@ -2347,6 +2355,12 @@
           },
           "migrations": [
             {
+              "from_policy_id": "cosyworld.the-holy-land/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.1.4",
+              "mode": "preserve_descendants"
+            },
+            {
               "from_policy_id": "cosyworld.compatibility.host-generation/1",
               "from_migration_version": 0,
               "from_pack_version": "1.1.3",
@@ -2361,7 +2375,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:08587e664291d870927a4f19e06017cd0bedd55573f4fb039f3a073dc95e0378"
+      "integrity": "sha256:77aec51a414a3ad59dbfe49b77d93f365345e0c6b4dd0c95ef26b57ce80bab24"
     },
     {
       "id": "cosyworld.composition.core-holy-land",
