@@ -220,7 +220,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:0586aa38b58345b475bb34eaf93d54a4e4980919c18db8469d43f97771a24d15",
+      "integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822",
       "dependencies": [
         {
           "id": "cosyworld.core",

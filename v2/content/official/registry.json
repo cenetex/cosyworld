@@ -720,13 +720,14 @@
             "webp"
           ],
           "prompt_versions": [
-            "holy-land-location/1"
+            "holy-land-location/1",
+            "holy-land-location/2"
           ],
           "lora": false
         }
       ]
     },
-    "bundle_hash": "sha256:1fb9342d19805ffd7f1774d1b79e928e42040f5afb64d36077d541f6266849f9",
+    "bundle_hash": "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2288,8 +2289,8 @@
                 "model": "ratimics/b43l",
                 "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
               },
-              "prompt_version": "holy-land-location/1",
-              "prompt_prefix": "B43L, watercolor pilgrimage landscape, historically grounded Levantine ecology",
+              "prompt_version": "holy-land-location/2",
+              "prompt_prefix": "B43L, rough unfinished watercolor, pigment blooms, searching pencil, raw paper",
               "aspect_ratios": [
                 "16:9"
               ],
@@ -2297,9 +2298,7 @@
                 "webp"
               ],
               "negative_constraints": [
-                "no text",
-                "no logos",
-                "no depiction of Jesus"
+                "no text overlays"
               ],
               "subject_kinds": [
                 "location_card"
@@ -2378,7 +2377,7 @@
           "type": "workspace",
           "path": "../../content/the-holy-land"
         },
-        "integrity": "sha256:0586aa38b58345b475bb34eaf93d54a4e4980919c18db8469d43f97771a24d15"
+        "integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822"
       },
       {
         "id": "cosyworld.composition.core-holy-land",
@@ -13825,7 +13824,7 @@
     {
       "pack_id": "cosyworld.the-holy-land",
       "pack_version": "1.1.6",
-      "pack_integrity": "sha256:0586aa38b58345b475bb34eaf93d54a4e4980919c18db8469d43f97771a24d15",
+      "pack_integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822",
       "provider": "cosyworld.the-holy-land/assets",
       "mount": "cards",
       "root": "the-holy-land",

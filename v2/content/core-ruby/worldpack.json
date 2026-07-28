@@ -671,13 +671,14 @@
           "webp"
         ],
         "prompt_versions": [
-          "holy-land-location/1"
+          "holy-land-location/1",
+          "holy-land-location/2"
         ],
         "lora": false
       }
     ]
   },
-  "bundle_hash": "sha256:25961cc0d50844086ad7d576f6aa9302170c7a574836ba35a27e9c1cb457878f",
+  "bundle_hash": "sha256:ec3eb5d90d0bf1e4e2fc72a0aaf43ec2f9244a385d2854a730f080e3bd8f3d19",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",

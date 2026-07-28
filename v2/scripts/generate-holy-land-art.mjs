@@ -3,6 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
 import Replicate from "replicate";
@@ -20,7 +21,7 @@ const IMAGE_URL_PREFIX = "/assets/the-holy-land/cards";
 const MODEL_VERSION = "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f";
 const DEFAULT_MODEL = `ratimics/b43l:${MODEL_VERSION}`;
 const LORA_TRIGGER = process.env.HOLY_LAND_LORA_TRIGGER || "B43L";
-const DEFAULT_LORA_SCALE = 1;
+export const DEFAULT_LORA_SCALE = 1.25;
 
 const ASPECT_RATIOS = { tall: "2:3", square: "1:1", wide: "16:9" };
 const TARGET_SIZES = {
@@ -30,7 +31,15 @@ const TARGET_SIZES = {
 };
 
 function parseArgs(argv) {
-  const options = { dryRun: false, force: false, syncPrompts: false, ids: null, limit: null, seedSalt: "" };
+  const options = {
+    dryRun: false,
+    force: false,
+    syncPrompts: false,
+    ids: null,
+    limit: null,
+    seedSalt: "",
+    sampleDir: null,
+  };
   for (const arg of argv) {
     if (arg === "--sync-prompts") options.syncPrompts = true;
     else if (arg === "--dry-run") options.dryRun = true;
@@ -41,6 +50,11 @@ function parseArgs(argv) {
       options.limit = Number.parseInt(arg.slice(8), 10);
       if (!Number.isInteger(options.limit) || options.limit <= 0) throw new Error(`Invalid limit: ${arg}`);
     } else if (arg.startsWith("--seed-salt=")) options.seedSalt = arg.slice(12).trim();
+    else if (arg.startsWith("--sample-dir=")) {
+      const sampleDir = arg.slice(13).trim();
+      if (!sampleDir) throw new Error(`Invalid sample directory: ${arg}`);
+      options.sampleDir = path.resolve(sampleDir);
+    }
     else throw new Error(`Unknown option: ${arg}`);
   }
   return options;
@@ -70,91 +84,21 @@ function selectCards(cards, options) {
   return selected;
 }
 
-const ACTOR_VISUAL_NOTES = new Map([
-  [7002, "A sturdy middle-aged Galilean fisherman with a broad weathered face, short curly dark hair threaded with gray, full trimmed beard, strong working hands, undyed tunic and muted lake-blue mantle."],
-  [7003, "A lean middle-aged Galilean fisherman with sun-weathered skin, short dark curls, close beard, observant gentle eyes, practical brown tunic and blue-green mantle."],
-  [7004, "A strong young Galilean fisherman with cropped dark curls, short beard, intense expression, practical ochre tunic and rust-red shoulder wrap."],
-  [7005, "A younger Galilean man with slim build, clean-shaven face, wavy dark hair to the jaw, contemplative eyes, pale linen tunic and muted blue mantle."],
-  [7006, "A practical middle-aged man with narrow thoughtful face, short salt-and-pepper curls, neat beard, travel-worn sand tunic and olive mantle, carrying no religious object."],
-  [7007, "A tall spare man with deeply observant eyes, close-cropped black hair, short angular beard, simple cream tunic and muted teal mantle."],
-  [7008, "A compact scholarly man with carefully trimmed dark beard, receding curly hair, ink-stained fingers, plain brown tunic and moss-green mantle, a closed wax tablet at his belt."],
-  [7009, "A serious middle-aged traveler with tired kind eyes, thick short dark hair, close beard, charcoal tunic and muted indigo mantle."],
-  [7010, "An unassuming older man with gray-flecked short curls, modest beard, quiet posture, undyed linen tunic and soft brown mantle, empty hands."],
-  [7011, "A thoughtful younger man with oval face, short black curls, light beard, warm brown eyes, pale tunic and subdued saffron mantle, empty hands."],
-  [7012, "A lean wiry middle-aged man with close dark hair, short beard, disciplined stance, plain gray tunic and deep olive mantle, no weapon."],
-  [7013, "A guarded middle-aged man with narrow face, short dark curls, carefully trimmed beard, burgundy-brown tunic and muted charcoal mantle, a simple coin pouch at his belt."],
-  [7014, "A weathered older fisher with cropped gray-black hair, short beard, patched blue tunic, rope-callused hands, and a mended net over one shoulder."],
-  [7015, "An unnamed adult Samaritan-region traveler with dark braided hair covered by a simple earth-toned head cloth, modest layered linen garments, and a clay water jar."],
-  [7016, "An unnamed older pilgrim with sun-lined face, short gray beard, dusty tan garments, walking staff used only for travel, and a small woven satchel."],
-  [7017, "An unnamed adult traveler with cropped dark curls, close beard, subdued blue-gray garments, worn sandals, and a tied travel bundle."],
-]);
-
-const LOCATION_VISUAL_NOTES = new Map([
-  [700, "A modest Judean ridge settlement of flat-roofed pale limestone homes, rough lanes, olive terraces, and one humble lamplit courtyard; no monumental building."],
-  [701, "A very small lower-Galilean agricultural village of simple flat-roofed limestone and mud-plaster houses, cisterns, workshops, grain plots, and terraced slopes; no civic monument."],
-  [702, "A natural slow river crossing with brown-green water, dense reed beds, rounded stones, tamarisk, pale desert scrub, and open sky; no building."],
-  [703, "A modest Galilean hill village of flat-roofed stone houses and a shaded wedding courtyard with large plain stone water jars, vine rows, figs, and rough lanes."],
-  [704, "A compact first-century fishing village of dark basalt flat-roofed houses and unpaved lanes on the northwestern lakeshore, with a modest synagogue-like stone gathering house, nets, and small wooden boats; no skyline."],
-  [705, "An open freshwater pebbled shore with drying nets on wooden racks, small plain fishing boats pulled onto stones, blue-green water, and hazy Galilean hills; no town skyline."],
-  [706, "A broad treeless grassy slope above the blue Sea of Galilee, spring wildflowers, mustard plants, footpaths, distant low hills, and generous open listening ground; no building."],
-  [707, "A humble reed-fringed fishing settlement near the lake's northern reaches, with low flat-roofed stone and mud-plaster houses, net yards, inlets, and plain wooden boats."],
-  [708, "A dramatic limestone cliff and grotto above clear cold springs in lush northern country, with oak shade and rushing channels; only subtle traces of first-century stonework."],
-  [709, "A deep circular well of heavily worn ancient stones on an open dry terrace beside a dusty Samaritan hill road, with a clay jar and sparse shade; no building."],
-  [710, "A first-century oasis settlement of low flat-roofed mudbrick and stone homes among date palms, spring channels, dusty streets, and the barren Judean ascent beyond."],
-  [711, "A small first-century village of flat-roofed limestone homes among olive groves on the eastern slope, with one welcoming courtyard and Jerusalem only faintly beyond the ridge."],
-  [712, "First-century Jerusalem at Passover: limestone city walls and gates across Judean hills, dense flat-roofed homes, and the broad pale Second Temple platform as the distant architectural focus; historically pre-70 CE."],
-  [713, "A moonlit olive grove on rocky ground with massive old gnarled trunks, silver leaves, deep blue shadows, and distant first-century Jerusalem lamps across the valley; no building in the garden."],
-  [714, "An empty westward dirt road through rolling limestone hills, grain fields, scattered olives, and long amber evening light; three subtle sets of footprints but no visible people or building."],
-]);
-
-function actorPrompt(card, actor) {
-  const isSupplicant = card.role === "supplicant";
+export function actorPrompt(card, actor) {
   return [
-    `${LORA_TRIGGER}, rough expressive watercolor illustration on paper.`,
-    "Use case: historical-scene",
-    `Asset type: CosyWorld collectible portrait art, ${ASPECT_RATIOS[card.aspect]} image`,
-    `Primary request: Paint a respectful portrait of ${card.display_name}, ${card.title}.`,
-    `Subject: ${sentence(actor.description)}`,
-    `Visual identity: ${ACTOR_VISUAL_NOTES.get(actor.id) || "A distinct first-century traveler with humble regional clothing."}`,
-    "Historical setting: first-century Galilee, Samaria, or Judea; Levantine Jewish or regional appearance as appropriate; sun-browned olive skin, dark hair, historically plausible simple woven linen and wool garments, leather sandals; no medieval, Renaissance, or modern costume.",
-    isSupplicant
-      ? "Identity: an unnamed composite traveler, visually distinct but not a recognizable named Gospel figure; humble everyday clothing and an open, human expression."
-      : "Composition: single person, three-quarter or full-body portrait, visible face and hands, dignified natural posture, subtle location atmosphere, the person fills about 70 percent of the frame.",
-    "Style/medium: unfinished, blotchy traditional watercolor sketchbook study, not polished digital art: broad broken washes, ragged dry-brush edges, large white paper gaps, edges dissolving into raw cold-pressed cotton paper, heavy pigment granulation, uneven pooling, backruns and cauliflower blooms, salt texture, loose searching pencil construction lines, sparse selective detail, imperfect handmade marks; muted lapis, olive green, ochre, umber, and pomegranate accents. Keep fabric and skin painterly and simplified, never smooth or airbrushed.",
-    "Mood: compassionate, contemplative, historically grounded, intimate rather than monumental.",
-    "Period constraint: depict the Gospel narrative's first-century setting before later Christian art traditions; no cross, crucifix, cross-shaped staff, cross pendant, church, icon, or later saint attribute.",
-    "Constraints: one main person only; completely bare natural forehead with uninterrupted skin, no halo, no glowing aura, no crown, no forehead mark, no tilak, no bindi, no facial paint, no Europeanized pale complexion, no anachronistic architecture or clothing, no photorealism, no cinematic photograph, no 3D render, no glossy digital skin, no readable text, no letters, no numbers, no symbols used as labels, no watermark, no logo, no UI, no card border.",
+    `${LORA_TRIGGER}. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.`,
+    `Meet ${card.display_name}, ${card.title}, already mid-journey in the first-century Holy Land. ${sentence(card.blurb || actor.description)}`,
   ].join("\n");
 }
 
-function locationPrompt(card, location) {
-  const isJerusalem = location.id === 712;
+export function locationPrompt(card, location) {
   return [
-    `${LORA_TRIGGER}, rough expressive watercolor landscape on paper.`,
-    "Use case: historical-scene",
-    `Asset type: CosyWorld wide location card art, ${ASPECT_RATIOS[card.aspect]} image`,
-    `Primary request: Paint an establishing landscape for ${card.display_name}, ${card.title}.`,
-    `Scene: ${sentence(location.description)}`,
-    `Terrain: ${sentence((location.terrain || []).join(", "))}. Biome: ${sentence(location.biome)}.`,
-    `Visual identity: ${LOCATION_VISUAL_NOTES.get(location.id) || "A modest first-century regional landscape with no later monument."}`,
-    `Mood/persona: ${sentence(location.persona)}`,
-    isJerusalem
-      ? "Historical setting: pre-70 CE Judea, with Herodian pale-limestone masonry, timber, cloth awnings, pottery, rough stone paving, olive and cypress vegetation, and a dense low ancient city."
-      : "Historical setting: first-century Galilee, Samaria, or Judea as appropriate; modest stone, mud-plaster, timber, reed, cloth, pottery, fishing, farming, roads, and vegetation suited to the named place; avoid modern reconstructions and later monumental church architecture.",
-    "Style/medium: unfinished, blotchy traditional watercolor travel-sketch, not polished digital art: broad broken washes, ragged dry-brush edges, large white paper gaps, edges dissolving into raw cold-pressed cotton paper, heavy pigment granulation, uneven pooling, backruns and cauliflower blooms, salt texture, loose searching pencil construction lines, sparse selective detail, imperfect handmade marks; muted lapis, olive green, ochre, umber, and pomegranate accents. Keep architecture and terrain painterly and simplified, never smooth or airbrushed.",
-    isJerusalem
-      ? "Composition: an empty architectural panorama at quiet dawn, centered on the broad rectangular pale-limestone Second Temple platform, stepped courts, colonnades, and tall rectangular sanctuary; low flat-roofed city blocks in the foreground, architecture filling the frame."
-      : "Composition: wide cinematic establishing view, one strong readable landmark, layered depth, generous atmosphere, environment only.",
-    isJerusalem
-      ? "Period constraint: Jerusalem before 70 CE under Herodian rule; rectangular limestone civic and sanctuary architecture, colonnaded courts, flat-roofed homes, unpaved lanes, and oil-lamp-era infrastructure throughout."
-      : "Period constraint: strictly first-century setting; no church, basilica, chapel, mosque, minaret, dome, golden dome, bell tower, cross, crucifix, modern road, modern city, European village, red tiled roof, glass window, electric light, or later pilgrimage monument.",
-    isJerusalem
-      ? "Constraints: a quiet uninhabited architectural study rendered as handmade watercolor; blank walls and gates, simplified matte surfaces, clean paper, and no written markings or interface elements."
-      : "Constraints: no people, no characters, no crowds, no visible human figure, no creatures as focal subjects, no photorealism, no cinematic photograph, no 3D render, no glossy digital surfaces, no readable text, no letters, no numbers, no watermark, no logo, no UI, no card border.",
+    `${LORA_TRIGGER}. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.`,
+    `Arrive mid-journey at ${card.display_name}, ${card.title}, in the first-century Holy Land. ${sentence(card.blurb || location.description)}`,
   ].join("\n");
 }
 
-function buildPrompt(card, actors, locations) {
+export function buildPrompt(card, actors, locations) {
   if (card.subject_kind === "actor") return actorPrompt(card, actors.get(card.subject_id));
   if (card.subject_kind === "location") return locationPrompt(card, locations.get(card.subject_id));
   throw new Error(`Unsupported subject kind: ${card.subject_kind}`);
@@ -169,7 +113,7 @@ function outputUrls(output) {
   return [];
 }
 
-function replicateInput(card, prompt, options) {
+export function replicateInput(card, prompt, options) {
   const configuredScale = Number.parseFloat(process.env.HOLY_LAND_LORA_SCALE || "");
   const loraScale = Number.isFinite(configuredScale) ? configuredScale : DEFAULT_LORA_SCALE;
   return {
@@ -191,8 +135,8 @@ function replicateInput(card, prompt, options) {
 
 async function generateCard(replicate, model, card, prompt, options) {
   const input = replicateInput(card, prompt, options);
-  const destination = path.join(OUTPUT_DIR, `${card.card_id}.webp`);
-  const imageUrl = `${IMAGE_URL_PREFIX}/${card.card_id}.webp`;
+  const destination = path.join(options.sampleDir || OUTPUT_DIR, `${card.card_id}.webp`);
+  const imageUrl = options.sampleDir ? null : `${IMAGE_URL_PREFIX}/${card.card_id}.webp`;
   if (options.dryRun) return { card, input, prompt, destination, imageUrl, dryRun: true };
 
   const output = await replicate.run(model, { input });
@@ -304,7 +248,7 @@ async function main() {
     throw new Error("REPLICATE_API_TOKEN is required to generate Holy Land art.");
   }
   const replicate = options.dryRun ? null : new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(options.sampleDir || OUTPUT_DIR, { recursive: true });
   console.log(`${options.dryRun ? "Preparing" : "Generating"} ${selected.length} Holy Land image(s) with ${model}.`);
 
   for (let index = 0; index < selected.length; index += 1) {
@@ -312,12 +256,15 @@ async function main() {
     const prompt = buildPrompt(card, actors, locations);
     console.log(`[${index + 1}/${selected.length}] ${card.card_id} (${card.aspect})`);
     const entry = await generateCard(replicate, model, card, prompt, options);
-    if (!options.dryRun) await persistResult(cards, entry, model);
+    if (!options.dryRun && !options.sampleDir) await persistResult(cards, entry, model);
+    if (!options.dryRun && options.sampleDir) console.log(`  sample: ${entry.destination}`);
   }
   console.log(options.dryRun ? "Holy Land art dry run complete." : "Holy Land art generation complete.");
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}
