@@ -48222,6 +48222,11 @@ mod tests {
         assert!(INDEX_HTML.contains("ordered combat — your turn"));
         // Issue #461: ordered-combat timing is a banner above the card row, and
         // Pass/Need time are banner controls rather than dealt combat cards.
+        // Issue #476: art that fails to load must fall back to the authored
+        // placeholder instead of the browser's broken-image icon.
+        assert!(INDEX_HTML.contains("addEventListener(\"error\""));
+        assert!(INDEX_HTML.contains("data-art-missing"));
+        assert!(INDEX_HTML.contains("no art generated yet"));
         assert!(INDEX_HTML.contains("id=\"turn-banner\""));
         assert!(INDEX_HTML.contains("id=\"turn-banner-controls\""));
         assert!(INDEX_HTML.contains("data-turn-control"));

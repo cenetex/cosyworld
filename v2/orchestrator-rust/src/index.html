@@ -1635,6 +1635,32 @@
       border-top: 1px solid var(--line);
       background: rgba(5, 8, 6, 0.98);
     }
+    /* Art that has not been generated yet. The image itself already falls back
+       to the authored placeholder; this marks it as pending rather than final
+       so it never reads as finished art. See issue #476. */
+    img[data-art-missing="true"] {
+      opacity: 0.72;
+      filter: saturate(0.7);
+    }
+    .card-art:has(img[data-art-missing="true"])::after,
+    .action-art:has(img[data-art-missing="true"])::after {
+      content: "no art generated yet";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 4px 8px;
+      background: rgba(5, 12, 7, 0.82);
+      color: var(--amber);
+      font: 700 10px/1.3 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+    .card-art,
+    .action-art {
+      position: relative;
+    }
+
     .turn-banner {
       grid-column: 1 / -1;
       display: flex;
@@ -12539,6 +12565,26 @@
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;");
     }
+
+    // Art that never generated used to reach the DOM as a live URL and render
+    // as the browser's broken-image icon: the `cardImage(x) || fallbackCardImage(x)`
+    // guard at each call site only catches an empty URL, not one that 404s.
+    // `error` does not bubble, but it does fire during capture, so one listener
+    // here covers every image including those built through innerHTML.
+    // See issue #476.
+    document.addEventListener("error", (event) => {
+      const image = event.target;
+      if (!(image instanceof HTMLImageElement)) return;
+      if (image.dataset.artFallback === "applied") return;
+      image.dataset.artFallback = "applied";
+      // Marks the element as awaiting generated art so it can be styled and,
+      // later, carry the funding affordance.
+      image.dataset.artMissing = "true";
+      const role = image.dataset.artRole
+        || (image.closest("[data-card-key]")?.getAttribute("data-card-key") || "").split(":")[0]
+        || "card";
+      image.src = fallbackCardImage({ role, display_name: image.alt || "CosyWorld art" });
+    }, true);
 
     document.addEventListener("click", (event) => {
       const control = event.target.closest("[data-turn-control]");
