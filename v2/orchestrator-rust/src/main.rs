@@ -19207,14 +19207,18 @@ impl RuntimeWorld {
         };
 
         // A defeated avatar still resolves through `actor_by_id`, so matching
-        // only on a missing actor left a dead player being offered ordinary
-        // actions they can never submit. The client showed "this tale has
-        // ended, choose begin again below" while the hand still dealt Notice,
-        // and taking it failed as a stale offer. Death must project the same
-        // beginning as having no avatar at all.
+        // only on a missing actor left a defeated player being offered
+        // ordinary actions they can never submit: every offer fails
+        // `actor_can_act` as a stale offer, and the defeat copy instructs a
+        // beginning the projection never dealt. A knocked-out avatar keeps its
+        // presence in the world — the body stays visible and targetable — but
+        // the player holding it has no legal move until rescue or recovery
+        // exists, so any avatar that cannot act projects the same beginning as
+        // having no avatar at all. The client releases its binding and shows
+        // creation, while the body persists.
         let departed = match self.actor_by_id(actor_id) {
             None => true,
-            Some(actor) => actor.status == CW_ACTOR_DEAD,
+            Some(actor) => !Self::actor_can_act(actor),
         };
         if departed {
             return PrimaryAction {
@@ -48602,6 +48606,10 @@ mod tests {
         ));
         assert!(INDEX_HTML.contains("function captureDefeatTransition"));
         assert!(INDEX_HTML.contains("this tale has ended"));
+        // A knockout is not an ended tale: the scene must say the body remains
+        // and still point at the one real exit.
+        assert!(INDEX_HTML.contains("was knocked out by"));
+        assert!(INDEX_HTML.contains("Their body is still where it fell"));
         assert!(INDEX_HTML.contains("Choose begin again below when you are ready."));
         assert!(INDEX_HTML.contains("label: beginningAgain ? \"begin again\" : \"begin\""));
         assert!(INDEX_HTML.contains("character_creation_id"));

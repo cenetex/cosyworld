@@ -195,6 +195,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn knocked_out_avatar_is_offered_a_new_beginning_and_no_unplayable_hand() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Downed Traveler",
+        );
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("the avatar exists");
+        actor.status = CW_ACTOR_KNOCKED_OUT;
+
+        // The body stays in the world (see the presence contract below), but
+        // the player holding it has no legal move: every ordinary offer fails
+        // `actor_can_act` at submission. Until rescue or recovery exists, the
+        // projection must deal the one honest exit — the release path that
+        // lets the player begin again while the body persists.
+        let downed = runtime.state_response_with_presence(
+            Some(5000),
+            &AccessContext::default(),
+            Some(&BTreeSet::from([5000])),
+            false,
+        );
+        assert_eq!(
+            downed.primary_action.kind, "create_avatar",
+            "a knocked-out avatar must be offered a new beginning, not ordinary play",
+        );
+        assert!(
+            !downed.primary_action.disabled,
+            "the new beginning must be reachable",
+        );
+        assert!(
+            downed
+                .action_offers
+                .iter()
+                .all(|offer| offer.kind == "create_avatar"),
+            "a knocked-out avatar must not be dealt offers it cannot submit: {:?}",
+            downed
+                .action_offers
+                .iter()
+                .map(|offer| offer.kind.clone())
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    #[tokio::test]
     async fn knocked_out_avatar_remains_present_targetable_and_observable() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -269,7 +320,10 @@ mod tests {
             .items
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == Some(5001)));
-        assert!(observer_view.primary_action.disabled);
+        // The fallen avatar's own projection deals the release path, not an
+        // unplayable hand: present and observable does not mean playable.
+        assert_eq!(observer_view.primary_action.kind, "create_avatar");
+        assert!(!observer_view.primary_action.disabled);
 
         let who = runtime
             .resolve_command_with_presence(

@@ -27,4 +27,10 @@
 # gains the AppState fields, /meta.persistence reporting, and the boot-duration
 # log; the reconciliation itself lives in topology.rs and generation_policy.rs,
 # and the rejection record in journal_checkpoint.rs. Existing persistence seam.
-73589
+#
+# 73589 -> 73597: issue #494 wires the defeated-avatar release projection in
+# primary_action (comment plus a one-line condition) and pins the knockout
+# scene copy in the INDEX_HTML contract test. The offer suppression lives in
+# composition.rs, the regression tests in actor_presence.rs. Existing
+# projection seam, no new system.
+73597

@@ -345,6 +345,29 @@ impl RuntimeWorld {
                 "no_active_avatar",
             )];
         };
+        // A present avatar that cannot act (knocked out) has no legal move, so
+        // the hand deals only the release path. Dealing rest, exploration, or
+        // room offers alongside it would hand the player cards that every
+        // submission rejects.
+        if self
+            .actor_by_id(actor_id)
+            .is_some_and(|actor| !Self::actor_can_act(actor))
+        {
+            return vec![self.ranked_offer_from_parts(
+                "create_avatar",
+                "Create Avatar",
+                "create avatar",
+                0,
+                false,
+                None,
+                None,
+                None,
+                None,
+                Some("Creates a new avatar at the cottage threshold.".to_string()),
+                None,
+                "no_active_avatar",
+            )];
+        }
         let actor_location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let zone = actor_location_id
             .map(|location_id| {
