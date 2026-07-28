@@ -4254,6 +4254,7 @@
       defeatTransition = {
         actorName: event.target_actor_name || defeated?.name || "Your avatar",
         opponentName: event.actor_name || "the danger",
+        kind: String(event.type || ""),
         eventSeq: Number(event.seq || 0),
       };
       saveDefeatTransition();
@@ -9505,9 +9506,14 @@
       if (!defeatTransition) return "";
       const actor = defeatTransition.actorName || "Your avatar";
       const opponent = defeatTransition.opponentName || "the danger";
-      const kicker = "this tale has ended";
-      const text = `${actor} was defeated by ${opponent}.`;
-      const cue = "This avatar is gone. Any linked account and keepsakes are still here. Choose begin again below when you are ready.";
+      const knockedOut = defeatTransition.kind === "combat.knockout";
+      const kicker = knockedOut ? "knocked out" : "this tale has ended";
+      const text = knockedOut
+        ? `${actor} was knocked out by ${opponent}.`
+        : `${actor} was defeated by ${opponent}.`;
+      const cue = knockedOut
+        ? "Their body is still where it fell, and the world keeps it. Choose begin again below when you are ready."
+        : "This avatar is gone. Any linked account and keepsakes are still here. Choose begin again below when you are ready.";
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene defeat-scene" role="alert" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
