@@ -1,4 +1,4 @@
-name: Documentation Pages
+name: Documentation
 
 on:
   pull_request:
@@ -20,7 +20,7 @@ on:
 
 concurrency:
   group: documentation-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -41,10 +41,6 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Configure GitHub Pages
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-
       - name: Build documentation
         run: npm run docs
 
@@ -53,24 +49,3 @@ jobs:
         with:
           name: cosyworld-documentation
           path: dist/docs
-
-      - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: dist/docs
-
-  deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
