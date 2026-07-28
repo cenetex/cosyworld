@@ -765,6 +765,85 @@ mod tests {
     }
 
     #[test]
+    fn funded_unbound_location_media_adopts_its_pathway_binding_on_snapshot_load() {
+        // Media is bound when generation begins; a snapshot taken while the
+        // record is funded but unbegun carries an empty binding. That state is
+        // legitimate live state, so loading adopts the pathway binding exactly
+        // as begin would instead of rejecting the checkpoint.
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = holy_land_pathway(&runtime);
+        let subject_id = pathway.waypoints[0].id;
+        let binding = pathway.generation_policy.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway);
+        let _ = runtime.apply_fund_community_art_projection(
+            "location",
+            subject_id,
+            1,
+            1,
+            RATI_ACTOR_ID,
+            "unbound-fixture",
+            1,
+            337_005,
+            None,
+        );
+        let key = community_art_generation_key("location", subject_id, 1);
+        assert!(runtime.community_art_generations[&key]
+            .generation_policy
+            .is_empty());
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("funded-but-unbound media must not reject the checkpoint");
+        assert_eq!(
+            restored.community_art_generations[&key].generation_policy,
+            binding
+        );
+    }
+
+    #[test]
+    fn generated_media_whose_pathway_binding_changed_fails_closed() {
+        // A non-empty binding that no longer matches its pathway is a real
+        // divergence: reconciliation must fail closed rather than rewrite
+        // history.
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = holy_land_pathway(&runtime);
+        let subject_id = pathway.waypoints[0].id;
+        let mut stale_binding = pathway.generation_policy.clone();
+        stale_binding.composition_bundle_hash = "sha256:stale-bundle".to_string();
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway);
+        let _ = runtime.apply_fund_community_art_projection(
+            "location",
+            subject_id,
+            1,
+            1,
+            RATI_ACTOR_ID,
+            "stale-fixture",
+            1,
+            337_006,
+            None,
+        );
+        runtime
+            .community_art_generations
+            .get_mut(&community_art_generation_key("location", subject_id, 1))
+            .expect("generated media state exists")
+            .generation_policy = stale_binding;
+
+        let error = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect_err("a diverging bound media record must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("policy binding differs from its pathway"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
     fn media_begin_record_persists_the_same_generated_binding_on_replay() {
         let mut runtime = RuntimeWorld::seeded();
         let pathway = holy_land_pathway(&runtime);

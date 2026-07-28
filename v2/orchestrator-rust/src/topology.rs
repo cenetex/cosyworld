@@ -391,7 +391,13 @@ impl RuntimeWorld {
                 }
                 continue;
             };
-            if generation.generation_policy.is_empty() && snapshot_version < 14 {
+            // Funded media is bound only when generation begins, so a live
+            // snapshot legitimately carries an empty binding here. Adopt the
+            // pathway binding on load exactly as begin would; treating the
+            // unbound state as divergence rejects every checkpoint the running
+            // build writes. A non-empty binding still has to match: that is a
+            // real divergence and fails closed.
+            if generation.generation_policy.is_empty() {
                 generation.generation_policy = binding.clone();
             }
             if &generation.generation_policy != binding {

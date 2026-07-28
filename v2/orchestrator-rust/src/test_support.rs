@@ -119,6 +119,8 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         },
         story_metrics_retention: StoryMetricsRetention::default(),
         command_receipt_retention: CommandReceiptRetention::default(),
+        checkpoint_rejections: 0,
+        last_checkpoint_rejection: None,
         allow_unsigned_wallet_claims: false,
     }
 }
