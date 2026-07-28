@@ -28,6 +28,7 @@ DEFAULT_CARDS="{\"wallets\":[{\"walletAddress\":\"${WALLET}\",\"cardIds\":[\"cos
 CARDS="${COSYWORLD_RUBY_HIGH_WALLET_CARDS:-$DEFAULT_CARDS}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
+DETACHED_SHELL="${COSYWORLD_V2_DETACHED_SHELL:-$(command -v bash)}"
 URL="${BASE_URL}/?wallet=${WALLET}"
 
 usage() {
@@ -133,7 +134,7 @@ start_server() {
     echo "screen is required for detached local MVP serving on this machine." >&2
     exit 1
   fi
-  screen -dmS "$SESSION" /bin/zsh -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' COSYWORLD_RUBY_HIGH_WALLET_CARDS='${CARDS}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
+  screen -dmS "$SESSION" "$DETACHED_SHELL" -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' COSYWORLD_RUBY_HIGH_WALLET_CARDS='${CARDS}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
   if ! wait_ready; then
     echo "CosyWorld v2 did not become ready. Last log lines:" >&2
     tail -60 "$LOG" >&2 || true
