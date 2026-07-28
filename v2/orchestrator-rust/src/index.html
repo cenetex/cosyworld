@@ -1663,6 +1663,10 @@
 
     .turn-banner {
       grid-column: 1 / -1;
+      /* The narrow layout turns .prompt into a flex row; grid-column is
+         meaningless there, so the banner must also claim a full flex line or
+         it squeezes in beside the combat cards (issue #490). */
+      flex: 1 1 100%;
       display: flex;
       align-items: stretch;
       gap: 8px;
@@ -2893,6 +2897,7 @@
       }
       .prompt {
         display: flex;
+        flex-wrap: wrap;
         gap: 5px;
         width: 100%;
         max-width: 100%;

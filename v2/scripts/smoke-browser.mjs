@@ -3391,6 +3391,17 @@ async function main() {
           target_actor_id: 5000,
           target_actor_name: "Lantern Stitch",
         });
+        const knockoutHtml = defeatTransitionHtml();
+        clearDefeatTransition();
+        const deathCaptured = captureDefeatTransition({
+          seq: 100,
+          type: "combat.death",
+          actor_id: 1004,
+          actor_name: "Moonlit Echo",
+          target_actor_id: 5000,
+          target_actor_name: "Lantern Stitch",
+        });
+        const deathHtml = defeatTransitionHtml();
         state = {
           ...state,
           primary_action: { kind: "create_avatar", options: [] },
@@ -3399,7 +3410,9 @@ async function main() {
         const restart = buildActions(state)[0];
         return {
           captured,
-          html: defeatTransitionHtml(),
+          deathCaptured,
+          knockoutHtml,
+          deathHtml,
           restartLabel: restart?.label || "",
           restartDetail: restart?.detail || "",
           restartTitle: restart?.modalTitle || "",
@@ -3414,9 +3427,69 @@ async function main() {
       }
     });
     assert(result.captured, `the player's knockout should capture an explicit defeat transition: ${JSON.stringify(result)}`);
-    assert(/this tale has ended/i.test(result.html) && /Lantern Stitch was defeated by Moonlit Echo/i.test(result.html), `the defeat scene should name the outcome and both combatants: ${JSON.stringify(result)}`);
-    assert(/This avatar is gone/i.test(result.html) && /linked account and keepsakes are still here/i.test(result.html), `the defeat scene should explain what was lost and what remains: ${JSON.stringify(result)}`);
+    assert(/Lantern Stitch was knocked out by Moonlit Echo/i.test(result.knockoutHtml), `the knockout scene should name the outcome and both combatants without declaring the tale ended: ${JSON.stringify(result)}`);
+    assert(!/this tale has ended/i.test(result.knockoutHtml) && /body is still where it fell/i.test(result.knockoutHtml), `a knockout is recoverable; the scene must not claim permanent loss: ${JSON.stringify(result)}`);
+    assert(result.deathCaptured, `the player's death should capture an explicit defeat transition: ${JSON.stringify(result)}`);
+    assert(/this tale has ended/i.test(result.deathHtml) && /This avatar is gone/i.test(result.deathHtml), `the death scene keeps the ended-tale copy: ${JSON.stringify(result)}`);
     assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `the post-defeat action should be a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCombatTurnBannerOwnsFullRowAboveCardHand() {
+    // Issue #490: the narrow layout turns the footer into a flex row, where
+    // grid-column is meaningless; the banner must still claim its own row
+    // above the widest (three-entry combat) hand instead of crushing the
+    // cards into slivers beside it.
+    const previousViewport = page.viewportSize();
+    await page.setViewportSize({ width: 360, height: 860 });
+    await page.waitForTimeout(50);
+    const result = await page.evaluate(() => {
+      const prompt = document.querySelector(".prompt");
+      const banner = $("turn-banner");
+      const pill = $("turn-ping-pill");
+      const controls = $("turn-banner-controls");
+      const shuffle = $("shuffle");
+      const previousHidden = banner.hidden;
+      const previousPill = pill.innerHTML;
+      const previousControls = controls.innerHTML;
+      const previousShuffleDisplay = shuffle.style.display;
+      const previousHasDraw = prompt.classList.contains("has-draw");
+      try {
+        pill.innerHTML = '<span class="turn-ping-copy">ordered combat — your turn</span><span class="turn-ping-time">45s</span>';
+        controls.innerHTML = [
+          '<button type="button" class="turn-banner-control">pass</button>',
+          '<button type="button" class="turn-banner-control">need time</button>',
+        ].join("");
+        banner.hidden = false;
+        // The widest hand ADR 0002 allows: three footer cards (combat capacity
+        // three, or two cards plus the draw).
+        prompt.classList.add("has-draw");
+        shuffle.style.display = "flex";
+        const promptRect = prompt.getBoundingClientRect();
+        const bannerRect = banner.getBoundingClientRect();
+        const cards = [...prompt.querySelectorAll(".cmd")]
+          .filter((card) => card.offsetParent !== null)
+          .map((card) => card.getBoundingClientRect());
+        return {
+          cardCount: cards.length,
+          promptWidth: promptRect.width,
+          bannerWidth: bannerRect.width,
+          bannerBottom: bannerRect.bottom,
+          highestCardTop: Math.min(...cards.map((rect) => rect.top)),
+          narrowestCard: Math.min(...cards.map((rect) => rect.width)),
+        };
+      } finally {
+        banner.hidden = previousHidden;
+        pill.innerHTML = previousPill;
+        controls.innerHTML = previousControls;
+        shuffle.style.display = previousShuffleDisplay;
+        prompt.classList.toggle("has-draw", previousHasDraw);
+      }
+    });
+    if (previousViewport) await page.setViewportSize(previousViewport);
+    assert(result.cardCount >= 3, `the combat hand should present at least three footer cards for this fixture: ${JSON.stringify(result)}`);
+    assert(result.bannerWidth >= result.promptWidth * 0.9, `the banner must span the footer, not sit beside the cards: ${JSON.stringify(result)}`);
+    assert(result.bannerBottom <= result.highestCardTop + 1, `the banner must occupy its own row above the card grid: ${JSON.stringify(result)}`);
+    assert(result.narrowestCard >= 60, `every combat card must stay at usable size beneath the banner: ${JSON.stringify(result)}`);
   }
 
   async function assertBondSurfacesAsCompactRelationshipAction() {
@@ -10078,6 +10151,8 @@ async function main() {
   await assertMultiRoomPrepareCopyUsesServerProgress();
   await assertSpentPreparationSurfacesProjectPush();
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
+  await assertPlayerDefeatTransitionIsExplicit();
+  await assertCombatTurnBannerOwnsFullRowAboveCardHand();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();
   await assertServerEligibleRestPriorityFollowsRoomDanger();
