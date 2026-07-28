@@ -173,6 +173,15 @@ pub(crate) struct VoiceSelectionDecision {
     pub(crate) weighted_key: f64,
     pub(crate) estimated_cost_microdollars: u64,
     pub(crate) selected: bool,
+    /// True when this attempt reuses an already-planned model to fill the
+    /// attempt budget, because the registry pinned fewer distinct candidates
+    /// than the budget allows. Recorded so telemetry can tell a genuinely
+    /// diverse cast apart from a thin pool being resampled.
+    ///
+    /// Defaulted so `decision_json` rows written before this field existed
+    /// still deserialize.
+    #[serde(default)]
+    pub(crate) resampled: bool,
     pub(crate) excluded_reason: Option<String>,
 }
 
@@ -593,6 +602,7 @@ fn build_voice_plan(
                     weighted_key,
                     estimated_cost_microdollars,
                     selected: false,
+                    resampled: false,
                     excluded_reason,
                 },
             ))
@@ -628,6 +638,37 @@ fn build_voice_plan(
         }
         all.push(decision);
     }
+
+    // A thin candidate pool must not silence a resident. Every publication gate
+    // gets its verdict from one sampled completion, so a single rejection is a
+    // property of that sample rather than of the model. When the registry pins
+    // fewer distinct models than the attempt budget allows, resample the best
+    // planned candidate to fill the remaining attempts. The gates still judge
+    // every sample independently and no rejected bytes become observable; this
+    // only stops one unlucky sample from being terminal. Still bounded by the
+    // spend ceiling, so the cost envelope is unchanged.
+    if !planned.is_empty() && planned.len() < config.max_attempts as usize {
+        let mut ordinal = planned.len() as u8;
+        while planned.len() < config.max_attempts as usize {
+            let source = planned[0].clone();
+            let cost = source.decision.estimated_cost_microdollars;
+            if spent.saturating_add(cost) > config.spend_ceiling_microdollars {
+                break;
+            }
+            spent = spent.saturating_add(cost);
+            ordinal += 1;
+            let mut decision = source.decision.clone();
+            decision.selected = true;
+            decision.ordinal = ordinal;
+            decision.resampled = true;
+            planned.push(PlannedCandidate {
+                selection: source.selection.clone(),
+                decision: decision.clone(),
+            });
+            all.push(decision);
+        }
+    }
+
     Ok((planned, all))
 }
 
@@ -1408,6 +1449,90 @@ mod tests {
             std::process::id(),
             crate::now_seed()
         ))
+    }
+
+    fn single_candidate(routing: VoiceRoutingConfig) -> AiConfig {
+        config(
+            vec![candidate(
+                "provider/tiny-a",
+                "provider-a",
+                "tiny/a",
+                "tiny-a",
+                "r1",
+                true,
+            )],
+            routing,
+        )
+    }
+
+    #[test]
+    fn a_thin_candidate_pool_still_fills_the_attempt_budget_by_resampling() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 3,
+            ..VoiceRoutingConfig::default()
+        });
+        let candidates = config.pin_models(ModelCapability::Voice).unwrap();
+        assert_eq!(candidates.len(), 1, "the pool pins exactly one model");
+
+        let (planned, _) = build_voice_plan(
+            None,
+            "generation-thin",
+            5_000,
+            "prose",
+            &request("dialogue_avatar"),
+            &config.voice_routing,
+            candidates,
+        )
+        .unwrap();
+
+        // One pinned model previously produced one attempt, so any single
+        // publication rejection was terminal and the resident fell silent.
+        assert_eq!(planned.len(), 3, "the attempt budget is reachable");
+        assert!(
+            planned
+                .iter()
+                .all(|entry| entry.decision.requested_model_id == "provider/tiny-a"),
+            "a thin pool resamples the same model rather than inventing one",
+        );
+        let ordinals = planned
+            .iter()
+            .map(|entry| entry.decision.ordinal)
+            .collect::<Vec<_>>();
+        assert_eq!(ordinals, vec![1, 2, 3], "ordinals stay unique and ordered");
+        assert_eq!(
+            planned
+                .iter()
+                .filter(|entry| entry.decision.resampled)
+                .count(),
+            2,
+            "only the filler attempts are marked as resampled",
+        );
+    }
+
+    #[test]
+    fn resampling_never_exceeds_the_spend_ceiling() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 4,
+            spend_ceiling_microdollars: 1,
+            unknown_cost_microdollars: 1,
+            ..VoiceRoutingConfig::default()
+        });
+        let candidates = config.pin_models(ModelCapability::Voice).unwrap();
+        let (planned, _) = build_voice_plan(
+            None,
+            "generation-thin-budget",
+            5_000,
+            "prose",
+            &request("dialogue_avatar"),
+            &config.voice_routing,
+            candidates,
+        )
+        .unwrap();
+        assert_eq!(
+            planned.len(),
+            1,
+            "the spend ceiling still bounds the attempt budget",
+        );
     }
 
     #[test]

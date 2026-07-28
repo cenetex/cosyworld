@@ -1,3 +1,7 @@
 # Total physical lines in main.rs, including inline tests. Tests spend the same
 # budget as production code so extracted systems take their tests with them.
-73214
+#
+# 73214 -> 73222: eight INDEX_HTML contract assertions for issue #461, pinning
+# the ordered-combat banner markup and the removal of the dealt timing cards.
+# Test-only, no new system; the behaviour itself lives in index.html.
+73222
