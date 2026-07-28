@@ -22,6 +22,12 @@ const MODEL_VERSION = "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d6568
 const DEFAULT_MODEL = `ratimics/b43l:${MODEL_VERSION}`;
 const LORA_TRIGGER = process.env.HOLY_LAND_LORA_TRIGGER || "B43L";
 export const DEFAULT_LORA_SCALE = 1.25;
+export const DEFAULT_ART_STYLE =
+  "Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.";
+const ACTOR_HISTORICAL_CONSTRAINT =
+  "One ordinary first-century Levantine traveler; no halo, cross, text, modern gear, or later religious costume.";
+const LOCATION_HISTORICAL_CONSTRAINT =
+  "First-century Levant only; no later religious monuments, readable text, modern objects, or anachronistic architecture.";
 
 const ASPECT_RATIOS = { tall: "2:3", square: "1:1", wide: "16:9" };
 const TARGET_SIZES = {
@@ -39,6 +45,7 @@ function parseArgs(argv) {
     limit: null,
     seedSalt: "",
     sampleDir: null,
+    stylePrompt: null,
   };
   for (const arg of argv) {
     if (arg === "--sync-prompts") options.syncPrompts = true;
@@ -54,8 +61,10 @@ function parseArgs(argv) {
       const sampleDir = arg.slice(13).trim();
       if (!sampleDir) throw new Error(`Invalid sample directory: ${arg}`);
       options.sampleDir = path.resolve(sampleDir);
-    }
-    else throw new Error(`Unknown option: ${arg}`);
+    } else if (arg.startsWith("--style=")) {
+      options.stylePrompt = arg.slice(8).trim();
+      if (!options.stylePrompt) throw new Error(`Invalid style prompt: ${arg}`);
+    } else throw new Error(`Unknown option: ${arg}`);
   }
   return options;
 }
@@ -84,23 +93,27 @@ function selectCards(cards, options) {
   return selected;
 }
 
-export function actorPrompt(card, actor) {
+export function actorPrompt(card, actor, stylePrompt = DEFAULT_ART_STYLE) {
   return [
-    `${LORA_TRIGGER}. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.`,
-    `Meet ${card.display_name}, ${card.title}, already mid-journey in the first-century Holy Land. ${sentence(card.blurb || actor.description)}`,
+    `${LORA_TRIGGER}. ${stylePrompt}`,
+    `Meet ${card.display_name}, ${card.title}, already mid-journey in the first-century Holy Land. ${sentence(card.blurb || actor.description)} ${ACTOR_HISTORICAL_CONSTRAINT}`,
   ].join("\n");
 }
 
-export function locationPrompt(card, location) {
+export function locationPrompt(card, location, stylePrompt = DEFAULT_ART_STYLE) {
   return [
-    `${LORA_TRIGGER}. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.`,
-    `Arrive mid-journey at ${card.display_name}, ${card.title}, in the first-century Holy Land. ${sentence(card.blurb || location.description)}`,
+    `${LORA_TRIGGER}. ${stylePrompt}`,
+    `Arrive mid-journey at ${card.display_name}, ${card.title}, in the first-century Holy Land. ${sentence(card.blurb || location.description)} ${LOCATION_HISTORICAL_CONSTRAINT}`,
   ].join("\n");
 }
 
-export function buildPrompt(card, actors, locations) {
-  if (card.subject_kind === "actor") return actorPrompt(card, actors.get(card.subject_id));
-  if (card.subject_kind === "location") return locationPrompt(card, locations.get(card.subject_id));
+export function buildPrompt(card, actors, locations, stylePrompt = DEFAULT_ART_STYLE) {
+  if (card.subject_kind === "actor") {
+    return actorPrompt(card, actors.get(card.subject_id), stylePrompt);
+  }
+  if (card.subject_kind === "location") {
+    return locationPrompt(card, locations.get(card.subject_id), stylePrompt);
+  }
   throw new Error(`Unsupported subject kind: ${card.subject_kind}`);
 }
 
@@ -253,7 +266,7 @@ async function main() {
 
   for (let index = 0; index < selected.length; index += 1) {
     const card = selected[index];
-    const prompt = buildPrompt(card, actors, locations);
+    const prompt = buildPrompt(card, actors, locations, options.stylePrompt || DEFAULT_ART_STYLE);
     console.log(`[${index + 1}/${selected.length}] ${card.card_id} (${card.aspect})`);
     const entry = await generateCard(replicate, model, card, prompt, options);
     if (!options.dryRun && !options.sampleDir) await persistResult(cards, entry, model);

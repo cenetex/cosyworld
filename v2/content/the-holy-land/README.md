@@ -37,6 +37,7 @@ npm run v2:holy-land:art -- --dry-run
 npm run v2:holy-land:art -- --ids=holy-land-simon-peter,holy-land-capernaum
 npm run v2:holy-land:art -- --force --seed-salt=v2
 npm run v2:holy-land:art -- --force --ids=holy-land-simon-peter --sample-dir=/tmp/holy-land-samples
+npm run v2:holy-land:art -- --force --ids=holy-land-simon-peter --sample-dir=/tmp/holy-land-ab --style="Half-painted wet watercolor study, raw paper."
 ```
 
 `--sample-dir` runs the pinned generation pipeline but writes only preview files;
