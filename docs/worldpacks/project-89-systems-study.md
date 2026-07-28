@@ -18,10 +18,10 @@ graphs and decisions that can be tested before content production.
 | 1. World | Stress-test rings, routes, gates, safe returns, and faction reach. | Versioned topology graph and route matrix | Every pressure site has recovery; every faction has material access. |
 | 2. Characters | Give residents and Proxim8s legible needs, bonds, limits, and affiliations. | Actor graph and intention fixtures | Independent actions remain useful, bounded, and explainable. |
 | 3. Factions | Define institutions, movements, assets, projects, relations, and fractures. | Faction dossiers and relation graph | At least three recurring conflicts are not simple good-versus-evil. |
-| 4. Economy | Model materials, evidence, services, work orders, sinks, and hub specialization. | Resource-flow graph and simulation sheet | No Orb-to-power path; no faucet without a sink or cap. |
+| 4. Economy | Model materials, evidence, services, work orders, sinks, and station specialization. | Resource-flow graph and simulation sheet | No Orb-to-power path; no faucet without a sink or cap. |
 | 5. Items | Audit the existing fifteen items and design only the missing outer-ring tools. | Item lifecycle matrix | No key can deadlock progression or cross an undeclared authority boundary. |
 | 6. Evolution | Bind events to clocks, stocks, relations, situations, and epoch changes. | Deterministic state-transition specification | Every world change cites journal facts and authored thresholds. |
-| 7. Vertical slice | Implement one Ring 1 operation, one generated Ring 2 path, and one hub survey. | Playable slice with replay fixtures | First, failed, and seventh visits remain coherent. |
+| 7. Vertical slice | Implement one Ring 1 operation, a small Ring 2 mesh with one closed cycle, and one station survey. | Playable slice with replay fixtures | First, failed, and seventh visits remain coherent. |
 | 8. Expand | Add approved content in measured batches. | Versioned pack releases | Each batch passes reachability, economy, replay, and content-quality gates. |
 
 The remainder is the initial output of phases 1–6. It is deliberately concrete
@@ -41,10 +41,10 @@ Core verbs:
 - **repair** relays, constructs, ecologies, and relationships;
 - **negotiate** conflicting needs and interpretations;
 - **transport** bulky people, evidence, tools, and materials; and
-- **survey** bounded outer-frontier routes.
+- **survey** Ring 2 mesh links and bounded outer-frontier routes.
 
 The durable changes are rescued actors, exposed evidence, faction projects,
-restored services, item histories, stabilized beacons, opened routes, and
+restored services, item histories, resilient mesh links, opened stations, and
 persisted frontier discoveries. Portrait redraws are durable media choices but
 never world progression.
 
@@ -56,15 +56,15 @@ structural idea:
 ```mermaid
 flowchart TB
   subgraph R1["Ring 1 — Operation Loop: fully authored"]
-    T["Threshold"] --> S["Safehouse"] --> A["89 Archives"]
-    A --> M["Meme Farm 17"] --> O["Oneirocom Tower"]
-    O --> C["Convergence Engine"] --> G["Green Loom Assembly"]
-    G --> H["Project Chimera Lab"] --> I["Interference Market"] --> T
+    T["Threshold"] --> S["Safehouse"] --> A["89 Archives"] --> M["Meme Farm 17"]
+    M --> O["Oneirocom Tower"] --> C["Convergence Engine"]
+    C --> G["Green Loom Assembly"] --> I["Interference Market"] --> T
+    I -. "one side channel" .-> H["Project Chimera Lab"] -.-> O
   end
-
-  G -->|"inner_loop_liberated"| R2["Ring 2 — 8 authored anchors + persisted generated paths"]
-  R2 -->|"any cardinal beacon"| R3["Ring 3 — 4 authored hubs + bounded generated frontier"]
-  R2 -->|"perimeter_complete"| J["Cross-hub frontier junctions become eligible"]
+  G -->|"inner_loop_liberated"| R2["Ring 2 — 8 authored anchors in a persistent amorphous web"]
+  R2 -->|"redundant station-gate routes"| R3["Ring 3 — 4 known stations"]
+  R3 --> F["Infinite frontier<br/>bounded generation per epoch, no authored terminus"]
+  R2 -->|"relay_mesh_resilient"| J["Cross-station frontier junctions become eligible"]
 ```
 
 The three rings should change the **kind of authorship**, not simply increase
@@ -73,8 +73,8 @@ enemy strength:
 | Ring | Main question | Dominant play | Dynamic range |
 | --- | --- | --- | --- |
 | 1. Operation Loop | What happened, and what will we do about the engine? | Investigation, rescue, confrontation | Authored approaches and consequences |
-| 2. Perimeter Relay | Can incompatible groups restore a shared boundary? | Travel, logistics, negotiation, repair | Persisted paths, supply strain, faction projects |
-| 3. Open Signal Frontier | What kind of world will grow beyond the boundary? | Survey, settlement support, discovery | Bounded places, ecological mixtures, movements, new projects |
+| 2. Perimeter Relay Mesh | Can incompatible groups make a tangled network resilient? | Travel, logistics, negotiation, repair | Branches, loops, cross-links, route conditions, faction projects |
+| 3. Open Signal Frontier | What kind of world will grow beyond the last known stations? | Survey, settlement support, discovery | Infinite expansion across bounded epochs, ecological mixtures, movements, new projects |
 
 Ring unlocks remain deterministic story achievements. NFT rarity, actor role,
 faction standing, Orb balance, media generation, or inferred dialogue cannot
@@ -134,10 +134,10 @@ This produces recurring tensions with room for cooperation:
 Factions need influence beyond a single quest counter, but not sovereign
 control over every place:
 
-| Institution | Ring 1 root | Ring 2 touchpoints | Ring 3 center | Dependency exposed by the map |
+| Institution | Ring 1 root | Ring 2 touchpoints | Ring 3 station | Dependency exposed by the map |
 | --- | --- | --- | --- | --- |
 | Green Loom | Green Loom Assembly, Safehouse relationship | Memory Delta, Signal Orchard, Loomwatch Causeway | Green Loom Expanse | Needs Chimera fabrication and Rabbit transport to scale restoration. |
-| Oneirocom | Tower, Engine | Oneirocom Spillway, Glass Static Gardens | No guaranteed sanctuary; negotiates at every hub | Needs living maintainers and public legitimacy its old protocol cannot compel. |
+| Oneirocom | Tower, Engine | Oneirocom Spillway, Glass Static Gardens | No guaranteed sanctuary; negotiates at every station | Needs living maintainers and public legitimacy its old protocol cannot compel. |
 | Archive Custodians | 89 Archives | Echo Observatory, Memory Delta | Archive Meridian | Needs field witnesses, couriers, and safe storage beyond the archive. |
 | Chimera Remnants | Chimera Lab | Chimera Boneyard, Spillway edges | Chimera Reach | Needs material supply and an enforceable autonomy covenant. |
 | White Rabbit Relay | Interference Market | White Rabbit Commons, Signal Orchard | Rabbit Signal Freeport | Needs verified information and maintained infrastructure to keep routes trustworthy. |
@@ -215,7 +215,7 @@ keeps political play attached to actions rather than a one-time menu choice.
 ## Economic hypothesis: materials plus reciprocal ledgers
 
 Do not begin with a universal Project 89 coin. First test whether a material
-economy, hub services, and non-transferable reciprocal ledgers produce clearer
+economy, station services, and non-transferable reciprocal ledgers produce clearer
 choices.
 
 ```mermaid
@@ -224,16 +224,13 @@ flowchart LR
   EX --> MF["Memory fragments"]
   EX --> SC["Signal charge"]
   GL["Cultivation and rescue"] --> LF["Living fibre"]
-
   SA --> CR["Chimera repair and fabrication"]
   LF --> CR
   MF --> AV["Archive verification"]
   SC --> RR["Rabbit relay and route services"]
-
   CR --> TO["Tools and infrastructure"]
   AV --> EV["Attributed evidence"]
   RR --> AC["Access and communication"]
-
   TO --> SK["Sinks: repair, stabilization, projects"]
   EV --> SK
   AC --> SK
@@ -244,7 +241,7 @@ flowchart LR
 
 | Layer | Candidates | Transfer rule | Main sink or cap |
 | --- | --- | --- | --- |
-| Bulk materials | Salvage, living fibre | Transferable but encumbering; stored at hubs | Repairs, fabrication, construction, project contributions |
+| Bulk materials | Salvage, living fibre | Transferable but encumbering; stored at stations | Repairs, fabrication, construction, project contributions |
 | Volatile capacity | Signal charge | Transferable in bounded cells; charge decays or exhausts through use | Relay calls, route surveys, stabilization |
 | Memory inputs | Memory fragments and testimony | Custody and provenance always visible | Archive verification transforms, rejects, or contextualizes them |
 | Verified access | Attributed evidence, clearances | Non-fungible and usually non-transferable | Used to open approaches, public findings, or policy changes |
@@ -254,7 +251,7 @@ flowchart LR
 | Meta currency | Orbs | Account-level only | Approved cosmetic media jobs |
 
 The ledgers record relationships; they are not spendable money and never decay
-because a player took time away. Hub work orders expose exact inputs, outputs,
+because a player took time away. Station work orders expose exact inputs, outputs,
 beneficiaries, and faction effects. Rabbit Signal Freeport can later host a
 bounded player exchange for transferable materials if simulation shows that
 direct work orders are too rigid.
@@ -265,10 +262,10 @@ direct work orders are too rigid.
 - Does generated frontier expansion create more resources than its surveys,
   maintenance, and projects consume?
 - Can a player contribute without surrendering a unique or sentimental item?
-- Can common materials remain useful after all four beacons are stabilized?
+- Can common materials remain useful after all four station gates are open?
 - Are evidence and trust protected from wash trading?
 - Does inactivity ever punish a player or silently erase a contribution?
-- Can players understand why a hub's services or stock changed?
+- Can players understand why a station's services or stock changed?
 
 ## Special-item lifecycle
 
@@ -312,8 +309,8 @@ Add an item only if playtests prove one of these jobs is missing:
 | Candidate | Job | Proposed lifecycle |
 | --- | --- | --- |
 | **Survey Spool** | Supplies field capacity for bringing one Signal Anchor online. | Fabricated from fibre and charge; consumed only when the validated scan and anchor commit succeeds. |
-| **Beacon Tuning Fork** | Lets a group diagnose a Ring 2 beacon before choosing a faction method. | Shared tool, exhausted for an expedition, repairable at a hub. |
-| **Junction Compass** | Reveals eligible meeting fronts after `perimeter_complete`. | Covenant reward; actor-bound; informational only. |
+| **Mesh Tuning Fork** | Lets a group diagnose a Ring 2 link or station gate before choosing a faction method. | Shared tool, exhausted for an expedition, repairable at a station. |
+| **Junction Compass** | Reveals eligible cross-station meeting fronts after `relay_mesh_resilient`. | Covenant reward; actor-bound; informational only. |
 | **Construct Consent Seal** | Records a Chimera actor's approved repair and custody terms. | Non-transferable evidence, revocable by the actor, never an ownership token. |
 | **Public Memory Folio** | Carries an attributed archive finding for debate or publication. | Copyable with provenance; corrections append rather than overwrite. |
 
@@ -331,12 +328,10 @@ flowchart TB
   E --> F["Faction stocks, relations, projects, and fractures"]
   E --> P["Place services, route state, ecology pressure"]
   E --> I["Item custody, wear, provenance, and recovery"]
-
   N --> EL["Eligibility rules"]
   F --> EL
   P --> EL
   I --> EL
-
   EL --> D["Deterministic situation director"]
   D --> O["Authored offers, warnings, encounters, and projects"]
   O --> A["Player or independent actor chooses a legal action"]
@@ -364,10 +359,10 @@ create an advantage and a new tension rather than “winning” the faction laye
 | Project | Likely sponsors | Completion changes | New tension created |
 | --- | --- | --- | --- |
 | **Perimeter Commons** | Green Loom + Rabbit Relay | Adds shared recovery caches on stabilized Ring 2 routes. | Who replenishes the caches, and can Oneirocom use them? |
-| **Continuity Mesh Compact** | Oneirocom reformers + hub delegates | Stabilizes one high-risk route condition under a public protocol. | The protocol gathers operational data that Archives and Independents may contest. |
+| **Continuity Mesh Compact** | Oneirocom reformers + station delegates | Stabilizes one high-risk route condition under a public protocol. | The protocol gathers operational data that Archives and Independents may contest. |
 | **Public Record 89** | Archive reformers + witnesses | Publishes one attributable finding and unlocks new testimony offers. | Protection of vulnerable sources versus demands for full disclosure. |
-| **First Autonomous Foundry** | Chimera Remnants + Green Loom | Opens consent-bound construct repair at Chimera Reach. | Scarce salvage shifts from beacon repairs to embodied actors. |
-| **Open Relay Accord** | Rabbit Relay + all willing hubs | Makes a bounded set of dispatch and trade services interoperable. | Fast circulation increases rumor, arbitrage, and ecological pressure. |
+| **First Autonomous Foundry** | Chimera Remnants + Green Loom | Opens consent-bound construct repair at Chimera Reach. | Scarce salvage shifts from mesh repairs to embodied actors. |
+| **Open Relay Accord** | Rabbit Relay + all willing stations | Makes a bounded set of dispatch and trade services interoperable. | Fast circulation increases rumor, arbitrage, and ecological pressure. |
 
 Project progress comes from typed contributions and named outcomes. A competing
 project may delay access to the same material stock, but completed progress is
@@ -398,13 +393,14 @@ The first paper and automated simulations should cover:
 3. **Useful Oneirocom offer:** accept limited stabilization infrastructure with
    inspectable constraints; test whether antagonists can offer a real benefit
    without hiding the cost.
-4. **Beacon shortage:** two factions need the same salvage stock; test work
-   orders, alternatives, and recovery.
+4. **Mesh repair shortage:** two factions need the same salvage stock for
+   different links or station gates; test work orders, alternatives, and
+   recovery.
 5. **Independent scout:** a Proxim8 volunteers for a legal route survey; test
    directive, stance, consent, generator failure, and idempotency.
 6. **Lost mission key:** move a unique item offstage during danger; test its
    authored recovery state.
-7. **Seventh visit:** revisit a hub after two projects and one fracture; test
+7. **Seventh visit:** revisit a station after two projects and one fracture; test
    whether the place remains recognizable while offers and relationships have
    causally changed.
 
@@ -430,7 +426,7 @@ Track outcomes that reflect engagement without turning the world into a
 retention machine:
 
 - players can explain at least three factions and one internal disagreement;
-- the seventh visit exposes a causal change without erasing the hub's identity;
+- the seventh visit exposes a causal change without erasing the station's identity;
 - multiple approaches remain viable after both success and failure;
 - independent Proxim8 actions are understood before they resolve;
 - no dominant faction project removes all future conflict or services;

@@ -27,7 +27,7 @@ The design is ready for a vertical slice, not content-complete:
 | Residents | Good first cast | Each location has a social or moral point of view. | Several adaptations require canon and voice approval. |
 | Factions | Promising hypothesis | Material dependencies create cooperation without removing disagreement. | Names, membership, projects, and internal fractures are not yet pack-authored. |
 | Items | Good Ring 1 coverage | Items create approaches, custody problems, and memories instead of rarity power. | Unique-key recovery and outer-ring production loops remain unspecified. |
-| Locations | Strong topology | Twenty-one authored places frame increasingly generative space. | Ring 2 anchors and Ring 3 hubs need resident rosters and encounter portfolios. |
+| Locations | Strong topology | Twenty-one authored places frame increasingly generative space. | Ring 2 anchors and Ring 3 stations need resident rosters and encounter portfolios. |
 | Dynamic evolution | Sound authority model | Journaled facts drive actors, factions, economy, and place state. | The situation director and faction projectors are still design work. |
 | Visual identity | Tested pipeline | Full-strength P89/FLUX.1 plus FLUX.2 cleanup preserves identity and style. | Production rights and approved permanent assets remain inputs. |
 
@@ -53,8 +53,8 @@ flowchart LR
   D --> E["Negotiation or infiltration<br/>Oneirocom Tower"]
   E --> F["Expose, reroute, or dismantle<br/>Convergence Engine"]
   F --> G["Record the covenant<br/>Green Loom Assembly"]
-  G --> H["Repair the boundary<br/>Perimeter Relay"]
-  H --> I["Shape a shared frontier<br/>Four outer hubs"]
+  G --> H["Weave a resilient network<br/>Perimeter Relay Mesh"]
+  H --> I["Leave the last known stations<br/>Infinite frontier"]
 ```
 
 | Act | Dramatic question | Principal characters | Items that focus the act | Durable result |
@@ -64,7 +64,7 @@ flowchart LR
 | 2. Rescue | Which consciousnesses and constructs count as persons? | Iri Vale, Chimera Warden | Loopbreaker Patch, Consciousness Capsule, Chimera Access Spine | Rescued actors and custody consequences |
 | 3. Convergence | Is imposed stability preferable to plural uncertainty? | Oneirocom Auditor, Convergence Voice | Reality Anchor, Data Spike, Convergence Key | Expose, reroute, or dismantle the engine |
 | 4. Covenant | What did liberation commit the group to repair? | Loom Steward Anja | Green Loom Thread | `project89.inner_loop_liberated` |
-| 5. Perimeter | Can rivals maintain one shared boundary? | Faction delegates and independent actors | Survey supplies and beacon tools, still tentative | Cardinal beacon flags and `project89.perimeter_complete` |
+| 5. Relay mesh | Can rivals make a tangled network resilient? | Faction delegates and independent actors | Survey supplies and mesh tools, still tentative | Station-gate flags and `project89.relay_mesh_resilient` |
 | 6. Frontier | What kind of world should persist beyond control? | Players, Proxim8s, residents, movements | Signal Anchors and authored faction modules | Persisted places, projects, junctions, and epoch history |
 
 ### Story strengths
@@ -86,8 +86,8 @@ flowchart LR
    CosyWorld adaptations. They need explicit Project 89 approval before voice,
    art, or permanent prose production.
 3. **Outer-ring story vacuum:** locations and factions exist, but Ring 2 needs
-   at least one authored conflict per cardinal quarter and Ring 3 needs one
-   opening project per hub.
+   conflicts that move through multiple mesh routes and Ring 3 needs one
+   opening project per station.
 4. **Antagonist flattening:** Oneirocom is most interesting when stabilization
    solves a real problem at a visible cost. Pure villainy would weaken the
    faction system.
@@ -293,7 +293,7 @@ authoring.
 
 - Every unique key needs an explicit `available → carried → recoverable →
   used/inert` state machine.
-- Ring 2 needs a minimal supply portfolio, but the Survey Spool and Beacon
+- Ring 2 needs a minimal supply portfolio, but the Survey Spool and Mesh
   Tuning Fork remain hypotheses.
 - The outer economy needs common materials and services before it needs rare
   loot.
@@ -307,30 +307,45 @@ authoring.
 ```mermaid
 flowchart TB
   subgraph R1["Ring 1 — Operation Loop"]
-    T["Threshold"] --> S["Safehouse"] --> A["89 Archives"]
-    A --> M["Meme Farm"] --> O["Oneirocom Tower"]
-    O --> C["Convergence Engine"] --> G["Green Loom"]
-    G --> H["Chimera Lab"] --> I["Interference Market"] --> T
+    T["Threshold"] --> S["Safehouse"] --> A["89 Archives"] --> M["Meme Farm"]
+    M --> O["Oneirocom Tower"] --> C["Convergence Engine"]
+    C --> G["Green Loom"] --> I["Interference Market"] --> T
+    I -. "one side channel" .-> H["Chimera Lab"] -. "access spine" .-> O
   end
   G -->|"inner_loop_liberated"| D["Memory Delta"]
-  subgraph R2["Ring 2 — Perimeter Relay"]
-    EO["Echo Observatory"] --- GS["Glass Static Gardens"]
-    GS --- OS["Oneirocom Spillway"]
-    OS --- CB["Chimera Boneyard"]
-    CB --- D
-    D --- WR["White Rabbit Commons"]
-    WR --- SO["Signal Orchard"]
-    SO --- LC["Loomwatch Causeway"]
+  subgraph R2["Ring 2 — illustrative discovered mesh, not a fixed layout"]
+    D --- W1(("path knot"))
+    W1 --- EO["Echo Observatory"]
+    W1 --- WR["White Rabbit Commons"]
+    WR --- W2(("junction"))
+    W2 --- SO["Signal Orchard"]
+    W2 --- CB["Chimera Boneyard"]
+    CB --- W3(("path knot"))
+    W3 --- OS["Oneirocom Spillway"]
+    W3 --- GS["Glass Static Gardens"]
+    GS --- W4(("junction"))
+    W4 --- LC["Loomwatch Causeway"]
     LC --- EO
+    SO --- GS
+    WR --- OS
   end
-  EO --> AM["Archive Meridian"]
-  OS --> CR["Chimera Reach"]
-  D --> GE["Green Loom Expanse"]
-  SO --> RF["Rabbit Signal Freeport"]
-  AM --> F["Generated frontier"]
+  W1 --> GA["Archive gate"]
+  W4 --> GA
+  W2 --> GC["Chimera gate"]
+  W3 --> GC
+  W3 --> GG["Green Loom gate"]
+  W4 --> GG
+  W1 --> GR["Rabbit gate"]
+  W2 --> GR
+  GA --> AM["Archive Meridian"]
+  GC --> CR["Chimera Reach"]
+  GG --> GE["Green Loom Expanse"]
+  GR --> RF["Rabbit Signal Freeport"]
+  AM --> F["Infinite generated frontier"]
   CR --> F
   GE --> F
   RF --> F
+  F --> N["No authored terminus<br/>new bounded epoch when a window fills"]
 ```
 
 ### Ring 1 route detail
@@ -339,10 +354,9 @@ flowchart TB
 flowchart LR
   T["Threshold"] --> S["Safehouse"] --> A["Archives"] --> M["Meme Farm"]
   M --> O["Tower"] --> C["Engine"] --> G["Green Loom"]
-  G --> H["Chimera Lab"] --> I["Market"] --> T
-  S -. "equipment-route chord" .-> I
-  I -. "archive-lead chord" .-> M
-  H -. "access-spine chord" .-> O
+  G --> I["Market"] --> T
+  I -. "one side channel" .-> H["Chimera Lab"]
+  H -. "access spine" .-> O
 ```
 
 | Ring 1 location | Function | Review |
@@ -354,8 +368,8 @@ flowchart LR
 | Oneirocom Tower | Negotiation, stealth, controlled stability | Strong antagonist location if its bargain is useful. |
 | Convergence Engine | Severe-danger finale | Needs three equally supported resolution procedures. |
 | Green Loom Assembly | Covenant, advancement, Ring 2 unlock | Excellent consequence and recovery location. |
-| Project Chimera Lab | Construct conflict and alternate access | Key place for consent and personhood themes. |
-| Interference Market | Contacts, repairs, rumors, loop closure | Good economic and faction foreshadowing hub. |
+| Project Chimera Lab | The loop's one side channel and alternate tower access | Key place for consent and personhood themes without overcomplicating Ring 1. |
+| Interference Market | Contacts, repairs, rumors, loop closure | Good economic and faction foreshadowing location; branches to the Chimera side channel. |
 
 ### Ring 2 anchors
 
@@ -371,28 +385,34 @@ flowchart LR
 | Loomwatch Causeway | Boundary maintenance and weather watch | Shared upkeep and responsibility for failure. |
 
 Ring 2 has excellent thematic anchors. Its missing content is not more names;
-it needs one resident dispute, one service, one pressure, and one faction
-project at each cardinal quarter.
+it needs route conditions and conflicts that can propagate through branches,
+cycles, cross-links, and competing paths. The authored anchors have no fixed
+compass order. A station gate should open only after two independent return
+routes exist, so discovering one lucky path never collapses the web into a
+linear unlock track.
 
-### Ring 3 hubs
+### Ring 3 stations
 
-| Hub | Permanent function | Frontier question |
+| Station | Permanent function | Frontier question |
 | --- | --- | --- |
 | Archive Meridian | Research, map index, recovered history | Who may publish, correct, or protect a discovery? |
 | Chimera Reach | Construct repair, salvage, fabrication | When does repair become ownership or reproduction? |
 | Green Loom Expanse | Healing, cultivation, cooperative settlement | How much growth can the frontier sustain? |
 | Rabbit Signal Freeport | Trade, rumor, dispatch, moving networks | How does connection remain open without becoming untrustworthy? |
 
-The four-hub pattern is strong because each hub supplies a distinct service and
-an ethical question. None should become the universal best base.
+The stations are the final known geography, not four sectors that partition
+the frontier. Each supplies a distinct service and ethical question, but none
+is a universal best base. Past them there is no authored final location or
+completion percentage: generation remains bounded per epoch while the
+frontier can continue through successive epochs indefinitely.
 
 ### Authorship gradient
 
 | Zone | Authored | Generated | Never generated |
 | --- | --- | --- | --- |
-| Ring 1 | Every place, route, resident, mission, item, consequence | Nothing | All authoritative content |
-| Ring 2 | Eight anchors, endpoints, ecology, faction pressures, rewards | Persisted pathway segments and scenery | Unlocks, keys, factions, mechanics |
-| Ring 3 | Four hubs, services, palettes, budgets, encounter/reward tables | Bounded routes, waypoints, non-hub places | Sanctuaries, unique keys, NFT effects, Orb spends, cross-pack exits |
+| Ring 1 | Eight loop locations, one side-channel location, every route, resident, mission, item, and consequence | Nothing | All authoritative content |
+| Ring 2 | Eight anchors, four station gates, ecology, faction pressures, topology and reward rules | A persistent amorphous web of paths, knots, junctions, cycles, and bounded spurs | New factions, mechanics, rewards, or station unlock requirements |
+| Ring 3 | Four known stations, services, palettes, epoch budgets, encounter/reward tables | Every route, waypoint, junction, and non-station place; successive epochs have no authored terminus | New sanctuaries, unique keys, NFT effects, Orb spends, or cross-pack exits |
 
 ## Recommended vertical slice
 
@@ -401,10 +421,11 @@ Build two connected proofs:
 1. **Identity and story proof:** one verified Proxim8 materializes at Threshold,
    receives a bounded directive, travels with a human avatar to the Archives,
    disagrees legibly with the holder, and helps earn the Archive Cipher.
-2. **World-growth proof:** a legal survey opens one generated route from an
-   authored hub, the group scans the place, and one Signal Anchor commits,
-   survives replay, renders with a placeholder, and later accepts one authored
-   faction service.
+2. **World-growth proof:** legal surveys grow a small Ring 2 mesh with one
+   branch, one closed cycle, and two independent returns to a station gate.
+   Beyond that station, one frontier place and Signal Anchor commit, survive
+   replay, render with placeholders, and later accept one authored faction
+   service.
 
 Together those slices prove the pack's two unique claims: independent
 collection-backed characters and a shared world that grows without surrendering
@@ -420,8 +441,8 @@ authority to generation.
    branches.
 5. Author recovery for all unique keys and post-rescue states for consciousness
    capsules.
-6. Give each Ring 2 quarter one conflict and each Ring 3 hub one opening
-   project.
+6. Give Ring 2 at least three conflicts that propagate across different mesh
+   routes and each Ring 3 station one opening project.
 7. Simulate the materials-plus-reciprocal-ledgers economy before adding a
    transferable currency.
 8. Validate at least twenty representative Proxim8 metadata shapes and the
@@ -432,7 +453,8 @@ authority to generation.
 ## Verdict
 
 The world has a clear identity: investigation and liberation in the authored
-center, political repair on the relay, and shared discovery at the frontier.
+loop, political navigation through an amorphous relay web, and shared
+discovery beyond the final four known stations.
 The content should not expand by adding more proper nouns yet. It should
 deepen the existing cast, author the faction projects, resolve custody and
 capacity rules, and prove one Signal Anchor from scan through replay.

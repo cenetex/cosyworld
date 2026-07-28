@@ -5,8 +5,8 @@ Status: proposed V1-to-V2 migration design, not yet an authored or mounted pack.
 This document defines the V2 migration and expansion of CosyWorld's existing
 Project 89 and Proxim8 integration. The proposed release is a compact Operation
 Liberation world with wallet-backed Proxim8 actors, a nine-location authored
-inner loop, an eight-anchor semi-generative relay ring, four authored outer
-hubs, nine authored residents, and fifteen world-item types.
+inner zone, an eight-anchor semi-generative relay web, four authored outer
+stations, nine authored residents, and fifteen world-item types.
 
 The public source boundary is deliberately narrow:
 
@@ -508,14 +508,15 @@ the route between CosyWorld Core and the Threshold Interface.
 
 The world grows outward through three rings:
 
-1. **Operation Loop:** nine fully authored locations and routes.
-2. **Perimeter Relay:** eight authored anchors connected by persisted,
-   Holy-Land-style generated pathways.
-3. **Open Signal Frontier:** four authored sanctuary hubs with generated
-   routes, waypoints, and places beyond them.
+1. **Operation Loop:** eight fully authored locations on one loop plus one
+   authored side-channel location.
+2. **Perimeter Relay Mesh:** eight authored anchors inside a persistent,
+   amorphous web of generated paths, cycles, junctions, and bounded spurs.
+3. **Open Signal Frontier:** four known authored sanctuary stations followed
+   by an indefinitely extensible generated frontier with no authored terminus.
 
-The complete topology, unlock contract, Ring 2 anchors, Ring 3 hubs, generation
-budgets, and safety rules live in
+The complete topology, mesh-resilience contract, Ring 2 anchors, Ring 3
+stations, generation budgets, and safety rules live in
 [`project-89-world-map.md`](project-89-world-map.md).
 
 The tentative faction, actor, economy, item-lifecycle, and dynamic-evolution
@@ -533,14 +534,14 @@ lives in
 | Location | Safety | Purpose and exits |
 | --- | --- | --- |
 | **Threshold Interface** | Sanctuary | Wallet arrival, Proxim8 roster, active-trio selection, and return to CosyWorld. Connects the safehouse and interference market sides of the loop. |
-| **Sector 89 Safehouse** | Sanctuary | Social hub, equipment exchange, directives, and recovery. Leads onward to the archives; a market chord opens during the operation. |
+| **Sector 89 Safehouse** | Sanctuary | Social hub, equipment exchange, directives, and recovery. Leads onward to the archives on the main loop. |
 | **89 Archives** | Safe investigation | Parzival, the Custodian, archive evidence, and the first operation clock. The decoded route leads to the meme farm. |
 | **Meme Farm 17** | Danger | Infiltration and consciousness rescue. Its forward edge reaches Oneirocom Tower after a rescue. |
 | **Oneirocom Tower** | Danger | Social or stealth confrontation with the Auditor. Requires archive evidence, a rescue, or the access spine. Leads to the convergence engine. |
 | **Convergence Engine** | Severe danger | Final operation with liberation and suppression clocks. Retreat returns to the tower; success opens the assembly. |
-| **Green Loom Assembly** | Sanctuary | Resolution, covenant choice, advancement, and the first unlock into Ring 2. The inner loop continues toward the Chimera lab. |
-| **Project Chimera Lab** | Danger | Construct conflict, evidence, and the access-spine objective. Its loop edges lead between the assembly and market; the access spine opens an authored chord to the tower. |
-| **Interference Market** | Safe frontier | Contacts, repairs, rumors, and the final loop edge back to the threshold. Authored chords reach the safehouse and meme farm when their leads open. |
+| **Green Loom Assembly** | Sanctuary | Resolution, covenant choice, advancement, and the first unlock into Ring 2. The main loop continues toward the market. |
+| **Project Chimera Lab** | Danger | The loop's only side channel: construct conflict, evidence, and the access-spine objective. It branches from the market and can re-enter the main loop at the tower. |
+| **Interference Market** | Safe frontier | Contacts, repairs, rumors, and the final main-loop edge back to the threshold. It also opens the authored Chimera side channel. |
 
 The stable authored cycle is:
 
@@ -548,14 +549,16 @@ The stable authored cycle is:
 Threshold -> Safehouse -> Archives -> Meme Farm -> Tower -> Engine
     ^                                                  |
     |                                                  v
-Market <- Chimera Lab <- Green Loom Assembly <---------+
+Market <--------------- Green Loom Assembly <---------+
+  |
+  +-> Chimera Lab -> Tower   (one authored side channel)
 ```
 
-Story locks and authored mission chords can change available approaches
-without changing the authored loop.
+Story locks and the single side channel can change available approaches
+without turning Ring 1 into a route mesh.
 Resolving the engine and recording the result at Green Loom Assembly sets
 `project89.inner_loop_liberated` and opens the first Ring 2 path. The
-safehouse, threshold, assembly, and all authored outer hubs never receive
+safehouse, threshold, assembly, and all authored outer stations never receive
 offscreen danger or irreversible loss. Failure closes an approach, advances
 suppression, moves an actor, or costs a world item. It does not delete a
 Proxim8, alter its NFT, or spend Orbs.
@@ -612,9 +615,9 @@ Operation Liberation is the Ring 1 campaign, not the end of the world:
 | Progression | Deterministic unlock | New play |
 | --- | --- | --- |
 | Resolve the Convergence Engine and record the outcome at Green Loom Assembly | `project89.inner_loop_liberated` | Opens Ring 2 at Memory Delta. |
-| Stabilize one cardinal Ring 2 beacon | Beacon-specific journal flag | Opens its corresponding Ring 3 sanctuary hub. |
-| Stabilize all four beacons and close the Perimeter Relay | `project89.perimeter_complete` | Opens all cardinal backlinks and allows generated frontiers from different hubs to meet. |
-| Accept a legal survey action at a hub or discovered frontier place | Idempotent generated-route receipt | Adds one bounded, persisted Ring 3 expansion. |
+| Complete one station-gate project and prove two independent return routes through Ring 2 | Station-specific journal flag | Opens its corresponding Ring 3 sanctuary station. |
+| Connect all eight Ring 2 anchors into one resilient component and open all four stations | `project89.relay_mesh_resilient` | Allows generated frontiers from different stations to meet. |
+| Accept a legal survey action at a station or discovered frontier place | Idempotent generated-route receipt | Adds one bounded, persisted Ring 3 expansion; successive epochs provide no authored endpoint. |
 
 Ring progression is earned through authored play and exploration. NFT rarity,
 portrait redraws, and Orb balance cannot open a ring or improve its generated
@@ -628,10 +631,12 @@ The content should be split into:
    the operation locations, residents, items, cards, factions, job, front, and
    clocks.
 2. `project89.perimeter-relay`, the Ring 2 pack containing eight authored
-   anchors and a `regional_mesh` generated-pathway policy derived from the
-   Holy Land contract.
+   anchors and a `regional_mesh` generated-pathway policy for cycles,
+   cross-links, bounded spurs, station gates, and redundant returns, derived
+   from the Holy Land safety contract.
 3. `project89.open-signal-frontier`, the Ring 3 pack containing four authored
-   hubs and an `open_frontier` generated-descendant policy.
+   stations and an epoch-extensible `open_frontier` generated-descendant
+   policy with no authored terminus.
 4. `project89.composition.three-rings`, an internal composition bridge owning
    the declared authored routes and unlocks between the three packs.
 5. `cosyworld.composition.core-project89`, a composition pack containing the
