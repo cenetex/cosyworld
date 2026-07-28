@@ -7254,7 +7254,13 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     const scene = await page.evaluate(() => {
       const rows = [...document.querySelectorAll("#log > *")];
-      const reply = rows.findLast((node) => node.classList.contains("chat") && node.classList.contains("npc"));
+      // Chat rows are classified you/avatar/world; there is no longer an "npc"
+      // class. A resident reply is any avatar row that is not the player's.
+      const reply = rows.findLast((node) => (
+        node.classList.contains("chat")
+        && node.classList.contains("avatar")
+        && !node.classList.contains("you")
+      ));
       return {
         residentReply: reply?.textContent?.trim().replace(/\s+/g, " ") || "",
         roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
