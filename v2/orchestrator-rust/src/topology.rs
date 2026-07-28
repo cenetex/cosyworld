@@ -401,10 +401,23 @@ impl RuntimeWorld {
                 generation.generation_policy = binding.clone();
             }
             if &generation.generation_policy != binding {
-                return Err(format!(
-                    "generated media {} policy binding differs from its pathway",
-                    generation.subject_id
-                ));
+                // Two legacy compatibility bindings for the same owner pack
+                // and version differ only in bookkeeping: pathways were
+                // backfilled with whatever historical bundle hash was current,
+                // and media bound at begin time keeps its own. The legacy
+                // policy fabricates no media identity, so adopt the pathway's
+                // binding. Reviewed divergence still fails closed.
+                if generated_policy_drift_is_legacy_bookkeeping(
+                    &generation.generation_policy,
+                    binding,
+                ) {
+                    generation.generation_policy = binding.clone();
+                } else {
+                    return Err(format!(
+                        "generated media {} policy binding differs from its pathway",
+                        generation.subject_id
+                    ));
+                }
             }
         }
         Ok(())

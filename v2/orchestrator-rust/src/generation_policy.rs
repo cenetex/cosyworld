@@ -393,6 +393,21 @@ pub(super) fn legacy_generated_policy_binding(
     }
 }
 
+/// The legacy compatibility binding fabricates no media identity, so two
+/// legacy bindings for the same owner pack and version are the same policy
+/// even when their bookkeeping (historical bundle hash, composition id)
+/// drifted. Pathways were backfilled with whatever historical hash was
+/// current at that boot, and media bound at begin time keeps its own copy.
+pub(super) fn generated_policy_drift_is_legacy_bookkeeping(
+    record: &GeneratedPolicyBinding,
+    pathway: &GeneratedPolicyBinding,
+) -> bool {
+    record.policy_id == LEGACY_GENERATION_POLICY_ID
+        && pathway.policy_id == LEGACY_GENERATION_POLICY_ID
+        && record.owner_pack_id == pathway.owner_pack_id
+        && record.owner_pack_version == pathway.owner_pack_version
+}
+
 pub(super) fn generation_policy_allows_upgrade(
     binding: &GeneratedPolicyBinding,
     active_pack_version: &str,
@@ -840,6 +855,64 @@ mod tests {
                 .to_string()
                 .contains("policy binding differs from its pathway"),
             "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn legacy_bookkeeping_drift_adopts_the_pathway_binding_on_snapshot_load() {
+        // Production carried media bound to a legacy compatibility binding
+        // with the historical bundle hash that was current at begin time,
+        // while its pathway was backfilled with a different one. Same legacy
+        // policy, same owner: bookkeeping drift, adopted on load.
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = holy_land_pathway(&runtime);
+        let subject_id = pathway.waypoints[0].id;
+        let owner_pack_id = pathway.owner_pack_id.clone();
+        let owner_pack_version = pathway.owner_pack_version.clone();
+        let mut legacy_pathway = pathway.clone();
+        let pathway_binding = legacy_generated_policy_binding(
+            &owner_pack_id,
+            &owner_pack_version,
+            "cosyworld.official",
+            "sha256:pathway-historical",
+        );
+        legacy_pathway.generation_policy = pathway_binding.clone();
+        for waypoint in &mut legacy_pathway.waypoints {
+            waypoint.generation_policy = pathway_binding.clone();
+        }
+        runtime
+            .generated_pathways
+            .insert(legacy_pathway.id.clone(), legacy_pathway);
+        let _ = runtime.apply_fund_community_art_projection(
+            "location",
+            subject_id,
+            1,
+            1,
+            RATI_ACTOR_ID,
+            "drift-fixture",
+            1,
+            337_007,
+            None,
+        );
+        let stale_binding = legacy_generated_policy_binding(
+            &owner_pack_id,
+            &owner_pack_version,
+            "cosyworld.official",
+            "sha256:media-historical",
+        );
+        let key = community_art_generation_key("location", subject_id, 1);
+        runtime
+            .community_art_generations
+            .get_mut(&key)
+            .expect("generated media state exists")
+            .generation_policy = stale_binding;
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("legacy bookkeeping drift must not reject the checkpoint");
+        assert_eq!(
+            restored.community_art_generations[&key].generation_policy,
+            pathway_binding
         );
     }
 
