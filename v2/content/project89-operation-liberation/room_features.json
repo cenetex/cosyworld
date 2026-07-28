@@ -1,0 +1,115 @@
+[
+  {
+    "location_id": 8900,
+    "key": "custody_console",
+    "name": "Custody Console",
+    "aliases": ["console", "wallet", "roster", "threshold"],
+    "look": "Four empty presence rings surround a human-scale arrival mark; none is labeled as a control seat.",
+    "search": "The dormant materialization panel expects a verified collection authority, asset receipt, and actor profile that Manifest v1 cannot yet provide."
+  },
+  {
+    "location_id": 8901,
+    "key": "bounded_loadout",
+    "name": "Bounded Loadout Bench",
+    "aliases": ["bench", "loadout", "tools", "equipment"],
+    "look": "Four tool outlines and one evacuation map are painted directly onto the bench.",
+    "search": "Mara's ledger records who borrowed each tool and which consequence it can absorb.",
+    "uses": [
+      { "item_id": 8975, "text": "The Signal Veil is fitted for one stealth approach and logged against the operation." },
+      { "item_id": 8976, "text": "The Coherence Nail is checked against the retreat plan before anyone carries it outward." }
+    ]
+  },
+  {
+    "location_id": 8902,
+    "key": "archive_aperture",
+    "name": "Archive Relay Aperture",
+    "aliases": ["aperture", "relay", "cipher socket", "echo route"],
+    "look": "A dark radial gate sits between two evidence vaults with an empty keyed decoder socket.",
+    "search": "The gate can retain a commissioned calibration after the portable key is removed.",
+    "uses": [
+      { "item_id": 8971, "text": "The Archive Cipher commissions both directions of the Echo Observatory route and records the source chain." }
+    ]
+  },
+  {
+    "location_id": 8902,
+    "key": "parzival_testimony",
+    "name": "Parzival Testimony",
+    "aliases": ["testimony", "recording", "witness", "trace"],
+    "look": "One recording is preserved beside three visible gaps and an unaltered timing trace.",
+    "search": "The surviving intervals point toward Meme Farm 17 without claiming what happened inside the gaps.",
+    "uses": [
+      { "item_id": 8972, "text": "The Memory Lantern separates one attributed farm-route detail from a later reconstruction." }
+    ]
+  },
+  {
+    "location_id": 8903,
+    "key": "recovery_channel",
+    "name": "Recovery Channel",
+    "aliases": ["channel", "capsule", "iri", "loop"],
+    "look": "One capsule response arrives half a beat later than the repeating terminal chorus.",
+    "search": "The delayed response identifies itself as Iri Vale and asks for a consent witness before separation.",
+    "uses": [
+      { "item_id": 8977, "text": "The Loopbreaker Patch interrupts the repeating control signal long enough for Iri to answer independently." },
+      { "item_id": 8978, "text": "The Consciousness Capsule is secured for an evacuation chosen by its occupant." }
+    ]
+  },
+  {
+    "location_id": 8904,
+    "key": "auditor_terminal",
+    "name": "Auditor Terminal",
+    "aliases": ["terminal", "audit", "alignment", "report"],
+    "look": "The report shows prevented failures beside a shorter list of voices classified as divergence.",
+    "search": "Every stability gain has a named operator, a measurable cost, and a group that did not authorize it.",
+    "uses": [
+      { "item_id": 8974, "text": "The Data Spike opens one audited maintenance path and leaves its intervention visible." },
+      { "item_id": 8975, "text": "The Signal Veil crosses one observation lane without altering the report." },
+      { "item_id": 8979, "text": "The Chimera Access Spine proves the alternate route is safe for construct bodies." }
+    ]
+  },
+  {
+    "location_id": 8905,
+    "key": "convergence_controls",
+    "name": "Convergence Controls",
+    "aliases": ["controls", "engine", "rings", "protocol"],
+    "look": "Three control paths are marked expose, reroute, and dismantle; none is presented as consequence-free.",
+    "search": "The current alignment can be changed only by a committed group action with an attributable operator.",
+    "uses": [
+      { "item_id": 8981, "text": "The Oneirocom Reality Anchor stabilizes the chamber long enough to make one accountable choice." },
+      { "item_id": 8982, "text": "The Convergence Key exposes all three authored resolution paths without selecting one." },
+      { "item_id": 8974, "text": "The Data Spike records the chosen control intervention in the engine audit." }
+    ]
+  },
+  {
+    "location_id": 8906,
+    "key": "loom_aperture",
+    "name": "Green Loom Relay Aperture",
+    "aliases": ["aperture", "relay", "thread bed", "orchard route"],
+    "look": "A dormant living gate has an empty covenant bed woven through its calibration frame.",
+    "search": "Once commissioned, the gate stores the covenant in its own living circuit rather than drawing power from the portable thread.",
+    "uses": [
+      { "item_id": 8983, "text": "The Green Loom Thread commissions both directions of the Signal Orchard route and records the repair covenant." }
+    ]
+  },
+  {
+    "location_id": 8907,
+    "key": "rabbit_aperture",
+    "name": "White Rabbit Relay Aperture",
+    "aliases": ["aperture", "relay", "receiver", "commons route"],
+    "look": "A patched radial receiver faces an unlit route map beyond the market roofs.",
+    "search": "The receiver can retain a public route calibration without retaining the courier device.",
+    "uses": [
+      { "item_id": 8973, "text": "The White Rabbit Relay commissions both directions of the Commons route and publishes the return signal." }
+    ]
+  },
+  {
+    "location_id": 8908,
+    "key": "chimera_aperture",
+    "name": "Chimera Relay Aperture",
+    "aliases": ["aperture", "relay", "spine socket", "boneyard route"],
+    "look": "A broad radial gate has a construct-safe socket separated from the lab's inventory controls.",
+    "search": "The route calibration can persist without retaining a spine or classifying its installer as equipment.",
+    "uses": [
+      { "item_id": 8979, "text": "The Chimera Access Spine commissions both directions of the Boneyard route under a consent-safe configuration." }
+    ]
+  }
+]

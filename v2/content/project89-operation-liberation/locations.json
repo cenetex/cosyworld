@@ -1,0 +1,101 @@
+[
+  {
+    "id": 8900,
+    "name": "Threshold Interface",
+    "title": "The Custody Door",
+    "description": "A low circular chamber of black glass and warm relay light receives travelers without turning a wallet signature into a leash.",
+    "persona": "The threshold asks who arrived, what they authorize, and what must remain independent.",
+    "biome": "contained signal sanctuary",
+    "terrain": ["black glass floor", "teal relay arches", "coral status lights"],
+    "memory": ["Seraph keeps the first briefing deliberately small.", "Verified custody may anchor a Proxim8 here once the actor materialization capability exists."],
+    "allow_combat": false
+  },
+  {
+    "id": 8901,
+    "name": "Sector 89 Safehouse",
+    "title": "A Room for Bounded Plans",
+    "description": "Repair benches, folding cots, paper maps, and shielded radios fill a former service station below the city signal.",
+    "persona": "The safehouse turns sweeping orders into finite choices, named costs, and a route home.",
+    "biome": "urban underground shelter",
+    "terrain": ["concrete service bays", "repair benches", "shielded alcoves"],
+    "memory": ["Mara Quell maintains the equipment ledger.", "The group may recover here without advancing offscreen danger."],
+    "allow_combat": false
+  },
+  {
+    "id": 8902,
+    "name": "89 Archives",
+    "title": "Evidence Before Certainty",
+    "description": "Tiered vaults hold attributed recordings, damaged maps, and memory fragments under patient blue work lamps.",
+    "persona": "The archives preserve disagreement and refuse to make a clean story from damaged evidence.",
+    "biome": "subterranean data archive",
+    "terrain": ["tiered vaults", "fiber channels", "paper recovery tables"],
+    "memory": ["Parzival's testimony is preserved as testimony rather than proof.", "Installing the Archive Cipher commissions the Echo Observatory aperture."],
+    "allow_combat": false
+  },
+  {
+    "id": 8903,
+    "name": "Meme Farm 17",
+    "title": "The Repetition Floor",
+    "description": "Rows of obsolete terminals pulse through variations of the same slogans while sealed capsules wait behind maintenance glass.",
+    "persona": "The farm rewards attention to the one voice that does not repeat on schedule.",
+    "biome": "abandoned computation farm",
+    "terrain": ["terminal rows", "coolant trenches", "capsule gantries"],
+    "memory": ["Iri Vale is awake inside one surviving channel.", "The Loopbreaker Patch can stabilize a trapped consciousness without claiming ownership of it."],
+    "allow_combat": true
+  },
+  {
+    "id": 8904,
+    "name": "Oneirocom Tower",
+    "title": "Stability with a Price",
+    "description": "A narrow tower of mirrored offices rises through signal cloud, each floor quieter and more orderly than the street below.",
+    "persona": "The tower offers useful coordination while asking who gets to define acceptable reality.",
+    "biome": "high-rise signal infrastructure",
+    "terrain": ["mirrored offices", "service lifts", "cloud-level antenna decks"],
+    "memory": ["The Auditor can negotiate, obstruct, or disclose the cost of imposed stability.", "The Chimera access spine provides the loop's alternate approach."],
+    "allow_combat": true
+  },
+  {
+    "id": 8905,
+    "name": "Convergence Engine",
+    "title": "The Choice at the Center",
+    "description": "Interlocking rings of light hold thousands of incompatible signals in one slowly tightening alignment.",
+    "persona": "The engine makes every advantage and every erased difference visible at the same time.",
+    "biome": "contained convergence machinery",
+    "terrain": ["concentric gantries", "signal wells", "maintenance bridges"],
+    "memory": ["The operation may expose, reroute, or dismantle the convergence protocol.", "No mission item chooses the ending by itself."],
+    "allow_combat": true
+  },
+  {
+    "id": 8906,
+    "name": "Green Loom Assembly",
+    "title": "The Repair Covenant",
+    "description": "Living cables cross a bright wet workshop where damaged systems are replanted beside ordinary benches and shared tables.",
+    "persona": "The assembly records what liberation obliges its participants to repair next.",
+    "biome": "living systems workshop",
+    "terrain": ["wet worktables", "living cable trellises", "reed-filter channels"],
+    "memory": ["Loom Steward Anja records the operation's chosen covenant.", "Installing the Green Loom Thread commissions the Signal Orchard aperture."],
+    "allow_combat": false
+  },
+  {
+    "id": 8907,
+    "name": "Interference Market",
+    "title": "Trade Between Signals",
+    "description": "Canvas roofs and patched receivers turn a wide service concourse into a market for repairs, testimony, and uncertain maps.",
+    "persona": "The market values circulation but remembers every shortcut that outran verification.",
+    "biome": "improvised relay market",
+    "terrain": ["canvas stalls", "receiver masts", "painted service lanes"],
+    "memory": ["The White Rabbit Relay is maintained here.", "Installing it commissions the White Rabbit Commons aperture."],
+    "allow_combat": false
+  },
+  {
+    "id": 8908,
+    "name": "Project Chimera Lab",
+    "title": "Persons or Equipment",
+    "description": "Open fabrication bays surround a sealed recovery room where dormant constructs remain labeled as inventory.",
+    "persona": "The lab turns every technical repair into a question about consent, custody, and personhood.",
+    "biome": "industrial construct laboratory",
+    "terrain": ["fabrication bays", "recovery cradles", "ferric service corridors"],
+    "memory": ["The Chimera Warden protects capsules rather than owning them.", "Installing the Chimera Access Spine commissions the Chimera Boneyard aperture."],
+    "allow_combat": true
+  }
+]

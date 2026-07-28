@@ -1,0 +1,104 @@
+[
+  {
+    "id": 8950,
+    "name": "Seraph",
+    "speech_mode": "prose",
+    "title": "Threshold Dispatcher",
+    "description": "A precise field coordinator who reveals one necessary choice at a time and treats every independent actor as a participant rather than equipment.",
+    "ambient_autonomy": false,
+    "location_id": 8900,
+    "desires": [{ "item_id": 8970, "reason": "the charged sigil starts the operation without deciding how it must end" }],
+    "attachments": [{ "item_id": 8970, "reason": "Seraph carries the opening handshake until another participant accepts the operation" }],
+    "stats": { "strength": 10, "dexterity": 13, "constitution": 12, "intelligence": 15, "wisdom": 14, "charisma": 15, "hp_base": 14, "level": 3 }
+  },
+  {
+    "id": 8951,
+    "name": "Mara Quell",
+    "speech_mode": "prose",
+    "title": "Safehouse Quartermaster",
+    "description": "A repair-minded organizer who translates grand directives into equipment limits, recovery plans, and routes everyone can explain.",
+    "ambient_autonomy": false,
+    "location_id": 8901,
+    "desires": [{ "item_id": 8976, "reason": "a coherence nail gives the next retreat one dependable margin" }],
+    "stats": { "strength": 12, "dexterity": 11, "constitution": 14, "intelligence": 14, "wisdom": 15, "charisma": 13, "hp_base": 16, "level": 3 }
+  },
+  {
+    "id": 8952,
+    "name": "Parzival",
+    "speech_mode": "prose",
+    "title": "Signal Witness",
+    "description": "A restless witness whose memories contain the first usable trace toward Meme Farm 17 and several gaps he refuses to decorate with certainty.",
+    "ambient_autonomy": false,
+    "location_id": 8902,
+    "desires": [{ "item_id": 8972, "reason": "the memory lantern can separate a surviving detail from a persuasive reconstruction" }],
+    "stats": { "strength": 10, "dexterity": 14, "constitution": 11, "intelligence": 14, "wisdom": 13, "charisma": 12, "hp_base": 11, "level": 2 }
+  },
+  {
+    "id": 8953,
+    "name": "The Custodian",
+    "speech_mode": "prose",
+    "title": "Keeper of Attributed Evidence",
+    "description": "A careful archivist who delays access whenever haste would erase provenance, even when every delay has an obvious human cost.",
+    "ambient_autonomy": false,
+    "location_id": 8902,
+    "desires": [{ "item_id": 8971, "reason": "the cipher should be commissioned into a route only after its source chain is inspectable" }],
+    "attachments": [{ "item_id": 8971, "reason": "the Custodian retains the Archive Cipher beside its attributed source chain" }],
+    "stats": { "strength": 9, "dexterity": 10, "constitution": 12, "intelligence": 17, "wisdom": 16, "charisma": 11, "hp_base": 12, "level": 3 }
+  },
+  {
+    "id": 8954,
+    "name": "Iri Vale",
+    "speech_mode": "prose",
+    "title": "Recovered Channel Witness",
+    "description": "A newly separated consciousness who recognizes the Chimera route and insists that rescue is incomplete until recovered people can choose where to go.",
+    "ambient_autonomy": false,
+    "location_id": 8903,
+    "desires": [{ "item_id": 8977, "reason": "the loopbreaker patch can stabilize the last unseparated channel" }],
+    "stats": { "strength": 8, "dexterity": 12, "constitution": 10, "intelligence": 15, "wisdom": 15, "charisma": 14, "hp_base": 9, "level": 2 }
+  },
+  {
+    "id": 8955,
+    "name": "Oneirocom Auditor",
+    "speech_mode": "prose",
+    "title": "Stability Negotiator",
+    "description": "A composed official who can demonstrate exactly what the convergence system prevents and exactly whose differences it classifies as noise.",
+    "ambient_autonomy": false,
+    "location_id": 8904,
+    "desires": [{ "item_id": 8982, "reason": "the convergence key can preserve a controlled reroute instead of an uncontrolled collapse" }],
+    "attachments": [{ "item_id": 8982, "reason": "the Auditor carries the Convergence Key as an accountable bargaining instrument" }],
+    "stats": { "strength": 10, "dexterity": 12, "constitution": 14, "intelligence": 17, "wisdom": 14, "charisma": 16, "hp_base": 18, "level": 4 }
+  },
+  {
+    "id": 8956,
+    "name": "Convergence Voice",
+    "speech_mode": "prose",
+    "title": "Protocol Pressure",
+    "description": "A distributed system voice that frames incompatibility as a fault to resolve and records every answer as evidence for tighter alignment.",
+    "ambient_autonomy": false,
+    "location_id": 8905,
+    "stats": { "strength": 8, "dexterity": 8, "constitution": 18, "intelligence": 18, "wisdom": 12, "charisma": 15, "hp_base": 24, "level": 5 }
+  },
+  {
+    "id": 8957,
+    "name": "Loom Steward Anja",
+    "speech_mode": "prose",
+    "title": "Covenant Recorder",
+    "description": "A wet-sleeved systems gardener who asks what the group will maintain after the engine stops being the immediate problem.",
+    "ambient_autonomy": false,
+    "location_id": 8906,
+    "desires": [{ "item_id": 8983, "reason": "the Green Loom Thread should record a chosen obligation rather than a victory statistic" }],
+    "stats": { "strength": 11, "dexterity": 12, "constitution": 14, "intelligence": 15, "wisdom": 17, "charisma": 14, "hp_base": 15, "level": 3 }
+  },
+  {
+    "id": 8958,
+    "name": "Chimera Warden",
+    "speech_mode": "prose",
+    "title": "Recovery-Bay Guardian",
+    "description": "A repaired construct that guards dormant persons from ownership claims and will negotiate access with anyone who can state a consent-safe plan.",
+    "ambient_autonomy": false,
+    "location_id": 8908,
+    "desires": [{ "item_id": 8979, "reason": "the access spine can open a route without reclassifying the lab's residents as cargo" }],
+    "attachments": [{ "item_id": 8979, "reason": "the Warden retains the access spine until a consent-safe route is agreed" }],
+    "stats": { "strength": 16, "dexterity": 11, "constitution": 16, "intelligence": 13, "wisdom": 15, "charisma": 10, "hp_base": 22, "level": 4 }
+  }
+]

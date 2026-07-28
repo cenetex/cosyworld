@@ -1,0 +1,22 @@
+[
+  { "from_location_id": 8900, "to_location_id": 8901, "flags": 0, "distance": 1, "direction": "safehouse signal" },
+  { "from_location_id": 8901, "to_location_id": 8900, "flags": 0, "distance": 1, "direction": "threshold signal" },
+  { "from_location_id": 8901, "to_location_id": 8902, "flags": 0, "distance": 1, "direction": "archive route" },
+  { "from_location_id": 8902, "to_location_id": 8901, "flags": 0, "distance": 1, "direction": "safehouse route" },
+  { "from_location_id": 8902, "to_location_id": 8903, "flags": 0, "distance": 1, "direction": "farm trace" },
+  { "from_location_id": 8903, "to_location_id": 8902, "flags": 0, "distance": 1, "direction": "archive trace" },
+  { "from_location_id": 8903, "to_location_id": 8904, "flags": 0, "distance": 1, "direction": "tower uplink" },
+  { "from_location_id": 8904, "to_location_id": 8903, "flags": 0, "distance": 1, "direction": "farm downlink" },
+  { "from_location_id": 8904, "to_location_id": 8905, "flags": 0, "distance": 1, "direction": "engine lift" },
+  { "from_location_id": 8905, "to_location_id": 8904, "flags": 0, "distance": 1, "direction": "tower lift" },
+  { "from_location_id": 8905, "to_location_id": 8906, "flags": 0, "distance": 1, "direction": "loom discharge" },
+  { "from_location_id": 8906, "to_location_id": 8905, "flags": 0, "distance": 1, "direction": "engine approach" },
+  { "from_location_id": 8906, "to_location_id": 8907, "flags": 0, "distance": 1, "direction": "market circuit" },
+  { "from_location_id": 8907, "to_location_id": 8906, "flags": 0, "distance": 1, "direction": "loom circuit" },
+  { "from_location_id": 8907, "to_location_id": 8900, "flags": 0, "distance": 1, "direction": "threshold return" },
+  { "from_location_id": 8900, "to_location_id": 8907, "flags": 0, "distance": 1, "direction": "market signal" },
+  { "from_location_id": 8907, "to_location_id": 8908, "flags": 0, "distance": 1, "direction": "chimera side channel" },
+  { "from_location_id": 8908, "to_location_id": 8907, "flags": 0, "distance": 1, "direction": "market side channel" },
+  { "from_location_id": 8908, "to_location_id": 8904, "flags": 0, "distance": 1, "direction": "access spine" },
+  { "from_location_id": 8904, "to_location_id": 8908, "flags": 0, "distance": 1, "direction": "lab access" }
+]

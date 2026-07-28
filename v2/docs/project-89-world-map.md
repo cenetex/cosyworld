@@ -1,6 +1,8 @@
 # Project 89 three-ring world map
 
-Status: proposed topology and progression contract.
+Status: executable prototype topology and progression contract. The mounted
+prototype lives in `v2/worlds/project89`; wallet-backed Proxim8 materialization
+and frontier forks remain runtime work.
 
 ## Shape
 
@@ -9,9 +11,9 @@ player moves outward, but deterministic world authority does not:
 
 | Ring | Name                 | Stable authored content                                                                          | Generated content                                                                 |
 | ---- | -------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| 1    | Operation Loop       | Eight locations on one loop, one side-channel location, every resident, mission, and consequence | None                                                                              |
-| 2    | Perimeter Relay Mesh | Eight anchor locations, four station gates, encounter, ecology, and topology constraints         | A persistent web of paths, waypoint clusters, junctions, cycles, and bounded spurs |
-| 3    | Open Signal Frontier | Four known sanctuary stations, services, faction rules, biome palettes, and encounter tables     | Every route, waypoint, junction, and non-station place beyond the stations         |
+| 1    | Operation Loop       | Eight locations on one loop, one side-channel location, every resident, mission, consequence, and four item-commissioned radial apertures | None |
+| 2    | Perimeter Relay Mesh | Eight anchor locations on one reviewed non-geographic cube mesh plus four station returns         | Persistent waypoint interiors between authored anchor route slots |
+| 3    | Open Signal Frontier | Four known sanctuary stations on a four-edge circuit with distance 89 per trunk                    | Eighty-eight persistent interior waypoints per trunk; validated forks come later |
 
 The rings are shared world topology, not private wallet instances. The first
 valid exploration may discover a place for the active world shard; later
@@ -25,14 +27,17 @@ flowchart TB
     C --> G["Green Loom"] --> I["Interference Market"] --> T
     I -. "one side channel" .-> H["Chimera Lab"] -. "access spine" .-> O
   end
-  G -->|"inner_loop_liberated"| D["Memory Delta entry"]
+  A -->|"install Archive Cipher"| EO["Echo Observatory"]
+  H -->|"install Chimera Access Spine"| CB["Chimera Boneyard"]
+  G -->|"install Green Loom Thread"| SO["Signal Orchard"]
+  I -->|"install White Rabbit Relay"| WR["White Rabbit Commons"]
   subgraph R2["Ring 2 — persistent amorphous web"]
     D --- W1(("path knot"))
-    W1 --- EO["Echo Observatory"]
-    W1 --- WR["White Rabbit Commons"]
+    W1 --- EO
+    W1 --- WR
     WR --- W2(("junction"))
-    W2 --- SO["Signal Orchard"]
-    W2 --- CB["Chimera Boneyard"]
+    W2 --- SO
+    W2 --- CB
     CB --- W3(("path knot"))
     W3 --- OS["Oneirocom Spillway"]
     W3 --- GS["Glass Static Gardens"]
@@ -50,20 +55,24 @@ flowchart TB
   W4 --> GG
   W1 --> GR["Rabbit gate"]
   W2 --> GR
-  GA --> ST["Ring 3 — four known stations"]
-  GC --> ST
-  GG --> ST
-  GR --> ST
-  ST --> F1["generated frontier"]
-  F1 --> F2["more generated frontier"]
-  F2 --> FN["no authored terminus"]
+  GA --> AM["Archive Meridian"]
+  GC --> CR["Chimera Reach"]
+  GG --> GE["Green Loom Expanse"]
+  GR --> RF["Rabbit Signal Freeport"]
+  AM ---|"89"| CR
+  CR ---|"89"| GE
+  GE ---|"89"| RF
+  RF ---|"89"| AM
+  AM -. "future validated forks" .-> FN["no authored terminus"]
 ```
 
-The Ring 2 web above is an illustrative discovered state, not a canonical
-layout. Every Ring 1 edge and the single side channel are authored. Ring 2
-owns stable anchors and rules but not a fixed order or perimeter. The four
-Ring 3 stations are authored; topology beyond their gates keeps expanding
-through journaled generation epochs.
+The visible Ring 2 knot layout above is illustrative, while the eight
+anchor-to-anchor route slots are a stable reviewed cube graph. The graph has
+no compass order or perimeter; its path interiors are generated and persisted
+from deterministic source-route seeds. Every Ring 1 edge and the single side
+channel are authored. The four Ring 3 stations and four 89-step trunks are
+authored; the later engine capability will attach persisted forks to those
+trunks without moving a station or changing route ownership.
 
 ## Ring 1: Operation Loop
 
@@ -77,9 +86,12 @@ Threshold Interface
   -> Oneirocom Tower
   -> Convergence Engine
   -> Green Loom Assembly
-  -> Project Chimera Lab
   -> Interference Market
   -> Threshold Interface
+
+Interference Market
+  -> Project Chimera Lab
+  -> Oneirocom Tower
 ```
 
 The topology is a loop even while story locks temporarily close individual
@@ -89,11 +101,23 @@ the tower, creating one alternate approach without turning the authored center
 into a mesh.
 
 The side channel is never the only safe return route. Completing the engine
-resolution and recording its consequence at Green Loom Assembly sets the
-journaled `project89.inner_loop_liberated` world flag.
+resolution records the journaled `project89.inner_loop_liberated` world fact
+at Green Loom Assembly. Four portable mission items can then commission four
+locked radial apertures:
 
-That flag unlocks the first route to Ring 2. It is never derived from NFT
-rarity, a generated description, an AI decision, or an Orb payment.
+| Ring 1 installation | Ring 2 anchor |
+| --- | --- |
+| Archive Cipher at 89 Archives | Echo Observatory |
+| Chimera Access Spine at Project Chimera Lab | Chimera Boneyard |
+| Green Loom Thread at Green Loom Assembly | Signal Orchard |
+| White Rabbit Relay at Interference Market | White Rabbit Commons |
+
+Commissioning is a world-once action. The item is a calibration key rather
+than a battery, so the route remains open if the portable item later moves.
+Closing a route would require a future explicit degradation or decommission
+project with warning and evacuation; inventory movement never strands actors.
+No route is opened by NFT rarity, generated prose, an AI decision, or an Orb
+payment.
 
 ## Ring 2: Perimeter Relay Mesh
 
@@ -110,8 +134,11 @@ Ring 2 has eight authored anchors:
 | Signal Orchard       | Living transmitters and repair practice    | Teal groves and resonant fruit               |
 | Loomwatch Causeway   | Boundary maintenance and weather watch     | Woven bridges and high mist                  |
 
-The anchors never move and their rules are fully authored, but they have no
-canonical compass order and no mandatory adjacency. Every generated link uses
+The anchors never move and their rules are fully authored. They have no
+canonical compass order or perimeter, but the executable prototype declares a
+reviewed cubic source-route graph: eight degree-three anchors, twelve edges,
+five independent cycles, and no bridge or articulation point. Each distance-2
+edge creates one persistent interior waypoint. Every generated interior uses
 the Holy Land pathway safety pattern:
 
 - endpoint ecology and authored descriptions constrain generation;
@@ -123,8 +150,10 @@ the Holy Land pathway safety pattern:
 - prose, art, and scenery cannot introduce mechanics, unlocks, rewards, or
   canon facts.
 
-The first Ring 2 entry is Green Loom Assembly to Memory Delta. From there, a
-legal mesh proposal may connect a discovered anchor or waypoint to:
+Four commissioned apertures enter the mesh at Echo Observatory, Chimera
+Boneyard, Signal Orchard, and White Rabbit Commons. Memory Delta is the pack's
+canonical root. A later legal fork proposal may connect a discovered anchor or
+waypoint to:
 
 - an unreached authored anchor;
 - a new bounded waypoint cluster;
@@ -170,11 +199,26 @@ The four known stations are permanent sanctuary roots:
 | Green Loom Expanse     | Healing, cultivation, and cooperative shelter | Restored wetlands, living circuits, cooperative settlements     |
 | Rabbit Signal Freeport | Trade, rumors, dispatch, and moving networks  | Relay towns, moving caravans, improvised communication networks |
 
-These are the last four known authored locations. There is no authored outer
-edge, final sector, or completion percentage. Everything outside the stations
-is generated lazily by an explicit
-`survey_frontier` action. One action proposes one bounded expansion from a
-declared route slot. The seed includes:
+These are the last four known authored locations. They form a sparse circuit:
+
+```text
+Archive Meridian --89-- Chimera Reach --89-- Green Loom Expanse
+       |                                      |
+       89                                    89
+       |                                      |
+Rabbit Signal Freeport -----------------------+
+```
+
+Each authored edge has distance 89, so first travel creates 88 deterministic,
+persistent waypoint identities and reveals them one segment at a time. The
+four station-to-Ring-2 returns have distance 1. With all Ring 2 and Ring 3
+source routes materialized, the current prototype needs 385 locations, inside
+the widened 512-location kernel capacity.
+
+There is no authored outer edge, final sector, or completion percentage.
+Forks off the four trunks remain a declared future `survey_frontier` runtime
+capability. One accepted action will propose one bounded expansion from a
+declared route slot. Its seed includes:
 
 ```text
 world_shard
@@ -219,8 +263,9 @@ profiles but does not merge faction rules or invent a new authority.
   returns actors to that station at the next safe boundary.
 - Generated danger may use authored encounter tables. Generated prose cannot
   decide that an encounter exists or select its reward.
-- Discovering a place costs an authored in-world survey action or resource,
-  not Orbs. Orbs remain cosmetic redraw currency.
+- Discovering a trunk place costs traversal and Scout actions, not Orbs.
+  Future forks use an authored in-world survey action or resource. Orbs remain
+  cosmetic redraw currency.
 - Proxim8 agents may independently volunteer to scout a legal frontier route,
   but the holder or another authorized actor must accept the authored survey
   action before new topology is committed.

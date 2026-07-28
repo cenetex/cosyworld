@@ -1,0 +1,66 @@
+[
+  {
+    "location_id": 8920,
+    "key": "delta_anchor_bed",
+    "name": "Delta Signal Anchor Bed",
+    "aliases": ["anchor", "scanner", "delta bed", "signal fixture"],
+    "look": "A low teal calibration frame stands beside the largest channel junction.",
+    "search": "A completed sector scan would register the channel braid without treating any one memory as the source."
+  },
+  {
+    "location_id": 8921,
+    "key": "meridian_gate",
+    "name": "Archive Meridian Gate",
+    "aliases": ["gate", "meridian", "station", "anchor"],
+    "look": "A coral-lit station gate faces the coldest listening bowl.",
+    "search": "The route leads outward to Archive Meridian and inward through the commissioned Archive Cipher aperture."
+  },
+  {
+    "location_id": 8922,
+    "key": "freeport_gate",
+    "name": "Rabbit Signal Freeport Gate",
+    "aliases": ["gate", "freeport", "station", "anchor"],
+    "look": "A patched departure frame shares its return signal with every courier mast in the commons.",
+    "search": "The route leads outward to Rabbit Signal Freeport and inward through the commissioned White Rabbit aperture."
+  },
+  {
+    "location_id": 8923,
+    "key": "glass_anchor_bed",
+    "name": "Glass Signal Anchor Bed",
+    "aliases": ["anchor", "scanner", "glass bed", "signal fixture"],
+    "look": "A low teal frame shelters beneath one unbroken resonant leaf.",
+    "search": "A completed scan would register the terrace without claiming the garden can predict danger."
+  },
+  {
+    "location_id": 8924,
+    "key": "spillway_anchor_bed",
+    "name": "Spillway Signal Anchor Bed",
+    "aliases": ["anchor", "scanner", "spillway bed", "signal fixture"],
+    "look": "A coral calibration lamp reflects in the shallowest public conduit.",
+    "search": "A completed scan would mark the safe water line and disclose the remaining Oneirocom telemetry."
+  },
+  {
+    "location_id": 8925,
+    "key": "expanse_gate",
+    "name": "Green Loom Expanse Gate",
+    "aliases": ["gate", "expanse", "station", "anchor"],
+    "look": "Living cable has grown around a teal station frame without covering its public controls.",
+    "search": "The route leads outward to Green Loom Expanse and inward through the commissioned Loom aperture."
+  },
+  {
+    "location_id": 8926,
+    "key": "reach_gate",
+    "name": "Chimera Reach Gate",
+    "aliases": ["gate", "reach", "station", "anchor"],
+    "look": "A wide gate preserves separate lanes for repaired constructs, salvage, and unknown remains.",
+    "search": "The route leads outward to Chimera Reach and inward through the commissioned Chimera aperture."
+  },
+  {
+    "location_id": 8927,
+    "key": "loomwatch_anchor_bed",
+    "name": "Loomwatch Signal Anchor Bed",
+    "aliases": ["anchor", "scanner", "causeway bed", "signal fixture"],
+    "look": "A low frame is tied into the causeway strain gauges beside the central mist tower.",
+    "search": "A completed scan would register route strain without granting the fixture authority to close a path."
+  }
+]

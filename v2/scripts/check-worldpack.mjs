@@ -1707,6 +1707,7 @@ const exitPairs = new Set();
 const exitDirections = new Set();
 const exitOwnerByEndpoints = new Map();
 const exitsByPair = new Map();
+const maximumAuthoredPathwayDistance = 89;
 for (const exit of exits) {
   if (!has(locationIds, exit.from_location_id) || !has(locationIds, exit.to_location_id)) {
     fail(`exit ${exit.from_location_id}->${exit.to_location_id} references missing location`);
@@ -1715,7 +1716,11 @@ for (const exit of exits) {
     fail(`exit ${exit.from_location_id}->${exit.to_location_id} cannot return to the same location`);
   }
   const distance = exit.distance ?? 1;
-  if (!Number.isInteger(distance) || distance < 1 || distance > 8) {
+  if (
+    !Number.isInteger(distance)
+    || distance < 1
+    || distance > maximumAuthoredPathwayDistance
+  ) {
     fail(`exit ${exit.from_location_id}->${exit.to_location_id} has invalid distance ${exit.distance}`);
   }
   const directionality = exit.directionality ?? "reciprocal";
@@ -2541,6 +2546,20 @@ function validateEffectDescriptor(owner, effect) {
     if (!has(jobIds, effect.job_id) || !["complete", "completed", "fail", "failed"].includes(effect.status)) {
       fail(`${owner} has invalid job status effect ${effect.job_id}`);
     }
+  } else if (effect.op === "unlock_exit") {
+    const exit = exits.find((candidate) =>
+      candidate.from_location_id === effect.from_location_id
+      && candidate.to_location_id === effect.to_location_id);
+    if (!exit || (Number(exit.flags) & 1) === 0) {
+      fail(
+        `${owner} unlocks missing or initially unlocked exit `
+        + `${effect.from_location_id}->${effect.to_location_id}`,
+      );
+    }
+  } else if (effect.op === "reveal_item") {
+    if (!has(itemIds, effect.item_id) || !has(locationIds, effect.location_id)) {
+      fail(`${owner} has invalid reveal item effect ${effect.item_id}@${effect.location_id}`);
+    }
   } else {
     fail(`${owner} has invalid effect op ${effect.op}`);
   }
@@ -2894,6 +2913,10 @@ function effectSummary(effect) {
     summary = `clear tag ${effect.tag_id}`;
   } else if (effect.op === "set_job_status") {
     summary = `set job ${effect.job_id} ${effect.status}`;
+  } else if (effect.op === "unlock_exit") {
+    summary = `unlock exit ${effect.from_location_id}->${effect.to_location_id}`;
+  } else if (effect.op === "reveal_item") {
+    summary = `reveal item ${effect.item_id} at ${effect.location_id}`;
   } else {
     summary = `unknown ${effect.op}`;
   }

@@ -46508,7 +46508,7 @@ mod tests {
     fn rust_ffi_kernel_capacities_are_runtime_sized() {
         assert_eq!(CW_MAX_ACTORS, 512);
         assert_eq!(CW_MAX_ITEMS, 1024);
-        assert_eq!(CW_MAX_LOCATIONS, 256);
+        assert_eq!(CW_MAX_LOCATIONS, 512);
         assert_eq!(CW_MAX_EXITS, 1024);
         assert_eq!(CW_MAX_EVENTS, 256);
         assert!(CW_MAX_EVENTS >= CW_MAX_EVOLUTION_TRACKS + 2);

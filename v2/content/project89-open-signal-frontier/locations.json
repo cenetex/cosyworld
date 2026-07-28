@@ -1,0 +1,46 @@
+[
+  {
+    "id": 8940,
+    "name": "Archive Meridian",
+    "title": "The Last Indexed Station",
+    "description": "A cold observatory settlement surrounds a public map index whose outer shelves hold blank route receipts rather than invented geography.",
+    "persona": "Archive Meridian records what was actually crossed and leaves the rest of the page open.",
+    "biome": "cold signal observatory frontier",
+    "terrain": ["ruined observatory domes", "ice-bright antenna fields", "buried index vaults"],
+    "memory": ["Archive Meridian is one of four authored Ring 3 stations.", "Two 89-segment trunk routes leave the station; future forks require a new runtime capability."],
+    "allow_combat": false
+  },
+  {
+    "id": 8941,
+    "name": "Chimera Reach",
+    "title": "Repair Beyond Classification",
+    "description": "Industrial remains have become open repair yards where construct crews, salvagers, and witnesses mark each work order separately.",
+    "persona": "Chimera Reach asks who authorized a repair before asking whether it can be done.",
+    "biome": "industrial machine frontier",
+    "terrain": ["open fabrication yards", "machine ecology channels", "marked salvage fields"],
+    "memory": ["Chimera Reach is one of four authored Ring 3 stations.", "Its long-haul trunks generate persistent interiors owned by the frontier pack."],
+    "allow_combat": false
+  },
+  {
+    "id": 8942,
+    "name": "Green Loom Expanse",
+    "title": "A Shelter That Keeps Growing",
+    "description": "Restored wetlands, living circuits, and cooperative shelters spread from a raised station built to reveal every maintenance dependency.",
+    "persona": "Green Loom Expanse makes care durable by showing who tends each living system.",
+    "biome": "restored wetland signal frontier",
+    "terrain": ["living circuit wetlands", "raised cooperative shelters", "reed-filter canals"],
+    "memory": ["Green Loom Expanse is one of four authored Ring 3 stations.", "The station is sanctuary; generated trunk interiors remain frontier."],
+    "allow_combat": false
+  },
+  {
+    "id": 8943,
+    "name": "Rabbit Signal Freeport",
+    "title": "The Moving Network",
+    "description": "Relay towers, modular docks, and caravan yards form a freeport whose public departures board lists routes by receipt instead of promise.",
+    "persona": "The freeport rewards speed only when a traveler, route, and return signal remain accountable.",
+    "biome": "mobile relay frontier",
+    "terrain": ["modular signal docks", "caravan yards", "improvised relay towers"],
+    "memory": ["Rabbit Signal Freeport is one of four authored Ring 3 stations.", "Later validated forks may begin from its trunk routes without moving the station."],
+    "allow_combat": false
+  }
+]

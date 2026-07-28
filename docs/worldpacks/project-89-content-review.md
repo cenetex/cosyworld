@@ -1,8 +1,10 @@
 # Project 89 Content Review
 
-Status: design review 0.1. The Project 89 worldpack is proposed but not yet an
-authored or mounted pack. Public Project 89 names, tested Proxim8 integration,
-CosyWorld adaptations, and new hypotheses are kept distinct below.
+Status: executable prototype review 0.2. The Project 89 source packs now
+compile as the isolated `project89.three-rings` composition. Public Project 89
+names, tested Proxim8 integration, CosyWorld adaptations, and new hypotheses
+remain distinct below. Wallet-backed actor materialization and frontier forks
+are still runtime work.
 
 This review asks whether the story, avatars, residents, factions, items, and
 locations form one understandable and replayable world. It consolidates the
@@ -25,7 +27,7 @@ The design is ready for a vertical slice, not content-complete:
 | Human avatars | Supported by CosyWorld | Humans remain directly controlled and retain every core verb. | Their fiction for entering Project 89 needs one concise authored introduction. |
 | Proxim8 avatars | Strong proposed contract with one live fixture | Asset-bound identity, equal power, independent action, durable memory. | Active-trio selection conflicts with the inherited eight-avatar room capacity. |
 | Residents | Good first cast | Each location has a social or moral point of view. | Several adaptations require canon and voice approval. |
-| Factions | Promising hypothesis | Material dependencies create cooperation without removing disagreement. | Names, membership, projects, and internal fractures are not yet pack-authored. |
+| Factions | Authored prototype | Six opposed but interdependent institutions now compile with the inner loop. | Names, voice, projects, and internal fractures still require canon review. |
 | Items | Good Ring 1 coverage | Items create approaches, custody problems, and memories instead of rarity power. | Unique-key recovery and outer-ring production loops remain unspecified. |
 | Locations | Strong topology | Twenty-one authored places frame increasingly generative space. | Ring 2 anchors and Ring 3 stations need resident rosters and encounter portfolios. |
 | Dynamic evolution | Sound authority model | Journaled facts drive actors, factions, economy, and place state. | The situation director and faction projectors are still design work. |
@@ -312,14 +314,17 @@ flowchart TB
     C --> G["Green Loom"] --> I["Interference Market"] --> T
     I -. "one side channel" .-> H["Chimera Lab"] -. "access spine" .-> O
   end
-  G -->|"inner_loop_liberated"| D["Memory Delta"]
-  subgraph R2["Ring 2 — illustrative discovered mesh, not a fixed layout"]
-    D --- W1(("path knot"))
-    W1 --- EO["Echo Observatory"]
-    W1 --- WR["White Rabbit Commons"]
+  A -->|"Archive Cipher"| EO["Echo Observatory"]
+  H -->|"Chimera Access Spine"| CB["Chimera Boneyard"]
+  G -->|"Green Loom Thread"| SO["Signal Orchard"]
+  I -->|"White Rabbit Relay"| WR["White Rabbit Commons"]
+  subgraph R2["Ring 2 — reviewed non-geographic cube mesh"]
+    D["Memory Delta"] --- W1(("path knot"))
+    W1 --- EO
+    W1 --- WR
     WR --- W2(("junction"))
-    W2 --- SO["Signal Orchard"]
-    W2 --- CB["Chimera Boneyard"]
+    W2 --- SO
+    W2 --- CB
     CB --- W3(("path knot"))
     W3 --- OS["Oneirocom Spillway"]
     W3 --- GS["Glass Static Gardens"]
@@ -336,16 +341,16 @@ flowchart TB
   W3 --> GG["Green Loom gate"]
   W4 --> GG
   W1 --> GR["Rabbit gate"]
-  W2 --> GR
   GA --> AM["Archive Meridian"]
   GC --> CR["Chimera Reach"]
   GG --> GE["Green Loom Expanse"]
   GR --> RF["Rabbit Signal Freeport"]
-  AM --> F["Infinite generated frontier"]
-  CR --> F
-  GE --> F
-  RF --> F
-  F --> N["No authored terminus<br/>new bounded epoch when a window fills"]
+  AM ---|"89"| CR
+  CR ---|"89"| GE
+  GE ---|"89"| RF
+  RF ---|"89"| AM
+  W2 --> GR
+  AM -. "future validated forks" .-> N["No authored terminus"]
 ```
 
 ### Ring 1 route detail
@@ -400,32 +405,32 @@ linear unlock track.
 | Green Loom Expanse | Healing, cultivation, cooperative settlement | How much growth can the frontier sustain? |
 | Rabbit Signal Freeport | Trade, rumor, dispatch, moving networks | How does connection remain open without becoming untrustworthy? |
 
-The stations are the final known geography, not four sectors that partition
-the frontier. Each supplies a distinct service and ethical question, but none
-is a universal best base. Past them there is no authored final location or
-completion percentage: generation remains bounded per epoch while the
-frontier can continue through successive epochs indefinitely.
+The stations are the final known authored geography, not four sectors that
+partition the frontier. Each supplies a distinct service and ethical question,
+but none is a universal best base. The executable prototype connects them with
+four distance-89 trunks whose interiors persist as they are explored. There is
+no authored final location or completion percentage; later validated forks
+can continue through successive bounded epochs.
 
 ### Authorship gradient
 
 | Zone | Authored | Generated | Never generated |
 | --- | --- | --- | --- |
-| Ring 1 | Eight loop locations, one side-channel location, every route, resident, mission, item, and consequence | Nothing | All authoritative content |
-| Ring 2 | Eight anchors, four station gates, ecology, faction pressures, topology and reward rules | A persistent amorphous web of paths, knots, junctions, cycles, and bounded spurs | New factions, mechanics, rewards, or station unlock requirements |
-| Ring 3 | Four known stations, services, palettes, epoch budgets, encounter/reward tables | Every route, waypoint, junction, and non-station place; successive epochs have no authored terminus | New sanctuaries, unique keys, NFT effects, Orb spends, or cross-pack exits |
+| Ring 1 | Eight loop locations, one side-channel location, every route, resident, mission, item, consequence, and four item-commissioned spokes | Nothing | All authoritative content |
+| Ring 2 | Eight anchors, twelve non-geographic route slots, four station returns, ecology, topology, and reward rules | One persistent interior waypoint per distance-2 route | New factions, mechanics, rewards, or station unlock requirements |
+| Ring 3 | Four known stations, four distance-89 trunks, services, palettes, and future epoch budget | Eighty-eight persistent interiors per trunk; later fork routes and junctions | New sanctuaries, unique keys, NFT effects, Orb spends, or cross-pack exits |
 
 ## Recommended vertical slice
 
-Build two connected proofs:
+Complete two connected proofs:
 
 1. **Identity and story proof:** one verified Proxim8 materializes at Threshold,
    receives a bounded directive, travels with a human avatar to the Archives,
    disagrees legibly with the holder, and helps earn the Archive Cipher.
-2. **World-growth proof:** legal surveys grow a small Ring 2 mesh with one
-   branch, one closed cycle, and two independent returns to a station gate.
-   Beyond that station, one frontier place and Signal Anchor commit, survive
-   replay, render with placeholders, and later accept one authored faction
-   service.
+2. **World-growth proof:** traverse a Ring 2 distance-2 route and one Ring 3
+   distance-89 trunk, commission a Signal Anchor, and prove their pathway,
+   media placeholder, and replay receipts. Then add one validated persistent
+   fork as a focused runtime capability.
 
 Together those slices prove the pack's two unique claims: independent
 collection-backed characters and a shared world that grows without surrendering

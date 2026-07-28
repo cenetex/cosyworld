@@ -624,6 +624,12 @@
         "recipes": [
           "replicate.holy-land-b43l.base"
         ]
+      },
+      {
+        "id": "project89.world-art.base/1",
+        "recipes": [
+          "replicate.ratimics-project89.v95f3d0eb"
+        ]
       }
     ],
     "recipes": [
@@ -675,10 +681,34 @@
           "holy-land-location/2"
         ],
         "lora": false
+      },
+      {
+        "id": "replicate.ratimics-project89.v95f3d0eb",
+        "profile": "project89.world-art.base/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "ratimics",
+          "name": "project89",
+          "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "project89-art/2"
+        ],
+        "lora": false
       }
     ]
   },
-  "bundle_hash": "sha256:ec3eb5d90d0bf1e4e2fc72a0aaf43ec2f9244a385d2854a730f080e3bd8f3d19",
+  "bundle_hash": "sha256:13d9cb65ae611aee9c1fb23a413510f4cacf29c8f5bd3e230d49d294e6f26c0c",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",

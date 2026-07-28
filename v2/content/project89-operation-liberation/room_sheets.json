@@ -1,0 +1,110 @@
+[
+  {
+    "id": "room:8900",
+    "location_id": 8900,
+    "name": "Threshold Interface",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["custody without puppet control", "one necessary choice"],
+    "boons": ["safe arrival and roster review", "Seraph gives the first bounded directive"],
+    "hooks": ["wallet-backed Proxim8 materialization still requires its Rust capability"],
+    "resources": { "arrival_slots": 4, "verified_relays": 1 },
+    "projects": []
+  },
+  {
+    "id": "room:8901",
+    "location_id": 8901,
+    "name": "Sector 89 Safehouse",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["bounded loadouts", "a route home on every map"],
+    "boons": ["recovery does not advance offscreen danger", "Mara explains item custody"],
+    "hooks": ["the next operation choice needs an accountable operator"],
+    "resources": { "repairs": 3, "shelter": 3 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8902",
+    "location_id": 8902,
+    "name": "89 Archives",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["evidence before certainty", "a dark Echo aperture"],
+    "boons": ["testimony retains its gaps", "the Archive Cipher can commission one radial route"],
+    "hooks": ["verification delay has a visible human cost"],
+    "resources": { "attributed_fragments": 3, "route_traces": 2 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8903",
+    "location_id": 8903,
+    "name": "Meme Farm 17",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": ["the same signal repeated", "one answer half a beat late"],
+    "boons": ["Iri can identify a consent-safe recovery path"],
+    "hooks": ["other capsules still repeat the farm's preferred answer"],
+    "resources": { "recovery_channels": 2, "coolant_cover": 1 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8904",
+    "location_id": 8904,
+    "name": "Oneirocom Tower",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": ["useful stability", "divergence named as noise"],
+    "boons": ["the Auditor can disclose exact tradeoffs"],
+    "hooks": ["a controlled agreement may preserve the system's authority"],
+    "resources": { "audit_paths": 2, "observation_lanes": 2 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8905",
+    "location_id": 8905,
+    "name": "Convergence Engine",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": ["three accountable resolutions", "alignment tightening"],
+    "boons": ["expose, reroute, and dismantle remain visible choices"],
+    "hooks": ["suppression rises when control failures go unowned"],
+    "resources": { "control_paths": 3, "stability_margin": 1 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8906",
+    "location_id": 8906,
+    "name": "Green Loom Assembly",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["repair follows liberation", "a dormant Orchard aperture"],
+    "boons": ["Anja records a durable covenant", "the Loom Thread can commission one radial route"],
+    "hooks": ["the chosen ending creates a visible maintenance obligation"],
+    "resources": { "living_circuit": 3, "shared_tables": 2 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8907",
+    "location_id": 8907,
+    "name": "Interference Market",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["circulation outruns certainty", "a dormant Commons aperture"],
+    "boons": ["repairs and route rumors are public", "the Rabbit Relay can commission one radial route"],
+    "hooks": ["the Chimera side channel begins behind a repair stall"],
+    "resources": { "repairs": 2, "rumors": 3 },
+    "projects": ["project89:operation-liberation"]
+  },
+  {
+    "id": "room:8908",
+    "location_id": 8908,
+    "name": "Project Chimera Lab",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": ["persons labeled as inventory", "a dormant Boneyard aperture"],
+    "boons": ["the Warden will negotiate a consent-safe route", "the Access Spine can commission one radial route"],
+    "hooks": ["a second recovery capsule still needs a chosen destination"],
+    "resources": { "fabrication_bays": 2, "recovery_cradles": 2 },
+    "projects": ["project89:operation-liberation"]
+  }
+]

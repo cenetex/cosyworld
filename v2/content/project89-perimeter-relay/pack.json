@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "id": "project89.perimeter-relay",
+  "name": "Project 89: Perimeter Relay",
+  "version": "0.1.0",
+  "kind": "world",
+  "description": "Eight stable Project 89 relay anchors joined by a non-geographic authored mesh whose long route interiors are generated and persisted.",
+  "license": "LicenseRef-Project89-Prototype",
+  "license_url": "https://www.project89.org/",
+  "engine": ">=0.0.20 <0.1.0",
+  "capabilities": [
+    {
+      "id": "project89.perimeter-relay/world",
+      "kind": "world",
+      "version": "0.1.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "project89.operation-liberation",
+      "version": ">=0.1.0 <1.0.0",
+      "capabilities": [
+        "project89.operation-liberation/world"
+      ]
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
+    }
+  ],
+  "rules_profile": "cosyworld.srd5/1",
+  "default_ruleset": null,
+  "entry_points": [
+    {
+      "kind": "location",
+      "id": "location/8920"
+    }
+  ],
+  "provenance": {
+    "author": "Cenetex",
+    "source_name": "Project 89 worldpack prototype",
+    "source_url": "https://www.project89.org/",
+    "modification_notice": "The relay anchors, topology, ecology, and Signal Anchor mechanic are tentative CosyWorld adaptations."
+  },
+  "notices": [
+    {
+      "kind": "notice",
+      "title": "Project 89 prototype notice",
+      "file": "NOTICE.md"
+    }
+  ],
+  "resources": {
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "cards": "cards.json"
+  },
+  "extensions": {
+    "x-cosyworld-media": {
+      "schema_version": 1,
+      "profiles": [
+        {
+          "profile": "project89.world-art.base/1",
+          "operations": ["base_generation"],
+          "intents": ["location_card_art"],
+          "reference_slots": [],
+          "maximum_references": 0
+        },
+        {
+          "profile": "project89.world-art.refinement/1",
+          "operations": ["single_reference", "multi_reference"],
+          "intents": ["location_card_art", "room_scene"],
+          "reference_slots": ["location", "style"],
+          "maximum_references": 2
+        }
+      ]
+    },
+    "x-cosyworld-generation": {
+      "schema_version": 1,
+      "policy_id": "project89.perimeter-relay/generation/1",
+      "migration_version": 1,
+      "collision_namespace": "pack://project89.perimeter-relay/generated/v1",
+      "generated_descendants": {
+        "owner": "source_route",
+        "composition": "active_bundle",
+        "subject_kinds": ["route", "waypoint", "place", "location_card"],
+        "on_upgrade": "require_declared_migration",
+        "on_unmount": "freeze_with_owner"
+      },
+      "place_anchor": {
+        "action_label": "Scan the sector",
+        "target_label": "a Signal Anchor",
+        "question": "Can someone scan and register this sector?",
+        "description": "Calibrate a durable public Signal Anchor beside one locally significant landmark so future travelers can identify the place.",
+        "completion_memory": "A Signal Anchor now registers this place for future travelers.",
+        "visual_description": "A durable human-scaled signal fixture with a low teal frame and coral calibration lights beside one locally significant landmark, weathered to match the setting; no writing, logo, interface text, people, or portable form."
+      },
+      "prose": {
+        "profile_id": "cosyworld.pathway-prose.ecology/1",
+        "prompt_versions": ["pathway-content-v2"],
+        "ecology": {
+          "interpolation": "endpoint_blend/1",
+          "required_context": [
+            "route_id",
+            "route_version",
+            "origin",
+            "destination",
+            "travel_direction",
+            "segment_index",
+            "segment_count",
+            "biome",
+            "terrain",
+            "climate",
+            "landforms",
+            "geology",
+            "hydrology",
+            "vegetation",
+            "fauna",
+            "resource_cues",
+            "nearby_authored_descriptions"
+          ]
+        }
+      },
+      "media": {
+        "profile_id": "project89.world-art.base/1",
+        "recipe_id": "replicate.ratimics-project89.v95f3d0eb",
+        "provider_preference": {
+          "provider": "replicate",
+          "model": "ratimics/project89",
+          "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+        },
+        "prompt_version": "project89-art/2",
+        "prompt_prefix": "P89, anime style,",
+        "aspect_ratios": ["16:9"],
+        "output_formats": ["webp"],
+        "negative_constraints": ["no text", "no logos", "no interface chrome"],
+        "subject_kinds": ["location_card"],
+        "authored_art": "permanent",
+        "community_art": "eligible",
+        "unexplored_placeholder": "common_unexplored/1",
+        "fallback": "unexplored_placeholder"
+      },
+      "topology": {
+        "profile_id": "regional_mesh",
+        "directionality": "reciprocal_or_explicit_one_way",
+        "evacuation": "world_lifecycle_required",
+        "budgets": {
+          "components": { "min": 1, "max": 1 },
+          "roots": { "min": 1, "max": 1 },
+          "ingress": { "min": 8, "max": 8 },
+          "egress": { "min": 8, "max": 8 },
+          "weighted_distance": { "min": 6, "max": 12 },
+          "degree": { "min": 3, "max": 3 },
+          "cycle_rank": { "min": 5, "max": 5 },
+          "bridges": { "min": 0, "max": 0 },
+          "articulation_impact": { "min": 0, "max": 0 },
+          "terminal_spurs": { "min": 0, "max": 0 }
+        }
+      },
+      "migrations": [],
+      "cross_pack_routes": []
+    }
+  }
+}

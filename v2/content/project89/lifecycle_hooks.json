@@ -1,0 +1,122 @@
+[
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8971",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8902,
+        "to_location_id": 8921,
+        "reason": "archive_cipher_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8921,
+        "to_location_id": 8902,
+        "reason": "archive_cipher_commissioned"
+      },
+      {
+        "op": "set_tag",
+        "tag_id": "room:8902:echo_aperture_commissioned",
+        "scope": "room",
+        "scope_id": 8902,
+        "label": "Echo aperture commissioned",
+        "kind": "memory",
+        "reason": "archive_cipher_commissioned"
+      }
+    ],
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8979",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8908,
+        "to_location_id": 8926,
+        "reason": "chimera_spine_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8926,
+        "to_location_id": 8908,
+        "reason": "chimera_spine_commissioned"
+      },
+      {
+        "op": "set_tag",
+        "tag_id": "room:8908:chimera_aperture_commissioned",
+        "scope": "room",
+        "scope_id": 8908,
+        "label": "Chimera aperture commissioned",
+        "kind": "memory",
+        "reason": "chimera_spine_commissioned"
+      }
+    ],
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8983",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8906,
+        "to_location_id": 8925,
+        "reason": "green_loom_thread_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8925,
+        "to_location_id": 8906,
+        "reason": "green_loom_thread_commissioned"
+      },
+      {
+        "op": "set_tag",
+        "tag_id": "room:8906:loom_aperture_commissioned",
+        "scope": "room",
+        "scope_id": 8906,
+        "label": "Loom aperture commissioned",
+        "kind": "memory",
+        "reason": "green_loom_thread_commissioned"
+      }
+    ],
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8973",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8907,
+        "to_location_id": 8922,
+        "reason": "white_rabbit_relay_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8922,
+        "to_location_id": 8907,
+        "reason": "white_rabbit_relay_commissioned"
+      },
+      {
+        "op": "set_tag",
+        "tag_id": "room:8907:rabbit_aperture_commissioned",
+        "scope": "room",
+        "scope_id": 8907,
+        "label": "Rabbit aperture commissioned",
+        "kind": "memory",
+        "reason": "white_rabbit_relay_commissioned"
+      }
+    ],
+    "pack_id": "project89.operation-liberation"
+  }
+]
