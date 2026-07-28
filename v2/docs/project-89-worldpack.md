@@ -203,6 +203,31 @@ Neither generated candidate is approved pack art. The original NFT image
 remains canonical, and every generated candidate must pass separate
 identity-drift, text, logo, watermark, and crop checks before publication.
 
+### First location and item results
+
+Authored locations and item types use shared pack art. They do not generate a
+new image for every player, wallet, visit, or item instance:
+
+- `Threshold Interface` attempt one correctly produced a `1344x768` landscape
+  but failed publication review because it added two tiny scale figures and
+  glyph-like light panels.
+- Its second bounded attempt produced an empty `1344x768` architectural
+  environment with no people, characters, readable text, logo, or watermark.
+  That candidate passes the initial visual gate.
+- `Agent Memory Seed` produced a centered `1024x1024` artifact on its first
+  attempt with no hands, figures, text, logo, or watermark. That candidate
+  passes the initial visual gate.
+
+This confirms that text-to-image jobs respect the declared `16:9` location and
+`1:1` item shapes, unlike the square-source image-to-image portrait probe.
+Each approved location asset is keyed by location and art revision. Each
+approved item asset is keyed by item definition and art revision; all dynamic
+instances reference it. An actor-bound Memory Seed receives identity through
+its item receipt and history, not through an individually regenerated image.
+
+The exact seeds, prediction ids, hashes, and rejection reasons are recorded in
+[`project-89-location-item-art-test.md`](project-89-location-item-art-test.md).
+
 ## Product decision
 
 A Proxim8 is an independent world actor, not a skin, collectible card in hand,
