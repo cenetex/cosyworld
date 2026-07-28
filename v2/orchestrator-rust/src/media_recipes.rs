@@ -103,6 +103,7 @@ struct MediaModel {
 struct MediaReferenceCapabilities {
     minimum: usize,
     maximum: usize,
+    input_shape: String,
     input_field: Option<String>,
     ordering: String,
     prompt_semantics: String,
@@ -155,6 +156,8 @@ struct MediaRecipe {
     concurrency: u8,
     retry: MediaRetryPolicy,
     prompt_template_version: String,
+    required_prompt_prefix: Option<String>,
+    provider_defaults: serde_json::Map<String, serde_json::Value>,
     lora: Option<MediaLoraInputs>,
     output: MediaOutputPolicy,
     fallback_recipe: Option<String>,
@@ -273,6 +276,7 @@ pub(super) struct ResolvedMediaJob {
     pub(super) intent: MediaIntent,
     pub(super) reference_minimum: usize,
     pub(super) reference_maximum: usize,
+    pub(super) reference_input_shape: String,
     pub(super) reference_input_field: Option<String>,
     pub(super) reference_ordering: String,
     pub(super) reference_prompt_semantics: String,
@@ -295,6 +299,8 @@ pub(super) struct ResolvedMediaJob {
     pub(super) maximum_attempts: u8,
     pub(super) retry_transient_only: bool,
     pub(super) prompt_template_version: String,
+    pub(super) required_prompt_prefix: Option<String>,
+    pub(super) provider_defaults: serde_json::Map<String, serde_json::Value>,
     pub(super) lora: Option<MediaLoraInputs>,
     pub(super) output_normalization: String,
     pub(super) stable_storage: String,
@@ -569,6 +575,7 @@ impl MediaRecipeRegistry {
             intent: request.intent,
             reference_minimum: recipe.references.minimum,
             reference_maximum: recipe.references.maximum,
+            reference_input_shape: recipe.references.input_shape.clone(),
             reference_input_field: recipe.references.input_field.clone(),
             reference_ordering: recipe.references.ordering.clone(),
             reference_prompt_semantics: recipe.references.prompt_semantics.clone(),
@@ -591,6 +598,8 @@ impl MediaRecipeRegistry {
             maximum_attempts: recipe.retry.maximum_attempts,
             retry_transient_only: recipe.retry.transient_only,
             prompt_template_version: recipe.prompt_template_version.clone(),
+            required_prompt_prefix: recipe.required_prompt_prefix.clone(),
+            provider_defaults: recipe.provider_defaults.clone(),
             lora: recipe.lora.clone(),
             output_normalization: recipe.output.normalization.clone(),
             stable_storage: recipe.output.stable_storage.clone(),
@@ -602,7 +611,7 @@ impl ResolvedMediaJob {
     pub(super) fn provider_input(
         &self,
     ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
-        let mut input = serde_json::Map::new();
+        let mut input = self.provider_defaults.clone();
         input.insert(
             "prompt".to_string(),
             serde_json::Value::String(self.prompt.clone()),
@@ -622,15 +631,30 @@ impl ResolvedMediaJob {
                     self.recipe_id
                 )
             })?;
-            input.insert(
-                field.clone(),
-                serde_json::Value::Array(
+            let references = match self.reference_input_shape.as_str() {
+                "single_url" if self.references.len() == 1 => {
+                    serde_json::Value::String(self.references[0].url.clone())
+                }
+                "url_array" => serde_json::Value::Array(
                     self.references
                         .iter()
                         .map(|reference| serde_json::Value::String(reference.url.clone()))
                         .collect(),
                 ),
-            );
+                "single_url" => {
+                    return Err(format!(
+                        "media recipe {} requires exactly one reference URL",
+                        self.recipe_id
+                    ))
+                }
+                other => {
+                    return Err(format!(
+                        "media recipe {} cannot serialize references as {other}",
+                        self.recipe_id
+                    ))
+                }
+            };
+            input.insert(field.clone(), references);
         }
         if let Some(mask_url) = self.mask_url.as_ref() {
             input.insert(
@@ -696,15 +720,44 @@ fn validate_recipe(recipe: &MediaRecipe) -> Result<(), String> {
             recipe.id
         ));
     }
-    if recipe.references.maximum == 0 && recipe.references.input_field.is_some() {
+    let valid_reference_input = match recipe.references.input_shape.as_str() {
+        "none" => recipe.references.maximum == 0 && recipe.references.input_field.is_none(),
+        "single_url" => {
+            recipe.references.maximum == 1
+                && recipe
+                    .references
+                    .input_field
+                    .as_deref()
+                    .is_some_and(|field| !field.trim().is_empty())
+        }
+        "url_array" => {
+            recipe.references.maximum > 0
+                && recipe
+                    .references
+                    .input_field
+                    .as_deref()
+                    .is_some_and(|field| !field.trim().is_empty())
+        }
+        _ => false,
+    };
+    if !valid_reference_input {
         return Err(format!(
-            "media recipe {} declares a reference input for zero references",
+            "media recipe {} has an invalid reference input shape",
             recipe.id
         ));
     }
-    if recipe.references.maximum > 0 && recipe.references.input_field.is_none() {
+    let mut controlled_inputs =
+        BTreeSet::from(["prompt", "aspect_ratio", "output_format", "mask", "seed"]);
+    if let Some(reference_input) = recipe.references.input_field.as_deref() {
+        controlled_inputs.insert(reference_input);
+    }
+    if let Some(field) = recipe
+        .provider_defaults
+        .keys()
+        .find(|field| controlled_inputs.contains(field.as_str()))
+    {
         return Err(format!(
-            "media recipe {} lacks a reference input field",
+            "media recipe {} provider defaults set controlled input {field}",
             recipe.id
         ));
     }
@@ -716,10 +769,28 @@ fn validate_recipe(recipe: &MediaRecipe) -> Result<(), String> {
             ));
         }
     }
+    if recipe
+        .required_prompt_prefix
+        .as_deref()
+        .is_some_and(|prefix| prefix.is_empty())
+    {
+        return Err(format!(
+            "media recipe {} has an empty required prompt prefix",
+            recipe.id
+        ));
+    }
     Ok(())
 }
 
 fn validate_job(recipe: &MediaRecipe, request: &MediaJobRequest) -> Result<(), String> {
+    if let Some(prefix) = recipe.required_prompt_prefix.as_deref() {
+        if !request.prompt.starts_with(prefix) {
+            return Err(format!(
+                "media recipe {} requires prompt prefix {prefix:?}",
+                recipe.id
+            ));
+        }
+    }
     if !recipe.operations.contains(&request.operation) {
         return Err(format!(
             "media recipe {} does not support operation {:?}",
@@ -1299,6 +1370,7 @@ mod tests {
         assert_eq!(flux1.model.owner, "black-forest-labs");
         assert_eq!(flux1.model.name, "flux-dev-lora");
         assert_eq!(flux1.references.maximum, 0);
+        assert_eq!(flux1.references.input_shape, "none");
         assert_eq!(
             flux1.lora.as_ref().map(|lora| lora.weights_input.as_str()),
             Some("lora_weights")
@@ -1310,12 +1382,99 @@ mod tests {
         );
         assert_eq!(flux2.model.invocation, "pinned_version");
         assert_eq!(flux2.references.maximum, 4);
+        assert_eq!(flux2.references.input_shape, "url_array");
         assert_eq!(flux2.references.ordering, "caller");
         assert_eq!(flux2.references.prompt_semantics, "indexed_image_1");
         assert_eq!(flux2.dimensions.minimum, 256);
         assert_eq!(flux2.dimensions.maximum, 1440);
         assert_eq!(flux2.dimensions.multiple, 32);
         assert_eq!(flux2.seed_behavior, "optional");
+    }
+
+    #[test]
+    fn project89_base_uses_one_url_at_full_lora_strength_then_flux2_uses_ordered_urls() {
+        let registry = MediaRecipeRegistry::embedded().expect("registry parses");
+        let controls = MediaRecipeRuntimeControls::default();
+        let original = reference(MediaReferenceSlot::Actor, "callum-original");
+        let base = registry
+            .resolve(
+                &controls,
+                MediaJobRequest {
+                    job_key: "project89:portrait:callum:base".to_string(),
+                    profile: "project89.world-art.base/1".to_string(),
+                    operation: MediaOperation::SingleReference,
+                    intent: MediaIntent::Avatar,
+                    prompt: "P89, anime style, Callum Synclaire.".to_string(),
+                    references: vec![original.clone()],
+                    aspect_ratio: "1:1".to_string(),
+                    output_format: "webp".to_string(),
+                    mask_url: None,
+                    seed: Some(728375885),
+                },
+            )
+            .expect("Project 89 base resolves");
+        assert_eq!(base.recipe_id, "replicate.ratimics-project89.v95f3d0eb");
+        assert_eq!(
+            base.model_revision,
+            "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+        );
+        assert_eq!(base.reference_input_shape, "single_url");
+        let base_input = base.provider_input().expect("Project 89 provider input");
+        assert_eq!(
+            base_input["image"],
+            serde_json::json!("https://assets.example/callum-original.png")
+        );
+        assert_eq!(base_input["lora_scale"], serde_json::json!(1));
+        assert_eq!(base_input["prompt_strength"], serde_json::json!(0.45));
+        assert_eq!(base_input["model"], serde_json::json!("dev"));
+
+        let missing_trigger = registry
+            .resolve(
+                &controls,
+                MediaJobRequest {
+                    job_key: "project89:portrait:callum:bad-prompt".to_string(),
+                    profile: "project89.world-art.base/1".to_string(),
+                    operation: MediaOperation::SingleReference,
+                    intent: MediaIntent::Avatar,
+                    prompt: "anime style, Callum Synclaire.".to_string(),
+                    references: vec![original.clone()],
+                    aspect_ratio: "1:1".to_string(),
+                    output_format: "webp".to_string(),
+                    mask_url: None,
+                    seed: Some(728375885),
+                },
+            )
+            .expect_err("missing P89 trigger fails before provider input");
+        assert!(missing_trigger.contains("requires prompt prefix \"P89, anime style,\""));
+
+        let generated = reference(MediaReferenceSlot::PriorLevel, "callum-p89-base");
+        let refined = registry
+            .resolve(
+                &controls,
+                MediaJobRequest {
+                    job_key: "project89:portrait:callum:refinement".to_string(),
+                    profile: "project89.world-art.refinement/1".to_string(),
+                    operation: MediaOperation::MultiReference,
+                    intent: MediaIntent::Avatar,
+                    prompt: "Image 1 is the P89 base; image 2 is the original identity."
+                        .to_string(),
+                    references: vec![generated, original],
+                    aspect_ratio: "match_input_image".to_string(),
+                    output_format: "webp".to_string(),
+                    mask_url: None,
+                    seed: Some(475257086),
+                },
+            )
+            .expect("Project 89 refinement resolves");
+        assert_eq!(refined.recipe_id, "replicate.project89-flux2.refinement");
+        assert_eq!(refined.reference_input_shape, "url_array");
+        assert_eq!(
+            refined.provider_input().expect("FLUX.2 provider input")["input_images"],
+            serde_json::json!([
+                "https://assets.example/callum-p89-base.png",
+                "https://assets.example/callum-original.png"
+            ])
+        );
     }
 
     #[test]

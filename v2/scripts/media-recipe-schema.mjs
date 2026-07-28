@@ -15,6 +15,14 @@ const INTENTS = new Set([
 ]);
 const REFERENCE_SLOTS = new Set(["location", "actor", "item", "prior_level", "style"]);
 const RECIPE_STATES = new Set(["enabled", "canary", "disabled"]);
+const REFERENCE_INPUT_SHAPES = new Set(["none", "single_url", "url_array"]);
+const CONTROLLED_PROVIDER_INPUTS = new Set([
+  "prompt",
+  "aspect_ratio",
+  "output_format",
+  "mask",
+  "seed",
+]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -104,14 +112,47 @@ export function indexMediaRecipeRegistry(document = loadMediaRecipeRegistry()) {
     if (
       recipe.references.ordering !== "caller"
       || !["none", "indexed_image_1"].includes(recipe.references.prompt_semantics)
-      || (recipe.references.maximum === 0 && recipe.references.input_field !== null)
-      || (
-        recipe.references.maximum > 0
-        && (typeof recipe.references.input_field !== "string"
-          || !recipe.references.input_field)
-      )
+      || !REFERENCE_INPUT_SHAPES.has(recipe.references.input_shape)
     ) {
       throw new Error(`media recipe ${recipe.id} has invalid reference semantics`);
+    }
+    const inputField = recipe.references.input_field;
+    const inputShapeIsValid = (
+      recipe.references.input_shape === "none"
+      && recipe.references.maximum === 0
+      && inputField === null
+    ) || (
+      recipe.references.input_shape === "single_url"
+      && recipe.references.maximum === 1
+      && typeof inputField === "string"
+      && inputField
+    ) || (
+      recipe.references.input_shape === "url_array"
+      && recipe.references.maximum > 0
+      && typeof inputField === "string"
+      && inputField
+    );
+    if (!inputShapeIsValid) {
+      throw new Error(`media recipe ${recipe.id} has an invalid reference input shape`);
+    }
+    if (!isRecord(recipe.provider_defaults)) {
+      throw new Error(`media recipe ${recipe.id} provider_defaults must be an object`);
+    }
+    if (
+      recipe.required_prompt_prefix !== null
+      && (typeof recipe.required_prompt_prefix !== "string"
+        || !recipe.required_prompt_prefix)
+    ) {
+      throw new Error(`media recipe ${recipe.id} has an invalid required prompt prefix`);
+    }
+    const reservedProviderInputs = new Set(CONTROLLED_PROVIDER_INPUTS);
+    if (inputField !== null) reservedProviderInputs.add(inputField);
+    for (const field of Object.keys(recipe.provider_defaults)) {
+      if (reservedProviderInputs.has(field)) {
+        throw new Error(
+          `media recipe ${recipe.id} provider_defaults cannot set controlled input ${field}`,
+        );
+      }
     }
     if (
       recipe.fallback_recipe !== null
