@@ -33,4 +33,8 @@
 # scene copy in the INDEX_HTML contract test. The offer suppression lives in
 # composition.rs, the regression tests in actor_presence.rs. Existing
 # projection seam, no new system.
-73597
+#
+# 73597 -> 73592: avatar autonomy retry coverage moved to
+# actor_autonomy_tests.rs while the restored-clock fix replaced the larger
+# tick-watermark gate in place.
+73592

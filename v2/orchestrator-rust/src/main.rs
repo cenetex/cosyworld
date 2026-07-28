@@ -1,5 +1,7 @@
 mod account_auth;
 mod activation;
+#[cfg(test)]
+mod actor_autonomy_tests;
 mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
@@ -16473,16 +16475,11 @@ impl RuntimeWorld {
         }
     }
 
-    fn autonomy_allows_action(
-        &self,
-        actor_id: u64,
-        action_kind: u8,
-        source_world_tick: u64,
-    ) -> bool {
+    fn autonomy_allows_action(&self, actor_id: u64, action_kind: u8) -> bool {
         let Some(autonomy) = self.actor_autonomy.get(&actor_id) else {
             return false;
         };
-        if autonomy.attention_credits == 0 || autonomy.last_acted_tick >= source_world_tick {
+        if autonomy.attention_credits == 0 {
             return false;
         }
         match autonomy.control_mode {
@@ -16542,13 +16539,17 @@ impl RuntimeWorld {
         autonomy.pending_intent = None;
     }
 
-    fn player_tick_already_has_autonomous_result(&self, source_world_tick: u64) -> bool {
-        self.actor_autonomy.values().any(|autonomy| {
-            autonomy.control_mode.uses_inference() && autonomy.last_acted_tick >= source_world_tick
-        }) || self.event_log.iter().rev().any(|event| {
+    fn player_tick_already_has_autonomous_result(
+        &self,
+        observation: &PlayerTickObservation,
+    ) -> bool {
+        let Some(caused_by_event_seq) = observation.caused_by_event_seq else {
+            return false;
+        };
+        self.event_log.iter().rev().any(|event| {
             event.success
-                && event.type_name == "message.created"
-                && event.source_world_tick == Some(source_world_tick)
+                && event.source_world_tick == Some(observation.source_world_tick)
+                && event.caused_by_event_seq == Some(caused_by_event_seq)
         })
     }
 
@@ -29939,8 +29940,9 @@ async fn complete_player_tick_observation(
     let (ripple_events, reply_plan) = {
         let mut runtime = state.inner.lock().await;
         // A worker may be reclaimed after its reaction committed but before the
-        // outbox row was acknowledged. The source tick is globally unique, so
-        // an already-recorded autonomous result makes the retry a no-op.
+        // outbox row was acknowledged. Match the exact triggering event rather
+        // than a persisted world-tick watermark: restored worlds can legitimately
+        // resume behind an actor's historical last_acted_tick.
         if relationship_reply
             .as_ref()
             .is_some_and(|expectation| !runtime.relationship_reply_pending(expectation))
@@ -29948,7 +29950,7 @@ async fn complete_player_tick_observation(
             return Ok((None, relationship_reply));
         }
         if relationship_reply.is_none()
-            && runtime.player_tick_already_has_autonomous_result(observation.source_world_tick)
+            && runtime.player_tick_already_has_autonomous_result(&observation)
         {
             return Ok((None, None));
         }
@@ -29971,11 +29973,7 @@ async fn complete_player_tick_observation(
                 .actor_by_id(plan.speaker_actor_id)
                 .is_some_and(|actor| {
                     !runtime.actor_uses_inference(actor.id)
-                        || runtime.autonomy_allows_action(
-                            plan.speaker_actor_id,
-                            CW_ACTION_SAY,
-                            observation.source_world_tick,
-                        )
+                        || runtime.autonomy_allows_action(plan.speaker_actor_id, CW_ACTION_SAY)
                 })
         });
         let source_action_kind = observation
@@ -29995,11 +29993,8 @@ async fn complete_player_tick_observation(
                 runtime
                     .ripple_record_for_player_turn(&context, seed)
                     .filter(|record| {
-                        runtime.autonomy_allows_action(
-                            record.action.actor_id,
-                            record.action.kind,
-                            observation.source_world_tick,
-                        ) && runtime.kernel_offer_allows_action(&record.action)
+                        runtime.autonomy_allows_action(record.action.actor_id, record.action.kind)
+                            && runtime.kernel_offer_allows_action(&record.action)
                     })
                     .map(|mut record| {
                         record.origin = JournalOrigin::ActorConsequence;
