@@ -118,6 +118,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
             days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
         },
         story_metrics_retention: StoryMetricsRetention::default(),
+        command_receipt_retention: CommandReceiptRetention::default(),
         allow_unsigned_wallet_claims: false,
     }
 }

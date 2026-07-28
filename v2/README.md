@@ -866,6 +866,20 @@ versions, and the current fencing epoch. Retry the exact envelope after a lost
 transport response. Reusing its `intent_id` for different content or sending a
 stale version returns `409` without another effect.
 
+The `canonical_command_receipts` table is the source of truth for those
+retries. A stored response carries a full state projection, so the process
+keeps only a bounded in-memory cache of the most recent receipts — 128 entries
+or 8 MiB, whichever binds first — and a miss reads the durable row. Receipts are
+never written into the snapshot; the snapshot is a boot accelerator for world
+state, and receipts are recoverable without it. Finalized rows expire after
+`COSYWORLD_COMMAND_RECEIPT_RETENTION_DAYS`, which defaults to `14` — far longer
+than any live client retry window. Set it to `0`, `off`, `none`, or `disabled`
+to keep receipts until manual deletion. Retention runs once at boot and then
+daily, and never removes a provisional row still owned by an in-flight commit.
+`/meta.persistence` reports the configured retention alongside
+`retained_command_receipts` and `retained_command_receipt_bytes`, so cache
+growth is observable without reading logs.
+
 `POST /story/world-beat-exposures` accepts an authenticated post-presentation
 receipt such as `{ "actor_id": 5000, "actor_session": "...", "exposure_id":
 "world-beat:v1:92810", "transport": "browser", "state_revision": 92811 }`.

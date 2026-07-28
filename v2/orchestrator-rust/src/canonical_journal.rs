@@ -1958,6 +1958,85 @@ pub(super) fn finalize_atomic_command_receipt(
     Ok(updated == 1)
 }
 
+/// Durable receipts back every idempotent retry, so retention must comfortably
+/// exceed the window in which a client can resubmit an intent. Fourteen days is
+/// far longer than any live retry and still bounds a table whose rows carry a
+/// full state projection.
+pub(super) const DEFAULT_COMMAND_RECEIPT_RETENTION_DAYS: u64 = 14;
+const MAX_COMMAND_RECEIPT_RETENTION_DAYS: u64 = 3_650;
+const MIN_COMMAND_RECEIPT_RETENTION_DAYS: u64 = 1;
+const COMMAND_RECEIPT_DAY_MS: u64 = 86_400_000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct CommandReceiptRetention {
+    pub(super) days: Option<u64>,
+}
+
+impl CommandReceiptRetention {
+    pub(super) fn from_env() -> io::Result<Self> {
+        let days = match std::env::var("COSYWORLD_COMMAND_RECEIPT_RETENTION_DAYS") {
+            Ok(value) => {
+                let value = value.trim();
+                if value.eq_ignore_ascii_case("off")
+                    || value.eq_ignore_ascii_case("none")
+                    || value.eq_ignore_ascii_case("disabled")
+                {
+                    None
+                } else {
+                    let parsed = value.parse::<u64>().map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "COSYWORLD_COMMAND_RECEIPT_RETENTION_DAYS must be a positive number of days or off",
+                        )
+                    })?;
+                    if parsed == 0 {
+                        None
+                    } else {
+                        Some(parsed.clamp(
+                            MIN_COMMAND_RECEIPT_RETENTION_DAYS,
+                            MAX_COMMAND_RECEIPT_RETENTION_DAYS,
+                        ))
+                    }
+                }
+            }
+            Err(_) => Some(DEFAULT_COMMAND_RECEIPT_RETENTION_DAYS),
+        };
+        Ok(Self { days })
+    }
+
+    fn cutoff_ms(self, now_ms: u64) -> Option<u64> {
+        self.days
+            .map(|days| now_ms.saturating_sub(days.saturating_mul(COMMAND_RECEIPT_DAY_MS)))
+    }
+}
+
+impl Default for CommandReceiptRetention {
+    fn default() -> Self {
+        Self {
+            days: Some(DEFAULT_COMMAND_RECEIPT_RETENTION_DAYS),
+        }
+    }
+}
+
+/// Only finalized receipts expire. A provisional row is still owned by an
+/// in-flight commit, and dropping it would strand that commit's recovery.
+pub(super) fn purge_expired_command_receipts_for_retention(
+    path: &Path,
+    retention: CommandReceiptRetention,
+    now_ms: u64,
+) -> io::Result<usize> {
+    let Some(cutoff_ms) = retention.cutoff_ms(now_ms) else {
+        return Ok(0);
+    };
+    let conn = open_canonical_store(path)?;
+    conn.execute(
+        "DELETE FROM canonical_command_receipts
+         WHERE finalized = 1 AND created_at_ms < ?1",
+        params![as_i64(cutoff_ms)?],
+    )
+    .map_err(sqlite_error)
+}
+
 fn ensure_column(conn: &Connection, table: &str, column: &str, alter_sql: &str) -> io::Result<()> {
     let pragma = format!("PRAGMA table_info({table})");
     let mut stmt = conn.prepare(&pragma).map_err(sqlite_error)?;
@@ -2032,6 +2111,62 @@ mod tests {
         )
         .unwrap();
         init_canonical_journal(&conn, "world://test", 1).unwrap();
+    }
+
+    #[test]
+    fn command_receipt_retention_only_purges_expired_finalized_receipts() {
+        let path = temp_db("receipt-retention");
+        initialize(&path);
+        let day_ms = 86_400_000u64;
+        let now_ms = 400 * day_ms;
+        let write_at = |intent_id: &str, created_at_ms: u64, finalized: i64| {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute(
+                "INSERT INTO canonical_command_receipts
+                 (world_id, intent_id, request_hash, response_json, created_at_ms, finalized)
+                 VALUES ('world://test', ?1, 'hash', '{}', ?2, ?3)",
+                params![intent_id, created_at_ms as i64, finalized],
+            )
+            .unwrap();
+        };
+        write_at("expired", now_ms - 30 * day_ms, 1);
+        write_at("fresh", now_ms - 2 * day_ms, 1);
+        write_at("expired-provisional", now_ms - 30 * day_ms, 0);
+
+        assert_eq!(
+            purge_expired_command_receipts_for_retention(
+                &path,
+                CommandReceiptRetention { days: Some(14) },
+                now_ms,
+            )
+            .unwrap(),
+            1
+        );
+
+        let conn = Connection::open(&path).unwrap();
+        let surviving = conn
+            .prepare("SELECT intent_id FROM canonical_command_receipts ORDER BY intent_id")
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get::<_, String>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .unwrap();
+        assert_eq!(
+            surviving,
+            vec!["expired-provisional".to_string(), "fresh".to_string()]
+        );
+        drop(conn);
+
+        assert_eq!(
+            purge_expired_command_receipts_for_retention(
+                &path,
+                CommandReceiptRetention { days: None },
+                now_ms,
+            )
+            .unwrap(),
+            0
+        );
+        let _ = fs::remove_file(path);
     }
 
     #[test]

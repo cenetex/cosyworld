@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, io};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    io,
+};
 
 pub(super) const OFFICIAL_WORLD_ID: &str = "world://cosyworld/official";
 pub(super) const OFFICIAL_WORLD_EPOCH: u64 = 1;
@@ -69,6 +72,96 @@ pub(super) struct CanonicalCommandReceipt {
 pub(super) struct StoredCommandResponse {
     pub(super) request_hash: String,
     pub(super) response_json: String,
+}
+
+/// The durable `canonical_command_receipts` table is the source of truth for
+/// idempotent retries. This cache only spares a SQLite read on the retries
+/// clients actually make, so it is bounded by both entry count and retained
+/// response bytes; a stored response carries a full state projection and runs
+/// to hundreds of kilobytes.
+pub(super) const COMMAND_RECEIPT_CACHE_MAX_ENTRIES: usize = 128;
+pub(super) const COMMAND_RECEIPT_CACHE_MAX_BYTES: usize = 8 * 1024 * 1024;
+
+#[derive(Clone, Debug, Default)]
+pub(super) struct CommandReceiptCache {
+    entries: BTreeMap<String, StoredCommandResponse>,
+    order: VecDeque<String>,
+    retained_bytes: usize,
+}
+
+impl CommandReceiptCache {
+    /// Rebuild the cache from a legacy snapshot that still persisted receipts.
+    /// Newer snapshots omit them, and a miss falls through to the durable table.
+    pub(super) fn from_persisted(persisted: BTreeMap<String, StoredCommandResponse>) -> Self {
+        let mut cache = Self::default();
+        for (key, stored) in persisted {
+            cache.insert(key, stored);
+        }
+        cache
+    }
+
+    pub(super) fn get(&self, key: &str) -> Option<&StoredCommandResponse> {
+        self.entries.get(key)
+    }
+
+    pub(super) fn insert(&mut self, key: String, stored: StoredCommandResponse) {
+        self.forget(&key);
+        self.retained_bytes = self
+            .retained_bytes
+            .saturating_add(entry_bytes(&key, &stored));
+        self.order.push_back(key.clone());
+        self.entries.insert(key, stored);
+        self.evict_to_capacity();
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub(super) fn retained_bytes(&self) -> usize {
+        self.retained_bytes
+    }
+
+    #[cfg(test)]
+    pub(super) fn clear(&mut self) {
+        self.entries.clear();
+        self.order.clear();
+        self.retained_bytes = 0;
+    }
+
+    /// Drop the newest-first tail until both bounds hold. The most recently
+    /// inserted receipt is always kept, so a single oversized response still
+    /// answers its own immediate retry.
+    fn evict_to_capacity(&mut self) {
+        while self.entries.len() > 1
+            && (self.entries.len() > COMMAND_RECEIPT_CACHE_MAX_ENTRIES
+                || self.retained_bytes > COMMAND_RECEIPT_CACHE_MAX_BYTES)
+        {
+            let Some(oldest) = self.order.pop_front() else {
+                break;
+            };
+            self.drop_entry(&oldest);
+        }
+    }
+
+    fn forget(&mut self, key: &str) {
+        if self.entries.contains_key(key) {
+            self.order.retain(|existing| existing != key);
+            self.drop_entry(key);
+        }
+    }
+
+    fn drop_entry(&mut self, key: &str) {
+        if let Some(stored) = self.entries.remove(key) {
+            self.retained_bytes = self
+                .retained_bytes
+                .saturating_sub(entry_bytes(key, &stored));
+        }
+    }
+}
+
+fn entry_bytes(key: &str, stored: &StoredCommandResponse) -> usize {
+    key.len() + stored.request_hash.len() + stored.response_json.len()
 }
 
 pub(super) fn normalize_process_id(value: &str, variable: &str) -> io::Result<String> {
@@ -147,5 +240,74 @@ mod tests {
             "api_west-2"
         );
         assert!(normalize_process_id("world://other", "PROCESS").is_err());
+    }
+
+    fn stored(index: usize, response_json: String) -> StoredCommandResponse {
+        StoredCommandResponse {
+            request_hash: format!("sha256:hash-{index}"),
+            response_json,
+        }
+    }
+
+    #[test]
+    fn receipt_cache_stays_bounded_across_many_commands() {
+        let mut cache = CommandReceiptCache::default();
+        for index in 0..(COMMAND_RECEIPT_CACHE_MAX_ENTRIES * 4) {
+            cache.insert(
+                format!("world://test\u{0}intent-{index}"),
+                stored(index, format!("{{\"index\":{index}}}")),
+            );
+            assert!(
+                cache.len() <= COMMAND_RECEIPT_CACHE_MAX_ENTRIES,
+                "cache grew to {} entries after {} inserts",
+                cache.len(),
+                index + 1
+            );
+            assert!(cache.retained_bytes() <= COMMAND_RECEIPT_CACHE_MAX_BYTES);
+        }
+
+        assert!(cache.get("world://test\u{0}intent-0").is_none());
+        let newest = COMMAND_RECEIPT_CACHE_MAX_ENTRIES * 4 - 1;
+        assert!(cache
+            .get(&format!("world://test\u{0}intent-{newest}"))
+            .is_some());
+    }
+
+    #[test]
+    fn receipt_cache_bounds_oversized_responses_by_bytes() {
+        let mut cache = CommandReceiptCache::default();
+        let oversized = "x".repeat(COMMAND_RECEIPT_CACHE_MAX_BYTES / 4);
+        for index in 0..8 {
+            cache.insert(
+                format!("world://test\u{0}intent-{index}"),
+                stored(index, oversized.clone()),
+            );
+        }
+        assert!(cache.retained_bytes() <= COMMAND_RECEIPT_CACHE_MAX_BYTES);
+        assert!(cache.len() < 8, "byte bound never evicted: {}", cache.len());
+
+        // A response larger than the whole budget still answers its own retry.
+        cache.insert(
+            "world://test\u{0}intent-huge".to_string(),
+            stored(99, "y".repeat(COMMAND_RECEIPT_CACHE_MAX_BYTES * 2)),
+        );
+        assert_eq!(cache.len(), 1);
+        assert!(cache.get("world://test\u{0}intent-huge").is_some());
+    }
+
+    #[test]
+    fn reinserting_a_receipt_does_not_double_count_its_bytes() {
+        let mut cache = CommandReceiptCache::default();
+        cache.insert(
+            "world://test\u{0}intent-1".to_string(),
+            stored(1, "a".repeat(64)),
+        );
+        let once = cache.retained_bytes();
+        cache.insert(
+            "world://test\u{0}intent-1".to_string(),
+            stored(1, "a".repeat(64)),
+        );
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.retained_bytes(), once);
     }
 }

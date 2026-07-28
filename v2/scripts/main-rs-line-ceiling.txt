@@ -16,4 +16,10 @@
 # 73237 -> 73385: snapshot write coalescing for issue #481, plus its test. The
 # per-command multi-megabyte snapshot write was roughly 90% of command latency.
 # Existing persistence seam, no new system.
-73385
+#
+# 73385 -> 73573: bounded command receipt cache and receipt retention wiring.
+# The cache lives in canonical_world.rs and the retention purge in
+# canonical_journal.rs; main.rs only gains the AppState field, the retention
+# scheduler mirroring start_moderation_retention_scheduler, /meta.persistence
+# reporting, and their tests. Existing persistence seam, no new system.
+73573

@@ -214,6 +214,7 @@ struct AppState {
     moderation_token: Option<Arc<String>>,
     moderation_report_retention: ModerationReportRetention,
     story_metrics_retention: StoryMetricsRetention,
+    command_receipt_retention: CommandReceiptRetention,
     allow_unsigned_wallet_claims: bool,
 }
 const CANONICAL_WORLD_PARTITION: &str = "world";
@@ -1657,7 +1658,7 @@ enum SearchRevealCandidate {
 struct RuntimeWorld {
     world: CwWorld,
     canonical_identities: CanonicalIdentityState,
-    command_receipts: BTreeMap<String, StoredCommandResponse>,
+    command_receipts: CommandReceiptCache,
     ai_publications: BTreeMap<String, AiPublicationReceipt>,
     actors: BTreeMap<u64, ActorMeta>,
     items: BTreeMap<u64, ItemMeta>,
@@ -1741,7 +1742,10 @@ struct RuntimeSnapshot {
     next_event_seq: u64,
     #[serde(default)]
     canonical_identities: CanonicalIdentityState,
-    #[serde(default)]
+    /// Read for compatibility with snapshots written before receipts moved out
+    /// of the checkpoint. Never written: receipts are recoverable from the
+    /// durable `canonical_command_receipts` table and are not world state.
+    #[serde(default, skip_serializing)]
     command_receipts: BTreeMap<String, StoredCommandResponse>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     ai_publications: BTreeMap<String, AiPublicationReceipt>,
@@ -2447,6 +2451,9 @@ struct MetaPersistence {
     event_store: MetaEventStoreHealth,
     moderation_report_retention_days: Option<u64>,
     story_metrics_retention_days: Option<u64>,
+    command_receipt_retention_days: Option<u64>,
+    retained_command_receipts: usize,
+    retained_command_receipt_bytes: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -5351,6 +5358,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_hosted_access_scheduler(state.clone());
     start_moderation_retention_scheduler(state.clone());
     start_story_metrics_retention_scheduler(state.clone());
+    start_command_receipt_retention_scheduler(state.clone());
     let app = routes::app_router(state);
     let addr: SocketAddr = std::env::var("COSYWORLD_V2_ADDR")
         .unwrap_or_else(|_| "127.0.0.1:3102".to_string())
@@ -5503,6 +5511,7 @@ impl AppState {
             .map(Arc::new);
         let moderation_report_retention = ModerationReportRetention::from_env()?;
         let story_metrics_retention = StoryMetricsRetention::from_env()?;
+        let command_receipt_retention = CommandReceiptRetention::from_env()?;
         let ai_config = Arc::new(AiConfig::from_env().map_err(deployment_config_error)?);
         let generation_controls =
             Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
@@ -5638,6 +5647,13 @@ impl AppState {
             {
                 warn!(
                     "failed to purge expired CosyWorld story metrics from {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+            if let Err(error) = purge_expired_command_receipts(path, command_receipt_retention) {
+                warn!(
+                    "failed to purge expired CosyWorld command receipts from {}: {}",
                     path.display(),
                     error
                 );
@@ -5795,6 +5811,7 @@ impl AppState {
             moderation_token,
             moderation_report_retention,
             story_metrics_retention,
+            command_receipt_retention,
             allow_unsigned_wallet_claims,
         })
     }
@@ -6282,7 +6299,7 @@ impl RuntimeSnapshot {
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
             canonical_identities: runtime.canonical_identities.clone(),
-            command_receipts: runtime.command_receipts.clone(),
+            command_receipts: BTreeMap::new(),
             ai_publications: runtime.ai_publications.clone(),
             world_actors: runtime.world.actors[..runtime.world.actor_count].to_vec(),
             world_items: runtime.world.items[..runtime.world.item_count].to_vec(),
@@ -6551,7 +6568,7 @@ impl RuntimeSnapshot {
         Ok(RuntimeWorld {
             world,
             canonical_identities: self.canonical_identities,
-            command_receipts: self.command_receipts,
+            command_receipts: CommandReceiptCache::from_persisted(self.command_receipts),
             ai_publications: self.ai_publications,
             actors: self.actor_meta,
             items: self.item_meta,
@@ -6953,7 +6970,7 @@ impl RuntimeWorld {
         let mut runtime = RuntimeWorld {
             world,
             canonical_identities: CanonicalIdentityState::default(),
-            command_receipts: BTreeMap::new(),
+            command_receipts: CommandReceiptCache::default(),
             ai_publications: BTreeMap::new(),
             actors: seed_actor_meta(),
             items: seed_item_meta(),
@@ -23419,6 +23436,8 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let item_count = runtime.world.item_count;
     let location_count = runtime.world.location_count;
     let event_count = runtime.event_log.len();
+    let retained_command_receipts = runtime.command_receipts.len();
+    let retained_command_receipt_bytes = runtime.command_receipts.retained_bytes();
     drop(runtime);
 
     let wallet_count = state.ownership_index.read().await.wallets.len();
@@ -23528,6 +23547,9 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             },
             moderation_report_retention_days: state.moderation_report_retention.days,
             story_metrics_retention_days: state.story_metrics_retention.days,
+            command_receipt_retention_days: state.command_receipt_retention.days,
+            retained_command_receipts,
+            retained_command_receipt_bytes,
         },
         ownership_feed: MetaOwnershipFeed {
             inline_configured: ownership_feed.inline_feed.is_some(),
@@ -30319,6 +30341,29 @@ fn start_moderation_retention_scheduler(state: AppState) {
                 ) {
                     warn!(
                         "failed to purge expired CosyWorld moderation reports from {}: {}",
+                        path.display(),
+                        error
+                    );
+                }
+            }
+            tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
+        }
+    });
+}
+
+fn start_command_receipt_retention_scheduler(state: AppState) {
+    if state.command_receipt_retention.days.is_none() {
+        return;
+    }
+    tokio::spawn(async move {
+        tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
+        loop {
+            if let Some(path) = state.event_store_path.as_deref() {
+                if let Err(error) =
+                    purge_expired_command_receipts(path, state.command_receipt_retention)
+                {
+                    warn!(
+                        "failed to purge expired CosyWorld command receipts from {}: {}",
                         path.display(),
                         error
                     );
@@ -41162,6 +41207,14 @@ fn write_canonical_command_response(
     Ok(inserted == 1)
 }
 
+fn purge_expired_command_receipts(
+    path: &Path,
+    retention: CommandReceiptRetention,
+) -> io::Result<usize> {
+    init_event_store(path)?;
+    purge_expired_command_receipts_for_retention(path, retention, now_millis())
+}
+
 fn snapshot_error(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
@@ -44719,6 +44772,140 @@ mod tests {
         );
         drop(conn);
         let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn evicted_command_receipt_still_replays_from_the_durable_table() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-receipt-eviction-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let actor_id = 5000;
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        create_test_human(
+            &mut *state.inner.lock().await,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Eviction Neighbour",
+        );
+        let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
+        let client = ConnectInfo("127.0.0.1:45137".parse().unwrap());
+
+        let first_request = {
+            let runtime = state.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_id,
+                &actor_session,
+                "test:evicted",
+                "look",
+            )
+        };
+        let first = command(client, State(state.clone()), Json(first_request.clone()))
+            .await
+            .0;
+        assert!(first.ok, "{first:?}");
+
+        // Push the first receipt out of the bounded cache with later commands.
+        for index in 0..(COMMAND_RECEIPT_CACHE_MAX_ENTRIES + 4) {
+            let request = {
+                let runtime = state.inner.lock().await;
+                canonical_test_command_request(
+                    &runtime,
+                    actor_id,
+                    &actor_session,
+                    &format!("test:filler-{index}"),
+                    "look",
+                )
+            };
+            let filler = command(client, State(state.clone()), Json(request)).await.0;
+            assert!(filler.ok, "filler {index} failed: {filler:?}");
+        }
+
+        let receipt_key = canonical_command_receipt_key(OFFICIAL_WORLD_ID, "test:evicted");
+        {
+            let runtime = state.inner.lock().await;
+            assert!(runtime.command_receipts.len() <= COMMAND_RECEIPT_CACHE_MAX_ENTRIES);
+            assert!(
+                runtime.command_receipts.get(&receipt_key).is_none(),
+                "the first receipt should have been evicted from memory"
+            );
+        }
+
+        let replayed = command(client, State(state.clone()), Json(first_request))
+            .await
+            .0;
+        assert_eq!(
+            serde_json::to_value(&first).unwrap(),
+            serde_json::to_value(&replayed).unwrap()
+        );
+
+        let conn = open_event_store(&path).expect("inspect durable receipts");
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_command_receipts
+                 WHERE world_id = ?1 AND intent_id = ?2",
+                params![OFFICIAL_WORLD_ID, "test:evicted"],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn snapshot_round_trip_omits_command_receipts() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.command_receipts.insert(
+            canonical_command_receipt_key(OFFICIAL_WORLD_ID, "test:snapshot"),
+            StoredCommandResponse {
+                request_hash: "hash".to_string(),
+                response_json: r#"{"ok":true}"#.to_string(),
+            },
+        );
+        let encoded =
+            serde_json::to_string(&RuntimeSnapshot::from_runtime(&runtime)).expect("encode");
+        assert!(
+            !encoded.contains("command_receipts"),
+            "the snapshot still carries command receipts"
+        );
+
+        let decoded = serde_json::from_str::<RuntimeSnapshot>(&encoded).expect("decode");
+        let restored = decoded.into_runtime().expect("restore world");
+        assert_eq!(restored.command_receipts.len(), 0);
+    }
+
+    #[test]
+    fn legacy_snapshot_command_receipts_load_bounded() {
+        let runtime = RuntimeWorld::seeded();
+        let mut encoded =
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime)).expect("encode");
+        let legacy = (0..(COMMAND_RECEIPT_CACHE_MAX_ENTRIES * 3))
+            .map(|index| {
+                (
+                    canonical_command_receipt_key(
+                        OFFICIAL_WORLD_ID,
+                        &format!("test:legacy-{index:04}"),
+                    ),
+                    serde_json::json!({
+                        "request_hash": format!("hash-{index}"),
+                        "response_json": format!("{{\"index\":{index}}}"),
+                    }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        encoded
+            .as_object_mut()
+            .expect("snapshot object")
+            .insert("command_receipts".to_string(), legacy.into());
+
+        let decoded = serde_json::from_value::<RuntimeSnapshot>(encoded).expect("decode legacy");
+        let restored = decoded.into_runtime().expect("restore legacy world");
+        assert!(restored.command_receipts.len() <= COMMAND_RECEIPT_CACHE_MAX_ENTRIES);
     }
 
     #[tokio::test]
@@ -72736,6 +72923,7 @@ mod tests {
                 days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
             },
             story_metrics_retention: StoryMetricsRetention::default(),
+            command_receipt_retention: CommandReceiptRetention::default(),
             allow_unsigned_wallet_claims: false,
         };
         let mut rx = state.tx.subscribe();
