@@ -30,6 +30,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "ambient_autonomy",
     "location_id",
     "stats",
+    "goals",
     "desires",
     "attachments",
     "relationship",

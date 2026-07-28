@@ -38,7 +38,8 @@
       "sha256:9e91a900766633f5f52b8fe58e8f409f020233553e3fe5bf24ff519553e972ac",
       "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d",
       "sha256:7c25a5ffcec350dba6f9211c3e2866ad4c9bc77173b415e46e023214242eb1fe",
-      "sha256:3e6c6a329d1b0ffd28cbc1fe138edd5825185fe0c29ad20af9b9d14c552e11d9"
+      "sha256:3e6c6a329d1b0ffd28cbc1fe138edd5825185fe0c29ad20af9b9d14c552e11d9",
+      "sha256:9b955ecb68da8efde6e6f598ce73754c1377fde0ce2c21a72852d9d641ada836"
     ]
   },
   "pack_lifecycle": {
@@ -723,7 +724,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:29b86c0b1f9185aa59e7a8ffeb051749960f07029c4b77ecb0a23eb28247b3cc",
+  "bundle_hash": "sha256:1fb9342d19805ffd7f1774d1b79e928e42040f5afb64d36077d541f6266849f9",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2135,7 +2136,7 @@
       "id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
       "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2375,7 +2376,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:77aec51a414a3ad59dbfe49b77d93f365345e0c6b4dd0c95ef26b57ce80bab24"
+      "integrity": "sha256:0586aa38b58345b475bb34eaf93d54a4e4980919c18db8469d43f97771a24d15"
     },
     {
       "id": "cosyworld.composition.core-holy-land",

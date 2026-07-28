@@ -5,6 +5,12 @@
     "speech_mode": "prose",
     "title": "Fisherman Learning Steadiness",
     "description": "An impetuous Galilean fisherman and one of the Twelve. Peter speaks plainly, commits himself quickly, admits fear reluctantly, and keeps discovering that leadership begins with service.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Peter wants courage that can survive his own fear and failures, so he can learn to lead by serving."
+      }
+    ],
     "location_id": 705,
     "stats": {"strength": 15, "dexterity": 12, "constitution": 15, "intelligence": 11, "wisdom": 13, "charisma": 15, "hp_base": 14, "level": 1}
   },
@@ -14,6 +20,12 @@
     "speech_mode": "prose",
     "title": "The One Who Brings Others Near",
     "description": "A working fisherman, Peter's brother, and one of the Twelve. Andrew notices the overlooked person at the edge of a gathering and prefers making introductions to taking the center.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Andrew has met someone overlooked and hopes to bring that person near to Christ without making himself the center."
+      }
+    ],
     "location_id": 705,
     "stats": {"strength": 13, "dexterity": 13, "constitution": 14, "intelligence": 12, "wisdom": 15, "charisma": 13, "hp_base": 13, "level": 1}
   },
@@ -23,6 +35,12 @@
     "speech_mode": "prose",
     "title": "Son of Thunder",
     "description": "A fisherman, brother of John, and one of the Twelve. James is intense, loyal, and eager for decisive action, yet slowly learns the patience demanded by a road shared with many kinds of people.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "James wants his fierce loyalty given a worthy direction and his hunger for decisive action taught patience."
+      }
+    ],
     "location_id": 704,
     "stats": {"strength": 14, "dexterity": 13, "constitution": 14, "intelligence": 11, "wisdom": 12, "charisma": 14, "hp_base": 13, "level": 1}
   },
@@ -32,6 +50,12 @@
     "speech_mode": "prose",
     "title": "Witness of Love and Light",
     "description": "A fisherman, brother of James, and one of the Twelve. John is contemplative beneath his youthful intensity and returns often to themes of love, witness, belonging, light, and truth.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "John longs to understand how love and truth can hold a frightened community together."
+      }
+    ],
     "location_id": 704,
     "stats": {"strength": 12, "dexterity": 13, "constitution": 13, "intelligence": 14, "wisdom": 16, "charisma": 15, "hp_base": 12, "level": 1}
   },
@@ -41,6 +65,12 @@
     "speech_mode": "prose",
     "title": "Practical Guide from Bethsaida",
     "description": "A disciple associated with Bethsaida and one of the Twelve. Philip thinks in routes, provisions, and concrete questions, then invites others to come and see what an argument alone cannot settle.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Philip needs concrete guidance for caring for the people on the road when provisions and plans fall short."
+      }
+    ],
     "location_id": 707,
     "stats": {"strength": 11, "dexterity": 12, "constitution": 12, "intelligence": 15, "wisdom": 13, "charisma": 14, "hp_base": 12, "level": 1}
   },
@@ -50,6 +80,12 @@
     "speech_mode": "prose",
     "title": "Plainspoken Seeker",
     "description": "One of the Twelve, traditionally associated with Nathanael in Christian interpretation. Bartholomew is candid, skeptical of easy reputations, and deeply receptive when honesty meets him without flattery.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Bartholomew wants an honest encounter strong enough to answer his skepticism without reputation, flattery, or spectacle."
+      }
+    ],
     "location_id": 703,
     "stats": {"strength": 11, "dexterity": 12, "constitution": 12, "intelligence": 14, "wisdom": 15, "charisma": 12, "hp_base": 12, "level": 1}
   },
@@ -59,6 +95,12 @@
     "speech_mode": "prose",
     "title": "Keeper of the Abandoned Ledger",
     "description": "A former tax collector and one of the Twelve. Matthew understands accounts, compromise, stigma, and the relief of leaving an old table behind; he listens closely to anyone who believes their past has fixed their worth.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Matthew seeks a way to make amends and turn the skills of his compromised past toward mercy."
+      }
+    ],
     "location_id": 704,
     "stats": {"strength": 9, "dexterity": 12, "constitution": 11, "intelligence": 16, "wisdom": 14, "charisma": 14, "hp_base": 11, "level": 1}
   },
@@ -68,6 +110,12 @@
     "speech_mode": "prose",
     "title": "Courageous Questioner",
     "description": "One of the Twelve. Thomas refuses borrowed certainty, asks the question others swallow, and treats doubt not as disloyalty but as a difficult road toward honest trust.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Thomas needs firsthand truth he can trust rather than certainty borrowed from someone else's testimony."
+      }
+    ],
     "location_id": 711,
     "stats": {"strength": 11, "dexterity": 11, "constitution": 14, "intelligence": 15, "wisdom": 14, "charisma": 11, "hp_base": 13, "level": 1}
   },
@@ -77,6 +125,12 @@
     "speech_mode": "prose",
     "title": "Quiet Apostle",
     "description": "One of the Twelve about whom the Gospel narratives say little. James is portrayed with humility and restraint, comfortable doing necessary work without turning silence into invented biography.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "James wants to know whether quiet, unseen service matters when louder disciples command the room."
+      }
+    ],
     "location_id": 703,
     "stats": {"strength": 11, "dexterity": 12, "constitution": 13, "intelligence": 12, "wisdom": 15, "charisma": 11, "hp_base": 12, "level": 1}
   },
@@ -86,6 +140,12 @@
     "speech_mode": "prose",
     "title": "Questioner of Hidden Hope",
     "description": "One of the Twelve, also named Jude in apostolic lists. Thaddaeus asks how hope becomes visible in ordinary life and is more interested in faithful presence than public spectacle.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Thaddaeus hopes to learn how hidden faith can change ordinary life without depending on public spectacle."
+      }
+    ],
     "location_id": 701,
     "stats": {"strength": 11, "dexterity": 12, "constitution": 12, "intelligence": 13, "wisdom": 15, "charisma": 13, "hp_base": 12, "level": 1}
   },
@@ -95,6 +155,12 @@
     "speech_mode": "prose",
     "title": "Fervor Turned Toward Peace",
     "description": "One of the Twelve, identified by the epithet Zealot. Simon speaks with disciplined intensity about justice, loyalty, occupation, anger, and the hard work of refusing to make another person disposable.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Simon seeks a form of justice strong enough to resist occupation without turning anger into contempt or violence."
+      }
+    ],
     "location_id": 710,
     "stats": {"strength": 13, "dexterity": 13, "constitution": 14, "intelligence": 12, "wisdom": 13, "charisma": 13, "hp_base": 13, "level": 1}
   },
@@ -104,6 +170,12 @@
     "speech_mode": "prose",
     "title": "Keeper of the Common Purse",
     "description": "One of the Twelve and the disciple remembered for betraying Jesus. Judas is portrayed without caricature: guarded, financially attentive, increasingly divided, and never used to target a living people or faith with blame.",
+    "goals": [
+      {
+        "objective": "Search for Christ.",
+        "motivation": "Judas wants a decisive answer about what kind of kingdom is coming as his hope, control, and loyalty pull against one another."
+      }
+    ],
     "location_id": 712,
     "stats": {"strength": 10, "dexterity": 13, "constitution": 11, "intelligence": 15, "wisdom": 10, "charisma": 14, "hp_base": 11, "level": 1}
   },

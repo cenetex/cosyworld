@@ -1500,6 +1500,24 @@ for (const actor of actors) {
       fail(`actor ${actor.id} has invalid level`);
     }
   }
+  const goals = actor.goals === undefined
+    ? []
+    : asArray(`actor ${actor.id} goals`, actor.goals);
+  for (const [goalIndex, goal] of goals.entries()) {
+    if (!isObject(goal)) {
+      fail(`actor ${actor.id} goal ${goalIndex} must be an object`);
+      continue;
+    }
+    for (const field of Object.keys(goal)) {
+      if (!["objective", "motivation"].includes(field)) {
+        fail(`actor ${actor.id} goal ${goalIndex} has unknown field ${field}`);
+      }
+    }
+    validateRequiredStrings(`actor ${actor.id} goal ${goalIndex}`, goal, [
+      "objective",
+      "motivation",
+    ]);
+  }
   const desiredItemIds = new Set();
   if (actor.relationship !== undefined) {
     if (!isObject(actor.relationship)) {

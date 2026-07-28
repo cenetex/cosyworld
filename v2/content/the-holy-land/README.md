@@ -10,6 +10,9 @@ The pack includes:
 - fifteen Gospel-associated locations from Bethlehem and Nazareth to
   Jerusalem and the road to Emmaus;
 - the traditional list of the Twelve, without depicting or role-playing Jesus;
+- a personal goal for each disciple to search for Christ, with a distinct
+  motive that guides resident planning and dialogue without entering the
+  public actor projection;
 - four composite, unnamed wayside supplicants whose prose-mode conversations
   can produce varied period-grounded needs without impersonating a specific
   historical person;
