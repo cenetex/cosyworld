@@ -49037,7 +49037,7 @@ mod tests {
     #[test]
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
-        assert!(INDEX_HTML.contains("Shared room chat"));
+        assert!(INDEX_HTML.contains("Shared room transcript"));
         assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
         assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
         assert!(INDEX_HTML.contains("function setJournalOpen"));
@@ -49160,11 +49160,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("choose friendship or bracelet space."));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
+        assert!(INDEX_HTML.contains("const visibleEvents = sharedRoomTranscriptEvents(logEvents);"));
         assert!(INDEX_HTML.contains(
-            "const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));"
-        ));
-        assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${pendingConversation}${pendingChatReplies}`;"
+            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${pendingConversation}${pendingChatReplies}`;"
         ));
         assert!(INDEX_HTML.contains("return event?.type === \"message.created\""));
         assert!(INDEX_HTML.contains("function renderJournalLog"));
@@ -49182,8 +49180,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("responding to your card…"));
         assert!(INDEX_HTML.contains("Your next actions are ready while"));
         assert!(INDEX_HTML.contains("return [...(events || [])].slice(-24);"));
-        assert!(INDEX_HTML.contains("const tailChanged = chatTailKey !== renderedChatTailKey;"));
-        assert!(INDEX_HTML.contains("tailChanged || wasAtBottom"));
+        assert!(INDEX_HTML.contains("const firstTranscriptRender = !renderedChatTailKey;"));
+        assert!(INDEX_HTML.contains("firstTranscriptRender || wasAtBottom"));
         assert!(INDEX_HTML.contains("function backgroundImageStyle"));
         assert!(INDEX_HTML.contains("touch-action: pan-y;"));
         assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));

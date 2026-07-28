@@ -2071,6 +2071,7 @@ fn community_art_candidate_data_url(
     ))
 }
 
+#[cfg(test)]
 pub(super) fn community_art_candidate_exists(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,

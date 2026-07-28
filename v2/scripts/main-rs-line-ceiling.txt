@@ -37,4 +37,14 @@
 # 73597 -> 73592: avatar autonomy retry coverage moved to
 # actor_autonomy_tests.rs while the restored-clock fix replaced the larger
 # tick-watermark gate in place.
-73592
+#
+# 73592 -> 74609: reviewed integration-train exception covering the completed
+# stability and seventh-visit slices (#462, #463, #469, #482, #491, #498,
+# #500–#504). The owned systems and most new tests live in focused modules:
+# ai_registry.rs, combat.rs, community_art.rs/community_art_tests.rs,
+# crafting.rs, journal_checkpoint.rs, and movement.rs. main.rs retains the
+# existing HTTP/AppState/persistence wiring, compatibility paths, and broad
+# cross-surface regression contracts needed to integrate them atomically.
+# Follow-up decomposition remains tracked by #255; this exception authorizes
+# integration, not further feature growth in main.rs.
+74609

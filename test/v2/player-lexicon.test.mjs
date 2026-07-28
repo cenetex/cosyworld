@@ -10,8 +10,8 @@ const index = read("v2/orchestrator-rust/src/index.html");
 const gates = read("v2/content/ruby-high-first-bell/access_gates.json");
 const glossary = read("v2/docs/player-lexicon.md");
 
-describe("player-facing action, keepsake, pass, bundle, and world-pack lexicon", () => {
-  it("passes the five-task comprehension copy contract", () => {
+describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal lexicon", () => {
+  it("passes the six-task comprehension copy contract", () => {
     const tasks = [
       {
         task: "make the avatar do something now",
@@ -41,6 +41,12 @@ describe("player-facing action, keepsake, pass, bundle, and world-pack lexicon",
         concept: 'data-player-concept="world-pack"',
         cue: "world packs mounted",
         analytics: 'data-analytics-event="world_pack.library.open"',
+      },
+      {
+        task: "review what changed in the current place",
+        concept: 'data-player-concept="journal"',
+        cue: 'aria-label="Journal"',
+        analytics: 'data-analytics-event="journal.open"',
       },
     ];
 
@@ -90,12 +96,12 @@ describe("player-facing action, keepsake, pass, bundle, and world-pack lexicon",
       "Lifecycle",
       "Primary affordance",
       "## Accessibility and analytics",
-      "## Five-task comprehension check",
+      "## Six-task comprehension check",
       "## Architecture relationship",
     ]) {
       expect(glossary).toContain(section);
     }
-    for (const noun of ["**action**", "**keepsake**", "**pass**", "**bundle**", "**world pack**"]) {
+    for (const noun of ["**action**", "**keepsake**", "**pass**", "**bundle**", "**world pack**", "**Journal**"]) {
       expect(glossary).toContain(noun);
     }
   });

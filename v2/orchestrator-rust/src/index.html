@@ -3975,10 +3975,10 @@
         </div>
         <div class="room-title">
           <span class="room-title-main"><h1 id="location-name">The Cosy Cottage</h1></span>
-          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-icon" aria-hidden="true"></span><span class="room-log-kicker">Journal</span></button>
+          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open"><span class="room-log-icon" aria-hidden="true"></span><span class="room-log-kicker">Journal</span></button>
           <span id="avatar"></span>
         </div>
-        <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
+        <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
@@ -8364,8 +8364,10 @@
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
       const latest = String(toggle.dataset.latest || "").trim();
       toggle.setAttribute("aria-label", open ? "Close Journal" : "Open Journal");
+      toggle.dataset.analyticsEvent = open ? "journal.close" : "journal.open";
       latestControl.setAttribute("aria-expanded", open ? "true" : "false");
       latestControl.setAttribute("aria-label", open ? "Close Journal, latest entry" : `Open Journal, latest: ${latest}`);
+      latestControl.dataset.analyticsEvent = open ? "journal.close" : "journal.open";
       toggle.querySelector(".room-log-kicker")?.replaceChildren(document.createTextNode(open ? "Close Journal" : "Journal"));
       document.querySelector(".prompt").hidden = Boolean(panelMode);
       if (open) {
