@@ -690,7 +690,39 @@ fn has_deterministic_anchor(value: &str, anchors: &[String], mode: SpeechMode) -
     }
     let candidate = normalized_words(value).into_iter().collect::<BTreeSet<_>>();
     let anchors = anchor_tokens(anchors);
-    !anchors.is_empty() && !candidate.is_disjoint(&anchors)
+    // An empty anchor set rejects. A scene that offers nothing to be grounded
+    // to cannot certify that a line is grounded, and silently accepting here
+    // would remove the gate exactly where the scene is least described. This
+    // is deliberate: see the empty-anchor test below.
+    !anchors.is_empty()
+        && candidate.iter().any(|word| {
+            anchors
+                .iter()
+                .any(|anchor| anchor_words_match(word, anchor))
+        })
+}
+
+/// Anchors are drawn from location names, titles, and remembered activity, so a
+/// grounded line often shares a stem rather than a whole word: "rain on the
+/// sill" against an anchor of `rainlit`, or "hearths" against `hearth`. Exact
+/// set matching rejected those, which silenced residents deterministically —
+/// resampling could not help because the mismatch is a property of the scene
+/// vocabulary rather than of the sample.
+///
+/// Match when the words are equal, or when the shorter is a prefix of the
+/// longer and is itself long enough to carry meaning. The floor keeps short
+/// fragments from matching unrelated words.
+fn anchor_words_match(candidate: &str, anchor: &str) -> bool {
+    const MIN_SHARED_PREFIX: usize = 4;
+    if candidate == anchor {
+        return true;
+    }
+    let (shorter, longer) = if candidate.len() <= anchor.len() {
+        (candidate, anchor)
+    } else {
+        (anchor, candidate)
+    };
+    shorter.len() >= MIN_SHARED_PREFIX && longer.starts_with(shorter)
 }
 
 fn near_duplicate(left: &str, right: &str) -> bool {
@@ -817,6 +849,57 @@ mod tests {
                 .map(|check| check.passed),
             Some(false)
         );
+    }
+
+    #[test]
+    fn anchor_accepts_a_shared_stem_and_still_rejects_ungrounded_speech() {
+        // The Cosy Cottage is titled "Rainlit Hearth", so these are the real
+        // anchor tokens a resident is judged against.
+        let anchors = vec!["The Cosy Cottage".to_string(), "Rainlit Hearth".to_string()];
+
+        // Near miss on a shared stem: exact matching rejected this
+        // deterministically, so the resident never spoke.
+        assert!(has_deterministic_anchor(
+            "Rain on the sill again.",
+            &anchors,
+            SpeechMode::Prose,
+        ));
+        // Plural of an anchor word.
+        assert!(has_deterministic_anchor(
+            "Both hearths are lit.",
+            &anchors,
+            SpeechMode::Prose,
+        ));
+        // Whole-word match keeps working.
+        assert!(has_deterministic_anchor(
+            "The cottage is warm.",
+            &anchors,
+            SpeechMode::Prose,
+        ));
+        // Ungrounded output is still rejected.
+        assert!(!has_deterministic_anchor(
+            "I have opinions about quarterly logistics.",
+            &anchors,
+            SpeechMode::Prose,
+        ));
+        // A short fragment must not match an unrelated longer word.
+        assert!(!has_deterministic_anchor(
+            "Cot.",
+            &anchors,
+            SpeechMode::Prose,
+        ));
+    }
+
+    #[test]
+    fn an_empty_anchor_set_rejects_every_line() {
+        // Deliberate: a scene describing nothing cannot certify that a line is
+        // grounded in it. Documented so this is never mistaken for a bug and
+        // silently relaxed into an open gate.
+        assert!(!has_deterministic_anchor(
+            "Anything at all.",
+            &[],
+            SpeechMode::Prose,
+        ));
     }
 
     #[test]

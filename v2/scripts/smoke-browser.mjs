@@ -7252,6 +7252,19 @@ async function main() {
     await drawPrimaryMatching("current room Notice", ["notice"]);
     await clickPrimary("notice");
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
+    if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
+      // A resident reply is asynchronous: intent inference, then dialogue
+      // inference, then the authored chat delay. Re-enabling the primary button
+      // does not mean the line has landed, so wait for it rather than sampling
+      // the log the instant the action completes.
+      await page
+        .waitForFunction(() => [...document.querySelectorAll("#log > *")].some((node) => (
+          node.classList.contains("chat")
+          && node.classList.contains("avatar")
+          && !node.classList.contains("you")
+        )), { timeout: 45000 })
+        .catch(() => {});
+    }
     const scene = await page.evaluate(() => {
       const rows = [...document.querySelectorAll("#log > *")];
       // Chat rows are classified you/avatar/world; there is no longer an "npc"
