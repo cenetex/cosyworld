@@ -19163,7 +19163,17 @@ impl RuntimeWorld {
             };
         };
 
-        if self.actor_by_id(actor_id).is_none() {
+        // A defeated avatar still resolves through `actor_by_id`, so matching
+        // only on a missing actor left a dead player being offered ordinary
+        // actions they can never submit. The client showed "this tale has
+        // ended, choose begin again below" while the hand still dealt Notice,
+        // and taking it failed as a stale offer. Death must project the same
+        // beginning as having no avatar at all.
+        let departed = match self.actor_by_id(actor_id) {
+            None => true,
+            Some(actor) => actor.status == CW_ACTOR_DEAD,
+        };
+        if departed {
             return PrimaryAction {
                 kind: "create_avatar".to_string(),
                 label: "Create Avatar".to_string(),
