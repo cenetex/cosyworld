@@ -70,6 +70,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         tx,
         deployment: DeploymentConfig::local(),
         snapshot_path: None,
+        last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
         resident_continuity_path: None,
         event_store_path: event_store_path.clone().map(Arc::new),
         event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
