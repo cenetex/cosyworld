@@ -192,3 +192,9 @@ frontier places use the same registered two-stage visual pipeline:
 
 Location art is shared by the world place. It is never regenerated per wallet,
 visitor, or Proxim8.
+
+The first cross-system study of how this topology supports characters,
+factions, economics, special items, and dynamic evolution lives in
+[`../../docs/worldpacks/project-89-systems-study.md`](../../docs/worldpacks/project-89-systems-study.md).
+That study is tentative and keeps proposed faction structures separate from
+approved canon.

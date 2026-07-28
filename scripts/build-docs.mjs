@@ -124,6 +124,7 @@ async function buildNavigation(currentFilePath = null) {
   // Define the sections and their directories
   const sections = [
     { title: 'Overview', dir: 'overview' },
+    { title: 'Worldpacks', dir: 'worldpacks' },
     { title: 'Systems', dir: 'systems' },
     { title: 'Services', dir: 'services' },
     { title: 'Deployment', dir: 'deployment' }
@@ -140,6 +141,20 @@ async function buildNavigation(currentFilePath = null) {
     
     // Process root files for each section
     const files = glob.sync(`${docsDir}/${section.dir}/*.md`);
+    if (section.dir === 'worldpacks') {
+      const worldpackOrder = new Map([
+        ['index.md', 0],
+        ['how-to-design-a-worldpack.md', 1],
+        ['project-89-systems-study.md', 2]
+      ]);
+      files.sort((left, right) => {
+        const leftName = path.basename(left);
+        const rightName = path.basename(right);
+        const leftOrder = worldpackOrder.get(leftName) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = worldpackOrder.get(rightName) ?? Number.MAX_SAFE_INTEGER;
+        return leftOrder - rightOrder || leftName.localeCompare(rightName);
+      });
+    }
     for (const file of files) {
       const fileName = path.basename(file);
       const fileNameWithoutExt = fileName.replace('.md', '');
@@ -226,7 +241,7 @@ async function generateCombinedMarkdown(markdownFiles) {
   combinedContent += '## Table of Contents\n\n';
   
   // Create a table of contents
-  for (const section of ['Overview', 'Systems', 'Services', 'Deployment']) {
+  for (const section of ['Overview', 'Worldpacks', 'Systems', 'Services', 'Deployment']) {
     combinedContent += `### ${section}\n\n`;
     
     const sectionFiles = markdownFiles.filter(file => {

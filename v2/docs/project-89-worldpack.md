@@ -505,6 +505,12 @@ The complete topology, unlock contract, Ring 2 anchors, Ring 3 hubs, generation
 budgets, and safety rules live in
 [`project-89-world-map.md`](project-89-world-map.md).
 
+The tentative faction, actor, economy, item-lifecycle, and dynamic-evolution
+study lives in
+[`../../docs/worldpacks/project-89-systems-study.md`](../../docs/worldpacks/project-89-systems-study.md).
+Its new names and relationships are design hypotheses, not approved Project 89
+canon.
+
 ### Ring 1 location list
 
 | Location | Safety | Purpose and exits |
