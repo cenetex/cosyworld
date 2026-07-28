@@ -21,6 +21,7 @@
       "pattern": "^pack://[a-z0-9][a-z0-9.-]*/generated/[a-z0-9][a-z0-9._/-]*$"
     },
     "generated_descendants": { "$ref": "#/definitions/generatedDescendants" },
+    "place_anchor": { "$ref": "#/definitions/placeAnchor" },
     "prose": { "$ref": "#/definitions/prose" },
     "media": { "$ref": "#/definitions/media" },
     "topology": { "$ref": "#/definitions/topology" },
@@ -59,6 +60,26 @@
         },
         "on_upgrade": { "const": "require_declared_migration" },
         "on_unmount": { "const": "freeze_with_owner" }
+      }
+    },
+    "placeAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_label",
+        "target_label",
+        "question",
+        "description",
+        "completion_memory",
+        "visual_description"
+      ],
+      "properties": {
+        "action_label": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "target_label": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "question": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "completion_memory": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "visual_description": { "type": "string", "minLength": 1, "maxLength": 500 }
       }
     },
     "prose": {

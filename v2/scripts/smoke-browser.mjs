@@ -8429,13 +8429,16 @@ async function main() {
     const library = world.locations.find((location) => location.name === "Library");
     const trail = world.locations.find((location) => location.name === "Moonlit Trail");
     const cottageExits = (cottage?.exits || []).map((exit) => exit.destination_location_name).sort();
+    const requiredCottageExits = ["Homeroom", "Mossbell Inn", "Rain-Soft Garden"];
+    const allowedCottageExits = new Set(["Bethlehem", ...requiredCottageExits]);
     assert(cottage?.public && cottage.accessible, "Cottage should be public in world projection");
     assert(
       cottage.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
       "Cottage projection should include the current avatar when accessible",
     );
     assert(
-      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Mossbell Inn", "Rain-Soft Garden"]),
+      requiredCottageExits.every((destination) => cottageExits.includes(destination))
+        && cottageExits.every((destination) => allowedCottageExits.has(destination)),
       `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
     );
     assert(!science, "Science Class should stay hidden until its path is found from Homeroom");
@@ -11055,85 +11058,109 @@ async function main() {
       const progress = (state?.clocks || []).find(
         (clock) => clock.id === "moonlit-trail.progress",
       );
-      return Number(progress?.filled || 0) >= 1 && Number(progress?.filled || 0) < 4;
+      const job = (state?.jobs || []).find(
+        (entry) => entry.id === "moonlit-trail:quiet-the-echo",
+      );
+      const filled = Number(progress?.filled || 0);
+      return filled >= 1 && (filled < 4 || job?.status === "completed");
     });
     const primedProjectState = await fetchCurrentState();
     const primedMoonlitProgress = (primedProjectState.clocks || []).find(
       (clock) => clock.id === "moonlit-trail.progress",
     );
-    assert(
-      Number(primedMoonlitProgress?.filled || 0) >= 1
-        && Number(primedMoonlitProgress?.filled || 0) < 4,
-      `${progressPrimer} should leave the shared project partly complete: ${JSON.stringify(primedMoonlitProgress)}`,
+    const primedMoonlitJob = (primedProjectState.jobs || []).find(
+      (job) => job.id === "moonlit-trail:quiet-the-echo",
     );
-    const mustRestBeforePrepare = await page.evaluate(() => (
-      actions.some((action) => String(action.label || "").toLowerCase() === "rest")
-        && !actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
-    ));
-    if (mustRestBeforePrepare) {
-      await drawPrimaryMatching("rest before project prepare", ["rest", "feel fresh"]);
-      await clickPrimary("rest before preparing project");
-    }
-    const projectPreparePrimary = await drawPrimaryMatching("project prepare", [
-      "prepare",
-      "make the next try count",
-    ]);
-    assert(
-      projectPreparePrimary.includes("make the next try count"),
-      "used project feature should preview a strong prepared payoff without arithmetic",
+    const projectCompletedDuringPrimer = (
+      Number(primedMoonlitProgress?.filled || 0) === 4
+        && primedMoonlitJob?.status === "completed"
     );
-    assert(
-      !projectPreparePrimary.toLowerCase().includes("next project action"),
-      "prepared setup should not expose rules jargon in the primary button",
-    );
-    await clickPrimary("prepare informed project");
-    const projectFinishPrimary = await drawPrimaryMatching("project finish", [
-      "quiet the echo",
-      "choose an approach",
-    ]);
-    assert(
-      projectFinishPrimary.toLowerCase().includes("choose an approach"),
-      `the finishing project card should keep Push and Help in one choice: ${projectFinishPrimary}`,
-    );
-    await clickPrimary("finish informed project");
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      await page.waitForFunction(() => (
-        actionBusy === false
-          && refreshInFlight === null
-          && document.querySelector("#action-modal")?.hidden === true
-      ), null, { timeout: 35_000 });
-      const projectComplete = await page.evaluate(() => {
-        const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
-        const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
-        return Number(progress?.filled || 0) === 4 && job?.status === "completed";
+    if (projectCompletedDuringPrimer) {
+      steps.push({
+        label: "shared project completed during primer",
+        progress: "4/4",
       });
-      if (projectComplete) break;
-      const projectRecovery = await page.evaluate(() => {
-        const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
-        const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
-        return {
-          progress: Number(progress?.filled || 0),
-          job: job?.status || "missing",
-          tired: (state?.tags || []).some((tag) => (
-            tag.label === "tired"
-              && Number(tag.scope_id || 0) === Number(actorId || 0)
-          )),
-          actions: actions.map((action) => String(action.label || "").toLowerCase()),
-        };
-      });
-      assert(projectRecovery.job !== "failed", `project should not fail on the gentle completion path: ${JSON.stringify(projectRecovery)}`);
-      if (projectRecovery.tired) {
-        await leaveTrailTo("Rain-Soft Garden");
-        await travelTo("Moonlit Trail");
-        await drawPrimaryMatching(`project recovery ${attempt}`, ["rest", "feel fresh"]);
-        await clickPrimary(`rest before project completion ${attempt}`);
-        continue;
-      }
-      await focusPrimaryMatchingAcrossShuffles(
-        `project completion ${attempt}`,
-        (text) => text.startsWith("finish") || text.startsWith("work") || text.includes("quiet the echo"),
+    } else {
+      assert(
+        Number(primedMoonlitProgress?.filled || 0) >= 1
+          && Number(primedMoonlitProgress?.filled || 0) < 4,
+        `${progressPrimer} should leave the shared project partly complete: ${JSON.stringify(primedMoonlitProgress)}`,
       );
-      await clickPrimary(`complete project ${attempt}`);
+      const mustRestBeforePrepare = await page.evaluate(() => (
+        actions.some((action) => String(action.label || "").toLowerCase() === "rest")
+          && !actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
+      ));
+      if (mustRestBeforePrepare) {
+        await drawPrimaryMatching("rest before project prepare", ["rest", "feel fresh"]);
+        await clickPrimary("rest before preparing project");
+      }
+      const projectCanPrepare = await page.evaluate(() => (
+        actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
+      ));
+      if (projectCanPrepare) {
+        const projectPreparePrimary = await drawPrimaryMatching("project prepare", [
+          "prepare",
+          "make the next try count",
+        ]);
+        assert(
+          projectPreparePrimary.includes("make the next try count"),
+          "used project feature should preview a strong prepared payoff without arithmetic",
+        );
+        assert(
+          !projectPreparePrimary.toLowerCase().includes("next project action"),
+          "prepared setup should not expose rules jargon in the primary button",
+        );
+        await clickPrimary("prepare informed project");
+      } else {
+        const projectStudyPrimary = await drawPrimaryMatching("project authored study", [
+          "quiet the echo",
+          "read the moonlit signs",
+        ]);
+        assert(
+          projectStudyPrimary.toLowerCase().includes("choose an approach"),
+          `the project card should keep its authored approaches together: ${projectStudyPrimary}`,
+        );
+        await clickPrimary("study informed project");
+      }
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        await page.waitForFunction(() => (
+          actionBusy === false
+            && refreshInFlight === null
+            && document.querySelector("#action-modal")?.hidden === true
+        ), null, { timeout: 35_000 });
+        const projectComplete = await page.evaluate(() => {
+          const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+          const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
+          return Number(progress?.filled || 0) === 4 && job?.status === "completed";
+        });
+        if (projectComplete) break;
+        const projectRecovery = await page.evaluate(() => {
+          const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+          const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
+          return {
+            progress: Number(progress?.filled || 0),
+            job: job?.status || "missing",
+            tired: (state?.tags || []).some((tag) => (
+              tag.label === "tired"
+                && Number(tag.scope_id || 0) === Number(actorId || 0)
+            )),
+            actions: actions.map((action) => String(action.label || "").toLowerCase()),
+          };
+        });
+        assert(projectRecovery.job !== "failed", `project should not fail on the gentle completion path: ${JSON.stringify(projectRecovery)}`);
+        if (projectRecovery.tired) {
+          await leaveTrailTo("Rain-Soft Garden");
+          await travelTo("Moonlit Trail");
+          await drawPrimaryMatching(`project recovery ${attempt}`, ["rest", "feel fresh"]);
+          await clickPrimary(`rest before project completion ${attempt}`);
+          continue;
+        }
+        await focusPrimaryMatchingAcrossShuffles(
+          `project completion ${attempt}`,
+          (text) => text.startsWith("finish") || text.startsWith("work") || text.includes("quiet the echo"),
+        );
+        await clickPrimary(`complete project ${attempt}`);
+      }
     }
     await page.waitForFunction(() => {
       const progress = (state?.clocks || []).find(

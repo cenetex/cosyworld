@@ -40,7 +40,7 @@
       "intents": ["location_card_art"],
       "aspect_ratios": ["16:9"],
       "output_formats": ["webp"],
-      "prompt_versions": ["holy-land-location/1"],
+      "prompt_versions": ["holy-land-location/1", "holy-land-location/2"],
       "lora": false
     }
   ]

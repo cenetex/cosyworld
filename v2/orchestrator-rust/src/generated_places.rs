@@ -93,6 +93,24 @@ fn generated_place_anchor_fixture_tag_id(location_id: u64) -> String {
     format!("generated-place:{location_id}:anchor-fixture")
 }
 
+fn generated_place_anchor_terminology(
+    binding: &GeneratedPolicyBinding,
+) -> GeneratedPlaceAnchorTerminology {
+    binding
+        .place_anchor
+        .clone()
+        .unwrap_or_else(|| GeneratedPlaceAnchorTerminology {
+            action_label: "Place a lasting fixture".to_string(),
+            target_label: "a lasting fixture".to_string(),
+            question: "Can someone place one lasting fixture here?".to_string(),
+            description: "Make one durable, inspectable change.".to_string(),
+            completion_memory: "A lasting fixture anchored the place.".to_string(),
+            visual_description:
+                "One durable, locally appropriate fixture that visibly anchors this place."
+                    .to_string(),
+        })
+}
+
 fn generated_place_clock(
     id: String,
     location_id: u64,
@@ -255,6 +273,7 @@ impl RuntimeWorld {
         state: &GeneratedPlaceState,
         waypoint: &GeneratedWaypointState,
     ) {
+        let anchor_terminology = generated_place_anchor_terminology(&state.generation_policy);
         self.clocks
             .entry(state.anchor_clock_id.clone())
             .or_insert_with(|| {
@@ -263,8 +282,8 @@ impl RuntimeWorld {
                     state.location_id,
                     "Anchor",
                     GENERATED_PLACE_ANCHOR_SEGMENTS,
-                    "Can someone place one lasting fixture here?",
-                    "A lasting fixture anchors the place.",
+                    &anchor_terminology.question,
+                    &anchor_terminology.completion_memory,
                 )
             });
         self.clocks
@@ -300,13 +319,13 @@ impl RuntimeWorld {
                 kind: "room".to_string(),
                 id: Some(state.location_id.to_string()),
                 predicate: None,
-                label: "a lasting fixture".to_string(),
+                label: anchor_terminology.target_label.clone(),
             },
             vec![ContributionRequirement::AtLocation {
                 location_id: state.location_id,
             }],
             ContributionClaimPolicy::OncePerTarget,
-            "Place a lasting fixture",
+            &anchor_terminology.action_label,
             &state.pack_id,
             &state.pack_version,
             vec![EffectDescriptor::SetTag {
@@ -326,19 +345,19 @@ impl RuntimeWorld {
             .or_insert_with(|| JobState {
                 pack_id: state.pack_id.clone(),
                 id: state.anchor_job_id.clone(),
-                premise: "Place one lasting fixture.".to_string(),
+                premise: format!("{}.", anchor_terminology.action_label.trim_end_matches('.')),
                 stakes: "Prose and passing visits do not anchor a place.".to_string(),
                 location_ids: vec![state.location_id],
                 participant_ids: Vec::new(),
                 progress_clock_id: state.anchor_clock_id.clone(),
                 danger_clock_id: String::new(),
                 status: "active".to_string(),
-                reward: JobReward::Label("The place gains an Anchor.".to_string()),
+                reward: JobReward::Label(anchor_terminology.completion_memory.clone()),
                 consequence: "The place remains unanchored.".to_string(),
-                memory_summary: "A lasting fixture anchored the place.".to_string(),
+                memory_summary: anchor_terminology.completion_memory.clone(),
                 action_copy: JobActionCopy {
-                    label: "the anchor fixture".to_string(),
-                    summary: "Make one durable, inspectable change.".to_string(),
+                    label: anchor_terminology.target_label.clone(),
+                    summary: anchor_terminology.description.clone(),
                 },
                 contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
                 contribution_strategies: anchor_strategy,

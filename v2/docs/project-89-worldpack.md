@@ -4,8 +4,9 @@ Status: proposed V1-to-V2 migration design, not yet an authored or mounted pack.
 
 This document defines the V2 migration and expansion of CosyWorld's existing
 Project 89 and Proxim8 integration. The proposed release is a compact Operation
-Liberation world with wallet-backed Proxim8 actors, nine locations, nine
-authored residents, and fifteen world-item types.
+Liberation world with wallet-backed Proxim8 actors, a nine-location authored
+inner zone, an eight-anchor semi-generative relay web, four authored outer
+stations, nine authored residents, and fifteen world-item types.
 
 The public source boundary is deliberately narrow:
 
@@ -89,31 +90,46 @@ runnable FLUX LoRA destination:
 
 | Setting | Pinned value |
 | --- | --- |
-| Recipe id | `replicate.ratimics-project89.v95f3d0eb` |
-| Profile id | `project89.operation-liberation.art/1` |
-| Destination model | `ratimics/project89` |
-| Revision | `95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6` |
+| Base recipe | `replicate.ratimics-project89.v95f3d0eb` |
+| Refinement recipe | `replicate.project89-flux2.refinement` |
+| Base profile | `project89.world-art.base/1` |
+| Refinement profile | `project89.world-art.refinement/1` |
+| Base model and revision | `ratimics/project89@95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6` |
+| Refinement model and revision | `black-forest-labs/flux-2-dev@7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050` |
 | Trigger | `P89` exactly once at the start of the positive prompt |
 | Base mode | `dev` |
-| LoRA scale | `1.0` for authored pack art; begin Proxim8 identity-preserving tests at `0.8` |
+| LoRA scale | `1.0` for every P89 base, including Proxim8 portraits |
 | Steps and guidance | `28` steps, guidance `3` |
 | Output | One `webp`, quality `80`, safety checker enabled |
-| Prompt template | `project89-art/1` |
+| Prompt template | `project89-art/2` |
+| Default style profile | `project89-washed-anime/1` |
 
-This model is called directly by owner, name, and pinned revision. It must not
+The base model is called directly by owner, name, and pinned revision. It must not
 be passed as `lora_weights` to the generic
 `black-forest-labs/flux-dev-lora` recipe: the Project 89 LoRA is already the
 main model at this endpoint.
 
+P89/FLUX.1 creates the basic character, location, or item. The pinned FLUX.2
+recipe then performs cleanup, refinement, or multi-reference composition.
+`P89` appears only in the FLUX.1 prompt; FLUX.2 inherits the visual language
+from its first ordered image reference. For a Proxim8 portrait, image 1 is the
+P89 base and image 2 is the immutable original NFT identity image.
+
 The public examples establish the `P89` trigger and an anime-oriented visual
-language. A production prompt should add the subject's canonical facts and
-composition rather than relying on an unstructured prose request:
+language. The default profile adds the literal `anime style` phrase and a
+frozen watercolor-anime treatment. A production prompt should add the
+subject's canonical facts and composition rather than relying on an
+unstructured prose request:
 
 ```text
-P89, <subject kind>, <approved canonical visual traits>,
-<role, object, or environmental facts>, experimental anime science fiction,
-<shot and composition>, no readable text, no logo, no watermark,
-single clear focal subject
+P89, anime style, <subject kind>, <approved canonical visual traits>,
+<role, object, or environmental facts>,
+softly washed watercolor anime illustration, clean expressive anime linework,
+soft cel-painted forms under translucent watercolor glazing,
+muted rose-lavender, deep teal and warm coral-amber palette,
+diffuse bloom, gentle paper grain, slightly faded midtones,
+crisp focal silhouette, <shot and composition>,
+no readable text, no logo, no signature, no watermark
 ```
 
 The prompt builder must add `P89` exactly once, reject metadata text that tries
@@ -121,17 +137,19 @@ to inject instructions, and record the resolved prompt hash. A deterministic
 seed is derived from the canonical subject reference, metadata hash, prompt
 template version, and recipe revision. Repeating the same job therefore
 recovers the same prediction identity and cannot spend for unbounded variants.
+The exact shared suffix, subject-specific rules, and pilot results live in
+[`project-89-art-direction.md`](project-89-art-direction.md).
 
 ### Art intents
 
 | Intent | Source | Shape | Initial generation rule |
 | --- | --- | --- | --- |
-| `proxim8_world_portrait` | Approved original NFT image plus cosmetic metadata | `1:1` identity master | Image-to-image; default prompt strength `0.35` and LoRA scale `0.8`. Values up to `0.55` are review-only because identity drift increases. |
-| `proxim8_card_art` | Approved world portrait | `2:3` card | Deterministic code-native card composition until a reference recipe proves that it preserves identity, aspect ratio, and typography constraints. |
-| `resident_card_art` | Authored resident description | `2:3` | Text-to-image with LoRA scale `1.0`. |
-| `item_card_art` | Authored item description | `1:1` | Text-to-image with LoRA scale `1.0`. |
-| `location_card_art` | Authored location description | `16:9` | Text-to-image with LoRA scale `1.0`; no people, creatures, text, logos, or watermarks. |
-| `operation_scene` | Approved location and actor facts | `16:9` | A later composition intent; not part of wallet materialization. |
+| `proxim8_world_portrait` | Approved original NFT image plus cosmetic metadata | `1:1` identity master | P89 image-to-image at prompt strength `0.45` and full LoRA scale `1.0`, followed by FLUX.2 cleanup with the base first and original NFT second. |
+| `proxim8_card_art` | Approved world portrait | `2:3` card | FLUX.2 may compose approved visual references; readable UI type and rules remain deterministic code-native overlays. |
+| `resident_card_art` | Authored resident description | `2:3` | P89 base at LoRA scale `1.0`, followed by FLUX.2 only when cleanup or composition is required. |
+| `item_card_art` | Authored item description | `1:1` | P89 base at LoRA scale `1.0`; optional FLUX.2 cleanup or composition. |
+| `location_card_art` | Authored location description | `16:9` | P89 base at LoRA scale `1.0`; optional FLUX.2 cleanup; no people, creatures, text, logos, or watermarks. |
+| `operation_scene` | Approved location, actor, and item art | `16:9` | FLUX.2 ordered-reference composition; not part of wallet materialization. |
 
 The original NFT image remains the canonical provenance image and the
 immediate UI fallback. A generated `proxim8_world_portrait` is a derivative
@@ -140,13 +158,32 @@ actor's name, traits, role, drive, mechanics, or asset binding, and generated
 pixels are never interpreted back into metadata. The holder can switch the UI
 between approved original and world portrait without changing world state.
 
-Wallet connection must not wait for Replicate. Actor materialization publishes
-the approved original image, commits the actor, and then idempotently enqueues
-the optional portrait job under:
+Wallet connection must not wait for Replicate and must not generate art.
+Actor materialization publishes the approved original NFT image and commits
+the actor. It exposes an optional redraw action only to the currently verified
+holder. CosyWorld does not pre-generate portraits for all 6,000 Proxim8s.
+
+### Orb-funded Proxim8 redraw
+
+A holder deliberately spends the displayed Orb price before a redraw enters
+the media queue. One funded redraw executes the registered P89 base and FLUX.2
+refinement as one product operation under:
 
 ```text
-project89:portrait:v1:<authority_id>:<asset_id>:<metadata_hash>:<recipe_revision>
+project89:portrait:v2:<authority_id>:<asset_id>:<metadata_hash>:<style_revision>:<base_revision>:<refinement_revision>:<variant_revision>
 ```
+
+The spend, media job, and result share one idempotency key. A provider timeout,
+transient failure, rejected output, or safe retry of that same funded job must
+not debit Orbs again. A user-selected new seed, style revision, or additional
+variant is a new quoted redraw and requires a new Orb spend. This prevents both
+double charging and unbounded free rerolls.
+
+An approved redraw becomes an optional world portrait on the asset-bound
+actor. The original NFT image remains the free default and canonical
+provenance image. On NFT transfer, approved actor media follows the actor and
+asset; spent Orbs are not refunded, and only the new verified holder can fund
+another redraw.
 
 Fixed resident, location, and item art should be generated and reviewed during
 pack authoring, then shipped as content-addressed pack assets. Dynamic
@@ -194,13 +231,20 @@ Three media probes refined the recipe:
 - Image-to-image at prompt strength `0.55` created a stronger restyle but more
   facial drift and a faint signature-like mark. It was also held from
   publication.
+- P89 at full LoRA scale `1.0` and prompt strength `0.45` preserved Callum's
+  defining traits and strengthened the anime treatment, but still created
+  false lettering on the headset.
+- FLUX.2 received that full-strength base first and the original NFT second.
+  It removed the lettering while retaining the square crop, two-tone hair,
+  gold eyes, headset, clothing silhouette, green accent, teal field, and
+  washed anime treatment. This passes the initial two-stage visual gate.
 - Both image-to-image runs returned a square `1088x1088` result even when the
   stronger probe requested `2:3`. A Project 89 world portrait is therefore a
   square identity master. Tall card presentation is a separate deterministic
   composition step until a pinned recipe passes an explicit aspect-ratio test.
 
-Neither generated candidate is approved pack art. The original NFT image
-remains canonical, and every generated candidate must pass separate
+No test candidate is published merely because a prediction completed. The
+original NFT image remains canonical, and every generated candidate must pass separate
 identity-drift, text, logo, watermark, and crop checks before publication.
 
 ### First location and item results
@@ -255,6 +299,42 @@ validates and commits movement, item transfer, checks, combat, and every other
 world mutation.
 
 ## Materialization contract
+
+### Signal Anchor contract
+
+Generated-place anchoring uses the engine's stable internal milestone but
+worldpack-owned player language. Project 89 must publish this terminology in
+its `x-cosyworld-generation` policy:
+
+```json
+{
+  "place_anchor": {
+    "action_label": "Scan the sector",
+    "target_label": "a Signal Anchor",
+    "question": "Can someone scan this sector and bring its Signal Anchor online?",
+    "description": "Survey the local signal field, select one stable landmark, and calibrate a permanent Signal Anchor for later agents.",
+    "completion_memory": "A Signal Anchor now registers this place in the shared survey.",
+    "visual_description": "A compact teal-and-coral Signal Anchor fixed beside one locally significant landmark, projecting a faint geometric scan volume; blank unmarked casing, no readable text, logo, or humanoid figure."
+  }
+}
+```
+
+These fields feed the Journal question, action card, completion memory, and
+future fixture-art prompt context. They are copied into the persisted
+generation-policy binding so replay does not change old places when a pack
+renames the action. “Lasting fixture” remains only the compatibility fallback
+for legacy packs; it is not Project 89 player copy.
+
+The **scan** is the action; the **Signal Anchor** is its durable result. It is a
+world fixture rather than portable inventory, cannot be traded or stolen, and
+comes online only when the validated scan action commits. Provider failure
+leaves placeholder presentation without undoing the authoritative fixture.
+Later faction projects may attach an Archive index, Chimera diagnostic, Green
+Loom ecological sensor, White Rabbit relay, or openly declared Oneirocom
+telemetry module. Those attachments add authored services; they never rename
+the anchor, change its place identity, or create a route by themselves.
+
+### NFT actor binding
 
 The durable identity is the NFT asset, not its current wallet:
 
@@ -421,34 +501,67 @@ Project 89 repository demonstrations or examples. They stay out of the first
 pack until Project 89 confirms that they are approved story canon rather than
 prototype fixtures.
 
-## Location list
+## Three-ring world map
 
 The Project 89 pack owns its internal routes. A separate composition pack owns
 the route between CosyWorld Core and the Threshold Interface.
 
+The world grows outward through three rings:
+
+1. **Operation Loop:** eight fully authored locations on one loop plus one
+   authored side-channel location.
+2. **Perimeter Relay Mesh:** eight authored anchors inside a persistent,
+   amorphous web of generated paths, cycles, junctions, and bounded spurs.
+3. **Open Signal Frontier:** four known authored sanctuary stations followed
+   by an indefinitely extensible generated frontier with no authored terminus.
+
+The complete topology, mesh-resilience contract, Ring 2 anchors, Ring 3
+stations, generation budgets, and safety rules live in
+[`project-89-world-map.md`](project-89-world-map.md).
+
+The tentative faction, actor, economy, item-lifecycle, and dynamic-evolution
+study lives in
+[`../../docs/worldpacks/project-89-systems-study.md`](../../docs/worldpacks/project-89-systems-study.md).
+Its new names and relationships are design hypotheses, not approved Project 89
+canon.
+
+The consolidated story, avatar, item, location, map, and relationship review
+lives in
+[`../../docs/worldpacks/project-89-content-review.md`](../../docs/worldpacks/project-89-content-review.md).
+
+### Ring 1 location list
+
 | Location | Safety | Purpose and exits |
 | --- | --- | --- |
-| **Threshold Interface** | Sanctuary | Wallet arrival, Proxim8 roster, active-trio selection, return to CosyWorld. Leads to the safehouse. |
-| **Sector 89 Safehouse** | Sanctuary | Social hub, equipment exchange, directives, recovery. Leads to the threshold, archives, and market. |
-| **89 Archives** | Safe investigation | Parzival, the Custodian, archive evidence, and the first operation clock. Leads to the safehouse and, once decoded, the meme farm. |
-| **Interference Market** | Safe frontier | Contacts, repairs, rumors, and two approaches to restricted Oneirocom space. Leads to the safehouse, meme farm, and Chimera lab. |
-| **Meme Farm 17** | Danger | Infiltration and consciousness rescue. Leads back to the market or forward to the tower after a rescue. |
-| **Project Chimera Lab** | Danger | Construct conflict, evidence, and the access-spine objective. Leads back to the market or forward to the tower. |
+| **Threshold Interface** | Sanctuary | Wallet arrival, Proxim8 roster, active-trio selection, and return to CosyWorld. Connects the safehouse and interference market sides of the loop. |
+| **Sector 89 Safehouse** | Sanctuary | Social hub, equipment exchange, directives, and recovery. Leads onward to the archives on the main loop. |
+| **89 Archives** | Safe investigation | Parzival, the Custodian, archive evidence, and the first operation clock. The decoded route leads to the meme farm. |
+| **Meme Farm 17** | Danger | Infiltration and consciousness rescue. Its forward edge reaches Oneirocom Tower after a rescue. |
 | **Oneirocom Tower** | Danger | Social or stealth confrontation with the Auditor. Requires archive evidence, a rescue, or the access spine. Leads to the convergence engine. |
 | **Convergence Engine** | Severe danger | Final operation with liberation and suppression clocks. Retreat returns to the tower; success opens the assembly. |
-| **Green Loom Assembly** | Sanctuary | Resolution, covenant choice, advancement, and a durable route back to the threshold. |
+| **Green Loom Assembly** | Sanctuary | Resolution, covenant choice, advancement, and the first unlock into Ring 2. The main loop continues toward the market. |
+| **Project Chimera Lab** | Danger | The loop's only side channel: construct conflict, evidence, and the access-spine objective. It branches from the market and can re-enter the main loop at the tower. |
+| **Interference Market** | Safe frontier | Contacts, repairs, rumors, and the final main-loop edge back to the threshold. It also opens the authored Chimera side channel. |
 
-The route shape is a fork, not a corridor:
+The stable authored cycle is:
 
 ```text
-Threshold -- Safehouse -- Archives ---- Meme Farm ----\
-                   \                                  Tower -- Engine -- Assembly
-                    Interference Market -- Chimera --/
+Threshold -> Safehouse -> Archives -> Meme Farm -> Tower -> Engine
+    ^                                                  |
+    |                                                  v
+Market <--------------- Green Loom Assembly <---------+
+  |
+  +-> Chimera Lab -> Tower   (one authored side channel)
 ```
 
-The safehouse, threshold, and assembly never receive offscreen danger or
-irreversible loss. Failure closes an approach, advances suppression, moves an
-actor, or costs a world item. It does not delete a Proxim8 or alter its NFT.
+Story locks and the single side channel can change available approaches
+without turning Ring 1 into a route mesh.
+Resolving the engine and recording the result at Green Loom Assembly sets
+`project89.inner_loop_liberated` and opens the first Ring 2 path. The
+safehouse, threshold, assembly, and all authored outer stations never receive
+offscreen danger or irreversible loss. Failure closes an approach, advances
+suppression, moves an actor, or costs a world item. It does not delete a
+Proxim8, alter its NFT, or spend Orbs.
 
 ## Item list
 
@@ -497,20 +610,48 @@ Proxim8 directives map to authored strategies on this job. A Signal Weaver
 might decode a terminal while a Bridge Envoy organizes an escape, but both
 still use checks, costs, clocks, and visible consequences.
 
+Operation Liberation is the Ring 1 campaign, not the end of the world:
+
+| Progression | Deterministic unlock | New play |
+| --- | --- | --- |
+| Resolve the Convergence Engine and record the outcome at Green Loom Assembly | `project89.inner_loop_liberated` | Opens Ring 2 at Memory Delta. |
+| Complete one station-gate project and prove two independent return routes through Ring 2 | Station-specific journal flag | Opens its corresponding Ring 3 sanctuary station. |
+| Connect all eight Ring 2 anchors into one resilient component and open all four stations | `project89.relay_mesh_resilient` | Allows generated frontiers from different stations to meet. |
+| Accept a legal survey action at a station or discovered frontier place | Idempotent generated-route receipt | Adds one bounded, persisted Ring 3 expansion; successive epochs provide no authored endpoint. |
+
+Ring progression is earned through authored play and exploration. NFT rarity,
+portrait redraws, and Orb balance cannot open a ring or improve its generated
+rewards.
+
 ## Pack and runtime shape
 
 The content should be split into:
 
-1. `project89.operation-liberation`, a world pack containing the locations,
-   residents, items, cards, factions, job, front, and clocks.
-2. `cosyworld.composition.core-project89`, a composition pack containing the
+1. `project89.operation-liberation`, the fully authored Ring 1 pack containing
+   the operation locations, residents, items, cards, factions, job, front, and
+   clocks.
+2. `project89.perimeter-relay`, the Ring 2 pack containing eight authored
+   anchors and a `regional_mesh` generated-pathway policy for cycles,
+   cross-links, bounded spurs, station gates, and redundant returns, derived
+   from the Holy Land safety contract.
+3. `project89.open-signal-frontier`, the Ring 3 pack containing four authored
+   stations and an epoch-extensible `open_frontier` generated-descendant
+   policy with no authored terminus.
+4. `project89.composition.three-rings`, an internal composition bridge owning
+   the declared authored routes and unlocks between the three packs.
+5. `cosyworld.composition.core-project89`, a composition pack containing the
    route between CosyWorld Core and the Threshold Interface.
-3. A new Rust-owned NFT actor materialization capability. Manifest v1 can
+6. A new Rust-owned NFT actor materialization capability. Manifest v1 can
    declare collection entitlements and card bindings, but it cannot currently
    declare a wallet-backed actor template or materialize an actor.
 
-The new capability must not land in the oversized orchestrator `main.rs`. It
-needs a focused module that owns:
+Using separate ring packs lets each generated descendant retain one
+unambiguous owner, collision namespace, migration policy, and topology budget
+under the current schema. The mounted composition is still presented to
+players as one Project 89 world.
+
+The new NFT capability must not land in the oversized orchestrator `main.rs`.
+It needs a focused module that owns:
 
 - collection authority resolution;
 - asset-to-actor bindings and profile receipts;

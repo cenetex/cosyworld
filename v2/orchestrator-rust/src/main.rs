@@ -16311,7 +16311,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "prose".to_string()),
             resident_continuity: self.resident_continuity_for(actor),
             economy_note: self.resident_economy_prompt_note(actor, None),
-            goals: self.narrative_goal_lines(None, actor.location_id),
+            goals: self.narrative_goal_lines(Some(actor.id), actor.location_id),
             location_name: self
                 .location_name(actor.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
@@ -20542,7 +20542,7 @@ impl RuntimeWorld {
     }
 
     fn narrative_goal_lines(&self, actor_id: Option<u64>, location_id: u64) -> Vec<String> {
-        let mut goals = Vec::new();
+        let mut goals = actor_id.map_or_else(Vec::new, actor_goal_lines);
         if let Some(job) = self.active_job_for_location(location_id) {
             let progress = self
                 .clocks
@@ -21155,7 +21155,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "prose".to_string()),
             resident_continuity: self.resident_continuity_for(npc),
             economy_note,
-            goals: self.narrative_goal_lines(None, npc.location_id),
+            goals: self.narrative_goal_lines(Some(npc.id), npc.location_id),
             location_name: self
                 .location_name(npc.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),

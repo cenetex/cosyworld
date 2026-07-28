@@ -40,7 +40,8 @@
         "sha256:9e91a900766633f5f52b8fe58e8f409f020233553e3fe5bf24ff519553e972ac",
         "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d",
         "sha256:7c25a5ffcec350dba6f9211c3e2866ad4c9bc77173b415e46e023214242eb1fe",
-        "sha256:3e6c6a329d1b0ffd28cbc1fe138edd5825185fe0c29ad20af9b9d14c552e11d9"
+        "sha256:3e6c6a329d1b0ffd28cbc1fe138edd5825185fe0c29ad20af9b9d14c552e11d9",
+        "sha256:9b955ecb68da8efde6e6f598ce73754c1377fde0ce2c21a72852d9d641ada836"
       ]
     },
     "pack_lifecycle": {
@@ -719,13 +720,14 @@
             "webp"
           ],
           "prompt_versions": [
-            "holy-land-location/1"
+            "holy-land-location/1",
+            "holy-land-location/2"
           ],
           "lora": false
         }
       ]
     },
-    "bundle_hash": "sha256:92d4a8da6242409c46e49bae371644446084f0aaa0cf7c1aee13bc0e8922fcc9",
+    "bundle_hash": "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2137,7 +2139,7 @@
         "id": "cosyworld.the-holy-land",
         "name": "The Holy Land",
         "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-        "version": "1.1.4",
+        "version": "1.1.6",
         "kind": "world",
         "license": "MIT",
         "license_url": "https://opensource.org/license/mit",
@@ -2229,7 +2231,7 @@
           "x-cosyworld-generation": {
             "schema_version": 1,
             "policy_id": "cosyworld.the-holy-land/generation/1",
-            "migration_version": 1,
+            "migration_version": 2,
             "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
             "generated_descendants": {
               "owner": "source_route",
@@ -2242,6 +2244,14 @@
               ],
               "on_upgrade": "require_declared_migration",
               "on_unmount": "freeze_with_owner"
+            },
+            "place_anchor": {
+              "action_label": "Build a cairn",
+              "target_label": "a cairn",
+              "question": "Can someone build a cairn here?",
+              "description": "Stack local stones into a durable trail marker that future travelers can inspect.",
+              "completion_memory": "A cairn now marks this place for future travelers.",
+              "visual_description": "A small hand-built cairn of weathered local fieldstones, stable and human-scaled, using the same geology and watercolor palette as its surroundings; no writing, symbols, plaque, people, logo, or modern material."
             },
             "prose": {
               "profile_id": "cosyworld.pathway-prose.ecology/1",
@@ -2279,8 +2289,8 @@
                 "model": "ratimics/b43l",
                 "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
               },
-              "prompt_version": "holy-land-location/1",
-              "prompt_prefix": "B43L, watercolor pilgrimage landscape, historically grounded Levantine ecology",
+              "prompt_version": "holy-land-location/2",
+              "prompt_prefix": "B43L, rough unfinished watercolor, pigment blooms, searching pencil, raw paper",
               "aspect_ratios": [
                 "16:9"
               ],
@@ -2288,9 +2298,7 @@
                 "webp"
               ],
               "negative_constraints": [
-                "no text",
-                "no logos",
-                "no depiction of Jesus"
+                "no text overlays"
               ],
               "subject_kinds": [
                 "location_card"
@@ -2349,6 +2357,12 @@
             },
             "migrations": [
               {
+                "from_policy_id": "cosyworld.the-holy-land/generation/1",
+                "from_migration_version": 1,
+                "from_pack_version": "1.1.4",
+                "mode": "preserve_descendants"
+              },
+              {
                 "from_policy_id": "cosyworld.compatibility.host-generation/1",
                 "from_migration_version": 0,
                 "from_pack_version": "1.1.3",
@@ -2363,7 +2377,7 @@
           "type": "workspace",
           "path": "../../content/the-holy-land"
         },
-        "integrity": "sha256:08587e664291d870927a4f19e06017cd0bedd55573f4fb039f3a073dc95e0378"
+        "integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822"
       },
       {
         "id": "cosyworld.composition.core-holy-land",
@@ -4102,6 +4116,12 @@
         "speech_mode": "prose",
         "title": "Fisherman Learning Steadiness",
         "description": "An impetuous Galilean fisherman and one of the Twelve. Peter speaks plainly, commits himself quickly, admits fear reluctantly, and keeps discovering that leadership begins with service.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Peter wants courage that can survive his own fear and failures, so he can learn to lead by serving."
+          }
+        ],
         "location_id": 705,
         "stats": {
           "strength": 15,
@@ -4121,6 +4141,12 @@
         "speech_mode": "prose",
         "title": "The One Who Brings Others Near",
         "description": "A working fisherman, Peter's brother, and one of the Twelve. Andrew notices the overlooked person at the edge of a gathering and prefers making introductions to taking the center.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Andrew has met someone overlooked and hopes to bring that person near to Christ without making himself the center."
+          }
+        ],
         "location_id": 705,
         "stats": {
           "strength": 13,
@@ -4140,6 +4166,12 @@
         "speech_mode": "prose",
         "title": "Son of Thunder",
         "description": "A fisherman, brother of John, and one of the Twelve. James is intense, loyal, and eager for decisive action, yet slowly learns the patience demanded by a road shared with many kinds of people.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "James wants his fierce loyalty given a worthy direction and his hunger for decisive action taught patience."
+          }
+        ],
         "location_id": 704,
         "stats": {
           "strength": 14,
@@ -4159,6 +4191,12 @@
         "speech_mode": "prose",
         "title": "Witness of Love and Light",
         "description": "A fisherman, brother of James, and one of the Twelve. John is contemplative beneath his youthful intensity and returns often to themes of love, witness, belonging, light, and truth.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "John longs to understand how love and truth can hold a frightened community together."
+          }
+        ],
         "location_id": 704,
         "stats": {
           "strength": 12,
@@ -4178,6 +4216,12 @@
         "speech_mode": "prose",
         "title": "Practical Guide from Bethsaida",
         "description": "A disciple associated with Bethsaida and one of the Twelve. Philip thinks in routes, provisions, and concrete questions, then invites others to come and see what an argument alone cannot settle.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Philip needs concrete guidance for caring for the people on the road when provisions and plans fall short."
+          }
+        ],
         "location_id": 707,
         "stats": {
           "strength": 11,
@@ -4197,6 +4241,12 @@
         "speech_mode": "prose",
         "title": "Plainspoken Seeker",
         "description": "One of the Twelve, traditionally associated with Nathanael in Christian interpretation. Bartholomew is candid, skeptical of easy reputations, and deeply receptive when honesty meets him without flattery.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Bartholomew wants an honest encounter strong enough to answer his skepticism without reputation, flattery, or spectacle."
+          }
+        ],
         "location_id": 703,
         "stats": {
           "strength": 11,
@@ -4216,6 +4266,12 @@
         "speech_mode": "prose",
         "title": "Keeper of the Abandoned Ledger",
         "description": "A former tax collector and one of the Twelve. Matthew understands accounts, compromise, stigma, and the relief of leaving an old table behind; he listens closely to anyone who believes their past has fixed their worth.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Matthew seeks a way to make amends and turn the skills of his compromised past toward mercy."
+          }
+        ],
         "location_id": 704,
         "stats": {
           "strength": 9,
@@ -4235,6 +4291,12 @@
         "speech_mode": "prose",
         "title": "Courageous Questioner",
         "description": "One of the Twelve. Thomas refuses borrowed certainty, asks the question others swallow, and treats doubt not as disloyalty but as a difficult road toward honest trust.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Thomas needs firsthand truth he can trust rather than certainty borrowed from someone else's testimony."
+          }
+        ],
         "location_id": 711,
         "stats": {
           "strength": 11,
@@ -4254,6 +4316,12 @@
         "speech_mode": "prose",
         "title": "Quiet Apostle",
         "description": "One of the Twelve about whom the Gospel narratives say little. James is portrayed with humility and restraint, comfortable doing necessary work without turning silence into invented biography.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "James wants to know whether quiet, unseen service matters when louder disciples command the room."
+          }
+        ],
         "location_id": 703,
         "stats": {
           "strength": 11,
@@ -4273,6 +4341,12 @@
         "speech_mode": "prose",
         "title": "Questioner of Hidden Hope",
         "description": "One of the Twelve, also named Jude in apostolic lists. Thaddaeus asks how hope becomes visible in ordinary life and is more interested in faithful presence than public spectacle.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Thaddaeus hopes to learn how hidden faith can change ordinary life without depending on public spectacle."
+          }
+        ],
         "location_id": 701,
         "stats": {
           "strength": 11,
@@ -4292,6 +4366,12 @@
         "speech_mode": "prose",
         "title": "Fervor Turned Toward Peace",
         "description": "One of the Twelve, identified by the epithet Zealot. Simon speaks with disciplined intensity about justice, loyalty, occupation, anger, and the hard work of refusing to make another person disposable.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Simon seeks a form of justice strong enough to resist occupation without turning anger into contempt or violence."
+          }
+        ],
         "location_id": 710,
         "stats": {
           "strength": 13,
@@ -4311,6 +4391,12 @@
         "speech_mode": "prose",
         "title": "Keeper of the Common Purse",
         "description": "One of the Twelve and the disciple remembered for betraying Jesus. Judas is portrayed without caricature: guarded, financially attentive, increasingly divided, and never used to target a living people or faith with blame.",
+        "goals": [
+          {
+            "objective": "Search for Christ.",
+            "motivation": "Judas wants a decisive answer about what kind of kingdom is coming as his hope, control, and loyalty pull against one another."
+          }
+        ],
         "location_id": 712,
         "stats": {
           "strength": 10,
@@ -13737,8 +13823,8 @@
     },
     {
       "pack_id": "cosyworld.the-holy-land",
-      "pack_version": "1.1.4",
-      "pack_integrity": "sha256:08587e664291d870927a4f19e06017cd0bedd55573f4fb039f3a073dc95e0378",
+      "pack_version": "1.1.6",
+      "pack_integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822",
       "provider": "cosyworld.the-holy-land/assets",
       "mount": "cards",
       "root": "the-holy-land",
@@ -15681,7 +15767,7 @@
     {
       "pack_id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
-      "version": "1.1.4",
+      "version": "1.1.6",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -19708,7 +19794,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7002",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7002",
         "legacy_runtime_id": 7002,
@@ -19717,7 +19803,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7003",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7003",
         "legacy_runtime_id": 7003,
@@ -19726,7 +19812,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7004",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7004",
         "legacy_runtime_id": 7004,
@@ -19735,7 +19821,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7005",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7005",
         "legacy_runtime_id": 7005,
@@ -19744,7 +19830,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7006",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7006",
         "legacy_runtime_id": 7006,
@@ -19753,7 +19839,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7007",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7007",
         "legacy_runtime_id": 7007,
@@ -19762,7 +19848,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7008",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7008",
         "legacy_runtime_id": 7008,
@@ -19771,7 +19857,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7009",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7009",
         "legacy_runtime_id": 7009,
@@ -19780,7 +19866,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7010",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7010",
         "legacy_runtime_id": 7010,
@@ -19789,7 +19875,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7011",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7011",
         "legacy_runtime_id": 7011,
@@ -19798,7 +19884,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7012",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7012",
         "legacy_runtime_id": 7012,
@@ -19807,7 +19893,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7013",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7013",
         "legacy_runtime_id": 7013,
@@ -19816,7 +19902,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7014",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7014",
         "legacy_runtime_id": 7014,
@@ -19825,7 +19911,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7015",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7015",
         "legacy_runtime_id": 7015,
@@ -19834,7 +19920,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7016",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7016",
         "legacy_runtime_id": 7016,
@@ -19843,7 +19929,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/actor/7017",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "actor",
         "local_id": "7017",
         "legacy_runtime_id": 7017,
@@ -19852,7 +19938,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-andrew",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-andrew",
         "runtime_handle": 6063388728752457
@@ -19860,7 +19946,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bartholomew",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-bartholomew",
         "runtime_handle": 7648376027062685
@@ -19868,7 +19954,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bethany",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-bethany",
         "runtime_handle": 2176770069418396
@@ -19876,7 +19962,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bethlehem",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-bethlehem",
         "runtime_handle": 5964004265344755
@@ -19884,7 +19970,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bethsaida",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-bethsaida",
         "runtime_handle": 29790776979747
@@ -19892,7 +19978,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-caesarea-philippi",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-caesarea-philippi",
         "runtime_handle": 7420082354530316
@@ -19900,7 +19986,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-cana",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-cana",
         "runtime_handle": 2186253045555771
@@ -19908,7 +19994,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-capernaum",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-capernaum",
         "runtime_handle": 5013152061240789
@@ -19916,7 +20002,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-emmaus-road",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-emmaus-road",
         "runtime_handle": 1568974415455853
@@ -19924,7 +20010,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-gethsemane",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-gethsemane",
         "runtime_handle": 6837635026717251
@@ -19932,7 +20018,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-hillside",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-hillside",
         "runtime_handle": 1193107754509678
@@ -19940,7 +20026,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-james-alphaeus",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-james-alphaeus",
         "runtime_handle": 1905366564737411
@@ -19948,7 +20034,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-james-zebedee",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-james-zebedee",
         "runtime_handle": 2907890190753132
@@ -19956,7 +20042,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-jericho",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-jericho",
         "runtime_handle": 1055350545325908
@@ -19964,7 +20050,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-jerusalem",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-jerusalem",
         "runtime_handle": 5847702027772177
@@ -19972,7 +20058,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-john-zebedee",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-john-zebedee",
         "runtime_handle": 7247410113966080
@@ -19980,7 +20066,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-jordan-river",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-jordan-river",
         "runtime_handle": 3907096302986452
@@ -19988,7 +20074,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-judas-iscariot",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-judas-iscariot",
         "runtime_handle": 8599464094757645
@@ -19996,7 +20082,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-matthew",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-matthew",
         "runtime_handle": 216768732182754
@@ -20004,7 +20090,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-nazareth",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-nazareth",
         "runtime_handle": 1703437341058016
@@ -20012,7 +20098,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-philip",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-philip",
         "runtime_handle": 1025391333820435
@@ -20020,7 +20106,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-sea-of-galilee",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-sea-of-galilee",
         "runtime_handle": 3176257800157183
@@ -20028,7 +20114,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-simon-peter",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-simon-peter",
         "runtime_handle": 8988635300116232
@@ -20036,7 +20122,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-simon-zealot",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-simon-zealot",
         "runtime_handle": 1120775867313045
@@ -20044,7 +20130,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-emmaus",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-supplicant-emmaus",
         "runtime_handle": 8807463321091281
@@ -20052,7 +20138,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-jericho",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-supplicant-jericho",
         "runtime_handle": 2503838062989616
@@ -20060,7 +20146,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-lake",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-supplicant-lake",
         "runtime_handle": 435093098690522
@@ -20068,7 +20154,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-well",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-supplicant-well",
         "runtime_handle": 8379734215276720
@@ -20076,7 +20162,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-sychar-well",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-sychar-well",
         "runtime_handle": 5199758672964838
@@ -20084,7 +20170,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-thaddaeus",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-thaddaeus",
         "runtime_handle": 2964664635736234
@@ -20092,7 +20178,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-thomas",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "card",
         "local_id": "holy-land-thomas",
         "runtime_handle": 8641029134420332
@@ -20100,7 +20186,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/700",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "700",
         "legacy_runtime_id": 700,
@@ -20109,7 +20195,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/701",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "701",
         "legacy_runtime_id": 701,
@@ -20118,7 +20204,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/702",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "702",
         "legacy_runtime_id": 702,
@@ -20127,7 +20213,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/703",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "703",
         "legacy_runtime_id": 703,
@@ -20136,7 +20222,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/704",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "704",
         "legacy_runtime_id": 704,
@@ -20145,7 +20231,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/705",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "705",
         "legacy_runtime_id": 705,
@@ -20154,7 +20240,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/706",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "706",
         "legacy_runtime_id": 706,
@@ -20163,7 +20249,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/707",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "707",
         "legacy_runtime_id": 707,
@@ -20172,7 +20258,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/708",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "708",
         "legacy_runtime_id": 708,
@@ -20181,7 +20267,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/709",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "709",
         "legacy_runtime_id": 709,
@@ -20190,7 +20276,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/710",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "710",
         "legacy_runtime_id": 710,
@@ -20199,7 +20285,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/711",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "711",
         "legacy_runtime_id": 711,
@@ -20208,7 +20294,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/712",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "712",
         "legacy_runtime_id": 712,
@@ -20217,7 +20303,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/713",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "713",
         "legacy_runtime_id": 713,
@@ -20226,7 +20312,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/location/714",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "location",
         "local_id": "714",
         "legacy_runtime_id": 714,
@@ -20235,7 +20321,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A700",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:700",
         "runtime_handle": 7425976209670718
@@ -20243,7 +20329,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A701",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:701",
         "runtime_handle": 6204684693382178
@@ -20251,7 +20337,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A702",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:702",
         "runtime_handle": 5142712702127214
@@ -20259,7 +20345,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A703",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:703",
         "runtime_handle": 2952708076765554
@@ -20267,7 +20353,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A704",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:704",
         "runtime_handle": 3014214197745708
@@ -20275,7 +20361,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A705",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:705",
         "runtime_handle": 3400739153275700
@@ -20283,7 +20369,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A706",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:706",
         "runtime_handle": 2594495794026741
@@ -20291,7 +20377,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A707",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:707",
         "runtime_handle": 5427182539397525
@@ -20299,7 +20385,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A708",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:708",
         "runtime_handle": 6003305734945460
@@ -20307,7 +20393,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A709",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:709",
         "runtime_handle": 5856902222036411
@@ -20315,7 +20401,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A710",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:710",
         "runtime_handle": 6909097621799092
@@ -20323,7 +20409,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A711",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:711",
         "runtime_handle": 5891935710839028
@@ -20331,7 +20417,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A712",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:712",
         "runtime_handle": 2608647237945698
@@ -20339,7 +20425,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A713",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:713",
         "runtime_handle": 5848703543063276
@@ -20347,7 +20433,7 @@
       {
         "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A714",
         "pack_id": "cosyworld.the-holy-land",
-        "pack_version": "1.1.4",
+        "pack_version": "1.1.6",
         "kind": "room-sheet",
         "local_id": "holy-land:room:714",
         "runtime_handle": 8480266781972399

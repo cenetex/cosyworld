@@ -681,11 +681,20 @@ pub(super) struct SeedActorContent {
     #[serde(default)]
     pub(super) stats: Option<SeedStatBlockContent>,
     #[serde(default)]
+    pub(super) goals: Vec<SeedActorGoalContent>,
+    #[serde(default)]
     pub(super) desires: Vec<SeedResidentDesireContent>,
     #[serde(default)]
     pub(super) attachments: Vec<SeedResidentAttachmentContent>,
     #[serde(default)]
     pub(super) relationship: Option<SeedRelationshipContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedActorGoalContent {
+    pub(super) objective: String,
+    pub(super) motivation: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

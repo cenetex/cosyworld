@@ -758,6 +758,22 @@ pub(super) fn active_content() -> &'static SeedContent {
     content_registry().content()
 }
 
+pub(super) fn actor_goal_lines(actor_id: u64) -> Vec<String> {
+    active_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == actor_id)
+        .into_iter()
+        .flat_map(|actor| &actor.goals)
+        .map(|goal| {
+            format!(
+                "Personal goal: {} Private motivation: {}",
+                goal.objective, goal.motivation
+            )
+        })
+        .collect()
+}
+
 fn load_configured_registry() -> Result<ContentRegistry, String> {
     let path = std::env::var("COSYWORLD_CONTENT_REGISTRY_PATH")
         .map(PathBuf::from)
@@ -1067,6 +1083,33 @@ fn resolve_pack_graph(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn holy_land_disciples_have_distinct_private_search_motivations() {
+        let disciples = active_content()
+            .actors
+            .iter()
+            .filter(|actor| (7002..=7013).contains(&actor.id))
+            .collect::<Vec<_>>();
+        assert_eq!(disciples.len(), 12);
+        assert!(disciples.iter().all(|actor| actor.goals.len() == 1));
+        assert!(disciples
+            .iter()
+            .all(|actor| actor.goals[0].objective == "Search for Christ."));
+        assert_eq!(
+            disciples
+                .iter()
+                .map(|actor| actor.goals[0].motivation.as_str())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            disciples.len()
+        );
+        let goals = actor_goal_lines(7002);
+        assert!(goals.iter().any(|goal| {
+            goal.contains("Personal goal: Search for Christ.")
+                && goal.contains("Private motivation:")
+        }));
+    }
 
     fn capability(id: &str) -> SeedPackCapability {
         SeedPackCapability {

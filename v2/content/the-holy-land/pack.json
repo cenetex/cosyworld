@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
-  "version": "1.1.4",
+  "version": "1.1.6",
   "kind": "world",
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
@@ -74,7 +74,7 @@
     "x-cosyworld-generation": {
       "schema_version": 1,
       "policy_id": "cosyworld.the-holy-land/generation/1",
-      "migration_version": 1,
+      "migration_version": 2,
       "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
       "generated_descendants": {
         "owner": "source_route",
@@ -82,6 +82,14 @@
         "subject_kinds": ["route", "waypoint", "place", "location_card"],
         "on_upgrade": "require_declared_migration",
         "on_unmount": "freeze_with_owner"
+      },
+      "place_anchor": {
+        "action_label": "Build a cairn",
+        "target_label": "a cairn",
+        "question": "Can someone build a cairn here?",
+        "description": "Stack local stones into a durable trail marker that future travelers can inspect.",
+        "completion_memory": "A cairn now marks this place for future travelers.",
+        "visual_description": "A small hand-built cairn of weathered local fieldstones, stable and human-scaled, using the same geology and watercolor palette as its surroundings; no writing, symbols, plaque, people, logo, or modern material."
       },
       "prose": {
         "profile_id": "cosyworld.pathway-prose.ecology/1",
@@ -117,11 +125,11 @@
           "model": "ratimics/b43l",
           "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
         },
-        "prompt_version": "holy-land-location/1",
-        "prompt_prefix": "B43L, watercolor pilgrimage landscape, historically grounded Levantine ecology",
+        "prompt_version": "holy-land-location/2",
+        "prompt_prefix": "B43L, rough unfinished watercolor, pigment blooms, searching pencil, raw paper",
         "aspect_ratios": ["16:9"],
         "output_formats": ["webp"],
-        "negative_constraints": ["no text", "no logos", "no depiction of Jesus"],
+        "negative_constraints": ["no text overlays"],
         "subject_kinds": ["location_card"],
         "authored_art": "permanent",
         "community_art": "eligible",
@@ -146,6 +154,12 @@
         }
       },
       "migrations": [
+        {
+          "from_policy_id": "cosyworld.the-holy-land/generation/1",
+          "from_migration_version": 1,
+          "from_pack_version": "1.1.4",
+          "mode": "preserve_descendants"
+        },
         {
           "from_policy_id": "cosyworld.compatibility.host-generation/1",
           "from_migration_version": 0,

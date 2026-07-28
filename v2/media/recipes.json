@@ -46,6 +46,53 @@
         "style"
       ],
       "maximum_references": 4
+    },
+    {
+      "id": "project89.world-art.base/1",
+      "default_recipe": "replicate.ratimics-project89.v95f3d0eb",
+      "allowed_recipes": [
+        "replicate.ratimics-project89.v95f3d0eb"
+      ],
+      "operations": [
+        "base_generation",
+        "single_reference"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art"
+      ],
+      "reference_slots": [
+        "actor",
+        "item",
+        "location"
+      ],
+      "maximum_references": 1
+    },
+    {
+      "id": "project89.world-art.refinement/1",
+      "default_recipe": "replicate.project89-flux2.refinement",
+      "allowed_recipes": [
+        "replicate.project89-flux2.refinement"
+      ],
+      "operations": [
+        "single_reference",
+        "multi_reference"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art",
+        "room_scene"
+      ],
+      "reference_slots": [
+        "location",
+        "actor",
+        "item",
+        "prior_level",
+        "style"
+      ],
+      "maximum_references": 4
     }
   ],
   "recipes": [
@@ -72,6 +119,7 @@
       "references": {
         "minimum": 0,
         "maximum": 0,
+        "input_shape": "none",
         "input_field": null,
         "ordering": "caller",
         "prompt_semantics": "none",
@@ -109,6 +157,8 @@
         "transient_only": true
       },
       "prompt_template_version": "community-art/3",
+      "required_prompt_prefix": null,
+      "provider_defaults": {},
       "lora": {
         "weights_input": "lora_weights",
         "scale_input": "lora_scale"
@@ -146,6 +196,7 @@
       "references": {
         "minimum": 0,
         "maximum": 4,
+        "input_shape": "url_array",
         "input_field": "input_images",
         "ordering": "caller",
         "prompt_semantics": "indexed_image_1",
@@ -196,12 +247,181 @@
         "transient_only": true
       },
       "prompt_template_version": "community-reference/1",
+      "required_prompt_prefix": null,
+      "provider_defaults": {},
       "lora": null,
       "output": {
         "normalization": "single_url",
         "stable_storage": "required"
       },
       "fallback_recipe": "replicate.flux1-dev-lora.base"
+    },
+    {
+      "id": "replicate.ratimics-project89.v95f3d0eb",
+      "profile": "project89.world-art.base/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "ratimics",
+        "name": "project89",
+        "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6",
+        "revision_source": "https://replicate.com/ratimics/project89/versions/95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6/api",
+        "invocation": "pinned_version"
+      },
+      "state": "enabled",
+      "operations": [
+        "base_generation",
+        "single_reference"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art"
+      ],
+      "references": {
+        "minimum": 0,
+        "maximum": 1,
+        "input_shape": "single_url",
+        "input_field": "image",
+        "ordering": "caller",
+        "prompt_semantics": "indexed_image_1",
+        "supported_slots": [
+          "actor",
+          "item",
+          "location"
+        ]
+      },
+      "input_formats": [
+        "jpeg",
+        "png",
+        "gif",
+        "webp"
+      ],
+      "aspect_ratios": [
+        "1:1",
+        "16:9"
+      ],
+      "dimensions": {
+        "minimum": 256,
+        "maximum": 2048,
+        "multiple": 16
+      },
+      "output_formats": [
+        "webp"
+      ],
+      "supports_masks": false,
+      "seed_behavior": "optional",
+      "timeout_seconds": 120,
+      "cost_class": "project89_base_image",
+      "concurrency": 1,
+      "retry": {
+        "maximum_attempts": 2,
+        "transient_only": true
+      },
+      "prompt_template_version": "project89-art/2",
+      "required_prompt_prefix": "P89, anime style,",
+      "provider_defaults": {
+        "model": "dev",
+        "num_outputs": 1,
+        "num_inference_steps": 28,
+        "guidance": 3,
+        "lora_scale": 1,
+        "go_fast": false,
+        "megapixels": "1",
+        "output_quality": 80,
+        "disable_safety_checker": false,
+        "prompt_strength": 0.45
+      },
+      "lora": null,
+      "output": {
+        "normalization": "first_url",
+        "stable_storage": "required"
+      },
+      "fallback_recipe": null
+    },
+    {
+      "id": "replicate.project89-flux2.refinement",
+      "profile": "project89.world-art.refinement/1",
+      "provider": "replicate",
+      "model": {
+        "owner": "black-forest-labs",
+        "name": "flux-2-dev",
+        "revision": "7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050",
+        "revision_source": "https://replicate.com/black-forest-labs/flux-2-dev/versions/7bba46bdde863cfd7aaee87649a5aa49f39f368495dbea500998d1fcbb262050/api",
+        "invocation": "pinned_version"
+      },
+      "state": "enabled",
+      "operations": [
+        "single_reference",
+        "multi_reference"
+      ],
+      "intents": [
+        "avatar_card_art",
+        "item_card_art",
+        "location_card_art",
+        "room_scene"
+      ],
+      "references": {
+        "minimum": 1,
+        "maximum": 4,
+        "input_shape": "url_array",
+        "input_field": "input_images",
+        "ordering": "caller",
+        "prompt_semantics": "indexed_image_1",
+        "supported_slots": [
+          "location",
+          "actor",
+          "item",
+          "prior_level",
+          "style"
+        ]
+      },
+      "input_formats": [
+        "jpeg",
+        "png",
+        "gif",
+        "webp"
+      ],
+      "aspect_ratios": [
+        "match_input_image",
+        "custom",
+        "1:1",
+        "16:9",
+        "3:2",
+        "2:3",
+        "4:5",
+        "5:4",
+        "9:16",
+        "3:4",
+        "4:3"
+      ],
+      "dimensions": {
+        "minimum": 256,
+        "maximum": 1440,
+        "multiple": 32
+      },
+      "output_formats": [
+        "webp",
+        "jpg",
+        "png"
+      ],
+      "supports_masks": false,
+      "seed_behavior": "optional",
+      "timeout_seconds": 120,
+      "cost_class": "project89_refinement_image",
+      "concurrency": 1,
+      "retry": {
+        "maximum_attempts": 2,
+        "transient_only": true
+      },
+      "prompt_template_version": "project89-refinement/1",
+      "required_prompt_prefix": null,
+      "provider_defaults": {},
+      "lora": null,
+      "output": {
+        "normalization": "single_url",
+        "stable_storage": "required"
+      },
+      "fallback_recipe": null
     }
   ]
 }

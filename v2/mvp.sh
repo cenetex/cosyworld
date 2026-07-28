@@ -21,6 +21,7 @@ load_env_file "$PROJECT_ROOT/.env.local"
 
 HOST="${COSYWORLD_V2_HOST:-127.0.0.1}"
 PORT="${COSYWORLD_V2_PORT:-3102}"
+COSYWORLD_BROWSER_CHECK_RUNTIME=""
 BASE_URL="${COSYWORLD_V2_BASE_URL:-http://${HOST}:${PORT}}"
 WALLET="${COSYWORLD_MVP_WALLET:-dev-wallet}"
 SIGNED_SMOKE_WALLET="${COSYWORLD_SIGNED_SMOKE_WALLET:-DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES}"
@@ -299,11 +300,14 @@ run_cli_smoke() {
 run_browser_check() {
   local check_runtime
   check_runtime="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-browser-check.XXXXXX")"
+  COSYWORLD_BROWSER_CHECK_RUNTIME="$check_runtime"
   cleanup_browser_check() {
+    local runtime_path="${COSYWORLD_BROWSER_CHECK_RUNTIME:-}"
     stop_server
-    case "$check_runtime" in
-      */cosyworld-browser-check.*) rm -rf -- "$check_runtime" ;;
+    case "$runtime_path" in
+      */cosyworld-browser-check.*) rm -rf -- "$runtime_path" ;;
     esac
+    COSYWORLD_BROWSER_CHECK_RUNTIME=""
   }
   export COSYWORLD_V2_EVENT_DB_PATH="$check_runtime/events.sqlite"
   export COSYWORLD_V2_SNAPSHOT_PATH=off

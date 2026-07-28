@@ -498,6 +498,20 @@ describe("Content Pack Manifest v1", () => {
     })).toThrow(/unknown field wallet_asset_id/);
   });
 
+  it("allows authored actor goals in authoritative world entities", () => {
+    expect(() => validateWorldEntityResource("fixture.world", "actors", {
+      id: 1,
+      name: "Ada",
+      speech_mode: "prose",
+      title: "Seeker",
+      description: "Follows a difficult road.",
+      goals: [{
+        objective: "Find the missing guide.",
+        motivation: "She needs an answer only the guide can give.",
+      }],
+    })).not.toThrow();
+  });
+
   it("resolves dependencies in deterministic topological order", () => {
     const base = manifest("fixture.base");
     const feature = manifest("fixture.feature", {
@@ -636,6 +650,7 @@ describe("Content Pack Manifest v1", () => {
       "sha256:b9103b7cf66349cf12db45170c3b8f9cdaaaf1a1fc6aed95a98fb47c553ef62d",
       "sha256:7c25a5ffcec350dba6f9211c3e2866ad4c9bc77173b415e46e023214242eb1fe",
       "sha256:3e6c6a329d1b0ffd28cbc1fe138edd5825185fe0c29ad20af9b9d14c552e11d9",
+      "sha256:9b955ecb68da8efde6e6f598ce73754c1377fde0ce2c21a72852d9d641ada836",
     ]);
   });
 
