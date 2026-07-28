@@ -514,6 +514,14 @@ Append-only source actions and projected event history persist to:
 v2/orchestrator-rust/.runtime/cosyworld-v2-events.sqlite
 ```
 
+The event store runs in WAL mode with `synchronous=NORMAL`: readers never
+block behind the single writer, and commits stay crash-safe without an fsync
+per accepted action. Expect `*.sqlite-wal` and `*.sqlite-shm` sidecar files
+next to the database; back up all three together or use the SQLite backup
+API. The schema initializes once per store and is stamped into
+`PRAGMA user_version`; a deleted or replaced store re-initializes on the next
+write.
+
 Override or disable persistence with:
 
 ```sh

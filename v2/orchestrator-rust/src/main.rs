@@ -39575,7 +39575,30 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
     Ok(Duration::from_millis(millis))
 }
 
+/// Schema version stamped into `PRAGMA user_version` once the event-store
+/// DDL has run. Bump it when the DDL batch below gains a table so existing
+/// stores self-heal exactly once on the next initialize.
+const EVENT_STORE_SCHEMA_VERSION: i64 = 1;
+
+/// Ensures the event-store schema exists. The DDL batch is idempotent but
+/// takes the write lock, so steady-state command commits skip it: a store
+/// already stamped with the current schema version initializes once per
+/// boot, while a missing, replaced, or older store re-runs the DDL and
+/// self-heals.
 fn init_event_store(path: &Path) -> io::Result<()> {
+    if path.exists() {
+        let conn = open_event_store(path)?;
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .map_err(sqlite_error)?;
+        if version >= EVENT_STORE_SCHEMA_VERSION {
+            return Ok(());
+        }
+    }
+    initialize_event_store_schema(path)
+}
+
+fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;
@@ -39876,6 +39899,8 @@ fn init_event_store(path: &Path) -> io::Result<()> {
         [],
     )
     .map_err(sqlite_error)?;
+    conn.pragma_update(None, "user_version", EVENT_STORE_SCHEMA_VERSION)
+        .map_err(sqlite_error)?;
     Ok(())
 }
 
@@ -41280,7 +41305,10 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     )
     .map_err(sqlite_error)?;
     drop(conn);
-    init_event_store(path)?;
+    // The DELETEs above wiped the seed rows the version-gated initializer
+    // skips (for example canonical_world_state), so run the full schema and
+    // seed batch instead of the steady-state check.
+    initialize_event_store_schema(path)?;
     append_event_store(path, events)
 }
 
@@ -41830,7 +41858,21 @@ fn open_event_store(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(Duration::from_secs(5))
         .map_err(sqlite_error)?;
+    configure_event_store_pragmas(&conn)?;
     Ok(conn)
+}
+
+/// WAL lets readers proceed alongside the single writer and
+/// `synchronous=NORMAL` keeps commits crash-safe without an fsync per
+/// accepted action. `journal_mode` persists in the database header, so the
+/// update is a no-op once the store is in WAL; `synchronous` is
+/// per-connection and must be set on every open.
+fn configure_event_store_pragmas(conn: &Connection) -> io::Result<()> {
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .map_err(sqlite_error)?;
+    conn.pragma_update(None, "synchronous", "NORMAL")
+        .map_err(sqlite_error)?;
+    Ok(())
 }
 
 fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
@@ -49799,6 +49841,71 @@ mod tests {
         assert_eq!(before_second[0].day_index, 20_600);
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn event_store_uses_wal_and_initializes_schema_once() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-wal-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&path);
+
+        init_event_store(&path).expect("initialize WAL event store");
+        let conn = open_event_store(&path).expect("open WAL event store");
+        let journal_mode: String = conn
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .expect("read journal_mode");
+        assert_eq!(journal_mode.to_ascii_lowercase(), "wal");
+        let synchronous: i64 = conn
+            .query_row("PRAGMA synchronous", [], |row| row.get(0))
+            .expect("read synchronous");
+        assert_eq!(synchronous, 1, "synchronous must be NORMAL");
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("read user_version");
+        assert_eq!(version, EVENT_STORE_SCHEMA_VERSION);
+
+        // Steady-state init performs no DDL: dropping a table is not
+        // repaired while the store carries the current schema version.
+        conn.execute("DROP TABLE room_memory_chapters", [])
+            .expect("drop non-sentinel table");
+        drop(conn);
+        init_event_store(&path).expect("steady-state init is a no-op");
+        let conn = open_event_store(&path).expect("reopen WAL event store");
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sqlite_schema WHERE type = 'table'
+                    AND name = 'room_memory_chapters'
+                 )",
+                [],
+                |row| row.get(0),
+            )
+            .expect("check dropped table");
+        assert!(!table_exists, "steady-state init must not re-run DDL");
+        drop(conn);
+
+        // A replaced or missing store self-heals on the next initialize.
+        fs::remove_file(&path).expect("remove WAL event store");
+        fs::remove_file(path.with_extension("sqlite-wal")).ok();
+        fs::remove_file(path.with_extension("sqlite-shm")).ok();
+        init_event_store(&path).expect("replaced store re-initializes");
+        let conn = open_event_store(&path).expect("reopen self-healed store");
+        let healed: bool = conn
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'world_events'
+                 )",
+                [],
+                |row| row.get(0),
+            )
+            .expect("check self-healed schema");
+        assert!(healed, "replaced store must re-run schema DDL");
+        drop(conn);
+
+        let _ = fs::remove_file(&path);
     }
 
     #[test]

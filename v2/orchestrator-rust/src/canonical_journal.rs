@@ -2056,6 +2056,12 @@ fn open_canonical_store(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
         .map_err(sqlite_error)?;
+    // Match the event-store durability profile: WAL plus crash-safe,
+    // non-fsync-per-commit writes (see configure_event_store_pragmas).
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .map_err(sqlite_error)?;
+    conn.pragma_update(None, "synchronous", "NORMAL")
+        .map_err(sqlite_error)?;
     Ok(conn)
 }
 
