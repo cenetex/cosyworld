@@ -25,6 +25,7 @@ primary_region = "sjc"
   COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"
   COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"
   COSYWORLD_AI_VISION_REASONING_EFFORT = "low"
+  COSYWORLD_AI_REGISTRY_JSON = '{"schema_version":1,"snapshot_version":"cosyworld-prod-2026-07-28","declared":[{"requested_model_id":"openai/gpt-5.6-luna","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.6-luna"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["voice"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}}],"discovered":[]}'
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
 # Required production secrets:
