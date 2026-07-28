@@ -4,4 +4,8 @@
 # 73214 -> 73222: eight INDEX_HTML contract assertions for issue #461, pinning
 # the ordered-combat banner markup and the removal of the dealt timing cards.
 # Test-only, no new system; the behaviour itself lives in index.html.
-73222
+#
+# 73222 -> 73227: five INDEX_HTML contract assertions for issue #476, pinning
+# the image error fallback so generated art can never regress to the browser's
+# broken-image icon. Test-only; the behaviour lives in index.html.
+73227
