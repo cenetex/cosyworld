@@ -152,6 +152,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_dead_avatar_is_offered_a_new_beginning_rather_than_ordinary_actions() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Ended Tale");
+
+        // Alive, the avatar receives ordinary play.
+        let alive = runtime.state_response_with_presence(
+            Some(5000),
+            &AccessContext::default(),
+            Some(&BTreeSet::from([5000])),
+            false,
+        );
+        assert_ne!(alive.primary_action.kind, "create_avatar");
+
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("the avatar exists");
+        actor.status = CW_ACTOR_DEAD;
+
+        // Dead, the avatar still resolves through actor_by_id, so it used to
+        // fall through to ordinary actions: the client showed "this tale has
+        // ended" while the hand dealt Notice, and taking it failed as a stale
+        // offer with no way forward.
+        let ended = runtime.state_response_with_presence(
+            Some(5000),
+            &AccessContext::default(),
+            Some(&BTreeSet::from([5000])),
+            false,
+        );
+        assert_eq!(
+            ended.primary_action.kind, "create_avatar",
+            "a dead avatar must be offered a new beginning",
+        );
+        assert!(
+            !ended.primary_action.disabled,
+            "the new beginning must be reachable",
+        );
+    }
+
+    #[tokio::test]
     async fn knocked_out_avatar_remains_present_targetable_and_observable() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(

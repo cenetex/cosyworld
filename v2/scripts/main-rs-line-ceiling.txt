@@ -8,4 +8,8 @@
 # 73222 -> 73227: five INDEX_HTML contract assertions for issue #476, pinning
 # the image error fallback so generated art can never regress to the browser's
 # broken-image icon. Test-only; the behaviour lives in index.html.
-73227
+#
+# 73227 -> 73237: ten lines in primary_action so a dead avatar is offered a new
+# beginning instead of ordinary actions it can never submit. Existing function,
+# no new system.
+73237
