@@ -15,6 +15,9 @@ Start here:
   design method and authoring checklist.
 - [Project 89 Systems Study](project-89-systems-study.md) applies the method to
   the proposed three-ring Project 89 world.
+- [Project 89 Content Review](project-89-content-review.md) reviews the story,
+  avatars, residents, factions, items, locations, maps, relationships, and
+  remaining design risks as one playable whole.
 - [Worldpack Machine Contract](https://github.com/cenetex/cosyworld/blob/main/v2/docs/worldpacks.md)
   documents the current manifest, compiler, registry, generation, and runtime
   authority boundary.

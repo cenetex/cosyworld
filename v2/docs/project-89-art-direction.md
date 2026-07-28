@@ -93,6 +93,15 @@ the total does not exceed four.
 
 - Use text-to-image at `16:9`, LoRA scale `1.0`.
 - Use plain, unmarked architectural surfaces and simple light shapes.
+- Generate a newly discovered place without a Signal Anchor. The fixture
+  represents committed shared history, so it must never be anticipated by a
+  base image.
+- After `Scan the sector` commits, FLUX.2 may compose the approved Signal
+  Anchor fixture into the approved place image. Until that composition passes
+  review, render the deterministic fixture placeholder over the location.
+- Treat Signal Anchors as shared location infrastructure, not item art. Create
+  one approved fixture definition per profile revision, not one image per
+  player, wallet, or scan.
 - Explicitly exclude scale figures, humanoids, statues, mannequins, robots,
   signs, terminals, screens, labels, glyphs, logos, signatures, and
   watermarks.

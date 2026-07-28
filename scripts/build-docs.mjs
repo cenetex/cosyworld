@@ -145,7 +145,8 @@ async function buildNavigation(currentFilePath = null) {
       const worldpackOrder = new Map([
         ['index.md', 0],
         ['how-to-design-a-worldpack.md', 1],
-        ['project-89-systems-study.md', 2]
+        ['project-89-systems-study.md', 2],
+        ['project-89-content-review.md', 3]
       ]);
       files.sort((left, right) => {
         const leftName = path.basename(left);

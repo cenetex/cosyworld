@@ -300,6 +300,8 @@ world mutation.
 
 ## Materialization contract
 
+### Signal Anchor contract
+
 Generated-place anchoring uses the engine's stable internal milestone but
 worldpack-owned player language. Project 89 must publish this terminology in
 its `x-cosyworld-generation` policy:
@@ -308,11 +310,11 @@ its `x-cosyworld-generation` policy:
 {
   "place_anchor": {
     "action_label": "Scan the sector",
-    "target_label": "a completed sector scan",
-    "question": "Can someone scan this sector and register a stable landmark?",
-    "description": "Survey the local signal field and register one durable landmark for later agents.",
-    "completion_memory": "The sector scan now anchors this place in the shared survey.",
-    "visual_description": "A compact teal-and-coral survey beacon projecting a faint geometric scan volume over one locally significant landmark; blank unmarked casing, no readable text, logo, or humanoid figure."
+    "target_label": "a Signal Anchor",
+    "question": "Can someone scan this sector and bring its Signal Anchor online?",
+    "description": "Survey the local signal field, select one stable landmark, and calibrate a permanent Signal Anchor for later agents.",
+    "completion_memory": "A Signal Anchor now registers this place in the shared survey.",
+    "visual_description": "A compact teal-and-coral Signal Anchor fixed beside one locally significant landmark, projecting a faint geometric scan volume; blank unmarked casing, no readable text, logo, or humanoid figure."
   }
 }
 ```
@@ -322,6 +324,17 @@ future fixture-art prompt context. They are copied into the persisted
 generation-policy binding so replay does not change old places when a pack
 renames the action. “Lasting fixture” remains only the compatibility fallback
 for legacy packs; it is not Project 89 player copy.
+
+The **scan** is the action; the **Signal Anchor** is its durable result. It is a
+world fixture rather than portable inventory, cannot be traded or stolen, and
+comes online only when the validated scan action commits. Provider failure
+leaves placeholder presentation without undoing the authoritative fixture.
+Later faction projects may attach an Archive index, Chimera diagnostic, Green
+Loom ecological sensor, White Rabbit relay, or openly declared Oneirocom
+telemetry module. Those attachments add authored services; they never rename
+the anchor, change its place identity, or create a route by themselves.
+
+### NFT actor binding
 
 The durable identity is the NFT asset, not its current wallet:
 
@@ -510,6 +523,10 @@ study lives in
 [`../../docs/worldpacks/project-89-systems-study.md`](../../docs/worldpacks/project-89-systems-study.md).
 Its new names and relationships are design hypotheses, not approved Project 89
 canon.
+
+The consolidated story, avatar, item, location, map, and relationship review
+lives in
+[`../../docs/worldpacks/project-89-content-review.md`](../../docs/worldpacks/project-89-content-review.md).
 
 ### Ring 1 location list
 

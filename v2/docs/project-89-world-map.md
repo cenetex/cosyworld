@@ -178,6 +178,15 @@ profiles but does not merge faction rules or invent a new authority.
 - Proxim8 agents may independently volunteer to scout a legal frontier route,
   but the holder or another authorized actor must accept the authored survey
   action before new topology is committed.
+- Project 89 never builds a cairn. Its generated-place anchor action is
+  **Scan the sector**, and the durable result is a teal-and-coral **Signal
+  Anchor** calibrated beside one locally significant landmark.
+- A Signal Anchor is shared world infrastructure, not inventory. It registers
+  the place for return navigation and future authored services but cannot
+  create a route, reward, faction, sanctuary, or unlock.
+- Faction modules may extend an online Signal Anchor only through authored
+  projects with typed effects and visible provenance. Oneirocom telemetry must
+  be disclosed rather than hidden in a cosmetic description.
 
 ## Art coverage
 
@@ -192,6 +201,11 @@ frontier places use the same registered two-stage visual pipeline:
 
 Location art is shared by the world place. It is never regenerated per wallet,
 visitor, or Proxim8.
+
+Signal Anchor presentation uses the same frozen Project 89 palette and may be
+composed into a generated place only after the anchor action commits. Media
+failure leaves the common fixture placeholder online and never blocks travel,
+mapping, or later service attachment.
 
 The first cross-system study of how this topology supports characters,
 factions, economics, special items, and dynamic evolution lives in

@@ -12,6 +12,9 @@ do not define V2 behavior.
 - **[Project 89 Systems Study](worldpacks/project-89-systems-study.md)** —
   first-pass map, faction, actor, economy, item, and simulation graphs for the
   three-ring Project 89 pack.
+- **[Project 89 Content Review](worldpacks/project-89-content-review.md)** —
+  consolidated story, avatar, resident, faction, item, location, map, and
+  relationship review, including the Signal Anchor contract.
 - **[Product Requirements](../PRD.md)** — current product law, including the
   card-composed world, seventh-visit priority, and acceptance criteria.
 - **[SRD-Backed Action and Collectible System](systems/04-action-system.md)** —

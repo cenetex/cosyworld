@@ -250,6 +250,7 @@ flowchart LR
 | Verified access | Attributed evidence, clearances | Non-fungible and usually non-transferable | Used to open approaches, public findings, or policy changes |
 | Reciprocal ledgers | Green Loom trust, Archive access, Rabbit favors, Chimera covenant | Earned by accountable work; cannot be sold | Services and authored concessions, with bounded tiers |
 | Unique objectives | Capsules, keys, anchors | Item-specific custody | Resolution, recovery, inert memorial state |
+| World fixtures | Signal Anchors | Place-bound; neither inventory nor property | Sector registration, return navigation, authored faction-service attachments |
 | Meta currency | Orbs | Account-level only | Approved cosmetic media jobs |
 
 The ledgers record relationships; they are not spendable money and never decay
@@ -284,6 +285,12 @@ system before adding rarity:
 | Combat capability | Neural Disruptor | Offer bounded force with sanctuary and target restrictions. |
 | Covenant memory | Green Loom Thread | Record a durable choice without a raw stat bonus. |
 
+Signal Anchors sit outside this inventory table. **Scan the sector** is the
+authored action and the Signal Anchor is the committed, place-bound fixture.
+It cannot be carried, sold, stolen, or used as a progression key. Its base
+service registers a generated place in the shared survey; faction projects may
+later attach bounded services with visible provenance.
+
 Before Ring 2 implementation, specify a recovery state machine for every unique
 key:
 
@@ -304,7 +311,7 @@ Add an item only if playtests prove one of these jobs is missing:
 
 | Candidate | Job | Proposed lifecycle |
 | --- | --- | --- |
-| **Survey Spool** | Pays the in-world capacity cost for one frontier proposal. | Fabricated from fibre and charge; consumed only when topology commits successfully. |
+| **Survey Spool** | Supplies field capacity for bringing one Signal Anchor online. | Fabricated from fibre and charge; consumed only when the validated scan and anchor commit succeeds. |
 | **Beacon Tuning Fork** | Lets a group diagnose a Ring 2 beacon before choosing a faction method. | Shared tool, exhausted for an expedition, repairable at a hub. |
 | **Junction Compass** | Reveals eligible meeting fronts after `perimeter_complete`. | Covenant reward; actor-bound; informational only. |
 | **Construct Consent Seal** | Records a Chimera actor's approved repair and custody terms. | Non-transferable evidence, revocable by the actor, never an ownership token. |
