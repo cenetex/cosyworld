@@ -1,5 +1,25 @@
 use super::*;
 
+/// Boot-time checkpoint rejections, surfaced through `/meta.persistence` so a
+/// checkpoint that silently converts every boot into a full replay is visible
+/// in telemetry rather than only in logs. Rejections only happen during boot,
+/// so a process-lifetime record is exact.
+static CHECKPOINT_REJECTIONS: StdMutex<(u64, Option<String>)> = StdMutex::new((0, None));
+
+pub(super) fn record_checkpoint_rejection(reason: &str) {
+    if let Ok(mut rejections) = CHECKPOINT_REJECTIONS.lock() {
+        rejections.0 = rejections.0.saturating_add(1);
+        rejections.1 = Some(reason.to_string());
+    }
+}
+
+pub(super) fn checkpoint_rejection_report() -> (u64, Option<String>) {
+    CHECKPOINT_REJECTIONS
+        .lock()
+        .map(|rejections| rejections.clone())
+        .unwrap_or((0, None))
+}
+
 macro_rules! replay_journal_continuity {
     ($journal_path:expr, $snapshot_path:expr $(,)?) => {{
         let journal_path = $journal_path;
@@ -24,6 +44,10 @@ macro_rules! replay_journal_continuity {
                             journal_path.display(),
                             error
                         );
+                        $crate::journal_checkpoint::record_checkpoint_rejection(&format!(
+                            "{}: {error}",
+                            snapshot_path.display()
+                        ));
                         RuntimeWorld::from_action_journal(journal_path)
                     }
                 }

@@ -22,4 +22,9 @@
 # canonical_journal.rs; main.rs only gains the AppState field, the retention
 # scheduler mirroring start_moderation_retention_scheduler, /meta.persistence
 # reporting, and their tests. Existing persistence seam, no new system.
-73573
+#
+# 73573 -> 73589: checkpoint rejection telemetry for issue #486. main.rs only
+# gains the AppState fields, /meta.persistence reporting, and the boot-duration
+# log; the reconciliation itself lives in topology.rs and generation_policy.rs,
+# and the rejection record in journal_checkpoint.rs. Existing persistence seam.
+73589

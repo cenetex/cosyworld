@@ -215,6 +215,8 @@ struct AppState {
     moderation_report_retention: ModerationReportRetention,
     story_metrics_retention: StoryMetricsRetention,
     command_receipt_retention: CommandReceiptRetention,
+    checkpoint_rejections: u64,
+    last_checkpoint_rejection: Option<String>,
     allow_unsigned_wallet_claims: bool,
 }
 const CANONICAL_WORLD_PARTITION: &str = "world";
@@ -2454,6 +2456,8 @@ struct MetaPersistence {
     command_receipt_retention_days: Option<u64>,
     retained_command_receipts: usize,
     retained_command_receipt_bytes: usize,
+    checkpoint_rejections: u64,
+    last_checkpoint_rejection: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -5340,6 +5344,7 @@ fn random_hex(byte_count: usize) -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let boot_started = std::time::Instant::now();
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -5364,7 +5369,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "127.0.0.1:3102".to_string())
         .parse()?;
     let listener = TcpListener::bind(addr).await?;
-    info!("CosyWorld v2 orchestrator listening on http://{addr}");
+    info!(
+        "CosyWorld v2 orchestrator listening on http://{addr} after {}ms",
+        boot_started.elapsed().as_millis()
+    );
 
     let server = axum::serve(
         listener,
@@ -5512,6 +5520,8 @@ impl AppState {
         let moderation_report_retention = ModerationReportRetention::from_env()?;
         let story_metrics_retention = StoryMetricsRetention::from_env()?;
         let command_receipt_retention = CommandReceiptRetention::from_env()?;
+        let (checkpoint_rejections, last_checkpoint_rejection) =
+            journal_checkpoint::checkpoint_rejection_report();
         let ai_config = Arc::new(AiConfig::from_env().map_err(deployment_config_error)?);
         let generation_controls =
             Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
@@ -5812,6 +5822,8 @@ impl AppState {
             moderation_report_retention,
             story_metrics_retention,
             command_receipt_retention,
+            checkpoint_rejections,
+            last_checkpoint_rejection,
             allow_unsigned_wallet_claims,
         })
     }
@@ -23550,6 +23562,8 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             command_receipt_retention_days: state.command_receipt_retention.days,
             retained_command_receipts,
             retained_command_receipt_bytes,
+            checkpoint_rejections: state.checkpoint_rejections,
+            last_checkpoint_rejection: state.last_checkpoint_rejection.clone(),
         },
         ownership_feed: MetaOwnershipFeed {
             inline_configured: ownership_feed.inline_feed.is_some(),
@@ -72924,6 +72938,8 @@ mod tests {
             },
             story_metrics_retention: StoryMetricsRetention::default(),
             command_receipt_retention: CommandReceiptRetention::default(),
+            checkpoint_rejections: 0,
+            last_checkpoint_rejection: None,
             allow_unsigned_wallet_claims: false,
         };
         let mut rx = state.tx.subscribe();
