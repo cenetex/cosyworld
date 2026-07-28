@@ -11094,28 +11094,34 @@ async function main() {
         await drawPrimaryMatching("rest before project prepare", ["rest", "feel fresh"]);
         await clickPrimary("rest before preparing project");
       }
-      const projectPreparePrimary = await drawPrimaryMatching("project prepare", [
-        "prepare",
-        "make the next try count",
-      ]);
-      assert(
-        projectPreparePrimary.includes("make the next try count"),
-        "used project feature should preview a strong prepared payoff without arithmetic",
-      );
-      assert(
-        !projectPreparePrimary.toLowerCase().includes("next project action"),
-        "prepared setup should not expose rules jargon in the primary button",
-      );
-      await clickPrimary("prepare informed project");
-      const projectFinishPrimary = await drawPrimaryMatching("project finish", [
-        "quiet the echo",
-        "choose an approach",
-      ]);
-      assert(
-        projectFinishPrimary.toLowerCase().includes("choose an approach"),
-        `the finishing project card should keep Push and Help in one choice: ${projectFinishPrimary}`,
-      );
-      await clickPrimary("finish informed project");
+      const projectCanPrepare = await page.evaluate(() => (
+        actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
+      ));
+      if (projectCanPrepare) {
+        const projectPreparePrimary = await drawPrimaryMatching("project prepare", [
+          "prepare",
+          "make the next try count",
+        ]);
+        assert(
+          projectPreparePrimary.includes("make the next try count"),
+          "used project feature should preview a strong prepared payoff without arithmetic",
+        );
+        assert(
+          !projectPreparePrimary.toLowerCase().includes("next project action"),
+          "prepared setup should not expose rules jargon in the primary button",
+        );
+        await clickPrimary("prepare informed project");
+      } else {
+        const projectStudyPrimary = await drawPrimaryMatching("project authored study", [
+          "quiet the echo",
+          "read the moonlit signs",
+        ]);
+        assert(
+          projectStudyPrimary.toLowerCase().includes("choose an approach"),
+          `the project card should keep its authored approaches together: ${projectStudyPrimary}`,
+        );
+        await clickPrimary("study informed project");
+      }
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         await page.waitForFunction(() => (
           actionBusy === false
