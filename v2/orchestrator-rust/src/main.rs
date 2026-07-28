@@ -167,6 +167,9 @@ struct AppState {
     tx: broadcast::Sender<EventView>,
     deployment: DeploymentConfig,
     snapshot_path: Option<Arc<PathBuf>>,
+    /// Wall-clock millis of the last snapshot write, used to coalesce them.
+    /// Zero means never written, so the first call always persists.
+    last_snapshot_at_ms: Arc<AtomicU64>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     event_store_path: Option<Arc<PathBuf>>,
     event_store_health: Arc<StdMutex<EventStoreHealth>>,
@@ -5339,6 +5342,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     configured_content_registry().map_err(io::Error::other)?;
     let state = AppState::bootstrap().await?;
+    let shutdown_state = state.clone();
     let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
     start_focused_encounter_scheduler(state.clone());
     start_actor_job_worker(state.clone());
@@ -5359,13 +5363,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         app.into_make_service_with_connect_info::<SocketAddr>(),
     );
     if env_flag("COSYWORLD_DISABLE_CTRL_C_SHUTDOWN") {
-        server.await?;
+        // The flag exists so a detached session survives a stray SIGINT. It must
+        // not mean "ignore SIGTERM": that is how Fly stops a machine and how the
+        // composition smoke stops a server before running the offline pack-mount
+        // migration, and dying unhandled there would strand the coalesced
+        // snapshot behind the journal head.
+        server.with_graceful_shutdown(terminate_signal()).await?;
     } else {
-        server
-            .with_graceful_shutdown(async {
-                let _ = signal::ctrl_c().await;
-            })
-            .await?;
+        server.with_graceful_shutdown(shutdown_signal()).await?;
+    }
+
+    // Snapshot writes are coalesced during play, so the last one may be older
+    // than the journal. Force a final write on the way out; the journal would
+    // still rebuild the gap, but this keeps the next boot cheap.
+    {
+        let runtime = shutdown_state.inner.lock().await;
+        persist_runtime_now(&shutdown_state, &runtime);
     }
 
     Ok(())
@@ -5737,6 +5750,7 @@ impl AppState {
             tx,
             deployment,
             snapshot_path,
+            last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path,
             event_store_path,
             event_store_health: Arc::new(StdMutex::new(event_store_health)),
@@ -38879,7 +38893,87 @@ fn journal_commit_recovery_error(
     io::Error::new(commit_error.kind(), message)
 }
 
+/// Snapshots are disposable boot accelerators; the append-only action journal
+/// is the source of truth, and replaying it rebuilds state. Writing the whole
+/// world synchronously on every call therefore bought no durability while
+/// dominating command latency: a ~7.8 MB serialize, write, and rename ran
+/// inside the global world lock on every interaction, including read-only ones
+/// like `look`. Measured locally, that was roughly 90% of command latency —
+/// `look` 206ms -> 21ms and `listen` 442ms -> 61ms with snapshots disabled —
+/// and it is worse on a network-backed volume.
+///
+/// Coalesce instead: write at most once per interval, and let the journal cover
+/// the gap. A snapshot that trails the journal by a few seconds only costs a
+/// slightly longer replay at boot. See issue #481.
+/// Resolve when the process is asked to stop, by either SIGINT or SIGTERM.
+///
+/// SIGTERM matters as much as SIGINT here: Fly sends it on every deploy and
+/// restart, and the composition smoke stops servers with it before running the
+/// offline pack-mount migration. That migration requires the on-disk snapshot
+/// to match the journal head, so an unhandled SIGTERM — which kills the process
+/// before the final forced snapshot — would leave a snapshot trailing the
+/// journal now that ordinary writes are coalesced.
+async fn terminate_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal as unix_signal, SignalKind};
+        match unix_signal(SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                terminate.recv().await;
+            }
+            Err(error) => {
+                warn!("failed to install SIGTERM handler: {}", error);
+                std::future::pending::<()>().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        std::future::pending::<()>().await;
+    }
+}
+
+async fn shutdown_signal() {
+    tokio::select! {
+        _ = signal::ctrl_c() => {}
+        _ = terminate_signal() => {}
+    }
+}
+
+const SNAPSHOT_MIN_INTERVAL_MS_DEFAULT: u64 = 5_000;
+
+fn snapshot_min_interval_ms() -> u64 {
+    std::env::var("COSYWORLD_V2_SNAPSHOT_MIN_INTERVAL_MS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(SNAPSHOT_MIN_INTERVAL_MS_DEFAULT)
+}
+
 fn persist_runtime(state: &AppState, runtime: &RuntimeWorld) {
+    persist_runtime_with_policy(state, runtime, false);
+}
+
+/// Write regardless of the coalescing interval. Used where the process may not
+/// get another chance, such as shutdown.
+fn persist_runtime_now(state: &AppState, runtime: &RuntimeWorld) {
+    persist_runtime_with_policy(state, runtime, true);
+}
+
+fn persist_runtime_with_policy(state: &AppState, runtime: &RuntimeWorld, force: bool) {
+    let now = now_millis();
+    let due = force || {
+        let interval = snapshot_min_interval_ms();
+        let last = state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed);
+        last == 0 || now.saturating_sub(last) >= interval
+    };
+    if !due {
+        return;
+    }
+    // Claim the slot before writing so concurrent callers do not queue behind
+    // each other on the same interval.
+    state
+        .last_snapshot_at_ms
+        .store(now, AtomicOrdering::Relaxed);
     if let Some(path) = state.snapshot_path.as_deref() {
         if let Err(error) = runtime.save_snapshot(path) {
             warn!(
@@ -69791,6 +69885,59 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_writes_coalesce_and_a_forced_write_always_persists() {
+        let runtime = RuntimeWorld::seeded();
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-coalesce-{}-{}.json",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&snapshot_path);
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), None);
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        state.resident_continuity_path = None;
+
+        // The first write always lands, so a fresh process is never left
+        // without a boot accelerator.
+        persist_runtime(&state, &runtime);
+        let first = fs::metadata(&snapshot_path)
+            .expect("first snapshot persisted")
+            .len();
+        assert!(first > 0);
+        let claimed = state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed);
+        assert!(claimed > 0, "the write records when it happened");
+
+        // Immediately following writes are coalesced. Previously every command,
+        // including read-only ones, paid a full multi-megabyte serialize and
+        // write inside the global world lock.
+        for _ in 0..5 {
+            persist_runtime(&state, &runtime);
+        }
+        assert_eq!(
+            state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed),
+            claimed,
+            "writes inside the interval are skipped rather than repeated",
+        );
+
+        // A forced write ignores the interval, which is what shutdown uses so a
+        // coalesced write is never simply lost.
+        persist_runtime_now(&state, &runtime);
+        assert!(
+            state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed) >= claimed,
+            "a forced write always persists",
+        );
+        assert!(
+            fs::metadata(&snapshot_path)
+                .expect("snapshot still present")
+                .len()
+                > 0
+        );
+
+        let _ = fs::remove_file(snapshot_path);
+    }
+
+    #[test]
     fn journal_backed_runtime_writes_checkpoint_snapshots() {
         let runtime = RuntimeWorld::seeded();
         let event_store_path = std::env::temp_dir().join(format!(
@@ -72541,6 +72688,7 @@ mod tests {
             tx,
             deployment: DeploymentConfig::local(),
             snapshot_path: None,
+            last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path: None,
             event_store_path: None,
             event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),

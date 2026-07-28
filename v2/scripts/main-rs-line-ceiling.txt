@@ -12,4 +12,8 @@
 # 73227 -> 73237: ten lines in primary_action so a dead avatar is offered a new
 # beginning instead of ordinary actions it can never submit. Existing function,
 # no new system.
-73237
+#
+# 73237 -> 73385: snapshot write coalescing for issue #481, plus its test. The
+# per-command multi-megabyte snapshot write was roughly 90% of command latency.
+# Existing persistence seam, no new system.
+73385
