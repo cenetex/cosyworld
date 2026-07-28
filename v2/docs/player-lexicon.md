@@ -1,9 +1,10 @@
 # Player lexicon
 
 CosyWorld uses different nouns for a choice, a collectible memory, access, a
-collection reveal, and installed world content. Internal schemas retain their
-stable `card_*`, `*_card_ids`, and `pack_*` fields; this glossary governs
-player-facing copy, accessibility labels, and analytics names.
+collection reveal, installed world content, and the chronicle of a place.
+Internal schemas retain their stable `card_*`, `*_card_ids`, and `pack_*`
+fields; this glossary governs player-facing copy, accessibility labels, and
+analytics names.
 
 ## Canonical concepts
 
@@ -14,6 +15,7 @@ player-facing copy, accessibility labels, and analytics names.
 | Permission to enter a gated place | **pass** or **access** | A mounted world pack declares the grant; a verified entitlement provider proves it. The kernel receives only allowed/denied movement. | Dormant if its consuming world pack is unmounted; does not alter world state. | Locked-place badge reading “pass required”; `data-player-concept="pass"`. |
 | A revealable group of keepsakes | **bundle** | A verified Box receipt or trusted ownership feed associates the unopened bundle with an account. | Opened once; yields keepsakes and leaves a durable receipt. | Avatar Bundle tile and “open bundle” action; `data-player-concept="bundle"`. |
 | Installable or mounted experience content | **world pack** | The canonical world composition owns the mount decision; wallet possession cannot mount code or content. | Installed, mounted, unmounted, and version-locked by operators. | World Library entry; `data-player-concept="world-pack"`. |
+| The player-facing chronicle of a place | **Journal** | Canonical events remain world authority; the server deterministically groups their meaningful outcomes for presentation. | Current context and open threads change with state; story history remains ordered and replay-derived. | Journal toggle, semantic history entries, and useful disclosures; `data-player-concept="journal"`. |
 
 A **Box** keeps its proper name. It is the on-chain object consumed by the
 receipted flow that creates an Avatar Bundle; it is neither the bundle nor a
@@ -32,6 +34,18 @@ world pack.
   a pack in player copy.
 - Use **world pack** in the World Library and content architecture. Do not use
   bare “pack” when a bundle could be meant.
+- Use **Journal** for the player chronicle. Its three regions are current
+  place, open threads, and story so far. Do not call it an event Log, debug
+  console, quest dashboard, or raw history.
+- Journal category labels come from the closed set **story**, **discovery**,
+  **travel**, **search**, **relationship**, **growth**, **work**, **item**, and
+  **consequence**. The implementation may group multiple source events beneath
+  one entry; “story beat” is projection terminology, not required player copy.
+- Never expose **event**, **tag**, dotted event keys, source sequence numbers,
+  payload delimiters, arrow movement, or “Something changed” as Journal copy.
+  An unmapped source is omitted and reported as missing presentation coverage.
+- A Journal row is expandable only when the expanded content adds a fact. The
+  header ticker repeats the latest visible entry headline exactly.
 
 The internal API remains compatible: `cards`, `card_id`, `required_card_id`,
 `unopened_pack_ids`, `/nft/packs/open`, and related database names do not change.
@@ -50,14 +64,18 @@ generic `card.click` or `pack.open`:
 | `keepsake.collection.open`, `keepsake.open`, `keepsake.toggle` | inspect the collection, inspect a keepsake, or change the kept-close loadout |
 | `bundle.open` | reveal one Avatar Bundle |
 | `world_pack.library.open` | open the mounted World Library |
+| `journal.open`, `journal.close` | open or close the player Journal |
+| `journal.entry.expand` | reveal additive context for one Journal entry |
 
 Pass requirements are currently read-only badges, so they expose a concept but
 do not emit a click event. If a pass-purchase or claim flow is added, its event
-namespace is `pass.*`.
+namespace is `pass.*`. Journal entries expose no raw event identity through
+accessibility labels; the accessible headline and detail follow the same
+semantic projection as the visual row.
 
-## Five-task comprehension check
+## Six-task comprehension check
 
-The UI copy contract answers these five tasks without relying on art or layout:
+The UI copy contract answers these six tasks without relying on art or layout:
 
 | Task | The player should choose or identify | Required cue |
 | --- | --- | --- |
@@ -66,8 +84,9 @@ The UI copy contract answers these five tasks without relying on art or layout:
 | Explain why a school room is locked | a **pass** | “Ruby High: First Bell location pass required” |
 | Reveal the contents produced by a Box | an Avatar **Bundle** | “open bundle” and “Opened avatar bundle” |
 | Find or inspect mounted experience content | a **world pack** | the World Library count and world-pack entries |
+| Review what changed in the current place | the **Journal** | current place, open threads, and story-so-far entries written as player-facing outcomes |
 
-Regression tests check all five cues together and reject the former ambiguous
+Regression tests check all six cues together and reject the former ambiguous
 phrases. A future moderated usability study can add human evidence without
 changing these baseline nouns.
 

@@ -155,6 +155,13 @@ macro_rules! replay_action_journal_after {
 
 impl RuntimeWorld {
     pub(super) fn from_action_journal(path: &Path) -> io::Result<Self> {
+        let compaction = read_persistence_compaction_report(path)?;
+        if compaction.action_journal_floor_seq > 0 {
+            return Err(snapshot_error(format!(
+                "action journal was compacted through checkpoint {}; a matching snapshot is required",
+                compaction.action_journal_floor_seq
+            )));
+        }
         let mut runtime = Self::seeded();
         replay_action_journal_after!(runtime, path, 0);
         Ok(runtime)
@@ -170,6 +177,13 @@ impl RuntimeWorld {
             return Err(snapshot_error(
                 "snapshot has no action-journal checkpoint cursor",
             ));
+        }
+        let compaction = read_persistence_compaction_report(journal_path)?;
+        if checkpoint_seq < compaction.action_journal_floor_seq {
+            return Err(snapshot_error(format!(
+                "snapshot action-journal checkpoint {checkpoint_seq} is behind compacted journal floor {}",
+                compaction.action_journal_floor_seq
+            )));
         }
         let journal_head = latest_action_journal_seq(journal_path)?;
         if checkpoint_seq > journal_head {
@@ -285,6 +299,149 @@ mod tests {
         assert!(error.to_string().contains("ahead of journal head 2"));
 
         let _ = fs::remove_file(journal_path);
+        let _ = fs::remove_file(snapshot_path);
+    }
+
+    #[test]
+    fn compacted_journal_requires_a_snapshot_at_or_after_the_retained_floor() {
+        std::thread::Builder::new()
+            .name("journal-compaction-replay".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(run_compacted_journal_requires_snapshot)
+            .expect("spawn journal compaction test thread")
+            .join()
+            .expect("journal compaction test thread");
+    }
+
+    fn run_compacted_journal_requires_snapshot() {
+        let journal_path = temp_path("journal-compaction", "sqlite");
+        let snapshot_path = temp_path("journal-compaction", "json");
+        let old_snapshot_path = temp_path("journal-compaction-old", "json");
+        let _ = fs::remove_file(&journal_path);
+        let _ = fs::remove_file(&snapshot_path);
+        let _ = fs::remove_file(&old_snapshot_path);
+
+        for seed in 1..=3 {
+            append_action_journal(
+                &journal_path,
+                &JournalRecord::new(CwAction::default(), seed),
+            )
+            .expect("append journal fixture");
+        }
+        let mut checkpoint = RuntimeWorld::seeded();
+        checkpoint.action_journal_seq = 3;
+        checkpoint.world.next_event_seq = 1_004;
+        checkpoint
+            .save_snapshot(&snapshot_path)
+            .expect("save compactable checkpoint");
+
+        let mut old_checkpoint = checkpoint.clone();
+        old_checkpoint.action_journal_seq = 2;
+        old_checkpoint
+            .save_snapshot(&old_snapshot_path)
+            .expect("save stale checkpoint");
+
+        let events = (1..=1_003)
+            .map(|seq| EventView {
+                seq,
+                type_name: if seq == 1 {
+                    "natural_feature.revealed".to_string()
+                } else {
+                    "message.created".to_string()
+                },
+                success: true,
+                location_id: Some(1),
+                ..EventView::default()
+            })
+            .collect::<Vec<_>>();
+        append_event_store(&journal_path, &events).expect("append world-event fixtures");
+
+        let compacted =
+            compact_event_store_after_snapshot(&journal_path, 3, 1_003, MAX_EVENT_STORE_SCAN)
+                .expect("compact checkpointed store");
+        assert_eq!(compacted.action_journal_floor_seq, 3);
+        assert_eq!(compacted.world_event_floor_seq, 4);
+        assert_eq!(compacted.deleted_action_journal_rows, 2);
+        assert_eq!(compacted.deleted_world_event_rows, 2);
+
+        let conn = open_event_store(&journal_path).expect("open compacted store");
+        let journal_seqs = conn
+            .prepare("SELECT journal_seq FROM action_journal ORDER BY journal_seq")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, u64>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("read retained journal suffix");
+        assert_eq!(journal_seqs, vec![3]);
+        assert!(read_event_store_event(&journal_path, 1)
+            .expect("read retained canonical evidence")
+            .is_some());
+        assert!(read_event_store_event(&journal_path, 2)
+            .expect("read pruned event")
+            .is_none());
+        assert!(read_event_store_event(&journal_path, 4)
+            .expect("read retained replay floor")
+            .is_some());
+        drop(conn);
+        // The preservation assertion above intentionally uses the canonical
+        // event type. This compact fixture has no canonical commit binding or
+        // typed natural-feature payload, so remove it from hydration before
+        // exercising the otherwise independent journal-suffix restore.
+        open_event_store(&journal_path)
+            .expect("open retained evidence fixture")
+            .execute(
+                "UPDATE world_events SET event_type = 'message.created' WHERE seq = 1",
+                [],
+            )
+            .expect("exclude untyped fixture from canonical hydration");
+
+        let full_replay_error =
+            RuntimeWorld::from_action_journal(&journal_path).expect_err("snapshot is required");
+        assert!(full_replay_error
+            .to_string()
+            .contains("matching snapshot is required"));
+        let stale_snapshot_error =
+            RuntimeWorld::from_snapshot_and_action_journal(&old_snapshot_path, &journal_path)
+                .expect_err("stale snapshot must not cross compacted floor");
+        assert!(stale_snapshot_error
+            .to_string()
+            .contains("behind compacted journal floor 3"));
+
+        append_action_journal(&journal_path, &JournalRecord::new(CwAction::default(), 4))
+            .expect("append post-checkpoint suffix");
+        let restored =
+            RuntimeWorld::from_snapshot_and_action_journal(&snapshot_path, &journal_path)
+                .expect("restore checkpoint plus retained suffix");
+        assert_eq!(restored.action_journal_seq, 4);
+
+        let report =
+            read_persistence_compaction_report(&journal_path).expect("read compaction telemetry");
+        assert_eq!(report.action_journal_floor_seq, 3);
+        assert_eq!(report.world_event_floor_seq, 4);
+        assert_eq!(report.deleted_action_journal_rows, 2);
+        assert_eq!(report.deleted_world_event_rows, 2);
+
+        let _ = fs::remove_file(journal_path);
+        let _ = fs::remove_file(snapshot_path);
+        let _ = fs::remove_file(old_snapshot_path);
+    }
+
+    #[test]
+    fn stale_snapshot_temporary_file_is_removed_without_touching_snapshot() {
+        let snapshot_path = temp_path("stale-snapshot-temp", "json");
+        let temp = snapshot_temp_path(&snapshot_path);
+        fs::write(&snapshot_path, b"committed").expect("write committed snapshot fixture");
+        fs::write(&temp, vec![7_u8; 64 * 1024]).expect("write stale temporary fixture");
+
+        assert!(remove_stale_snapshot_temp(&snapshot_path).expect("remove stale temp"));
+        assert!(!temp.exists());
+        assert_eq!(
+            fs::read(&snapshot_path).expect("committed snapshot remains"),
+            b"committed"
+        );
+        assert!(!remove_stale_snapshot_temp(&snapshot_path).expect("repeat cleanup is harmless"));
+
         let _ = fs::remove_file(snapshot_path);
     }
 }

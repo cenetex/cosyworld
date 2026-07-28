@@ -50,7 +50,38 @@ a logbook, not an epigraph.
   Darkest Ocean."
 - No: "Clouds remember footsteps differently than dirt does."
 
-### 4. Character voice (actor/card blurbs, NPC speech prompts, persona fields)
+### 4. Journal (current place, open threads, and story so far)
+
+The production Journal is a player chronicle, not an event inspector. Its
+compact presentation may resemble a logbook, but its copy never exposes event
+types, tags, payload grammar, source sequence numbers, or debug fallbacks.
+
+The three Journal regions have different jobs:
+
+- **Current place** states durable context. It is not another chronological
+  event and does not repeat as the newest history row.
+- **Open threads** name a concrete unresolved question or available choice.
+  Vague encouragement such as "lets what happened shape what comes next" is
+  omitted until the choice can be named.
+- **Story so far** records meaningful committed outcomes in chronological
+  order. One entry may group several canonical events.
+
+History headlines use named third-person past tense, an explicit subject, and
+a meaningful verb: "Elsie discovered a path to the Old Oak Tree." They never
+use `event`, `tag`, dotted machine keys, arrow movement, or subjectless
+fragments such as "is now path to…".
+
+A collapsed entry answers what happened. Expansion is offered only when it
+adds a distinct fact: context, durable change, consequence, or unresolved
+matter. Repeating the headline with punctuation is not detail. The room-header
+ticker uses the exact latest visible headline rather than a second formatter.
+
+Journal copy is a deterministic projection of committed state. Unknown source
+events stay out of player copy and become presentation-coverage diagnostics;
+they do not fall back to their type name. Language models do not generate this
+surface.
+
+### 5. Character voice (actor/card blurbs, NPC speech prompts, persona fields)
 
 Wit is allowed here — character humor is earned, and it pops harder against a
 quiet world. Persona fields are AI steering, not player prose; keep them vivid.
@@ -58,14 +89,14 @@ The speech-prompt base already enforces the output register ("punchlines over
 poetry", banned vocabulary, no objects that remember things) — keep new NPC
 prompts consistent with it.
 
-### 5. Rare system moments (the magic budget)
+### 6. Rare system moments (the magic budget)
 
 Lyricism is spent only where the system did something rare: hidden-exit
 discovery text, evolution completion, clock-fill aspects, the deepest zones
 (Dark Abyss keeps its banquet). One poetic line at a real event reads as an
 event. The same line on a doorknob reads as wallpaper.
 
-### 6. Left Sentences (the authored lyric register)
+### 7. Left Sentences (the authored lyric register)
 
 Sentences are where the remaining magic budget is spent. If a lyric line wants
 to exist somewhere else, it is probably a sentence. The canonical corpus lives
@@ -89,6 +120,10 @@ in `v2/content/core/sentences.json`.
 - [ ] Grep the diff for "as if" and "seems to" in look/search/use/description
       fields.
 - [ ] Was lyricism spent on a rare system moment, or on furniture?
+- [ ] Does Journal copy expose an event key, tag, arrow, payload delimiter, or
+      generic fallback? Replace it with a semantic outcome or omit it.
+- [ ] Does every Journal disclosure add information absent from its headline?
+      If not, remove the disclosure affordance.
 
 ## Governance
 

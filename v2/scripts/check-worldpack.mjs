@@ -2590,8 +2590,11 @@ for (const recipe of recipes) {
     )) {
       fail(error);
     }
-    if (!Array.isArray(recipe.inputs) || recipe.inputs.length < 1 || recipe.inputs.length > 2) {
-      fail(`recipe ${recipe.id} must declare one or two physical inputs`);
+    const provisionedSupply = recipe.output?.effect === "provisioned_supply";
+    if (!Array.isArray(recipe.inputs)
+        || recipe.inputs.length > 2
+        || (recipe.inputs.length === 0 && !provisionedSupply)) {
+      fail(`recipe ${recipe.id} must declare one or two physical inputs unless it provisions a supply`);
     }
     const inputTemplates = new Set();
     let physicalInputCount = 0;
@@ -2625,8 +2628,8 @@ for (const recipe of recipes) {
         fail(`recipe ${recipe.id} input ${input?.template_id} has undeclared consumption`);
       }
     }
-    if (physicalInputCount < 1 || physicalInputCount > 2) {
-      fail(`recipe ${recipe.id} must resolve to one or two physical items`);
+    if (physicalInputCount > 2 || (physicalInputCount === 0 && !provisionedSupply)) {
+      fail(`recipe ${recipe.id} must resolve to one or two physical items unless it provisions a supply`);
     }
     const requirements = recipe.requires;
     const buildingCapabilities = requirements?.building_capabilities ?? [];
@@ -2683,7 +2686,9 @@ for (const recipe of recipes) {
       fail(`recipe ${recipe.id} names ambiguous or unknown natural features`);
     }
     if (locationFeatures.length > 1
-        || locationFeatures.some((feature) => feature !== "generated_place_anchor_site")) {
+        || locationFeatures.some((feature) =>
+          feature !== "generated_place_anchor_site"
+          && feature !== "seed_room_feature:hearth")) {
       fail(`recipe ${recipe.id} names ambiguous or unknown location features`);
     }
     const output = recipe.output;
@@ -2696,11 +2701,20 @@ for (const recipe of recipes) {
     if (output?.fallback_destination !== "location_floor") {
       fail(`recipe ${recipe.id} is missing a location_floor fallback`);
     }
-    if (!["portable", "installed_fixture"].includes(output?.effect)
+    if (!["portable", "installed_fixture", "provisioned_supply"].includes(output?.effect)
         || !["per_receipt", "per_location", "per_world"].includes(output?.uniqueness)
         || (output?.destination === "installed_at_location"
           && output?.effect !== "installed_fixture")) {
       fail(`recipe ${recipe.id} has an invalid typed output effect`);
+    }
+    if (provisionedSupply
+        && ((recipe.inputs ?? []).length !== 0
+          || buildingCapabilities.length !== 0
+          || buildingRecipeTags.length !== 0
+          || naturalFeatures.length !== 0
+          || locationFeatures.length !== 1
+          || !locationFeatures[0].startsWith("seed_room_feature:"))) {
+      fail(`recipe ${recipe.id} provisioned supply must be inputless and bound to one authored room feature`);
     }
     continue;
   }

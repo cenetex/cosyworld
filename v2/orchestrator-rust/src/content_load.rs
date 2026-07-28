@@ -3177,10 +3177,14 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 .iter()
                 .map(|input| usize::from(input.quantity))
                 .sum::<usize>();
+            let provisioned_supply = recipe
+                .output
+                .as_ref()
+                .is_some_and(|output| output.effect == "provisioned_supply");
             if !recipe.input_item_ids.is_empty()
-                || recipe.inputs.is_empty()
                 || recipe.inputs.len() > 2
-                || physical_input_count == 0
+                || (recipe.inputs.is_empty() && !provisioned_supply)
+                || (physical_input_count == 0 && !provisioned_supply)
                 || physical_input_count > 2
                 || recipe.inputs.iter().any(|input| {
                     input.template_id.trim().is_empty()
@@ -3225,11 +3229,12 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                             | "old_ruins"
                     )
                 })
-                || recipe
-                    .requires
-                    .location_features
-                    .iter()
-                    .any(|feature| feature != "generated_place_anchor_site")
+                || recipe.requires.location_features.iter().any(|feature| {
+                    !matches!(
+                        feature.as_str(),
+                        "generated_place_anchor_site" | "seed_room_feature:hearth"
+                    )
+                })
                 || recipe.output.as_ref().is_none_or(|output| {
                     output.template_id.trim().is_empty()
                         || !matches!(
@@ -3237,7 +3242,10 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                             "actor_hand" | "location_floor" | "installed_at_location"
                         )
                         || output.fallback_destination != "location_floor"
-                        || !matches!(output.effect.as_str(), "portable" | "installed_fixture")
+                        || !matches!(
+                            output.effect.as_str(),
+                            "portable" | "installed_fixture" | "provisioned_supply"
+                        )
                         || !matches!(
                             output.uniqueness.as_str(),
                             "per_receipt" | "per_location" | "per_world"
@@ -3245,6 +3253,13 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                         || (output.destination == "installed_at_location"
                             && output.effect != "installed_fixture")
                 })
+                || (provisioned_supply
+                    && (!recipe.inputs.is_empty()
+                        || !recipe.requires.building_capabilities.is_empty()
+                        || !recipe.requires.recipe_tags.is_empty()
+                        || !recipe.requires.natural_features.is_empty()
+                        || recipe.requires.location_features.len() != 1
+                        || !recipe.requires.location_features[0].starts_with("seed_room_feature:")))
             {
                 return Err(format!("invalid versioned seed recipe {}", recipe.id));
             }

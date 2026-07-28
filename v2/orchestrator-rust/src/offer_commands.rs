@@ -139,7 +139,9 @@ fn dispatch_for_offer(
         "move" => Ok(CommandDispatch::Move {
             destination_location_id: required_target_id(offer, "location")?,
         }),
-        "explore_path" => Ok(CommandDispatch::Scout),
+        "explore_path" => Ok(CommandDispatch::Scout {
+            destination_location_id: required_target_id(offer, "location")?,
+        }),
         "flee" => Ok(CommandDispatch::Flee {
             destination_location_id: required_target_id(offer, "location")?,
         }),

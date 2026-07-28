@@ -4081,7 +4081,13 @@ async function main() {
         action_offers: [
           {
             kind: "attack",
+            effect: "attacks with Ashwood Practice Blade using Strength (1d6)",
             risk: "advances danger +1; can damage or knock out the target",
+            source_collectible: {
+              kind: "item",
+              instance_id: 2013,
+              card_id: "item.ashwood-practice-blade",
+            },
           },
           {
             kind: "defend",
@@ -4096,9 +4102,13 @@ async function main() {
           { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
           { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
         ],
-        items: [],
+        items: [{ id: 2013, name: "Ashwood Practice Blade" }],
         exits: [],
-        cards: { actors: {}, items: {}, locations: {} },
+        cards: {
+          actors: {},
+          items: { "2013": { display_name: "Ashwood Practice Blade" } },
+          locations: {},
+        },
         access: {},
       };
       state = fakeState;
@@ -4114,8 +4124,9 @@ async function main() {
         actorId = previousActorId;
       }
     });
-    assert(result.attack?.detail === "Moonlit Echo, trouble draws near", `attack should show its consequence without clock jargon: ${JSON.stringify(result)}`);
-    assert(result.attack?.summary === "Trouble draws near; someone may be hurt or fall quiet.", `attack confirmation should state the consequence without a rules label: ${JSON.stringify(result)}`);
+    assert(result.attack?.detail === "Moonlit Echo · Ashwood Practice Blade, trouble draws near", `attack should show its authoritative method and consequence without clock jargon: ${JSON.stringify(result)}`);
+    assert(result.attack?.summary === "Attacks with Ashwood Practice Blade using Strength (1d6). Trouble draws near; someone may be hurt or fall quiet.", `attack confirmation should state the method and consequence without a rules label: ${JSON.stringify(result)}`);
+    assert(result.attack?.rows?.some((row) => row[0] === "What changes" && row[1] === "attacks with Ashwood Practice Blade using Strength (1d6)"), `attack confirmation should preserve the authored method and Attribute: ${JSON.stringify(result)}`);
     assert(result.attack?.rows?.some((row) => row[0] === "Watch for" && row[1] === "trouble draws near; someone may be hurt or fall quiet"), `attack confirmation should keep its consequence in one clear row: ${JSON.stringify(result)}`);
     assert(result.defend?.detail === "guard, make the next try count", `defend should preview the project payoff naturally: ${JSON.stringify(result)}`);
     assert(result.defend?.summary === "Guards carefully and makes the next try count.", `defend confirmation should read as a complete thought: ${JSON.stringify(result)}`);
@@ -4165,6 +4176,8 @@ async function main() {
           type: "combat.attack.attempt",
           actor_name: "Lantern Stitch",
           target_actor_name: "Moonlit Echo",
+          combat_method: "Ashwood Practice Blade",
+          ability: "Strength",
           raw_roll: 4,
           modifier: 2,
           total: 6,
@@ -4254,12 +4267,14 @@ async function main() {
           combatHitText: eventText({
             type: "combat.attack.hit",
             target_actor_name: "Moonlit Echo",
+            combat_method: "Ashwood Practice Blade",
             damage: 3,
             current_hp: 2,
           }),
           knockoutText: eventText({
             type: "combat.knockout",
             target_actor_name: "Moonlit Echo",
+            combat_method: "Ashwood Practice Blade",
             current_hp: 0,
           }),
           bankedText: eventText({
@@ -4369,10 +4384,10 @@ async function main() {
     assert(result.rollMemory?.label === "check" && /room answers a careful check/i.test(result.rollMemory?.text || ""), `room memory should preserve the story outcome: ${JSON.stringify(result)}`);
     assert(!/d20|modifier|total|\bdc\b/i.test(JSON.stringify(result.rollMemory)), `room memory should not retain roll arithmetic: ${JSON.stringify(result)}`);
     assert(/Moonlit Echo slips clear/.test(result.clashMarkup) && /not this time/.test(result.clashMarkup), `combat chance feedback should read as a clash, not a calculation: ${JSON.stringify(result)}`);
-    assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch.", `room memory should keep the combat beat in story language: ${JSON.stringify(result)}`);
+    assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch's Ashwood Practice Blade (Strength).", `room memory should preserve the authoritative combat method in story language: ${JSON.stringify(result)}`);
     assert(!/d20|modifier|total|\bdc\b|>4<|>6<|>13</i.test(result.clashMarkup), `combat chance feedback should hide dice arithmetic: ${JSON.stringify(result)}`);
-    assert(result.combatHitText === "breaks through Moonlit Echo's guard.", `combat hits should read as story, not damage accounting: ${JSON.stringify(result)}`);
-    assert(result.knockoutText === "Moonlit Echo's light falls quiet for now.", `knockouts should avoid zero-HP language: ${JSON.stringify(result)}`);
+    assert(result.combatHitText === "Ashwood Practice Blade breaks through Moonlit Echo's guard.", `combat hits should preserve the authoritative method without damage accounting: ${JSON.stringify(result)}`);
+    assert(result.knockoutText === "Ashwood Practice Blade leaves Moonlit Echo's light quiet for now.", `knockouts should preserve the method and avoid zero-HP language: ${JSON.stringify(result)}`);
    assert(result.bankedText === "lets what happened shape what comes next.", `historical settlement should land as a simple story beat instead of exposing memory marks: ${JSON.stringify(result)}`);
    assert(result.bankedStatus?.text === "lets what happened shape what comes next", `historical settlement status should avoid counters and ledger language: ${JSON.stringify(result)}`);
     assert(result.growthSpendText === "puts what they learned into practice.", `using growth should read as a change, not a transaction: ${JSON.stringify(result)}`);
@@ -4772,6 +4787,348 @@ async function main() {
         && pathwayContract.copy.includes("1 Orb still needed from the community"),
       `a revealed generated pathway keepsake should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
+
+    const communityArtStates = await page.evaluate(() => {
+      const previousState = state;
+      const subjectId = 990002;
+      const baseCard = {
+        card_id: "community-art-state-contract-smoke",
+        display_name: "Lantern Verge",
+        title: "Community Image Contract",
+        blurb: "A generated place whose image state must be honest.",
+        rarity: "everyday",
+        role: "location",
+        aspect: "wide",
+      };
+      const renderPanel = (communityArt, orbs) => {
+        const card = { ...baseCard, community_art: communityArt };
+        state = {
+          ...previousState,
+          economy: { ...(previousState?.economy || {}), orbs },
+          cards: {
+            ...(previousState?.cards || {}),
+            locations: {
+              ...(previousState?.cards?.locations || {}),
+              [subjectId]: card,
+            },
+          },
+        };
+        const host = document.createElement("div");
+        host.innerHTML = communityArtPanelHtml(card);
+        const button = host.querySelector("[data-fund-community-image]");
+        return {
+          copy: host.textContent.replace(/\s+/g, " ").trim(),
+          button: button?.textContent?.trim() || "",
+        };
+      };
+      try {
+        return {
+          noEarnedOrbs: renderPanel({
+            level: 2,
+            required_orbs: 2,
+            funded_orbs: 0,
+            remaining_orbs: 2,
+            viewer_contributed: false,
+            status: "available",
+          }, 0),
+          contributedPending: renderPanel({
+            level: 2,
+            required_orbs: 2,
+            funded_orbs: 1,
+            remaining_orbs: 1,
+            viewer_contributed: true,
+            status: "funding",
+          }, 4),
+          failed: renderPanel({
+            level: 2,
+            required_orbs: 2,
+            funded_orbs: 2,
+            remaining_orbs: 0,
+            viewer_contributed: true,
+            status: "failed",
+            provider_attempts: 3,
+            max_provider_attempts: 3,
+            retryable_without_orbs: false,
+          }, 4),
+        };
+      } finally {
+        state = previousState;
+      }
+    });
+    assert(
+      communityArtStates.noEarnedOrbs.button === ""
+        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs still needed from the community"),
+      `players without an earned Orb should see image funding state without a contribution CTA: ${JSON.stringify(communityArtStates)}`,
+    );
+    assert(
+      communityArtStates.contributedPending.button === ""
+        && communityArtStates.contributedPending.copy.includes("your Orb is already helping")
+        && communityArtStates.contributedPending.copy.includes("still needed from other players"),
+      `a player who already contributed should see pending state instead of another invitation: ${JSON.stringify(communityArtStates)}`,
+    );
+    assert(
+      communityArtStates.failed.button === ""
+        && communityArtStates.failed.copy.includes("no more provider credits will be used")
+        && !/buy|purchase/i.test(JSON.stringify(communityArtStates)),
+      `a terminal generation failure should be explicit and purchase-free: ${JSON.stringify(communityArtStates)}`,
+    );
+
+    const communityArtRetryLifecycle = await page.evaluate(async () => {
+      const previousState = state;
+      const previousAction = action;
+      const previousQueueRefresh = queueRefresh;
+      const previousFetch = window.fetch;
+      const subjectId = 990004;
+      const subjectKey = `location:${subjectId}`;
+      const baseCard = {
+        card_id: "community-art-retry-lifecycle-smoke",
+        display_name: "Retry Lantern Verge",
+        title: "Community Image Retry",
+        blurb: "A generated place whose image lifecycle remains visible.",
+        rarity: "everyday",
+        role: "location",
+        aspect: "wide",
+      };
+      const failedArt = {
+        level: 1,
+        required_orbs: 1,
+        funded_orbs: 1,
+        remaining_orbs: 0,
+        viewer_contributed: true,
+        status: "failed",
+        provider_attempts: 1,
+        max_provider_attempts: 3,
+        retryable_without_orbs: true,
+      };
+      const mount = (communityArt = failedArt) => {
+        const card = { ...baseCard, community_art: { ...communityArt } };
+        state = {
+          ...previousState,
+          action_offers: [],
+          economy: { ...(previousState?.economy || {}), orbs: 4 },
+          cards: {
+            ...(previousState?.cards || {}),
+            locations: {
+              ...(previousState?.cards?.locations || {}),
+              [subjectId]: card,
+            },
+          },
+        };
+        openCardModal(card);
+        return card;
+      };
+      const settle = async () => {
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await Promise.resolve();
+      };
+      const panelSnapshot = () => ({
+        hidden: document.querySelector("#card-modal")?.hidden ?? true,
+        copy: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+        buttons: document.querySelectorAll("#card-modal [data-fund-community-image]").length,
+      });
+      try {
+        const lifecycleEvents = [
+          "community_art.funded",
+          "community_art.generating",
+          "community_art.reviewing",
+          "community_art.ready",
+          "community_art.failed",
+          "community_art.rejected",
+          "community_art.policy_rejected",
+          "community_art.review_failed",
+          "community_art.review_unavailable",
+        ];
+        const lifecycleRefreshes = lifecycleEvents.every((type) => eventShouldRefreshState({ type }));
+
+        let actionCalls = 0;
+        let resolveAction;
+        action = async () => {
+          actionCalls += 1;
+          return new Promise((resolve) => {
+            resolveAction = resolve;
+          });
+        };
+        queueRefresh = async () => {
+          const generating = {
+            ...baseCard,
+            community_art: {
+              ...failedArt,
+              status: "generating",
+              provider_attempts: 2,
+              retryable_without_orbs: false,
+            },
+          };
+          state = {
+            ...state,
+            cards: {
+              ...state.cards,
+              locations: { ...state.cards.locations, [subjectId]: generating },
+            },
+          };
+        };
+        mount();
+        const retryButton = document.querySelector("#card-modal [data-fund-community-image]");
+        retryButton.click();
+        retryButton.click();
+        const starting = panelSnapshot();
+        resolveAction({ ok: true, events: [] });
+        await settle();
+        const generating = panelSnapshot();
+        closeCardModal();
+        clearCommunityArtClientState(subjectKey);
+
+        action = previousAction;
+        queueRefresh = async () => {};
+        let unhandledRejections = 0;
+        const countUnhandled = () => { unhandledRejections += 1; };
+        window.addEventListener("unhandledrejection", countUnhandled);
+
+        mount();
+        window.fetch = async () => {
+          throw new TypeError("simulated disconnected transport");
+        };
+        document.querySelector("#card-modal [data-fund-community-image]").click();
+        await settle();
+        const rejectedFetch = panelSnapshot();
+        closeCardModal();
+        clearCommunityArtClientState(subjectKey);
+
+        mount();
+        window.fetch = async () => new Response("<html>bad gateway</html>", {
+          status: 502,
+          statusText: "Bad Gateway",
+          headers: { "content-type": "text/html" },
+        });
+        document.querySelector("#card-modal [data-fund-community-image]").click();
+        await settle();
+        const nonJsonFailure = panelSnapshot();
+        closeCardModal();
+        clearCommunityArtClientState(subjectKey);
+        window.removeEventListener("unhandledrejection", countUnhandled);
+
+        return {
+          lifecycleRefreshes,
+          actionCalls,
+          starting,
+          generating,
+          rejectedFetch,
+          nonJsonFailure,
+          unhandledRejections,
+        };
+      } finally {
+        action = previousAction;
+        queueRefresh = previousQueueRefresh;
+        window.fetch = previousFetch;
+        closeCardModal();
+        clearCommunityArtClientState(subjectKey);
+        state = previousState;
+      }
+    });
+    assert(
+      communityArtRetryLifecycle.lifecycleRefreshes,
+      `every community-art lifecycle event should request authoritative state: ${JSON.stringify(communityArtRetryLifecycle)}`,
+    );
+    assert(
+      communityArtRetryLifecycle.actionCalls === 1
+        && communityArtRetryLifecycle.starting.hidden === false
+        && communityArtRetryLifecycle.starting.buttons === 0
+        && communityArtRetryLifecycle.starting.copy.includes("image workshop starting"),
+      `a rapid repeated retry should coalesce and expose immediate starting state: ${JSON.stringify(communityArtRetryLifecycle)}`,
+    );
+    assert(
+      communityArtRetryLifecycle.generating.hidden === false
+        && communityArtRetryLifecycle.generating.buttons === 0
+        && communityArtRetryLifecycle.generating.copy.includes("saved job is still in progress"),
+      `authoritative generation state should replace the starting latch without closing the modal: ${JSON.stringify(communityArtRetryLifecycle)}`,
+    );
+    for (const [failureKind, failure] of [
+      ["rejected fetch", communityArtRetryLifecycle.rejectedFetch],
+      ["non-JSON response", communityArtRetryLifecycle.nonJsonFailure],
+    ]) {
+      assert(
+        failure.hidden === false
+          && failure.buttons === 1
+          && failure.copy.includes("could not be reached"),
+        `${failureKind} should leave visible recovery copy and an enabled retry: ${JSON.stringify(communityArtRetryLifecycle)}`,
+      );
+    }
+    assert(
+      communityArtRetryLifecycle.unhandledRejections === 0,
+      `community-art retry failures should be handled: ${JSON.stringify(communityArtRetryLifecycle)}`,
+    );
+    steps.push({ label: "community art retry lifecycle", actionCalls: communityArtRetryLifecycle.actionCalls });
+
+    await page.evaluate(() => {
+      const subjectId = 990003;
+      const card = {
+        card_id: "community-art-broken-url-smoke",
+        display_name: "Unpainted Verge",
+        title: "Pending Community Image",
+        blurb: "Its generated image URL is deliberately unresolvable.",
+        rarity: "everyday",
+        role: "location",
+        aspect: "wide",
+        image_url: "/assets/generated/community/location/18446744073709551614.image?level=1&revision=476",
+        community_art: {
+          level: 2,
+          required_orbs: 2,
+          funded_orbs: 1,
+          remaining_orbs: 1,
+          viewer_contributed: true,
+          status: "funding",
+        },
+      };
+      window.__cosySmokeStateBeforeBrokenArt = state;
+      state = {
+        ...state,
+        cards: {
+          ...(state?.cards || {}),
+          locations: {
+            ...(state?.cards?.locations || {}),
+            [subjectId]: card,
+          },
+        },
+      };
+      openCardModal(card);
+    });
+    await page.waitForFunction(() => (
+      document.querySelector("#card-modal-image")?.dataset.artFallback === "applied"
+    ));
+    const brokenArtFallback = await page.evaluate(() => {
+      const image = document.querySelector("#card-modal-image");
+      return {
+        src: image?.getAttribute("src") || "",
+        missing: image?.dataset.artMissing || "",
+        placeholder: image?.dataset.artPlaceholder || "",
+        overlay: getComputedStyle(document.querySelector("#card-modal .card-art"), "::after").content,
+        panel: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      };
+    });
+    assert(
+      brokenArtFallback.src.startsWith("data:image/svg+xml")
+        && brokenArtFallback.missing === "true"
+        && brokenArtFallback.placeholder === "community image pending"
+        && brokenArtFallback.overlay.includes("community image pending")
+        && brokenArtFallback.panel.includes("your Orb is already helping"),
+      `an unresolvable generated-art URL should render the authored, state-aware placeholder: ${JSON.stringify(brokenArtFallback)}`,
+    );
+    await page.evaluate(() => {
+      document.querySelector("#card-modal-image").src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC";
+    });
+    await page.waitForFunction(() => {
+      const image = document.querySelector("#card-modal-image");
+      return image?.complete
+        && image.naturalWidth > 0
+        && image.dataset.artFallback !== "applied"
+        && image.dataset.artMissing !== "true";
+    });
+    await closeCardModal();
+    await page.evaluate(() => {
+      state = window.__cosySmokeStateBeforeBrokenArt;
+      delete window.__cosySmokeStateBeforeBrokenArt;
+    });
+    steps.push({ label: "community art fallback", state: brokenArtFallback.placeholder });
 
     await page.locator(".room-avatar-pfp[data-card-key]").first().click();
     await page.waitForSelector("#card-modal:not([hidden])");
@@ -5306,6 +5663,186 @@ async function main() {
     assert(result.afterReplayReset.length === 1 && result.afterReplayReset[0]?.content === "fresh firelight", `rebuilding replay should keep only unique chat after the latest world reset: ${JSON.stringify(result)}`);
     assert(result.detectsServerTimelineRewind && result.acceptsForwardTimeline, `a reconnect should replace rewound server history without mistaking a forward timeline for a reset: ${JSON.stringify(result)}`);
     assert(result.afterTravelReceipt?.applied && result.afterTravelReceipt.pendingCount === 0 && result.afterTravelReceipt.events.length === 1 && result.afterTravelReceipt.events[0]?.content === "new room history", `a live travel receipt should clear pending chat and replace the old room transcript: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCombatStaysInSharedRoomTranscript() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        logEvents: logEvents.slice(),
+        seenSeq: [...seenSeq],
+        actorId,
+        state,
+        accountPanelPinned,
+        libraryPanelPinned,
+        pendingChats: pendingChats.slice(),
+        renderedChatTailKey,
+        defeatTransition,
+      };
+      const message = (seq, actorIdValue, actorName, content) => ({
+        seq,
+        type: "message.created",
+        actor_id: actorIdValue,
+        actor_name: actorName,
+        location_id: 3,
+        location_name: "Moonlit Trail",
+        content,
+      });
+      const combatEvent = (seq, type, extra = {}) => ({
+        seq,
+        type,
+        actor_id: 5000,
+        actor_name: "Lantern Stitch",
+        target_actor_id: 1004,
+        target_actor_name: "Coach",
+        location_id: 3,
+        location_name: "Moonlit Trail",
+        content_id: 77,
+        ...extra,
+      });
+      const events = [
+        message(990600001, 1001, "Rati", "Keep the lantern between you and the dark."),
+        combatEvent(990600002, "combat.encounter.started"),
+        combatEvent(990600003, "combat.attack.attempt", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+        }),
+        combatEvent(990600004, "combat.attack.hit", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+          damage: 4,
+          current_hp: 1,
+        }),
+        combatEvent(990600005, "combat.knockout", {
+          success: true,
+          combat_method: "Ashwood Practice Blade",
+          item_name: "Ashwood Practice Blade",
+          ability: "Strength",
+          damage: 4,
+          current_hp: 1,
+        }),
+        message(990600006, 1001, "Rati", "I am still here. Breathe."),
+        combatEvent(990600007, "combat.dodge"),
+        combatEvent(990600008, "combat.defend"),
+        combatEvent(990600009, "item.used", {
+          item_name: "Hearth Tonic",
+          target_actor_name: "Lantern Stitch",
+          damage: -2,
+        }),
+        combatEvent(990600010, "magic.spell_cast", {
+          item_name: "Mothlight",
+          target_actor_name: "Coach",
+        }),
+        combatEvent(990600011, "combat.flee.success", {
+          destination_location_name: "The Cosy Cottage",
+        }),
+        combatEvent(990600012, "combat.encounter.resolved"),
+      ];
+      const signature = (entries) => entries.map((event) => ({
+        type: event.type,
+        seq: Number(event.seq || 0),
+        tail: Number(event.transcript_tail_seq || event.seq || 0),
+        outcome: event.combat_outcome?.type || "",
+        knockout: event.combat_knockout?.type || "",
+      }));
+      try {
+        actorId = 5000;
+        state = {
+          ...state,
+          location: { ...(state?.location || {}), id: 3, name: "Moonlit Trail" },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", status: "active", control_mode: "direct_input" },
+            { id: 1001, name: "Rati", status: "active", control_mode: "local_ai" },
+            { id: 1004, name: "Coach", status: "knocked_out", control_mode: "local_ai" },
+          ],
+        };
+        accountPanelPinned = false;
+        libraryPanelPinned = false;
+        pendingChats = [];
+        defeatTransition = null;
+        logEvents = events.slice();
+        seenSeq.clear();
+        for (const event of events) seenSeq.add(event.seq);
+        renderedChatTailKey = "";
+        const beforeReconnect = signature(sharedRoomTranscriptEvents(logEvents));
+        renderLog();
+        const transcript = $("log");
+        const rendered = {
+          label: transcript.getAttribute("aria-label") || "",
+          chat: [...transcript.querySelectorAll(".line.chat")].map((row) => row.textContent.trim().replace(/\s+/g, " ")),
+          combatBeatCount: transcript.querySelectorAll("[data-combat-beat]").length,
+          combatBeat: transcript.querySelector("[data-combat-beat]")?.textContent?.trim().replace(/\s+/g, " ") || "",
+          eventText: [...transcript.querySelectorAll(".line.event")].map((row) => row.textContent.trim().replace(/\s+/g, " ")).join(" "),
+        };
+        defeatTransition = {
+          actorName: "Lantern Stitch",
+          opponentName: "Coach",
+          kind: "combat.knockout",
+          eventSeq: 990600005,
+        };
+        renderLog();
+        rendered.defeatKeepsTranscript = transcript.querySelectorAll(".line.chat").length === 2
+          && transcript.querySelectorAll("[data-combat-beat]").length === 1
+          && Boolean(transcript.querySelector(".defeat-scene"));
+        defeatTransition = null;
+
+        rebuildLog(events);
+        const afterReconnect = signature(sharedRoomTranscriptEvents(logEvents));
+
+        logEvents = Array.from({ length: 40 }, (_, index) => message(
+          990601000 + index,
+          index % 2 ? 1001 : 5000,
+          index % 2 ? "Rati" : "Lantern Stitch",
+          `A deliberately long transcript line ${index + 1} keeps the reader's chosen place stable while another public beat arrives.`,
+        ));
+        renderedChatTailKey = "";
+        renderLog();
+        const overflow = transcript.scrollHeight > transcript.clientHeight + 28;
+        transcript.scrollTop = 0;
+        logEvents.push(combatEvent(990601100, "combat.defend"));
+        renderLog();
+        const preservedReaderPosition = !overflow || transcript.scrollTop <= 1;
+
+        return {
+          beforeReconnect,
+          afterReconnect,
+          rendered,
+          overflow,
+          preservedReaderPosition,
+        };
+      } finally {
+        logEvents = previous.logEvents;
+        seenSeq.clear();
+        for (const seq of previous.seenSeq) seenSeq.add(seq);
+        actorId = previous.actorId;
+        state = previous.state;
+        accountPanelPinned = previous.accountPanelPinned;
+        libraryPanelPinned = previous.libraryPanelPinned;
+        pendingChats = previous.pendingChats;
+        renderedChatTailKey = previous.renderedChatTailKey;
+        defeatTransition = previous.defeatTransition;
+        renderTimelines();
+      }
+    });
+    assert(result.rendered.label === "Shared room transcript", `combat should keep the ordinary shared transcript mounted: ${JSON.stringify(result)}`);
+    assert(result.rendered.chat.length === 2 && result.rendered.chat[0].includes("Keep the lantern") && result.rendered.chat[1].includes("still here"), `speech from before and during combat should remain ordered and visible: ${JSON.stringify(result)}`);
+    assert(result.rendered.defeatKeepsTranscript, `a player Knockout transition should append without replacing room speech or the grouped combat beat: ${JSON.stringify(result)}`);
+    assert(result.rendered.combatBeatCount === 1, `attempt, hit, harm, and Knockout should render as one combat beat: ${JSON.stringify(result)}`);
+    assert(
+      result.rendered.combatBeat.includes("Ashwood Practice Blade")
+        && result.rendered.combatBeat.includes("Strength")
+        && result.rendered.combatBeat.includes("4 harm")
+        && result.rendered.combatBeat.includes("knocked out"),
+      `the grouped combat beat should retain method, Attribute, harm, and outcome: ${JSON.stringify(result)}`,
+    );
+    assert(/ready to slip clear/.test(result.rendered.eventText) && /plants their feet/.test(result.rendered.eventText), `Dodge and Defend need authored transcript text: ${JSON.stringify(result)}`);
+    assert(/Hearth Tonic/.test(result.rendered.eventText) && /Mothlight/.test(result.rendered.eventText), `item and spell actions need authored transcript text: ${JSON.stringify(result)}`);
+    assert(/clash is over/.test(result.rendered.eventText) && /Cosy Cottage/.test(result.rendered.eventText), `escape and resolution need authored transcript text: ${JSON.stringify(result)}`);
+    assert(JSON.stringify(result.beforeReconnect) === JSON.stringify(result.afterReconnect), `reconnect should reconstruct the same grouped transcript ordering: ${JSON.stringify(result)}`);
+    assert(result.preservedReaderPosition, `new combat beats must not force-follow when the reader moved upward: ${JSON.stringify(result)}`);
   }
 
   async function assertCardBeatsStayInSceneAndBookkeepingStaysOut() {
@@ -6123,18 +6660,54 @@ async function main() {
       };
       const initial = buildActions({
         ...base,
+        action_offers: [...nonScoutOffers, scoutOffer],
         journey: null,
         search_available: false,
         primary_action: { options: [{ kind: "move" }] },
-        exits: [{
-          destination_location_id: 3,
-          destination_location_name: "Moonlit Trail",
-          direction: "east",
-          distance: 3,
-          accessible: true,
-          locked: false,
-        }],
+        exits: [
+          {
+            destination_location_id: 3,
+            destination_location_name: "Moonlit Trail",
+            direction: "east",
+            distance: 3,
+            accessible: true,
+            locked: false,
+          },
+          {
+            destination_location_id: 50,
+            destination_location_name: "Great Library",
+            direction: "north",
+            distance: 3,
+            accessible: true,
+            locked: false,
+          },
+        ],
       }).find((action) => action.command === "search pathway to Moonlit Trail");
+      const initialActions = buildActions({
+        ...base,
+        action_offers: [...nonScoutOffers, scoutOffer],
+        journey: null,
+        search_available: false,
+        primary_action: { options: [{ kind: "move" }] },
+        exits: [
+          {
+            destination_location_id: 3,
+            destination_location_name: "Moonlit Trail",
+            direction: "east",
+            distance: 3,
+            accessible: true,
+            locked: false,
+          },
+          {
+            destination_location_id: 50,
+            destination_location_name: "Great Library",
+            direction: "north",
+            distance: 3,
+            accessible: true,
+            locked: false,
+          },
+        ],
+      });
       const searchingActions = buildActions({
         ...base,
         action_offers: [...nonScoutOffers, scoutOffer],
@@ -6257,11 +6830,16 @@ async function main() {
         scoutWithoutOffer: missingWithoutScoutOfferActions.some((action) => (
           String(action.intention || "").toLowerCase() === "scout"
         )),
+        initialScoutCount: initialActions.filter((action) => (
+          String(action.intention || "").toLowerCase() === "scout"
+        )).length,
         initial: {
           label: initial?.label,
           detail: initial?.detail,
           effect: initial?.effect,
           command: initial?.command,
+          choiceCount: initial?.choices?.length || 0,
+          payload: initial?.selectedPayload?.(),
         },
         searching: {
           label: searching?.label,
@@ -6292,7 +6870,10 @@ async function main() {
     assert(
       result.initial.label === "scout"
         && /toward Moonlit Trail/i.test(result.initial.detail)
-        && /hidden first stretch toward Moonlit Trail/i.test(result.initial.effect),
+        && /hidden first stretch toward Moonlit Trail/i.test(result.initial.effect)
+        && result.initialScoutCount === 1
+        && result.initial.choiceCount === 0
+        && result.initial.payload?.destination_location_id === 3,
       `a long route should begin with Scout and reveal its first adjacent pathway location: ${JSON.stringify(result)}`,
     );
     assert(
@@ -7177,12 +7758,12 @@ async function main() {
       ));
       if (!startingRestAvailable) {
         await leaveTrailTo("Rain-Soft Garden");
-        await travelTo("Moonlit Trail");
       }
       const startingRest = await drawPrimaryMatching("pre-existing frontier rest", ["rest", "feel fresh"]);
       steps.push({ label: "pre-existing frontier rest", primary: startingRest, location: await currentLocation() });
       await clickPrimary("pre-existing frontier rest");
       await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
+      if ((await currentLocation()) !== "Moonlit Trail") await travelTo("Moonlit Trail");
     }
     let firstListenCommitted = false;
     for (let attempt = 1; attempt <= 3 && !firstListenCommitted; attempt += 1) {
@@ -7211,7 +7792,6 @@ async function main() {
     ));
     if (!restAlreadyAvailable) {
       await leaveTrailTo("Rain-Soft Garden");
-      await travelTo("Moonlit Trail");
       steps.push({ label: "frontier recovery walk", location: await currentLocation() });
     }
 
@@ -7375,8 +7955,26 @@ async function main() {
       primary: attackCard,
     });
     assert(attackCard.toLowerCase().includes("attack"), `${name} focus should attack in a combat location`);
+    const methodPreview = await page.evaluate(() => {
+      const offer = (state?.action_offers || []).find((candidate) => candidate.kind === "attack");
+      const action = actions.find((candidate) => candidate.label === "attack");
+      return {
+        detail: action?.detail || "",
+        effect: offer?.effect || "",
+        sourceItemId: offer?.source_collectible?.kind === "item"
+          ? Number(offer.source_collectible.instance_id || 0)
+          : 0,
+      };
+    });
+    assert(/using (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) \(1d\d+\)/.test(methodPreview.effect), `Attack preview should name the server-authored method, Attribute, and die: ${JSON.stringify(methodPreview)}`);
     await clickPrimary(`attack ${name}`);
     await waitForTimelineAll(["roll", "ac"]);
+    const attackReceipt = await page.evaluate(() => (
+      [...logEvents].reverse().find((event) => event.type === "combat.attack.attempt") || null
+    ));
+    assert(attackReceipt?.combat_method && attackReceipt?.ability, `Attack receipt should expose method and Attribute identity: ${JSON.stringify(attackReceipt)}`);
+    assert(methodPreview.effect.includes(attackReceipt.combat_method) && methodPreview.effect.includes(attackReceipt.ability), `Attack preview and receipt should agree on the authoritative method: ${JSON.stringify({ methodPreview, attackReceipt })}`);
+    assert(Number(attackReceipt.item_id || 0) === methodPreview.sourceItemId, `Attack preview and receipt should agree on the exact item instance or unarmed fallback: ${JSON.stringify({ methodPreview, attackReceipt })}`);
     await assertActionBarCapped("combat attack action bar");
   }
 
@@ -10074,7 +10672,9 @@ async function main() {
       `an inferred opening welcome should be visibly warm and attributed to Rati: ${JSON.stringify(openingWelcome)}`,
     );
   }
-  await assertActionBarCapped("normal play", 2);
+  // A fresh seed has not necessarily banked the advancement that authorizes
+  // Chat, so the authoritative opening hand may contain one or two cards.
+  await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
   await assertBrowserDrawReachesEveryLegalAction();
   await assertNoComposerOrDebugChrome();
@@ -10169,6 +10769,7 @@ async function main() {
   await assertTimelineAccessibilityBase();
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
+  await assertCombatStaysInSharedRoomTranscript();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
   await assertLanternKeeperSemanticStoryReceipt();
   await assertLanternQuestionAndTwoSuggestionAccessibility();
@@ -10671,7 +11272,9 @@ async function main() {
       await travelTo("Moonlit Trail");
     }
     await exerciseFrontierRecovery();
-    await leaveTrailTo("Rain-Soft Garden");
+    if ((await currentLocation()) !== "Rain-Soft Garden") {
+      await leaveTrailTo("Rain-Soft Garden");
+    }
     await discoverRoute("Old Oak Tree");
     await travelTo("Old Oak Tree");
     await discoverRoute("Lost Woods");

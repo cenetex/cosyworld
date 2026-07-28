@@ -9,6 +9,29 @@ pub(crate) const AI_REGISTRY_ENV: &str = "COSYWORLD_AI_REGISTRY_JSON";
 pub(crate) const AI_CAPABILITY_MODELS_ENV: &str = "COSYWORLD_AI_CAPABILITY_MODELS_JSON";
 const REGISTRY_SCHEMA_VERSION: u32 = 1;
 const ATTRIBUTION_SCHEMA_VERSION: u32 = 1;
+const COVERAGE_REPORT_CANDIDATE_LIMIT: usize = 8;
+
+/// Capabilities this build pins at runtime with no opt-in flag in front of
+/// them, paired with the subsystem that stops working when the pool is empty.
+///
+/// A capability belongs here only when a shipped code path reaches it in every
+/// deployment. Adding a capability that is gated behind an off-by-default
+/// feature switch would turn a deliberately narrow registry into an
+/// undeployable one, which is not the intent of the startup audit.
+const REQUIRED_CAPABILITIES: [(ModelCapability, &str); 3] = [
+    (
+        ModelCapability::Voice,
+        "room_memory and certified avatar speech routing",
+    ),
+    (
+        ModelCapability::IntentJson,
+        "resident_intent, the autonomous resident planner that decides whether avatars act or speak",
+    ),
+    (
+        ModelCapability::WorldContent,
+        "avatar_identity refinement, which runs for every generated avatar",
+    ),
+];
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +66,17 @@ pub(crate) enum ModelModality {
     Video,
 }
 
+impl ModelModality {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Image => "image",
+            Self::Audio => "audio",
+            Self::Video => "video",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum DataRetention {
@@ -53,6 +87,17 @@ pub(crate) enum DataRetention {
     Unknown,
 }
 
+impl DataRetention {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Limited => "limited",
+            Self::ProviderDefault => "provider_default",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum TrainingUse {
@@ -61,6 +106,17 @@ pub(crate) enum TrainingUse {
     Permitted,
     #[default]
     Unknown,
+}
+
+impl TrainingUse {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Prohibited => "prohibited",
+            Self::ContractualOptOut => "contractual_opt_out",
+            Self::Permitted => "permitted",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -87,6 +143,15 @@ pub(crate) enum DataPolicyMode {
     #[default]
     Development,
     Production,
+}
+
+impl DataPolicyMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Development => "development",
+            Self::Production => "production",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -351,6 +416,14 @@ impl ModelCandidate {
                 ModelCapability::WorldContent => self.supported_parameters.structured_output,
             }
     }
+
+    /// Mirrors what `pin` will accept: pool membership plus the production
+    /// data-policy gate. A pool that is non-empty but entirely privacy rejected
+    /// is just as dead as an empty one, so the startup audit uses this.
+    fn eligible(&self, capability: ModelCapability, policy_mode: DataPolicyMode) -> bool {
+        self.supports(capability)
+            && (policy_mode != DataPolicyMode::Production || self.data_policy.production_eligible())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -577,6 +650,52 @@ impl CapabilityRegistrySnapshot {
         Ok(pinned)
     }
 
+    /// Reports every capability this build always pins that has no usable
+    /// candidate under `policy_mode`. Callers decide how loud the result is;
+    /// the report itself is inert so it can be tested without an environment.
+    pub(crate) fn audit_required_capabilities(
+        &self,
+        policy_mode: DataPolicyMode,
+    ) -> CapabilityCoverageReport {
+        let mut gaps = Vec::new();
+        for (capability, consumer) in REQUIRED_CAPABILITIES {
+            if self
+                .candidates
+                .values()
+                .any(|candidate| candidate.eligible(capability, policy_mode))
+            {
+                continue;
+            }
+            let mut excluded = Vec::new();
+            let mut hidden_excluded = 0;
+            for (model, candidate) in &self.candidates {
+                let Some(reason) = exclusion_reason(candidate, capability, policy_mode) else {
+                    continue;
+                };
+                if excluded.len() >= COVERAGE_REPORT_CANDIDATE_LIMIT {
+                    hidden_excluded += 1;
+                    continue;
+                }
+                excluded.push(ExcludedCandidate {
+                    model: model.clone(),
+                    reason,
+                });
+            }
+            gaps.push(CapabilityCoverageGap {
+                capability,
+                consumer,
+                excluded,
+                hidden_excluded,
+            });
+        }
+        CapabilityCoverageReport {
+            snapshot_version: self.snapshot_version.clone(),
+            policy_mode,
+            candidate_count: self.candidates.len(),
+            gaps,
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn inspect_historical(
         &self,
@@ -596,6 +715,198 @@ impl CapabilityRegistrySnapshot {
             known_in_current_snapshot,
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ExcludedCandidate {
+    model: String,
+    reason: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CapabilityCoverageGap {
+    capability: ModelCapability,
+    consumer: &'static str,
+    excluded: Vec<ExcludedCandidate>,
+    hidden_excluded: usize,
+}
+
+/// Startup verdict for the capability pools an explicitly configured registry
+/// has to fill. An uncovered capability means the subsystem behind it fails
+/// every single call, so this is a boot-time question, not a per-request one.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CapabilityCoverageReport {
+    snapshot_version: String,
+    policy_mode: DataPolicyMode,
+    candidate_count: usize,
+    gaps: Vec<CapabilityCoverageGap>,
+}
+
+impl CapabilityCoverageReport {
+    pub(crate) fn is_covered(&self) -> bool {
+        self.gaps.is_empty()
+    }
+
+    /// Production refuses to boot half-dead. Other profiles log and continue so
+    /// a local experiment with a narrow registry stays workable.
+    pub(crate) fn is_fatal(&self) -> bool {
+        self.policy_mode == DataPolicyMode::Production && !self.gaps.is_empty()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn gap_capabilities(&self) -> Vec<ModelCapability> {
+        self.gaps.iter().map(|gap| gap.capability).collect()
+    }
+}
+
+impl fmt::Display for CapabilityCoverageReport {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.gaps.is_empty() {
+            return write!(
+                formatter,
+                "{AI_REGISTRY_ENV} snapshot_version={:?} covers all {} required model capabilities",
+                self.snapshot_version,
+                REQUIRED_CAPABILITIES.len()
+            );
+        }
+        writeln!(
+            formatter,
+            "{AI_REGISTRY_ENV} has no usable candidate for {} of the {} model capabilities this build always uses (snapshot_version={:?}, data policy mode {}, {} configured candidate(s)). Each uncovered subsystem fails every call while the process still boots and reports healthy.",
+            self.gaps.len(),
+            REQUIRED_CAPABILITIES.len(),
+            self.snapshot_version,
+            self.policy_mode.as_str(),
+            self.candidate_count,
+        )?;
+        for gap in &self.gaps {
+            writeln!(
+                formatter,
+                "  capability {:?} has an empty pool; it is used by {}.",
+                gap.capability.as_str(),
+                gap.consumer
+            )?;
+            if gap.excluded.is_empty() {
+                writeln!(
+                    formatter,
+                    "    the registry configures no candidates at all"
+                )?;
+            }
+            for excluded in &gap.excluded {
+                writeln!(
+                    formatter,
+                    "    candidate {:?}: {}",
+                    excluded.model, excluded.reason
+                )?;
+            }
+            if gap.hidden_excluded > 0 {
+                writeln!(
+                    formatter,
+                    "    and {} further candidate(s) excluded for their own reasons",
+                    gap.hidden_excluded
+                )?;
+            }
+        }
+        write!(
+            formatter,
+            "Fix the {AI_REGISTRY_ENV} value (for a Fly deployment it is the [env] entry in fly.toml): for each capability above, add its name to one declared candidate's \"capabilities\" array, set the \"supported_parameters\" flags named above, keep \"input_modalities\" and \"output_modalities\" containing \"text\", and in production keep \"data_policy\":{{\"retention\":\"none\",\"training\":\"prohibited\"}}. One candidate may cover all {} capabilities. Publish the edit under a new \"snapshot_version\" so the change is traceable.",
+            REQUIRED_CAPABILITIES.len()
+        )?;
+        if self.is_fatal() {
+            write!(
+                formatter,
+                " Startup is refused because COSYWORLD_DEPLOY_PROFILE=production."
+            )
+        } else {
+            write!(
+                formatter,
+                " Startup continues because COSYWORLD_DEPLOY_PROFILE is not production; the same registry would refuse to boot there."
+            )
+        }
+    }
+}
+
+/// Why one candidate cannot serve one capability, phrased against the JSON
+/// fields an operator edits. Returns `None` when the candidate is usable.
+fn exclusion_reason(
+    candidate: &ModelCandidate,
+    capability: ModelCapability,
+    policy_mode: DataPolicyMode,
+) -> Option<String> {
+    if !candidate.input_modalities.contains(&ModelModality::Text)
+        || !candidate.output_modalities.contains(&ModelModality::Text)
+    {
+        return Some(format!(
+            "\"input_modalities\" and \"output_modalities\" must both contain \"text\"; they contain {} and {}",
+            format_modalities(&candidate.input_modalities),
+            format_modalities(&candidate.output_modalities),
+        ));
+    }
+    if !candidate.declared_capabilities.contains(&capability) {
+        let mut reason = format!(
+            "\"capabilities\" does not list \"{capability}\"; it lists {}",
+            format_capabilities(&candidate.declared_capabilities)
+        );
+        if candidate.discovered_capabilities.contains(&capability) {
+            reason.push_str(", and a discovered capability never grants eligibility on its own");
+        }
+        if let Some(required) = missing_parameters(candidate, capability) {
+            reason.push_str(&format!(". Declaring it also requires {required}"));
+        }
+        return Some(reason);
+    }
+    if let Some(required) = missing_parameters(candidate, capability) {
+        return Some(format!("declares \"{capability}\" without {required}"));
+    }
+    if policy_mode == DataPolicyMode::Production && !candidate.data_policy.production_eligible() {
+        return Some(format!(
+            "privacy rejected: production needs \"data_policy\" retention \"none\" and training \"prohibited\" or \"contractual_opt_out\", but it declares retention {:?} and training {:?}",
+            candidate.data_policy.retention.as_str(),
+            candidate.data_policy.training.as_str(),
+        ));
+    }
+    None
+}
+
+/// The `supported_parameters` a capability needs, named only when this
+/// candidate does not already declare them. `from_document` rejects a candidate
+/// that declares a capability it cannot back, so in practice this explains what
+/// to add alongside the capability name.
+fn missing_parameters(
+    candidate: &ModelCandidate,
+    capability: ModelCapability,
+) -> Option<&'static str> {
+    let parameters = &candidate.supported_parameters;
+    match capability {
+        ModelCapability::Voice => None,
+        ModelCapability::IntentJson => (!(parameters.json_mode || parameters.structured_output))
+            .then_some(
+                "\"supported_parameters\":{\"json_mode\":true} or \"supported_parameters\":{\"structured_output\":true}",
+            ),
+        ModelCapability::WorldContent => (!parameters.structured_output)
+            .then_some("\"supported_parameters\":{\"structured_output\":true}"),
+    }
+}
+
+fn format_capabilities(capabilities: &BTreeSet<ModelCapability>) -> String {
+    if capabilities.is_empty() {
+        return "none".to_string();
+    }
+    capabilities
+        .iter()
+        .map(|capability| format!("{:?}", capability.as_str()))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_modalities(modalities: &BTreeSet<ModelModality>) -> String {
+    if modalities.is_empty() {
+        return "none".to_string();
+    }
+    modalities
+        .iter()
+        .map(|modality| format!("{:?}", modality.as_str()))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[derive(Clone, Debug)]
@@ -1383,6 +1694,190 @@ mod tests {
         assert_eq!(inspected.attribution.requested_model_id, "provider/retired");
         assert_eq!(inspected.attribution.catalog_snapshot_version, "old");
         assert_eq!(inspected.attribution.prompt_adapter_version, "7");
+    }
+
+    /// Byte-for-byte the `COSYWORLD_AI_REGISTRY_JSON` that shipped to
+    /// production and left `intent_json` and `world_content` empty while the
+    /// process reported healthy.
+    const OUTAGE_REGISTRY_JSON: &str = r#"{"schema_version":1,"snapshot_version":"cosyworld-prod-2026-07-28","declared":[{"requested_model_id":"openai/gpt-5.6-luna","provider":"openrouter","concrete_model":{"model_id":"openai/gpt-5.6-luna"},"input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{"stop":true},"data_policy":{"retention":"none","training":"prohibited"},"capabilities":["voice"],"prompt_adapter":{"id":"openai-chat","version":"1"},"sampling":{"hard_output_cap":2048}}],"discovered":[]}"#;
+
+    #[test]
+    fn voice_only_registry_fails_production_startup_naming_every_dead_capability() {
+        let registry = snapshot(
+            "voice-only-1",
+            vec![declared_candidate(
+                "provider/tiny",
+                [ModelCapability::Voice],
+            )],
+            Vec::new(),
+        );
+
+        let report = registry.audit_required_capabilities(DataPolicyMode::Production);
+        assert!(!report.is_covered());
+        assert!(report.is_fatal());
+        assert_eq!(
+            report.gap_capabilities(),
+            vec![ModelCapability::IntentJson, ModelCapability::WorldContent]
+        );
+
+        let message = report.to_string();
+        assert!(message.contains(AI_REGISTRY_ENV), "{message}");
+        assert!(message.contains("\"intent_json\""), "{message}");
+        assert!(message.contains("\"world_content\""), "{message}");
+        assert!(message.contains("resident_intent"), "{message}");
+        assert!(message.contains("avatar_identity"), "{message}");
+        assert!(message.contains("\"voice-only-1\""), "{message}");
+        assert!(message.contains("\"provider/tiny\""), "{message}");
+        assert!(
+            message.contains("\"capabilities\" does not list \"intent_json\""),
+            "{message}"
+        );
+        assert!(
+            message.contains("Startup is refused because COSYWORLD_DEPLOY_PROFILE=production."),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn the_production_registry_that_silenced_two_subsystems_is_caught_at_startup() {
+        let registry = CapabilityRegistrySnapshot::from_json(OUTAGE_REGISTRY_JSON)
+            .expect("the shipped registry parsed cleanly, which is why it booted");
+
+        assert_eq!(registry.pool_len(ModelCapability::Voice), 1);
+        assert_eq!(registry.pool_len(ModelCapability::IntentJson), 0);
+        assert_eq!(registry.pool_len(ModelCapability::WorldContent), 0);
+        assert!(matches!(
+            registry.pin(
+                ModelCapability::IntentJson,
+                None,
+                DataPolicyMode::Production
+            ),
+            Err(RegistryError::EmptyCapabilityPool(
+                ModelCapability::IntentJson
+            ))
+        ));
+
+        let report = registry.audit_required_capabilities(DataPolicyMode::Production);
+        assert!(report.is_fatal());
+        assert_eq!(
+            report.gap_capabilities(),
+            vec![ModelCapability::IntentJson, ModelCapability::WorldContent]
+        );
+
+        let message = report.to_string();
+        assert!(
+            message.contains("\"cosyworld-prod-2026-07-28\""),
+            "{message}"
+        );
+        assert!(message.contains("\"openai/gpt-5.6-luna\""), "{message}");
+        assert!(
+            message.contains(
+                "Declaring it also requires \"supported_parameters\":{\"structured_output\":true}"
+            ),
+            "{message}"
+        );
+        assert!(
+            message.contains("\"supported_parameters\":{\"json_mode\":true}"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn an_uncovered_capability_is_loud_but_survivable_outside_production() {
+        let registry = CapabilityRegistrySnapshot::from_json(OUTAGE_REGISTRY_JSON)
+            .expect("outage registry parses");
+
+        let report = registry.audit_required_capabilities(DataPolicyMode::Development);
+        assert!(!report.is_covered());
+        assert!(!report.is_fatal());
+        assert!(
+            report
+                .to_string()
+                .contains("Startup continues because COSYWORLD_DEPLOY_PROFILE is not production"),
+            "{report}"
+        );
+    }
+
+    #[test]
+    fn a_fully_declared_registry_passes_the_startup_audit() {
+        let registry = snapshot(
+            "covered-1",
+            vec![declared_candidate(
+                "provider/generalist",
+                [
+                    ModelCapability::Voice,
+                    ModelCapability::IntentJson,
+                    ModelCapability::WorldContent,
+                ],
+            )],
+            Vec::new(),
+        );
+
+        let report = registry.audit_required_capabilities(DataPolicyMode::Production);
+        assert!(report.is_covered());
+        assert!(!report.is_fatal());
+        assert!(report.gap_capabilities().is_empty());
+        assert!(report.to_string().contains("covers all 3"), "{report}");
+    }
+
+    /// A narrow registry stays deployable: one candidate covering all three
+    /// capabilities is enough, and that is exactly what the legacy fallback is.
+    #[test]
+    fn legacy_fallback_registry_still_covers_every_required_capability() {
+        let legacy = CapabilityRegistrySnapshot::legacy(
+            "legacy-config-v1",
+            "openrouter",
+            "openai/gpt-5.6-luna",
+        )
+        .expect("legacy fallback registry");
+
+        assert_eq!(legacy.candidate_count(), 1);
+        assert_eq!(legacy.pool_len(ModelCapability::Voice), 1);
+        assert_eq!(legacy.pool_len(ModelCapability::IntentJson), 1);
+        assert_eq!(legacy.pool_len(ModelCapability::WorldContent), 1);
+        assert!(legacy
+            .audit_required_capabilities(DataPolicyMode::Development)
+            .is_covered());
+
+        // The legacy fallback is only built when no registry is configured, so
+        // the startup audit never sees it. Its unknown data policy still fails
+        // closed on every production pin, exactly as before this guard.
+        let production = legacy.audit_required_capabilities(DataPolicyMode::Production);
+        assert!(!production.is_covered());
+        assert!(
+            production.to_string().contains("privacy rejected"),
+            "{production}"
+        );
+        assert_eq!(
+            legacy
+                .pin(ModelCapability::Voice, None, DataPolicyMode::Production)
+                .expect_err("legacy data policy is unknown")
+                .code(),
+            "inference_privacy_rejected"
+        );
+    }
+
+    #[test]
+    fn coverage_report_names_a_bounded_number_of_excluded_candidates() {
+        let candidates = (0..40)
+            .map(|index| {
+                declared_candidate(
+                    format!("provider/model-{index:03}"),
+                    [ModelCapability::Voice],
+                )
+            })
+            .collect();
+        let registry = snapshot("bounded-1", candidates, Vec::new());
+
+        let message = registry
+            .audit_required_capabilities(DataPolicyMode::Production)
+            .to_string();
+        assert!(message.contains("\"provider/model-000\""), "{message}");
+        assert!(!message.contains("\"provider/model-039\""), "{message}");
+        assert!(
+            message.contains("and 32 further candidate(s) excluded for their own reasons"),
+            "{message}"
+        );
     }
 
     #[test]

@@ -66,6 +66,12 @@ do not define V2 behavior.
   composition, loadouts, and pack extensions.
 - **[Fiction Frontier](backlog/fiction-frontier.md)** — authored transcript
   coverage, client-confirmed beat exposure, and prose-quality gates.
+- **[Player Journal as a Semantic Chronicle](backlog/player-journal-semantic-chronicle.md)** —
+  deterministic story-beat projection, causal event grouping, consistent
+  player copy, and truthful disclosure behaviour.
+- **[Seventh-Visit Operating Queue](backlog/seventh-visit-operating-queue.md)** —
+  the bounded production-trust, authority, and first-campaign delivery waves,
+  with portfolio gates and backlog-state rules.
 
 GitHub Issues are the live execution backlog. These local backlogs carry the
 long-form contracts and acceptance gates that do not fit cleanly in an issue.

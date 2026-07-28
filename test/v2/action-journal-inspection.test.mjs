@@ -223,4 +223,35 @@ describe("read-only action journal inspection", () => {
     ]);
     expect(result.summary.version_mismatch_references).toBe(0);
   });
+
+  it("reports compacted journal history without mutating the persistence store", async () => {
+    const database = new Database(eventDbPath);
+    database.exec(`
+      CREATE TABLE persistence_compaction (
+        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+        action_journal_floor_seq INTEGER NOT NULL DEFAULT 0,
+        world_event_floor_seq INTEGER NOT NULL DEFAULT 0,
+        last_compacted_at_ms INTEGER,
+        deleted_action_journal_rows INTEGER NOT NULL DEFAULT 0,
+        deleted_world_event_rows INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO persistence_compaction (
+        singleton, action_journal_floor_seq, world_event_floor_seq,
+        last_compacted_at_ms, deleted_action_journal_rows, deleted_world_event_rows
+      ) VALUES (1, 3, 41, 123456, 2, 40);
+    `);
+    database.close();
+    const before = digest(await readFile(eventDbPath));
+
+    const result = inspectActionJournal(eventDbPath, registry, { limit: 10 });
+
+    expect(digest(await readFile(eventDbPath))).toBe(before);
+    expect(result.compaction).toEqual({
+      action_journal_floor_seq: 3,
+      world_event_floor_seq: 41,
+      last_compacted_at_ms: 123456,
+      deleted_action_journal_rows: 2,
+      deleted_world_event_rows: 40,
+    });
+  });
 });

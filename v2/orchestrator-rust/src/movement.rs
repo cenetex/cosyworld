@@ -277,6 +277,7 @@ impl RuntimeWorld {
                     && candidate.resolver == offered.resolver
                     && candidate.state_revision == offered.state_revision
                     && candidate.provider.id == offered.provider.id
+                    && candidate.source_collectible == offered.source_collectible
                     && candidate.target == offered.target
                     && candidate.route == offered.route
                     && action_offer_is_reachable(candidate)
@@ -881,6 +882,196 @@ mod tests {
     }
 
     #[test]
+    fn scout_binds_one_authoritative_route_across_stale_submission_restart_and_replay() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Exact Scout",
+        );
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
+        let access = AccessContext::default();
+        let initial = runtime.state_response(Some(actor_id), &access);
+        let long_destinations = initial
+            .exits
+            .iter()
+            .filter(|exit| exit.distance > 1 && exit.accessible && !exit.locked)
+            .map(|exit| exit.destination_location_id)
+            .collect::<Vec<_>>();
+        assert!(
+            long_destinations.len() >= 2,
+            "the fixture must expose multiple long routes"
+        );
+        let scout_offers = initial
+            .action_offers
+            .iter()
+            .filter(|offer| offer.kind == "explore_path")
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(
+            scout_offers.len(),
+            1,
+            "the server deals one authoritative Scout route"
+        );
+        let offer = scout_offers[0].clone();
+        let offered_destination = offer
+            .target
+            .as_ref()
+            .filter(|target| target.kind == "location")
+            .and_then(|target| target.id)
+            .expect("Scout offer has an exact destination");
+        let forged_destination = long_destinations
+            .iter()
+            .copied()
+            .find(|destination| *destination != offered_destination)
+            .expect("a different long route exists");
+
+        let before_rejection = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize pre-rejection state");
+        let rejected = runtime.validate_action_offer_submission(
+            actor_id,
+            &access,
+            &ActionOfferSubmissionRequest {
+                path: "/actions/explore-path".to_string(),
+                offer_id: offer.offer_id.clone(),
+                composition_id: offer.composition_id.clone(),
+                kind: offer.kind.clone(),
+                rules_action: offer.rules_action.clone(),
+                operation: offer.operation.clone(),
+                rules_profile: offer.rules_profile.clone(),
+                state_revision: offer.state_revision,
+                route: offer.route.clone(),
+                target: offer.target.clone(),
+                cost: offer.cost.clone(),
+                payload: serde_json::json!({
+                    "actor_id": actor_id,
+                    "destination_location_id": forged_destination,
+                }),
+            },
+        );
+        assert_eq!(
+            rejected,
+            Err("submitted payload target does not match the authoritative offer")
+        );
+        assert!(runtime
+            .plan_scout_choice_action(actor_id, forged_destination)
+            .is_err());
+        assert_eq!(
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+                .expect("serialize post-rejection state"),
+            before_rejection,
+            "a forged Scout target cannot mutate the world"
+        );
+
+        let (action, mut mutation, narration_plan) = runtime
+            .plan_scout_choice_action(actor_id, offered_destination)
+            .expect("the exact Scout offer plans");
+        assert_eq!(action.kind, CW_ACTION_NONE);
+        assert_eq!(
+            runtime
+                .actor_by_id(actor_id)
+                .expect("Scout actor remains present")
+                .location_id,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "planning Scout does not move the actor"
+        );
+        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut mutation {
+            *narration = travel_narration_fallback(&narration_plan);
+        }
+        let mut record = JournalRecord::new(action, 97_250);
+        record.bind_offer_kind("explore_path");
+        record.route_binding = offer.route.clone();
+        record.projection_mutations.push(mutation);
+
+        let pre_scout_bytes = serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize pre-Scout restart fixture");
+        let mut replayed = serde_json::from_slice::<RuntimeSnapshot>(&pre_scout_bytes)
+            .expect("deserialize pre-Scout restart fixture")
+            .into_runtime()
+            .expect("restart restores the multi-route fixture");
+
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(replayed.journeys.get(&actor_id))
+                .expect("serialize replayed journey"),
+            serde_json::to_value(runtime.journeys.get(&actor_id))
+                .expect("serialize direct journey"),
+            "replay reproduces the exact offered route"
+        );
+        assert_eq!(
+            replayed
+                .actor_by_id(actor_id)
+                .expect("replayed Scout actor exists")
+                .location_id,
+            runtime
+                .actor_by_id(actor_id)
+                .expect("direct Scout actor exists")
+                .location_id
+        );
+
+        let after = runtime.state_response(Some(actor_id), &access);
+        assert_eq!(
+            runtime
+                .actor_by_id(actor_id)
+                .expect("Scout actor remains present")
+                .location_id,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Scout reveals the route without moving"
+        );
+        assert_eq!(
+            after
+                .journey
+                .as_ref()
+                .map(|journey| journey.destination_location_id),
+            Some(offered_destination)
+        );
+        assert!(
+            !after
+                .action_offers
+                .iter()
+                .any(|candidate| candidate.kind == "explore_path"),
+            "Travel, not another Scout, follows the revealed stretch"
+        );
+        let next_location_id = after
+            .journey
+            .as_ref()
+            .and_then(|journey| journey.next_location_id)
+            .expect("the revealed journey has a next Travel step");
+        assert!(after.action_offers.iter().any(|candidate| {
+            candidate.kind == "move"
+                && candidate
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.id == Some(next_location_id))
+        }));
+        assert!(runtime
+            .plan_scout_choice_action(actor_id, offered_destination)
+            .is_err());
+
+        let restarted = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("post-Scout restart restores");
+        assert_eq!(
+            serde_json::to_value(restarted.state_response(Some(actor_id), &access))
+                .expect("serialize restarted state"),
+            serde_json::to_value(after).expect("serialize direct state"),
+            "restart preserves the authoritative Travel-after-Scout state"
+        );
+    }
+
+    #[test]
     fn stale_route_offer_fails_without_mutating_world_state() {
         let mut runtime = RuntimeWorld::seeded();
         runtime
@@ -1131,7 +1322,10 @@ mod tests {
             &actor_session,
             "/actions/explore-path",
             first_scout,
-            serde_json::json!({ "actor_id": actor_id }),
+            serde_json::json!({
+                "actor_id": actor_id,
+                "destination_location_id": MOONLIT_TRAIL_LOCATION_ID,
+            }),
         )
         .await;
         assert!(first_scout_response.ok, "{first_scout_response:?}");
@@ -1195,7 +1389,10 @@ mod tests {
                     &actor_session,
                     "/actions/explore-path",
                     scout,
-                    serde_json::json!({ "actor_id": actor_id }),
+                    serde_json::json!({
+                        "actor_id": actor_id,
+                        "destination_location_id": MOONLIT_TRAIL_LOCATION_ID,
+                    }),
                 )
                 .await;
                 assert!(scout_response.ok, "step {step}: {scout_response:?}");

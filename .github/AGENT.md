@@ -87,8 +87,9 @@ changing application behavior.
   unrelated baseline churn.
 - Full V2 smoke checks start local processes and use fixed runtime files; stop
   stale instances before diagnosing product failures.
-- Pushes to `main` deploy the production Fly app. Release tags also deploy to
-  AWS and create a GitHub release. Feature branches never target production.
+- Pushes to `main` deploy both production Fly apps. Release tags deploy those
+  same Fly targets and create a GitHub release. AWS retains DNS, static-site,
+  and rollback infrastructure; feature branches never target production.
 
 ## Files requiring special handling
 

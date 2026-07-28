@@ -1,6 +1,7 @@
 use super::*;
 
 pub(super) const CRAFT_RECEIPT_SCHEMA_VERSION: u8 = 1;
+pub(super) const HEARTH_TONIC_RECIPE_ID: u64 = 3105;
 const CRAFT_ITEM_ID_BASE: u64 = 11_000_000_000;
 const CRAFT_ITEM_ID_RANGE: u64 = 1_000_000_000;
 
@@ -164,12 +165,20 @@ impl RuntimeWorld {
                 .and_then(|state| state.revealed_feature.as_ref())
                 .is_some_and(|feature| natural_resource_id(feature.resource_kind) == required)
         }) || !recipe.requires.location_features.iter().all(|required| {
-            required == "generated_place_anchor_site"
-                && self.generated_places.contains_key(&location_id)
-                && !self
-                    .tags
-                    .get(&format!("generated-place:{location_id}:anchor-fixture"))
-                    .is_some_and(|tag| tag.active)
+            if required == "generated_place_anchor_site" {
+                return self.generated_places.contains_key(&location_id)
+                    && !self
+                        .tags
+                        .get(&format!("generated-place:{location_id}:anchor-fixture"))
+                        .is_some_and(|tag| tag.active);
+            }
+            required
+                .strip_prefix("seed_room_feature:")
+                .is_some_and(|feature_key| {
+                    self.room_features(location_id)
+                        .into_iter()
+                        .any(|feature| feature.key == feature_key)
+                })
         }) {
             return None;
         }
@@ -342,13 +351,13 @@ impl RuntimeWorld {
             "installed_at_location" => (CW_PLACEMENT_LOCATION_FIXTURE, actor.location_id),
             _ => (CW_PLACEMENT_LOCATION_FLOOR, actor.location_id),
         };
-        let first = inputs.first()?;
+        let first = inputs.first();
         let second = inputs.get(1);
         let action = CwAction {
             kind: CW_ACTION_CRAFT,
             actor_id,
             content_id: recipe.id,
-            item_id: first.0.id,
+            item_id: first.map(|input| input.0.id).unwrap_or_default(),
             target_item_id: second.map(|input| input.0.id).unwrap_or_default(),
             output_item_id,
             output_target_id,
@@ -359,7 +368,9 @@ impl RuntimeWorld {
             output_container_capacity_tenths: template.container_capacity_tenths,
             output_item_size_class: output_profile.size_class,
             output_item_role: output_role,
-            item_disposition: craft_disposition(&first.1)?,
+            item_disposition: first
+                .map(|input| craft_disposition(&input.1))
+                .unwrap_or(Some(CW_CRAFT_INPUT_PERSISTS))?,
             target_item_disposition: second
                 .map(|input| craft_disposition(&input.1))
                 .unwrap_or(Some(CW_CRAFT_INPUT_PERSISTS))?,
@@ -594,6 +605,9 @@ impl RuntimeWorld {
                 .item_name(receipt.output_item_id)
                 .unwrap_or_else(|| "the finished piece".to_string());
             event.content = Some(match event.type_name.as_str() {
+                "item.crafted" if receipt.output_effect == "provisioned_supply" => {
+                    format!("{recipe_name}: {output_name} was drawn from the local supply.")
+                }
                 "item.crafted" => format!("{recipe_name}: {input_name} became {output_name}."),
                 "item.created" if receipt.output_effect == "installed_fixture" => {
                     format!("{output_name} now anchors this place.")
@@ -755,6 +769,187 @@ mod tests {
         place_quest_ore(&mut runtime, location_id);
         install_completed_smithy(&mut runtime, location_id);
         runtime
+    }
+
+    #[test]
+    fn hearth_tonic_supply_is_repeatable_for_players_and_replay_safe() {
+        let mut runtime = RuntimeWorld::seeded();
+        const FIRST_PLAYER_ID: u64 = 5_000;
+        const SECOND_PLAYER_ID: u64 = 5_001;
+        create_test_human(
+            &mut runtime,
+            FIRST_PLAYER_ID,
+            COSY_COTTAGE_LOCATION_ID,
+            "First Player",
+        );
+        create_test_human(
+            &mut runtime,
+            SECOND_PLAYER_ID,
+            COSY_COTTAGE_LOCATION_ID,
+            "Second Player",
+        );
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let first_plan = runtime
+            .versioned_craft_plan(
+                FIRST_PLAYER_ID,
+                HEARTH_TONIC_RECIPE_ID,
+                Some("hearth-tonic:first-player:first"),
+            )
+            .expect("the Cottage hearth provisions the first player a tonic");
+        assert!(first_plan.receipt.inputs.is_empty());
+        assert_eq!(
+            first_plan.receipt.capability_source,
+            "location_feature:seed_room_feature:hearth"
+        );
+        assert_eq!(first_plan.action.item_id, 0);
+        let first_record = record_for_plan(&runtime, first_plan);
+        assert_eq!(runtime.apply_journal_record(&first_record).0, CW_OK);
+        let first_tonic_id = runtime
+            .craft_receipts
+            .get("hearth-tonic:first-player:first")
+            .expect("the first player's claim is durable")
+            .output_item_id;
+
+        let second_plan = runtime
+            .versioned_craft_plan(
+                SECOND_PLAYER_ID,
+                HEARTH_TONIC_RECIPE_ID,
+                Some("hearth-tonic:second-player:first"),
+            )
+            .expect("the same hearth independently provisions the second player");
+        let second_record = record_for_plan(&runtime, second_plan);
+        assert_eq!(runtime.apply_journal_record(&second_record).0, CW_OK);
+        let second_tonic_id = runtime
+            .craft_receipts
+            .get("hearth-tonic:second-player:first")
+            .expect("the second player's claim is durable")
+            .output_item_id;
+        assert_ne!(first_tonic_id, second_tonic_id);
+        assert!(runtime.item_by_id(first_tonic_id).is_some_and(|item| {
+            item.holder_actor_id == FIRST_PLAYER_ID
+                && item.kind == CW_ITEM_POTION
+                && item.charges == 1
+        }));
+        assert!(runtime.item_by_id(second_tonic_id).is_some_and(|item| {
+            item.holder_actor_id == SECOND_PLAYER_ID
+                && item.kind == CW_ITEM_POTION
+                && item.charges == 1
+        }));
+        assert!(runtime
+            .versioned_craft_plan(
+                FIRST_PLAYER_ID,
+                HEARTH_TONIC_RECIPE_ID,
+                Some("hearth-tonic:first-player:first"),
+            )
+            .is_none());
+
+        let expected_receipts = runtime.craft_receipts.clone();
+        let expected_items = serde_json::to_value(&runtime.world.items[..runtime.world.item_count])
+            .expect("provisioned items serialize");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-provision snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&first_record).0, CW_OK);
+        assert_eq!(replayed.apply_journal_record(&second_record).0, CW_OK);
+        assert_eq!(replayed.craft_receipts, expected_receipts);
+        assert_eq!(
+            serde_json::to_value(&replayed.world.items[..replayed.world.item_count])
+                .expect("replayed provisioned items serialize"),
+            expected_items
+        );
+    }
+
+    #[test]
+    fn resident_with_a_healing_target_draws_then_uses_a_hearth_tonic() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists")
+            .damage = 6;
+        for item in runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .filter(|item| item.kind == CW_ITEM_POTION)
+        {
+            item.charges = 0;
+        }
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists")
+            .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        let rati = runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("Rati remains active");
+        let blocked_motive = runtime
+            .resident_economy_view(rati, None)
+            .expect("Rati economy is visible away from the hearth")
+            .motive;
+        assert_eq!(
+            blocked_motive,
+            "Rati cannot help Rati yet: no usable potion is available here. A Hearth Tonic can be drawn from the Cottage hearth."
+        );
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists")
+            .location_id = COSY_COTTAGE_LOCATION_ID;
+        let rati = runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("Rati remains active");
+        let motive = runtime
+            .resident_economy_view(rati, None)
+            .expect("Rati economy is visible")
+            .motive;
+        assert_eq!(
+            motive,
+            "Rati can draw a Hearth Tonic from the Cottage hearth to help Rati."
+        );
+
+        let provision = runtime
+            .resident_economy_autonomy_record(rati, 81_101)
+            .expect("healing need selects a legal provision action");
+        assert_eq!(provision.action.kind, CW_ACTION_CRAFT);
+        assert_eq!(provision.action.content_id, HEARTH_TONIC_RECIPE_ID);
+        assert!(provision
+            .projection_mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::ResolveCraft { .. })));
+        assert_eq!(runtime.apply_journal_record(&provision).0, CW_OK);
+
+        let rati = runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("Rati remains active");
+        let healing = runtime
+            .resident_economy_autonomy_record(rati, 81_102)
+            .expect("fresh tonic creates a legal healing action");
+        assert_eq!(healing.action.kind, CW_ACTION_USE_ITEM);
+        assert_eq!(healing.action.target_actor_id, RATI_ACTOR_ID);
+        assert_eq!(runtime.apply_journal_record(&healing).0, CW_OK);
+        assert_eq!(
+            runtime
+                .actor_by_id(RATI_ACTOR_ID)
+                .expect("Rati remains active")
+                .damage,
+            0
+        );
+
+        assert!(runtime
+            .versioned_craft_plan(
+                RATI_ACTOR_ID,
+                HEARTH_TONIC_RECIPE_ID,
+                Some("hearth-tonic:rati:again"),
+            )
+            .is_some());
     }
 
     fn test_generated_pathway(runtime: &RuntimeWorld) -> GeneratedPathwayState {

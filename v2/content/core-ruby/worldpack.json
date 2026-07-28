@@ -677,7 +677,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:76d8753ca6fface8d0f2ac887257780807d8be3b036dd3bf02c0166b4015d53d",
+  "bundle_hash": "sha256:25961cc0d50844086ad7d576f6aa9302170c7a574836ba35a27e9c1cb457878f",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -910,7 +910,7 @@
         "card_bindings": 0,
         "lifecycle_hooks": 19,
         "evolution_tracks": 3,
-        "recipes": 8,
+        "recipes": 9,
         "sentences": 21,
         "external_cards": 0,
         "assets": 2,
@@ -1471,6 +1471,30 @@
           "replay_version": "weighted-fnv1a-v1",
           "item_templates": [
             {
+              "id": "hearth_tonic",
+              "name": "Hearth Tonic",
+              "description": "A warm tonic drawn from the Cottage hearth that gets one person back on their feet, probably complaining.",
+              "kind": "potion",
+              "charges": 1,
+              "role": "consumable",
+              "weight_tenths": 5,
+              "size": "small",
+              "mechanics": {
+                "binding": "srd5.2.1:utilize",
+                "equipment_profile": "carried",
+                "target_predicate": "active_actor_same_location_needing_healing",
+                "resolver": "item_utilize_v1",
+                "effect_budget": {
+                  "healing": 10
+                },
+                "uses": 1,
+                "exhaustion": "consume_charge",
+                "recovery": "none",
+                "transfer_policy": "transferable",
+                "theft_policy": "eligible_when_carried"
+              }
+            },
+            {
               "id": "river_sprat",
               "name": "River Sprat",
               "description": "A small silver fish caught through patient shared work.",
@@ -1747,7 +1771,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:0f20960679f37aef4621a46538bf581772ced9f50a92153be8389df5f878a612"
+      "integrity": "sha256:ddb78350dc0bb2a4067cb1094b6445ac0b0f72bfb68b3d3798a5c2d1b74c7f45"
     },
     {
       "id": "ruby-high.first-bell",

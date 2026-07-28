@@ -159,6 +159,14 @@ impl AiConfig {
             .ok()
             .or_else(|| std::env::var("OPENROUTER_CHAT_MODEL").ok())
             .or_else(|| std::env::var("OPENAI_MODEL").ok());
+        let data_policy_mode = if std::env::var("COSYWORLD_DEPLOY_PROFILE")
+            .map(|profile| profile.eq_ignore_ascii_case("production"))
+            .unwrap_or(false)
+        {
+            DataPolicyMode::Production
+        } else {
+            DataPolicyMode::Development
+        };
         let registry = std::env::var(AI_REGISTRY_ENV)
             .ok()
             .map(|value| {
@@ -201,14 +209,23 @@ impl AiConfig {
             .or_else(|| reasoning_effort.clone());
         let capability_models =
             parse_capability_models(std::env::var(AI_CAPABILITY_MODELS_ENV).ok().as_deref())?;
-        let data_policy_mode = if std::env::var("COSYWORLD_DEPLOY_PROFILE")
-            .map(|profile| profile.eq_ignore_ascii_case("production"))
-            .unwrap_or(false)
-        {
-            DataPolicyMode::Production
+        let fallback_registry;
+        let effective_registry = if let Some(snapshot) = registry.as_deref() {
+            snapshot
         } else {
-            DataPolicyMode::Development
+            fallback_registry = CapabilityRegistrySnapshot::legacy(
+                "legacy-config-v1",
+                ai_provider_name_for_base_url(&base_url),
+                &model,
+            )
+            .map_err(|error| format!("{AI_REGISTRY_ENV} legacy fallback: {error}"))?;
+            &fallback_registry
         };
+        validate_ai_routing_configuration(
+            effective_registry,
+            &capability_models,
+            data_policy_mode,
+        )?;
         let voice_routing = VoiceRoutingConfig::from_env()?;
 
         Ok(Some(Self {
@@ -268,6 +285,39 @@ impl AiConfig {
         )?
         .pin_all(capability, self.data_policy_mode)
     }
+}
+
+fn validate_ai_routing_configuration(
+    registry: &CapabilityRegistrySnapshot,
+    capability_models: &BTreeMap<ModelCapability, String>,
+    data_policy_mode: DataPolicyMode,
+) -> Result<(), String> {
+    // An explicit override is the effective choice for a direct capability
+    // request, so validate it before accepting the broader pool. Otherwise a
+    // healthy pool can hide a configured model that fails every request.
+    for (capability, model) in capability_models {
+        registry
+            .pin(*capability, Some(model), data_policy_mode)
+            .map_err(|error| {
+                format!(
+                    "{AI_CAPABILITY_MODELS_ENV} configures {capability} as {model:?}, but {AI_REGISTRY_ENV} cannot pin that effective selection ({}): {error}",
+                    error.code()
+                )
+            })?;
+    }
+
+    // A missing explicit registry uses the same synthesized legacy snapshot as
+    // runtime pinning. In production that snapshot has no reviewed data-policy
+    // declaration, so this audit refuses startup instead of booting an AI
+    // configuration whose every request will be privacy rejected.
+    let coverage = registry.audit_required_capabilities(data_policy_mode);
+    if coverage.is_fatal() {
+        return Err(coverage.to_string());
+    }
+    if !coverage.is_covered() {
+        tracing::error!("{coverage}");
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -994,9 +1044,13 @@ pub(crate) fn ai_provider_name(config: Option<&AiConfig>) -> &'static str {
     let Some(config) = config else {
         return "unconfigured";
     };
-    if config.base_url.contains("openrouter.ai") {
+    ai_provider_name_for_base_url(&config.base_url)
+}
+
+fn ai_provider_name_for_base_url(base_url: &str) -> &'static str {
+    if base_url.contains("openrouter.ai") {
         "openrouter"
-    } else if config.base_url.contains("api.openai.com") {
+    } else if base_url.contains("api.openai.com") {
         "openai"
     } else {
         "openai_compatible"
@@ -1488,6 +1542,142 @@ mod tests {
         assert!(local_ai_base_url("http://localhost:8080/v1"));
         assert!(!local_ai_base_url("https://openrouter.ai/api/v1"));
         assert!(!local_ai_base_url("https://api.openai.com/v1"));
+    }
+
+    fn startup_validation_registry() -> CapabilityRegistrySnapshot {
+        CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "startup-validation-1",
+              "declared": [
+                {
+                  "requested_model_id": "provider/generalist",
+                  "provider": "test-provider",
+                  "concrete_model": {"model_id": "provider/generalist", "revision": "r1"},
+                  "input_modalities": ["text"],
+                  "output_modalities": ["text"],
+                  "supported_parameters": {"structured_output": true, "json_mode": true},
+                  "data_policy": {"retention": "none", "training": "prohibited"},
+                  "capabilities": ["voice", "intent_json", "world_content"]
+                },
+                {
+                  "requested_model_id": "provider/voice-only",
+                  "provider": "test-provider",
+                  "concrete_model": {"model_id": "provider/voice-only", "revision": "r1"},
+                  "input_modalities": ["text"],
+                  "output_modalities": ["text"],
+                  "data_policy": {"retention": "none", "training": "prohibited"},
+                  "capabilities": ["voice"]
+                },
+                {
+                  "requested_model_id": "provider/unsafe-planner",
+                  "provider": "test-provider",
+                  "concrete_model": {"model_id": "provider/unsafe-planner", "revision": "r1"},
+                  "input_modalities": ["text"],
+                  "output_modalities": ["text"],
+                  "supported_parameters": {"json_mode": true},
+                  "data_policy": {"retention": "provider_default", "training": "permitted"},
+                  "capabilities": ["intent_json"]
+                }
+              ]
+            }"#,
+        )
+        .expect("startup validation registry")
+    }
+
+    #[test]
+    fn startup_rejects_unknown_capability_override_with_stable_context() {
+        let error = validate_ai_routing_configuration(
+            &startup_validation_registry(),
+            &BTreeMap::from([(ModelCapability::IntentJson, "provider/missing".to_string())]),
+            DataPolicyMode::Production,
+        )
+        .expect_err("an unknown effective model must stop startup");
+
+        assert!(error.contains(AI_CAPABILITY_MODELS_ENV), "{error}");
+        assert!(error.contains(AI_REGISTRY_ENV), "{error}");
+        assert!(error.contains("intent_json"), "{error}");
+        assert!(error.contains("\"provider/missing\""), "{error}");
+        assert!(error.contains("inference_registry_error"), "{error}");
+    }
+
+    #[test]
+    fn startup_rejects_capability_mismatched_and_privacy_ineligible_overrides() {
+        let registry = startup_validation_registry();
+        let mismatch = validate_ai_routing_configuration(
+            &registry,
+            &BTreeMap::from([(
+                ModelCapability::IntentJson,
+                "provider/voice-only".to_string(),
+            )]),
+            DataPolicyMode::Production,
+        )
+        .expect_err("a voice-only model cannot be the planner");
+        assert!(mismatch.contains("intent_json"), "{mismatch}");
+        assert!(mismatch.contains("\"provider/voice-only\""), "{mismatch}");
+        assert!(
+            mismatch.contains("inference_capability_mismatch"),
+            "{mismatch}"
+        );
+
+        let privacy = validate_ai_routing_configuration(
+            &registry,
+            &BTreeMap::from([(
+                ModelCapability::IntentJson,
+                "provider/unsafe-planner".to_string(),
+            )]),
+            DataPolicyMode::Production,
+        )
+        .expect_err("production must reject an unsafe planner override");
+        assert!(privacy.contains("intent_json"), "{privacy}");
+        assert!(privacy.contains("\"provider/unsafe-planner\""), "{privacy}");
+        assert!(privacy.contains("inference_privacy_rejected"), "{privacy}");
+    }
+
+    #[test]
+    fn startup_accepts_valid_effective_capability_overrides() {
+        validate_ai_routing_configuration(
+            &startup_validation_registry(),
+            &BTreeMap::from([
+                (ModelCapability::Voice, "provider/voice-only".to_string()),
+                (
+                    ModelCapability::IntentJson,
+                    "provider/generalist".to_string(),
+                ),
+                (
+                    ModelCapability::WorldContent,
+                    "provider/generalist".to_string(),
+                ),
+            ]),
+            DataPolicyMode::Production,
+        )
+        .expect("every effective selection is eligible");
+    }
+
+    #[test]
+    fn production_audits_the_same_legacy_fallback_used_by_runtime_pinning() {
+        let fallback = CapabilityRegistrySnapshot::legacy(
+            "legacy-config-v1",
+            "openrouter",
+            "provider/unreviewed",
+        )
+        .expect("legacy registry");
+
+        let error = validate_ai_routing_configuration(
+            &fallback,
+            &BTreeMap::new(),
+            DataPolicyMode::Production,
+        )
+        .expect_err("unreviewed legacy policy must stop production startup");
+        assert!(error.contains("\"legacy-config-v1\""), "{error}");
+        assert!(error.contains("privacy rejected"), "{error}");
+        assert!(
+            error.contains("Startup is refused because COSYWORLD_DEPLOY_PROFILE=production"),
+            "{error}"
+        );
+
+        validate_ai_routing_configuration(&fallback, &BTreeMap::new(), DataPolicyMode::Development)
+            .expect("legacy local development stays compatible");
     }
 
     #[test]

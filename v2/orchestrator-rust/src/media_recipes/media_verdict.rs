@@ -24,6 +24,10 @@ const MEDIA_VERDICT_SCHEMA_VERSION: u8 = 1;
 const MEDIA_CHECKER_VERSION: &str = "cosyworld.media-deterministic/1";
 const MEDIA_OPERATOR_REVIEWER_VERSION: &str = "cosyworld.media-operator/1";
 const MEDIA_VERDICT_DIR: &str = "media-verdicts/v1";
+/// Maximum length, in bytes, of any single frozen-brief constraint. Producers
+/// must bound each constraint they build to this budget; `validate` rejects the
+/// whole brief otherwise.
+pub(crate) const MEDIA_BRIEF_CONSTRAINT_LIMIT: usize = 240;
 const MAX_CANDIDATES_PER_JOB: usize = 4;
 const MAX_REVIEW_FAILURES: u8 = 3;
 const PROVIDER_COOLDOWN_FAILURES: u8 = 3;
@@ -95,7 +99,10 @@ impl FrozenMediaBrief {
             .map_err(|error| error.to_string())
     }
 
-    fn validate(&self) -> Result<(), String> {
+    /// Callers must run this before spending on a provider: every downstream
+    /// gate re-validates, so an invalid brief can only ever discard work that
+    /// has already been paid for.
+    pub(crate) fn validate(&self) -> Result<(), String> {
         if self.schema_version != MEDIA_VERDICT_SCHEMA_VERSION
             || self.job_key.trim().is_empty()
             || self.job_key.len() > 240
@@ -121,7 +128,7 @@ impl FrozenMediaBrief {
             .chain(&self.forbidden)
             .chain(&self.pack_negative_constraints)
         {
-            if value.trim().is_empty() || value.len() > 240 {
+            if value.trim().is_empty() || value.len() > MEDIA_BRIEF_CONSTRAINT_LIMIT {
                 return Err("generated-image frozen brief has an invalid constraint".to_string());
             }
         }

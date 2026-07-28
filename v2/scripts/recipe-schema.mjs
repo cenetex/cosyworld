@@ -12,13 +12,20 @@ const naturalFeatures = new Set([
   "rare_herb_habitat",
   "old_ruins",
 ]);
-const locationFeatures = new Set(["generated_place_anchor_site"]);
+const locationFeatures = new Set([
+  "generated_place_anchor_site",
+  "seed_room_feature:hearth",
+]);
 const outputDestinations = new Set([
   "actor_hand",
   "location_floor",
   "installed_at_location",
 ]);
-const outputEffects = new Set(["portable", "installed_fixture"]);
+const outputEffects = new Set([
+  "portable",
+  "installed_fixture",
+  "provisioned_supply",
+]);
 const outputUniqueness = new Set(["per_receipt", "per_location", "per_world"]);
 
 function nonEmpty(value) {
@@ -47,8 +54,11 @@ export function versionedRecipeValidationErrors(
   if (!object(recipe) || recipe.schema_version !== 2) {
     return [`${label} schema_version must be 2`];
   }
-  if (!Array.isArray(recipe.inputs) || recipe.inputs.length < 1 || recipe.inputs.length > 2) {
-    errors.push(`${label} must declare one or two physical inputs`);
+  const provisionedSupply = recipe.output?.effect === "provisioned_supply";
+  if (!Array.isArray(recipe.inputs)
+      || recipe.inputs.length > 2
+      || (recipe.inputs.length === 0 && !provisionedSupply)) {
+    errors.push(`${label} must declare one or two physical inputs unless it provisions a supply`);
   }
   const seenTemplates = new Set();
   let physicalInputCount = 0;
@@ -80,8 +90,8 @@ export function versionedRecipeValidationErrors(
       errors.push(`${inputLabel} has invalid charge requirements`);
     }
   }
-  if (physicalInputCount < 1 || physicalInputCount > 2) {
-    errors.push(`${label} must resolve to one or two physical items`);
+  if (physicalInputCount > 2 || (physicalInputCount === 0 && !provisionedSupply)) {
+    errors.push(`${label} must resolve to one or two physical items unless it provisions a supply`);
   }
 
   const requirements = recipe.requires;
@@ -114,6 +124,15 @@ export function versionedRecipeValidationErrors(
         )
         && recipeTags.every((tag) => (archetype.recipe_tags ?? []).includes(tag)))) {
     errors.push(`${label} has an impossible capability and recipe-tag combination`);
+  }
+  if (provisionedSupply
+      && ((recipe.inputs ?? []).length !== 0
+        || buildingCapabilities.length !== 0
+        || recipeTags.length !== 0
+        || requiredNaturalFeatures.length !== 0
+        || requiredLocationFeatures.length !== 1
+        || !requiredLocationFeatures[0].startsWith("seed_room_feature:"))) {
+    errors.push(`${label} provisioned supply must be inputless and bound to one authored room feature`);
   }
 
   const output = recipe.output;

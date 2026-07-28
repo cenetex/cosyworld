@@ -73,7 +73,9 @@ pub(crate) enum CommandDispatch {
     Move {
         destination_location_id: u64,
     },
-    Scout,
+    Scout {
+        destination_location_id: u64,
+    },
     Flee {
         destination_location_id: u64,
     },
@@ -548,7 +550,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
     }
     match &resolved.dispatch {
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
-        CommandDispatch::Scout => "That route can no longer be scouted from here.",
+        CommandDispatch::Scout { .. } => "That route can no longer be scouted from here.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
         CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
         CommandDispatch::Study => "There is no authored subject to Study here now.",
@@ -1813,7 +1815,9 @@ impl RuntimeWorld {
                     command: canonical.clone(),
                     verb,
                     action: Some(command_action("explore_path", "Scout", &canonical)),
-                    dispatch: CommandDispatch::Scout,
+                    dispatch: CommandDispatch::Scout {
+                        destination_location_id: destination,
+                    },
                 })
             }
             "flee" => {

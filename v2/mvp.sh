@@ -28,16 +28,20 @@ DEFAULT_CARDS="{\"wallets\":[{\"walletAddress\":\"${WALLET}\",\"cardIds\":[\"cos
 CARDS="${COSYWORLD_RUBY_HIGH_WALLET_CARDS:-$DEFAULT_CARDS}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
+DETACHED_SHELL="${COSYWORLD_V2_DETACHED_SHELL:-$(command -v bash)}"
 URL="${BASE_URL}/?wallet=${WALLET}"
 
 usage() {
   cat <<EOF
-Usage: v2/mvp.sh [start|open|smoke|check|status|logs|stop|restart]
+Usage: v2/mvp.sh [start|open|smoke|browser-check|check|status|logs|stop|restart]
 
 Commands:
   start    Build and start the browser MVP server, then open ${URL}
   open     Open ${URL}
   smoke    Run the browser MVP smoke against ${BASE_URL}
+  browser-check
+           Start a fresh deterministic server, run browser and terminal
+           smokes, then stop the server
   check    Run kernel/Rust/JS/CLI checks, production-profile smoke, browser smoke, and print status
   status   Print health and listener information
   logs     Tail the server log
@@ -130,7 +134,7 @@ start_server() {
     echo "screen is required for detached local MVP serving on this machine." >&2
     exit 1
   fi
-  screen -dmS "$SESSION" /bin/zsh -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' COSYWORLD_RUBY_HIGH_WALLET_CARDS='${CARDS}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
+  screen -dmS "$SESSION" "$DETACHED_SHELL" -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' COSYWORLD_RUBY_HIGH_WALLET_CARDS='${CARDS}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
   if ! wait_ready; then
     echo "CosyWorld v2 did not become ready. Last log lines:" >&2
     tail -60 "$LOG" >&2 || true
@@ -292,6 +296,27 @@ run_cli_smoke() {
   fi
 }
 
+run_browser_check() {
+  local check_runtime
+  check_runtime="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-browser-check.XXXXXX")"
+  cleanup_browser_check() {
+    stop_server
+    case "$check_runtime" in
+      */cosyworld-browser-check.*) rm -rf -- "$check_runtime" ;;
+    esac
+  }
+  export COSYWORLD_V2_EVENT_DB_PATH="$check_runtime/events.sqlite"
+  export COSYWORLD_V2_SNAPSHOT_PATH=off
+  export COSYWORLD_V2_RESIDENT_CONTINUITY_PATH="$check_runtime/resident-continuity.json"
+  trap cleanup_browser_check EXIT INT TERM
+  start_deterministic_smoke_server
+  run_smoke
+  run_cli_smoke
+  status
+  cleanup_browser_check
+  trap - EXIT INT TERM
+}
+
 check_all() {
   run_worldpack_check
   run_kernel_check
@@ -325,6 +350,9 @@ case "$cmd" in
     ;;
   smoke)
     run_smoke
+    ;;
+  browser-check)
+    run_browser_check
     ;;
   check)
     check_all

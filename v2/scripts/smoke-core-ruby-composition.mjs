@@ -118,6 +118,10 @@ async function startServer(tempDir, registryPath, snapshotPath) {
     COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET: "1",
     COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
+    // This lifecycle proof compares the same historical Ruby record before
+    // unmount and after remount. Preserve full history here; the standalone
+    // composition smoke exercises the default checkpoint compaction policy.
+    COSYWORLD_V2_PERSISTENCE_COMPACTION: "off",
     COSYWORLD_V2_SNAPSHOT_PATH: snapshotPath,
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
     COSYWORLD_V2_GENERATED_ASSET_DIR: resolve(tempDir, "generated"),
