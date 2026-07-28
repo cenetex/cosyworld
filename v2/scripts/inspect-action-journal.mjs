@@ -106,6 +106,39 @@ function emptySummary() {
   };
 }
 
+function inspectCompaction(database) {
+  const tableExists = database.prepare(
+    `SELECT EXISTS(
+       SELECT 1
+       FROM sqlite_schema
+       WHERE type = 'table' AND name = 'persistence_compaction'
+     )`,
+  ).pluck().get();
+  if (!tableExists) {
+    return {
+      action_journal_floor_seq: 0,
+      world_event_floor_seq: 0,
+      last_compacted_at_ms: null,
+      deleted_action_journal_rows: 0,
+      deleted_world_event_rows: 0,
+    };
+  }
+  const row = database.prepare(
+    `SELECT action_journal_floor_seq, world_event_floor_seq,
+            last_compacted_at_ms, deleted_action_journal_rows,
+            deleted_world_event_rows
+     FROM persistence_compaction
+     WHERE singleton = 1`,
+  ).get();
+  return {
+    action_journal_floor_seq: jsonInteger(row?.action_journal_floor_seq ?? 0),
+    world_event_floor_seq: jsonInteger(row?.world_event_floor_seq ?? 0),
+    last_compacted_at_ms: jsonInteger(row?.last_compacted_at_ms ?? null),
+    deleted_action_journal_rows: jsonInteger(row?.deleted_action_journal_rows ?? 0),
+    deleted_world_event_rows: jsonInteger(row?.deleted_world_event_rows ?? 0),
+  };
+}
+
 function referenceSummaryKey(status) {
   return status === "unknown_reference" ? "unknown_references" : `${status}_references`;
 }
@@ -206,6 +239,7 @@ export function inspectActionJournal(eventDbPath, registry, options = {}) {
       schema_version: 1,
       ok: true,
       inspectable: true,
+      compaction: inspectCompaction(database),
       registry: {
         bundle_hash: registry.manifest.bundle_hash,
         content_mapping_version: registry.content_references.mapping_version,

@@ -258,12 +258,21 @@ async function runWorldLoop(spec) {
 
     const registry = JSON.parse(await readFile(spec.registryPath, "utf8"));
     const inspection = inspectActionJournal(eventDbPath, registry, { limit: 100 });
+    const durableJournalHead = Math.max(
+      Number(inspection.compaction.action_journal_floor_seq),
+      Number(inspection.window.last_seq ?? 0),
+    );
     assert(
-      inspection.records.length >= 3
+      durableJournalHead >= 3
+        && inspection.records.length >= 1
         && inspection.summary.degraded_records === 0
         && inspection.summary.malformed_records === 0
         && inspection.summary.incompatible_bundle_records === 0,
-      `${spec.label} journal was not replayable: ${JSON.stringify(inspection.summary)}`,
+      `${spec.label} journal was not replayable: ${JSON.stringify({
+        window: inspection.window,
+        compaction: inspection.compaction,
+        summary: inspection.summary,
+      })}`,
     );
 
     restarted = await startServer(tempDir, spec.registryPath);
@@ -296,7 +305,8 @@ async function runWorldLoop(spec) {
       entry: spec.label,
       worldpack: spec.worldpackId,
       location: spec.location,
-      journal_records: inspection.records.length,
+      journal_head: durableJournalHead,
+      journal_records_retained: inspection.records.length,
       replayed: true,
     };
   } finally {
