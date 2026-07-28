@@ -5363,13 +5363,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         app.into_make_service_with_connect_info::<SocketAddr>(),
     );
     if env_flag("COSYWORLD_DISABLE_CTRL_C_SHUTDOWN") {
-        server.await?;
+        // The flag exists so a detached session survives a stray SIGINT. It must
+        // not mean "ignore SIGTERM": that is how Fly stops a machine and how the
+        // composition smoke stops a server before running the offline pack-mount
+        // migration, and dying unhandled there would strand the coalesced
+        // snapshot behind the journal head.
+        server.with_graceful_shutdown(terminate_signal()).await?;
     } else {
-        server
-            .with_graceful_shutdown(async {
-                let _ = signal::ctrl_c().await;
-            })
-            .await?;
+        server.with_graceful_shutdown(shutdown_signal()).await?;
     }
 
     // Snapshot writes are coalesced during play, so the last one may be older
@@ -38904,6 +38905,41 @@ fn journal_commit_recovery_error(
 /// Coalesce instead: write at most once per interval, and let the journal cover
 /// the gap. A snapshot that trails the journal by a few seconds only costs a
 /// slightly longer replay at boot. See issue #481.
+/// Resolve when the process is asked to stop, by either SIGINT or SIGTERM.
+///
+/// SIGTERM matters as much as SIGINT here: Fly sends it on every deploy and
+/// restart, and the composition smoke stops servers with it before running the
+/// offline pack-mount migration. That migration requires the on-disk snapshot
+/// to match the journal head, so an unhandled SIGTERM — which kills the process
+/// before the final forced snapshot — would leave a snapshot trailing the
+/// journal now that ordinary writes are coalesced.
+async fn terminate_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal as unix_signal, SignalKind};
+        match unix_signal(SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                terminate.recv().await;
+            }
+            Err(error) => {
+                warn!("failed to install SIGTERM handler: {}", error);
+                std::future::pending::<()>().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        std::future::pending::<()>().await;
+    }
+}
+
+async fn shutdown_signal() {
+    tokio::select! {
+        _ = signal::ctrl_c() => {}
+        _ = terminate_signal() => {}
+    }
+}
+
 const SNAPSHOT_MIN_INTERVAL_MS_DEFAULT: u64 = 5_000;
 
 fn snapshot_min_interval_ms() -> u64 {
