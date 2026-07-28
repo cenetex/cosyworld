@@ -1542,7 +1542,13 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
-  if (!action->content_id || !action->item_id
+  const int inputless_supply = action->content_id == 3105
+      && !action->item_id
+      && !action->target_item_id
+      && action->output_item_id
+      && action->item_disposition == CW_CRAFT_INPUT_PERSISTS
+      && action->target_item_disposition == CW_CRAFT_INPUT_PERSISTS;
+  if (!action->content_id || (!action->item_id && !inputless_supply)
       || (action->target_item_id && action->item_id == action->target_item_id)
       || !valid_craft_input_disposition(action->item_disposition)
       || !valid_craft_input_disposition(action->target_item_disposition)
@@ -1550,9 +1556,9 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
 
-  cw_item *first = find_item(world, action->item_id);
+  cw_item *first = action->item_id ? find_item(world, action->item_id) : 0;
   cw_item *second = action->target_item_id ? find_item(world, action->target_item_id) : 0;
-  if (!first || (action->target_item_id && !second)) {
+  if ((action->item_id && !first) || (action->target_item_id && !second)) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
   }
   const int legacy_two_input = action->target_item_id
@@ -1562,7 +1568,7 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
           && (first->holder_actor_id != actor->id
               || second->holder_actor_id != 0
               || second->location_id != actor->location_id))
-      || (!legacy_two_input
+      || (!legacy_two_input && !inputless_supply
           && (!craft_input_is_local(first, actor)
               || (second && !craft_input_is_local(second, actor))))) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
@@ -1571,7 +1577,7 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
   status = validate_output_slot(world, action, out_events);
   if (status != CW_OK) return status;
 
-  const cw_id first_id = first->id;
+  const cw_id first_id = first ? first->id : 0;
   const cw_id second_id = second ? second->id : 0;
   append_event(world, out_events, CW_EVENT_ITEM_CRAFTED);
   if (out_events && out_events->count > 0) {
@@ -1588,8 +1594,10 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
         action->output_target_kind == CW_PLACEMENT_ACTOR_HAND ? action->output_target_id : 0;
   }
 
-  apply_craft_input_disposition(
-      world, out_events, action, actor, first_id, action->item_disposition);
+  if (first_id) {
+    apply_craft_input_disposition(
+        world, out_events, action, actor, first_id, action->item_disposition);
+  }
   if (second_id) {
     apply_craft_input_disposition(
         world, out_events, action, actor, second_id, action->target_item_disposition);
@@ -2107,9 +2115,18 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
   int16_t raw = roll_d20(seed, 1, roll_mode);
   int16_t strength_mod = ability_modifier(actor->stats.strength);
   int16_t dexterity_mod = ability_modifier(actor->stats.dexterity);
-  int16_t attack_ability_mod = finesse && dexterity_mod > strength_mod
-      ? dexterity_mod
-      : strength_mod;
+  uint8_t attack_ability = CW_ABILITY_STRENGTH;
+  int16_t attack_ability_mod = strength_mod;
+  if (finesse && action->ability != CW_ABILITY_STRENGTH
+      && action->ability <= CW_ABILITY_CHARISMA) {
+    attack_ability = action->ability;
+    attack_ability_mod = ability_modifier((int8_t)stat_value(&actor->stats, attack_ability));
+  } else if (finesse && dexterity_mod > strength_mod) {
+    /* An ability-free finesse action is a legacy journal entry. Preserve its
+       historical best-of-Strength-or-Dexterity replay semantics. */
+    attack_ability = CW_ABILITY_DEXTERITY;
+    attack_ability_mod = dexterity_mod;
+  }
   int16_t attack_mod = (int16_t)(attack_ability_mod + proficiency_bonus(actor));
   int16_t attack_total = (int16_t)(raw + attack_mod);
   int16_t ac = (int16_t)(10 + ability_modifier(target->stats.dexterity));
@@ -2128,6 +2145,7 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
     event->total = attack_total;
     event->dc = ac;
     event->item_id = weapon ? weapon->id : 0;
+    event->ability = attack_ability;
   }
 
   if (!attack_hit) {
@@ -2144,6 +2162,7 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
       event->total = attack_total;
       event->dc = ac;
       event->item_id = weapon ? weapon->id : 0;
+      event->ability = attack_ability;
     }
     finish_or_advance_combat_turn(world, encounter, action, out_events);
     return CW_OK;
@@ -2178,6 +2197,7 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
     event->damage = damage;
     event->current_hp = cw_actor_current_hp(target);
     event->item_id = weapon ? weapon->id : 0;
+    event->ability = attack_ability;
   }
   if (knocks_out) {
     append_event(world, out_events, CW_EVENT_COMBAT_KNOCKOUT);
@@ -2191,6 +2211,7 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
       event->damage = damage;
       event->current_hp = cw_actor_current_hp(target);
       event->item_id = weapon ? weapon->id : 0;
+      event->ability = attack_ability;
     }
   }
   finish_or_advance_combat_turn(world, encounter, action, out_events);

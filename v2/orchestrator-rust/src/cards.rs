@@ -73,6 +73,7 @@ pub(super) struct CommunityArtView {
     pub(super) required_orbs: i32,
     pub(super) funded_orbs: i32,
     pub(super) remaining_orbs: i32,
+    pub(super) viewer_contributed: bool,
     pub(super) status: String,
     pub(super) history_through_seq: u64,
     pub(super) provider_attempts: u8,
@@ -381,6 +382,7 @@ impl RuntimeWorld {
         items: &[ItemView],
         exits: &[ExitView],
         access: &AccessContext,
+        viewer_actor_id: Option<u64>,
     ) -> CardRegistryView {
         let mut locations = BTreeMap::new();
         locations.insert(
@@ -397,6 +399,7 @@ impl RuntimeWorld {
                     ),
                     "location",
                     location.id,
+                    viewer_actor_id,
                 ),
                 location.id,
                 access,
@@ -417,6 +420,7 @@ impl RuntimeWorld {
                         ),
                         "location",
                         exit.destination_location_id,
+                        viewer_actor_id,
                     ),
                     exit.destination_location_id,
                     access,
@@ -440,6 +444,7 @@ impl RuntimeWorld {
                             ),
                             "actor",
                             actor.id,
+                            viewer_actor_id,
                         ),
                     )
                 })
@@ -453,6 +458,7 @@ impl RuntimeWorld {
                             card_for_item(item.id, item.name.as_str(), item.description.as_str()),
                             "item",
                             item.id,
+                            viewer_actor_id,
                         ),
                     )
                 })

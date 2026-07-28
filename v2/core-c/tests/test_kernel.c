@@ -625,6 +625,7 @@ static void test_combat_v4_weapon_profile_and_legacy_replay(void) {
   assert(cw_world_apply(&world, &attack, 415, &events) == CW_OK);
   assert(events.events[0].type == CW_EVENT_COMBAT_ATTACK_ATTEMPT);
   assert(events.events[0].modifier == 6);
+  assert(events.events[0].ability == CW_ABILITY_DEXTERITY);
   assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
   assert(events.events[1].damage >= 5);
   assert(events.events[1].damage <= 12);
@@ -634,6 +635,7 @@ static void test_combat_v4_weapon_profile_and_legacy_replay(void) {
   assert(cw_world_apply(&legacy_replay, &attack, 415, &events) == CW_OK);
   assert(events.events[0].type == CW_EVENT_COMBAT_ATTACK_ATTEMPT);
   assert(events.events[0].modifier == 0);
+  assert(events.events[0].ability == CW_ABILITY_STRENGTH);
   assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
   assert(events.events[1].damage <= 6);
 
@@ -649,6 +651,7 @@ static void test_combat_v4_weapon_profile_and_legacy_replay(void) {
   attack.item_id = weapon->id;
   assert(cw_world_apply(&weapon_replay, &attack, 415, &events) == CW_OK);
   assert(events.events[0].item_id == weapon->id);
+  assert(events.events[0].ability == CW_ABILITY_STRENGTH);
   assert(events.events[1].item_id == weapon->id);
   assert(events.events[1].damage <= 6);
 
@@ -662,6 +665,18 @@ static void test_combat_v4_weapon_profile_and_legacy_replay(void) {
   attack.item_id = weapon->id;
   assert(cw_world_apply(&unequipped_replay, &attack, 415, &events) == CW_ERR_RULE);
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
+  cw_world authored_dexterity_replay = before_attack;
+  attack.kind = CW_ACTION_COMBAT_FINESSE_ATTACK;
+  attack.item_id = 0;
+  attack.ability = CW_ABILITY_DEXTERITY;
+  human = test_find_actor(&authored_dexterity_replay, 5001);
+  assert(human);
+  human->stats.strength = 20;
+  human->stats.dexterity = 12;
+  assert(cw_world_apply(&authored_dexterity_replay, &attack, 415, &events) == CW_OK);
+  assert(events.events[0].ability == CW_ABILITY_DEXTERITY);
+  assert(events.events[0].modifier == 3);
 }
 
 static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
@@ -1480,12 +1495,41 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
   assert(world.item_count == before_refine_count);
 
+  cw_action provision = {0};
+  provision.kind = CW_ACTION_CRAFT;
+  provision.actor_id = 5001;
+  provision.content_id = 3105;
+  provision.output_item_id = 9301;
+  provision.output_target_kind = CW_PLACEMENT_ACTOR_HAND;
+  provision.output_target_id = 5001;
+  provision.output_item_kind = CW_ITEM_POTION;
+  provision.output_item_charges = 1;
+  provision.output_item_weight_tenths = 5;
+  provision.output_item_size_class = CW_ITEM_SIZE_SMALL;
+  provision.output_item_role = CW_ITEM_ROLE_CONSUMABLE;
+  cw_action undeclared_provision = provision;
+  undeclared_provision.content_id = 9999;
+  assert(cw_world_apply(&world, &undeclared_provision, 80, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(cw_world_apply(&world, &provision, 80, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(events.events[0].item_id == 0);
+  assert(events.events[1].type == CW_EVENT_ITEM_CREATED);
+  assert(events.events[1].item_id == 9301);
+  assert(test_find_item(&world, 9301)->holder_actor_id == 5001);
+  assert(test_find_item(&world, 9301)->charges == 1);
+  assert(cw_world_apply(&world, &provision, 81, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
   cw_action install = refine;
   install.content_id = 3103;
   install.item_id = 9201;
   install.output_item_id = 9202;
   install.output_target_kind = CW_PLACEMENT_LOCATION_FIXTURE;
-  assert(cw_world_apply(&world, &install, 80, &events) == CW_OK);
+  assert(cw_world_apply(&world, &install, 82, &events) == CW_OK);
   assert(events.count == 3);
   assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
   assert(events.events[1].type == CW_EVENT_ITEM_TRANSFORMED);
@@ -1498,7 +1542,7 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   pickup_fixture.kind = CW_ACTION_PICK_UP_ITEM;
   pickup_fixture.actor_id = 5001;
   pickup_fixture.item_id = 9202;
-  assert(cw_world_apply(&world, &pickup_fixture, 81, &events) == CW_ERR_RULE);
+  assert(cw_world_apply(&world, &pickup_fixture, 83, &events) == CW_ERR_RULE);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
   assert(test_find_item(&world, 9202)->zone == CW_CARD_ZONE_INSTALLED);

@@ -1656,6 +1656,14 @@
       letter-spacing: 0.04em;
       text-align: center;
     }
+    .card-art:has(img[data-art-missing="true"][data-art-placeholder="community image pending"])::after,
+    .action-art:has(img[data-art-missing="true"][data-art-placeholder="community image pending"])::after {
+      content: "community image pending";
+    }
+    .card-art:has(img[data-art-missing="true"][data-art-placeholder="community image unavailable"])::after,
+    .action-art:has(img[data-art-missing="true"][data-art-placeholder="community image unavailable"])::after {
+      content: "community image unavailable";
+    }
     .card-art,
     .action-art {
       position: relative;
@@ -3985,7 +3993,7 @@
           <section class="journal-log" id="journal-log" role="region" aria-label="Room history"></section>
         </div>
       </section>
-      <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room chat"></section>
+      <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt">
@@ -4171,6 +4179,8 @@
     let actionConfirmAction = null;
     let accountPanelPinned = false;
     let libraryPanelPinned = false;
+    let openCardModalKey = "";
+    const communityArtClientStates = new Map();
     let menuSection = "deck";
     let contentPacks = null;
     let contentPacksAccessKey = "";
@@ -4278,7 +4288,7 @@
         .find((modal) => modal && !modal.hidden) || null;
     }
 
-    function openModal(modalId, preferredFocus) {
+    function openModal(modalId, preferredFocus, shouldFocus = true) {
       const modal = $(modalId);
       if (!modal) return;
       if (modal.hidden) {
@@ -4287,6 +4297,7 @@
       }
       modal.hidden = false;
       setModalBackgroundInert(true);
+      if (!shouldFocus) return;
       window.requestAnimationFrame(() => {
         if (modal.hidden) return;
         const target = preferredFocus || modal.querySelector("[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])") || modal.querySelector("[role='dialog']");
@@ -4653,6 +4664,7 @@
       reconcileHand();
       restoreFocusedAction();
       render();
+      syncOpenCardModal();
       if (recoveryRefreshAttemptId && attemptId >= recoveryRefreshAttemptId) {
         recoveryRefreshAttemptId = 0;
         clearTransientStatus("refresh");
@@ -5219,10 +5231,11 @@
       // legal combat choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
       const journey = view.journey || null;
+      const scoutOffer = offerFor("explore_path");
+      const scoutTargetId = Number(scoutOffer?.target?.id || 0);
       if (journey) {
         const nextLocationId = Number(journey.next_location_id || 0);
         const nextIsDestination = nextLocationId === Number(journey.destination_location_id || 0);
-        const scoutOffer = offerFor("explore_path");
         const nextStretchRevealed = (view.exits || []).some((exit) => (
           Number(exit.destination_location_id || 0) === nextLocationId
         ));
@@ -5245,7 +5258,10 @@
               : `the hidden next stretch toward ${journey.destination_name} is revealed`,
             busyLabel: "scouting",
             busyDetail: "the next stretch is taking shape…",
-            run: () => action("/actions/explore-path", { actor_id: actorId }),
+            run: () => action("/actions/explore-path", {
+              actor_id: actorId,
+              destination_location_id: scoutTargetId,
+            }),
           });
         }
       }
@@ -5776,7 +5792,14 @@
         const routeGroups = escaping
           ? [{ exits: routeExits, mode: "flee" }]
           : [
-              { exits: routeExits.filter((exit) => Number(exit.distance || 1) > 1), mode: "pathway" },
+              {
+                exits: routeExits.filter((exit) => (
+                  scoutTargetId > 0
+                    && Number(exit.distance || 1) > 1
+                    && Number(exit.destination_location_id || 0) === scoutTargetId
+                )),
+                mode: "pathway",
+              },
               { exits: routeExits.filter((exit) => Number(exit.distance || 1) <= 1), mode: "travel" },
             ].filter((group) => group.exits.length);
         for (const routeGroup of routeGroups) {
@@ -5785,7 +5808,7 @@
           const onePath = groupedExits.length === 1;
           const searchingPathway = routeGroup.mode === "pathway";
           const fleeing = routeGroup.mode === "flee";
-          const routeOffer = offerFor(searchingPathway ? "explore_path" : (fleeing ? "flee" : "move"));
+          const routeOffer = searchingPathway ? scoutOffer : offerFor(fleeing ? "flee" : "move");
           const routeIntention = searchingPathway ? "scout" : (fleeing ? "flee" : "travel");
           const routeVerb = offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
           const routeVerbLower = routeVerb.toLowerCase();
@@ -5863,7 +5886,9 @@
             };
           };
           routeAction.run = () => action(
-            fleeing ? "/actions/flee" : "/actions/move",
+            fleeing
+              ? "/actions/flee"
+              : (searchingPathway ? "/actions/explore-path" : "/actions/move"),
             routeAction.selectedPayload(),
           );
           built.push(routeAction);
@@ -5991,6 +6016,12 @@
       if (options.has("attack")) {
         const offer = offerFor("attack");
         const attackRisk = String(offer?.risk || "");
+        const attackMethodId = offer?.source_collectible?.kind === "item"
+          ? Number(offer.source_collectible.instance_id || 0)
+          : 0;
+        const attackMethodName = attackMethodId
+          ? (cardForItem(attackMethodId)?.display_name || itemForId(attackMethodId)?.name || "equipped weapon")
+          : "unarmed strike";
         const attackTargets = (view.actors || []).filter((actor) => attackTargetIds.has(actor.id));
         if (attackTargets.length) {
           const firstTarget = attackTargets[0];
@@ -6000,7 +6031,9 @@
             ...semanticAction(offer, "attack"),
             label: "attack",
             detail: oneTarget
-              ? (attackRisk.includes("danger +1") ? `${firstTargetLabel}, trouble draws near` : firstTargetLabel)
+              ? (attackRisk.includes("danger +1")
+                ? `${firstTargetLabel} · ${attackMethodName}, trouble draws near`
+                : `${firstTargetLabel} · ${attackMethodName}`)
               : "choose an opponent",
             command: oneTarget ? `attack ${firstTargetLabel}` : "attack",
             focusKey: oneTarget
@@ -6976,7 +7009,8 @@
 
     function offerPayloadTarget(path, offer, payload) {
       const targetKind = String(offer?.target?.kind || "");
-      if ((path === "/actions/move" || path === "/actions/flee") && targetKind === "location") {
+      if (["/actions/move", "/actions/flee", "/actions/explore-path"].includes(path)
+          && targetKind === "location") {
         return Number(payload.destination_location_id || 0);
       }
       if (path === "/actions/craft" && targetKind === "recipe") return Number(payload.recipe_id || 0);
@@ -7251,6 +7285,57 @@
       // the transcript. Keep distinct replies here so consecutive card plays do
       // not erase one another just because the same avatar answered them.
       return [...(events || [])].slice(-24);
+    }
+
+    function combatAttackEventsShareBeat(attempt, outcome) {
+      if (attempt?.type !== "combat.attack.attempt") return false;
+      if (!["combat.attack.hit", "combat.attack.miss", "combat.knockout"].includes(outcome?.type)) {
+        return false;
+      }
+      return Number(attempt.actor_id || 0) === Number(outcome.actor_id || 0)
+        && Number(attempt.target_actor_id || 0) === Number(outcome.target_actor_id || 0)
+        && Number(attempt.content_id || 0) === Number(outcome.content_id || 0);
+    }
+
+    function sharedRoomTranscriptEvents(events) {
+      const visible = [];
+      let combatActive = Boolean(state?.combat);
+      const currentLocationId = Number(state?.location?.id || 0);
+      for (let index = 0; index < (events || []).length; index += 1) {
+        const event = events[index];
+        const eventLocationId = Number(event?.location_id || 0);
+        if (currentLocationId && eventLocationId && eventLocationId !== currentLocationId) continue;
+        if (event?.type === "message.created") {
+          visible.push(event);
+          continue;
+        }
+        if (event?.type === "combat.encounter.started") combatActive = true;
+        if (event?.type === "combat.attack.attempt") {
+          const grouped = { ...event };
+          let lastSeq = Number(event.seq || 0);
+          for (let cursor = index + 1; cursor < events.length; cursor += 1) {
+            const outcome = events[cursor];
+            if (!combatAttackEventsShareBeat(event, outcome)) break;
+            if (outcome.type === "combat.knockout") grouped.combat_knockout = outcome;
+            else grouped.combat_outcome = outcome;
+            lastSeq = Math.max(lastSeq, Number(outcome.seq || 0));
+            index = cursor;
+          }
+          grouped.transcript_tail_seq = lastSeq;
+          visible.push(grouped);
+          continue;
+        }
+        if (
+          combatTranscriptEventTypes.has(event?.type)
+          || (combatActive && combatOnlyTranscriptEventTypes.has(event?.type))
+        ) {
+          visible.push(event);
+        }
+        if (event?.type === "combat.encounter.resolved") combatActive = false;
+      }
+      // The source log remains append-only and substantially deeper. This
+      // bound limits mounted DOM without dropping speech when combat begins.
+      return visible.slice(-40);
     }
 
     function narratedTranscriptEvents(events) {
@@ -7534,6 +7619,23 @@
     }
 
     const chatEventTypes = new Set(["message.created"]);
+    const combatTranscriptEventTypes = new Set([
+      "combat.encounter.started",
+      "combat.attack.attempt",
+      "combat.attack.hit",
+      "combat.attack.miss",
+      "combat.defend",
+      "combat.dodge",
+      "combat.pass",
+      "combat.need_time",
+      "combat.knockout",
+      "combat.flee.success",
+      "combat.encounter.resolved",
+    ]);
+    const combatOnlyTranscriptEventTypes = new Set([
+      "item.used",
+      "magic.spell_cast",
+    ]);
     const sceneCardEventTypes = new Set([
       "actor.created",
       "actor.moved",
@@ -7574,11 +7676,17 @@
       "bond.revised",
       "bond.resolved",
       "combat.attack.attempt",
+      "combat.attack.hit",
+      "combat.attack.miss",
       "combat.defend",
+      "combat.dodge",
       "combat.pass",
       "combat.need_time",
       "combat.knockout",
       "combat.flee.success",
+      "combat.encounter.started",
+      "combat.encounter.resolved",
+      "magic.spell_cast",
       "world.weather.shifted",
       "world.weather.held",
       "world.trade.flowed",
@@ -7878,6 +7986,7 @@
     function eventShouldRefreshState(event) {
       if (!event) return false;
       if (worldTranscriptEventTypes.has(event.type)) return true;
+      if (String(event.type || "").startsWith("community_art.")) return true;
       return event.type === "world.reset"
         || event.type === "actor.presence"
         || event.type === "actor.created"
@@ -7926,7 +8035,9 @@
         || event.type === "bond.resolved"
         || event.type === "job.updated"
         || event.type === "story.receipt"
+        || event.type === "combat.encounter.started"
         || event.type === "combat.defend"
+        || event.type === "combat.dodge"
         || event.type === "combat.attack.attempt"
         || event.type === "combat.attack.hit"
         || event.type === "combat.attack.miss"
@@ -7934,6 +8045,8 @@
         || event.type === "combat.need_time"
         || event.type === "combat.knockout"
         || event.type === "combat.flee.success"
+        || event.type === "combat.encounter.resolved"
+        || event.type === "magic.spell_cast"
         || event.type === "encounter.reset";
     }
 
@@ -9166,17 +9279,22 @@
         || log.scrollHeight - log.scrollTop - log.clientHeight < 28;
       const libraryPanel = libraryPanelHtml();
       const accountPanel = accountPanelHtml();
-      const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));
+      const visibleEvents = sharedRoomTranscriptEvents(logEvents);
       const pendingConversation = pendingConversationHtml();
       const pendingChatReplies = pendingChatsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
-      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingChatReplies);
-      const inferredOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorUsesInference);
+      const hasTranscript = visibleEvents.length > 0
+        || Boolean(pendingConversation)
+        || Boolean(pendingChatReplies)
+        || Boolean(defeatScene);
+      const inferredOnly = visibleEvents.length > 0 && visibleEvents.every((event) => (
+        event.type === "message.created" && messageActorUsesInference(event)
+      ));
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
-      log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasChat);
-      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasChat && !pendingArrival && !defeatScene);
+      log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasTranscript);
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene);
       log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene));
       log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && inferredOnly);
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
@@ -9189,7 +9307,7 @@
         log.removeAttribute("aria-relevant");
       } else {
         log.setAttribute("role", "log");
-        log.setAttribute("aria-label", "Shared room chat");
+        log.setAttribute("aria-label", "Shared room transcript");
         log.setAttribute("aria-live", "polite");
         log.setAttribute("aria-relevant", "additions text");
       }
@@ -9203,17 +9321,12 @@
         log.scrollTop = 0;
         return;
       }
-      if (defeatScene) {
-        log.innerHTML = defeatScene;
-        log.scrollTop = 0;
-        return;
-      }
       if (pendingArrival) {
         log.innerHTML = pendingArrival;
         log.scrollTop = 0;
         return;
       }
-      if (!hasChat) {
+      if (!hasTranscript) {
         renderedChatTailKey = "";
         log.innerHTML = quietRoomSceneHtml();
         log.scrollTop = 0;
@@ -9221,15 +9334,18 @@
       }
       const tailEvent = visibleEvents[visibleEvents.length - 1] || null;
       const chatTailKey = [
-        tailEvent?.seq ?? "",
+        tailEvent?.transcript_tail_seq ?? tailEvent?.seq ?? "",
         tailEvent?.repeat_count ?? 1,
         pendingConversation ? "conversation" : "",
         pendingChats.map((chat) => chat.id).join(","),
+        defeatTransition?.eventSeq ?? "",
       ].join(":");
-      const tailChanged = chatTailKey !== renderedChatTailKey;
+      const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${pendingConversation}${pendingChatReplies}`;
-      log.scrollTop = tailChanged || wasAtBottom ? log.scrollHeight : previousScrollTop;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${pendingConversation}${pendingChatReplies}`;
+      log.scrollTop = firstTranscriptRender || wasAtBottom
+        ? log.scrollHeight
+        : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
       scheduleVisibleWorldBeatReceipts();
     }
 
@@ -9536,7 +9652,27 @@
     }
 
     function transcriptEventHtml(event) {
-      return event?.type === "message.created" ? messageHtml(event) : sceneCardEventHtml(event);
+      if (event?.type === "message.created") return messageHtml(event);
+      if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
+      return sceneCardEventHtml(event);
+    }
+
+    function combatAttackTranscriptBeatHtml(event) {
+      const outcome = event.combat_outcome || null;
+      const knockout = event.combat_knockout || null;
+      const target = event.target_actor_name || outcome?.target_actor_name || "their opponent";
+      const pieces = [rollMeta(event).story];
+      if (outcome?.type === "combat.attack.hit") {
+        const damage = Math.max(0, Number(outcome.damage || 0));
+        if (damage > 0) pieces.push(`${target} takes ${damage} harm.`);
+        else pieces.push(`${target}'s guard gives way.`);
+        if (!knockout && outcome.current_hp !== undefined && outcome.current_hp !== null) {
+          pieces.push(`${target} has ${Math.max(0, Number(outcome.current_hp || 0))} HP remaining.`);
+        }
+      }
+      if (knockout) pieces.push(`${target} is knocked out.`);
+      const text = pieces.filter(Boolean).join(" ");
+      return `<div class="line event scene-card combat" data-event-row data-combat-beat aria-label="${escapeAttr(`Combat beat. ${text}`)}"><span class="event-label" aria-hidden="true">⚔</span><span class="text">${escapeHtml(text)}</span></div>`;
     }
 
     function accountPanelHtml() {
@@ -10017,8 +10153,27 @@
       if (type === "bond.resolved") {
         return `What mattered between ${actor} and ${event.target_actor_name || "their friend"} stays with them.`;
       }
+      if (type === "combat.encounter.started") {
+        const target = event.target_actor_name || "the danger";
+        return `The room draws close as ${actor} faces ${target}.`;
+      }
+      if (type === "combat.attack.hit") {
+        const target = event.target_actor_name || "their opponent";
+        const method = event.combat_method || event.item_name || "The strike";
+        const damage = Math.max(0, Number(event.damage || 0));
+        const harm = damage > 0 ? ` for ${damage} harm` : "";
+        return `${method} breaks through ${possessive(target)} guard${harm}.`;
+      }
+      if (type === "combat.attack.miss") {
+        const target = event.target_actor_name || "their opponent";
+        const method = event.combat_method || event.item_name || "the strike";
+        return `${target} turns aside ${possessive(actor)} ${method}.`;
+      }
       if (type === "combat.defend") {
         return `${actor} plants their feet and waits for the opening.`;
+      }
+      if (type === "combat.dodge") {
+        return `${actor} shifts their weight, ready to slip clear of the next attack.`;
       }
       if (type === "combat.pass") {
         return `${actor} passes the ordered combat floor without taking another action.`;
@@ -10031,6 +10186,14 @@
       }
       if (type === "combat.flee.success") {
         return `${actor} finds the path to ${event.destination_location_name || "safety"} and takes it, carrying the trail's silver hush.`;
+      }
+      if (type === "combat.encounter.resolved") {
+        return "The clash is over; the shared room settles around everyone again.";
+      }
+      if (type === "magic.spell_cast") {
+        const method = event.item_name || "A spell";
+        const target = event.target_actor_name ? ` toward ${event.target_actor_name}` : "";
+        return `${actor} sends ${method}${target}; its authored effect takes hold.`;
       }
       if (type === "tag.applied" && event.tag_label === "prepared") {
         return `${actor} takes one quiet moment to get ready.`;
@@ -10130,22 +10293,24 @@
       if (event.type === "combat.attack.attempt") {
         const actor = event.actor_name || "Someone";
         const target = event.target_actor_name || "their opponent";
+        const method = event.combat_method || event.item_name || "Unarmed strike";
+        const ability = event.ability || "Strength";
         return success
           ? {
               label: "clash",
               symbol: "✦",
               title: `${actor} finds an opening`,
-              detail: `${target} is caught off guard.`,
+              detail: `${method} · ${ability}. ${target} is caught off guard.`,
               result: "it lands",
-              story: `${actor} finds an opening against ${target}.`,
+              story: `${actor} finds an opening against ${target} with ${method} (${ability}).`,
             }
           : {
               label: "clash",
               symbol: "·",
               title: `${target} slips clear`,
-              detail: `${actor}'s swing meets empty air.`,
+              detail: `${method} · ${ability}. ${actor}'s swing meets empty air.`,
               result: "not this time",
-              story: `${target} slips clear of ${actor}.`,
+              story: `${target} slips clear of ${actor}'s ${method} (${ability}).`,
             };
       }
       if (event.content === "notice") {
@@ -10352,9 +10517,9 @@
       if (event.type === "combat.pass") return `passes the ordered combat floor.`;
       if (event.type === "combat.need_time") return `takes more time without losing the turn.`;
       if (event.type === "combat.attack.attempt") return rollMeta(event).story;
-      if (event.type === "combat.attack.hit") return `breaks through ${event.target_actor_name}'s guard.`;
-      if (event.type === "combat.attack.miss") return `${event.target_actor_name} turns the strike aside.`;
-      if (event.type === "combat.knockout") return `${event.target_actor_name}'s light falls quiet for now.`;
+      if (event.type === "combat.attack.hit") return `${event.combat_method || event.item_name || "Unarmed strike"} breaks through ${event.target_actor_name}'s guard.`;
+      if (event.type === "combat.attack.miss") return `${event.target_actor_name} turns aside ${event.combat_method || event.item_name || "the strike"}.`;
+      if (event.type === "combat.knockout") return `${event.combat_method || event.item_name || "The strike"} leaves ${event.target_actor_name}'s light quiet for now.`;
       if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}, carrying the trail's silver hush.`;
       if (event.type === "encounter.reset") return `${event.target_actor_name || "The frontier"} stirs again in ${event.location_name || "the frontier"}.`;
       if (event.type === "rule.rejected") {
@@ -10710,10 +10875,39 @@
       return null;
     }
 
+    function communityArtSubjectKey(subject) {
+      return subject ? `${subject.kind}:${subject.id}` : "";
+    }
+
+    function communityArtStateSignature(art) {
+      if (!art) return "";
+      return JSON.stringify([
+        String(art.status || "available"),
+        Math.max(0, Number(art.funded_orbs || 0)),
+        Math.max(0, Number(art.remaining_orbs || 0)),
+        Math.max(0, Number(art.provider_attempts || 0)),
+        Boolean(art.retryable_without_orbs),
+        String(art.image_url || ""),
+      ]);
+    }
+
+    function clearCommunityArtClientState(key) {
+      const clientState = communityArtClientStates.get(key);
+      if (clientState?.timeout) window.clearTimeout(clientState.timeout);
+      communityArtClientStates.delete(key);
+    }
+
     function communityArtPanelHtml(card) {
       const art = card?.community_art;
       const subject = communityArtSubject(card);
       if (!art || !subject) return "";
+      const subjectKey = communityArtSubjectKey(subject);
+      const authoritativeSignature = communityArtStateSignature(art);
+      let clientState = communityArtClientStates.get(subjectKey) || null;
+      if (clientState && clientState.authoritativeSignature !== authoritativeSignature) {
+        clearCommunityArtClientState(subjectKey);
+        clientState = null;
+      }
       const level = Math.max(1, Number(art.level || card.level || 1));
       const required = Math.max(1, Number(art.required_orbs || level));
       const funded = Math.max(0, Number(art.funded_orbs || 0));
@@ -10722,13 +10916,20 @@
       const providerAttempts = Math.max(0, Number(art.provider_attempts || 0));
       const maxProviderAttempts = Math.max(1, Number(art.max_provider_attempts || 3));
       const retryableWithoutOrbs = Boolean(art.retryable_without_orbs);
+      const viewerContributed = Boolean(art.viewer_contributed);
+      if (clientState?.status === "starting") {
+        return `<div class="economy-row"><span>level ${level} image</span><strong>image workshop starting…</strong></div>`;
+      }
       if (status === "ready") {
         return `<div class="economy-row"><span>community image</span><strong>level ${level} complete</strong></div><div class="economy-row"><span>next image</span><strong>unlocks at the next level</strong></div>`;
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const needsOrb = remaining > 0;
+      const awaitingCommunity = needsOrb && viewerContributed;
       const working = status === "generating" || status === "reviewing";
-      const buttonLabel = needsOrb
+      const buttonLabel = awaitingCommunity
+        ? ""
+        : (needsOrb
         ? `add one Orb · ${funded}/${required}`
         : (working
           ? (status === "reviewing" ? "check the saved image review" : "check the image workshop")
@@ -10738,10 +10939,13 @@
               ? (retryableWithoutOrbs ? "try a different image" : "image withheld")
               : (status === "failed"
                 ? (retryableWithoutOrbs ? "try the image again" : "image workshop unavailable")
-                : "start the image workshop"))));
-      const disabled = (needsOrb && balance < 1)
-        || (!needsOrb && !retryableWithoutOrbs);
-      const detail = needsOrb
+                : "start the image workshop")))));
+      const canAct = needsOrb
+        ? !viewerContributed && balance >= 1
+        : retryableWithoutOrbs;
+      const detail = awaitingCommunity
+        ? `your Orb is already helping; ${remaining} ${remaining === 1 ? "more is" : "more are"} still needed from other players`
+        : (needsOrb
         ? `${remaining} ${remaining === 1 ? "Orb" : "Orbs"} still needed from the community`
         : (working
           ? "fully funded; the saved job is still in progress"
@@ -10749,8 +10953,27 @@
             ? "candidate saved; no new image will be bought while review is unavailable"
             : (!retryableWithoutOrbs && providerAttempts >= maxProviderAttempts
               ? `stopped after ${providerAttempts} image ${providerAttempts === 1 ? "attempt" : "attempts"}; no more provider credits will be used`
-              : "fully funded; no more Orbs will be taken")));
-      return `<div class="economy-row"><span>level ${level} image</span><strong>${escapeHtml(detail)}</strong></div><button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}"${disabled ? " disabled" : ""}>${escapeHtml(buttonLabel)}</button>`;
+              : "fully funded; no more Orbs will be taken"))));
+      const action = canAct
+        ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">${escapeHtml(buttonLabel)}</button>`
+        : "";
+      const clientError = clientState?.status === "error"
+        ? `<div class="economy-row"><span>image update</span><strong>${escapeHtml(clientState.message)}</strong></div>`
+        : "";
+      return `<div class="economy-row"><span>level ${level} image</span><strong>${escapeHtml(detail)}</strong></div>${clientError}${action}`;
+    }
+
+    function communityArtPlaceholderLabel(card) {
+      const art = card?.community_art;
+      if (!art) return "no art generated yet";
+      const status = String(art.status || "available");
+      const remaining = Math.max(0, Number(art.remaining_orbs || 0));
+      if (remaining > 0 && art.viewer_contributed) return "community image pending";
+      if (["failed", "rejected", "policy_rejected", "review_failed", "review_unavailable"].includes(status)) {
+        return "community image unavailable";
+      }
+      if (["funded", "generating", "reviewing"].includes(status)) return "community image pending";
+      return "no art generated yet";
     }
 
     function actorEconomyTitle(actor) {
@@ -11078,14 +11301,25 @@
       return `<div class="nearby-keepsakes"><span class="nearby-keepsakes-label">nearby</span><div class="nearby-keepsake-rail">${chips}</div></div>`;
     }
 
-    function openCardModal(card) {
+    function openCardModal(card, preservePosition = false) {
       if (!card) return;
+      const key = cardKey(card);
+      const dialog = $("card-modal").querySelector(".card-dialog");
+      const copy = dialog?.querySelector(".card-copy");
+      const dialogScrollTop = preservePosition ? Number(dialog?.scrollTop || 0) : 0;
+      const copyScrollTop = preservePosition ? Number(copy?.scrollTop || 0) : 0;
       const image = cardImage(card) || fallbackCardImage(card);
       const actor = actorForCard(card);
-      const dialog = $("card-modal").querySelector(".card-dialog");
+      openCardModalKey = key;
       dialog?.classList.toggle("portrait-card", shapeForCard(card) === "avatar");
-      $("card-modal-image").src = image;
-      $("card-modal-image").alt = card.display_name || "CosyWorld keepsake";
+      const modalImage = $("card-modal-image");
+      delete modalImage.dataset.artFallback;
+      delete modalImage.dataset.artFallbackSrc;
+      delete modalImage.dataset.artMissing;
+      modalImage.dataset.artRole = card.role || "card";
+      modalImage.dataset.artPlaceholder = communityArtPlaceholderLabel(card);
+      modalImage.src = image;
+      modalImage.alt = card.display_name || "CosyWorld keepsake";
       $("card-modal-name").innerHTML = `${iconSvg(cardRoleIconName(card))}${escapeHtml(card.display_name || "CosyWorld Keepsake")}`;
       $("card-modal-title").textContent = card.title || card.role || "";
       $("card-modal-blurb").textContent = card.blurb || "";
@@ -11104,17 +11338,89 @@
         ? `<span>when kept close</span>${escapeHtml(promise)}`
         : "";
       $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${nearbyLocationPanelHtml(card)}${communityArtPanelHtml(card)}`;
-      openModal("card-modal", $("card-modal").querySelector(".card-close"));
-      if (dialog) dialog.scrollTop = 0;
-      const copy = dialog?.querySelector(".card-copy");
-      if (copy) copy.scrollTop = 0;
+      openModal("card-modal", $("card-modal").querySelector(".card-close"), !preservePosition);
+      if (dialog) dialog.scrollTop = dialogScrollTop;
+      if (copy) copy.scrollTop = copyScrollTop;
+    }
+
+    function syncOpenCardModal() {
+      const modal = $("card-modal");
+      if (!openCardModalKey || !modal || modal.hidden) return;
+      const card = cardByKey(openCardModalKey);
+      if (!card) {
+        closeCardModal();
+        return;
+      }
+      const active = document.activeElement;
+      const retryKey = active?.closest?.("[data-fund-community-image]")
+        ?.getAttribute("data-fund-community-image") || "";
+      const closeWasFocused = Boolean(active?.closest?.("[data-card-close]"));
+      openCardModal(card, true);
+      if (retryKey) {
+        modal.querySelector(`[data-fund-community-image="${retryKey}"]`)?.focus();
+      } else if (closeWasFocused) {
+        modal.querySelector("[data-card-close]")?.focus();
+      }
     }
 
     function closeCardModal() {
+      openCardModalKey = "";
       closeModal("card-modal");
       $("card-modal-image").removeAttribute("src");
       $("card-modal-keepsake").innerHTML = "";
       $("card-modal-economy").innerHTML = "";
+    }
+
+    async function retryCommunityArt(subjectKind, subjectId) {
+      const subject = { kind: subjectKind, id: Number(subjectId) };
+      const subjectKey = communityArtSubjectKey(subject);
+      const card = subjectKind === "actor"
+        ? cardForActor(subject.id)
+        : (subjectKind === "item" ? cardForItem(subject.id) : cardForLocation(subject.id));
+      const art = card?.community_art;
+      if (!subjectKey || !art || communityArtClientStates.get(subjectKey)?.status === "starting") return;
+
+      const clientState = {
+        status: "starting",
+        authoritativeSignature: communityArtStateSignature(art),
+        timeout: null,
+      };
+      communityArtClientStates.set(subjectKey, clientState);
+      clientState.timeout = window.setTimeout(() => {
+        if (communityArtClientStates.get(subjectKey) !== clientState) return;
+        clientState.status = "error";
+        clientState.message = "The image workshop is taking longer than expected. Check the current status and try again.";
+        setError(clientState.message);
+        syncOpenCardModal();
+        void queueRefresh();
+      }, 45_000);
+      syncOpenCardModal();
+
+      try {
+        const result = await action("/actions/fund-image", {
+          actor_id: actorId,
+          subject_kind: subjectKind,
+          subject_id: subject.id,
+          intent_id: `web-image:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`,
+        });
+        if (!result?.ok) {
+          const failure = new Error(actionFailureMessage("/actions/fund-image", result));
+          failure.communityArtSafe = true;
+          throw failure;
+        }
+        await queueRefresh();
+        syncOpenCardModal();
+      } catch (error) {
+        if (clientState.timeout) window.clearTimeout(clientState.timeout);
+        if (communityArtClientStates.get(subjectKey) !== clientState) return;
+        clientState.status = "error";
+        clientState.message = error?.communityArtSafe
+          ? String(error.message || "")
+          : "The image workshop could not be reached. Check the current status and try again.";
+        setError(clientState.message);
+        await queueRefresh();
+        syncOpenCardModal();
+      }
     }
 
     function shapeForCard(card, fallback = "item") {
@@ -12586,15 +12892,30 @@
     document.addEventListener("error", (event) => {
       const image = event.target;
       if (!(image instanceof HTMLImageElement)) return;
-      if (image.dataset.artFallback === "applied") return;
+      const failedSrc = image.currentSrc || image.src;
+      if (failedSrc === image.dataset.artFallbackSrc) return;
       image.dataset.artFallback = "applied";
-      // Marks the element as awaiting generated art so it can be styled and,
-      // later, carry the funding affordance.
       image.dataset.artMissing = "true";
+      if (!image.dataset.artPlaceholder) {
+        const key = image.closest("[data-card-key]")?.getAttribute("data-card-key") || "";
+        image.dataset.artPlaceholder = communityArtPlaceholderLabel(cardByKey(key));
+      }
       const role = image.dataset.artRole
         || (image.closest("[data-card-key]")?.getAttribute("data-card-key") || "").split(":")[0]
         || "card";
-      image.src = fallbackCardImage({ role, display_name: image.alt || "CosyWorld art" });
+      const fallbackSrc = fallbackCardImage({ role, display_name: image.alt || "CosyWorld art" });
+      image.dataset.artFallbackSrc = fallbackSrc;
+      image.src = fallbackSrc;
+    }, true);
+
+    document.addEventListener("load", (event) => {
+      const image = event.target;
+      if (!(image instanceof HTMLImageElement)) return;
+      if (image.dataset.artFallback !== "applied") return;
+      if ((image.currentSrc || image.src) === image.dataset.artFallbackSrc) return;
+      delete image.dataset.artFallback;
+      delete image.dataset.artFallbackSrc;
+      delete image.dataset.artMissing;
     }, true);
 
     document.addEventListener("click", (event) => {
@@ -12983,20 +13304,7 @@
         const [subjectKind, subjectId] = String(fundImage.getAttribute("data-fund-community-image") || "").split(":");
         if (!subjectKind || !Number(subjectId)) return;
         fundImage.disabled = true;
-        action("/actions/fund-image", {
-          actor_id: actorId,
-          subject_kind: subjectKind,
-          subject_id: Number(subjectId),
-          intent_id: `web-image:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`,
-        }).then(async (result) => {
-          await refresh();
-          if (result?.ok) {
-            const updated = subjectKind === "actor"
-              ? cardForActor(Number(subjectId))
-              : (subjectKind === "item" ? cardForItem(Number(subjectId)) : cardForLocation(Number(subjectId)));
-            if (updated) openCardModal(updated);
-          }
-        });
+        void retryCommunityArt(subjectKind, Number(subjectId));
         return;
       }
       if (event.target.closest("[data-card-close]") || event.target.id === "card-modal") {
@@ -13014,7 +13322,12 @@
       const reason = String(new FormData(form).get("reason") || "").trim();
       if (!target || !reason) return;
       closeCardModal();
-      runCommandText(`report ${actorLabel(target)}: ${reason}`);
+      void runAction({
+        kind: "report",
+        label: "sending report",
+        busyLabel: "sending report",
+        run: () => runCommandText(`report ${actorLabel(target)}: ${reason}`),
+      });
     });
 
     $("action-modal").addEventListener("click", (event) => {

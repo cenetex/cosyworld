@@ -7,7 +7,7 @@ import {
 } from "./recipe-schema.mjs";
 
 const context = {
-  templateIds: new Set(["iron_nodule", "iron_bloom"]),
+  templateIds: new Set(["iron_nodule", "iron_bloom", "hearth_tonic"]),
   buildingArchetypes: [
     {
       capabilities: ["transformation_recipes", "metalworking"],
@@ -84,4 +84,26 @@ test("accepts typed generated-place installation without a building", () => {
     uniqueness: "per_location",
   };
   assert.equal(assertVersionedRecipe(installation, context), installation);
+});
+
+test("accepts an inputless supply only at one authored room feature", () => {
+  const supply = structuredClone(valid);
+  supply.inputs = [];
+  supply.requires = {
+    location_features: ["seed_room_feature:hearth"],
+  };
+  supply.output = {
+    template_id: "hearth_tonic",
+    destination: "actor_hand",
+    fallback_destination: "location_floor",
+    effect: "provisioned_supply",
+    uniqueness: "per_receipt",
+  };
+  assert.equal(assertVersionedRecipe(supply, context), supply);
+
+  supply.requires = {location_features: ["generated_place_anchor_site"]};
+  assert.match(
+    versionedRecipeValidationErrors(supply, context).join("\n"),
+    /bound to one authored room feature/,
+  );
 });

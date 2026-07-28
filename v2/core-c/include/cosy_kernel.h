@@ -415,6 +415,7 @@ typedef struct {
   int16_t dc;
   int16_t damage;
   int16_t current_hp;
+  uint8_t ability;
 } cw_event;
 
 typedef struct {

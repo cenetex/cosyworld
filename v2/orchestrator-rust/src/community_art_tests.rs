@@ -1,4 +1,5 @@
 use super::*;
+use crate::media_recipes::media_verdict::MEDIA_BRIEF_CONSTRAINT_LIMIT;
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::Engine as _;
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
@@ -39,6 +40,142 @@ fn gate_png() -> Vec<u8> {
         .write_to(&mut bytes, ImageFormat::Png)
         .expect("encode gate PNG");
     bytes.into_inner()
+}
+
+/// Mirrors the production location plan: `community_art_plan` joins the
+/// per-trait bounded output of `stable_art_traits` into a single visual
+/// description, so the description is a multiple of the component budget rather
+/// than a single component.
+fn location_art_plan(
+    subject_id: u64,
+    aspect_ratio: &'static str,
+    reviewed_landscape_brief: &str,
+) -> CommunityArtPlan {
+    let persisted_identity = "Foxglove Turn — Newly Found Path".to_string();
+    let subject_details = format!(
+        "biome: chalk downs. terrain: chalk lane, reed bed, river stones. reviewed landscape brief: {reviewed_landscape_brief}"
+    );
+    let stable_traits = stable_art_traits("location", &persisted_identity, &subject_details);
+    let persisted_visual_description = stable_traits.join(". ");
+    CommunityArtPlan {
+        subject_kind: "location".to_string(),
+        subject_id,
+        level: 1,
+        generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
+        required_orbs: 1,
+        history_through_seq: 99,
+        prompt: "A quiet chalk lane with no figures.".to_string(),
+        aspect_ratio,
+        image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
+        persisted_identity,
+        persisted_visual_description,
+        stable_traits,
+        public_history: Vec::new(),
+        evolution_job: None,
+    }
+}
+
+fn long_reviewed_landscape_brief() -> String {
+    "chalk lanes climb between reed beds and river stones under a wide pale sky, ".repeat(6)
+}
+
+fn fund_test_community_art(
+    runtime: &mut RuntimeWorld,
+    actor_id: u64,
+    plan: &CommunityArtPlan,
+    intent_id: &str,
+    seed: u64,
+) {
+    let mut funding = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..CwAction::default()
+        },
+        seed,
+    );
+    funding
+        .projection_mutations
+        .push(ProjectionMutation::FundCommunityArt {
+            subject_kind: plan.subject_kind.clone(),
+            subject_id: plan.subject_id,
+            level: plan.level,
+            required_orbs: plan.required_orbs,
+            contributor_actor_id: actor_id,
+            intent_id: intent_id.to_string(),
+            amount: plan.required_orbs,
+            history_through_seq: plan.history_through_seq,
+            evolution_job: plan.evolution_job.clone(),
+        });
+    assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
+}
+
+async fn wait_for_community_art_status(
+    state: &AppState,
+    key: &str,
+    expected_status: &str,
+) -> CommunityArtGenerationState {
+    for _ in 0..200 {
+        let generation = {
+            let runtime = state.inner.lock().await;
+            runtime.community_art_generations.get(key).cloned()
+        };
+        if generation
+            .as_ref()
+            .map(|generation| generation.status.as_str())
+            == Some(expected_status)
+        {
+            return generation.expect("matching generation exists");
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let generation = {
+        let runtime = state.inner.lock().await;
+        runtime.community_art_generations.get(key).cloned()
+    };
+    panic!(
+        "community art generation {key} did not reach {expected_status}; last state: {generation:?}"
+    );
+}
+
+fn community_image_usage_count(path: &Path) -> i64 {
+    let conn = open_event_store(path).expect("open community-art usage ledger");
+    conn.query_row(
+        "SELECT COUNT(*) FROM ai_usage_ledger WHERE feature LIKE 'community_image_%'",
+        [],
+        |row| row.get(0),
+    )
+    .expect("count community-art usage rows")
+}
+
+fn test_candidate_paths(root: &Path, plan: &CommunityArtPlan) -> [PathBuf; 3] {
+    let stem = root
+        .join("community-art-candidates")
+        .join(&plan.subject_kind)
+        .join(plan.subject_id.to_string())
+        .join(format!("level-{}", plan.level));
+    [
+        stem.with_extension("image"),
+        stem.with_extension("content-type"),
+        stem.with_extension("metadata.json"),
+    ]
+}
+
+fn test_candidate_quarantine_marker(root: &Path, plan: &CommunityArtPlan) -> PathBuf {
+    let stem = root
+        .join("community-art-candidates")
+        .join(&plan.subject_kind)
+        .join(plan.subject_id.to_string())
+        .join(format!("level-{}", plan.level));
+    stem.with_extension("quarantine.json")
+}
+
+fn test_candidate_quarantine_root(root: &Path, plan: &CommunityArtPlan) -> PathBuf {
+    root.join("community-art-candidate-quarantine")
+        .join(&plan.subject_kind)
+        .join(plan.subject_id.to_string())
+        .join(format!("level-{}", plan.level))
 }
 
 #[test]
@@ -107,6 +244,117 @@ async fn location_art_funding_fails_before_debit_without_policy_review() {
     assert!(!runtime
         .community_art_generations
         .contains_key(&community_art_generation_key("location", waypoint_id, 1)));
+}
+
+#[tokio::test]
+async fn concurrent_location_funding_coalesces_policy_preflight_and_orb_debit() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        RAIN_SOFT_GARDEN_LOCATION_ID,
+        "Two Tab Patron",
+    );
+    runtime.callings.insert(
+        5000,
+        CallingState {
+            actor_id: 5000,
+            statement: EXPLORER_CALLING_STATEMENT.to_string(),
+            source_event_seq: None,
+        },
+    );
+    let (search, mutation, _) = runtime
+        .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+        .expect("pathway planning succeeds")
+        .expect("long route begins with discovery");
+    let mut discovery = JournalRecord::new(search, 7050);
+    discovery.projection_mutations.push(mutation);
+    assert_eq!(runtime.apply_journal_record(&discovery).0, CW_OK);
+    let waypoint_id = runtime.journeys[&5000].path[1];
+
+    let policy_requests = Arc::new(AtomicUsize::new(0));
+    let app = Router::new().route(
+        "/chat/completions",
+        post({
+            let policy_requests = policy_requests.clone();
+            move || {
+                let policy_requests = policy_requests.clone();
+                async move {
+                    policy_requests.fetch_add(1, Ordering::SeqCst);
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    Json(serde_json::json!({
+                        "choices": [{
+                            "message": {
+                                "content": r#"{"allowed":true,"violations":[],"summary":"Known-safe preflight accepted."}"#
+                            }
+                        }]
+                    }))
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind coalesced policy preflight fixture");
+    let address = listener
+        .local_addr()
+        .expect("coalesced policy preflight address");
+    let server = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig {
+        api_key: "test".to_string(),
+        base_url: format!("http://{address}"),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+        vision_reasoning_effort: None,
+        ..AiConfig::default()
+    }));
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+    let request = |intent_id: &str| {
+        fund_community_image(
+            ConnectInfo("127.0.0.1:44993".parse().expect("client address")),
+            State(state.clone()),
+            Json(FundCommunityImageRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+                subject_kind: "location".to_string(),
+                subject_id: waypoint_id,
+                intent_id: intent_id.to_string(),
+            }),
+        )
+    };
+
+    let (first, second) = tokio::join!(
+        request("test-location-two-tabs-a"),
+        request("test-location-two-tabs-b")
+    );
+    let first = first.0;
+    let second = second.0;
+    assert!(first.ok && second.ok, "{first:?} {second:?}");
+    assert_eq!(
+        first
+            .events
+            .iter()
+            .chain(second.events.iter())
+            .filter(|event| event.type_name == "community_art.funded")
+            .count(),
+        1
+    );
+    assert_eq!(policy_requests.load(Ordering::SeqCst), 1);
+
+    let runtime = state.inner.lock().await;
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+    let generation = &runtime.community_art_generations
+        [&community_art_generation_key("location", waypoint_id, 1)];
+    assert_eq!(generation.funded_orbs, 1);
+    assert_eq!(generation.funding_intent_ids.len(), 1);
+    drop(runtime);
+    server.abort();
 }
 
 #[tokio::test]
@@ -182,9 +430,15 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
         .events
         .iter()
         .any(|event| event.type_name == "community_art.funded"));
-    let duplicate = fund(actor_session, "test-community-endpoint-1").await.0;
+    let duplicate = fund(actor_session.clone(), "test-community-endpoint-1")
+        .await
+        .0;
     assert!(duplicate.ok);
     assert!(duplicate.events.is_empty());
+    let repeated_contributor = fund(actor_session, "test-community-endpoint-2").await.0;
+    assert!(!repeated_contributor.ok);
+    assert_eq!(repeated_contributor.status, 409);
+    assert!(repeated_contributor.events.is_empty());
 
     let runtime = state.inner.lock().await;
     assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
@@ -556,6 +810,10 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
     )
     .await;
     assert!(first.reused_candidate);
+    assert!(
+        first.provider_executions.is_empty(),
+        "reviewing a saved candidate does not execute Replicate"
+    );
     assert_eq!(
         first.prediction_id.as_deref(),
         Some("prediction-retained-1")
@@ -575,6 +833,10 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
     )
     .await;
     assert!(second.reused_candidate);
+    assert!(
+        second.provider_executions.is_empty(),
+        "the successful review retry still does not execute Replicate"
+    );
     assert!(second.result.is_ok());
     assert!(
         second.asset_id.is_some(),
@@ -1291,4 +1553,709 @@ async fn moderation_rejects_pathway_art_to_the_fallback_without_refunding() {
     .into_response();
     assert_eq!(rejected_asset.status(), StatusCode::NOT_FOUND);
     let _ = fs::remove_dir_all(generated_dir);
+}
+
+#[test]
+fn location_brief_truncates_the_joined_stable_traits_instead_of_failing_validation() {
+    assert_eq!(
+        bounded_component(&"a".repeat(MEDIA_BRIEF_CONSTRAINT_LIMIT * 4)).len(),
+        MEDIA_BRIEF_CONSTRAINT_LIMIT,
+        "the shared component helper must bound to the budget the frozen-brief gate measures"
+    );
+
+    let plan = location_art_plan(157_216, "16:9", &long_reviewed_landscape_brief());
+
+    // Production shape: every trait is individually bounded, so the reviewed
+    // landscape brief lands exactly on the component budget and the join of all
+    // four traits is unconditionally over it.
+    assert!(
+        plan.stable_traits
+            .iter()
+            .any(|value| value.len() == MEDIA_BRIEF_CONSTRAINT_LIMIT),
+        "the reviewed landscape brief fills one whole component: {:?}",
+        plan.stable_traits
+    );
+    assert!(
+        plan.persisted_visual_description.len() > MEDIA_BRIEF_CONSTRAINT_LIMIT,
+        "joined traits are {} bytes",
+        plan.persisted_visual_description.len()
+    );
+
+    let brief = community_art_media_brief(&plan);
+    brief
+        .validate()
+        .expect("a frozen brief built from an over-long trait join must still validate");
+
+    let mut unbounded = brief.clone();
+    unbounded.required_environment = vec![
+        plan.persisted_identity.clone(),
+        plan.persisted_visual_description.clone(),
+    ];
+    assert!(
+        unbounded.validate().is_err(),
+        "the unbounded join is exactly what the frozen-brief gate rejects"
+    );
+
+    assert!(brief.required_subjects.is_empty());
+    assert_eq!(brief.required_environment.len(), 2);
+    assert_eq!(brief.required_environment[0], plan.persisted_identity);
+    let environment = &brief.required_environment[1];
+    assert_eq!(
+        environment.len(),
+        MEDIA_BRIEF_CONSTRAINT_LIMIT,
+        "the over-long description is truncated to the budget, not dropped"
+    );
+    assert!(
+        plan.persisted_visual_description
+            .starts_with(environment.as_str()),
+        "the kept constraint is a prefix of the authored description"
+    );
+
+    assert_eq!(
+        brief.pack_negative_constraints.len(),
+        plan.stable_traits.len(),
+        "no stable trait is silently discarded"
+    );
+    for constraint in brief
+        .required_subjects
+        .iter()
+        .chain(&brief.required_environment)
+        .chain(&brief.forbidden)
+        .chain(&brief.pack_negative_constraints)
+    {
+        assert!(!constraint.trim().is_empty());
+        assert!(
+            constraint.len() <= MEDIA_BRIEF_CONSTRAINT_LIMIT,
+            "constraint is {} bytes: {constraint}",
+            constraint.len()
+        );
+    }
+}
+
+#[test]
+fn a_missing_visual_description_is_omitted_instead_of_freezing_an_empty_constraint() {
+    let mut plan = location_art_plan(157_217, "16:9", "chalk lanes and reed beds");
+    plan.persisted_visual_description = String::new();
+    plan.stable_traits = Vec::new();
+
+    let brief = community_art_media_brief(&plan);
+    brief
+        .validate()
+        .expect("an absent visual description must not freeze an empty constraint");
+    assert_eq!(
+        brief.required_environment,
+        vec![plan.persisted_identity.clone()]
+    );
+    assert!(brief.pack_negative_constraints.is_empty());
+
+    let mut empty_entry = brief.clone();
+    empty_entry.required_environment = vec![plan.persisted_identity.clone(), String::new()];
+    assert!(
+        empty_entry.validate().is_err(),
+        "an empty-after-trim constraint is rejected just like an over-long one"
+    );
+}
+
+#[test]
+fn multi_byte_constraints_are_bounded_by_bytes_without_slicing_a_codepoint() {
+    let identity = format!("ab{}", "🌿".repeat(100));
+    assert!(
+        identity.chars().take(MEDIA_BRIEF_CONSTRAINT_LIMIT).count() <= MEDIA_BRIEF_CONSTRAINT_LIMIT
+            && identity
+                .chars()
+                .take(MEDIA_BRIEF_CONSTRAINT_LIMIT)
+                .collect::<String>()
+                .len()
+                > MEDIA_BRIEF_CONSTRAINT_LIMIT,
+        "a character-counted bound alone still overflows the byte budget the gate measures"
+    );
+
+    let mut plan = location_art_plan(157_218, "16:9", &long_reviewed_landscape_brief());
+    plan.persisted_identity = identity.clone();
+    plan.stable_traits = stable_art_traits(
+        "location",
+        &identity,
+        &format!(
+            "biome: {}. reviewed landscape brief: {}",
+            "🌿".repeat(120),
+            long_reviewed_landscape_brief()
+        ),
+    );
+    plan.persisted_visual_description = plan.stable_traits.join(". ");
+
+    let brief = community_art_media_brief(&plan);
+    brief
+        .validate()
+        .expect("multi-byte constraints must be bounded, not rejected");
+
+    let bounded_identity = &brief.required_environment[0];
+    assert!(bounded_identity.len() <= MEDIA_BRIEF_CONSTRAINT_LIMIT);
+    assert!(
+        bounded_identity.len() > MEDIA_BRIEF_CONSTRAINT_LIMIT - 4,
+        "the cut lands on the last whole character that fits: {} bytes",
+        bounded_identity.len()
+    );
+    assert!(identity.starts_with(bounded_identity.as_str()));
+    for constraint in brief
+        .required_environment
+        .iter()
+        .chain(&brief.pack_negative_constraints)
+    {
+        assert!(!constraint.trim().is_empty());
+        assert!(constraint.len() <= MEDIA_BRIEF_CONSTRAINT_LIMIT);
+        assert!(constraint.is_char_boundary(constraint.len()));
+    }
+}
+
+#[tokio::test]
+async fn an_invalid_frozen_brief_fails_before_any_provider_call() {
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-invalid-brief-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let subject_id = 157_219;
+    let job_key = community_art_generation_key("location", subject_id, 1);
+    let valid = location_art_plan(subject_id, "16:9", "chalk lanes and reed beds");
+    let invalid = location_art_plan(subject_id, "16x9", "chalk lanes and reed beds");
+
+    // Close the provider route for this job key first. A regression that spends
+    // before validating would stop at the cooldown gate with a Provider error
+    // instead of reaching the network, so the two orderings stay hermetically
+    // distinguishable.
+    let cooldown_brief = community_art_media_brief(&valid);
+    cooldown_brief
+        .validate()
+        .expect("the control brief is valid");
+    for _ in 0..3 {
+        crate::media_recipes::media_verdict::record_media_provider_failure(
+            &generated_dir,
+            cooldown_brief.clone(),
+            "replicate-primary",
+        )
+        .expect("record a provider failure against the job key");
+    }
+    assert!(
+        !crate::media_recipes::media_verdict::media_provider_route_available(
+            &generated_dir,
+            &job_key
+        )
+        .expect("read the provider route"),
+        "the provider route is cooling down before the run"
+    );
+
+    let outcome =
+        generate_and_store_community_art(&test_art_config(), None, &generated_dir, &invalid).await;
+
+    match &outcome.result {
+        Err(CommunityArtGenerationError::BriefInvalid(error)) => {
+            assert!(error.contains("aspect ratio"), "{error}");
+        }
+        other => panic!("expected a pre-flight frozen-brief rejection, got {other:?}"),
+    }
+    let error = outcome.result.expect_err("the run fails");
+    assert_eq!(error.code(), COMMUNITY_ART_BRIEF_INVALID_CODE);
+    assert_ne!(error.code(), "community_art_generation_failed");
+    assert!(outcome.prediction_id.is_none());
+    assert!(!outcome.reused_candidate);
+    assert!(outcome.asset_id.is_none());
+    assert!(
+        outcome.provider_executions.is_empty(),
+        "preflight rejection has no provider execution to record"
+    );
+    assert!(
+        !community_art_candidate_exists(&generated_dir, &invalid),
+        "no provider image is bought or written for an invalid brief"
+    );
+    let _ = fs::remove_dir_all(generated_dir);
+}
+
+#[tokio::test]
+async fn scheduler_preflight_failure_spends_no_attempt_and_records_no_provider_usage() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-invalid-brief-ledger-{nonce}.sqlite"));
+    let generated_dir =
+        std::env::temp_dir().join(format!("cosyworld-invalid-brief-ledger-{nonce}"));
+    let _ = fs::remove_file(&event_store_path);
+    let _ = fs::remove_dir_all(&generated_dir);
+
+    let actor_id = 5000;
+    let plan = location_art_plan(181_731, "16x9", "chalk lanes and reed beds");
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Brief Ledger Patron",
+    );
+    fund_test_community_art(
+        &mut runtime,
+        actor_id,
+        &plan,
+        "test-invalid-brief-ledger",
+        7080,
+    );
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+
+    schedule_community_art_generation(&state, actor_id, plan);
+    let generation = wait_for_community_art_status(&state, &key, "failed").await;
+
+    assert_eq!(
+        generation.last_error_code.as_deref(),
+        Some(COMMUNITY_ART_BRIEF_INVALID_CODE)
+    );
+    assert_eq!(
+        generation.provider_attempts, 0,
+        "the durable provider budget is untouched"
+    );
+    assert_eq!(
+        community_image_usage_count(&event_store_path),
+        0,
+        "preflight-only work must not be reported as provider usage"
+    );
+
+    let _ = fs::remove_dir_all(generated_dir);
+    let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
+async fn scheduler_candidate_review_retry_records_no_provider_attempt_or_usage() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-candidate-review-ledger-{nonce}.sqlite"));
+    let generated_dir =
+        std::env::temp_dir().join(format!("cosyworld-candidate-review-ledger-{nonce}"));
+    let _ = fs::remove_file(&event_store_path);
+    let _ = fs::remove_dir_all(&generated_dir);
+
+    let actor_id = 5000;
+    let plan = location_art_plan(181_732, "16:9", "chalk lanes and reed beds");
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Candidate Ledger Patron",
+    );
+    fund_test_community_art(
+        &mut runtime,
+        actor_id,
+        &plan,
+        "test-candidate-review-ledger",
+        7081,
+    );
+    store_community_art_candidate(
+        &generated_dir,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/saved-candidate.png".to_string(),
+            prediction_id: Some("saved-candidate-prediction".to_string()),
+        },
+    )
+    .expect("store the paid candidate before its review retry");
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+
+    schedule_community_art_generation(&state, actor_id, plan.clone());
+    let generation = wait_for_community_art_status(&state, &key, "review_unavailable").await;
+
+    assert_eq!(
+        generation.provider_attempts, 0,
+        "reviewing a saved candidate is not a provider generation attempt"
+    );
+    assert_eq!(
+        generation.last_error_code.as_deref(),
+        Some("community_art_policy_unconfigured")
+    );
+    assert!(
+        community_art_candidate_exists(&generated_dir, &plan),
+        "the paid candidate remains available for a later review retry"
+    );
+    assert_eq!(
+        community_image_usage_count(&event_store_path),
+        0,
+        "candidate-only review work must not be reported as provider usage"
+    );
+
+    let _ = fs::remove_dir_all(generated_dir);
+    let _ = fs::remove_file(event_store_path);
+}
+
+#[test]
+fn corrupt_candidate_components_are_quarantined_before_provider_preparation() {
+    for (offset, corruption) in [
+        (0_u64, "image"),
+        (1, "content-type"),
+        (2, "metadata"),
+        (3, "schema"),
+        (4, "missing-metadata"),
+    ] {
+        let generated_dir = std::env::temp_dir().join(format!(
+            "cosyworld-candidate-corruption-{corruption}-{}-{}",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_dir_all(&generated_dir);
+        let plan = location_art_plan(181_740 + offset, "16:9", "chalk lanes and reed beds");
+        let public_image = DownloadedReplicateImage {
+            bytes: gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/prior-public.png".to_string(),
+            prediction_id: Some("prior-public-prediction".to_string()),
+        };
+        let candidate = DownloadedReplicateImage {
+            bytes: gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/corruptible-candidate.png".to_string(),
+            prediction_id: Some(format!("candidate-{corruption}")),
+        };
+        store_community_art_image(&generated_dir, &plan, &public_image)
+            .expect("store the approved public incumbent");
+        store_community_art_candidate(&generated_dir, &plan, &candidate)
+            .expect("store the candidate before corrupting it");
+        assert_eq!(
+            community_art_candidate_availability(&generated_dir, &plan),
+            CommunityArtCandidateAvailability::Valid
+        );
+
+        let [image_path, content_type_path, metadata_path] =
+            test_candidate_paths(&generated_dir, &plan);
+        match corruption {
+            "image" => {
+                let mut corrupt_bytes = candidate.bytes.clone();
+                corrupt_bytes.push(0);
+                fs::write(&image_path, corrupt_bytes).expect("corrupt candidate image digest");
+            }
+            "content-type" => {
+                fs::write(&content_type_path, "text/html").expect("corrupt candidate content type");
+            }
+            "metadata" => {
+                fs::write(&metadata_path, b"{not-json").expect("corrupt candidate metadata JSON");
+            }
+            "schema" => {
+                let mut metadata: serde_json::Value = serde_json::from_slice(
+                    &fs::read(&metadata_path).expect("read candidate metadata"),
+                )
+                .expect("parse candidate metadata");
+                metadata["schema_version"] = serde_json::json!(99);
+                fs::write(
+                    &metadata_path,
+                    serde_json::to_vec(&metadata).expect("encode mismatched schema"),
+                )
+                .expect("corrupt candidate schema version");
+            }
+            "missing-metadata" => {
+                fs::remove_file(&metadata_path).expect("remove candidate metadata component");
+            }
+            other => panic!("unknown corruption fixture {other}"),
+        }
+        assert_eq!(
+            community_art_candidate_availability(&generated_dir, &plan),
+            CommunityArtCandidateAvailability::RecoveryRequired,
+            "{corruption} must not count as an available paid candidate"
+        );
+        assert!(!community_art_candidate_exists(&generated_dir, &plan));
+
+        let prepared = prepare_community_art_generation(&test_art_config(), &generated_dir, &plan)
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{corruption} should quarantine and continue to provider preparation: {}",
+                    error.message()
+                )
+            });
+        assert!(
+            prepared.provider_attempt(),
+            "{corruption} recovers through one bounded provider attempt"
+        );
+        assert_eq!(
+            community_art_candidate_availability(&generated_dir, &plan),
+            CommunityArtCandidateAvailability::Absent
+        );
+        assert!(
+            test_candidate_paths(&generated_dir, &plan)
+                .iter()
+                .all(|path| !path.exists()),
+            "no corrupt component remains on an active candidate path"
+        );
+        assert!(!test_candidate_quarantine_marker(&generated_dir, &plan).exists());
+        assert_eq!(
+            fs::read(stored_community_art_image_path(
+                &generated_dir,
+                &plan.subject_kind,
+                plan.subject_id
+            ))
+            .expect("read the unchanged approved public incumbent"),
+            public_image.bytes,
+            "quarantining {corruption} never touches approved public art"
+        );
+        let quarantines = fs::read_dir(test_candidate_quarantine_root(&generated_dir, &plan))
+            .expect("read candidate quarantine")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("collect candidate quarantine");
+        assert_eq!(quarantines.len(), 1);
+        assert!(
+            quarantines[0].path().join("quarantine.json").is_file(),
+            "the audit reason is archived with the invalid bundle"
+        );
+
+        let _ = fs::remove_dir_all(generated_dir);
+    }
+}
+
+#[tokio::test]
+async fn quarantined_candidate_recovery_journals_one_provider_attempt_across_restart() {
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-candidate-recovery-budget-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let actor_id = 5000;
+    let plan = location_art_plan(181_746, "16:9", "chalk lanes and reed beds");
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Recovery Budget Patron",
+    );
+    fund_test_community_art(
+        &mut runtime,
+        actor_id,
+        &plan,
+        "test-corrupt-candidate-recovery",
+        7082,
+    );
+    store_community_art_candidate(
+        &generated_dir,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/recovery-candidate.png".to_string(),
+            prediction_id: Some("recovery-candidate".to_string()),
+        },
+    )
+    .expect("store recovery candidate");
+    let [image_path, _, _] = test_candidate_paths(&generated_dir, &plan);
+    fs::write(&image_path, b"tampered candidate").expect("tamper candidate image");
+
+    let prepared = prepare_community_art_generation(&test_art_config(), &generated_dir, &plan)
+        .unwrap_or_else(|error| panic!("quarantine prepares regeneration: {}", error.message()));
+    assert!(prepared.provider_attempt());
+    let mut state = test_app_state(runtime, None);
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    assert_eq!(
+        begin_community_art_generation(&state, actor_id, &plan, prepared.provider_attempt()).await,
+        Some(true)
+    );
+
+    let generation = {
+        let runtime = state.inner.lock().await;
+        runtime.community_art_generations[&key].clone()
+    };
+    assert_eq!(generation.status, "generating");
+    assert_eq!(generation.provider_attempts, 1);
+    let serialized = serde_json::to_string(&BTreeMap::from([(key.clone(), generation)]))
+        .expect("serialize recovered provider budget");
+    let restored: BTreeMap<String, CommunityArtGenerationState> =
+        serde_json::from_str(&serialized).expect("restore recovered provider budget");
+    assert_eq!(restored[&key].provider_attempts, 1);
+    assert!(
+        community_art_generation_retryable(&restored[&key], false),
+        "restart preserves the remaining bounded provider budget"
+    );
+
+    let _ = fs::remove_dir_all(generated_dir);
+}
+
+#[tokio::test]
+async fn incomplete_candidate_quarantine_is_terminal_and_actionable() {
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-candidate-quarantine-failure-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let actor_id = 5000;
+    let plan = location_art_plan(181_747, "16:9", "chalk lanes and reed beds");
+    store_community_art_candidate(
+        &generated_dir,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: gate_png(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/stuck-candidate.png".to_string(),
+            prediction_id: Some("stuck-candidate".to_string()),
+        },
+    )
+    .expect("store candidate before simulating interrupted quarantine");
+    let marker = test_candidate_quarantine_marker(&generated_dir, &plan);
+    fs::write(&marker, br#"{"schema_version":1,"reason":"interrupted"}"#)
+        .expect("install interrupted quarantine marker");
+
+    let error = match prepare_community_art_generation(&test_art_config(), &generated_dir, &plan) {
+        Err(error) => error,
+        Ok(_) => panic!("an incomplete quarantine must block provider preparation"),
+    };
+    assert!(matches!(
+        &error,
+        CommunityArtGenerationError::CandidateQuarantine(_)
+    ));
+    assert_eq!(error.code(), COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE);
+    assert!(
+        error.message().contains(&marker.display().to_string()),
+        "the operator-facing error names the blocking marker"
+    );
+
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Quarantine Failure Patron",
+    );
+    fund_test_community_art(
+        &mut runtime,
+        actor_id,
+        &plan,
+        "test-candidate-quarantine-failure",
+        7083,
+    );
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    schedule_community_art_generation(&state, actor_id, plan.clone());
+    let generation = wait_for_community_art_status(&state, &key, "failed").await;
+    assert_eq!(
+        generation.last_error_code.as_deref(),
+        Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
+    );
+    assert_eq!(generation.provider_attempts, 0);
+    assert!(!community_art_generation_retryable(&generation, true));
+    let terminal_event_seq = generation.status_event_seq;
+    schedule_community_art_generation(&state, actor_id, plan.clone());
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let generations = {
+        let runtime = state.inner.lock().await;
+        runtime.community_art_generations.clone()
+    };
+    assert_eq!(
+        generations[&key].status_event_seq, terminal_event_seq,
+        "the terminal marker does not schedule another completion"
+    );
+    let serialized = serde_json::to_string(&generations).expect("serialize terminal state");
+    let restored: BTreeMap<String, CommunityArtGenerationState> =
+        serde_json::from_str(&serialized).expect("restore terminal state");
+    assert!(!community_art_generation_retryable(&restored[&key], true));
+    assert!(
+        !community_art_generation_retryable_for_profile(
+            &restored[&key],
+            true,
+            restored[&key].generation_profile_version.saturating_add(1)
+        ),
+        "a prompt-profile bump cannot repair an incomplete filesystem quarantine"
+    );
+
+    remove_community_art_candidate(&generated_dir, &plan)
+        .expect("operator cleanup removes the marker and active remnants");
+    let _ = fs::remove_dir_all(generated_dir);
+}
+
+#[test]
+fn an_invalid_brief_failure_is_terminal_across_replay_and_snapshots() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Brief Patron");
+    let mut funding = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        },
+        7075,
+    );
+    funding
+        .projection_mutations
+        .push(ProjectionMutation::FundCommunityArt {
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            level: 1,
+            required_orbs: 1,
+            contributor_actor_id: 5000,
+            intent_id: "test-brief-invalid".to_string(),
+            amount: 1,
+            history_through_seq: 7075,
+            evolution_job: None,
+        });
+    assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
+
+    let mut completion = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        },
+        7076,
+    );
+    completion
+        .projection_mutations
+        .push(ProjectionMutation::CompleteCommunityArtGeneration {
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            level: 1,
+            status: "failed".to_string(),
+            prediction_id: None,
+            error_code: Some(COMMUNITY_ART_BRIEF_INVALID_CODE.to_string()),
+        });
+    assert_eq!(runtime.apply_journal_record(&completion).0, CW_OK);
+
+    let key = community_art_generation_key("actor", 5000, 1);
+    let generation = runtime.community_art_generations[&key].clone();
+    assert_eq!(generation.status, "failed");
+    assert_eq!(
+        generation.last_error_code.as_deref(),
+        Some(COMMUNITY_ART_BRIEF_INVALID_CODE)
+    );
+    assert_eq!(
+        generation.provider_attempts, 0,
+        "preflight rejection leaves the provider budget untouched"
+    );
+    assert!(!community_art_generation_retryable(&generation, false));
+    assert!(
+        !community_art_generation_retryable(&generation, true),
+        "a saved candidate must not reopen a deterministically invalid brief"
+    );
+
+    let serialized =
+        serde_json::to_string(&runtime.community_art_generations).expect("serialize art state");
+    let restored: BTreeMap<String, CommunityArtGenerationState> =
+        serde_json::from_str(&serialized).expect("restore art state");
+    assert!(!community_art_generation_retryable(&restored[&key], true));
+
+    let mut provider_failure = restored[&key].clone();
+    provider_failure.last_error_code = Some("community_art_generation_failed".to_string());
+    assert!(
+        community_art_generation_retryable(&provider_failure, true),
+        "an ordinary provider failure keeps its existing retry behavior"
+    );
+
+    assert!(
+        community_art_generation_retryable_for_profile(
+            &restored[&key],
+            false,
+            generation.generation_profile_version + 1
+        ),
+        "a newer generation profile remains the documented way back in"
+    );
 }

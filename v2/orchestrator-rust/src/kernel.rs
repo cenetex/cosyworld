@@ -84,6 +84,13 @@ pub const CW_REST_GRADE_CAMP: u8 = 1;
 pub const CW_REST_GRADE_LODGED: u8 = 2;
 pub const CW_REST_GRADE_HEARTH: u8 = 3;
 
+pub const CW_ABILITY_STRENGTH: u8 = 0;
+pub const CW_ABILITY_DEXTERITY: u8 = 1;
+pub const CW_ABILITY_CONSTITUTION: u8 = 2;
+pub const CW_ABILITY_INTELLIGENCE: u8 = 3;
+pub const CW_ABILITY_WISDOM: u8 = 4;
+pub const CW_ABILITY_CHARISMA: u8 = 5;
+
 pub const CW_ROLL_NORMAL: u8 = 0;
 pub const CW_ROLL_ADVANTAGE: u8 = 1;
 pub const CW_ROLL_DISADVANTAGE: u8 = 2;
@@ -126,7 +133,9 @@ pub const CW_ACTION_REST: u8 = 32;
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
 pub const CW_EVENT_ITEM_USED: u8 = 8;
+pub const CW_EVENT_COMBAT_ATTACK_ATTEMPT: u8 = 10;
 pub const CW_EVENT_COMBAT_ATTACK_HIT: u8 = 11;
+pub const CW_EVENT_COMBAT_ATTACK_MISS: u8 = 12;
 pub const CW_EVENT_COMBAT_KNOCKOUT: u8 = 13;
 pub const CW_EVENT_RULE_REJECTED: u8 = 14;
 pub const CW_EVENT_ACTOR_MOVED: u8 = 15;
@@ -420,6 +429,7 @@ pub struct CwEvent {
     pub dc: i16,
     pub damage: i16,
     pub current_hp: i16,
+    pub ability: u8,
 }
 
 #[repr(C)]

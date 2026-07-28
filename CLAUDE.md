@@ -42,7 +42,8 @@ validation and commitment through the normal world-event path.
 - `v2/cli/`: terminal client.
 - `src/`: legacy Node companion and its service/container architecture.
 - `test/`: legacy Node and cross-surface Vitest coverage.
-- `.github/workflows/`: CI, production Fly deployment, and tagged AWS release.
+- `.github/workflows/`: CI, dual-app production Fly deployment, and tagged
+  GitHub release notes.
 - `ENG.md`: current engineering invariants and priorities.
 - `v2/README.md`: runtime behavior, endpoints, configuration, and operations.
 - `v2/docs/`: focused worldpack, combat, simulation, voice, and writing specs.

@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.224",
+  "version": "0.0.225",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -20,6 +20,7 @@
     "v2:restart": "./v2/mvp.sh restart",
     "v2:status": "./v2/mvp.sh status",
     "v2:smoke": "./v2/mvp.sh smoke",
+    "v2:browser:check": "./v2/mvp.sh browser-check",
     "v2:smoke:ruby-high-deploy": "node v2/scripts/smoke-deployed-ruby-high.mjs",
     "v2:check": "./v2/mvp.sh check",
     "v2:stop": "./v2/mvp.sh stop",
@@ -156,6 +157,7 @@
     "markdown-it": "^14.1.0",
     "mini-css-extract-plugin": "^2.9.2",
     "nodemon": "^3.0.3",
+    "playwright": "1.61.0",
     "postcss-loader": "^8.1.1",
     "prettier": "^3.5.3",
     "rimraf": "^5.0.10",

@@ -9,7 +9,69 @@ pub(super) enum CombatChoice {
     NeedTime,
 }
 
+#[derive(Clone, Debug)]
+pub(super) struct CombatMethodBinding {
+    pub(super) item: Option<CwItem>,
+    pub(super) ability: u8,
+    pub(super) ability_name: &'static str,
+    pub(super) damage_die_sides: u8,
+    pub(super) label: String,
+}
+
 impl RuntimeWorld {
+    pub(super) fn authoritative_combat_method(&self, actor_id: u64) -> CombatMethodBinding {
+        let weapon = self.equipped_weapon_item(actor_id).and_then(|item| {
+            let contract = self.seed_item_contract_for_instance(item.id)?;
+            let mechanics = contract.mechanics.as_ref()?;
+            if mechanics.resolver != "combat_attack_v4"
+                || item.reserved < 2
+                || ((mechanics.uses > 0 || item.max_charges > 0) && item.charges == 0)
+            {
+                return None;
+            }
+            let ability = mechanics
+                .effect_budget
+                .get("ability")
+                .and_then(serde_json::Value::as_str)
+                .and_then(combat_ability)?;
+            Some(CombatMethodBinding {
+                item: Some(item),
+                ability,
+                ability_name: combat_ability_name(ability),
+                damage_die_sides: item.reserved,
+                label: self
+                    .item_name(item.id)
+                    .unwrap_or_else(|| format!("Item {}", item.id)),
+            })
+        });
+        weapon.unwrap_or_else(|| {
+            let ability = self
+                .actor_by_id(actor_id)
+                .filter(|actor| actor.stats.dexterity > actor.stats.strength)
+                .map(|_| CW_ABILITY_DEXTERITY)
+                .unwrap_or(CW_ABILITY_STRENGTH);
+            CombatMethodBinding {
+                item: None,
+                ability,
+                ability_name: combat_ability_name(ability),
+                damage_die_sides: 8,
+                label: "Unarmed strike".to_string(),
+            }
+        })
+    }
+
+    pub(super) fn authoritative_combat_weapon_item(&self, actor_id: u64) -> Option<CwItem> {
+        self.authoritative_combat_method(actor_id).item
+    }
+
+    pub(super) fn combat_method_effect(&self, actor_id: u64) -> String {
+        let method = self.authoritative_combat_method(actor_id);
+        format!(
+            "attacks with {} using {} (1d{})",
+            method.label, method.ability_name, method.damage_die_sides
+        )
+    }
+
     pub(super) fn apply_defend_project_preparation(
         &mut self,
         action: &CwAction,
@@ -409,11 +471,18 @@ impl RuntimeWorld {
                 {
                     return Err("That opponent is no longer available.".to_string());
                 }
+                let method = self.authoritative_combat_method(actor_id);
                 Ok(CwAction {
-                    kind: CW_ACTION_COMBAT_FINESSE_ATTACK,
+                    kind: if method.ability == CW_ABILITY_STRENGTH {
+                        CW_ACTION_COMBAT_ATTACK
+                    } else {
+                        CW_ACTION_COMBAT_FINESSE_ATTACK
+                    },
+                    ability: method.ability,
                     actor_id,
                     target_actor_id,
                     content_id: encounter.id,
+                    item_id: method.item.map(|item| item.id).unwrap_or_default(),
                     ..CwAction::default()
                 })
             }
@@ -505,6 +574,30 @@ impl RuntimeWorld {
             })
             .record,
         )
+    }
+}
+
+fn combat_ability(value: &str) -> Option<u8> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "strength" => Some(CW_ABILITY_STRENGTH),
+        "dexterity" => Some(CW_ABILITY_DEXTERITY),
+        "constitution" => Some(CW_ABILITY_CONSTITUTION),
+        "intelligence" => Some(CW_ABILITY_INTELLIGENCE),
+        "wisdom" => Some(CW_ABILITY_WISDOM),
+        "charisma" => Some(CW_ABILITY_CHARISMA),
+        _ => None,
+    }
+}
+
+pub(super) fn combat_ability_name(ability: u8) -> &'static str {
+    match ability {
+        CW_ABILITY_STRENGTH => "Strength",
+        CW_ABILITY_DEXTERITY => "Dexterity",
+        CW_ABILITY_CONSTITUTION => "Constitution",
+        CW_ABILITY_INTELLIGENCE => "Intelligence",
+        CW_ABILITY_WISDOM => "Wisdom",
+        CW_ABILITY_CHARISMA => "Charisma",
+        _ => "Unknown",
     }
 }
 

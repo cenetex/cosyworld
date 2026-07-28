@@ -379,6 +379,28 @@
       "replay_version": "weighted-fnv1a-v1",
       "item_templates": [
         {
+          "id": "hearth_tonic",
+          "name": "Hearth Tonic",
+          "description": "A warm tonic drawn from the Cottage hearth that gets one person back on their feet, probably complaining.",
+          "kind": "potion",
+          "charges": 1,
+          "role": "consumable",
+          "weight_tenths": 5,
+          "size": "small",
+          "mechanics": {
+            "binding": "srd5.2.1:utilize",
+            "equipment_profile": "carried",
+            "target_predicate": "active_actor_same_location_needing_healing",
+            "resolver": "item_utilize_v1",
+            "effect_budget": {"healing": 10},
+            "uses": 1,
+            "exhaustion": "consume_charge",
+            "recovery": "none",
+            "transfer_policy": "transferable",
+            "theft_policy": "eligible_when_carried"
+          }
+        },
+        {
           "id": "river_sprat",
           "name": "River Sprat",
           "description": "A small silver fish caught through patient shared work.",

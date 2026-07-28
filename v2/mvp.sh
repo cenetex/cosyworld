@@ -32,12 +32,15 @@ URL="${BASE_URL}/?wallet=${WALLET}"
 
 usage() {
   cat <<EOF
-Usage: v2/mvp.sh [start|open|smoke|check|status|logs|stop|restart]
+Usage: v2/mvp.sh [start|open|smoke|browser-check|check|status|logs|stop|restart]
 
 Commands:
   start    Build and start the browser MVP server, then open ${URL}
   open     Open ${URL}
   smoke    Run the browser MVP smoke against ${BASE_URL}
+  browser-check
+           Start a fresh deterministic server, run browser and terminal
+           smokes, then stop the server
   check    Run kernel/Rust/JS/CLI checks, production-profile smoke, browser smoke, and print status
   status   Print health and listener information
   logs     Tail the server log
@@ -292,6 +295,27 @@ run_cli_smoke() {
   fi
 }
 
+run_browser_check() {
+  local check_runtime
+  check_runtime="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-browser-check.XXXXXX")"
+  cleanup_browser_check() {
+    stop_server
+    case "$check_runtime" in
+      */cosyworld-browser-check.*) rm -rf -- "$check_runtime" ;;
+    esac
+  }
+  export COSYWORLD_V2_EVENT_DB_PATH="$check_runtime/events.sqlite"
+  export COSYWORLD_V2_SNAPSHOT_PATH=off
+  export COSYWORLD_V2_RESIDENT_CONTINUITY_PATH="$check_runtime/resident-continuity.json"
+  trap cleanup_browser_check EXIT INT TERM
+  start_deterministic_smoke_server
+  run_smoke
+  run_cli_smoke
+  status
+  cleanup_browser_check
+  trap - EXIT INT TERM
+}
+
 check_all() {
   run_worldpack_check
   run_kernel_check
@@ -325,6 +349,9 @@ case "$cmd" in
     ;;
   smoke)
     run_smoke
+    ;;
+  browser-check)
+    run_browser_check
     ;;
   check)
     check_all

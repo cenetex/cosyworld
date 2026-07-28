@@ -300,6 +300,23 @@ pub(super) struct ResolvedMediaJob {
     pub(super) stable_storage: String,
 }
 
+pub(super) struct PreparedReplicateExecution {
+    client: reqwest::Client,
+    request: ReplicatePredictionRequest,
+    provider: String,
+    model: String,
+}
+
+impl PreparedReplicateExecution {
+    pub(super) fn provider(&self) -> &str {
+        &self.provider
+    }
+
+    pub(super) fn model(&self) -> &str {
+        &self.model
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 struct ReplicatePredictionRequest {
     url: String,
@@ -843,14 +860,14 @@ fn deterministic_canary_bucket(job_key: &str) -> u8 {
     digest[0] % 100
 }
 
-pub(super) async fn request_replicate_art(
+pub(super) fn prepare_replicate_art(
     config: &ReplicateAvatarArtConfig,
     prompt: String,
     aspect_ratio: &str,
     subject_kind: &str,
     subject_id: u64,
     level: u8,
-) -> Result<DownloadedReplicateImage, String> {
+) -> Result<PreparedReplicateExecution, String> {
     let intent = match subject_kind {
         "actor" => MediaIntent::Avatar,
         "item" => MediaIntent::Item,
@@ -874,15 +891,15 @@ pub(super) async fn request_replicate_art(
             seed: None,
         },
     )?;
-    execute_replicate_art(config, &resolved).await
+    prepare_replicate_execution(config, resolved)
 }
 
-pub(super) async fn request_replicate_evolution_art(
+pub(super) fn prepare_replicate_evolution_art(
     config: &ReplicateAvatarArtConfig,
     asset_root: &std::path::Path,
     job: &FrozenCommunityArtEvolutionJob,
     frozen_reference: &FrozenMediaAssetReference,
-) -> Result<DownloadedReplicateImage, String> {
+) -> Result<PreparedReplicateExecution, String> {
     job.validate()?;
     job.assert_prior_reference(&frozen_reference.asset_id, &frozen_reference.content_digest)?;
     let reference = resolve_frozen_community_media_reference(
@@ -917,29 +934,43 @@ pub(super) async fn request_replicate_evolution_art(
                 .to_string(),
         );
     }
-    execute_replicate_art(config, &resolved).await
+    prepare_replicate_execution(config, resolved)
 }
 
-pub(super) async fn execute_replicate_art(
+fn prepare_replicate_execution(
     config: &ReplicateAvatarArtConfig,
-    resolved: &ResolvedMediaJob,
-) -> Result<DownloadedReplicateImage, String> {
+    resolved: ResolvedMediaJob,
+) -> Result<PreparedReplicateExecution, String> {
     let legacy_input = if resolved.recipe_id == "replicate.flux1-dev-lora.base" {
         replicate_avatar_input(config)?
     } else {
         serde_json::Map::new()
     };
-    let request = replicate_prediction_request(config, resolved, legacy_input)?;
+    let request = replicate_prediction_request(config, &resolved, legacy_input)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(resolved.timeout_seconds))
         .build()
         .map_err(|error| error.to_string())?;
+    let provider = resolved.provider.clone();
+    let model = replicate_invocation_model(config, &resolved);
+    Ok(PreparedReplicateExecution {
+        client,
+        request,
+        provider,
+        model,
+    })
+}
 
-    let mut prediction = client
-        .post(request.url)
+pub(super) async fn execute_prepared_replicate_art(
+    config: &ReplicateAvatarArtConfig,
+    prepared: &PreparedReplicateExecution,
+) -> Result<DownloadedReplicateImage, String> {
+    let mut prediction = prepared
+        .client
+        .post(prepared.request.url.clone())
         .bearer_auth(&config.api_token)
         .header("Prefer", "wait=30")
-        .json(&request.body)
+        .json(&prepared.request.body)
         .send()
         .await
         .map_err(|error| error.to_string())?
@@ -955,7 +986,7 @@ pub(super) async fn execute_replicate_art(
                 .get("id")
                 .and_then(|value| value.as_str())
                 .map(ToString::to_string);
-            let mut image = download_replicate_image(&client, &output_url).await?;
+            let mut image = download_replicate_image(&prepared.client, &output_url).await?;
             image.prediction_id = prediction_id;
             return Ok(image);
         }
@@ -980,7 +1011,8 @@ pub(super) async fn execute_replicate_art(
         };
         validate_replicate_api_url(&get_url)?;
         tokio::time::sleep(Duration::from_secs(2)).await;
-        prediction = client
+        prediction = prepared
+            .client
             .get(get_url)
             .bearer_auth(&config.api_token)
             .send()
@@ -993,6 +1025,14 @@ pub(super) async fn execute_replicate_art(
             .map_err(|error| error.to_string())?;
     }
     Err("Replicate art prediction timed out".to_string())
+}
+
+pub(super) async fn execute_replicate_art(
+    config: &ReplicateAvatarArtConfig,
+    resolved: &ResolvedMediaJob,
+) -> Result<DownloadedReplicateImage, String> {
+    let prepared = prepare_replicate_execution(config, resolved.clone())?;
+    execute_prepared_replicate_art(config, &prepared).await
 }
 
 fn replicate_prediction_request(
@@ -1035,11 +1075,7 @@ fn replicate_prediction_request(
         }
     }
 
-    let model = if legacy_flux1 {
-        config.model.clone()
-    } else {
-        format!("{}/{}", resolved.model_owner, resolved.model_name)
-    };
+    let model = replicate_invocation_model(config, resolved);
     let version = if legacy_flux1 {
         config.version.clone()
     } else {
@@ -1057,6 +1093,17 @@ fn replicate_prediction_request(
         )
     };
     Ok(ReplicatePredictionRequest { url, body })
+}
+
+fn replicate_invocation_model(
+    config: &ReplicateAvatarArtConfig,
+    resolved: &ResolvedMediaJob,
+) -> String {
+    if resolved.recipe_id == "replicate.flux1-dev-lora.base" {
+        config.model.clone()
+    } else {
+        format!("{}/{}", resolved.model_owner, resolved.model_name)
+    }
 }
 
 fn replicate_avatar_input(
@@ -1595,6 +1642,14 @@ mod tests {
                 }
             })
         );
+        let prepared_legacy =
+            prepare_replicate_execution(&art_config(), legacy).expect("legacy execution prepares");
+        assert_eq!(prepared_legacy.provider(), "replicate");
+        assert_eq!(
+            prepared_legacy.model(),
+            "custom/flux1-lora",
+            "usage metadata names the model used by the provider URL"
+        );
 
         let canary = MediaRecipeRuntimeControls {
             canaries: BTreeMap::from([(
@@ -1629,5 +1684,13 @@ mod tests {
         assert_eq!(flux2_request.body["input"]["seed"], 42);
         assert!(flux2_request.body["input"].get("num_outputs").is_none());
         assert!(flux2_request.body["input"].get("lora_weights").is_none());
+        let prepared_flux2 =
+            prepare_replicate_execution(&art_config(), flux2).expect("FLUX.2 execution prepares");
+        assert_eq!(prepared_flux2.provider(), "replicate");
+        assert_eq!(
+            prepared_flux2.model(),
+            "black-forest-labs/flux-2-dev",
+            "usage metadata names the pinned recipe model"
+        );
     }
 }

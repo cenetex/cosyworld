@@ -149,7 +149,17 @@ The worldpack is the designer contract. Keep `check-worldpack.mjs` strict and ex
 
 ### 10. Production operations
 
-- The container is host-agnostic: the root `Dockerfile` builds the release orchestrator; the current deployment target is **AWS** (with `fly.toml` retained for Fly). The contract is identical everywhere: a persistent volume at `/data`, the production-profile env (protected ownership feed + bearer, SQLite event store, moderation token, shard id), and `/meta` as the deploy smoke surface.
+- The container is host-agnostic: the root `Dockerfile` builds the release
+  orchestrator, and the current application deployment target is **Fly**.
+  Pushes to `main` and version tags deploy the same immutable image to the
+  `cosyworld` and `lonelyforest` Fly apps through
+  `.github/workflows/deploy.yml`. AWS remains authoritative for the
+  `lonelyforest.com` Route 53 zone and the static
+  `lonelyforestlibrary.com` S3/CloudFront site; dormant ECS/EFS/ALB resources
+  exist only for the documented rollback window. The runtime contract remains
+  host-agnostic: a persistent volume at `/data`, the production-profile env
+  (protected ownership feed + bearer, SQLite event store, moderation token,
+  process id), and `/meta` as the deploy smoke surface.
 - Restore Ruby High's upstream Solana RPC capacity, deploy the ownership-feed health telemetry, and rerun the hosted smoke against the actual protected export. The hosted path is configured and has been exercised, but the export currently fails on upstream RPC quota exhaustion.
 - SQLite backup, retention, and restore-drill policy for `/data`.
 - Observability past `/meta`: request/latency metrics, AI provider and dialogue inference failure rates, ledger anomaly counts, ping-to-skip rates.

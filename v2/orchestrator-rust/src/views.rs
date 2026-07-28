@@ -1672,6 +1672,26 @@ impl RuntimeWorld {
         let resident_name = self
             .actor_name(resident.id)
             .unwrap_or_else(|| format!("Avatar {}", resident.id));
+        let healing_supply_motive = self
+            .resident_needs_medicine(resident)
+            .then(|| {
+                let target_name = self
+                    .resident_healing_target(resident)
+                    .and_then(|target| self.actor_name(target.id))
+                    .unwrap_or_else(|| "someone here".to_string());
+                if self
+                    .versioned_craft_plan(resident.id, HEARTH_TONIC_RECIPE_ID, None)
+                    .is_some()
+                {
+                    format!(
+                        "{resident_name} can draw a Hearth Tonic from the Cottage hearth to help {target_name}."
+                    )
+                } else {
+                    format!(
+                        "{resident_name} cannot help {target_name} yet: no usable potion is available here. A Hearth Tonic can be drawn from the Cottage hearth."
+                    )
+                }
+            });
         let motive = if let Some(request) = request.as_ref() {
             if let Some(holder_name) = self.actor_name(request.holder_actor_id) {
                 let reason = request.reason.trim_end_matches('.');
@@ -1707,6 +1727,8 @@ impl RuntimeWorld {
             } else {
                 format!("{resident_name} remembers {item_name} near {location_name}.")
             }
+        } else if let Some(motive) = healing_supply_motive {
+            motive
         } else if !sought_item_ids.is_empty() {
             format!(
                 "{resident_name} seeks {}.",
@@ -1835,7 +1857,8 @@ impl RuntimeWorld {
             .collect();
 
         let exits = self.exit_views(location_id, access);
-        let cards = self.card_registry_for(&location, &actors, &items, &exits, access);
+        let cards =
+            self.card_registry_for(&location, &actors, &items, &exits, access, client_actor_id);
         let card_transactions =
             self.card_transaction_views(location_id, &actors, &items, &exits, &cards);
         let access_view = access_view(access, &cards.locations);

@@ -6,7 +6,9 @@ fn submitted_payload_target(
     payload: &serde_json::Value,
 ) -> Option<u64> {
     let key = match (path, target.kind.as_str()) {
-        ("/actions/move" | "/actions/flee", "location") => "destination_location_id",
+        ("/actions/move" | "/actions/flee" | "/actions/explore-path", "location") => {
+            "destination_location_id"
+        }
         ("/actions/craft", "recipe") => "recipe_id",
         ("/actions/pick-up" | "/actions/drop", "item") => "item_id",
         ("/actions/trade-item" | "/actions/theft", "item") => "target_item_id",
@@ -1220,7 +1222,7 @@ impl RuntimeWorld {
     ) -> Option<ActionSourceCollectibleView> {
         let source_item = match kind {
             "cast_spell" => self.default_spell_card(actor_id),
-            "attack" => self.equipped_weapon_item(actor_id),
+            "attack" => self.authoritative_combat_weapon_item(actor_id),
             "use_item" | "use_feature" => self
                 .actor_held_items(actor_id)
                 .into_iter()
@@ -1646,6 +1648,7 @@ impl RuntimeWorld {
     ) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
+            "attack" => Some(self.combat_method_effect(actor_id)),
             "chat" => self
                 .default_chat_target(actor_id)
                 .and_then(|target| self.actor_name(target.id))
@@ -2029,7 +2032,10 @@ mod tests {
                 .resolve_command(&command_request(5000, &scout.command), &access)
                 .expect("the advertised Scout command resolves")
                 .dispatch,
-            CommandDispatch::Scout
+            CommandDispatch::Scout {
+                destination_location_id: resolved_destination_location_id
+            }
+                if resolved_destination_location_id == destination_location_id
         ));
         assert!(destination_location_id > 0);
     }

@@ -166,5 +166,23 @@
       "effect": "portable",
       "uniqueness": "per_receipt"
     }
+  },
+  {
+    "schema_version": 2,
+    "id": 3105,
+    "key": "draw-hearth-tonic",
+    "name": "Draw Hearth Tonic",
+    "description": "Draw one warm healing tonic from the Cottage hearth's renewable shared supply.",
+    "inputs": [],
+    "requires": {
+      "location_features": ["seed_room_feature:hearth"]
+    },
+    "output": {
+      "template_id": "hearth_tonic",
+      "destination": "actor_hand",
+      "fallback_destination": "location_floor",
+      "effect": "provisioned_supply",
+      "uniqueness": "per_receipt"
+    }
   }
 ]

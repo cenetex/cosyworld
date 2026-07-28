@@ -62,10 +62,11 @@ shape still boots one orchestrator, backed by a durable fenced commit point:
   converge durable projections, relay ephemeral presence, rendezvous stable
   profile/invite references, atomically hand off hot rooms, checkpoint split
   ownership ranges, and promote a hash-verified recovery prefix under higher
-  regional and partition fences. Production remains one task until AWS has
-  exact per-task routes and a release-specific recovery drill passes. Starting
-  isolated public-world copies—or using a shared load balancer URL as an owner
-  route—is forbidden. See `docs/canonical-world.md` for the operator contract.
+  regional and partition fences. The current Fly deployment remains one
+  orchestrator per app until exact per-process routes and a release-specific
+  recovery drill pass. Starting isolated public-world copies—or using a shared
+  load-balancer URL as an owner route—is forbidden. See
+  `docs/canonical-world.md` for the operator contract.
 
 Seed world content:
 
@@ -1023,4 +1024,34 @@ The SQLite database stores three different layers:
 - `world_events`: the projected event feed produced by replaying actions through the C kernel.
 - `actor_sessions`: opaque local browser sessions for generated human avatars. These survive process restarts alongside the action journal and are cleared by dev reset.
 
-On startup, the orchestrator replays `action_journal` when it is present. JSON snapshots are an accelerator and fallback, not the source of truth. The startup log line reports how many milliseconds boot took from process start to listening, so a regression to full replay is visible. A rejected checkpoint is also surfaced beyond logs: `/meta.persistence` reports `checkpoint_rejections` and `last_checkpoint_rejection` for the running process. Checkpoint validation distinguishes unbound state from divergence: funded-but-unbegun generated media carries an empty policy binding and adopts its pathway's binding on load, exactly as begin would. Two legacy compatibility bindings for the same owner pack and version reconcile the same way — their historical bundle-hash bookkeeping drifts legitimately, and the legacy policy fabricates no media identity. A reviewed non-legacy binding that disagrees with its pathway still fails closed.
+On startup, the orchestrator replays `action_journal` when it is present. Before
+the first compaction, JSON snapshots are an accelerator and fallback rather
+than the source of truth. After a successful snapshot, the default persistence
+policy keeps the snapshot checkpoint row plus the journal suffix and the most
+recent 25,000 world events. A compacted journal therefore requires a snapshot
+at or after its recorded floor; startup fails closed instead of treating a
+truncated suffix as complete history. `natural_feature.revealed` evidence is
+retained independently because canonical hydration consumes it.
+
+Set `COSYWORLD_V2_RETAINED_WORLD_EVENTS` to a value of at least 1,000 to tune
+the replay window, or set `COSYWORLD_V2_PERSISTENCE_COMPACTION=off` before a
+store is compacted to preserve full history. Canonical routing and regional
+recovery require uncompacted prefix history and refuse a previously compacted
+store. A new database is required to re-enable those modes after compaction.
+New SQLite stores use incremental auto-vacuum; existing stores reuse freed
+pages even when their outer file cannot immediately shrink. On boot, the
+orchestrator removes the exact stale `*.json.tmp` file left by an interrupted
+snapshot without touching the committed snapshot.
+
+The startup log line reports how many milliseconds boot took from process
+start to listening, so a regression to full replay is visible. A rejected
+checkpoint is also surfaced beyond logs: `/meta.persistence` reports
+`checkpoint_rejections`, `last_checkpoint_rejection`, journal/event floors,
+cumulative deleted rows, database/snapshot/temp bytes, and live versus reusable
+SQLite bytes. Checkpoint validation distinguishes unbound state from
+divergence: funded-but-unbegun generated media carries an empty policy binding
+and adopts its pathway's binding on load, exactly as begin would. Two legacy
+compatibility bindings for the same owner pack and version reconcile the same
+way — their historical bundle-hash bookkeeping drifts legitimately, and the
+legacy policy fabricates no media identity. A reviewed non-legacy binding that
+disagrees with its pathway still fails closed.

@@ -127,6 +127,18 @@ impl RuntimeWorld {
                 }
                 "move" => (60, RESIDENT_DEFAULT_ITEM_SCORE),
                 "search" => (65, 0),
+                "craft"
+                    if self.resident_needs_medicine(actor)
+                        && record.projection_mutations.iter().any(|mutation| {
+                            matches!(
+                                mutation,
+                                ProjectionMutation::ResolveCraft { receipt }
+                                    if receipt.recipe_id == HEARTH_TONIC_RECIPE_ID
+                            )
+                        }) =>
+                {
+                    (1, RESIDENT_DESIRED_ITEM_SCORE)
+                }
                 "craft" => (66, 0),
                 "influence" => (70, 0),
                 "check" => (80, 0),

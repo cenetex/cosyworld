@@ -140,7 +140,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicU64, AtomicU8, Ordering as AtomicOrdering},
-        Arc, Mutex as StdMutex, OnceLock,
+        Arc, Mutex as StdMutex, OnceLock, Weak,
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -452,6 +452,7 @@ const MAX_CHARM_SLOTS: u8 = 6;
 const DEFAULT_EVENT_REPLAY_LIMIT: usize = 80;
 const MAX_EVENT_REPLAY_LIMIT: usize = 500;
 const MAX_EVENT_STORE_SCAN: usize = 1000;
+const DEFAULT_RETAINED_WORLD_EVENTS: usize = 25_000;
 const RECENT_ROOM_LINE_CAPACITY: usize = 16;
 const STARTING_ORBS: i32 = 3;
 const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
@@ -2453,6 +2454,18 @@ struct MetaPersistence {
     snapshot_enabled: bool,
     event_store_enabled: bool,
     event_store: MetaEventStoreHealth,
+    compaction_enabled: bool,
+    retained_world_event_limit: usize,
+    action_journal_floor_seq: u64,
+    world_event_floor_seq: u64,
+    last_compacted_at_ms: Option<u64>,
+    deleted_action_journal_rows: u64,
+    deleted_world_event_rows: u64,
+    event_store_bytes: Option<u64>,
+    event_store_live_bytes: Option<u64>,
+    event_store_reusable_bytes: Option<u64>,
+    snapshot_bytes: Option<u64>,
+    snapshot_temp_bytes: Option<u64>,
     moderation_report_retention_days: Option<u64>,
     story_metrics_retention_days: Option<u64>,
     command_receipt_retention_days: Option<u64>,
@@ -2472,6 +2485,24 @@ struct MetaEventStoreHealth {
     consecutive_read_failures: u32,
     pending_event_count: usize,
     last_error_code: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct PersistenceCompactionReport {
+    action_journal_floor_seq: u64,
+    world_event_floor_seq: u64,
+    last_compacted_at_ms: Option<u64>,
+    deleted_action_journal_rows: u64,
+    deleted_world_event_rows: u64,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct PersistenceStorageReport {
+    event_store_bytes: Option<u64>,
+    event_store_live_bytes: Option<u64>,
+    event_store_reusable_bytes: Option<u64>,
+    snapshot_bytes: Option<u64>,
+    snapshot_temp_bytes: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2987,7 +3018,7 @@ struct RankedActionOffer {
     ranked_hand_eligible: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 struct ActionSourceCollectibleView {
     kind: String,
     instance_id: u64,
@@ -3098,6 +3129,10 @@ struct EventView {
     dc: Option<i16>,
     damage: Option<i16>,
     current_hp: Option<i16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    combat_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ability: Option<String>,
     clock_id: Option<String>,
     clock_scope: Option<String>,
     clock_scope_id: Option<u64>,
@@ -3152,6 +3187,8 @@ impl Default for EventView {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -3723,6 +3760,13 @@ struct AttackRequest {
 struct ActorRequest {
     actor_id: u64,
     actor_session: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ScoutRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    destination_location_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -5407,6 +5451,15 @@ impl AppState {
         let (tx, _) = broadcast::channel(512);
         let deployment = DeploymentConfig::from_env()?;
         let snapshot_path = snapshot_path_from_env().map(Arc::new);
+        if let Some(path) = snapshot_path.as_deref() {
+            if let Err(error) = remove_stale_snapshot_temp(path) {
+                warn!(
+                    "failed to remove stale CosyWorld snapshot temporary file for {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+        }
         let resident_continuity_path =
             resident_continuity_path_from_env(snapshot_path.as_deref()).map(Arc::new);
         let event_store_path = event_store_path_from_env().map(Arc::new);
@@ -5423,6 +5476,17 @@ impl AppState {
             return Err(deployment_config_error(
                 "canonical regional recovery requires COSYWORLD_V2_EVENT_DB_PATH",
             ));
+        }
+        if let Some(path) = event_store_path.as_deref() {
+            init_event_store(path)?;
+            let report = read_persistence_compaction_report(path)?;
+            if (report.action_journal_floor_seq > 0 || report.world_event_floor_seq > 0)
+                && (canonical_routing.enabled() || canonical_recovery.is_some())
+            {
+                return Err(deployment_config_error(
+                    "canonical routing or regional recovery cannot use an event store whose canonical history was compacted",
+                ));
+            }
         }
         let fail_closed_on_continuity_error = deployment.profile.is_production();
         let mut runtime = match event_store_path.as_deref() {
@@ -8710,6 +8774,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -8763,6 +8829,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -8820,6 +8888,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -8883,6 +8953,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -8941,6 +9013,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9002,6 +9076,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9061,6 +9137,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9120,6 +9198,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9178,6 +9258,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9236,6 +9318,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9294,6 +9378,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9354,6 +9440,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9411,6 +9499,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9507,6 +9597,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: Some(clock.id.clone()),
             clock_scope: Some(clock.scope.clone()),
             clock_scope_id: Some(clock.scope_id),
@@ -9570,6 +9662,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9633,6 +9727,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9693,6 +9789,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9753,6 +9851,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9812,6 +9912,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9872,6 +9974,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9931,6 +10035,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -9994,6 +10100,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -10053,6 +10161,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -10127,7 +10237,7 @@ impl RuntimeWorld {
             }
         }
 
-        let tmp = path.with_extension("json.tmp");
+        let tmp = snapshot_temp_path(path);
         let snapshot = RuntimeSnapshot::from_runtime(self);
         let bytes = serde_json::to_vec_pretty(&snapshot)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
@@ -13793,6 +13903,13 @@ impl RuntimeWorld {
     }
 
     fn event_view(&self, event: &CwEvent) -> EventView {
+        let is_combat_attack = matches!(
+            event.type_,
+            CW_EVENT_COMBAT_ATTACK_ATTEMPT
+                | CW_EVENT_COMBAT_ATTACK_HIT
+                | CW_EVENT_COMBAT_ATTACK_MISS
+                | CW_EVENT_COMBAT_KNOCKOUT
+        );
         EventView {
             world_id: official_world_id(),
             world_epoch: official_world_epoch(),
@@ -13820,6 +13937,12 @@ impl RuntimeWorld {
             dc: opt_i16(event.dc),
             damage: opt_i16(event.damage),
             current_hp: event_current_hp(event),
+            combat_method: is_combat_attack.then(|| {
+                self.item_name(event.item_id)
+                    .unwrap_or_else(|| "Unarmed strike".to_string())
+            }),
+            ability: is_combat_attack
+                .then(|| combat::combat_ability_name(event.ability).to_string()),
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -14483,16 +14606,23 @@ impl RuntimeWorld {
             .ok_or_else(|| "Scout needs a route longer than one open step.".to_string())
     }
 
-    fn plan_scout_action(
+    fn plan_scout_choice_action(
         &self,
         actor_id: u64,
+        destination_location_id: u64,
     ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
         let offer = self
             .legal_action_candidates(Some(actor_id), &AccessContext::default())
             .1
             .into_iter()
-            .find(|offer| offer.kind == "explore_path" && action_offer_is_reachable(offer))
-            .ok_or_else(|| "There is no route to Scout here.".to_string())?;
+            .filter(action_offer_is_reachable)
+            .find(|offer| {
+                offer.kind == "explore_path"
+                    && offer.target.as_ref().is_some_and(|target| {
+                        target.kind == "location" && target.id == Some(destination_location_id)
+                    })
+            })
+            .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
         self.plan_scout_offer(actor_id, &offer)
     }
 
@@ -18670,6 +18800,8 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp,
+            combat_method: None,
+            ability: None,
             clock_id: None,
             clock_scope: None,
             clock_scope_id: None,
@@ -19136,6 +19268,7 @@ impl RuntimeWorld {
         mut card: CardView,
         subject_kind: &str,
         subject_id: u64,
+        viewer_actor_id: Option<u64>,
     ) -> CardView {
         if subject_kind == "location" {
             card = self.decorate_generated_location_card(card, subject_id);
@@ -19181,6 +19314,14 @@ impl RuntimeWorld {
             required_orbs,
             funded_orbs,
             remaining_orbs: required_orbs.saturating_sub(funded_orbs),
+            viewer_contributed: viewer_actor_id.is_some_and(|actor_id| {
+                generation.is_some_and(|state| {
+                    state
+                        .contributions
+                        .get(&actor_id)
+                        .is_some_and(|amount| *amount > 0)
+                })
+            }),
             status,
             history_through_seq: generation
                 .map(|state| state.history_through_seq)
@@ -23498,6 +23639,15 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         .lock()
         .map(|health| health.clone())
         .unwrap_or_default();
+    let compaction_report = state
+        .event_store_path
+        .as_deref()
+        .and_then(|path| read_persistence_compaction_report(path).ok())
+        .unwrap_or_default();
+    let storage_report = persistence_storage_report(
+        state.event_store_path.as_deref().map(PathBuf::as_path),
+        state.snapshot_path.as_deref().map(PathBuf::as_path),
+    );
     let region_authority = state.event_store_path.as_deref().and_then(|path| {
         current_region_authority(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH).ok()
     });
@@ -23562,6 +23712,18 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 pending_event_count: event_store_health.pending_events.len(),
                 last_error_code: event_store_health.last_error_code,
             },
+            compaction_enabled: persistence_compaction_enabled(),
+            retained_world_event_limit: retained_world_event_limit(),
+            action_journal_floor_seq: compaction_report.action_journal_floor_seq,
+            world_event_floor_seq: compaction_report.world_event_floor_seq,
+            last_compacted_at_ms: compaction_report.last_compacted_at_ms,
+            deleted_action_journal_rows: compaction_report.deleted_action_journal_rows,
+            deleted_world_event_rows: compaction_report.deleted_world_event_rows,
+            event_store_bytes: storage_report.event_store_bytes,
+            event_store_live_bytes: storage_report.event_store_live_bytes,
+            event_store_reusable_bytes: storage_report.event_store_reusable_bytes,
+            snapshot_bytes: storage_report.snapshot_bytes,
+            snapshot_temp_bytes: storage_report.snapshot_temp_bytes,
             moderation_report_retention_days: state.moderation_report_retention.days,
             story_metrics_retention_days: state.story_metrics_retention.days,
             command_receipt_retention_days: state.command_receipt_retention.days,
@@ -25818,7 +25980,7 @@ async fn submit_action_offer(
             explore_pathway(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(parsed!(ActorRequest)),
+                Json(parsed!(ScoutRequest)),
             )
             .await
         }
@@ -26034,6 +26196,32 @@ async fn chat(
     .await
 }
 
+static COMMUNITY_ART_FUNDING_LOCKS: OnceLock<StdMutex<BTreeMap<String, Weak<Mutex<()>>>>> =
+    OnceLock::new();
+
+fn community_art_funding_lock(
+    state: &AppState,
+    subject_kind: &str,
+    subject_id: u64,
+) -> Arc<Mutex<()>> {
+    let key = format!(
+        "{:p}:{}:{subject_id}",
+        Arc::as_ptr(&state.inner),
+        subject_kind.trim()
+    );
+    let mut locks = COMMUNITY_ART_FUNDING_LOCKS
+        .get_or_init(|| StdMutex::new(BTreeMap::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    if let Some(lock) = locks.get(&key).and_then(Weak::upgrade) {
+        return lock;
+    }
+    let lock = Arc::new(Mutex::new(()));
+    locks.insert(key, Arc::downgrade(&lock));
+    lock
+}
+
 async fn fund_community_image(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -26069,7 +26257,7 @@ async fn fund_community_image(
         });
     }
 
-    let mut initial_plan = {
+    let (initial_plan, initial_generation_fingerprint) = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -26079,7 +26267,7 @@ async fn fund_community_image(
         ) {
             return client_actor_rejected_response();
         }
-        match runtime.community_art_plan(
+        let plan = match runtime.community_art_plan(
             payload.actor_id,
             payload.subject_kind.trim(),
             payload.subject_id,
@@ -26092,16 +26280,144 @@ async fn fund_community_image(
                     events: Vec::new(),
                 });
             }
-        }
+        };
+        let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+        let fingerprint = runtime
+            .community_art_generations
+            .get(&key)
+            .map(|generation| {
+                (
+                    generation.revision,
+                    generation.status.clone(),
+                    generation.funded_orbs,
+                )
+            });
+        (plan, fingerprint)
     };
-    if freeze_community_art_evolution(&state.generated_asset_dir, &mut initial_plan).is_err() {
-        return Json(ActionResponse {
-            ok: false,
-            status: 409,
-            events: Vec::new(),
+    let funding_lock =
+        community_art_funding_lock(&state, &initial_plan.subject_kind, initial_plan.subject_id);
+    let _funding_guard = funding_lock.lock().await;
+
+    let preflight_plan = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            payload.actor_session.as_deref(),
+        ) {
+            return client_actor_rejected_response();
+        }
+        let mut plan = match runtime.community_art_plan(
+            payload.actor_id,
+            payload.subject_kind.trim(),
+            payload.subject_id,
+        ) {
+            Ok(plan) => plan,
+            Err(_) => {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 404,
+                    events: Vec::new(),
+                });
+            }
+        };
+        if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
+            return Json(ActionResponse {
+                ok: false,
+                status: 409,
+                events: Vec::new(),
+            });
+        }
+        let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+        let existing = runtime.community_art_generations.get(&key);
+        let current_fingerprint = existing.map(|generation| {
+            (
+                generation.revision,
+                generation.status.clone(),
+                generation.funded_orbs,
+            )
         });
-    }
-    if let Some(policy) = initial_plan.image_policy {
+        let candidate_retry_path =
+            community_art_candidate_availability(&state.generated_asset_dir, &plan)
+                != CommunityArtCandidateAvailability::Absent;
+        let retry_generation = existing
+            .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
+        let same_intent =
+            existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id));
+        let working = existing.is_some_and(|generation| {
+            generation.funded_orbs >= generation.required_orbs
+                && matches!(
+                    generation.status.as_str(),
+                    "funded" | "generating" | "reviewing"
+                )
+        });
+
+        if current_fingerprint != initial_generation_fingerprint && existing.is_some() {
+            drop(runtime);
+            if working && retry_generation {
+                schedule_community_art_generation(&state, payload.actor_id, plan);
+            }
+            return Json(ActionResponse {
+                ok: true,
+                status: CW_OK,
+                events: Vec::new(),
+            });
+        }
+        if existing.is_some_and(|generation| {
+            generation.funding_intent_ids.contains(intent_id)
+                && generation.funded_orbs < generation.required_orbs
+        }) {
+            return Json(ActionResponse {
+                ok: true,
+                status: CW_OK,
+                events: Vec::new(),
+            });
+        }
+        if existing.is_some_and(|generation| {
+            generation
+                .contributions
+                .get(&payload.actor_id)
+                .is_some_and(|amount| *amount > 0)
+                && generation.funded_orbs < generation.required_orbs
+        }) {
+            return Json(ActionResponse {
+                ok: false,
+                status: 409,
+                events: Vec::new(),
+            });
+        }
+        if working {
+            drop(runtime);
+            if retry_generation {
+                schedule_community_art_generation(&state, payload.actor_id, plan);
+            }
+            return Json(ActionResponse {
+                ok: true,
+                status: CW_OK,
+                events: Vec::new(),
+            });
+        }
+        if existing.is_some_and(|generation| generation.status == "ready") {
+            return Json(ActionResponse {
+                ok: same_intent,
+                status: if same_intent { CW_OK } else { 409 },
+                events: Vec::new(),
+            });
+        }
+        if existing.is_some_and(|generation| {
+            generation.funded_orbs >= generation.required_orbs && !retry_generation
+        }) {
+            return Json(ActionResponse {
+                ok: same_intent,
+                status: if same_intent { CW_OK } else { 409 },
+                events: Vec::new(),
+            });
+        }
+        plan
+    };
+
+    if let Some(policy) = preflight_plan.image_policy {
         let started_at = Instant::now();
         if let Err(error) =
             preflight_community_art_policy(state.ai_config.as_ref().as_ref(), policy).await
@@ -26109,9 +26425,9 @@ async fn fund_community_image(
             warn!(
                 "community art policy preflight failed for {}: {}",
                 community_art_generation_key(
-                    &initial_plan.subject_kind,
-                    initial_plan.subject_id,
-                    initial_plan.level
+                    &preflight_plan.subject_kind,
+                    preflight_plan.subject_id,
+                    preflight_plan.level
                 ),
                 error.message()
             );
@@ -26167,10 +26483,12 @@ async fn fund_community_image(
     }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
-    let candidate_exists = community_art_candidate_exists(&state.generated_asset_dir, &plan);
+    let candidate_availability =
+        community_art_candidate_availability(&state.generated_asset_dir, &plan);
+    let candidate_retry_path = candidate_availability != CommunityArtCandidateAvailability::Absent;
     if existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id)) {
         let retry_generation = existing
-            .is_some_and(|generation| plan.generation_retryable(generation, candidate_exists));
+            .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
         drop(runtime);
         if retry_generation {
             schedule_community_art_generation(&state, payload.actor_id, plan);
@@ -26178,6 +26496,19 @@ async fn fund_community_image(
         return Json(ActionResponse {
             ok: true,
             status: CW_OK,
+            events: Vec::new(),
+        });
+    }
+    if existing.is_some_and(|generation| {
+        generation
+            .contributions
+            .get(&payload.actor_id)
+            .is_some_and(|amount| *amount > 0)
+            && generation.funded_orbs < generation.required_orbs
+    }) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
             events: Vec::new(),
         });
     }
@@ -26190,7 +26521,7 @@ async fn fund_community_image(
     }
     if existing.is_some_and(|generation| {
         generation.funded_orbs >= generation.required_orbs
-            && !plan.generation_retryable(generation, candidate_exists)
+            && !plan.generation_retryable(generation, candidate_retry_path)
     }) {
         return Json(ActionResponse {
             ok: false,
@@ -26260,7 +26591,7 @@ async fn fund_community_image(
     let fully_funded = runtime
         .community_art_generations
         .get(&key)
-        .is_some_and(|generation| plan.generation_retryable(generation, candidate_exists));
+        .is_some_and(|generation| plan.generation_retryable(generation, candidate_retry_path));
     drop(runtime);
     if !events.is_empty() {
         broadcast_events(&state, &events);
@@ -28747,13 +29078,16 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response.into_action(), presence_events)
         }
-        CommandDispatch::Scout => {
+        CommandDispatch::Scout {
+            destination_location_id,
+        } => {
             let Json(response) = explore_pathway(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(ActorRequest {
+                Json(ScoutRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
+                    destination_location_id,
                 }),
             )
             .await;
@@ -32633,7 +32967,7 @@ async fn move_actor(
 async fn explore_pathway(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(payload): Json<ActorRequest>,
+    Json(payload): Json<ScoutRequest>,
 ) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
@@ -32654,7 +32988,7 @@ async fn explore_pathway(
         ) {
             return client_actor_rejected_response();
         }
-        runtime.plan_scout_action(payload.actor_id)
+        runtime.plan_scout_choice_action(payload.actor_id, payload.destination_location_id)
     };
     let (action, mut mutation, narration_plan) = match planned {
         Ok(plan) => plan,
@@ -39000,11 +39334,49 @@ async fn shutdown_signal() {
 
 const SNAPSHOT_MIN_INTERVAL_MS_DEFAULT: u64 = 5_000;
 
+fn snapshot_temp_path(path: &Path) -> PathBuf {
+    path.with_extension("json.tmp")
+}
+
+fn remove_stale_snapshot_temp(path: &Path) -> io::Result<bool> {
+    let temp = snapshot_temp_path(path);
+    match fs::remove_file(&temp) {
+        Ok(()) => {
+            info!(
+                "removed stale CosyWorld snapshot temporary file {}",
+                temp.display()
+            );
+            Ok(true)
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 fn snapshot_min_interval_ms() -> u64 {
     std::env::var("COSYWORLD_V2_SNAPSHOT_MIN_INTERVAL_MS")
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok())
         .unwrap_or(SNAPSHOT_MIN_INTERVAL_MS_DEFAULT)
+}
+
+fn persistence_compaction_enabled() -> bool {
+    std::env::var("COSYWORLD_V2_PERSISTENCE_COMPACTION")
+        .map(|value| {
+            !matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "0" | "false" | "no" | "off" | "disabled"
+            )
+        })
+        .unwrap_or(true)
+}
+
+fn retained_world_event_limit() -> usize {
+    std::env::var("COSYWORLD_V2_RETAINED_WORLD_EVENTS")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value >= MAX_EVENT_STORE_SCAN)
+        .unwrap_or(DEFAULT_RETAINED_WORLD_EVENTS)
 }
 
 fn persist_runtime(state: &AppState, runtime: &RuntimeWorld) {
@@ -39032,13 +39404,53 @@ fn persist_runtime_with_policy(state: &AppState, runtime: &RuntimeWorld, force: 
     state
         .last_snapshot_at_ms
         .store(now, AtomicOrdering::Relaxed);
-    if let Some(path) = state.snapshot_path.as_deref() {
-        if let Err(error) = runtime.save_snapshot(path) {
-            warn!(
-                "failed to persist CosyWorld v2 snapshot {}: {}",
-                path.display(),
-                error
-            );
+    let snapshot_saved = if let Some(path) = state.snapshot_path.as_deref() {
+        match runtime.save_snapshot(path) {
+            Ok(()) => true,
+            Err(error) => {
+                warn!(
+                    "failed to persist CosyWorld v2 snapshot {}: {}",
+                    path.display(),
+                    error
+                );
+                false
+            }
+        }
+    } else {
+        false
+    };
+    if snapshot_saved
+        && persistence_compaction_enabled()
+        && !state.canonical_routing.enabled()
+        && state.canonical_recovery.is_none()
+    {
+        if let Some(path) = state.event_store_path.as_deref() {
+            let through_seq = runtime.world.next_event_seq.saturating_sub(1);
+            match compact_event_store_after_snapshot(
+                path,
+                runtime.action_journal_seq,
+                through_seq,
+                retained_world_event_limit(),
+            ) {
+                Ok(report)
+                    if report.deleted_action_journal_rows > 0
+                        || report.deleted_world_event_rows > 0 =>
+                {
+                    info!(
+                        "compacted CosyWorld persistence through journal {} and event {}; deleted {} journal row(s) and {} event row(s)",
+                        report.action_journal_floor_seq,
+                        report.world_event_floor_seq,
+                        report.deleted_action_journal_rows,
+                        report.deleted_world_event_rows
+                    );
+                }
+                Ok(_) => {}
+                Err(error) => warn!(
+                    "failed to compact CosyWorld event store {} after snapshot: {}",
+                    path.display(),
+                    error
+                ),
+            }
         }
     }
     if let Some(path) = state.resident_continuity_path.as_deref() {
@@ -39170,6 +39582,17 @@ fn init_event_store(path: &Path) -> io::Result<()> {
         }
     }
     let conn = open_event_store(path)?;
+    let table_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    if table_count == 0 {
+        conn.pragma_update(None, "auto_vacuum", "INCREMENTAL")
+            .map_err(sqlite_error)?;
+    }
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS world_events (
             seq INTEGER PRIMARY KEY,
@@ -39199,6 +39622,14 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             created_at_ms INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_action_journal_kind ON action_journal(action_kind);
+        CREATE TABLE IF NOT EXISTS persistence_compaction (
+            singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+            action_journal_floor_seq INTEGER NOT NULL DEFAULT 0,
+            world_event_floor_seq INTEGER NOT NULL DEFAULT 0,
+            last_compacted_at_ms INTEGER,
+            deleted_action_journal_rows INTEGER NOT NULL DEFAULT 0,
+            deleted_world_event_rows INTEGER NOT NULL DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS canonical_command_receipts (
             world_id TEXT NOT NULL,
             intent_id TEXT NOT NULL,
@@ -39487,6 +39918,239 @@ fn latest_action_journal_seq(path: &Path) -> io::Result<u64> {
         )
         .map_err(sqlite_error)?;
     u64::try_from(value).map_err(|_| snapshot_error("action journal returned a negative sequence"))
+}
+
+fn read_persistence_compaction_report(path: &Path) -> io::Result<PersistenceCompactionReport> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let stored = conn
+        .query_row(
+            "SELECT action_journal_floor_seq, world_event_floor_seq,
+                    last_compacted_at_ms, deleted_action_journal_rows,
+                    deleted_world_event_rows
+             FROM persistence_compaction
+             WHERE singleton = 1",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Option<i64>>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    let Some((
+        action_journal_floor_seq,
+        world_event_floor_seq,
+        last_compacted_at_ms,
+        deleted_action_journal_rows,
+        deleted_world_event_rows,
+    )) = stored
+    else {
+        return Ok(PersistenceCompactionReport::default());
+    };
+    Ok(PersistenceCompactionReport {
+        action_journal_floor_seq: u64::try_from(action_journal_floor_seq)
+            .map_err(|_| snapshot_error("action-journal compaction floor is negative"))?,
+        world_event_floor_seq: u64::try_from(world_event_floor_seq)
+            .map_err(|_| snapshot_error("world-event compaction floor is negative"))?,
+        last_compacted_at_ms: last_compacted_at_ms
+            .map(u64::try_from)
+            .transpose()
+            .map_err(|_| snapshot_error("persistence compaction timestamp is negative"))?,
+        deleted_action_journal_rows: u64::try_from(deleted_action_journal_rows)
+            .map_err(|_| snapshot_error("deleted action-journal row count is negative"))?,
+        deleted_world_event_rows: u64::try_from(deleted_world_event_rows)
+            .map_err(|_| snapshot_error("deleted world-event row count is negative"))?,
+    })
+}
+
+fn compact_event_store_after_snapshot(
+    path: &Path,
+    checkpoint_seq: u64,
+    through_event_seq: u64,
+    retained_world_events: usize,
+) -> io::Result<PersistenceCompactionReport> {
+    init_event_store(path)?;
+    let mut conn = open_event_store(path)?;
+    let tx = conn.transaction().map_err(sqlite_error)?;
+    let journal_head = tx
+        .query_row(
+            "SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    let journal_head = u64::try_from(journal_head)
+        .map_err(|_| snapshot_error("action journal returned a negative sequence"))?;
+    if checkpoint_seq != journal_head {
+        return Err(snapshot_error(format!(
+            "snapshot checkpoint {checkpoint_seq} does not match action-journal head {journal_head}"
+        )));
+    }
+    if checkpoint_seq > 0 {
+        let checkpoint_present = tx
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM action_journal WHERE journal_seq = ?1
+                 )",
+                params![checkpoint_seq as i64],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(sqlite_error)?
+            != 0;
+        if !checkpoint_present {
+            return Err(snapshot_error(format!(
+                "snapshot checkpoint {checkpoint_seq} is absent from the action journal"
+            )));
+        }
+    }
+
+    let deleted_action_journal_rows = if checkpoint_seq > 0 {
+        tx.execute(
+            "DELETE FROM action_journal WHERE journal_seq < ?1",
+            params![checkpoint_seq as i64],
+        )
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
+
+    let retained_world_events = retained_world_events.max(MAX_EVENT_STORE_SCAN);
+    let world_event_floor_seq = tx
+        .query_row(
+            "SELECT seq
+             FROM world_events
+             WHERE seq <= ?1
+             ORDER BY seq DESC
+             LIMIT 1 OFFSET ?2",
+            params![
+                through_event_seq as i64,
+                retained_world_events.saturating_sub(1) as i64
+            ],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(sqlite_error)?
+        .map(u64::try_from)
+        .transpose()
+        .map_err(|_| snapshot_error("world-event compaction floor is negative"))?
+        .unwrap_or_default();
+    let deleted_world_event_rows = if world_event_floor_seq > 0 {
+        // Natural-feature reveals remain canonical evidence during hydration.
+        // Their count is bounded by the location cap, so retaining them does
+        // not reintroduce unbounded event-store growth.
+        tx.execute(
+            "DELETE FROM world_events
+             WHERE seq < ?1
+               AND event_type <> 'natural_feature.revealed'",
+            params![world_event_floor_seq as i64],
+        )
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
+
+    if deleted_action_journal_rows == 0 && deleted_world_event_rows == 0 {
+        tx.commit().map_err(sqlite_error)?;
+        return Ok(PersistenceCompactionReport::default());
+    }
+
+    let compacted_at_ms = now_millis();
+    let action_journal_floor_seq = if deleted_action_journal_rows > 0 {
+        checkpoint_seq
+    } else {
+        0
+    };
+    let world_event_floor_seq = if deleted_world_event_rows > 0 {
+        world_event_floor_seq
+    } else {
+        0
+    };
+    tx.execute(
+        "INSERT INTO persistence_compaction
+            (singleton, action_journal_floor_seq, world_event_floor_seq,
+             last_compacted_at_ms, deleted_action_journal_rows,
+             deleted_world_event_rows)
+         VALUES (1, ?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(singleton) DO UPDATE SET
+            action_journal_floor_seq =
+                MAX(action_journal_floor_seq, excluded.action_journal_floor_seq),
+            world_event_floor_seq =
+                MAX(world_event_floor_seq, excluded.world_event_floor_seq),
+            last_compacted_at_ms = excluded.last_compacted_at_ms,
+            deleted_action_journal_rows =
+                deleted_action_journal_rows + excluded.deleted_action_journal_rows,
+            deleted_world_event_rows =
+                deleted_world_event_rows + excluded.deleted_world_event_rows",
+        params![
+            action_journal_floor_seq as i64,
+            world_event_floor_seq as i64,
+            compacted_at_ms as i64,
+            deleted_action_journal_rows as i64,
+            deleted_world_event_rows as i64,
+        ],
+    )
+    .map_err(sqlite_error)?;
+    tx.commit().map_err(sqlite_error)?;
+    conn.execute_batch("PRAGMA incremental_vacuum(1024);")
+        .map_err(sqlite_error)?;
+    Ok(PersistenceCompactionReport {
+        action_journal_floor_seq,
+        world_event_floor_seq,
+        last_compacted_at_ms: Some(compacted_at_ms),
+        deleted_action_journal_rows: deleted_action_journal_rows as u64,
+        deleted_world_event_rows: deleted_world_event_rows as u64,
+    })
+}
+
+fn persistence_storage_report(
+    event_store_path: Option<&Path>,
+    snapshot_path: Option<&Path>,
+) -> PersistenceStorageReport {
+    let snapshot_bytes =
+        snapshot_path.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len()));
+    let snapshot_temp_bytes = snapshot_path.and_then(|path| {
+        fs::metadata(snapshot_temp_path(path))
+            .ok()
+            .map(|meta| meta.len())
+    });
+    let Some(event_store_path) = event_store_path else {
+        return PersistenceStorageReport {
+            snapshot_bytes,
+            snapshot_temp_bytes,
+            ..PersistenceStorageReport::default()
+        };
+    };
+    let event_store_bytes = fs::metadata(event_store_path).ok().map(|meta| meta.len());
+    let sqlite_pages = open_event_store(event_store_path).ok().and_then(|conn| {
+        let page_count = conn
+            .query_row("PRAGMA page_count", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        let free_pages = conn
+            .query_row("PRAGMA freelist_count", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        let page_size = conn
+            .query_row("PRAGMA page_size", [], |row| row.get::<_, u64>(0))
+            .ok()?;
+        Some((
+            page_count
+                .saturating_sub(free_pages)
+                .saturating_mul(page_size),
+            free_pages.saturating_mul(page_size),
+        ))
+    });
+    PersistenceStorageReport {
+        event_store_bytes,
+        event_store_live_bytes: sqlite_pages.map(|pages| pages.0),
+        event_store_reusable_bytes: sqlite_pages.map(|pages| pages.1),
+        snapshot_bytes,
+        snapshot_temp_bytes,
+    }
 }
 
 #[cfg(test)]
@@ -40595,6 +41259,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM canonical_partition_leases;
          DELETE FROM canonical_world_state;
          DELETE FROM action_journal;
+         DELETE FROM persistence_compaction;
          DELETE FROM canonical_command_receipts;
          DELETE FROM actor_jobs;
          DELETE FROM actor_sessions;
@@ -48208,11 +48873,13 @@ mod tests {
             ),
             "actor",
             8303,
+            None,
         );
         let barrow_card = runtime.decorate_community_art_card(
             card_for_location(803, "Flooded Barrow", Some(&runtime.location_meta_for(803))),
             "location",
             803,
+            None,
         );
         let dawn_oil_card = runtime.decorate_community_art_card(
             card_for_item(
@@ -48222,6 +48889,7 @@ mod tests {
             ),
             "item",
             8403,
+            None,
         );
 
         assert!(moth_card.community_art.is_some());
@@ -53561,8 +54229,22 @@ mod tests {
         let card = &state.cards.actors[&5000];
         assert_eq!(card.community_art.as_ref().map(|art| art.level), Some(2));
         assert_eq!(
+            card.community_art
+                .as_ref()
+                .map(|art| art.viewer_contributed),
+            Some(true)
+        );
+        assert_eq!(
             card.image_url.as_deref(),
             Some("/assets/generated/community/actor/5000.image?level=2&revision=1")
+        );
+        let other_viewer = runtime.state_response(Some(1001), &AccessContext::default());
+        assert_eq!(
+            other_viewer.cards.actors[&5000]
+                .community_art
+                .as_ref()
+                .map(|art| art.viewer_contributed),
+            Some(false)
         );
     }
 
@@ -58463,6 +59145,8 @@ mod tests {
             .plan_combat_offer_action(5000, &attack_offer)
             .expect("current Attack plans");
         assert_eq!(attack.kind, CW_ACTION_COMBAT_FINESSE_ATTACK);
+        assert_eq!(attack.ability, CW_ABILITY_DEXTERITY);
+        assert_eq!(attack.item_id, 0);
         assert_eq!(attack.target_actor_id, 1004);
         assert_eq!(attack.content_id, encounter_id);
         assert_eq!(
@@ -58552,6 +59236,232 @@ mod tests {
     }
 
     #[test]
+    fn combat_attack_binds_equipped_method_and_replays_exact_event_identity() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Method Binder",
+        );
+        let blade = runtime
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == 2013)
+            .expect("authored practice blade exists");
+        blade.holder_actor_id = 5000;
+        blade.location_id = 0;
+        blade.zone = CW_CARD_ZONE_CARRIED;
+        blade.held_since_tick = runtime.world.tick;
+        assert!(!runtime
+            .set_item_equipped(5000, 2013, true, "combat_method_test")
+            .is_empty());
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test actor exists");
+        actor.stats.strength = 18;
+        actor.stats.dexterity = 12;
+
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_725,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        let current_index = runtime
+            .combat_encounter(encounter_id)
+            .expect("combat started")
+            .participants[..2]
+            .iter()
+            .position(|participant| participant.actor_id == 5000)
+            .expect("player joined");
+        runtime
+            .world
+            .combat_encounters
+            .iter_mut()
+            .find(|encounter| encounter.id == encounter_id)
+            .expect("combat remains")
+            .current_index = u8::try_from(current_index).expect("participant index fits");
+
+        let offer = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "attack")
+            .expect("Attack is offered");
+        assert_eq!(
+            offer
+                .source_collectible
+                .as_ref()
+                .map(|source| (source.kind.as_str(), source.instance_id)),
+            Some(("item", 2013))
+        );
+        assert_eq!(
+            offer.effect.as_deref(),
+            Some("attacks with Ashwood Practice Blade using Strength (1d6)")
+        );
+        let action = runtime
+            .plan_combat_offer_action(5000, &offer)
+            .expect("authoritative weapon attack plans");
+        assert_eq!(action.kind, CW_ACTION_COMBAT_ATTACK);
+        assert_eq!(action.item_id, 2013);
+        assert_eq!(action.ability, CW_ABILITY_STRENGTH);
+        assert_eq!(action.target_actor_id, 1004);
+
+        let resolved = runtime
+            .resolve_command(
+                &command_request(5000, "attack Coach"),
+                &AccessContext::default(),
+            )
+            .expect("typed attack command resolves");
+        assert!(matches!(
+            resolved.dispatch,
+            CommandDispatch::Attack {
+                target_actor_id: 1004
+            }
+        ));
+
+        let mut inferred = runtime.clone();
+        inferred
+            .actor_autonomy
+            .entry(5000)
+            .or_default()
+            .control_mode = ActorControlMode::LocalAi;
+        let inferred_record = inferred
+            .resident_combat_autonomy_record(encounter_id, 71_728, None)
+            .expect("inference plans the current attack offer");
+        assert_eq!(inferred_record.action.kind, action.kind);
+        assert_eq!(inferred_record.action.item_id, action.item_id);
+        assert_eq!(inferred_record.action.ability, action.ability);
+        assert_eq!(
+            inferred_record.action.target_actor_id,
+            action.target_actor_id
+        );
+        assert_eq!(inferred_record.action.content_id, action.content_id);
+
+        let mut unequipped = runtime.clone();
+        assert!(!unequipped
+            .set_item_equipped(5000, 2013, false, "stale_attack_test")
+            .is_empty());
+        assert!(unequipped.plan_combat_offer_action(5000, &offer).is_err());
+
+        let mut transferred = runtime.clone();
+        let transferred_blade = transferred
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == 2013)
+            .expect("blade survives clone");
+        transferred_blade.holder_actor_id = 1003;
+        transferred_blade.zone = CW_CARD_ZONE_CARRIED;
+        assert!(transferred.plan_combat_offer_action(5000, &offer).is_err());
+
+        let mut exhausted = runtime.clone();
+        let exhausted_blade = exhausted
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == 2013)
+            .expect("blade survives clone");
+        exhausted_blade.max_charges = 1;
+        exhausted_blade.charges = 0;
+        assert!(exhausted.plan_combat_offer_action(5000, &offer).is_err());
+        let fallback_offer = exhausted
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|candidate| candidate.kind == "attack")
+            .expect("unarmed fallback is explicit");
+        assert!(fallback_offer
+            .effect
+            .as_deref()
+            .is_some_and(|effect| effect.contains("Unarmed strike using Strength (1d8)")));
+        let fallback = exhausted
+            .plan_combat_offer_action(5000, &fallback_offer)
+            .expect("current unarmed fallback plans");
+        assert_eq!(fallback.item_id, 0);
+        assert_eq!(fallback.ability, CW_ABILITY_STRENGTH);
+
+        let mut forged = runtime.clone();
+        let damage_before = forged.actor_by_id(1004).expect("target exists").damage;
+        let mut forged_action = action;
+        forged_action.item_id = 2012;
+        let (forged_status, forged_events) =
+            forged.apply_journal_record(&JournalRecord::new(forged_action, 71_726));
+        assert_ne!(forged_status, CW_OK);
+        assert!(forged_events
+            .iter()
+            .any(|event| event.type_name == "rule.rejected"));
+        assert_eq!(
+            forged.actor_by_id(1004).expect("target remains").damage,
+            damage_before
+        );
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let mut record = JournalRecord::new(action, 71_727).into_player_card();
+        record.bind_offer_kind("attack");
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        let attack_events = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.type_name.as_str(),
+                    "combat.attack.attempt"
+                        | "combat.attack.hit"
+                        | "combat.attack.miss"
+                        | "combat.knockout"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(attack_events.len() >= 2);
+        assert!(attack_events.iter().all(|event| {
+            event.item_id == Some(2013)
+                && event.item_name.as_deref() == Some("Ashwood Practice Blade")
+                && event.combat_method.as_deref() == Some("Ashwood Practice Blade")
+                && event.ability.as_deref() == Some("Strength")
+                && event.target_actor_id == Some(1004)
+        }));
+
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-attack snapshot restores");
+        let (replay_status, replay_events) = replayed.apply_journal_record(&record);
+        assert_eq!(replay_status, CW_OK);
+        assert_eq!(
+            serde_json::to_value(&replay_events).expect("replay events serialize"),
+            serde_json::to_value(&events).expect("original events serialize")
+        );
+        assert_eq!(
+            replayed.actor_by_id(1004).map(|actor| actor.damage),
+            runtime.actor_by_id(1004).map(|actor| actor.damage)
+        );
+        assert_eq!(replayed.world.tick, runtime.world.tick);
+        assert_eq!(replayed.world.next_event_seq, runtime.world.next_event_seq);
+        assert_eq!(
+            serde_json::to_value(
+                &replayed.world.combat_encounters[..replayed.world.combat_encounter_count]
+            )
+            .expect("replayed encounter state serializes"),
+            serde_json::to_value(
+                &runtime.world.combat_encounters[..runtime.world.combat_encounter_count]
+            )
+            .expect("committed encounter state serializes")
+        );
+    }
+
+    #[test]
     fn inferred_human_combat_prefers_attack_defend_then_flee_and_replays_trace() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-resident-combat-trace-{}.sqlite",
@@ -58602,6 +59512,8 @@ mod tests {
             .resident_combat_autonomy_record(encounter_id, 71_722, None)
             .expect("healthy inferred avatar chooses");
         assert_eq!(attack.action.kind, CW_ACTION_COMBAT_FINESSE_ATTACK);
+        assert_eq!(attack.action.ability, CW_ABILITY_DEXTERITY);
+        assert_eq!(attack.action.item_id, 0);
         assert_eq!(attack.action.target_actor_id, 1004);
 
         runtime
@@ -60890,7 +61802,7 @@ mod tests {
         assert_eq!(content.cards.len(), 119);
         assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);
-        assert_eq!(content.recipes.len(), 8);
+        assert_eq!(content.recipes.len(), 9);
         assert_eq!(content.rules.len(), 3);
 
         let nib = content
@@ -66480,7 +67392,7 @@ mod tests {
             "controller mode cannot change legal Scout enumeration"
         );
         let (player_action, player_mutation, player_narration) = runtime
-            .plan_scout_action(RATI_ACTOR_ID)
+            .plan_scout_choice_action(RATI_ACTOR_ID, MOONLIT_TRAIL_LOCATION_ID)
             .expect("the player Scout offer plans an initial pathway discovery");
         let (resident_action, resident_mutation, resident_narration) = runtime
             .plan_scout_offer(RATI_ACTOR_ID, &offer)

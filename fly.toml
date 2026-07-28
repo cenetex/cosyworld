@@ -40,6 +40,12 @@ primary_region = "sjc"
   source = "cosyworld_data"
   destination = "/data"
 
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 4
+  memory = "2gb"
+  processes = ["app"]
+
 [http_service]
   internal_port = 3000
   force_https = false

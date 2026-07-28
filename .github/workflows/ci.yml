@@ -68,6 +68,15 @@ jobs:
         env:
           COSYWORLD_COMPOSITION_SMOKE_BINARY: ${{ github.workspace }}/v2/orchestrator-rust/target/debug/cosyworld-orchestrator
 
+      - name: Install fresh-seed browser gate dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes screen
+          npx playwright install --with-deps chromium
+
+      - name: Run fresh-seed browser gate
+        run: npm run v2:browser:check
+
       - name: Build (fast)
         if: github.event_name == 'pull_request'
         run: npm run build:js
