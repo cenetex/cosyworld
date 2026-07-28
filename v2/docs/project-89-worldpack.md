@@ -126,7 +126,8 @@ recovers the same prediction identity and cannot spend for unbounded variants.
 
 | Intent | Source | Shape | Initial generation rule |
 | --- | --- | --- | --- |
-| `proxim8_world_portrait` | Approved original NFT image plus cosmetic metadata | `2:3` | Image-to-image; test prompt strength `0.35`–`0.55`, starting at `0.45`, and LoRA scale `0.8`. |
+| `proxim8_world_portrait` | Approved original NFT image plus cosmetic metadata | `1:1` identity master | Image-to-image; default prompt strength `0.35` and LoRA scale `0.8`. Values up to `0.55` are review-only because identity drift increases. |
+| `proxim8_card_art` | Approved world portrait | `2:3` card | Deterministic code-native card composition until a reference recipe proves that it preserves identity, aspect ratio, and typography constraints. |
 | `resident_card_art` | Authored resident description | `2:3` | Text-to-image with LoRA scale `1.0`. |
 | `item_card_art` | Authored item description | `1:1` | Text-to-image with LoRA scale `1.0`. |
 | `location_card_art` | Authored location description | `16:9` | Text-to-image with LoRA scale `1.0`; no people, creatures, text, logos, or watermarks. |
@@ -165,6 +166,42 @@ or explicit public license statement. Because the model is owner-provided,
 the production recipe should store the owner's internal-use and publication
 approval, plus the training-data and derivative-use basis, as its rights
 record instead of inferring rights from public model visibility.
+
+### First live Proxim8 result
+
+The first live fixture, tested on 2026-07-28, binds Core collection
+`5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf` to Core asset
+`Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo`. The asset's on-chain update
+authority is the collection address, its name is Callum Synclaire, and its
+off-chain metadata supplies token id `3759` and the Iris, Neon Protocol, Ember,
+Halo, Blush Circuit, Spike Weave, and Flare Cut cosmetic traits.
+
+The reusable inspector and its frozen account fixtures live in
+[`inspect-project89-proxim8.mjs`](../scripts/inspect-project89-proxim8.mjs)
+and
+[`inspect-project89-proxim8.test.mjs`](../scripts/inspect-project89-proxim8.test.mjs).
+The parser rejects non-Core accounts, a collection mismatch, non-HTTPS media,
+oversized metadata, and unknown metadata fields as mechanics.
+
+Three media probes refined the recipe:
+
+- A text-only prompt was rejected by the enabled Replicate safety checker.
+  This is a safe failure and produced no asset.
+- Image-to-image at prompt strength `0.35` retained Callum's face, two-tone
+  hair, amber eyes, headphones, jacket, green accent, and teal palette. It was
+  still held from publication because the headphone display contained
+  generated pseudo-text.
+- Image-to-image at prompt strength `0.55` created a stronger restyle but more
+  facial drift and a faint signature-like mark. It was also held from
+  publication.
+- Both image-to-image runs returned a square `1088x1088` result even when the
+  stronger probe requested `2:3`. A Project 89 world portrait is therefore a
+  square identity master. Tall card presentation is a separate deterministic
+  composition step until a pinned recipe passes an explicit aspect-ratio test.
+
+Neither generated candidate is approved pack art. The original NFT image
+remains canonical, and every generated candidate must pass separate
+identity-drift, text, logo, watermark, and crop checks before publication.
 
 ## Product decision
 
@@ -471,9 +508,10 @@ does not decide the result of that directive.
 - Export representative V1 `avatars` records plus related `agent_events`,
   `agent_blocks`, and inventory records. The importer should be developed
   against a sanitized fixture before it touches a production export.
-- Validate the collection address found in V1 against the current Solana
-  collection and identify whether the assets use Metaplex Core, Token
-  Metadata, or another verified standard.
+- Validate that the collection address found in V1 is the tested current Core
+  collection `5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf`. The Callum
+  fixture confirms Metaplex Core, but the migration still needs to prove that
+  the V1 configuration names the same authority.
 - Retain at least twenty representative metadata documents from the V1 sync,
   including renamed, missing-trait, and custom-name cases.
 - Approve the exact canon tier for Oneirocom Tower, Convergence Engine,
