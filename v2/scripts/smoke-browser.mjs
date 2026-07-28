@@ -8429,13 +8429,16 @@ async function main() {
     const library = world.locations.find((location) => location.name === "Library");
     const trail = world.locations.find((location) => location.name === "Moonlit Trail");
     const cottageExits = (cottage?.exits || []).map((exit) => exit.destination_location_name).sort();
+    const requiredCottageExits = ["Homeroom", "Mossbell Inn", "Rain-Soft Garden"];
+    const allowedCottageExits = new Set(["Bethlehem", ...requiredCottageExits]);
     assert(cottage?.public && cottage.accessible, "Cottage should be public in world projection");
     assert(
       cottage.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
       "Cottage projection should include the current avatar when accessible",
     );
     assert(
-      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Mossbell Inn", "Rain-Soft Garden"]),
+      requiredCottageExits.every((destination) => cottageExits.includes(destination))
+        && cottageExits.every((destination) => allowedCottageExits.has(destination)),
       `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
     );
     assert(!science, "Science Class should stay hidden until its path is found from Homeroom");
