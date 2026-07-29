@@ -6,6 +6,66 @@ use super::*;
 /// so a process-lifetime record is exact.
 static CHECKPOINT_REJECTIONS: StdMutex<(u64, Option<String>)> = StdMutex::new((0, None));
 
+fn is_repeated_projection(
+    event: &EventView,
+    seen_seqs: &mut BTreeSet<u64>,
+    seen_ledger_marks: &mut BTreeSet<(Option<u64>, String)>,
+) -> bool {
+    let repeated_seq = event.seq > 0 && !seen_seqs.insert(event.seq);
+    let repeated_ledger_mark = event.type_name == "ledger.marked"
+        && event
+            .content
+            .as_ref()
+            .is_some_and(|content| !seen_ledger_marks.insert((event.actor_id, content.clone())));
+    repeated_seq || repeated_ledger_mark
+}
+
+impl RuntimeWorld {
+    pub(super) fn push_projected_event(&mut self, event: EventView) {
+        if self.projected_event_already_logged(&event) {
+            return;
+        }
+        if event.type_name == "message.created" && event.content.is_some() {
+            if let Some(location_id) = event.location_id {
+                let room_lines = self.recent_room_lines.entry(location_id).or_default();
+                room_lines.push(event.clone());
+                if room_lines.len() > RECENT_ROOM_LINE_CAPACITY {
+                    room_lines.drain(0..room_lines.len() - RECENT_ROOM_LINE_CAPACITY);
+                }
+            }
+        }
+        self.event_log.push(event);
+        if self.event_log.len() > 512 {
+            let excess = self.event_log.len() - 512;
+            self.event_log.drain(0..excess);
+        }
+    }
+
+    fn projected_event_already_logged(&self, event: &EventView) -> bool {
+        self.event_log.iter().any(|logged| {
+            (event.seq > 0 && logged.seq == event.seq)
+                || (event.type_name == "ledger.marked"
+                    && logged.type_name == event.type_name
+                    && logged.actor_id == event.actor_id
+                    && logged.content == event.content)
+        })
+    }
+
+    pub(super) fn dedupe_projected_events(&mut self) {
+        let mut seen_seqs = BTreeSet::new();
+        let mut seen_ledger_marks = BTreeSet::new();
+        self.event_log
+            .retain(|event| !is_repeated_projection(event, &mut seen_seqs, &mut seen_ledger_marks));
+        for events in self.recent_room_lines.values_mut() {
+            let mut seen_seqs = BTreeSet::new();
+            let mut ignored_ledger_marks = BTreeSet::new();
+            events.retain(|event| {
+                !is_repeated_projection(event, &mut seen_seqs, &mut ignored_ledger_marks)
+            });
+        }
+    }
+}
+
 pub(super) fn record_checkpoint_rejection(reason: &str) {
     if let Ok(mut rejections) = CHECKPOINT_REJECTIONS.lock() {
         rejections.0 = rejections.0.saturating_add(1);
@@ -150,6 +210,7 @@ macro_rules! replay_action_journal_after {
         let mint_seed = $runtime.next_seed;
         $runtime.ensure_canonical_identities(mint_seed);
         $runtime.refresh_all_canonical_events();
+        $runtime.dedupe_projected_events();
     };
 }
 
@@ -297,6 +358,121 @@ mod tests {
         let error = RuntimeWorld::from_snapshot_and_action_journal(&snapshot_path, &journal_path)
             .expect_err("checkpoint ahead of the journal must fail");
         assert!(error.to_string().contains("ahead of journal head 2"));
+
+        let _ = fs::remove_file(journal_path);
+        let _ = fs::remove_file(snapshot_path);
+    }
+
+    #[test]
+    fn durable_restore_dedupes_event_sequences_and_replayed_ledger_claims() {
+        std::thread::Builder::new()
+            .name("journal-event-dedupe".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(run_durable_restore_event_dedupe)
+            .expect("spawn journal event dedupe thread")
+            .join()
+            .expect("journal event dedupe thread");
+    }
+
+    fn run_durable_restore_event_dedupe() {
+        let journal_path = temp_path("journal-event-dedupe", "sqlite");
+        let snapshot_path = temp_path("journal-event-dedupe", "json");
+        let _ = fs::remove_file(&journal_path);
+        let _ = fs::remove_file(&snapshot_path);
+
+        append_action_journal(
+            &journal_path,
+            &JournalRecord::new(CwAction::default(), 73_100),
+        )
+        .expect("append durable checkpoint record");
+        let mut checkpoint =
+            RuntimeWorld::from_action_journal(&journal_path).expect("replay checkpoint");
+        checkpoint.action_journal_seq = 1;
+        let duplicate_seq = EventView {
+            seq: 91_000,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: Some("one durable line".to_string()),
+            ..EventView::default()
+        };
+        let ledger_mark = EventView {
+            seq: 91_001,
+            type_name: "ledger.marked".to_string(),
+            success: true,
+            actor_id: Some(1004),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: Some(
+                "witness:noticed Mara tuck away Road Bread.:witness:resident_item_claimed:8326:7204:58226"
+                    .to_string(),
+            ),
+            ..EventView::default()
+        };
+        checkpoint.event_log.extend([
+            duplicate_seq.clone(),
+            duplicate_seq,
+            ledger_mark.clone(),
+            EventView {
+                seq: 91_002,
+                ..ledger_mark.clone()
+            },
+            EventView {
+                seq: 91_003,
+                actor_id: Some(1005),
+                ..ledger_mark
+            },
+        ]);
+        checkpoint
+            .save_snapshot(&snapshot_path)
+            .expect("save duplicated checkpoint");
+
+        let restored =
+            RuntimeWorld::from_snapshot_and_action_journal(&snapshot_path, &journal_path)
+                .expect("restore and normalize duplicated checkpoint");
+        let restored_seqs = restored
+            .event_log
+            .iter()
+            .map(|event| event.seq)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(restored_seqs.len(), restored.event_log.len());
+        assert_eq!(
+            restored
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "ledger.marked"
+                        && event.actor_id == Some(1004)
+                        && event.content.as_deref()
+                            == Some(
+                                "witness:noticed Mara tuck away Road Bread.:witness:resident_item_claimed:8326:7204:58226",
+                            )
+                })
+                .count(),
+            1
+        );
+        assert!(restored.event_log.iter().any(|event| {
+            event.type_name == "ledger.marked"
+                && event.actor_id == Some(1005)
+                && event.content.as_deref()
+                    == Some(
+                        "witness:noticed Mara tuck away Road Bread.:witness:resident_item_claimed:8326:7204:58226",
+                    )
+        }));
+
+        let mut append_guard = restored.clone();
+        let retained_len = append_guard.event_log.len();
+        let retained_mark = append_guard
+            .event_log
+            .iter()
+            .find(|event| event.type_name == "ledger.marked" && event.actor_id == Some(1004))
+            .expect("retained ledger mark")
+            .clone();
+        append_guard.push_projected_event(EventView {
+            seq: 91_010,
+            ..retained_mark
+        });
+        assert_eq!(append_guard.event_log.len(), retained_len);
 
         let _ = fs::remove_file(journal_path);
         let _ = fs::remove_file(snapshot_path);

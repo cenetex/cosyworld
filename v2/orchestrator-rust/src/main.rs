@@ -10137,23 +10137,6 @@ impl RuntimeWorld {
         event
     }
 
-    fn push_projected_event(&mut self, event: EventView) {
-        if event.type_name == "message.created" && event.content.is_some() {
-            if let Some(location_id) = event.location_id {
-                let room_lines = self.recent_room_lines.entry(location_id).or_default();
-                room_lines.push(event.clone());
-                if room_lines.len() > RECENT_ROOM_LINE_CAPACITY {
-                    room_lines.drain(0..room_lines.len() - RECENT_ROOM_LINE_CAPACITY);
-                }
-            }
-        }
-        self.event_log.push(event);
-        if self.event_log.len() > 512 {
-            let excess = self.event_log.len() - 512;
-            self.event_log.drain(0..excess);
-        }
-    }
-
     fn backfill_recent_room_lines(&mut self) {
         if !self.recent_room_lines.is_empty() {
             return;
