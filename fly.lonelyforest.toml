@@ -45,6 +45,10 @@ primary_region = "sjc"
   source = "lonelyforest_data"
   destination = "/data"
 
+# Deploy strategy stays `rolling`: bluegreen/canary would boot a second
+# machine beside this one, and the /data volume is single-writer — two
+# machines on one SQLite volume corrupts the journal. The deploy workflow
+# therefore guards volume free space before swapping (issue #546).
 [http_service]
   internal_port = 3000
   force_https = true
