@@ -42119,7 +42119,7 @@ mod tests {
     fn avatar_inspector_exposes_notice_transfer_and_safety_controls() {
         for contract in [
             "data-avatar-notice=",
-            "nothing known yet",
+            "Nothing known yet.",
             "data-avatar-transfer=\"give\"",
             "data-avatar-item-toggle=",
             "data-avatar-item-action=\"trade\"",
@@ -48679,13 +48679,13 @@ mod tests {
         assert!(INDEX_HTML.contains("target.economy?.trade_offer"));
         assert!(INDEX_HTML.contains("economy.trade_stance"));
         assert!(INDEX_HTML.contains("function actorEconomyPanelHtml"));
-        assert!(INDEX_HTML.contains("actor?.economy"));
+        assert!(INDEX_HTML.contains("function practiceEvidenceSummary"));
         assert!(INDEX_HTML.contains("function actorPracticePanelHtml"));
         assert!(INDEX_HTML.contains("(practice.evidence || []).slice(0, 2)"));
         assert!(INDEX_HTML.contains("economyRowHtml(\"known for\""));
         assert!(INDEX_HTML.contains("function actorControlModeLabel"));
-        assert!(INDEX_HTML.contains("controller\", escapeHtml(controller)"));
-        assert!(INDEX_HTML.contains("return actors.map((actor) =>"));
+        assert!(INDEX_HTML.contains("played by\", escapeHtml(controller)"));
+        assert!(INDEX_HTML.contains("card-modal-art-workshop"));
         assert!(!INDEX_HTML.contains("room-avatar-more"));
         assert!(INDEX_HTML.contains("economy.inventory_count"));
         assert!(INDEX_HTML.contains("economy.carrying_capacity_tenths"));
@@ -48693,7 +48693,7 @@ mod tests {
         assert!(INDEX_HTML.contains("economy.sought_items"));
         assert!(INDEX_HTML.contains("soughtItem?.world_status"));
         assert!(INDEX_HTML.contains("currently with ${worldHolderName}"));
-        assert!(INDEX_HTML.contains("card-modal-economy"));
+        assert!(!INDEX_HTML.contains("class=\"economy-row\""));
         assert!(INDEX_HTML.contains("class=\"account-card-open\""));
         assert!(INDEX_HTML.contains("class=\"account-asset-effect\""));
         assert!(INDEX_HTML.contains("class=\"keepsake-call\""));

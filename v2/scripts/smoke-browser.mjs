@@ -4888,7 +4888,8 @@ async function main() {
           subject: button?.getAttribute("data-fund-community-image") || "",
           label: button?.textContent?.trim() || "",
           disabled: button?.disabled ?? true,
-          copy: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+          copy: document.querySelector("#card-modal-art-workshop")?.textContent?.replace(/\s+/g, " ").trim() || "",
+          live: document.querySelector("#card-modal-art-workshop")?.getAttribute("aria-live") || "",
         };
       } finally {
         closeCardModal();
@@ -4899,6 +4900,7 @@ async function main() {
       pathwayContract.subject === "location:990001"
         && pathwayContract.label === "add one Orb · 0/1"
         && pathwayContract.disabled === false
+        && pathwayContract.live === "polite"
         && pathwayContract.copy.includes("1 Orb still needed from the community"),
       `a revealed generated pathway keepsake should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
@@ -4977,7 +4979,7 @@ async function main() {
     );
     assert(
       communityArtStates.contributedPending.button === ""
-        && communityArtStates.contributedPending.copy.includes("your Orb is already helping")
+        && communityArtStates.contributedPending.copy.toLowerCase().includes("your orb is already helping")
         && communityArtStates.contributedPending.copy.includes("still needed from other players"),
       `a player who already contributed should see pending state instead of another invitation: ${JSON.stringify(communityArtStates)}`,
     );
@@ -4986,6 +4988,10 @@ async function main() {
         && communityArtStates.failed.copy.includes("no more provider credits will be used")
         && !/buy|purchase/i.test(JSON.stringify(communityArtStates)),
       `a terminal generation failure should be explicit and purchase-free: ${JSON.stringify(communityArtStates)}`,
+    );
+    assert(
+      Object.values(communityArtStates).every((entry) => /\bportrait\s+\S/.test(entry.copy)),
+      `community portrait labels and values should remain separated in text alternatives: ${JSON.stringify(communityArtStates)}`,
     );
 
     const communityArtRetryLifecycle = await page.evaluate(async () => {
@@ -5039,7 +5045,7 @@ async function main() {
       };
       const panelSnapshot = () => ({
         hidden: document.querySelector("#card-modal")?.hidden ?? true,
-        copy: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+        copy: document.querySelector("#card-modal-art-workshop")?.textContent?.replace(/\s+/g, " ").trim() || "",
         buttons: document.querySelectorAll("#card-modal [data-fund-community-image]").length,
       });
       try {
@@ -5148,7 +5154,7 @@ async function main() {
       communityArtRetryLifecycle.actionCalls === 1
         && communityArtRetryLifecycle.starting.hidden === false
         && communityArtRetryLifecycle.starting.buttons === 0
-        && communityArtRetryLifecycle.starting.copy.includes("image workshop starting"),
+        && communityArtRetryLifecycle.starting.copy.toLowerCase().includes("image workshop starting"),
       `a rapid repeated retry should coalesce and expose immediate starting state: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
     assert(
@@ -5217,7 +5223,7 @@ async function main() {
         missing: image?.dataset.artMissing || "",
         placeholder: image?.dataset.artPlaceholder || "",
         overlay: getComputedStyle(document.querySelector("#card-modal .card-art"), "::after").content,
-        panel: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+        panel: document.querySelector("#card-modal-art-workshop")?.textContent?.replace(/\s+/g, " ").trim() || "",
       };
     });
     assert(
@@ -5225,7 +5231,7 @@ async function main() {
         && brokenArtFallback.missing === "true"
         && brokenArtFallback.placeholder === "community image pending"
         && brokenArtFallback.overlay.includes("community image pending")
-        && brokenArtFallback.panel.includes("your Orb is already helping"),
+        && brokenArtFallback.panel.toLowerCase().includes("your orb is already helping"),
       `an unresolvable generated-art URL should render the authored, state-aware placeholder: ${JSON.stringify(brokenArtFallback)}`,
     );
     await page.evaluate(() => {
@@ -5287,28 +5293,86 @@ async function main() {
       await closeCardModal();
 
       const desktopViewport = page.viewportSize();
-      await page.setViewportSize({ width: 430, height: 860 });
-      await residentTargets.first().click();
-      await page.waitForSelector("#card-modal:not([hidden])");
-      const mobileCard = await page.evaluate(() => {
-        const dialog = document.querySelector("#card-modal .card-dialog");
-        const art = document.querySelector("#card-modal .card-art");
-        const copy = document.querySelector("#card-modal .card-copy");
-        const dialogRect = dialog?.getBoundingClientRect();
-        const artRect = art?.getBoundingClientRect();
-        const copyRect = copy?.getBoundingClientRect();
-        return {
-          dialogWidth: dialogRect?.width || 0,
-          artBottom: artRect?.bottom || 0,
-          copyTop: copyRect?.top || 0,
-          viewportWidth: window.innerWidth,
-          documentWidth: document.documentElement.scrollWidth,
-        };
-      });
-      assert(mobileCard.dialogWidth <= mobileCard.viewportWidth, `mobile cards should stay within the viewport: ${JSON.stringify(mobileCard)}`);
-      assert(mobileCard.artBottom <= mobileCard.copyTop + 1, `mobile portrait cards should stack copy beneath the art: ${JSON.stringify(mobileCard)}`);
-      assert(mobileCard.documentWidth <= mobileCard.viewportWidth, `mobile cards should not introduce horizontal scrolling: ${JSON.stringify(mobileCard)}`);
-      await closeCardModal();
+      for (const viewport of [{ width: 430, height: 860 }, { width: 375, height: 667 }]) {
+        await page.setViewportSize(viewport);
+        await residentTargets.first().click();
+        await page.waitForSelector("#card-modal:not([hidden])");
+        const mobileCard = await page.evaluate(() => {
+          const dialog = document.querySelector("#card-modal .card-dialog");
+          const scroller = document.querySelector("#card-modal .card-dialog-scroll");
+          const art = document.querySelector("#card-modal .card-art");
+          const name = document.querySelector("#card-modal-name");
+          const current = document.querySelector("#card-modal .card-current");
+          const actions = document.querySelector("#card-modal .avatar-action-strip");
+          const close = document.querySelector("#card-modal [data-card-close]");
+          const rect = (node) => node?.getBoundingClientRect().toJSON() || null;
+          const dialogRect = rect(dialog);
+          const artRect = rect(art);
+          const nameRect = rect(name);
+          const currentRect = rect(current);
+          const actionsRect = rect(actions);
+          const initialCloseRect = rect(close);
+          const usefulBottom = Math.max(
+            nameRect?.bottom || 0,
+            currentRect?.bottom || 0,
+            actionsRect?.bottom || 0,
+          );
+          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+          const scrolledCloseRect = rect(close);
+          document.body.classList.add("large-text");
+          const largeTextDialogRect = rect(dialog);
+          const largeTextCloseRect = rect(close);
+          document.body.classList.remove("large-text");
+          return {
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            dialog: dialogRect,
+            art: artRect,
+            name: nameRect,
+            current: currentRect,
+            actions: actionsRect,
+            initialClose: initialCloseRect,
+            scrolledClose: scrolledCloseRect,
+            largeTextDialog: largeTextDialogRect,
+            largeTextClose: largeTextCloseRect,
+            usefulBottom,
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        });
+        assert(
+          mobileCard.dialog?.left >= 0
+            && mobileCard.dialog?.right <= viewport.width
+            && mobileCard.dialog?.top >= 0
+            && mobileCard.dialog?.bottom <= viewport.height,
+          `mobile cards should stay inside the visual viewport: ${JSON.stringify(mobileCard)}`,
+        );
+        assert(
+          mobileCard.art?.right <= mobileCard.name?.left + 1,
+          `mobile portrait cards should pair compact art with identity instead of leading with a poster: ${JSON.stringify(mobileCard)}`,
+        );
+        assert(
+          mobileCard.current && mobileCard.usefulBottom <= mobileCard.dialog.bottom + 1,
+          `mobile character identity and current state should be useful above the fold: ${JSON.stringify(mobileCard)}`,
+        );
+        for (const [stateLabel, closeRect] of [
+          ["initial", mobileCard.initialClose],
+          ["scrolled", mobileCard.scrolledClose],
+          ["large text", mobileCard.largeTextClose],
+        ]) {
+          assert(
+            closeRect?.width >= 44
+              && closeRect?.height >= 44
+              && closeRect?.top >= mobileCard.dialog.top
+              && closeRect?.right <= mobileCard.dialog.right + 1,
+            `${stateLabel} mobile card close control should remain visible and tappable: ${JSON.stringify(mobileCard)}`,
+          );
+        }
+        assert(
+          mobileCard.largeTextDialog?.right <= viewport.width
+            && mobileCard.documentWidth <= viewport.width,
+          `mobile cards should not introduce horizontal scrolling with larger text: ${JSON.stringify(mobileCard)}`,
+        );
+        await closeCardModal();
+      }
       if (desktopViewport) await page.setViewportSize(desktopViewport);
     }
 
@@ -5336,6 +5400,63 @@ async function main() {
     });
     assert(!economyCopy.repeated.includes(">today<") && !economyCopy.repeated.includes("Skull seeks"), `default motives should not repeat the wants rows: ${JSON.stringify(economyCopy)}`);
     assert(economyCopy.remembered.includes(">today<") && economyCopy.remembered.includes("remembers Watch Bell near Old Oak Tree"), `meaningful resident context should remain visible: ${JSON.stringify(economyCopy)}`);
+
+    const practiceCopy = await page.evaluate(() => {
+      const previousState = state;
+      try {
+        state = {
+          ...previousState,
+          cards: {
+            ...(previousState?.cards || {}),
+            locations: {
+              ...(previousState?.cards?.locations || {}),
+              1: {
+                card_id: "cosy-cottage",
+                display_name: "The Cosy Cottage",
+                role: "location",
+              },
+            },
+          },
+        };
+        const html = actorPracticePanelHtml({
+          practice: {
+            primary: "exploration",
+            epithet: "Explorer",
+            known_for: "finding and opening hidden ways",
+            evidence: [
+              {
+                category: "exploration",
+                target_kind: "location",
+                target_id: "1",
+                description: "Made the discovery at location 1 part of the shared world.",
+              },
+              {
+                category: "exploration",
+                target_kind: "location",
+                target_id: "712",
+                description: "Made the discovery at location 712 part of the shared world.",
+              },
+            ],
+          },
+        });
+        const host = document.createElement("div");
+        host.innerHTML = html;
+        return {
+          html,
+          text: host.textContent.replace(/\s+/g, " ").trim(),
+        };
+      } finally {
+        state = previousState;
+      }
+    });
+    assert(
+      practiceCopy.text.includes("Discovered The Cosy Cottage.")
+        && practiceCopy.text.includes("Discovered a hidden place.")
+        && !/\blocation\s+\d+\b/i.test(practiceCopy.text)
+        && !/>because</i.test(practiceCopy.html)
+        && !/>and</i.test(practiceCopy.html),
+      `practice history should use complete narrative evidence without database IDs: ${JSON.stringify(practiceCopy)}`,
+    );
   }
 
   async function assertRoomSummaryStaysFlatAndMechanical() {

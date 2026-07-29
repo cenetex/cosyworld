@@ -2152,6 +2152,15 @@
       padding: 18px;
       background: rgba(3, 5, 4, 0.76);
     }
+    .card-modal {
+      min-height: 100svh;
+      height: 100dvh;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        max(12px, env(safe-area-inset-right))
+        max(12px, env(safe-area-inset-bottom))
+        max(12px, env(safe-area-inset-left));
+    }
     .card-modal[hidden],
     .all-actions-modal[hidden],
     .action-modal[hidden],
@@ -2179,6 +2188,16 @@
     }
     .card-dialog {
       position: relative;
+      max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      overflow: hidden;
+      padding: 0;
+    }
+    .card-dialog-scroll {
+      width: 100%;
+      max-height: inherit;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 12px;
     }
     .card-close,
     .all-actions-close,
@@ -2548,6 +2567,46 @@
       object-fit: contain;
       display: block;
     }
+    .card-art-column {
+      min-width: 0;
+    }
+    .card-art-workshop {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .card-art-workshop:empty {
+      display: none;
+    }
+    .card-art-status {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+      border: 1px solid rgba(239, 201, 107, 0.24);
+      border-radius: 4px;
+      background: rgba(239, 201, 107, 0.06);
+      padding: 7px 8px;
+      line-height: 1.3;
+    }
+    .card-art-status span {
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .card-art-status strong {
+      color: var(--text);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .card-art-status.error {
+      border-color: rgba(var(--type-danger-rgb), 0.34);
+      background: rgba(var(--type-danger-rgb), 0.08);
+    }
+    .card-art-workshop .account-button {
+      width: 100%;
+    }
     .card-copy {
       min-width: 0;
     }
@@ -2597,6 +2656,13 @@
       color: var(--amber);
       font-size: 11px;
       font-weight: 900;
+      text-transform: uppercase;
+    }
+    .card-section-label {
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .card-economy {
@@ -2649,6 +2715,50 @@
       color: var(--dim);
       font-weight: 900;
       text-transform: uppercase;
+    }
+    .card-current {
+      display: grid;
+      gap: 6px;
+      border: 1px solid rgba(239, 201, 107, 0.26);
+      border-radius: 5px;
+      background: rgba(239, 201, 107, 0.055);
+      padding: 8px;
+    }
+    .card-current .card-economy-row:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .card-more {
+      border-top: 1px solid rgba(129, 255, 167, 0.18);
+      padding-top: 2px;
+    }
+    .card-more > summary {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--dim);
+      font-size: 12px;
+      font-weight: 900;
+      list-style: none;
+      cursor: pointer;
+    }
+    .card-more > summary::-webkit-details-marker {
+      display: none;
+    }
+    .card-more > summary::after {
+      content: "+";
+      color: var(--amber);
+      font-size: 16px;
+    }
+    .card-more[open] > summary::after {
+      content: "−";
+    }
+    .card-more-body {
+      display: grid;
+      gap: 6px;
+      padding-bottom: 4px;
     }
     .avatar-controls {
       display: flex;
@@ -2803,15 +2913,25 @@
     @media (min-width: 701px) {
       .card-dialog.portrait-card {
         width: min(780px, calc(100vw - 36px));
+      }
+      .card-dialog.portrait-card .card-dialog-scroll {
         display: grid;
         grid-template-columns: minmax(260px, 0.94fr) minmax(300px, 1.06fr);
         gap: 16px;
         overflow: hidden;
       }
-      .card-dialog.portrait-card .card-art {
+      .card-dialog.portrait-card .card-art-column {
         min-height: 0;
         height: min(540px, calc(100vh - 60px));
         max-height: min(540px, calc(100vh - 60px));
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+      .card-dialog.portrait-card .card-art {
+        min-height: 0;
+        height: 100%;
+        max-height: none;
       }
       .card-dialog.portrait-card .card-art img {
         height: 100%;
@@ -2828,12 +2948,90 @@
       }
     }
     @media (max-width: 700px) {
+      .card-dialog.portrait-card .card-dialog-scroll {
+        display: grid;
+        grid-template-columns: minmax(96px, 31%) minmax(0, 1fr);
+        grid-template-rows: auto auto auto auto auto auto auto;
+        column-gap: 12px;
+        row-gap: 6px;
+        align-items: start;
+      }
+      .card-dialog.portrait-card .card-art-column,
+      .card-dialog.portrait-card .card-copy {
+        display: contents;
+      }
       .card-dialog.portrait-card .card-art {
-        min-height: 180px;
-        max-height: 44vh;
+        grid-column: 1;
+        grid-row: 1 / span 3;
+        width: 100%;
+        min-height: 0;
+        height: min(38vw, 156px);
+        max-height: 156px;
+        aspect-ratio: 3 / 4;
       }
       .card-dialog.portrait-card .card-art img {
-        max-height: 44vh;
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        object-fit: contain;
+      }
+      .card-dialog.portrait-card .card-name {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: end;
+        margin: 3px 0 0;
+        padding-right: 48px;
+        font-size: 19px;
+        line-height: 1.15;
+      }
+      .card-dialog.portrait-card .card-title {
+        grid-column: 2;
+        grid-row: 2;
+        margin-top: 0;
+        font-size: 14px;
+        line-height: 1.3;
+      }
+      .card-dialog.portrait-card .card-meta {
+        grid-column: 2;
+        grid-row: 3;
+        align-self: start;
+        margin-top: 2px;
+        gap: 4px;
+      }
+      .card-dialog.portrait-card .card-meta span {
+        padding: 2px 5px;
+        font-size: 11px;
+      }
+      .card-dialog.portrait-card .card-art-workshop {
+        grid-column: 1 / -1;
+        grid-row: 4;
+        margin-top: 2px;
+      }
+      .card-dialog.portrait-card .card-blurb {
+        grid-column: 1 / -1;
+        grid-row: 5;
+        margin-top: 4px;
+        font-size: 15px;
+        line-height: 1.45;
+      }
+      .card-dialog.portrait-card .card-keepsake {
+        grid-column: 1 / -1;
+        grid-row: 6;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .card-dialog.portrait-card .card-economy {
+        grid-column: 1 / -1;
+        grid-row: 7;
+        margin-top: 2px;
+      }
+      .card-dialog.portrait-card .card-economy-row {
+        grid-template-columns: minmax(74px, 94px) minmax(0, 1fr);
+        font-size: 14px;
+        line-height: 1.4;
+      }
+      .card-dialog.portrait-card .card-current .card-economy-row {
+        grid-template-columns: minmax(58px, 76px) minmax(0, 1fr);
       }
     }
     [data-card-key] { cursor: zoom-in; }
@@ -4077,14 +4275,19 @@
   <div class="card-modal" id="card-modal" hidden>
     <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1" data-player-concept="keepsake">
       <button class="card-close" type="button" data-card-close aria-label="Close keepsake details">x</button>
-      <div class="card-art"><img id="card-modal-image" alt="" /></div>
-      <div class="card-copy">
-        <h2 class="card-name" id="card-modal-name"></h2>
-        <div class="card-title" id="card-modal-title"></div>
-        <div class="card-blurb" id="card-modal-blurb"></div>
-        <div class="card-meta" id="card-modal-meta"></div>
-        <div class="card-keepsake" id="card-modal-keepsake"></div>
-        <div class="card-economy" id="card-modal-economy"></div>
+      <div class="card-dialog-scroll">
+        <div class="card-art-column">
+          <div class="card-art"><img id="card-modal-image" alt="" /></div>
+          <div class="card-art-workshop" id="card-modal-art-workshop" aria-live="polite" aria-atomic="true"></div>
+        </div>
+        <div class="card-copy">
+          <h2 class="card-name" id="card-modal-name"></h2>
+          <div class="card-title" id="card-modal-title"></div>
+          <div class="card-blurb" id="card-modal-blurb"></div>
+          <div class="card-meta" id="card-modal-meta"></div>
+          <div class="card-keepsake" id="card-modal-keepsake"></div>
+          <div class="card-economy" id="card-modal-economy"></div>
+        </div>
       </div>
     </section>
   </div>
@@ -11379,10 +11582,10 @@
       const retryableWithoutOrbs = Boolean(art.retryable_without_orbs);
       const viewerContributed = Boolean(art.viewer_contributed);
       if (clientState?.status === "starting") {
-        return `<div class="economy-row"><span>level ${level} image</span><strong>image workshop starting…</strong></div>`;
+        return `<div class="card-art-status"><span>level ${level} portrait</span> <strong>Image workshop starting…</strong></div>`;
       }
       if (status === "ready") {
-        return `<div class="economy-row"><span>community image</span><strong>level ${level} complete</strong></div><div class="economy-row"><span>next image</span><strong>unlocks at the next level</strong></div>`;
+        return `<div class="card-art-status"><span>community portrait</span> <strong>Level ${level} complete · next portrait unlocks at the next level.</strong></div>`;
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const needsOrb = remaining > 0;
@@ -11419,9 +11622,9 @@
         ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">${escapeHtml(buttonLabel)}</button>`
         : "";
       const clientError = clientState?.status === "error"
-        ? `<div class="economy-row"><span>image update</span><strong>${escapeHtml(clientState.message)}</strong></div>`
+        ? `<div class="card-art-status error"><span>portrait update</span> <strong>${escapeHtml(clientState.message)}</strong></div>`
         : "";
-      return `<div class="economy-row"><span>level ${level} image</span><strong>${escapeHtml(detail)}</strong></div>${clientError}${action}`;
+      return `<div class="card-art-status"><span>level ${level} portrait</span> <strong>${escapeHtml(finishSentence(detail))}</strong></div>${clientError}${action}`;
     }
 
     function communityArtPlaceholderLabel(card) {
@@ -11582,12 +11785,42 @@
 
     function actorControlModeLabel(actor) {
       return {
-        direct_input: "player choice",
-        reactive_ai: "reactive inference",
-        local_ai: "local inference",
-        roaming_ai: "roaming inference",
-        delegated_ai: "delegated inference",
+        direct_input: Number(actor?.id || 0) === Number(actorId || 0) ? "you" : "another player",
+        reactive_ai: "a world character",
+        local_ai: "a world character",
+        roaming_ai: "a world character",
+        delegated_ai: "a delegated character",
       }[String(actor?.control_mode || "")] || "";
+    }
+
+    function practiceEvidenceTarget(evidence) {
+      const targetKind = cleanEconomyText(evidence?.target_kind).toLowerCase();
+      const targetId = Number(evidence?.target_id || 0);
+      if (targetKind === "location") {
+        const card = targetId ? cardForLocation(targetId) : null;
+        return cleanEconomyText(card?.display_name || card?.title) || "a hidden place";
+      }
+      if (targetKind === "actor" || targetKind === "avatar" || targetKind === "resident") {
+        const targetActor = targetId ? actorForId(targetId) : null;
+        return targetActor ? actorLabel(targetActor) : "someone in the shared world";
+      }
+      if (targetKind === "item") {
+        return targetId ? itemNameForId(targetId) : "a lasting keepsake";
+      }
+      return "the shared world";
+    }
+
+    function practiceEvidenceSummary(evidence) {
+      const target = practiceEvidenceTarget(evidence);
+      return {
+        exploration: `Discovered ${target}.`,
+        craft: `Made or transformed ${target}.`,
+        delivery: `Delivered a keepsake to ${target}.`,
+        stewardship: `Completed meaningful work for ${target}.`,
+        care: `Protected or restored ${target}.`,
+        mediation: `Helped resolve a strain involving ${target}.`,
+        lore: `Recovered knowledge connected to ${target}.`,
+      }[cleanEconomyText(evidence?.category).toLowerCase()] || `Left a lasting mark on ${target}.`;
     }
 
     function actorPracticePanelHtml(actor) {
@@ -11598,11 +11831,8 @@
           [practice.epithet, practice.known_for].filter(Boolean).join(" — ")
         )),
       ];
-      for (const [index, evidence] of (practice.evidence || []).slice(0, 2).entries()) {
-        const description = cleanEconomyText(evidence?.description);
-        if (description) {
-          rows.push(economyRowHtml(index === 0 ? "because" : "and", escapeHtml(description)));
-        }
+      for (const evidence of (practice.evidence || []).slice(0, 2)) {
+        rows.push(economyRowHtml("recently", escapeHtml(practiceEvidenceSummary(evidence))));
       }
       return rows.join("");
     }
@@ -11702,27 +11932,37 @@
 
     function actorEconomyPanelHtml(actor) {
       if (!actor) return "";
-      const rows = [];
+      const currentRows = [];
+      const detailRows = [];
       const practice = actorPracticePanelHtml(actor);
-      if (practice) rows.push(practice);
+      if (practice) detailRows.push(practice);
       const controller = actorControlModeLabel(actor);
-      if (controller) rows.push(economyRowHtml("controller", escapeHtml(controller)));
+      if (controller) detailRows.push(economyRowHtml("played by", escapeHtml(controller)));
       const economy = actor?.economy || null;
       if (!economy) {
         if (Number(actor.id || 0) !== Number(actorId || 0)) {
-          rows.push(economyRowHtml("today", "nothing known yet"));
+          currentRows.push(economyRowHtml("today", "Nothing known yet."));
         }
-        return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
+        const current = currentRows.length
+          ? `<section class="card-current" aria-label="Current character state"><div class="card-section-label">Now</div>${currentRows.join("")}</section>`
+          : "";
+        const details = detailRows.length
+          ? `<details class="card-more"><summary>History & details</summary><div class="card-more-body">${detailRows.join("")}</div></details>`
+          : "";
+        return `${current}${actorSafetyPanelHtml(actor)}${details}`;
       }
       const motive = economyMotiveSummary(actor, economy);
       if (motive && !economyMotiveRepeatsRows(actor, economy, motive)) {
-        rows.push(economyRowHtml("today", escapeHtml(motive)));
+        currentRows.push(economyRowHtml("today", escapeHtml(motive)));
       }
       const inventoryCount = Number(economy.inventory_count);
       const carriedWeight = Number(economy.carried_weight_tenths || 0);
       const carryingCapacity = Number(economy.carrying_capacity_tenths || 0);
       if (Number.isFinite(inventoryCount) && Number.isFinite(carryingCapacity) && carryingCapacity > 0) {
-        rows.push(economyRowHtml("carried deck", escapeHtml(`${inventoryCount} card${inventoryCount === 1 ? "" : "s"} · ${deckWeightLabel(carriedWeight)} / ${deckWeightLabel(carryingCapacity)}`)));
+        const carrying = inventoryCount === 0
+          ? "Nothing right now."
+          : `${inventoryCount} keepsake${inventoryCount === 1 ? "" : "s"} · ${deckWeightLabel(carriedWeight)} / ${deckWeightLabel(carryingCapacity)}`;
+        detailRows.push(economyRowHtml("carrying", escapeHtml(carrying)));
       }
       const sought = Array.isArray(economy.sought_items) ? economy.sought_items : [];
       const listedSoughtIds = new Set();
@@ -11730,20 +11970,26 @@
       if (request?.item_id) {
         const matchingSought = sought.find((soughtItem) => Number(soughtItem.item_id) === Number(request.item_id));
         const tags = soughtItemTags(matchingSought || {});
-        rows.push(economyRowHtml("wants", economyItemSummaryHtml(itemNameForId(request.item_id), tags)));
+        currentRows.push(economyRowHtml("wants", economyItemSummaryHtml(itemNameForId(request.item_id), tags)));
         listedSoughtIds.add(Number(request.item_id));
       }
       const trade = economy.trade_stance || economy.trade_offer || null;
       if (trade?.offered_item_id && trade?.requested_item_id) {
         const tradeText = `${itemNameForId(trade.offered_item_id)} for ${itemNameForId(trade.requested_item_id)}; ${trade.willingness || "willing"}`;
-        rows.push(economyRowHtml("trade", escapeHtml(trade.reason ? `${tradeText}. ${trade.reason}` : tradeText)));
+        currentRows.push(economyRowHtml("trade", escapeHtml(trade.reason ? `${tradeText}. ${trade.reason}` : tradeText)));
       }
       for (const soughtItem of sought) {
         if (listedSoughtIds.has(Number(soughtItem.item_id))) continue;
         const itemName = itemNameForId(soughtItem.item_id);
-        rows.push(economyRowHtml("seeks", economyItemSummaryHtml(itemName, soughtItemTags(soughtItem))));
+        currentRows.push(economyRowHtml("seeks", economyItemSummaryHtml(itemName, soughtItemTags(soughtItem))));
       }
-      return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
+      const current = currentRows.length
+        ? `<section class="card-current" aria-label="Current character state"><div class="card-section-label">Now</div>${currentRows.join("")}</section>`
+        : "";
+      const details = detailRows.length
+        ? `<details class="card-more"><summary>History & details</summary><div class="card-more-body">${detailRows.join("")}</div></details>`
+        : "";
+      return `${current}${actorSafetyPanelHtml(actor)}${details}`;
     }
 
     function nearbyLocationPanelHtml(card) {
@@ -11766,8 +12012,9 @@
       if (!card) return;
       const key = cardKey(card);
       const dialog = $("card-modal").querySelector(".card-dialog");
+      const scroller = dialog?.querySelector(".card-dialog-scroll");
       const copy = dialog?.querySelector(".card-copy");
-      const dialogScrollTop = preservePosition ? Number(dialog?.scrollTop || 0) : 0;
+      const dialogScrollTop = preservePosition ? Number(scroller?.scrollTop || 0) : 0;
       const copyScrollTop = preservePosition ? Number(copy?.scrollTop || 0) : 0;
       const image = cardImage(card) || fallbackCardImage(card);
       const actor = actorForCard(card);
@@ -11796,11 +12043,12 @@
       $("card-modal-meta").innerHTML = meta.map((value) => `<span>${escapeHtml(value)}</span>`).join("");
       const promise = keepsakePromise(card);
       $("card-modal-keepsake").innerHTML = promise
-        ? `<span>when kept close</span>${escapeHtml(promise)}`
+        ? `<span>companion art · cosmetic</span>${escapeHtml(promise)}`
         : "";
-      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${nearbyLocationPanelHtml(card)}${communityArtPanelHtml(card)}`;
+      $("card-modal-art-workshop").innerHTML = communityArtPanelHtml(card);
+      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${nearbyLocationPanelHtml(card)}`;
       openModal("card-modal", $("card-modal").querySelector(".card-close"), !preservePosition);
-      if (dialog) dialog.scrollTop = dialogScrollTop;
+      if (scroller) scroller.scrollTop = dialogScrollTop;
       if (copy) copy.scrollTop = copyScrollTop;
     }
 
@@ -11828,6 +12076,7 @@
       openCardModalKey = "";
       closeModal("card-modal");
       $("card-modal-image").removeAttribute("src");
+      $("card-modal-art-workshop").innerHTML = "";
       $("card-modal-keepsake").innerHTML = "";
       $("card-modal-economy").innerHTML = "";
     }
