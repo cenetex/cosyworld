@@ -1,0 +1,50 @@
+[
+  {
+    "id": "room:8940",
+    "location_id": 8940,
+    "name": "Archive Meridian",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["last indexed station", "blank pages beyond receipts"],
+    "boons": ["route provenance remains public", "travelers can evacuate inward to Echo Observatory"],
+    "hooks": ["the first 89-segment trunk waits for a scout"],
+    "resources": { "maps": 3, "shelter": 2 },
+    "projects": []
+  },
+  {
+    "id": "room:8941",
+    "location_id": 8941,
+    "name": "Chimera Reach",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["consent-safe repair", "unknown remains left untouched"],
+    "boons": ["construct and salvage work orders remain distinct", "travelers can evacuate inward to Chimera Boneyard"],
+    "hooks": ["a machine ecology signal repeats along the living-reach trunk"],
+    "resources": { "repairs": 3, "salvage_review": 2 },
+    "projects": []
+  },
+  {
+    "id": "room:8942",
+    "location_id": 8942,
+    "name": "Green Loom Expanse",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["visible maintenance", "wetland circuits"],
+    "boons": ["shared shelter and healing remain authored station services", "travelers can evacuate inward to Signal Orchard"],
+    "hooks": ["one trunk carries seed weather from a place not yet forked"],
+    "resources": { "shelter": 3, "cultivation": 3 },
+    "projects": []
+  },
+  {
+    "id": "room:8943",
+    "location_id": 8943,
+    "name": "Rabbit Signal Freeport",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["moving network", "departures by receipt"],
+    "boons": ["trade and dispatch remain accountable", "travelers can evacuate inward to White Rabbit Commons"],
+    "hooks": ["the departure board reserves space for validated future forks"],
+    "resources": { "dispatches": 3, "trade": 2 },
+    "projects": []
+  }
+]

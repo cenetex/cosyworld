@@ -47,4 +47,6 @@
 # cross-surface regression contracts needed to integrate them atomically.
 # Follow-up decomposition remains tracked by #255; this exception authorizes
 # integration, not further feature growth in main.rs.
-74609
+# 74609 -> 74531: move ReplicateAvatarArtConfig and its environment loader
+# into the existing media-recipes seam.
+74531

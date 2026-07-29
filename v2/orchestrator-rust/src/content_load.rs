@@ -2,6 +2,7 @@ use super::*;
 
 const LANTERN_KEEPER_PACK_ID: &str = "cosyworld.campaign.the-lantern-keeper";
 const LANTERN_KEEPER_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";
+const MAX_AUTHORED_PATHWAY_DISTANCE: u8 = 89;
 const LANTERN_KEEPER_CLOCK_OUTCOMES: [(&str, &str); 2] = [
     ("lantern-keeper.light", "completed"),
     ("lantern-keeper.darkness", "failed"),
@@ -2360,7 +2361,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         if !location_ids.contains(&exit.from_location_id)
             || !location_ids.contains(&exit.to_location_id)
             || exit.from_location_id == exit.to_location_id
-            || !(1..=8).contains(&exit.distance)
+            || !(1..=MAX_AUTHORED_PATHWAY_DISTANCE).contains(&exit.distance)
             || !exit_keys.insert((exit.from_location_id, exit.to_location_id))
         {
             return Err(format!(

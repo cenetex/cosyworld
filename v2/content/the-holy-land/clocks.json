@@ -1,0 +1,76 @@
+[
+  {
+    "id": "holy-land.traces",
+    "scope": "room",
+    "scope_id": 712,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Follow the Living Traces",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:712:the_road_goes_on",
+        "scope": "room",
+        "scope_id": 712,
+        "label": "the road goes on",
+        "kind": "memory",
+        "reason": "holy_land_traces_gathered"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "holy-land:follow-the-traces",
+        "status": "completed",
+        "reason": "holy_land_traces_gathered"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Can the disciples gather enough living testimony to know which road Christ has taken?",
+      "rhythm": "multi_session",
+      "attention": "communal",
+      "priority": 82,
+      "situation": "Christ is absent, but repaired nets, shared water, remembered words, and changed lives still point from place to place.",
+      "stakes": "Without patient attention, need and rumor will become indistinguishable.",
+      "outcome": "The gathered witnesses agree that Christ has gone ahead; the search opens onto another road rather than ending in an apparition.",
+      "completion_memory": "The disciples gathered living traces across the land and found a trustworthy direction, though Christ remained ahead of them."
+    }
+  },
+  {
+    "id": "holy-land.rumors",
+    "scope": "room",
+    "scope_id": 712,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Claimants and Contradictory Rumors",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:712:false_claimant_gathers_followers",
+        "scope": "room",
+        "scope_id": 712,
+        "label": "a false claimant gathers followers",
+        "kind": "hook",
+        "reason": "holy_land_rumors_filled"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Will a loud claimant turn the search toward spectacle and fear?",
+      "rhythm": "multi_session",
+      "attention": "background",
+      "priority": 48,
+      "situation": "Every road carries reports, and some speakers have begun to claim more than they witnessed.",
+      "stakes": "A frightened crowd may follow certainty performed loudly enough.",
+      "outcome": "A false claimant gathers a following, becoming a new trouble within the world rather than proof that Christ is absent.",
+      "completion_memory": "Contradictory reports hardened around a false claimant, and the travelers had to distinguish spectacle from witness."
+    }
+  }
+]

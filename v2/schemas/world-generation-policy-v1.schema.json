@@ -140,7 +140,6 @@
         "prompt_prefix",
         "aspect_ratios",
         "output_formats",
-        "negative_constraints",
         "subject_kinds",
         "authored_art",
         "community_art",

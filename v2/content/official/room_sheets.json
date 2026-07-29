@@ -788,7 +788,7 @@
     "location_id": 705,
     "name": "Sea of Galilee Shore",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "mended nets",
       "changeable water"
@@ -803,7 +803,9 @@
       "fish": 3,
       "cordage": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -826,7 +828,9 @@
       "attention": 3,
       "wild-herbs": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -849,7 +853,9 @@
       "boats": 3,
       "reeds": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -880,7 +886,7 @@
     "location_id": 709,
     "name": "Sychar Well",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "shared water",
       "honest noon"
@@ -895,7 +901,9 @@
       "water": 3,
       "conversation": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -903,7 +911,7 @@
     "location_id": 710,
     "name": "Jericho",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "oasis heat",
       "edge of the crowd"
@@ -918,7 +926,9 @@
       "dates": 3,
       "springwater": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -941,7 +951,9 @@
       "bread": 3,
       "olive-oil": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -949,7 +961,7 @@
     "location_id": 712,
     "name": "Jerusalem",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "festival multitude",
       "weight of choice"
@@ -964,7 +976,9 @@
       "pilgrims": 3,
       "lamps": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -987,7 +1001,9 @@
       "quiet": 3,
       "olive-wood": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -995,7 +1011,7 @@
     "location_id": 714,
     "name": "Road to Emmaus",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "evening companionship",
       "slow recognition"
@@ -1010,7 +1026,9 @@
       "companionship": 3,
       "road-bread": 2
     },
-    "projects": [],
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {

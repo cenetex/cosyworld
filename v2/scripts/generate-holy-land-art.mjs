@@ -24,10 +24,6 @@ const LORA_TRIGGER = process.env.HOLY_LAND_LORA_TRIGGER || "B43L";
 export const DEFAULT_LORA_SCALE = 1.25;
 export const DEFAULT_ART_STYLE =
   "Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.";
-const ACTOR_HISTORICAL_CONSTRAINT =
-  "One ordinary first-century Levantine traveler; no halo, cross, text, modern gear, or later religious costume.";
-const LOCATION_HISTORICAL_CONSTRAINT =
-  "First-century Levant only; no later religious monuments, readable text, modern objects, or anachronistic architecture.";
 
 const ASPECT_RATIOS = { tall: "2:3", square: "1:1", wide: "16:9" };
 const TARGET_SIZES = {
@@ -96,14 +92,14 @@ function selectCards(cards, options) {
 export function actorPrompt(card, actor, stylePrompt = DEFAULT_ART_STYLE) {
   return [
     `${LORA_TRIGGER}. ${stylePrompt}`,
-    `Meet ${card.display_name}, ${card.title}, already mid-journey in the first-century Holy Land. ${sentence(card.blurb || actor.description)} ${ACTOR_HISTORICAL_CONSTRAINT}`,
+    `${card.display_name}, ${card.title}, already mid-journey. ${sentence(card.blurb || actor.description)}`,
   ].join("\n");
 }
 
 export function locationPrompt(card, location, stylePrompt = DEFAULT_ART_STYLE) {
   return [
     `${LORA_TRIGGER}. ${stylePrompt}`,
-    `Arrive mid-journey at ${card.display_name}, ${card.title}, in the first-century Holy Land. ${sentence(card.blurb || location.description)} ${LOCATION_HISTORICAL_CONSTRAINT}`,
+    `${card.display_name}, ${card.title}, already mid-journey. ${sentence(card.blurb || location.description)}`,
   ].join("\n");
 }
 

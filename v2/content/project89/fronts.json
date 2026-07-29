@@ -1,0 +1,30 @@
+[
+  {
+    "id": "project89:convergence-protocol",
+    "premise": "The Convergence Voice is converting unresolved people, routes, and memories into alignment targets under Oneirocom authority.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      8903,
+      8904,
+      8905,
+      8908
+    ],
+    "participant_ids": [
+      8954,
+      8955,
+      8956,
+      8958
+    ],
+    "stakes_questions": [
+      "Can useful stability survive without one authority defining acceptable reality?",
+      "Will recovered consciousnesses and constructs retain the right to choose where they go?"
+    ],
+    "portent_clock_id": "project89.oneirocom-suppression",
+    "job_ids": [
+      "project89:operation-liberation"
+    ],
+    "impending_outcome": "Oneirocom closes the current intervention and requires every unresolved signal to return through a controlled intake.",
+    "pack_id": "project89.operation-liberation"
+  }
+]

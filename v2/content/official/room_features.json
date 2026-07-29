@@ -396,7 +396,7 @@
       "courtyard",
       "lamp"
     ],
-    "look": "A sheltered courtyard holds a clay lamp, a manger-shaped feeding trough, and the hush of arriving travelers.",
+    "look": "A sheltered courtyard holds a clay lamp, a manger-shaped feeding trough, and the quiet of arriving travelers.",
     "search": "A cool corner holds clean straw and a cup of water for the next guest.",
     "pack_id": "cosyworld.the-holy-land"
   },
@@ -458,6 +458,12 @@
     ],
     "look": "Nets hang from a rough rack, glittering with lake water and threaded with careful repairs.",
     "search": "A torn mesh has been marked with a bright cord so nobody forgets where patient work must begin.",
+    "uses": [
+      {
+        "item_id": 7201,
+        "text": "The mended cord closes the torn mesh. The fisher speaks of a teacher who treated patient work as part of the road, not a delay from it."
+      }
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -473,6 +479,37 @@
     "pack_id": "cosyworld.the-holy-land"
   },
   {
+    "location_id": 706,
+    "key": "parable-objects",
+    "name": "Storyteller's Cloth",
+    "aliases": [
+      "cloth",
+      "story objects",
+      "parable objects"
+    ],
+    "look": "A faded cloth on the grass holds empty places for ordinary objects a storyteller can lift before the listeners.",
+    "search": "Pressed into the cloth are the shapes of a small pouch, a coin, a clay lamp, and one round object no larger than a fingertip.",
+    "uses": [
+      {
+        "item_id": 7206,
+        "text": "The pearl rests alone at the center of the cloth. A merchant in the gathering asks what could be worth relinquishing every lesser possession."
+      },
+      {
+        "item_id": 7207,
+        "text": "The silver coin catches the light against the cloth. A listener begins the story with a lamp, a broom, and a search that ends in shared joy."
+      },
+      {
+        "item_id": 7208,
+        "text": "A few mustard seeds nearly disappear into the weave. Someone points from the seeds toward the thorny shrubs where birds have gathered."
+      },
+      {
+        "item_id": 7209,
+        "text": "The little lamp fills the last empty shape. Its trimmed wick turns the talk toward readiness that cannot be borrowed at the final hour."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
     "location_id": 707,
     "key": "bethsaida-boat-yard",
     "name": "Boat Yard",
@@ -482,6 +519,12 @@
     ],
     "look": "A half-repaired fishing boat rests on wooden braces above the reed line.",
     "search": "Under the hull, a basket holds pegs, cord, and one place left open for the tool that has gone missing.",
+    "uses": [
+      {
+        "item_id": 7203,
+        "text": "The adze fits the empty place, and the repair begins again. A boatwright says Christ sent people onward instead of gathering them around a display."
+      }
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -506,6 +549,12 @@
     ],
     "look": "Deep-worn stones circle a well beside the Samaritan road, offering a small island of shade.",
     "search": "Grooves in the rim remember generations of ropes, jars, and hands drawing water for strangers and kin.",
+    "uses": [
+      {
+        "item_id": 7202,
+        "text": "The jar brings up cool water. The waiting traveler recalls that Christ asked for a drink before offering any answer."
+      }
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -518,6 +567,12 @@
     ],
     "look": "A date palm throws a narrow strip of shade beside the climbing road.",
     "search": "The dust holds many footprints, but one clear space remains where the crowd has learned to make room.",
+    "uses": [
+      {
+        "item_id": 7210,
+        "text": "Oil softens the wound and clean linen binds it. The road's urgent question becomes who chose to act as a neighbor."
+      }
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -530,6 +585,12 @@
     ],
     "look": "Bread, herbs, and clay cups wait on a low table in a house prepared for friends.",
     "search": "An extra place has been set without asking who might arrive to need it.",
+    "uses": [
+      {
+        "item_id": 7204,
+        "text": "The loaf is broken across the extra place. A guest says Christ left this table toward Jerusalem while still making room for grief and friendship."
+      }
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -554,6 +615,12 @@
     ],
     "look": "A furrowed olive trunk divides into patient branches beneath the night sky.",
     "search": "The roots hold the rocky ground with a strength that looks almost like kneeling.",
+    "uses": [
+      {
+        "item_id": 7205,
+        "text": "The watch lamp burns low beneath the branches. The quiet makes clear how easily fear can sleep through the hour it most wants to understand."
+      }
+    ],
     "pack_id": "cosyworld.the-holy-land"
   },
   {

@@ -215,12 +215,12 @@
     },
     {
       "id": "cosyworld.the-holy-land",
-      "version": "1.1.6",
+      "version": "1.2.0",
       "source": {
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822",
+      "integrity": "sha256:5663b6e1e0b4c841b1683dbacbcaebb953594fbed57d468b5e4cd2473ba0e1b0",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -585,7 +585,7 @@
     {
       "pack_id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
-      "version": "1.1.6",
+      "version": "1.2.0",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {

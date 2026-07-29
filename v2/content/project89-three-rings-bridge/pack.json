@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "id": "project89.composition.three-rings",
+  "name": "Project 89 Three-Ring Bridge",
+  "version": "0.1.0",
+  "kind": "world",
+  "description": "Composition-owned locked relay apertures between the Project 89 authored loop, perimeter mesh, and four frontier stations.",
+  "license": "LicenseRef-Project89-Prototype",
+  "license_url": "https://www.project89.org/",
+  "engine": ">=0.0.20 <0.1.0",
+  "capabilities": [
+    {
+      "id": "project89.composition.three-rings/world",
+      "kind": "world",
+      "version": "0.1.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "project89.operation-liberation",
+      "version": ">=0.1.0 <1.0.0",
+      "capabilities": [
+        "project89.operation-liberation/world"
+      ]
+    },
+    {
+      "id": "project89.perimeter-relay",
+      "version": ">=0.1.0 <1.0.0",
+      "capabilities": [
+        "project89.perimeter-relay/world"
+      ]
+    },
+    {
+      "id": "project89.open-signal-frontier",
+      "version": ">=0.1.0 <1.0.0",
+      "capabilities": [
+        "project89.open-signal-frontier/world"
+      ]
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
+    }
+  ],
+  "rules_profile": "cosyworld.srd5/1",
+  "default_ruleset": null,
+  "entry_points": [],
+  "provenance": {
+    "author": "Cenetex",
+    "source_name": "Project 89 worldpack prototype",
+    "source_url": "https://github.com/cenetex/cosyworld",
+    "modification_notice": "This bridge contains only composition-owned routes; progression is driven by authored item-installation lifecycle effects."
+  },
+  "resources": {
+    "exits": "exits.json"
+  },
+  "extensions": {
+    "x-cosyworld-composition": {
+      "schema_version": 1,
+      "role": "bridge"
+    },
+    "x-cosyworld-generation": {
+      "schema_version": 1,
+      "policy_id": "project89.composition.three-rings/generation/1",
+      "migration_version": 1,
+      "collision_namespace": "pack://project89.composition.three-rings/generated/v1",
+      "migrations": [],
+      "cross_pack_routes": [
+        {
+          "endpoints": [
+            { "pack_id": "project89.operation-liberation", "location_id": 8902 },
+            { "pack_id": "project89.perimeter-relay", "location_id": 8921 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.operation-liberation", "location_id": 8908 },
+            { "pack_id": "project89.perimeter-relay", "location_id": 8926 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.operation-liberation", "location_id": 8906 },
+            { "pack_id": "project89.perimeter-relay", "location_id": 8925 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.operation-liberation", "location_id": 8907 },
+            { "pack_id": "project89.perimeter-relay", "location_id": 8922 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.perimeter-relay", "location_id": 8921 },
+            { "pack_id": "project89.open-signal-frontier", "location_id": 8940 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.perimeter-relay", "location_id": 8926 },
+            { "pack_id": "project89.open-signal-frontier", "location_id": 8941 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.perimeter-relay", "location_id": 8925 },
+            { "pack_id": "project89.open-signal-frontier", "location_id": 8942 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        },
+        {
+          "endpoints": [
+            { "pack_id": "project89.perimeter-relay", "location_id": 8922 },
+            { "pack_id": "project89.open-signal-frontier", "location_id": 8943 }
+          ],
+          "route_owner": "project89.composition.three-rings",
+          "generated_descendant_owner": "project89.composition.three-rings",
+          "topology_authority": {
+            "pack_id": "project89.composition.three-rings",
+            "migration_version": 1
+          },
+          "ecology_transition": "endpoint_blend/1",
+          "media_profile_id": "project89.world-art.base/1",
+          "unmount": "remove_with_route_owner",
+          "evacuation": "world_pack_lifecycle"
+        }
+      ]
+    }
+  }
+}

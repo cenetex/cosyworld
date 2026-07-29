@@ -1,0 +1,1299 @@
+{
+  "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "id": "project89.three-rings",
+  "name": "Project 89 Three Rings",
+  "version": 1,
+  "description": "An isolated executable Project 89 composition with an authored inner loop, generated relay mesh, and four-station long-haul frontier.",
+  "entry_location": "project89.operation-liberation:location/8900",
+  "pack_lifecycle": {
+    "schema_version": 1,
+    "unmount": [
+      {
+        "pack_id": "project89.open-signal-frontier",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "project89.operation-liberation:location/8900",
+          "destination_pack_id": "project89.operation-liberation",
+          "destination_location_id": 8900
+        }
+      },
+      {
+        "pack_id": "project89.perimeter-relay",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "project89.operation-liberation:location/8900",
+          "destination_pack_id": "project89.operation-liberation",
+          "destination_location_id": 8900
+        }
+      }
+    ]
+  },
+  "rules_profile": "cosyworld.srd5/1",
+  "active_rules_variants": [],
+  "active_rules_extensions": [],
+  "generation_media_registry": {
+    "schema_version": 1,
+    "profiles": [
+      {
+        "id": "cosyworld.community-art.base/1",
+        "recipes": [
+          "replicate.flux1-dev-lora.base"
+        ]
+      },
+      {
+        "id": "cosyworld.holy-land.generated-landscape/1",
+        "recipes": [
+          "replicate.holy-land-b43l.base"
+        ]
+      },
+      {
+        "id": "project89.world-art.base/1",
+        "recipes": [
+          "replicate.ratimics-project89.v95f3d0eb"
+        ]
+      }
+    ],
+    "recipes": [
+      {
+        "id": "replicate.flux1-dev-lora.base",
+        "profile": "cosyworld.community-art.base/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "black-forest-labs",
+          "name": "flux-dev-lora",
+          "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "community-art/3"
+        ],
+        "lora": true
+      },
+      {
+        "id": "replicate.holy-land-b43l.base",
+        "profile": "cosyworld.holy-land.generated-landscape/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "ratimics",
+          "name": "b43l",
+          "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "holy-land-location/1",
+          "holy-land-location/2"
+        ],
+        "provider_defaults": {
+          "model": "dev",
+          "num_outputs": 1,
+          "num_inference_steps": 28,
+          "guidance_scale": 4.5,
+          "lora_scale": 1.25,
+          "go_fast": false,
+          "megapixels": "1",
+          "output_quality": 92,
+          "disable_safety_checker": false
+        },
+        "lora": false
+      },
+      {
+        "id": "replicate.ratimics-project89.v95f3d0eb",
+        "profile": "project89.world-art.base/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "ratimics",
+          "name": "project89",
+          "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "project89-art/2"
+        ],
+        "lora": false
+      }
+    ]
+  },
+  "bundle_hash": "sha256:9eb645fe2b387f50645f5befb6acee98f231222ab7aeb1e0ab4325a272032c7c",
+  "packs": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.1",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.2.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "srd5.2.1"
+        }
+      ],
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.2.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:949901b6dfd936d60b668c16c7aba9f36b23dd9b89211964df1e1322e44ba00a"
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "name": "CosyWorld SRD 5.2.1 Action Profile",
+      "description": "The bounded SRD 5.2.1 action, skill, equipment, and playable-item profile used by CosyWorld.",
+      "version": "1.0.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-profile-srd5/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.2.1/reference"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "cosyworld.srd5"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 112,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/2",
+      "rules_namespace": "cosyworld.srd5",
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-profile-srd5"
+      },
+      "integrity": "sha256:8ed9de1a2a5c3d49389c2a43c948ee45ccce3363ff901ad0996d8b122c64e068"
+    },
+    {
+      "id": "project89.operation-liberation",
+      "name": "Project 89: Operation Liberation",
+      "description": "The fully authored Project 89 inner loop: nine locations, a fixed cast, four relay keys, factions, and the Operation Liberation campaign spine.",
+      "version": "0.1.0",
+      "kind": "world",
+      "license": "LicenseRef-Project89-Prototype",
+      "license_url": "https://www.project89.org/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "project89.operation-liberation/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/8900"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Project 89 worldpack prototype",
+        "source_url": "https://beta.project89.org/operation-liberation",
+        "modification_notice": "Public Project 89 concepts are adapted into a deterministic CosyWorld prototype; new residents, factions, mechanics, and prose remain tentative pending approval."
+      },
+      "resource_counts": {
+        "actors": 9,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 6,
+        "items": 14,
+        "locations": 9,
+        "exits": 20,
+        "hidden_exits": 0,
+        "room_features": 10,
+        "room_sheets": 9,
+        "clocks": 2,
+        "jobs": 1,
+        "action_vocabulary": 0,
+        "fronts": 1,
+        "cards": 32,
+        "card_bindings": 0,
+        "lifecycle_hooks": 4,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-media": {
+          "schema_version": 1,
+          "profiles": [
+            {
+              "profile": "project89.world-art.base/1",
+              "operations": [
+                "base_generation"
+              ],
+              "intents": [
+                "avatar_card_art",
+                "item_card_art",
+                "location_card_art"
+              ],
+              "reference_slots": [],
+              "maximum_references": 0
+            },
+            {
+              "profile": "project89.world-art.refinement/1",
+              "operations": [
+                "single_reference",
+                "multi_reference"
+              ],
+              "intents": [
+                "avatar_card_art",
+                "item_card_art",
+                "location_card_art",
+                "room_scene"
+              ],
+              "reference_slots": [
+                "location",
+                "actor",
+                "item",
+                "style"
+              ],
+              "maximum_references": 4
+            }
+          ]
+        },
+        "x-project89-actor-materialization": {
+          "schema_version": 1,
+          "status": "requires_runtime_capability",
+          "actor_kind": "wallet_backed_proxim8",
+          "custody_changes_control": false,
+          "ambient_autonomy": true,
+          "dynamic_item": "Agent Memory Seed"
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/project89-operation-liberation"
+      },
+      "integrity": "sha256:81c9c22ff9ff44ba766dde1f80c19a1b15c0270bd7ae44d85f0a7ef75202502b"
+    },
+    {
+      "id": "project89.perimeter-relay",
+      "name": "Project 89: Perimeter Relay",
+      "description": "Eight stable Project 89 relay anchors joined by a non-geographic authored mesh whose long route interiors are generated and persisted.",
+      "version": "0.1.0",
+      "kind": "world",
+      "license": "LicenseRef-Project89-Prototype",
+      "license_url": "https://www.project89.org/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "project89.perimeter-relay/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [
+        "project89.operation-liberation",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "project89.operation-liberation",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "project89.operation-liberation/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "project89.operation-liberation"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/8920"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Project 89 worldpack prototype",
+        "source_url": "https://www.project89.org/",
+        "modification_notice": "The relay anchors, topology, ecology, and Signal Anchor mechanic are tentative CosyWorld adaptations."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 8,
+        "exits": 24,
+        "hidden_exits": 0,
+        "room_features": 8,
+        "room_sheets": 8,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 8,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-media": {
+          "schema_version": 1,
+          "profiles": [
+            {
+              "profile": "project89.world-art.base/1",
+              "operations": [
+                "base_generation"
+              ],
+              "intents": [
+                "location_card_art"
+              ],
+              "reference_slots": [],
+              "maximum_references": 0
+            },
+            {
+              "profile": "project89.world-art.refinement/1",
+              "operations": [
+                "single_reference",
+                "multi_reference"
+              ],
+              "intents": [
+                "location_card_art",
+                "room_scene"
+              ],
+              "reference_slots": [
+                "location",
+                "style"
+              ],
+              "maximum_references": 2
+            }
+          ]
+        },
+        "x-cosyworld-generation": {
+          "schema_version": 1,
+          "policy_id": "project89.perimeter-relay/generation/1",
+          "migration_version": 1,
+          "collision_namespace": "pack://project89.perimeter-relay/generated/v1",
+          "generated_descendants": {
+            "owner": "source_route",
+            "composition": "active_bundle",
+            "subject_kinds": [
+              "route",
+              "waypoint",
+              "place",
+              "location_card"
+            ],
+            "on_upgrade": "require_declared_migration",
+            "on_unmount": "freeze_with_owner"
+          },
+          "place_anchor": {
+            "action_label": "Scan the sector",
+            "target_label": "a Signal Anchor",
+            "question": "Can someone scan and register this sector?",
+            "description": "Calibrate a durable public Signal Anchor beside one locally significant landmark so future travelers can identify the place.",
+            "completion_memory": "A Signal Anchor now registers this place for future travelers.",
+            "visual_description": "A durable human-scaled signal fixture with a low teal frame and coral calibration lights beside one locally significant landmark, weathered to match the setting; no writing, logo, interface text, people, or portable form."
+          },
+          "prose": {
+            "profile_id": "cosyworld.pathway-prose.ecology/1",
+            "prompt_versions": [
+              "pathway-content-v2"
+            ],
+            "ecology": {
+              "interpolation": "endpoint_blend/1",
+              "required_context": [
+                "route_id",
+                "route_version",
+                "origin",
+                "destination",
+                "travel_direction",
+                "segment_index",
+                "segment_count",
+                "biome",
+                "terrain",
+                "climate",
+                "landforms",
+                "geology",
+                "hydrology",
+                "vegetation",
+                "fauna",
+                "resource_cues",
+                "nearby_authored_descriptions"
+              ]
+            }
+          },
+          "media": {
+            "profile_id": "project89.world-art.base/1",
+            "recipe_id": "replicate.ratimics-project89.v95f3d0eb",
+            "provider_preference": {
+              "provider": "replicate",
+              "model": "ratimics/project89",
+              "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+            },
+            "prompt_version": "project89-art/2",
+            "prompt_prefix": "P89, anime style,",
+            "aspect_ratios": [
+              "16:9"
+            ],
+            "output_formats": [
+              "webp"
+            ],
+            "negative_constraints": [
+              "no text",
+              "no logos",
+              "no interface chrome"
+            ],
+            "subject_kinds": [
+              "location_card"
+            ],
+            "authored_art": "permanent",
+            "community_art": "eligible",
+            "unexplored_placeholder": "common_unexplored/1",
+            "fallback": "unexplored_placeholder"
+          },
+          "topology": {
+            "profile_id": "regional_mesh",
+            "directionality": "reciprocal_or_explicit_one_way",
+            "evacuation": "world_lifecycle_required",
+            "budgets": {
+              "components": {
+                "min": 1,
+                "max": 1
+              },
+              "roots": {
+                "min": 1,
+                "max": 1
+              },
+              "ingress": {
+                "min": 8,
+                "max": 8
+              },
+              "egress": {
+                "min": 8,
+                "max": 8
+              },
+              "weighted_distance": {
+                "min": 6,
+                "max": 12
+              },
+              "degree": {
+                "min": 3,
+                "max": 3
+              },
+              "cycle_rank": {
+                "min": 5,
+                "max": 5
+              },
+              "bridges": {
+                "min": 0,
+                "max": 0
+              },
+              "articulation_impact": {
+                "min": 0,
+                "max": 0
+              },
+              "terminal_spurs": {
+                "min": 0,
+                "max": 0
+              }
+            }
+          },
+          "migrations": [],
+          "cross_pack_routes": []
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/project89-perimeter-relay"
+      },
+      "integrity": "sha256:598ccc90c5b2198d780f074cfee7be1b46dead56ddec547f5efc7b2f4e77783b"
+    },
+    {
+      "id": "project89.open-signal-frontier",
+      "name": "Project 89: Open Signal Frontier",
+      "description": "Four known Project 89 stations on an 89-segment frontier circuit, with persisted generated interiors and an explicit future fork contract.",
+      "version": "0.1.0",
+      "kind": "world",
+      "license": "LicenseRef-Project89-Prototype",
+      "license_url": "https://www.project89.org/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "project89.open-signal-frontier/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [
+        "project89.perimeter-relay",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "project89.perimeter-relay",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "project89.perimeter-relay/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "project89.operation-liberation",
+        "project89.perimeter-relay"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/8940"
+        },
+        {
+          "kind": "location",
+          "id": "location/8941"
+        },
+        {
+          "kind": "location",
+          "id": "location/8942"
+        },
+        {
+          "kind": "location",
+          "id": "location/8943"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Project 89 worldpack prototype",
+        "source_url": "https://www.project89.org/",
+        "modification_notice": "The four stations, 89-segment circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 4,
+        "exits": 8,
+        "hidden_exits": 0,
+        "room_features": 4,
+        "room_sheets": 4,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 4,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-media": {
+          "schema_version": 1,
+          "profiles": [
+            {
+              "profile": "project89.world-art.base/1",
+              "operations": [
+                "base_generation"
+              ],
+              "intents": [
+                "location_card_art"
+              ],
+              "reference_slots": [],
+              "maximum_references": 0
+            },
+            {
+              "profile": "project89.world-art.refinement/1",
+              "operations": [
+                "single_reference",
+                "multi_reference"
+              ],
+              "intents": [
+                "location_card_art",
+                "room_scene"
+              ],
+              "reference_slots": [
+                "location",
+                "style"
+              ],
+              "maximum_references": 2
+            }
+          ]
+        },
+        "x-cosyworld-generation": {
+          "schema_version": 1,
+          "policy_id": "project89.open-signal-frontier/generation/1",
+          "migration_version": 1,
+          "collision_namespace": "pack://project89.open-signal-frontier/generated/v1",
+          "generated_descendants": {
+            "owner": "source_route",
+            "composition": "active_bundle",
+            "subject_kinds": [
+              "route",
+              "waypoint",
+              "place",
+              "location_card"
+            ],
+            "on_upgrade": "require_declared_migration",
+            "on_unmount": "freeze_with_owner"
+          },
+          "place_anchor": {
+            "action_label": "Scan the sector",
+            "target_label": "a Signal Anchor",
+            "question": "Can someone scan and register this frontier sector?",
+            "description": "Calibrate a durable public Signal Anchor beside one locally significant landmark so the station network can recognize the place.",
+            "completion_memory": "A Signal Anchor now registers this frontier place.",
+            "visual_description": "A durable human-scaled signal fixture with a low teal frame and coral calibration lights beside one locally significant frontier landmark, weathered to match the setting; no writing, logo, interface text, people, or portable form."
+          },
+          "prose": {
+            "profile_id": "cosyworld.pathway-prose.ecology/1",
+            "prompt_versions": [
+              "pathway-content-v2"
+            ],
+            "ecology": {
+              "interpolation": "endpoint_blend/1",
+              "required_context": [
+                "route_id",
+                "route_version",
+                "origin",
+                "destination",
+                "travel_direction",
+                "segment_index",
+                "segment_count",
+                "biome",
+                "terrain",
+                "climate",
+                "landforms",
+                "geology",
+                "hydrology",
+                "vegetation",
+                "fauna",
+                "resource_cues",
+                "nearby_authored_descriptions"
+              ]
+            }
+          },
+          "media": {
+            "profile_id": "project89.world-art.base/1",
+            "recipe_id": "replicate.ratimics-project89.v95f3d0eb",
+            "provider_preference": {
+              "provider": "replicate",
+              "model": "ratimics/project89",
+              "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+            },
+            "prompt_version": "project89-art/2",
+            "prompt_prefix": "P89, anime style,",
+            "aspect_ratios": [
+              "16:9"
+            ],
+            "output_formats": [
+              "webp"
+            ],
+            "negative_constraints": [
+              "no text",
+              "no logos",
+              "no interface chrome"
+            ],
+            "subject_kinds": [
+              "location_card"
+            ],
+            "authored_art": "permanent",
+            "community_art": "eligible",
+            "unexplored_placeholder": "common_unexplored/1",
+            "fallback": "unexplored_placeholder"
+          },
+          "topology": {
+            "profile_id": "open_frontier",
+            "directionality": "reciprocal_or_explicit_one_way",
+            "evacuation": "world_lifecycle_required",
+            "budgets": {
+              "components": {
+                "min": 1,
+                "max": 1
+              },
+              "roots": {
+                "min": 4,
+                "max": 4
+              },
+              "ingress": {
+                "min": 4,
+                "max": 4
+              },
+              "egress": {
+                "min": 4,
+                "max": 4
+              },
+              "weighted_distance": {
+                "min": 178,
+                "max": 178
+              },
+              "degree": {
+                "min": 2,
+                "max": 2
+              },
+              "cycle_rank": {
+                "min": 1,
+                "max": 1
+              },
+              "bridges": {
+                "min": 0,
+                "max": 0
+              },
+              "articulation_impact": {
+                "min": 0,
+                "max": 0
+              },
+              "terminal_spurs": {
+                "min": 0,
+                "max": 0
+              }
+            }
+          },
+          "migrations": [],
+          "cross_pack_routes": []
+        },
+        "x-project89-frontier": {
+          "schema_version": 1,
+          "authored_station_count": 4,
+          "trunk_distance": 89,
+          "current_shape": "four_station_circuit",
+          "future_expansion": "validated_persistent_forks",
+          "active_generated_places_per_epoch": 89,
+          "status": "trunks_executable_forks_require_runtime_capability"
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/project89-open-signal-frontier"
+      },
+      "integrity": "sha256:3850c2edf6a6d138ed2ec070fc042a5fd20836959f23e90788c8a9fed056c5b9"
+    },
+    {
+      "id": "project89.composition.three-rings",
+      "name": "Project 89 Three-Ring Bridge",
+      "description": "Composition-owned locked relay apertures between the Project 89 authored loop, perimeter mesh, and four frontier stations.",
+      "version": "0.1.0",
+      "kind": "world",
+      "license": "LicenseRef-Project89-Prototype",
+      "license_url": "https://www.project89.org/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "project89.composition.three-rings/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [
+        "project89.operation-liberation",
+        "project89.perimeter-relay",
+        "project89.open-signal-frontier",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "project89.operation-liberation",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "project89.operation-liberation/world"
+          ]
+        },
+        {
+          "id": "project89.perimeter-relay",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "project89.perimeter-relay/world"
+          ]
+        },
+        {
+          "id": "project89.open-signal-frontier",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "project89.open-signal-frontier/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "project89.operation-liberation",
+        "project89.perimeter-relay",
+        "project89.open-signal-frontier"
+      ],
+      "default_ruleset": null,
+      "entry_points": [],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Project 89 worldpack prototype",
+        "source_url": "https://github.com/cenetex/cosyworld",
+        "modification_notice": "This bridge contains only composition-owned routes; progression is driven by authored item-installation lifecycle effects."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 16,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-composition": {
+          "schema_version": 1,
+          "role": "bridge"
+        },
+        "x-cosyworld-generation": {
+          "schema_version": 1,
+          "policy_id": "project89.composition.three-rings/generation/1",
+          "migration_version": 1,
+          "collision_namespace": "pack://project89.composition.three-rings/generated/v1",
+          "migrations": [],
+          "cross_pack_routes": [
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.operation-liberation",
+                  "location_id": 8902
+                },
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8921
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.operation-liberation",
+                  "location_id": 8908
+                },
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8926
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.operation-liberation",
+                  "location_id": 8906
+                },
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8925
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.operation-liberation",
+                  "location_id": 8907
+                },
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8922
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8921
+                },
+                {
+                  "pack_id": "project89.open-signal-frontier",
+                  "location_id": 8940
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8926
+                },
+                {
+                  "pack_id": "project89.open-signal-frontier",
+                  "location_id": 8941
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8925
+                },
+                {
+                  "pack_id": "project89.open-signal-frontier",
+                  "location_id": 8942
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            },
+            {
+              "endpoints": [
+                {
+                  "pack_id": "project89.perimeter-relay",
+                  "location_id": 8922
+                },
+                {
+                  "pack_id": "project89.open-signal-frontier",
+                  "location_id": 8943
+                }
+              ],
+              "route_owner": "project89.composition.three-rings",
+              "generated_descendant_owner": "project89.composition.three-rings",
+              "topology_authority": {
+                "pack_id": "project89.composition.three-rings",
+                "migration_version": 1
+              },
+              "ecology_transition": "endpoint_blend/1",
+              "media_profile_id": "project89.world-art.base/1",
+              "unmount": "remove_with_route_owner",
+              "evacuation": "world_pack_lifecycle"
+            }
+          ]
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/project89-three-rings-bridge"
+      },
+      "integrity": "sha256:b389f5108deb749960a7ec219ff6f60f2ee857a5a27746e8dcf2ef895380ffb0"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "actor_facets": "actor_facets.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "card_bindings": "card_bindings.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json",
+    "sentences": "sentences.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "contributions": "contributions.json",
+  "attributions": "attributions.json",
+  "licenses": "licenses.json",
+  "modified_material": "modified-material.json",
+  "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
+  "registry": "registry.json"
+}

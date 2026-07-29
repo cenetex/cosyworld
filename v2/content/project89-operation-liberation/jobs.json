@@ -1,0 +1,74 @@
+[
+  {
+    "id": "project89:operation-liberation",
+    "premise": "Oneirocom is tightening incompatible signals into a convergence protocol while trapped consciousnesses and constructs remain classified as resources.",
+    "stakes": "The group must change the engine without erasing the differences it came to liberate.",
+    "location_ids": [8900, 8901, 8902, 8903, 8904, 8905, 8906, 8907, 8908],
+    "participant_ids": [8950, 8951, 8952, 8953, 8954, 8955, 8956, 8957, 8958],
+    "progress_clock_id": "project89.liberation-signal",
+    "danger_clock_id": "project89.oneirocom-suppression",
+    "status": "active",
+    "reward": { "label": "the inner loop liberated and four relay apertures commissionable", "orbs": 0 },
+    "consequence": "the current intervention closes and must be approached again through the surviving loop",
+    "memory_summary": "Travelers attributed the evidence, recovered independent witnesses, and confronted the convergence protocol.",
+    "action_copy": {
+      "label": "Resolve Operation Liberation",
+      "summary": "Bring attributed evidence and an accountable control approach to the Convergence Engine."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "commit-liberation-choice",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:operation-liberation",
+          "label": "the convergence protocol"
+        },
+        "requirements": [
+          { "kind": "at_location", "location_id": 8905 },
+          { "kind": "feature_searched", "location_id": 8902, "feature_key": "parzival_testimony" },
+          { "kind": "feature_used", "location_id": 8902, "feature_key": "parzival_testimony", "item_id": 8972 },
+          { "kind": "feature_used", "location_id": 8903, "feature_key": "recovery_channel", "item_id": 8977 },
+          { "kind": "feature_searched", "location_id": 8904, "feature_key": "auditor_terminal" },
+          { "kind": "feature_used", "location_id": 8905, "feature_key": "convergence_controls", "item_id": 8982 }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.liberation-signal",
+        "baseline_progress": 8,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Commit the liberation choice",
+        "narration_key": "project89.operation-liberation.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.operation-liberation",
+        "pack_version": "0.1.0"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "project89.oneirocom-suppression",
+        "filled": 2,
+        "narration_key": "project89.suppression-classifies-routes",
+        "text": "Oneirocom classifies two uncertain routes and publishes the operators responsible."
+      },
+      {
+        "clock_id": "project89.oneirocom-suppression",
+        "filled": 4,
+        "narration_key": "project89.suppression-tightens-alignment",
+        "text": "The engine tightens its alignment window, leaving less room for an untested intervention."
+      },
+      {
+        "clock_id": "project89.oneirocom-suppression",
+        "filled": 5,
+        "narration_key": "project89.suppression-final-warning",
+        "text": "A final warning names the signals that will be contained if the group delays again."
+      }
+    ]
+  }
+]

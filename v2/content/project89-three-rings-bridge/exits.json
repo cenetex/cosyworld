@@ -1,0 +1,18 @@
+[
+  { "from_location_id": 8902, "to_location_id": 8921, "flags": 1, "distance": 1, "direction": "archive aperture" },
+  { "from_location_id": 8921, "to_location_id": 8902, "flags": 1, "distance": 1, "direction": "archive return" },
+  { "from_location_id": 8908, "to_location_id": 8926, "flags": 1, "distance": 1, "direction": "chimera aperture" },
+  { "from_location_id": 8926, "to_location_id": 8908, "flags": 1, "distance": 1, "direction": "chimera return" },
+  { "from_location_id": 8906, "to_location_id": 8925, "flags": 1, "distance": 1, "direction": "loom aperture" },
+  { "from_location_id": 8925, "to_location_id": 8906, "flags": 1, "distance": 1, "direction": "loom return" },
+  { "from_location_id": 8907, "to_location_id": 8922, "flags": 1, "distance": 1, "direction": "rabbit aperture" },
+  { "from_location_id": 8922, "to_location_id": 8907, "flags": 1, "distance": 1, "direction": "rabbit return" },
+  { "from_location_id": 8921, "to_location_id": 8940, "flags": 0, "distance": 1, "direction": "meridian gate" },
+  { "from_location_id": 8940, "to_location_id": 8921, "flags": 0, "distance": 1, "direction": "meridian descent" },
+  { "from_location_id": 8926, "to_location_id": 8941, "flags": 0, "distance": 1, "direction": "reach gate" },
+  { "from_location_id": 8941, "to_location_id": 8926, "flags": 0, "distance": 1, "direction": "reach descent" },
+  { "from_location_id": 8925, "to_location_id": 8942, "flags": 0, "distance": 1, "direction": "expanse gate" },
+  { "from_location_id": 8942, "to_location_id": 8925, "flags": 0, "distance": 1, "direction": "expanse descent" },
+  { "from_location_id": 8922, "to_location_id": 8943, "flags": 0, "distance": 1, "direction": "freeport gate" },
+  { "from_location_id": 8943, "to_location_id": 8922, "flags": 0, "distance": 1, "direction": "freeport descent" }
+]

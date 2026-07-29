@@ -1,0 +1,90 @@
+[
+  {
+    "id": 8920,
+    "name": "Memory Delta",
+    "title": "History in Braided Channels",
+    "description": "Luminous channels divide and rejoin across a dark floodplain, carrying recovered fragments toward several shared basins.",
+    "persona": "The delta lets memories meet without pretending they came from one source.",
+    "biome": "signal-fed delta",
+    "terrain": ["braided light channels", "dark silt terraces", "low relay bridges"],
+    "memory": ["Memory Delta is a stable authored anchor in the relay mesh.", "Its three route slots form no canonical compass order."],
+    "allow_combat": false
+  },
+  {
+    "id": 8921,
+    "name": "Echo Observatory",
+    "title": "The Long Listening Ridge",
+    "description": "Cold antenna terraces climb above aurora static while old transmissions return with their timing and distortion intact.",
+    "persona": "The observatory listens farther than it explains and labels every echo with its delay.",
+    "biome": "cold antenna ridge",
+    "terrain": ["antenna terraces", "basalt listening bowls", "aurora haze"],
+    "memory": ["The Archive Cipher route returns inward to the 89 Archives.", "Archive Meridian is the corresponding Ring 3 station."],
+    "allow_combat": false
+  },
+  {
+    "id": 8922,
+    "name": "White Rabbit Commons",
+    "title": "The Camp That Keeps Moving",
+    "description": "Improvised relay tents, shared cookfires, and painted footpaths occupy a broad shelf beneath constantly rearranged masts.",
+    "persona": "The commons moves information quickly and makes every courier name a return contact.",
+    "biome": "mobile relay commons",
+    "terrain": ["relay tents", "painted paths", "portable masts"],
+    "memory": ["The White Rabbit Relay route returns inward to Interference Market.", "Rabbit Signal Freeport is the corresponding Ring 3 station."],
+    "allow_combat": false
+  },
+  {
+    "id": 8923,
+    "name": "Glass Static Gardens",
+    "title": "Ecology in Broken Light",
+    "description": "Crystalline terraces collect signal weather in translucent leaves that ring softly when charged.",
+    "persona": "The gardens reward slow movement and expose every route that takes more light than it returns.",
+    "biome": "crystalline signal garden",
+    "terrain": ["glass terraces", "resonant leaves", "prismatic runoff"],
+    "memory": ["The gardens are a junction anchor, not a perimeter landmark.", "Generated paths blend its crystalline ecology only with their declared endpoints."],
+    "allow_combat": true
+  },
+  {
+    "id": 8924,
+    "name": "Oneirocom Spillway",
+    "title": "Infrastructure That Escaped",
+    "description": "Flooded conduits descend through concrete channels where dream residue films the water in orderly bands.",
+    "persona": "The spillway demonstrates how controlled systems continue to shape a place after control withdraws.",
+    "biome": "flooded convergence infrastructure",
+    "terrain": ["concrete spill channels", "submerged conduits", "iridescent residue"],
+    "memory": ["The spillway preserves useful Oneirocom infrastructure under public observation.", "Its three route slots are part of the resilient cube mesh."],
+    "allow_combat": true
+  },
+  {
+    "id": 8925,
+    "name": "Signal Orchard",
+    "title": "Living Transmitters",
+    "description": "Teal-barked trees carry coral resonators among their branches while repair crews prune only diseased signal growth.",
+    "persona": "The orchard treats communication as a living system that needs shared maintenance.",
+    "biome": "living transmitter orchard",
+    "terrain": ["teal groves", "coral resonators", "wet maintenance paths"],
+    "memory": ["The Green Loom Thread route returns inward to Green Loom Assembly.", "Green Loom Expanse is the corresponding Ring 3 station."],
+    "allow_combat": false
+  },
+  {
+    "id": 8926,
+    "name": "Chimera Boneyard",
+    "title": "The Salvage Consent Line",
+    "description": "Ferric flats hold immense dormant frames, each marked separately for person, salvage, unknown, or do not disturb.",
+    "persona": "The boneyard makes consent legible before any repair crew opens a tool case.",
+    "biome": "ferric construct flats",
+    "terrain": ["machine skeletons", "ferric dust", "marked recovery lanes"],
+    "memory": ["The Chimera Access Spine route returns inward to the lab.", "Chimera Reach is the corresponding Ring 3 station."],
+    "allow_combat": true
+  },
+  {
+    "id": 8927,
+    "name": "Loomwatch Causeway",
+    "title": "The Weather Boundary",
+    "description": "Woven bridges cross high mist between signal towers whose crews watch pressure, water, and route strain.",
+    "persona": "The causeway closes a circuit only after proving that every traveler retains another return.",
+    "biome": "high woven causeway",
+    "terrain": ["woven bridges", "mist towers", "weather vanes"],
+    "memory": ["Loomwatch is the mesh's resilience witness.", "It is neither a gatehouse nor the outer edge."],
+    "allow_combat": false
+  }
+]

@@ -1,12 +1,16 @@
 # Project 89 worldpack design
 
-Status: proposed V1-to-V2 migration design, not yet an authored or mounted pack.
+Status: executable isolated worldpack prototype plus unfinished V1-to-V2 actor
+migration. The composition lives at `v2/worlds/project89`; it is deliberately
+not part of the official production pack set.
 
 This document defines the V2 migration and expansion of CosyWorld's existing
-Project 89 and Proxim8 integration. The proposed release is a compact Operation
-Liberation world with wallet-backed Proxim8 actors, a nine-location authored
-inner zone, an eight-anchor semi-generative relay web, four authored outer
-stations, nine authored residents, and fifteen world-item types.
+Project 89 and Proxim8 integration. The current prototype is a compact
+Operation Liberation world with a nine-location authored inner zone, an
+eight-anchor generated-pathway relay mesh, four authored outer stations on
+89-step trunks, nine authored residents, and fourteen seeded world items. The
+fifteenth item, Agent Memory Seed, remains dynamic and must be created with a
+future wallet-backed Proxim8 actor.
 
 The public source boundary is deliberately narrow:
 
@@ -510,10 +514,11 @@ The world grows outward through three rings:
 
 1. **Operation Loop:** eight fully authored locations on one loop plus one
    authored side-channel location.
-2. **Perimeter Relay Mesh:** eight authored anchors inside a persistent,
-   amorphous web of generated paths, cycles, junctions, and bounded spurs.
-3. **Open Signal Frontier:** four known authored sanctuary stations followed
-   by an indefinitely extensible generated frontier with no authored terminus.
+2. **Perimeter Relay Mesh:** eight authored anchors on a reviewed,
+   non-geographic cube graph whose path interiors are generated and persisted.
+3. **Open Signal Frontier:** four known authored sanctuary stations on a
+   four-edge circuit. Every trunk has distance 89; validated persistent forks
+   are the next runtime capability and retain no authored terminus.
 
 The complete topology, mesh-resilience contract, Ring 2 anchors, Ring 3
 stations, generation budgets, and safety rules live in
@@ -557,11 +562,14 @@ Market <--------------- Green Loom Assembly <---------+
 Story locks and the single side channel can change available approaches
 without turning Ring 1 into a route mesh.
 Resolving the engine and recording the result at Green Loom Assembly sets
-`project89.inner_loop_liberated` and opens the first Ring 2 path. The
-safehouse, threshold, assembly, and all authored outer stations never receive
-offscreen danger or irreversible loss. Failure closes an approach, advances
-suppression, moves an actor, or costs a world item. It does not delete a
-Proxim8, alter its NFT, or spend Orbs.
+`project89.inner_loop_liberated`. Four world-once item installations then
+commission the Archives-to-Echo, Lab-to-Boneyard, Loom-to-Orchard, and
+Market-to-Commons radial apertures. A key calibrates both endpoint gates; it
+is not a battery, so the route remains open if the portable item later moves.
+The safehouse, threshold, assembly, and all authored outer stations never
+receive offscreen danger or irreversible loss. Failure closes an approach,
+advances suppression, moves an actor, or costs a world item. It does not
+delete a Proxim8, alter its NFT, or spend Orbs.
 
 ## Item list
 
@@ -572,19 +580,19 @@ wraps, burns, or transfers the NFT.
 | --- | --- | --- | --- |
 | **Agent Memory Seed** | Personal relic | Created with each Proxim8 actor. | Actor-bound; follows the actor on NFT transfer; cannot be dropped, stolen, or consumed. |
 | **Charged 89 Sigil** | Mission key | Seraph's opening objective. | Unique world item; spent to open one protected archive path, then retained as an inert relic. |
-| **Archive Cipher** | Tool | Earned from the Custodian. | Transferable; decodes evidence and the meme-farm route. |
+| **Archive Cipher** | Tool and relay key | Earned from the Custodian. | Transferable; decodes evidence, then commissions the Archives-to-Echo aperture without becoming its battery. |
 | **Memory Lantern** | Tool | 89 Archives. | Transferable; adds an investigation approach but never fabricates a memory. |
-| **White Rabbit Relay** | Communication tool | Interference Market contact job. | Transferable; calls one authored ally response in a mission scene. |
+| **White Rabbit Relay** | Communication tool and relay key | Interference Market. | Transferable; commissions the Market-to-Commons aperture and may still call one authored ally response. |
 | **Data Spike** | Systems tool | Interference Market. | Transferable and stealable while carried; one use against a terminal or restraint. |
 | **Signal Veil** | Skill charm | Safehouse quartermaster. | Transferable; enables a stealth approach with the same power budget as other role tools. |
 | **Coherence Nail** | Defensive tool | Safehouse project. | Transferable; reduces one authored instability consequence and is then exhausted. |
 | **Loopbreaker Patch** | Consumable | Meme Farm 17. | One use to wake or stabilize a trapped consciousness. |
 | **Consciousness Capsule** | Rescue objective | Meme Farm 17 and Chimera Lab. | Bulky world item; cannot be sold, equipped, or taken out of the Project 89 world. |
-| **Chimera Access Spine** | Mission key | Chimera Warden encounter. | Unique world item; opens the lab route into the tower. |
+| **Chimera Access Spine** | Mission and relay key | Chimera Warden encounter. | Unique world item; proves the alternate tower route and commissions the Lab-to-Boneyard aperture. |
 | **Neural Disruptor** | Weapon | Project Chimera Lab. | Transferable and stealable; bounded combat profile, ineffective in sanctuary. |
 | **Oneirocom Reality Anchor** | Deployable device | Tower security. | Bulky, transferable world item; stabilizes a room while active but advances suppression if left in Oneirocom control. |
 | **Convergence Key** | Finale relic | Tower or Auditor bargain. | Unique world item; changes the available engine approaches, not the final outcome by itself. |
-| **Green Loom Thread** | Covenant relic | Green Loom Assembly resolution. | Actor-bound after acceptance; records one completed-operation choice and provides no raw stat bonus. |
+| **Green Loom Thread** | Covenant relic and relay key | Green Loom Assembly resolution. | Transferable in the prototype; records the covenant and commissions the Loom-to-Orchard aperture without providing a raw stat bonus. |
 
 `Agent Memory Seed` requires a typed actor-materialization receipt and a
 dynamic item instance. The other items are authored world items. No
@@ -614,10 +622,11 @@ Operation Liberation is the Ring 1 campaign, not the end of the world:
 
 | Progression | Deterministic unlock | New play |
 | --- | --- | --- |
-| Resolve the Convergence Engine and record the outcome at Green Loom Assembly | `project89.inner_loop_liberated` | Opens Ring 2 at Memory Delta. |
-| Complete one station-gate project and prove two independent return routes through Ring 2 | Station-specific journal flag | Opens its corresponding Ring 3 sanctuary station. |
-| Connect all eight Ring 2 anchors into one resilient component and open all four stations | `project89.relay_mesh_resilient` | Allows generated frontiers from different stations to meet. |
-| Accept a legal survey action at a station or discovered frontier place | Idempotent generated-route receipt | Adds one bounded, persisted Ring 3 expansion; successive epochs provide no authored endpoint. |
+| Resolve the Convergence Engine and record the outcome at Green Loom Assembly | `project89.inner_loop_liberated` | Makes the four relay-key commissioning actions available. |
+| Install one relay key at its authored Ring 1 aperture | World-once route calibration and reciprocal `unlock_exit` effects | Permanently opens its matching Ring 2 spoke. |
+| Reach a corresponding Ring 2 gate | Authored distance-1 station return | Opens access to that Ring 3 sanctuary station. |
+| Traverse an authored Ring 3 trunk | Idempotent generated-pathway receipt | Reveals one of 88 persistent interior waypoints at a time. |
+| Later: accept a legal survey action at a trunk place | Future idempotent fork receipt | Adds one bounded, persisted fork without moving a station or rewriting a trunk. |
 
 Ring progression is earned through authored play and exploration. NFT rarity,
 portrait redraws, and Orb balance cannot open a ring or improve its generated
@@ -625,22 +634,23 @@ rewards.
 
 ## Pack and runtime shape
 
-The content should be split into:
+The executable prototype is split into:
 
 1. `project89.operation-liberation`, the fully authored Ring 1 pack containing
    the operation locations, residents, items, cards, factions, job, front, and
    clocks.
 2. `project89.perimeter-relay`, the Ring 2 pack containing eight authored
-   anchors and a `regional_mesh` generated-pathway policy for cycles,
-   cross-links, bounded spurs, station gates, and redundant returns, derived
-   from the Holy Land safety contract.
+   anchors and a `regional_mesh` generated-pathway policy over twelve reviewed
+   distance-2 route slots, derived from the Holy Land safety contract.
 3. `project89.open-signal-frontier`, the Ring 3 pack containing four authored
-   stations and an epoch-extensible `open_frontier` generated-descendant
-   policy with no authored terminus.
+   stations and an `open_frontier` generated-descendant policy over four
+   distance-89 trunk routes. Its namespaced extension declares future
+   persistent forks and an 89-place epoch budget.
 4. `project89.composition.three-rings`, an internal composition bridge owning
    the declared authored routes and unlocks between the three packs.
-5. `cosyworld.composition.core-project89`, a composition pack containing the
-   route between CosyWorld Core and the Threshold Interface.
+5. A future `cosyworld.composition.core-project89` pack containing the route
+   between CosyWorld Core and the Threshold Interface. The prototype stays
+   isolated until that production-sensitive composition is reviewed.
 6. A new Rust-owned NFT actor materialization capability. Manifest v1 can
    declare collection entitlements and card bindings, but it cannot currently
    declare a wallet-backed actor template or materialize an actor.
@@ -668,7 +678,7 @@ item, or combat action with stable numeric ids. Rust proves ownership and
 chooses whether an anchored actor may be offered an authored directive; it
 does not decide the result of that directive.
 
-## Inputs required before implementation
+## Inputs required for actor migration and production release
 
 - Export the V1 Proxim8 `collection_configs` row without API keys or secrets.
 - Export representative V1 `avatars` records plus related `agent_events`,

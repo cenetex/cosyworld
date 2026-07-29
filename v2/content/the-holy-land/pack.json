@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "kind": "world",
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
@@ -55,10 +55,14 @@
   },
   "resources": {
     "actors": "actors.json",
+    "items": "items.json",
     "locations": "locations.json",
     "exits": "exits.json",
     "room_features": "room_features.json",
     "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "fronts": "fronts.json",
     "cards": "cards.json"
   },
   "assets": [
@@ -74,7 +78,7 @@
     "x-cosyworld-generation": {
       "schema_version": 1,
       "policy_id": "cosyworld.the-holy-land/generation/1",
-      "migration_version": 2,
+      "migration_version": 3,
       "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
       "generated_descendants": {
         "owner": "source_route",
@@ -129,7 +133,6 @@
         "prompt_prefix": "B43L, rough unfinished watercolor, pigment blooms, searching pencil, raw paper",
         "aspect_ratios": ["16:9"],
         "output_formats": ["webp"],
-        "negative_constraints": ["no text overlays"],
         "subject_kinds": ["location_card"],
         "authored_art": "permanent",
         "community_art": "eligible",
@@ -154,6 +157,12 @@
         }
       },
       "migrations": [
+        {
+          "from_policy_id": "cosyworld.the-holy-land/generation/1",
+          "from_migration_version": 2,
+          "from_pack_version": "1.1.6",
+          "mode": "preserve_descendants"
+        },
         {
           "from_policy_id": "cosyworld.the-holy-land/generation/1",
           "from_migration_version": 1,

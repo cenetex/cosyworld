@@ -159,6 +159,29 @@ function validateMediaPolicy(media, label) {
   }
   if (recipe.state !== "enabled")
     fail(label, `media recipe ${recipe.id} is ${recipe.state}`);
+  const providerDefaults = recipe.provider_defaults ?? {};
+  if (
+    providerDefaults === null
+    || typeof providerDefaults !== "object"
+    || Array.isArray(providerDefaults)
+  ) {
+    fail(label, `media recipe ${recipe.id} provider_defaults must be an object`);
+  }
+  const controlledInputs = new Set([
+    "prompt",
+    "aspect_ratio",
+    "output_format",
+    "mask",
+    "seed",
+  ]);
+  for (const field of Object.keys(providerDefaults)) {
+    if (controlledInputs.has(field)) {
+      fail(
+        label,
+        `media recipe ${recipe.id} provider_defaults cannot set controlled input ${field}`,
+      );
+    }
+  }
   const hostOwnedUri = /\b[a-z][a-z0-9+.-]*:\/\/|\bdata:/i;
   for (const value of [
     media.prompt_prefix ?? "",

@@ -1,0 +1,84 @@
+[
+  {
+    "id": "project89.liberation-signal",
+    "scope": "room",
+    "scope_id": 8905,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Liberation Signal",
+    "segments": 8,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:8906:inner_loop_liberated",
+        "scope": "room",
+        "scope_id": 8906,
+        "label": "inner loop liberated",
+        "kind": "memory",
+        "reason": "operation_liberation_completed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "project89:operation-liberation",
+        "status": "completed",
+        "reason": "operation_liberation_completed"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Can the group preserve agency while changing the convergence protocol?",
+      "rhythm": "multi_session",
+      "attention": "immediate",
+      "priority": 96,
+      "situation": "Attributed evidence, rescued consciousnesses, and three engine interventions remain available.",
+      "stakes": "A rushed victory may replace one controlling system with another unaccountable choice.",
+      "outcome": "The inner loop records an expose, reroute, or dismantle covenant and makes four relay commissions possible.",
+      "completion_memory": "The group changed the convergence protocol and recorded what its liberation requires them to repair."
+    },
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "id": "project89.oneirocom-suppression",
+    "scope": "room",
+    "scope_id": 8905,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Oneirocom Suppression",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:8905:suppression_protocol",
+        "scope": "room",
+        "scope_id": 8905,
+        "label": "suppression protocol active",
+        "kind": "hook",
+        "reason": "oneirocom_suppression_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "project89:operation-liberation",
+        "status": "failed",
+        "reason": "oneirocom_suppression_filled"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Will Oneirocom classify every unresolved signal before the group acts?",
+      "rhythm": "multi_session",
+      "attention": "background",
+      "priority": 48,
+      "situation": "The tower is converting unknowns into alignment targets.",
+      "stakes": "If suppression fills, the safest engine paths close and the operation must return with a new approach.",
+      "outcome": "The current intervention fails without deleting actors, NFTs, routes, or shared history.",
+      "completion_memory": "Oneirocom closed the current intervention after classifying the remaining signals as suppression targets."
+    },
+    "pack_id": "project89.operation-liberation"
+  }
+]

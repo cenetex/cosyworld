@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "project89.three-rings",
+  "name": "Project 89 Three Rings",
+  "version": 1,
+  "description": "An isolated executable Project 89 composition with an authored inner loop, generated relay mesh, and four-station long-haul frontier.",
+  "entry_location": "project89.operation-liberation:location/8900",
+  "rules_profile": "cosyworld.srd5/1",
+  "pack_lifecycle": {
+    "schema_version": 1,
+    "unmount": [
+      {
+        "pack_id": "project89.open-signal-frontier",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "project89.operation-liberation:location/8900"
+        }
+      },
+      {
+        "pack_id": "project89.perimeter-relay",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "project89.operation-liberation:location/8900"
+        }
+      }
+    ]
+  },
+  "packs": [
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5",
+    "project89.operation-liberation",
+    "project89.perimeter-relay",
+    "project89.open-signal-frontier",
+    "project89.composition.three-rings"
+  ]
+}

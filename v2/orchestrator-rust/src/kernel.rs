@@ -11,7 +11,7 @@ pub(crate) use rejections::*;
 
 pub const CW_MAX_ACTORS: usize = 512;
 pub const CW_MAX_ITEMS: usize = 1024;
-pub const CW_MAX_LOCATIONS: usize = 256;
+pub const CW_MAX_LOCATIONS: usize = 512;
 pub const CW_MAX_EXITS: usize = 1024;
 pub const CW_MAX_EVENTS: usize = 256;
 pub const CW_MAX_EVOLUTION_TRACKS: usize = 128;

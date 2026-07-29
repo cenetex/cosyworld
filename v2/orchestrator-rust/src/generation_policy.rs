@@ -201,6 +201,8 @@ struct MediaRecipe {
     aspect_ratios: Vec<String>,
     output_formats: Vec<String>,
     prompt_versions: Vec<String>,
+    #[serde(default)]
+    provider_defaults: serde_json::Map<String, serde_json::Value>,
     lora: bool,
 }
 
@@ -519,6 +521,7 @@ fn resolve_generation_media_config_from_registry(
     resolved.version = Some(binding.revision.clone());
     resolved.output_format = binding.output_format.clone();
     resolved.prompt_prefix = binding.prompt_prefix.clone();
+    resolved.provider_defaults = recipe.provider_defaults.clone();
     if !recipe.lora {
         resolved.lora_url = None;
     }
@@ -547,6 +550,7 @@ mod tests {
             lora_scale: 1.0,
             prompt_prefix: "host prompt".to_string(),
             output_format: "png".to_string(),
+            provider_defaults: serde_json::Map::new(),
         }
     }
 
@@ -1057,5 +1061,31 @@ mod tests {
         ))
         .is_err());
         assert_eq!(calls.get(), 0, "provider submission must never be reached");
+    }
+
+    #[test]
+    fn holy_land_generated_art_uses_reviewed_model_native_b43l_inputs() {
+        let runtime = RuntimeWorld::seeded();
+        let binding = holy_land_pathway(&runtime)
+            .generation_policy
+            .media
+            .expect("Holy Land policy has reviewed media");
+        let resolved = resolve_generation_media_config(&test_art_config(), Some(&binding), "16:9")
+            .expect("Holy Land recipe resolves");
+
+        assert_eq!(resolved.model, "ratimics/b43l");
+        assert_eq!(resolved.lora_url, None);
+        assert_eq!(
+            resolved.provider_defaults.get("lora_scale"),
+            Some(&serde_json::json!(1.25))
+        );
+        assert_eq!(
+            resolved.provider_defaults.get("guidance_scale"),
+            Some(&serde_json::json!(4.5))
+        );
+        assert_eq!(
+            resolved.provider_defaults.get("num_inference_steps"),
+            Some(&serde_json::json!(28))
+        );
     }
 }

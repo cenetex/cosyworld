@@ -1,0 +1,546 @@
+[
+  {
+    "from_location_id": 8900,
+    "to_location_id": 8901,
+    "flags": 0,
+    "distance": 1,
+    "direction": "safehouse signal",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8901,
+    "to_location_id": 8900,
+    "flags": 0,
+    "distance": 1,
+    "direction": "threshold signal",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8901,
+    "to_location_id": 8902,
+    "flags": 0,
+    "distance": 1,
+    "direction": "archive route",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8902,
+    "to_location_id": 8901,
+    "flags": 0,
+    "distance": 1,
+    "direction": "safehouse route",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8902,
+    "to_location_id": 8903,
+    "flags": 0,
+    "distance": 1,
+    "direction": "farm trace",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8903,
+    "to_location_id": 8902,
+    "flags": 0,
+    "distance": 1,
+    "direction": "archive trace",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8903,
+    "to_location_id": 8904,
+    "flags": 0,
+    "distance": 1,
+    "direction": "tower uplink",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8904,
+    "to_location_id": 8903,
+    "flags": 0,
+    "distance": 1,
+    "direction": "farm downlink",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8904,
+    "to_location_id": 8905,
+    "flags": 0,
+    "distance": 1,
+    "direction": "engine lift",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8905,
+    "to_location_id": 8904,
+    "flags": 0,
+    "distance": 1,
+    "direction": "tower lift",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8905,
+    "to_location_id": 8906,
+    "flags": 0,
+    "distance": 1,
+    "direction": "loom discharge",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8906,
+    "to_location_id": 8905,
+    "flags": 0,
+    "distance": 1,
+    "direction": "engine approach",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8906,
+    "to_location_id": 8907,
+    "flags": 0,
+    "distance": 1,
+    "direction": "market circuit",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8907,
+    "to_location_id": 8906,
+    "flags": 0,
+    "distance": 1,
+    "direction": "loom circuit",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8907,
+    "to_location_id": 8900,
+    "flags": 0,
+    "distance": 1,
+    "direction": "threshold return",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8900,
+    "to_location_id": 8907,
+    "flags": 0,
+    "distance": 1,
+    "direction": "market signal",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8907,
+    "to_location_id": 8908,
+    "flags": 0,
+    "distance": 1,
+    "direction": "chimera side channel",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8908,
+    "to_location_id": 8907,
+    "flags": 0,
+    "distance": 1,
+    "direction": "market side channel",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8908,
+    "to_location_id": 8904,
+    "flags": 0,
+    "distance": 1,
+    "direction": "access spine",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8904,
+    "to_location_id": 8908,
+    "flags": 0,
+    "distance": 1,
+    "direction": "lab access",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "from_location_id": 8920,
+    "to_location_id": 8921,
+    "flags": 0,
+    "distance": 2,
+    "direction": "echo thread",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8921,
+    "to_location_id": 8920,
+    "flags": 0,
+    "distance": 2,
+    "direction": "delta thread",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8920,
+    "to_location_id": 8922,
+    "flags": 0,
+    "distance": 2,
+    "direction": "rabbit thread",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8922,
+    "to_location_id": 8920,
+    "flags": 0,
+    "distance": 2,
+    "direction": "memory thread",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8920,
+    "to_location_id": 8924,
+    "flags": 0,
+    "distance": 2,
+    "direction": "spillway thread",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8924,
+    "to_location_id": 8920,
+    "flags": 0,
+    "distance": 2,
+    "direction": "delta return",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8921,
+    "to_location_id": 8923,
+    "flags": 0,
+    "distance": 2,
+    "direction": "glass thread",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8923,
+    "to_location_id": 8921,
+    "flags": 0,
+    "distance": 2,
+    "direction": "echo return",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8921,
+    "to_location_id": 8926,
+    "flags": 0,
+    "distance": 2,
+    "direction": "chimera trace",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8921,
+    "flags": 0,
+    "distance": 2,
+    "direction": "observatory trace",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8922,
+    "to_location_id": 8923,
+    "flags": 0,
+    "distance": 2,
+    "direction": "garden dispatch",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8923,
+    "to_location_id": 8922,
+    "flags": 0,
+    "distance": 2,
+    "direction": "commons dispatch",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8922,
+    "to_location_id": 8925,
+    "flags": 0,
+    "distance": 2,
+    "direction": "orchard dispatch",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8925,
+    "to_location_id": 8922,
+    "flags": 0,
+    "distance": 2,
+    "direction": "rabbit return",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8924,
+    "to_location_id": 8926,
+    "flags": 0,
+    "distance": 2,
+    "direction": "boneyard conduit",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8924,
+    "flags": 0,
+    "distance": 2,
+    "direction": "spillway conduit",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8924,
+    "to_location_id": 8925,
+    "flags": 0,
+    "distance": 2,
+    "direction": "orchard runoff",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8925,
+    "to_location_id": 8924,
+    "flags": 0,
+    "distance": 2,
+    "direction": "spillway return",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8923,
+    "to_location_id": 8927,
+    "flags": 0,
+    "distance": 2,
+    "direction": "loomwatch refraction",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8927,
+    "to_location_id": 8923,
+    "flags": 0,
+    "distance": 2,
+    "direction": "garden refraction",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8927,
+    "flags": 0,
+    "distance": 2,
+    "direction": "loomwatch salvage line",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8927,
+    "to_location_id": 8926,
+    "flags": 0,
+    "distance": 2,
+    "direction": "chimera salvage line",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8925,
+    "to_location_id": 8927,
+    "flags": 0,
+    "distance": 2,
+    "direction": "loomwatch circuit",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8927,
+    "to_location_id": 8925,
+    "flags": 0,
+    "distance": 2,
+    "direction": "orchard circuit",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8940,
+    "to_location_id": 8941,
+    "flags": 0,
+    "distance": 89,
+    "direction": "salvage meridian",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8941,
+    "to_location_id": 8940,
+    "flags": 0,
+    "distance": 89,
+    "direction": "archive meridian",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8941,
+    "to_location_id": 8942,
+    "flags": 0,
+    "distance": 89,
+    "direction": "living reach",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8942,
+    "to_location_id": 8941,
+    "flags": 0,
+    "distance": 89,
+    "direction": "chimera reach",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8942,
+    "to_location_id": 8943,
+    "flags": 0,
+    "distance": 89,
+    "direction": "rabbit expanse",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8943,
+    "to_location_id": 8942,
+    "flags": 0,
+    "distance": 89,
+    "direction": "loom expanse",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8943,
+    "to_location_id": 8940,
+    "flags": 0,
+    "distance": 89,
+    "direction": "archive freeway",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8940,
+    "to_location_id": 8943,
+    "flags": 0,
+    "distance": 89,
+    "direction": "rabbit freeway",
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "from_location_id": 8902,
+    "to_location_id": 8921,
+    "flags": 1,
+    "distance": 1,
+    "direction": "archive aperture",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8921,
+    "to_location_id": 8902,
+    "flags": 1,
+    "distance": 1,
+    "direction": "archive return",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8908,
+    "to_location_id": 8926,
+    "flags": 1,
+    "distance": 1,
+    "direction": "chimera aperture",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8908,
+    "flags": 1,
+    "distance": 1,
+    "direction": "chimera return",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8906,
+    "to_location_id": 8925,
+    "flags": 1,
+    "distance": 1,
+    "direction": "loom aperture",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8925,
+    "to_location_id": 8906,
+    "flags": 1,
+    "distance": 1,
+    "direction": "loom return",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8907,
+    "to_location_id": 8922,
+    "flags": 1,
+    "distance": 1,
+    "direction": "rabbit aperture",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8922,
+    "to_location_id": 8907,
+    "flags": 1,
+    "distance": 1,
+    "direction": "rabbit return",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8921,
+    "to_location_id": 8940,
+    "flags": 0,
+    "distance": 1,
+    "direction": "meridian gate",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8940,
+    "to_location_id": 8921,
+    "flags": 0,
+    "distance": 1,
+    "direction": "meridian descent",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8941,
+    "flags": 0,
+    "distance": 1,
+    "direction": "reach gate",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8941,
+    "to_location_id": 8926,
+    "flags": 0,
+    "distance": 1,
+    "direction": "reach descent",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8925,
+    "to_location_id": 8942,
+    "flags": 0,
+    "distance": 1,
+    "direction": "expanse gate",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8942,
+    "to_location_id": 8925,
+    "flags": 0,
+    "distance": 1,
+    "direction": "expanse descent",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8922,
+    "to_location_id": 8943,
+    "flags": 0,
+    "distance": 1,
+    "direction": "freeport gate",
+    "pack_id": "project89.composition.three-rings"
+  },
+  {
+    "from_location_id": 8943,
+    "to_location_id": 8922,
+    "flags": 0,
+    "distance": 1,
+    "direction": "freeport descent",
+    "pack_id": "project89.composition.three-rings"
+  }
+]
