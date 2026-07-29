@@ -11226,7 +11226,6 @@ async function main() {
       )));
       if (!restAlreadyAvailable) {
         await leaveTrailTo("Rain-Soft Garden");
-        await travelTo("Moonlit Trail");
         steps.push({ label: "post-project recovery walk", location: await currentLocation() });
       }
       const recoveryCard = await drawPrimaryMatching("rest after extra project work", ["rest", "feel fresh"]);

@@ -305,7 +305,18 @@ run_browser_check() {
     local runtime_path="${COSYWORLD_BROWSER_CHECK_RUNTIME:-}"
     stop_server
     case "$runtime_path" in
-      */cosyworld-browser-check.*) rm -rf -- "$runtime_path" ;;
+      */cosyworld-browser-check.*)
+        for _ in 1 2 3; do
+          if rm -rf -- "$runtime_path"; then
+            break
+          fi
+          sleep 0.1
+        done
+        if [ -e "$runtime_path" ]; then
+          echo "browser-check runtime cleanup did not settle: $runtime_path" >&2
+          return 1
+        fi
+        ;;
     esac
     COSYWORLD_BROWSER_CHECK_RUNTIME=""
   }
