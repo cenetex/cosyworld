@@ -23,6 +23,10 @@ import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 import { validatePackMediaProfiles } from "./media-recipe-schema.mjs";
 import {
+  firstTaleValidationErrors,
+  normalizeFirstTaleConfig,
+} from "./first-tale-schema.mjs";
+import {
   generationPolicyForPack,
   validateCompiledGenerationPolicies,
   worldpackMediaRegistry,
@@ -154,6 +158,30 @@ function loadAvatarNaming(world, worldDir) {
   );
   assertAvatarNamingConfig(config, "world avatar_naming");
   return config;
+}
+
+function loadFirstTale(world, worldDir) {
+  if (world.first_tale === undefined) return null;
+  assert(
+    typeof world.first_tale === "string"
+      && world.first_tale.trim()
+      && !path.isAbsolute(world.first_tale),
+    "world first_tale must be a relative JSON path",
+  );
+  const filePath = path.resolve(worldDir, world.first_tale);
+  const worldsRoot = path.resolve(worldDir, "..");
+  const relativePath = path.relative(worldsRoot, filePath);
+  assert(
+    relativePath
+      && relativePath !== ".."
+      && !relativePath.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(relativePath),
+    "world first_tale must stay within v2/worlds",
+  );
+  const config = readJson(filePath);
+  const errors = firstTaleValidationErrors(config, "world first_tale");
+  assert(errors.length === 0, errors.join("; "));
+  return normalizeFirstTaleConfig(config);
 }
 
 function loadPackLifecycle(world) {
@@ -612,6 +640,7 @@ runContributionSchemaMutationTests();
 const engineVersion = readJson(path.resolve(v2Root, "../package.json")).version;
 const world = readJson(path.join(worldDir, "world.json"));
 const avatarNaming = loadAvatarNaming(world, worldDir);
+const firstTale = loadFirstTale(world, worldDir);
 const packLifecycleSource = loadPackLifecycle(world);
 const lockPath = path.join(worldDir, "pack.lock.json");
 const legacyLockPath = path.join(worldDir, "world.lock.json");
@@ -1099,12 +1128,14 @@ const packLifecycle = compilePackLifecycle(packLifecycleSource, resources);
 const {
   persistence_compatibility: _persistenceCompatibility,
   avatar_naming: _avatarNamingSource,
+  first_tale: _firstTaleSource,
   pack_lifecycle: _packLifecycleSource,
   ...worldIdentity
 } = world;
 const bundleHash = sha256([
   json(worldIdentity),
   ...(avatarNaming ? [json(avatarNaming)] : []),
+  ...(firstTale ? [json(firstTale)] : []),
   ...(packLifecycle ? [json(packLifecycle)] : []),
   json(packSummary),
   ...Object.values(resources).map(json),
@@ -1141,6 +1172,7 @@ const manifest = {
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,
   ...(avatarNaming ? { avatar_naming: avatarNaming } : {}),
+  ...(firstTale ? { first_tale: firstTale } : {}),
   ...(generationMediaRegistry ? { generation_media_registry: generationMediaRegistry } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,

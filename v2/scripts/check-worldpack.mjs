@@ -21,6 +21,7 @@ import { buildingArchetypeValidationErrors } from "./building-archetype-schema.m
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { lanternClockEffectValidationErrors } from "./lantern-clock-contract.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
+import { firstTaleValidationErrors } from "./first-tale-schema.mjs";
 import { versionedRecipeValidationErrors } from "./recipe-schema.mjs";
 import {
   generationPolicyForPack,
@@ -416,6 +417,14 @@ if (worldBearingPacks.length === 0 && manifest.entry_location !== undefined) {
 }
 if (manifest.avatar_naming !== undefined) {
   for (const error of avatarNamingValidationErrors(manifest.avatar_naming, "worldpack avatar_naming")) {
+    fail(error);
+  }
+}
+if (manifest.first_tale !== undefined) {
+  for (const error of firstTaleValidationErrors(
+    manifest.first_tale,
+    "worldpack first_tale",
+  )) {
     fail(error);
   }
 }

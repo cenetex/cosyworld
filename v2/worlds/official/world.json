@@ -5,6 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
+  "first_tale": "first-tale.json",
   "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
   "rules_profile": "cosyworld.srd5/1",
   "pack_lifecycle": {

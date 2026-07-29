@@ -983,13 +983,14 @@ impl RuntimeWorld {
         if !Self::actor_can_act(actor) {
             return None;
         }
+        let first_tale = active_first_tale()?;
         let trace_event_seq = self.first_tale_trace_event_seq(actor_id);
-        let has_lead = self.listen_attempt_claimed_at(actor_id, COSY_COTTAGE_LOCATION_ID);
+        let has_lead = self.listen_attempt_claimed_at(actor_id, first_tale.lead_location_id);
         let destination_reached = self.first_tale_destination_reached(actor_id);
         if trace_event_seq.is_none()
             && has_lead
             && destination_reached
-            && actor.location_id != RAIN_SOFT_GARDEN_LOCATION_ID
+            && actor.location_id != first_tale.destination_location_id
         {
             return None;
         }
@@ -1003,36 +1004,20 @@ impl RuntimeWorld {
             "contribute"
         };
         let instruction = match phase {
-            "notice" => {
-                "Notice what the rain has changed; the first useful lead is guaranteed."
-            }
-            "follow_lead" => {
-                "Follow the rain-bright lead east to Rain-Soft Garden."
-            }
-            "contribute" => {
-                "Inspect the buried stones, clear the drain, or help another traveler lift them."
-            }
-            _ => {
-                "The first stones are visible. The damp line beyond them points toward the riverside."
-            }
+            "notice" => &first_tale.copy.notice_instruction,
+            "follow_lead" => &first_tale.copy.follow_lead_instruction,
+            "contribute" => &first_tale.copy.contribute_instruction,
+            _ => &first_tale.copy.complete_instruction,
         };
         Some(FirstTaleView {
-            schema_version: FIRST_TALE_TRACE_SCHEMA_VERSION,
+            schema_version: first_tale.schema_version,
             phase: phase.to_string(),
-            question:
-                "Can we make the washed garden path trustworthy before the next visitor?"
-                    .to_string(),
+            question: first_tale.copy.question.clone(),
             instruction: instruction.to_string(),
-            target_label: "the washed path in Rain-Soft Garden".to_string(),
-            consequence:
-                "The first stones will give the next visitor an honest footing and reveal a lead toward the river."
-                    .to_string(),
-            completion_memory:
-                "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way."
-                    .to_string(),
-            next_invitation:
-                "Follow the uncovered line toward the riverside and investigate what makes its water worth returning to."
-                    .to_string(),
+            target_label: first_tale.copy.target_label.clone(),
+            consequence: first_tale.copy.consequence.clone(),
+            completion_memory: first_tale.copy.completion_memory.clone(),
+            next_invitation: first_tale.copy.next_invitation.clone(),
             public_trace_created: trace_event_seq.is_some(),
             trace_event_seq,
         })

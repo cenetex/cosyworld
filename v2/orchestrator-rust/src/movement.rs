@@ -203,39 +203,52 @@ impl RuntimeWorld {
     }
 
     pub(super) fn first_tale_destination_reached(&self, actor_id: u64) -> bool {
-        self.rpg_claims
-            .contains(&first_tale_destination_claim_key(actor_id))
+        let Some(first_tale) = active_first_tale() else {
+            return false;
+        };
+        let destination_location_id = first_tale.destination_location_id;
+        first_tale_destination_claim_key(actor_id)
+            .is_some_and(|claim_key| self.rpg_claims.contains(&claim_key))
             || self
                 .actor_by_id(actor_id)
-                .is_some_and(|actor| actor.location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+                .is_some_and(|actor| actor.location_id == destination_location_id)
     }
 
     pub(super) fn record_first_tale_destination_arrivals(&mut self, events: &[EventView]) {
+        let Some(first_tale) = active_first_tale() else {
+            return;
+        };
+        let destination_location_id = first_tale.destination_location_id;
         let actor_ids = events
             .iter()
             .filter(|event| {
                 event.success
                     && event.type_name == "actor.moved"
-                    && (event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-                        || event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+                    && (event.location_id == Some(destination_location_id)
+                        || event.destination_location_id == Some(destination_location_id))
             })
             .filter_map(|event| event.actor_id)
             .collect::<BTreeSet<_>>();
         for actor_id in actor_ids {
-            self.rpg_claims
-                .insert(first_tale_destination_claim_key(actor_id));
+            if let Some(claim_key) = first_tale_destination_claim_key(actor_id) {
+                self.rpg_claims.insert(claim_key);
+            }
         }
     }
 
     pub(super) fn backfill_first_tale_destination_arrivals(&mut self) {
+        let Some(first_tale) = active_first_tale() else {
+            return;
+        };
+        let destination_location_id = first_tale.destination_location_id;
         let mut actor_ids = self
             .event_log
             .iter()
             .filter(|event| {
                 event.success
                     && event.type_name == "actor.moved"
-                    && (event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-                        || event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+                    && (event.location_id == Some(destination_location_id)
+                        || event.destination_location_id == Some(destination_location_id))
             })
             .filter_map(|event| event.actor_id)
             .collect::<BTreeSet<_>>();
@@ -243,12 +256,13 @@ impl RuntimeWorld {
             journey
                 .path
                 .get(..=journey.current_step)
-                .is_some_and(|path| path.contains(&RAIN_SOFT_GARDEN_LOCATION_ID))
+                .is_some_and(|path| path.contains(&destination_location_id))
                 .then_some(*actor_id)
         }));
         for actor_id in actor_ids {
-            self.rpg_claims
-                .insert(first_tale_destination_claim_key(actor_id));
+            if let Some(claim_key) = first_tale_destination_claim_key(actor_id) {
+                self.rpg_claims.insert(claim_key);
+            }
         }
     }
 
@@ -483,10 +497,12 @@ impl RuntimeWorld {
     }
 }
 
-fn first_tale_destination_claim_key(actor_id: u64) -> String {
-    format!(
-        "first_tale:v{FIRST_TALE_TRACE_SCHEMA_VERSION}:actor:{actor_id}:destination:{RAIN_SOFT_GARDEN_LOCATION_ID}"
-    )
+fn first_tale_destination_claim_key(actor_id: u64) -> Option<String> {
+    let first_tale = active_first_tale()?;
+    Some(format!(
+        "first_tale:v{}:actor:{actor_id}:destination:{}",
+        first_tale.schema_version, first_tale.destination_location_id
+    ))
 }
 
 #[cfg(test)]
@@ -1179,9 +1195,9 @@ mod tests {
         assert!(restored.first_tale_view(actor_id).is_none());
 
         let mut legacy_snapshot = RuntimeSnapshot::from_runtime(&runtime);
-        legacy_snapshot
-            .rpg_claims
-            .remove(&first_tale_destination_claim_key(actor_id));
+        let destination_claim =
+            first_tale_destination_claim_key(actor_id).expect("official first tale is mounted");
+        legacy_snapshot.rpg_claims.remove(&destination_claim);
         let backfilled = legacy_snapshot
             .into_runtime()
             .expect("legacy arrival progress backfills from movement");

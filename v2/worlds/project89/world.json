@@ -5,6 +5,7 @@
   "version": 1,
   "description": "An isolated executable Project 89 composition with an authored inner loop, generated relay mesh, and four-station long-haul frontier.",
   "entry_location": "project89.operation-liberation:location/8900",
+  "first_tale": "first-tale.json",
   "rules_profile": "cosyworld.srd5/1",
   "pack_lifecycle": {
     "schema_version": 1,

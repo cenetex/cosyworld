@@ -34,6 +34,7 @@ const worldCases = [
     selectedBy: "cosyworld.core",
     capability: "cosyworld.core/rules",
     offerVerb: "Notice",
+    firstTaleQuestionIncludes: "washed garden path",
     marker: "core-only journal loop",
   },
   {
@@ -50,6 +51,7 @@ const worldCases = [
     selectedBy: "ruby-high.first-bell",
     capability: "ruby-high.first-bell/rules",
     offerVerb: "Tune in",
+    firstTaleAbsent: true,
     marker: "ruby-only journal loop",
   },
   {
@@ -69,6 +71,7 @@ const worldCases = [
     selectedBy: null,
     capability: null,
     offerVerb: null,
+    firstTaleQuestionIncludes: "convergence protocol",
     marker: "project89 journal loop",
   },
 ];
@@ -256,6 +259,18 @@ function assertScene(state, spec, { requireOffer = true } = {}) {
         `${spec.label} exposed no legal action offers`,
       );
     }
+  }
+  if (spec.firstTaleAbsent) {
+    assert(
+      state.first_tale == null,
+      `${spec.label} unexpectedly exposed a first tale: ${JSON.stringify(state.first_tale)}`,
+    );
+  }
+  if (spec.firstTaleQuestionIncludes) {
+    assert(
+      state.first_tale?.question?.includes(spec.firstTaleQuestionIncludes),
+      `${spec.label} exposed the wrong first-tale question: ${JSON.stringify(state.first_tale)}`,
+    );
   }
 }
 

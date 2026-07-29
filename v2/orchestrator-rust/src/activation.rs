@@ -310,6 +310,9 @@ fn event_is_first_public_trace(event: &EventView) -> bool {
     if !event.success {
         return false;
     }
+    let Some(first_tale) = active_first_tale() else {
+        return false;
+    };
     if event.type_name == "first_tale.public_trace" {
         return true;
     }
@@ -318,7 +321,8 @@ fn event_is_first_public_trace(event: &EventView) -> bool {
             serde_json::from_str::<serde_json::Value>(content)
                 .ok()
                 .is_some_and(|trace| {
-                    trace.get("job_id").and_then(|value| value.as_str()) == Some(FIRST_TALE_JOB_ID)
+                    trace.get("job_id").and_then(|value| value.as_str())
+                        == Some(first_tale.job_id.as_str())
                         && trace
                             .get("total_progress")
                             .and_then(|value| value.as_u64())

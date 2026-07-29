@@ -85,6 +85,8 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) avatar_naming: Option<cosyworld_ai_model::AvatarNamingConfig>,
     #[serde(default)]
+    pub(super) first_tale: Option<SeedFirstTaleContent>,
+    #[serde(default)]
     pub(super) generation_media_registry: serde_json::Value,
     #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
@@ -1159,6 +1161,9 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
     if let Some(avatar_naming) = manifest.avatar_naming.as_ref() {
         cosyworld_ai_model::validate_avatar_naming_config(avatar_naming)
             .map_err(|error| format!("invalid worldpack avatar_naming: {error}"))?;
+    }
+    if let Some(first_tale) = manifest.first_tale.as_ref() {
+        validate_first_tale(first_tale)?;
     }
     let mut pack_ids = BTreeSet::new();
     for pack in &manifest.packs {
@@ -2867,6 +2872,30 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     job.id, participant_id
                 ));
             }
+        }
+    }
+    if let Some(first_tale) = content.manifest.first_tale.as_ref() {
+        if !location_ids.contains(&first_tale.lead_location_id)
+            || !location_ids.contains(&first_tale.destination_location_id)
+        {
+            return Err("first-tale content references a missing location".to_string());
+        }
+        let Some(job) = content.jobs.iter().find(|job| job.id == first_tale.job_id) else {
+            return Err(format!(
+                "first-tale content references missing job {}",
+                first_tale.job_id
+            ));
+        };
+        if job.progress_clock_id != first_tale.progress_clock_id
+            || !clock_ids.contains(&first_tale.progress_clock_id)
+            || !job
+                .location_ids
+                .contains(&first_tale.destination_location_id)
+        {
+            return Err(format!(
+                "first-tale content does not match job {} destination or progress clock",
+                first_tale.job_id
+            ));
         }
     }
     for sheet in &content.room_sheets {

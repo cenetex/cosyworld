@@ -590,7 +590,26 @@
       }
     ]
   },
-  "bundle_hash": "sha256:a6f0158819fbfcef2fb301561d49502458d832335a6f1d7cb778f4162df18ff6",
+  "first_tale": {
+    "schema_version": 1,
+    "lead_location_id": 1,
+    "destination_location_id": 2,
+    "job_id": "rain-soft-garden:trustworthy-path",
+    "progress_clock_id": "rain-soft-garden.trustworthy-path",
+    "copy": {
+      "question": "Can we make the washed garden path trustworthy before the next visitor?",
+      "notice_instruction": "Notice what the rain has changed; the first useful lead is guaranteed.",
+      "follow_lead_instruction": "Follow the rain-bright lead east to Rain-Soft Garden.",
+      "contribute_instruction": "Inspect the buried stones, clear the drain, or help another traveler lift them.",
+      "complete_instruction": "The first stones are visible. The damp line beyond them points toward the riverside.",
+      "target_label": "the washed path in Rain-Soft Garden",
+      "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the river.",
+      "completion_memory": "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+      "next_invitation": "Follow the uncovered line toward the riverside and investigate what makes its water worth returning to.",
+      "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
+    }
+  },
+  "bundle_hash": "sha256:45a3fdb7050e9a6c32f8d975d9ca75f6820db7e6c11dc8e68628aa4bd811de56",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
