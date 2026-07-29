@@ -286,3 +286,41 @@ test("Project 89 keeps authored infrastructure known and exploration routes scou
   assert.ok(perimeterExits.every((exit) => exit.discovery === "scout"));
   assert.ok(frontierExits.every((exit) => exit.discovery === "scout"));
 });
+
+test("Project 89 seeds Callum and activates owner-first-connect Proxim8 materialization", () => {
+  const pack = readJson("project89-operation-liberation", "pack.json");
+  const actors = readJson("project89-operation-liberation", "actors.json");
+  const items = readJson("project89-operation-liberation", "items.json");
+  const cards = readJson("project89-operation-liberation", "cards.json");
+  const policy = pack.extensions["x-cosyworld-actor-materialization"];
+
+  assert.deepEqual(policy.collection, {
+    name: "PROXIM8",
+    address: "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf",
+    chain: "solana",
+    standard: "metaplex_core",
+  });
+  assert.equal(policy.trigger, "first_verified_wallet_connection");
+  assert.equal(policy.ownership.authority, "trusted_server_feed");
+  assert.equal(policy.ownership.wallet_signature_proves_ownership, false);
+  assert.equal(policy.custody_changes_control, false);
+  assert.equal(policy.direct_actor_session, false);
+  assert.equal(policy.ambient_autonomy, true);
+  assert.equal(policy.media.trigger_word, "P89");
+  assert.equal(policy.media.base_model, "flux-1");
+  assert.equal(policy.media.lora_strength, 1);
+  assert.equal(policy.media.refinement_model, "flux-2");
+  assert.equal(policy.media.style, "washed-out watercolor anime style");
+
+  const callum = actors.find((actor) => actor.id === policy.pilot.actor_id);
+  assert.equal(callum.name, "Callum Synclaire");
+  assert.equal(callum.location_id, 8900);
+  assert.equal(callum.ambient_autonomy, true);
+  assert.match(JSON.stringify(callum.goals), /other Proxim8s/i);
+  assert.ok(callum.attachments.some(({ item_id }) => item_id === 8984));
+  assert.ok(items.some((item) => item.id === 8984 && /no right to command/i.test(item.description)));
+  assert.ok(cards.some((card) =>
+    card.subject_id === callum.id
+    && card.card_id === "project89-proxim8-callum-synclaire"));
+  assert.equal(policy.pilot.asset_id, "Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo");
+});

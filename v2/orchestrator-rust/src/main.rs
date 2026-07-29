@@ -49,6 +49,7 @@ mod ownership;
 #[cfg(test)]
 mod project_push_tests;
 mod prompts;
+mod proxim8;
 mod quest_loot;
 mod rate_limit;
 mod relationships;
@@ -119,6 +120,7 @@ use natural_affordances::*;
 use offer_commands::*;
 use ownership::*;
 use prompts::*;
+use proxim8::*;
 use qrcode::{render::svg, QrCode};
 use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
@@ -1203,6 +1205,13 @@ enum ProjectionMutation {
         item: CwItem,
         meta: ItemMeta,
         reason: String,
+    },
+    MaterializeProxim8Actor {
+        receipt: MaterializationReceiptState,
+        memory_item: CwItem,
+        memory_meta: ItemMeta,
+        collection_address: String,
+        goal: String,
     },
     UnmaterializeItem {
         receipt_id: String,
@@ -10202,6 +10211,7 @@ impl RuntimeWorld {
             || !self.route_record_preconditions_hold(record)
             || !self.job_contribution_record_preconditions_hold(record)
             || !self.ai_publication_preconditions_hold(record)
+            || !self.proxim8_materialization_record_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
@@ -11486,6 +11496,21 @@ impl RuntimeWorld {
                         *item,
                         meta.clone(),
                         reason,
+                    ));
+                }
+                ProjectionMutation::MaterializeProxim8Actor {
+                    receipt,
+                    memory_item,
+                    memory_meta,
+                    collection_address,
+                    goal,
+                } => {
+                    events.extend(self.apply_proxim8_materialization(
+                        receipt,
+                        *memory_item,
+                        memory_meta,
+                        collection_address,
+                        goal,
                     ));
                 }
                 ProjectionMutation::UnmaterializeItem { receipt_id, reason } => {
@@ -24197,116 +24222,6 @@ async fn wallet_challenge(
         nonce,
         message,
         expires_at_unix,
-    })
-}
-
-async fn wallet_session(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<WalletSessionRequest>,
-) -> Json<WalletSessionResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("wallet-auth-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS as u16,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("wallet authorization rate limited".to_string()),
-        });
-    }
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: 400,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("invalid wallet address".to_string()),
-        });
-    };
-    if let Some(login_id) = payload.qr_login_id.as_deref() {
-        if !qr_wallet_login_is_pending(&state, login_id) {
-            return Json(WalletSessionResponse {
-                ok: false,
-                status: 410,
-                wallet_address: None,
-                wallet_session: None,
-                expires_at_unix: None,
-                error: Some("QR login expired".to_string()),
-            });
-        }
-    }
-    let nonce = payload.nonce.trim().to_string();
-    let now = Instant::now();
-    let Some(challenge) = state.wallet_sessions.lock().ok().and_then(|mut sessions| {
-        sessions
-            .challenges
-            .retain(|_, challenge| challenge.expires_at > now);
-        sessions.challenges.remove(&nonce)
-    }) else {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: 401,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("wallet challenge expired".to_string()),
-        });
-    };
-    if challenge.wallet_address != wallet_address
-        || !verify_solana_wallet_signature(&wallet_address, &challenge.message, &payload.signature)
-    {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: 401,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("wallet signature rejected".to_string()),
-        });
-    }
-
-    let session_token = random_hex(32);
-    let expires_at_unix = now_unix_secs() + 12 * 60 * 60;
-    if let Ok(mut sessions) = state.wallet_sessions.lock() {
-        sessions
-            .sessions
-            .retain(|_, session| session.expires_at > now);
-        sessions.sessions.insert(
-            session_token.clone(),
-            WalletSession {
-                wallet_address: wallet_address.clone(),
-                linked_wallet_addresses: Vec::new(),
-                expires_at: now + Duration::from_secs(12 * 60 * 60),
-            },
-        );
-    }
-    if let Some(login_id) = payload.qr_login_id.as_deref() {
-        if let Err(error) =
-            complete_qr_wallet_login(&state, login_id, &wallet_address, &session_token)
-        {
-            return Json(WalletSessionResponse {
-                ok: false,
-                status: 410,
-                wallet_address: None,
-                wallet_session: None,
-                expires_at_unix: None,
-                error: Some(error.to_string()),
-            });
-        }
-    }
-
-    Json(WalletSessionResponse {
-        ok: true,
-        status: 200,
-        wallet_address: Some(wallet_address),
-        wallet_session: Some(session_token),
-        expires_at_unix: Some(expires_at_unix),
-        error: None,
     })
 }
 

@@ -203,6 +203,57 @@ pub(super) fn ownership_feed_timeout(value: Option<&str>) -> Duration {
     Duration::from_secs(seconds)
 }
 
+pub(super) fn verified_collection_asset_key(collection_address: &str, asset_id: &str) -> String {
+    format!(
+        "collection:{}:{}",
+        collection_address.trim(),
+        asset_id.trim()
+    )
+}
+
+fn verified_collection_asset_card_ids(
+    map: &serde_json::Map<String, serde_json::Value>,
+) -> BTreeSet<String> {
+    ["collectionAssets", "collection_assets", "nfts"]
+        .iter()
+        .filter_map(|key| map.get(*key).and_then(serde_json::Value::as_array))
+        .flatten()
+        .filter_map(|entry| {
+            let entry = entry.as_object()?;
+            let verified = ["collectionVerified", "collection_verified", "verified"]
+                .iter()
+                .filter_map(|key| entry.get(*key).and_then(serde_json::Value::as_bool))
+                .next()
+                .unwrap_or(false);
+            if !verified {
+                return None;
+            }
+            let collection_address = first_json_string(
+                entry,
+                &["collectionAddress", "collection_address", "collection"],
+            )?;
+            let asset_id = first_json_string(
+                entry,
+                &[
+                    "assetId",
+                    "asset_id",
+                    "assetAddress",
+                    "mint",
+                    "address",
+                    "id",
+                ],
+            )?;
+            let valid_solana_address = |value: &str| {
+                bs58::decode(value.trim())
+                    .into_vec()
+                    .is_ok_and(|bytes| bytes.len() == 32)
+            };
+            (valid_solana_address(&collection_address) && valid_solana_address(&asset_id))
+                .then(|| verified_collection_asset_key(&collection_address, &asset_id))
+        })
+        .collect()
+}
+
 fn ownership_reqwest_error(error: reqwest::Error) -> io::Error {
     let detail = if error.is_timeout() {
         "request timed out"
@@ -368,7 +419,7 @@ impl OwnershipIndex {
                             "ownerWalletAddress",
                         ],
                     );
-                    let cards = first_json_cards(
+                    let mut cards = first_json_cards(
                         &map,
                         &[
                             "cardIds",
@@ -378,11 +429,12 @@ impl OwnershipIndex {
                             "hallPassCards",
                         ],
                     );
-                    let cards = if cards.is_empty() {
+                    cards = if cards.is_empty() {
                         json_card_ids(&serde_json::Value::Object(map.clone()))
                     } else {
                         cards
                     };
+                    cards.extend(verified_collection_asset_card_ids(&map));
                     let boxes = first_json_assets(
                         &map,
                         &["boxes", "woodenBoxes", "wooden_boxes", "boxIds", "box_ids"],
@@ -442,7 +494,7 @@ impl OwnershipIndex {
                                 "ownerWalletAddress",
                             ],
                         );
-                        let cards = first_json_cards(
+                        let mut cards = first_json_cards(
                             map,
                             &[
                                 "cardIds",
@@ -452,6 +504,7 @@ impl OwnershipIndex {
                                 "hallPassCards",
                             ],
                         );
+                        cards.extend(verified_collection_asset_card_ids(map));
                         let boxes = first_json_assets(
                             map,
                             &["boxes", "woodenBoxes", "wooden_boxes", "boxIds", "box_ids"],
@@ -498,8 +551,8 @@ impl OwnershipIndex {
                 } else {
                     for (wallet, value) in map {
                         let (cards, grants, boxes, packs) = match value {
-                            serde_json::Value::Object(map) => (
-                                first_json_cards(
+                            serde_json::Value::Object(map) => {
+                                let mut cards = first_json_cards(
                                     &map,
                                     &[
                                         "cardIds",
@@ -508,49 +561,59 @@ impl OwnershipIndex {
                                         "ownedCardIds",
                                         "hallPassCards",
                                     ],
-                                ),
-                                first_json_assets(
-                                    &map,
-                                    &["grantIds", "grant_ids", "entitlements", "grants"],
-                                    &["grantId", "grant_id", "id"],
-                                ),
-                                first_json_assets(
-                                    &map,
-                                    &["boxes", "woodenBoxes", "wooden_boxes", "boxIds", "box_ids"],
-                                    &[
-                                        "boxAssetAddress",
-                                        "box_asset_address",
-                                        "assetAddress",
-                                        "asset_address",
-                                        "assetId",
-                                        "asset_id",
-                                        "mint",
-                                        "address",
-                                        "id",
-                                    ],
-                                ),
-                                first_json_assets(
-                                    &map,
-                                    &[
-                                        "packs",
-                                        "avatarPacks",
-                                        "avatar_packs",
-                                        "packIds",
-                                        "pack_ids",
-                                    ],
-                                    &[
-                                        "packAssetAddress",
-                                        "pack_asset_address",
-                                        "assetAddress",
-                                        "asset_address",
-                                        "assetId",
-                                        "asset_id",
-                                        "mint",
-                                        "address",
-                                        "id",
-                                    ],
-                                ),
-                            ),
+                                );
+                                cards.extend(verified_collection_asset_card_ids(&map));
+                                (
+                                    cards,
+                                    first_json_assets(
+                                        &map,
+                                        &["grantIds", "grant_ids", "entitlements", "grants"],
+                                        &["grantId", "grant_id", "id"],
+                                    ),
+                                    first_json_assets(
+                                        &map,
+                                        &[
+                                            "boxes",
+                                            "woodenBoxes",
+                                            "wooden_boxes",
+                                            "boxIds",
+                                            "box_ids",
+                                        ],
+                                        &[
+                                            "boxAssetAddress",
+                                            "box_asset_address",
+                                            "assetAddress",
+                                            "asset_address",
+                                            "assetId",
+                                            "asset_id",
+                                            "mint",
+                                            "address",
+                                            "id",
+                                        ],
+                                    ),
+                                    first_json_assets(
+                                        &map,
+                                        &[
+                                            "packs",
+                                            "avatarPacks",
+                                            "avatar_packs",
+                                            "packIds",
+                                            "pack_ids",
+                                        ],
+                                        &[
+                                            "packAssetAddress",
+                                            "pack_asset_address",
+                                            "assetAddress",
+                                            "asset_address",
+                                            "assetId",
+                                            "asset_id",
+                                            "mint",
+                                            "address",
+                                            "id",
+                                        ],
+                                    ),
+                                )
+                            }
                             other => (
                                 json_card_ids(&other),
                                 BTreeSet::new(),
@@ -1014,6 +1077,117 @@ impl AccessContext {
     pub(super) fn has_grant(&self, grant_id: &str) -> bool {
         self.granted_entitlement_ids.contains(grant_id)
     }
+}
+
+pub(super) async fn wallet_session(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<WalletSessionRequest>,
+) -> Json<WalletSessionResponse> {
+    if !state.allow_rate_limit(
+        rate_limit_key("wallet-auth-ip", client_ip_key(client_addr)),
+        WALLET_AUTH_LIMIT,
+    ) {
+        return Json(WalletSessionResponse {
+            ok: false,
+            status: RATE_LIMITED_STATUS as u16,
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("wallet authorization rate limited".to_string()),
+        });
+    }
+    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
+        return Json(WalletSessionResponse {
+            ok: false,
+            status: 400,
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("invalid wallet address".to_string()),
+        });
+    };
+    if let Some(login_id) = payload.qr_login_id.as_deref() {
+        if !qr_wallet_login_is_pending(&state, login_id) {
+            return Json(WalletSessionResponse {
+                ok: false,
+                status: 410,
+                wallet_address: None,
+                wallet_session: None,
+                expires_at_unix: None,
+                error: Some("QR login expired".to_string()),
+            });
+        }
+    }
+    let nonce = payload.nonce.trim().to_string();
+    let now = Instant::now();
+    let Some(challenge) = state.wallet_sessions.lock().ok().and_then(|mut sessions| {
+        sessions
+            .challenges
+            .retain(|_, challenge| challenge.expires_at > now);
+        sessions.challenges.remove(&nonce)
+    }) else {
+        return Json(WalletSessionResponse {
+            ok: false,
+            status: 401,
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("wallet challenge expired".to_string()),
+        });
+    };
+    if challenge.wallet_address != wallet_address
+        || !verify_solana_wallet_signature(&wallet_address, &challenge.message, &payload.signature)
+    {
+        return Json(WalletSessionResponse {
+            ok: false,
+            status: 401,
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("wallet signature rejected".to_string()),
+        });
+    }
+
+    let session_token = random_hex(32);
+    let expires_at_unix = now_unix_secs() + 12 * 60 * 60;
+    if let Ok(mut sessions) = state.wallet_sessions.lock() {
+        sessions
+            .sessions
+            .retain(|_, session| session.expires_at > now);
+        sessions.sessions.insert(
+            session_token.clone(),
+            WalletSession {
+                wallet_address: wallet_address.clone(),
+                linked_wallet_addresses: Vec::new(),
+                expires_at: now + Duration::from_secs(12 * 60 * 60),
+            },
+        );
+    }
+    if let Some(login_id) = payload.qr_login_id.as_deref() {
+        if let Err(error) =
+            complete_qr_wallet_login(&state, login_id, &wallet_address, &session_token)
+        {
+            return Json(WalletSessionResponse {
+                ok: false,
+                status: 410,
+                wallet_address: None,
+                wallet_session: None,
+                expires_at_unix: None,
+                error: Some(error.to_string()),
+            });
+        }
+    }
+    let _ = materialize_wallet_proxim8s(&state, &wallet_address).await;
+
+    Json(WalletSessionResponse {
+        ok: true,
+        status: 200,
+        wallet_address: Some(wallet_address),
+        wallet_session: Some(session_token),
+        expires_at_unix: Some(expires_at_unix),
+        error: None,
+    })
 }
 
 impl AppState {
