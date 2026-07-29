@@ -12,6 +12,8 @@ mod ai_voice_routing;
 mod avatar_identity;
 #[cfg(test)]
 mod beliefs_tests;
+#[cfg(test)]
+mod canonical_identity_tests;
 mod canonical_journal;
 mod canonical_world;
 mod cards;
@@ -6285,6 +6287,8 @@ impl AmbientConfig {
 
 impl RuntimeSnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
+        let mut canonical_identities = runtime.canonical_identities.clone();
+        canonical_identities.retain_reachable_entity_versions();
         let content_handles = runtime.world.actors[..runtime.world.actor_count]
             .iter()
             .map(|actor| ("actor", actor.id))
@@ -6312,7 +6316,7 @@ impl RuntimeSnapshot {
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
-            canonical_identities: runtime.canonical_identities.clone(),
+            canonical_identities,
             command_receipts: BTreeMap::new(),
             ai_publications: runtime.ai_publications.clone(),
             world_actors: runtime.world.actors[..runtime.world.actor_count].to_vec(),
@@ -6669,6 +6673,9 @@ impl RuntimeSnapshot {
             runtime.ensure_world_simulation();
             let mint_seed = runtime.next_seed;
             runtime.ensure_canonical_identities(mint_seed);
+            runtime
+                .canonical_identities
+                .retain_reachable_entity_versions();
             runtime.refresh_all_canonical_events();
             Ok(runtime)
         })
@@ -6792,54 +6799,61 @@ impl RuntimeWorld {
             .collect::<BTreeSet<_>>();
 
         for actor_id in actor_ids {
-            let canonical_ref = content_registry()
+            let candidate_ref = content_registry()
                 .content_reference("actor", actor_id)
                 .map(|entry| entry.canonical_ref.clone())
                 .unwrap_or_else(|| opaque_runtime_ref("actor", &format!("{actor_id}:{mint_seed}")));
-            self.canonical_identities
+            let canonical_ref = self
+                .canonical_identities
                 .actor_refs
                 .entry(actor_id)
-                .or_insert_with(|| canonical_ref.clone());
+                .or_insert(candidate_ref)
+                .clone();
             self.canonical_identities
                 .entity_versions
                 .entry(canonical_ref.clone())
                 .or_insert(1);
-            let journal_ref = opaque_runtime_ref("journal", &canonical_ref);
-            self.canonical_identities
+            let journal_ref = self
+                .canonical_identities
                 .journal_refs
                 .entry(actor_id)
-                .or_insert_with(|| journal_ref.clone());
+                .or_insert_with(|| opaque_runtime_ref("journal", &canonical_ref))
+                .clone();
             self.canonical_identities
                 .entity_versions
                 .entry(journal_ref)
                 .or_insert(1);
         }
         for item_id in item_ids {
-            let canonical_ref = content_registry()
+            let candidate_ref = content_registry()
                 .content_reference("item", item_id)
                 .map(|entry| entry.canonical_ref.clone())
                 .unwrap_or_else(|| opaque_runtime_ref("item", &format!("{item_id}:{mint_seed}")));
-            self.canonical_identities
+            let canonical_ref = self
+                .canonical_identities
                 .item_refs
                 .entry(item_id)
-                .or_insert_with(|| canonical_ref.clone());
+                .or_insert(candidate_ref)
+                .clone();
             self.canonical_identities
                 .entity_versions
                 .entry(canonical_ref)
                 .or_insert(1);
         }
         for location_id in location_ids {
-            let canonical_ref = content_registry()
+            let candidate_ref = content_registry()
                 .content_reference("location", location_id)
                 .map(|entry| entry.canonical_ref.clone())
                 .or_else(|| generated_location_refs.get(&location_id).cloned())
                 .unwrap_or_else(|| {
                     opaque_runtime_ref("location", &format!("{location_id}:{mint_seed}"))
                 });
-            self.canonical_identities
+            let canonical_ref = self
+                .canonical_identities
                 .location_refs
                 .entry(location_id)
-                .or_insert_with(|| canonical_ref.clone());
+                .or_insert(candidate_ref)
+                .clone();
             self.canonical_identities
                 .entity_versions
                 .entry(canonical_ref)
@@ -38606,8 +38620,12 @@ fn merge_runtime_canonical_entity_versions(
 }
 
 fn hydrate_runtime_canonical_state(runtime: &mut RuntimeWorld, path: &Path) -> io::Result<()> {
-    let versions = load_canonical_entity_versions(path, OFFICIAL_WORLD_ID)?;
+    let reachable_entity_refs = runtime.canonical_identities.reachable_entity_refs();
+    let versions = load_canonical_entity_versions(path, OFFICIAL_WORLD_ID, &reachable_entity_refs)?;
     merge_runtime_canonical_entity_versions(runtime, &versions);
+    runtime
+        .canonical_identities
+        .retain_reachable_entity_versions();
     let claims = load_canonical_claims(path, OFFICIAL_WORLD_ID)?;
     merge_runtime_canonical_claims(runtime, &claims);
     for event in read_event_store_by_type(path, "natural_feature.revealed")? {
@@ -52161,132 +52179,6 @@ mod tests {
         }
         drop(runtime);
         drop(conn);
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn durable_entity_versions_rehydrate_replayed_runtime_before_next_write() {
-        std::thread::Builder::new()
-            .name("durable-version-rehydrate".to_string())
-            .stack_size(16 * 1024 * 1024)
-            .spawn(run_durable_entity_version_rehydration)
-            .expect("spawn durable version rehydration thread")
-            .join()
-            .expect("durable version rehydration thread");
-    }
-
-    fn run_durable_entity_version_rehydration() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-canonical-version-rehydrate-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-        let actor_id = 5000;
-        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
-        {
-            let mut runtime = state.inner.blocking_lock();
-            let mut create = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_CREATE_ACTOR,
-                    actor_id,
-                    location_id: COSY_COTTAGE_LOCATION_ID,
-                    ..CwAction::default()
-                },
-                71_200,
-            );
-            create.actor_meta_upserts.insert(
-                actor_id,
-                ActorMeta {
-                    name: "Version Traveller".to_string(),
-                    speech_mode: "prose".to_string(),
-                    title: "Recovery Tester".to_string(),
-                    description: "A test avatar crossing a worldpack version boundary.".to_string(),
-                },
-            );
-            assert_eq!(
-                commit_journal_record(&state, &mut runtime, create)
-                    .expect("commit versioned actor")
-                    .0,
-                CW_OK
-            );
-        }
-        let actor_ref = state
-            .inner
-            .blocking_lock()
-            .canonical_ref("actor", actor_id)
-            .expect("actor canonical ref")
-            .to_string();
-        let durable_version = {
-            let conn = open_event_store(&path).expect("open canonical versions");
-            let current = conn
-                .query_row(
-                    "SELECT entity_version FROM canonical_entity_versions
-                     WHERE world_id = ?1 AND entity_ref = ?2",
-                    params![OFFICIAL_WORLD_ID, &actor_ref],
-                    |row| row.get::<_, i64>(0),
-                )
-                .expect("durable actor version") as u64;
-            let advanced = current.saturating_add(10);
-            conn.execute(
-                "UPDATE canonical_entity_versions SET entity_version = ?3
-                 WHERE world_id = ?1 AND entity_ref = ?2",
-                params![OFFICIAL_WORLD_ID, &actor_ref, advanced as i64],
-            )
-            .expect("simulate a durable version ahead of replay");
-            advanced
-        };
-
-        {
-            let mut runtime = state.inner.blocking_lock();
-            restore_runtime_from_durable_state(&state, &mut runtime, &path)
-                .expect("rehydrate replayed runtime");
-            assert_eq!(runtime.entity_version(&actor_ref), durable_version);
-
-            let content_id = runtime.next_content_id;
-            runtime.next_content_id = runtime.next_content_id.saturating_add(1);
-            let mut say = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_SAY,
-                    actor_id,
-                    content_id,
-                    ..CwAction::default()
-                },
-                71_201,
-            );
-            say.content_upserts.insert(
-                content_id,
-                "the durable version is authoritative".to_string(),
-            );
-            assert_eq!(
-                commit_journal_record(&state, &mut runtime, say)
-                    .expect("commit after canonical rehydration")
-                    .0,
-                CW_OK
-            );
-            assert_eq!(
-                runtime.entity_version(&actor_ref),
-                durable_version.saturating_add(1)
-            );
-        }
-        let stored_after = open_event_store(&path)
-            .expect("reopen canonical versions")
-            .query_row(
-                "SELECT entity_version FROM canonical_entity_versions
-                 WHERE world_id = ?1 AND entity_ref = ?2",
-                params![OFFICIAL_WORLD_ID, &actor_ref],
-                |row| row.get::<_, i64>(0),
-            )
-            .expect("advanced durable actor version") as u64;
-        assert_eq!(stored_after, durable_version.saturating_add(1));
-        assert_eq!(
-            state
-                .event_store_health
-                .lock()
-                .expect("event store health")
-                .consecutive_append_failures,
-            0
-        );
         let _ = fs::remove_file(path);
     }
 

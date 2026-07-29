@@ -7377,8 +7377,8 @@ async function main() {
     });
     const pendingCopy = await page.locator("#log .line.chat.pending").getAttribute("aria-label");
     assert(
-      /is finding the thread\.(?: Your conversation is unfolding| Your next actions are ready while the conversation unfolds)\./.test(pendingCopy || ""),
-      `queued Chat should announce that the conversation is unfolding: ${pendingCopy}`,
+      /(?:is choosing an opening line\.|is finding the thread\.(?: Your conversation is unfolding| Your next actions are ready while the conversation unfolds)\.)/.test(pendingCopy || ""),
+      `queued Chat should announce that the resident is preparing the conversation: ${pendingCopy}`,
     );
     steps.push({ label, pending: "queued" });
   }

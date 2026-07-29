@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io,
 };
 
@@ -31,6 +31,25 @@ pub(super) struct CanonicalIdentityState {
     pub(super) pact_refs: BTreeMap<String, String>,
     #[serde(default)]
     pub(super) entity_versions: BTreeMap<String, u64>,
+}
+
+impl CanonicalIdentityState {
+    pub(super) fn reachable_entity_refs(&self) -> BTreeSet<String> {
+        self.actor_refs
+            .values()
+            .chain(self.item_refs.values())
+            .chain(self.location_refs.values())
+            .chain(self.journal_refs.values())
+            .chain(self.pact_refs.values())
+            .cloned()
+            .collect()
+    }
+
+    pub(super) fn retain_reachable_entity_versions(&mut self) {
+        let reachable = self.reachable_entity_refs();
+        self.entity_versions
+            .retain(|entity_ref, _| reachable.contains(entity_ref));
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

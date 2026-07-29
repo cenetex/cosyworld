@@ -64,4 +64,8 @@
 # with its SSE transcript, and the accompanying cross-surface contract pins
 # the speaker-specific pending UI. This remains in main.rs beside the existing
 # chat orchestration and its browser integration contract.
-74481
+#
+# 74481 -> 74373: move canonical identity/version persistence regressions out
+# of the root test module and into canonical_identity_tests.rs while fixing the
+# stable-reference insertion and legacy reachability boundary.
+74373
