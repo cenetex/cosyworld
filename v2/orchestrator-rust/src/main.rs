@@ -62939,15 +62939,15 @@ mod tests {
                 .any(|offer| offer.kind == "create_bond"),
             "only advancement-backed Befriend is gated at zero advancement"
         );
-        let move_offer = state
+        let scout_offer = state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "move")
-            .expect("move offer is exposed");
-        assert_eq!(move_offer.category, "travel");
-        assert_eq!(move_offer.intention, "travel");
-        assert_eq!(move_offer.verb, "Travel");
-        assert!(move_offer.accessible_label.starts_with("Travel to "));
+            .find(|offer| offer.kind == "explore_path")
+            .expect("Scout is exposed instead of false Travel");
+        assert_eq!(scout_offer.category, "travel");
+        assert_eq!(scout_offer.intention, "scout");
+        assert_eq!(scout_offer.verb, "Scout");
+        assert!(scout_offer.accessible_label.starts_with("Scout toward "));
 
         let inspector = state.inspector;
         assert_eq!(inspector.location_id, MOONLIT_TRAIL_LOCATION_ID);
