@@ -183,7 +183,7 @@
     "from_location_id": 8920,
     "to_location_id": 8921,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "east",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -192,7 +192,7 @@
     "from_location_id": 8921,
     "to_location_id": 8920,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "west",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -201,7 +201,7 @@
     "from_location_id": 8920,
     "to_location_id": 8922,
     "flags": 0,
-    "distance": 2,
+    "distance": 4,
     "direction": "north",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -210,7 +210,7 @@
     "from_location_id": 8922,
     "to_location_id": 8920,
     "flags": 0,
-    "distance": 2,
+    "distance": 4,
     "direction": "south",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -219,7 +219,7 @@
     "from_location_id": 8920,
     "to_location_id": 8924,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "up",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -228,7 +228,7 @@
     "from_location_id": 8924,
     "to_location_id": 8920,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "down",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -237,7 +237,7 @@
     "from_location_id": 8921,
     "to_location_id": 8923,
     "flags": 0,
-    "distance": 2,
+    "distance": 4,
     "direction": "north",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -246,26 +246,26 @@
     "from_location_id": 8923,
     "to_location_id": 8921,
     "flags": 0,
-    "distance": 2,
+    "distance": 4,
     "direction": "south",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
     "from_location_id": 8921,
-    "to_location_id": 8926,
+    "to_location_id": 8924,
     "flags": 0,
-    "distance": 2,
-    "direction": "up",
+    "distance": 5,
+    "direction": "northeast",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
-    "from_location_id": 8926,
+    "from_location_id": 8924,
     "to_location_id": 8921,
     "flags": 0,
-    "distance": 2,
-    "direction": "down",
+    "distance": 5,
+    "direction": "southwest",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
@@ -273,7 +273,7 @@
     "from_location_id": 8922,
     "to_location_id": 8923,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "east",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -282,98 +282,80 @@
     "from_location_id": 8923,
     "to_location_id": 8922,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "west",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
     "from_location_id": 8922,
-    "to_location_id": 8925,
+    "to_location_id": 8927,
     "flags": 0,
-    "distance": 2,
+    "distance": 5,
     "direction": "up",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
-    "from_location_id": 8925,
+    "from_location_id": 8927,
     "to_location_id": 8922,
     "flags": 0,
-    "distance": 2,
+    "distance": 5,
     "direction": "down",
-    "discovery": "scout",
-    "pack_id": "project89.perimeter-relay"
-  },
-  {
-    "from_location_id": 8924,
-    "to_location_id": 8926,
-    "flags": 0,
-    "distance": 2,
-    "direction": "east",
-    "discovery": "scout",
-    "pack_id": "project89.perimeter-relay"
-  },
-  {
-    "from_location_id": 8926,
-    "to_location_id": 8924,
-    "flags": 0,
-    "distance": 2,
-    "direction": "west",
-    "discovery": "scout",
-    "pack_id": "project89.perimeter-relay"
-  },
-  {
-    "from_location_id": 8924,
-    "to_location_id": 8925,
-    "flags": 0,
-    "distance": 2,
-    "direction": "north",
-    "discovery": "scout",
-    "pack_id": "project89.perimeter-relay"
-  },
-  {
-    "from_location_id": 8925,
-    "to_location_id": 8924,
-    "flags": 0,
-    "distance": 2,
-    "direction": "south",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
     "from_location_id": 8923,
-    "to_location_id": 8927,
+    "to_location_id": 8925,
     "flags": 0,
-    "distance": 2,
+    "distance": 4,
     "direction": "up",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
-    "from_location_id": 8927,
+    "from_location_id": 8925,
     "to_location_id": 8923,
     "flags": 0,
-    "distance": 2,
+    "distance": 4,
     "direction": "down",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
-    "from_location_id": 8926,
-    "to_location_id": 8927,
+    "from_location_id": 8924,
+    "to_location_id": 8925,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "north",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
   {
-    "from_location_id": 8927,
+    "from_location_id": 8925,
+    "to_location_id": 8924,
+    "flags": 0,
+    "distance": 3,
+    "direction": "south",
+    "discovery": "scout",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8924,
     "to_location_id": 8926,
     "flags": 0,
-    "distance": 2,
-    "direction": "south",
+    "distance": 4,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8924,
+    "flags": 0,
+    "distance": 4,
+    "direction": "west",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
@@ -381,7 +363,7 @@
     "from_location_id": 8925,
     "to_location_id": 8927,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "east",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
@@ -390,8 +372,26 @@
     "from_location_id": 8927,
     "to_location_id": 8925,
     "flags": 0,
-    "distance": 2,
+    "distance": 3,
     "direction": "west",
+    "discovery": "scout",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8926,
+    "to_location_id": 8927,
+    "flags": 0,
+    "distance": 4,
+    "direction": "north",
+    "discovery": "scout",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "from_location_id": 8927,
+    "to_location_id": 8926,
+    "flags": 0,
+    "distance": 4,
+    "direction": "south",
     "discovery": "scout",
     "pack_id": "project89.perimeter-relay"
   },
@@ -542,7 +542,7 @@
   {
     "from_location_id": 8921,
     "to_location_id": 8940,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "out",
     "discovery": "known",
@@ -551,7 +551,7 @@
   {
     "from_location_id": 8940,
     "to_location_id": 8921,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "in",
     "discovery": "known",
@@ -560,7 +560,7 @@
   {
     "from_location_id": 8926,
     "to_location_id": 8941,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "out",
     "discovery": "known",
@@ -569,7 +569,7 @@
   {
     "from_location_id": 8941,
     "to_location_id": 8926,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "in",
     "discovery": "known",
@@ -578,7 +578,7 @@
   {
     "from_location_id": 8925,
     "to_location_id": 8942,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "out",
     "discovery": "known",
@@ -587,7 +587,7 @@
   {
     "from_location_id": 8942,
     "to_location_id": 8925,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "in",
     "discovery": "known",
@@ -596,7 +596,7 @@
   {
     "from_location_id": 8922,
     "to_location_id": 8943,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "out",
     "discovery": "known",
@@ -605,7 +605,7 @@
   {
     "from_location_id": 8943,
     "to_location_id": 8922,
-    "flags": 0,
+    "flags": 1,
     "distance": 1,
     "direction": "in",
     "discovery": "known",

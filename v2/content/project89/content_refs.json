@@ -1362,6 +1362,15 @@
       "runtime_handle": 8960
     },
     {
+      "canonical_ref": "pack://project89.operation-liberation/actor/8961",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8961",
+      "legacy_runtime_id": 8961,
+      "runtime_handle": 8961
+    },
+    {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-89-archives",
       "pack_id": "project89.operation-liberation",
       "pack_version": "0.1.0",
@@ -1376,6 +1385,14 @@
       "kind": "card",
       "local_id": "project89-archive-cipher",
       "runtime_handle": 3869798373709656
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/card/project89-callum-agent-memory-seed",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "card",
+      "local_id": "project89-callum-agent-memory-seed",
+      "runtime_handle": 8408409692633185
     },
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-charged-89-sigil",
@@ -1568,6 +1585,14 @@
       "kind": "card",
       "local_id": "project89-parzival",
       "runtime_handle": 4995496350547269
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/card/project89-proxim8-callum-synclaire",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "card",
+      "local_id": "project89-proxim8-callum-synclaire",
+      "runtime_handle": 8094799971037698
     },
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-reality-anchor",
@@ -1814,6 +1839,15 @@
       "local_id": "8983",
       "legacy_runtime_id": 8983,
       "runtime_handle": 8983
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/item/8984",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "8984",
+      "legacy_runtime_id": 8984,
+      "runtime_handle": 8984
     },
     {
       "canonical_ref": "pack://project89.operation-liberation/job/project89%3Aoperation-liberation",

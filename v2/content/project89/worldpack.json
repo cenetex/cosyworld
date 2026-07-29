@@ -33,6 +33,25 @@
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
+  "first_tale": {
+    "schema_version": 1,
+    "lead_location_id": 8900,
+    "destination_location_id": 8905,
+    "job_id": "project89:operation-liberation",
+    "progress_clock_id": "project89.liberation-signal",
+    "copy": {
+      "question": "Can we interrupt the convergence protocol without turning another consciousness into equipment?",
+      "notice_instruction": "Read the relay noise at Threshold Interface; the first attributed signal is guaranteed.",
+      "follow_lead_instruction": "Carry the attributed signal through the inner loop to the Convergence Engine.",
+      "contribute_instruction": "Recover the missing witnesses and controls, then expose, reroute, or dismantle the convergence protocol.",
+      "complete_instruction": "The liberation covenant is public. Four relay apertures now wait for accountable commissions.",
+      "target_label": "the convergence protocol at Convergence Engine",
+      "consequence": "A successful intervention will preserve independent voices, record who changed the engine, and make the relay apertures commissionable.",
+      "completion_memory": "You attributed the signal, recovered independent witnesses, and left a public covenant for changing the convergence protocol.",
+      "next_invitation": "Commission one of the four relay apertures and carry the covenant into the amorphous relay web.",
+      "public_trace": "recorded an attributed liberation covenant so the next independent actor can audit the changed convergence protocol"
+    }
+  },
   "generation_media_registry": {
     "schema_version": 1,
     "profiles": [
@@ -142,7 +161,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:0685ad088a21ae82ed5a069ac7d2265fc9512e934f3ad58f5d2595aaea8d80d4",
+  "bundle_hash": "sha256:f7badd8b1f67ae31d8b949b0005ccab768162c4ceeb0ec2e0ec9e410e3c1dd95",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -348,11 +367,11 @@
         "modification_notice": "Public Project 89 concepts are adapted into a deterministic CosyWorld prototype; new residents, factions, mechanics, and prose remain tentative pending approval."
       },
       "resource_counts": {
-        "actors": 9,
+        "actors": 12,
         "actor_facets": 0,
         "access_gates": 0,
         "factions": 6,
-        "items": 14,
+        "items": 15,
         "locations": 9,
         "exits": 20,
         "hidden_exits": 0,
@@ -362,7 +381,7 @@
         "jobs": 1,
         "action_vocabulary": 0,
         "fronts": 1,
-        "cards": 32,
+        "cards": 34,
         "card_bindings": 0,
         "lifecycle_hooks": 4,
         "evolution_tracks": 0,
@@ -416,13 +435,49 @@
             }
           ]
         },
-        "x-project89-actor-materialization": {
+        "x-cosyworld-actor-materialization": {
           "schema_version": 1,
-          "status": "requires_runtime_capability",
-          "actor_kind": "wallet_backed_proxim8",
+          "status": "active",
+          "trigger": "first_verified_wallet_connection",
+          "entry_location_id": 8900,
+          "collection": {
+            "name": "PROXIM8",
+            "address": "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf",
+            "chain": "solana",
+            "standard": "metaplex_core"
+          },
+          "ownership": {
+            "authority": "trusted_server_feed",
+            "wallet_signature_proves_ownership": false,
+            "collection_membership_must_be_verified": true
+          },
+          "pilot": {
+            "actor_id": 8961,
+            "asset_id": "Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo",
+            "name": "Callum Synclaire",
+            "already_materialized": true
+          },
+          "actor_kind": "independent_proxim8",
           "custody_changes_control": false,
           "ambient_autonomy": true,
-          "dynamic_item": "Agent Memory Seed"
+          "direct_actor_session": false,
+          "goal": "Search for other Proxim8s and welcome them as independent actors.",
+          "dynamic_item": {
+            "name": "Agent Memory Seed",
+            "kind": "keepsake",
+            "role": "relic"
+          },
+          "media": {
+            "base_profile": "project89.world-art.base/1",
+            "base_model": "flux-1",
+            "lora": "ratimics/project89",
+            "trigger_word": "P89",
+            "lora_strength": 1,
+            "style": "washed-out watercolor anime style",
+            "refinement_profile": "project89.world-art.refinement/1",
+            "refinement_model": "flux-2",
+            "refinement_purpose": "cleanup, consistency, and composition"
+          }
         }
       },
       "rules_profile": "cosyworld.srd5/1",
@@ -430,12 +485,12 @@
         "type": "workspace",
         "path": "../../content/project89-operation-liberation"
       },
-      "integrity": "sha256:3b3be424d55f455b6f6f5a7f3a65986b4754abff39910cbcf15648bf65ed4832"
+      "integrity": "sha256:082d3a16bb6ca947ef226e372e029cb4d04e63726a89a118c5ddac8f75fad235"
     },
     {
       "id": "project89.perimeter-relay",
       "name": "Project 89: Perimeter Relay",
-      "description": "Eight stable Project 89 relay anchors joined by a non-geographic authored mesh whose long route interiors are generated and persisted.",
+      "description": "Eight populated Project 89 relay anchors joined by an irregular authored web whose route interiors are generated and persisted.",
       "version": "0.1.0",
       "kind": "world",
       "license": "LicenseRef-Project89-Prototype",
@@ -487,20 +542,20 @@
         "modification_notice": "The relay anchors, topology, ecology, and Signal Anchor mechanic are tentative CosyWorld adaptations."
       },
       "resource_counts": {
-        "actors": 0,
+        "actors": 8,
         "actor_facets": 0,
         "access_gates": 0,
-        "factions": 0,
-        "items": 0,
+        "factions": 3,
+        "items": 8,
         "locations": 8,
         "exits": 24,
         "hidden_exits": 0,
         "room_features": 8,
         "room_sheets": 8,
-        "clocks": 0,
-        "jobs": 0,
+        "clocks": 2,
+        "jobs": 1,
         "action_vocabulary": 0,
-        "fronts": 0,
+        "fronts": 1,
         "cards": 8,
         "card_bindings": 0,
         "lifecycle_hooks": 0,
@@ -653,12 +708,12 @@
                 "max": 8
               },
               "weighted_distance": {
-                "min": 6,
-                "max": 12
+                "min": 11,
+                "max": 11
               },
               "degree": {
-                "min": 3,
-                "max": 3
+                "min": 2,
+                "max": 4
               },
               "cycle_rank": {
                 "min": 5,
@@ -687,12 +742,12 @@
         "type": "workspace",
         "path": "../../content/project89-perimeter-relay"
       },
-      "integrity": "sha256:e65f5758d9ef8996544169fc7c21329dac4dfa39df56d01607154befb3cd21ac"
+      "integrity": "sha256:b33f37957d7b9fa6afe04ead6da8c17880add4cf91f1ec364385c51f0708a48e"
     },
     {
       "id": "project89.open-signal-frontier",
       "name": "Project 89: Open Signal Frontier",
-      "description": "Four known Project 89 stations on an 89-segment frontier circuit, with persisted generated interiors and an explicit future fork contract.",
+      "description": "Four populated Project 89 stations on a long frontier circuit, with persisted generated interiors and an explicit future fork contract.",
       "version": "0.1.0",
       "kind": "world",
       "license": "LicenseRef-Project89-Prototype",
@@ -754,23 +809,23 @@
         "author": "Cenetex",
         "source_name": "Project 89 worldpack prototype",
         "source_url": "https://www.project89.org/",
-        "modification_notice": "The four stations, 89-segment circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
+        "modification_notice": "The four stations, 89-span narrative circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
       },
       "resource_counts": {
-        "actors": 0,
+        "actors": 4,
         "actor_facets": 0,
         "access_gates": 0,
-        "factions": 0,
-        "items": 0,
+        "factions": 2,
+        "items": 4,
         "locations": 4,
         "exits": 8,
         "hidden_exits": 0,
         "room_features": 4,
         "room_sheets": 4,
-        "clocks": 0,
-        "jobs": 0,
+        "clocks": 2,
+        "jobs": 1,
         "action_vocabulary": 0,
-        "fronts": 0,
+        "fronts": 1,
         "cards": 4,
         "card_bindings": 0,
         "lifecycle_hooks": 0,
@@ -954,11 +1009,12 @@
         "x-project89-frontier": {
           "schema_version": 1,
           "authored_station_count": 4,
-          "trunk_distance": 89,
+          "executable_trunk_distance": 89,
+          "narrative_trunk_span": 89,
           "current_shape": "four_station_circuit",
           "future_expansion": "validated_persistent_forks",
           "active_generated_places_per_epoch": 89,
-          "status": "trunks_executable_forks_require_runtime_capability"
+          "status": "long_trunks_executable_forks_require_runtime_capability"
         }
       },
       "rules_profile": "cosyworld.srd5/1",
@@ -966,7 +1022,7 @@
         "type": "workspace",
         "path": "../../content/project89-open-signal-frontier"
       },
-      "integrity": "sha256:671e9ed9ce3979c8306509588c52f9009e3cfbe487bd1469a79415f60ae0443e"
+      "integrity": "sha256:7d7ac53c930cce44368bf58c787aceb506e2d8588716ea90ae59b03523dedbac"
     },
     {
       "id": "project89.composition.three-rings",
@@ -1261,7 +1317,7 @@
         "type": "workspace",
         "path": "../../content/project89-three-rings-bridge"
       },
-      "integrity": "sha256:7d60de105cac1236929c4393f10ee59ddd85b6a4e9110b3eab6f7e3f3c99f56c"
+      "integrity": "sha256:a3e3fff05dd223ffcd4cf8349269ecdfcaf156783d3358cb5d4a84d996cb831c"
     }
   ],
   "files": {
