@@ -771,7 +771,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028",
+    "bundle_hash": "sha256:5f083cbdcee50dddc87ffec96e6cc8b0426825ee8063ef5a82d89a40ebeecb0c",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2579,6 +2579,12 @@
             },
             "migrations": [
               {
+                "from_policy_id": "cosyworld.compatibility.host-generation/1",
+                "from_migration_version": 0,
+                "from_pack_version": "1.0.1",
+                "mode": "preserve_descendants"
+              },
+              {
                 "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
                 "from_migration_version": 1,
                 "from_pack_version": "1.0.1",
@@ -2622,7 +2628,7 @@
           "type": "workspace",
           "path": "../../content/core-holy-land-bridge"
         },
-        "integrity": "sha256:123f2f9b11b427f25659a44da85dafcca4a4a65151f22850100b10b19d69d719"
+        "integrity": "sha256:05450ef20aaadc4ff6fed20d9aeb3fe2d5834005c426ff01fec62c7efb3e8df8"
       },
       {
         "id": "ruby-high.first-bell",

@@ -817,6 +817,23 @@ mod tests {
         let mut wrong_policy = declared;
         wrong_policy.policy_id = "cosyworld.other/generation/1".to_string();
         assert!(generation_policy_allows_upgrade(&wrong_policy, "1.1.5").is_err());
+
+        let production_bridge = legacy_generated_policy_binding(
+            "cosyworld.composition.core-holy-land",
+            "1.0.1",
+            "cosyworld.official",
+            "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170",
+        );
+        assert!(
+            generation_policy_allows_upgrade(&production_bridge, "1.0.2").is_ok(),
+            "the exact production bridge pathway tuple must migrate"
+        );
+        let mut undeclared_bridge = production_bridge;
+        undeclared_bridge.owner_pack_version = "1.0.3".to_string();
+        assert!(
+            generation_policy_allows_upgrade(&undeclared_bridge, "1.0.2").is_err(),
+            "adjacent bridge history must remain fail-closed"
+        );
     }
 
     #[test]

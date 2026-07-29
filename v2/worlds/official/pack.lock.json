@@ -269,7 +269,7 @@
         "type": "workspace",
         "path": "../../content/core-holy-land-bridge"
       },
-      "integrity": "sha256:123f2f9b11b427f25659a44da85dafcca4a4a65151f22850100b10b19d69d719",
+      "integrity": "sha256:05450ef20aaadc4ff6fed20d9aeb3fe2d5834005c426ff01fec62c7efb3e8df8",
       "dependencies": [
         {
           "id": "cosyworld.core",
