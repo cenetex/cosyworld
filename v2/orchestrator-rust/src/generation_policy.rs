@@ -794,6 +794,10 @@ mod tests {
         );
         assert!(generation_policy_allows_upgrade(&legacy, "1.1.5").is_ok());
 
+        let mut production_legacy = legacy.clone();
+        production_legacy.owner_pack_version = "1.1.6".to_string();
+        assert!(generation_policy_allows_upgrade(&production_legacy, "1.2.0").is_ok());
+
         let mut declared = legacy;
         declared.policy_id = "cosyworld.the-holy-land/generation/1".to_string();
         declared.migration_version = 1;
@@ -811,6 +815,65 @@ mod tests {
         let mut wrong_policy = declared;
         wrong_policy.policy_id = "cosyworld.other/generation/1".to_string();
         assert!(generation_policy_allows_upgrade(&wrong_policy, "1.1.5").is_err());
+    }
+
+    #[test]
+    fn production_legacy_116_pathway_checkpoint_restores_idempotently() {
+        let mut runtime = RuntimeWorld::seeded();
+        let historical_hash =
+            "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170";
+        let mut pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 701, 702, 4)
+            .expect("production Holy Land route");
+        pathway.id = "pathway:701:702".to_string();
+        pathway.identity_version = 0;
+        pathway.owner_pack_version = "1.1.6".to_string();
+        let binding = legacy_generated_policy_binding(
+            "cosyworld.the-holy-land",
+            "1.1.6",
+            "cosyworld.official",
+            historical_hash,
+        );
+        pathway.generation_policy = binding.clone();
+        for waypoint in &mut pathway.waypoints {
+            waypoint.generation_policy = binding.clone();
+        }
+        let source_route_id = pathway.source_route_id.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        runtime.ensure_generated_pathway_route_records(&pathway);
+
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.worldpack_bundle_hash = historical_hash.to_string();
+        snapshot
+            .routes
+            .get_mut(&source_route_id)
+            .expect("historical source route")
+            .owner_pack_version = "1.1.6".to_string();
+
+        let restored = snapshot
+            .into_runtime()
+            .expect("the exact production legacy tuple must migrate");
+        assert_eq!(
+            restored.generated_pathways[&pathway.id].generation_policy,
+            binding
+        );
+        assert_eq!(
+            restored.routes[&source_route_id].owner_pack_version,
+            "1.2.0"
+        );
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("the migrated checkpoint must remain idempotent");
+        assert_eq!(
+            serde_json::to_value(&replayed.generated_pathways)
+                .expect("serialize replayed generated pathways"),
+            serde_json::to_value(&restored.generated_pathways)
+                .expect("serialize restored generated pathways")
+        );
+        assert_eq!(replayed.routes, restored.routes);
     }
 
     #[test]
