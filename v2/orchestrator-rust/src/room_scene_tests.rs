@@ -154,6 +154,74 @@ fn scene_fixture(label: &str) -> SceneFixture {
 }
 
 #[test]
+fn generated_waypoint_scene_brief_bounds_every_constraint_by_bytes() {
+    let root = temp_root("generated-waypoint-brief");
+    let mut runtime = RuntimeWorld::seeded();
+    let pathway = runtime
+        .generated_pathway(ACTOR_A, 12, 50, 3)
+        .expect("build a real generated pathway");
+    let waypoint_id = pathway.waypoints[0].id;
+    runtime
+        .generated_pathways
+        .insert(pathway.id.clone(), pathway.clone());
+    runtime.ensure_generated_pathway_edge(&pathway, 12, waypoint_id);
+    create_test_human(&mut runtime, ACTOR_A, waypoint_id, "Aster");
+
+    let event_seq = runtime.world.next_event_seq;
+    let reference_seq = event_seq.saturating_sub(1).max(1);
+    approve_reference(&root, "location", waypoint_id, 1, reference_seq);
+    approve_reference(&root, "actor", ACTOR_A, 1, reference_seq);
+    runtime.event_log.push(EventView {
+        seq: event_seq,
+        type_name: "pathway.arrived".to_string(),
+        success: true,
+        actor_id: Some(ACTOR_A),
+        actor_name: Some("Aster".to_string()),
+        location_id: Some(waypoint_id),
+        location_name: runtime.location_name(waypoint_id),
+        content: Some("Aster reaches the newly discovered crossing.".to_string()),
+        ..EventView::default()
+    });
+    runtime.world.next_event_seq = event_seq.saturating_add(1);
+
+    let job = runtime
+        .freeze_room_scene(&root, ACTOR_A, event_seq)
+        .expect("freeze a generated-waypoint scene");
+    let raw_environment = job
+        .environmental_facts
+        .iter()
+        .find(|fact| fact.starts_with("approved environment:"))
+        .expect("generated waypoint preserves its approved art prompt");
+    assert!(
+        raw_environment.len() > crate::media_recipes::media_verdict::MEDIA_BRIEF_CONSTRAINT_LIMIT,
+        "the production waypoint prompt must reproduce the former overflow"
+    );
+
+    let brief = room_scene_media_brief(&job);
+    brief
+        .validate()
+        .expect("a real generated-waypoint room scene must pass the media gate");
+    for constraint in brief
+        .required_subjects
+        .iter()
+        .chain(&brief.required_environment)
+        .chain(brief.required_item_holder.iter())
+        .chain(&brief.safe_areas)
+        .chain(&brief.forbidden)
+        .chain(&brief.pack_negative_constraints)
+    {
+        assert!(!constraint.trim().is_empty());
+        assert!(
+            constraint.len() <= crate::media_recipes::media_verdict::MEDIA_BRIEF_CONSTRAINT_LIMIT,
+            "constraint is {} bytes: {constraint}",
+            constraint.len()
+        );
+        assert!(constraint.is_char_boundary(constraint.len()));
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn complete_scene_is_byte_traceable_ordered_and_idempotent() {
     assert!(
         serde_json::from_value::<ReviewRoomSceneRequest>(serde_json::json!({

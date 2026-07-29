@@ -18,10 +18,11 @@ use sha2::{Digest, Sha256};
 use tracing::warn;
 
 use crate::media_recipes::media_verdict::{
-    make_visual_verdict, media_candidate_approved, media_candidate_digest,
-    media_candidate_violations, media_provider_route_available, prepare_media_candidate,
-    record_media_provider_failure, record_media_review_unavailable, record_media_visual_verdict,
-    FrozenMediaBrief, MediaCandidateInput, MediaVerdictDisposition, MediaViolation,
+    bounded_brief_constraints, make_visual_verdict, media_candidate_approved,
+    media_candidate_digest, media_candidate_violations, media_provider_route_available,
+    prepare_media_candidate, record_media_provider_failure, record_media_review_unavailable,
+    record_media_visual_verdict, FrozenMediaBrief, MediaCandidateInput, MediaVerdictDisposition,
+    MediaViolation,
 };
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
@@ -1482,21 +1483,6 @@ pub(super) fn community_art_media_brief(plan: &CommunityArtPlan) -> FrozenMediaB
             .push(job.prior_asset_digest.clone());
     }
     brief
-}
-
-/// `FrozenMediaBrief::validate` rejects any constraint that is empty after
-/// trimming or longer than the shared component budget, and the plan fields
-/// that feed those constraints are joins of already-bounded traits, so they can
-/// be arbitrarily longer than a single component. Bounding each constraint here
-/// keeps the frozen brief valid by construction: an over-long constraint is
-/// truncated rather than dropped, and only a constraint with no content left is
-/// omitted.
-fn bounded_brief_constraints(values: impl IntoIterator<Item = String>) -> Vec<String> {
-    values
-        .into_iter()
-        .map(|value| crate::bounded_component(&value))
-        .filter(|value| !value.trim().is_empty())
-        .collect()
 }
 
 fn media_violation_from_policy(value: &str) -> MediaViolation {

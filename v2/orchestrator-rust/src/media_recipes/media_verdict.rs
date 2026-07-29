@@ -35,6 +35,17 @@ const PROVIDER_COOLDOWN_MS: u64 = 5 * 60 * 1000;
 
 static MEDIA_VERDICT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
+/// Bound every producer-authored constraint to the byte budget enforced by
+/// `FrozenMediaBrief::validate`. `bounded_component` cuts only at UTF-8
+/// boundaries; constraints with no content after trimming are omitted.
+pub(crate) fn bounded_brief_constraints(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    values
+        .into_iter()
+        .map(|value| crate::bounded_component(&value))
+        .filter(|value| !value.trim().is_empty())
+        .collect()
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct FrozenMediaBrief {
     pub(crate) schema_version: u8,
