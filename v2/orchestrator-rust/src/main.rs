@@ -13538,10 +13538,8 @@ impl RuntimeWorld {
             )
         };
         let views = self.views_from_buffer(&events);
-        self.event_log.extend(views.iter().cloned());
-        if self.event_log.len() > 512 {
-            let excess = self.event_log.len() - 512;
-            self.event_log.drain(0..excess);
+        for view in &views {
+            self.push_projected_event(view.clone());
         }
         (status, views)
     }
@@ -20551,7 +20549,6 @@ impl RuntimeWorld {
             .rev()
             .take(2)
             .find_map(|line| self.conversation_subject(line, target_actor_id));
-
         Some(AvatarChatPlan {
             actor_id,
             location_id: actor.location_id,
@@ -20583,6 +20580,7 @@ impl RuntimeWorld {
             location_memory: location_meta.memory,
             cast: self.room_cast_names(actor.location_id),
             recent_lines,
+            recent_speaker_shingle_hashes: self.resident_recent_voice_shingle_hashes(actor_id),
             fresh_subject,
             missing_need,
             publication_beat_id: String::new(),

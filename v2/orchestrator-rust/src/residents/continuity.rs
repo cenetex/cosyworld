@@ -20,6 +20,8 @@ pub(crate) struct ResidentContinuityState {
     pub(crate) pending_planning: Option<ResidentPlanningTrace>,
     #[serde(default)]
     pub(crate) last_planning_disposition: Option<ResidentPlanningDisposition>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) recent_voice_shingle_hashes: Vec<u64>,
     pub(crate) open_obligations: Vec<String>,
     pub(crate) current_intent: Option<String>,
     pub(crate) last_observed_event_seq: u64,
@@ -57,6 +59,7 @@ impl ResidentContinuityState {
             pending_action: None,
             pending_planning: None,
             last_planning_disposition: None,
+            recent_voice_shingle_hashes: Vec::new(),
             open_obligations: Vec::new(),
             current_intent: None,
             last_observed_event_seq: 0,
@@ -87,12 +90,18 @@ struct ResidentContinuitySnapshot {
 
 impl ResidentContinuitySnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
+        let residents = runtime.world.actors[..runtime.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|resident| RuntimeWorld::actor_can_act(*resident))
+            .map(|resident| (resident.id, runtime.resident_continuity_for(resident)))
+            .collect();
         Self {
             version: 1,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             world_tick: runtime.world.tick,
             latest_event_seq: runtime.world.next_event_seq.saturating_sub(1),
-            residents: runtime.resident_continuities.clone(),
+            residents,
         }
     }
 }
@@ -252,6 +261,8 @@ impl RuntimeWorld {
         continuity.stable_identity = identity;
         continuity.relationship_notes_by_actor = self.resident_relationship_notes(resident.id);
         continuity.memory_atoms = self.resident_continuity_atoms(resident.id, 6);
+        continuity.recent_voice_shingle_hashes =
+            self.resident_recent_voice_shingle_hashes(resident.id);
         let (open_obligations, current_intent) =
             self.resident_open_obligations_and_intent(resident);
         continuity.open_obligations = open_obligations;
@@ -267,6 +278,40 @@ impl RuntimeWorld {
             .last_observed_event_seq
             .max(self.latest_observed_event_seq_for_resident(resident));
         continuity
+    }
+
+    pub(crate) fn resident_recent_voice_shingle_hashes(&self, resident_id: u64) -> Vec<u64> {
+        const RECENT_VOICE_LINE_LIMIT: usize = 12;
+        const RECENT_VOICE_SHINGLE_LIMIT: usize = 192;
+
+        let mut lines = self
+            .recent_room_lines
+            .values()
+            .flat_map(|events| events.iter())
+            .filter(|event| {
+                event.success
+                    && event.type_name == "message.created"
+                    && event.actor_id == Some(resident_id)
+                    && event.content.is_some()
+            })
+            .collect::<Vec<_>>();
+        lines.sort_by_key(|event| event.seq);
+
+        let mut seen = BTreeSet::new();
+        let mut hashes = Vec::new();
+        for line in lines.into_iter().rev().take(RECENT_VOICE_LINE_LIMIT) {
+            for hash in crate::ai_publication::voice_signature_shingle_hashes(
+                line.content.as_deref().unwrap_or_default(),
+            ) {
+                if seen.insert(hash) {
+                    hashes.push(hash);
+                    if hashes.len() == RECENT_VOICE_SHINGLE_LIMIT {
+                        return hashes;
+                    }
+                }
+            }
+        }
+        hashes
     }
 
     pub(crate) fn resident_continuity_for_reaction(
@@ -742,6 +787,60 @@ mod tests {
             .as_deref()
             .map(|intent| !intent.trim().is_empty())
             .unwrap_or(false));
+        let projected = runtime.resident_continuity_for(
+            runtime
+                .actor_by_id(RATI_ACTOR_ID)
+                .expect("Rati remains in the seeded world"),
+        );
+        assert!(!projected.recent_voice_shingle_hashes.is_empty());
+    }
+
+    #[test]
+    fn resident_voice_shingles_follow_the_speaker_across_rooms_and_exclude_other_speakers() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.recent_room_lines.clear();
+        runtime.resident_continuities.clear();
+        let rati_line =
+            "Bethlehem at last! My biscuit survived the journey beneath the clear bells.";
+        let other_line = "Only Gust keeps this unrelated lavender umbrella phrase in another room.";
+        runtime.push_projected_event(EventView {
+            seq: 9_001,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(RATI_ACTOR_ID),
+            actor_name: Some("Rati".to_string()),
+            location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
+            content: Some(rati_line.to_string()),
+            ..EventView::default()
+        });
+        runtime.push_projected_event(EventView {
+            seq: 9_002,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(WHISKERWIND_ACTOR_ID),
+            actor_name: Some("Gust".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: Some(other_line.to_string()),
+            ..EventView::default()
+        });
+
+        let resident = runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("Rati exists in the seeded world");
+        let continuity = runtime.resident_continuity_for(resident);
+        let own_hashes = crate::ai_publication::voice_signature_shingle_hashes(rati_line);
+        let other_hashes = crate::ai_publication::voice_signature_shingle_hashes(other_line);
+
+        assert!(own_hashes
+            .iter()
+            .any(|hash| continuity.recent_voice_shingle_hashes.contains(hash)));
+        assert!(!other_hashes
+            .iter()
+            .any(|hash| continuity.recent_voice_shingle_hashes.contains(hash)));
+        assert!(
+            continuity.recent_voice_shingle_hashes.len() <= 192,
+            "the persisted speaker memory stays bounded"
+        );
     }
 
     #[test]
@@ -859,6 +958,7 @@ mod tests {
         assert!(continuity_json.contains("\"version\": 1"));
         assert!(continuity_json.contains("\"residents\""));
         assert!(continuity_json.contains("\"promises\""));
+        assert!(continuity_json.contains("\"recent_voice_shingle_hashes\""));
 
         let mut restored =
             RuntimeWorld::load_snapshot(&snapshot_path).expect("world snapshot restores");
@@ -889,6 +989,7 @@ mod tests {
                 .map(|action| action.kind.as_str()),
             Some("search")
         );
+        assert!(!restored_continuity.recent_voice_shingle_hashes.is_empty());
 
         let _ = fs::remove_file(snapshot_path);
         let _ = fs::remove_file(continuity_path);
