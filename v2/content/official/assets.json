@@ -28,7 +28,7 @@
   {
     "pack_id": "cosyworld.the-holy-land",
     "pack_version": "1.2.1",
-    "pack_integrity": "sha256:bda90d20b1c30024bab64cd1529035b4397d1b0ab8eda3378d0176413bec8fda",
+    "pack_integrity": "sha256:d54565c7516b305da3ecd7acecdaf2fc28fb2dd3491da1ad139fd83fdb6b2d3a",
     "provider": "cosyworld.the-holy-land/assets",
     "mount": "cards",
     "root": "the-holy-land",
