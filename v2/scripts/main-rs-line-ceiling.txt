@@ -56,4 +56,8 @@
 # four wiring lines enforce typed lifecycle requirements before preview/apply.
 # 74454 -> 74311: move composition-owned first-tale behavior and tests into
 # first_tale.rs, and move Proxim8 ownership materialization into proxim8.rs.
-74311
+# 74311 -> 74414: restore an existing generated route from its visible return
+# segment, preserving the endpoint journey and adding its regression contract.
+# The web card additionally names the route's far endpoint so the player can
+# tell where the visible segment leads; this stays in index.html.
+74414

@@ -5881,13 +5881,21 @@
             ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
           const routeAccessibleLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
+          const routeLabel = String(firstExit.route_label || "").trim();
+          const routeGuidance = onePath
+            && !searchingPathway
+            && !fleeing
+            && routeLabel
+            && !routeLabel.toLowerCase().endsWith(`to ${String(firstExit.destination_location_name || "").toLowerCase()}`)
+            ? ` · ${routeLabel}`
+            : "";
           const routeAction = {
             ...semanticAction(routeOffer, routeIntention, routeAccessibleLabel),
             label: routeVerb.toLowerCase(),
             detail: onePath
               ? (searchingPathway
                 ? `${routeTargetPrefix}${firstExit.destination_location_name}`
-                : (fleeing ? firstExit.destination_location_name : `${routeTargetPrefix}${firstExit.destination_location_name}`))
+                : (fleeing ? firstExit.destination_location_name : `${routeTargetPrefix}${firstExit.destination_location_name}${routeGuidance}`))
               : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path")),
             command: onePath
               ? `${fleeing ? "flee" : (searchingPathway ? "search pathway to" : "go")} ${firstExit.destination_location_name}`
