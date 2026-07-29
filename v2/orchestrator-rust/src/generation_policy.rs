@@ -439,6 +439,66 @@ pub(super) fn generated_policy_drift_is_legacy_bookkeeping(
         && record.owner_pack_version == pathway.owner_pack_version
 }
 
+fn policy_declares_preserved_binding(
+    policy: &PolicyManifest,
+    binding: &GeneratedPolicyBinding,
+) -> bool {
+    policy.migrations.iter().any(|migration| {
+        migration.from_policy_id == binding.policy_id
+            && migration.from_migration_version == binding.migration_version
+            && migration.from_pack_version == binding.owner_pack_version
+            && migration.mode == "preserve_descendants"
+    })
+}
+
+/// Generated media captures the pathway policy that existed when generation
+/// began. A later, explicitly declared `preserve_descendants` upgrade can
+/// therefore leave an older media record beside a newer pathway binding in the
+/// same checkpoint. Reconcile only that monotonic, reviewed transition; every
+/// tuple on both sides must be current or named exactly by the active policy.
+pub(super) fn generated_policy_drift_is_declared_preserving_upgrade(
+    record: &GeneratedPolicyBinding,
+    pathway: &GeneratedPolicyBinding,
+) -> Result<bool, String> {
+    if record == pathway
+        || record.schema_version != pathway.schema_version
+        || record.owner_pack_id != pathway.owner_pack_id
+        || record.composition_id != pathway.composition_id
+    {
+        return Ok(false);
+    }
+
+    let pack = active_content()
+        .manifest
+        .packs
+        .iter()
+        .find(|pack| pack.id == pathway.owner_pack_id)
+        .ok_or_else(|| {
+            format!(
+                "generated descendant owner pack {} is not mounted",
+                pathway.owner_pack_id
+            )
+        })?;
+    let Some(policy) = policy_for_pack(&pathway.owner_pack_id)? else {
+        return Ok(false);
+    };
+    let pathway_is_current = pathway.policy_id == policy.policy_id
+        && pathway.migration_version == policy.migration_version
+        && pathway.owner_pack_version == pack.version;
+    let pathway_is_preserved_history = pathway.policy_id == policy.policy_id
+        && policy_declares_preserved_binding(&policy, pathway);
+    let record_is_preserved_history = policy_declares_preserved_binding(&policy, record);
+    let transition_is_monotonic = pathway_is_current
+        || (pathway_is_preserved_history
+            && (record.policy_id == LEGACY_GENERATION_POLICY_ID
+                || (record.policy_id == pathway.policy_id
+                    && record.migration_version < pathway.migration_version)));
+
+    Ok(record_is_preserved_history
+        && (pathway_is_current || pathway_is_preserved_history)
+        && transition_is_monotonic)
+}
+
 pub(super) fn generation_policy_allows_upgrade(
     binding: &GeneratedPolicyBinding,
     active_pack_version: &str,
@@ -448,15 +508,7 @@ pub(super) fn generation_policy_allows_upgrade(
     }
     let policy = policy_for_pack(&binding.owner_pack_id)?
         .ok_or_else(|| "generation policy disappeared during pack upgrade".to_string())?;
-    policy
-        .migrations
-        .iter()
-        .any(|migration| {
-            migration.from_policy_id == binding.policy_id
-                && migration.from_migration_version == binding.migration_version
-                && migration.from_pack_version == binding.owner_pack_version
-                && migration.mode == "preserve_descendants"
-        })
+    policy_declares_preserved_binding(&policy, binding)
         .then_some(())
         .ok_or_else(|| "pack upgrade has no exact generated-descendant migration".to_string())
 }
@@ -906,6 +958,69 @@ mod tests {
                 .to_string()
                 .contains("policy binding differs from its pathway"),
             "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn declared_preserving_upgrade_adopts_the_newer_pathway_binding() {
+        // Production can contain media begun under migration v1 beside the
+        // same pathway after it advanced to v2. Both historical tuples are
+        // explicitly preserved by the current Holy Land policy, so loading
+        // adopts the newer pathway binding without permitting arbitrary drift.
+        let mut runtime = RuntimeWorld::seeded();
+        let mut pathway = holy_land_pathway(&runtime);
+        let subject_id = pathway.waypoints[0].id;
+        let mut pathway_binding = pathway.generation_policy.clone();
+        pathway_binding.migration_version = 2;
+        pathway_binding.owner_pack_version = "1.1.6".to_string();
+        pathway_binding.composition_bundle_hash = "sha256:pathway-v2".to_string();
+        pathway.owner_pack_version = pathway_binding.owner_pack_version.clone();
+        pathway.generation_policy = pathway_binding.clone();
+        for waypoint in &mut pathway.waypoints {
+            waypoint.generation_policy = pathway_binding.clone();
+        }
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway);
+        let _ = runtime.apply_fund_community_art_projection(
+            "location",
+            subject_id,
+            1,
+            1,
+            RATI_ACTOR_ID,
+            "preserved-upgrade-fixture",
+            1,
+            337_008,
+            None,
+        );
+        let mut media_binding = pathway_binding.clone();
+        media_binding.migration_version = 1;
+        media_binding.owner_pack_version = "1.1.4".to_string();
+        media_binding.composition_bundle_hash = "sha256:media-v1".to_string();
+        let key = community_art_generation_key("location", subject_id, 1);
+        runtime
+            .community_art_generations
+            .get_mut(&key)
+            .expect("generated media state exists")
+            .generation_policy = media_binding.clone();
+
+        assert!(
+            !generated_policy_drift_is_declared_preserving_upgrade(
+                &pathway_binding,
+                &media_binding,
+            )
+            .expect("reviewed policy lookup succeeds"),
+            "the reverse transition must remain a rejected downgrade"
+        );
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.worldpack_bundle_hash =
+            "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170".to_string();
+        let restored = snapshot
+            .into_runtime()
+            .expect("the production-shaped preserving upgrade checkpoint must load");
+        assert_eq!(
+            restored.community_art_generations[&key].generation_policy,
+            pathway_binding
         );
     }
 
