@@ -74,7 +74,7 @@ test("the official bridge keeps Holy Land prose, art, and cairn vocabulary", () 
   );
   const route = policy.cross_pack_routes[0];
 
-  assert.equal(bridgePack.version, "1.0.2");
+  assert.equal(bridgePack.version, "1.0.3");
   assert.equal(dependency.version, ">=1.2.1 <2.0.0");
   assert.equal(policy.migration_version, 2);
   assert.deepEqual(policy.prose.prompt_versions, ["pathway-content-v2"]);
@@ -94,6 +94,15 @@ test("the official bridge keeps Holy Land prose, art, and cairn vocabulary", () 
         && migration.mode === "preserve_descendants",
     ),
   );
+  assert.ok(
+    policy.migrations.some(
+      (migration) =>
+        migration.from_policy_id === "cosyworld.compatibility.host-generation/1"
+        && migration.from_migration_version === 0
+        && migration.from_pack_version === "1.0.1"
+        && migration.mode === "preserve_descendants",
+    ),
+  );
 });
 
 test("the official world accepts replay from prior Holy Land bundles", () => {
@@ -107,6 +116,11 @@ test("the official world accepts replay from prior Holy Land bundles", () => {
   assert.ok(
     compatible.includes(
       "sha256:54cdcd2ed0d23a8a1f216bf6240035d7f6cf312a910e5e10b2a323d39ac1a333",
+    ),
+  );
+  assert.ok(
+    compatible.includes(
+      "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028",
     ),
   );
 });

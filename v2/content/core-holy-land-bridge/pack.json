@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.composition.core-holy-land",
   "name": "CosyWorld Core + Holy Land Bridge",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "kind": "world",
   "description": "Composition-owned paths connecting CosyWorld Core and The Holy Land.",
   "license": "MIT",
@@ -98,7 +98,19 @@
       "migrations": [
         {
           "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
+          "from_migration_version": 2,
+          "from_pack_version": "1.0.2",
+          "mode": "preserve_descendants"
+        },
+        {
+          "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
           "from_migration_version": 1,
+          "from_pack_version": "1.0.1",
+          "mode": "preserve_descendants"
+        },
+        {
+          "from_policy_id": "cosyworld.compatibility.host-generation/1",
+          "from_migration_version": 0,
           "from_pack_version": "1.0.1",
           "mode": "preserve_descendants"
         },
