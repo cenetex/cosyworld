@@ -85,6 +85,8 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) avatar_naming: Option<cosyworld_ai_model::AvatarNamingConfig>,
     #[serde(default)]
+    pub(super) first_tale: Option<SeedFirstTaleContent>,
+    #[serde(default)]
     pub(super) generation_media_registry: serde_json::Value,
     #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
@@ -850,6 +852,19 @@ pub(super) struct SeedLodgingGateContent {
     pub(super) kind: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum RouteDiscovery {
+    Scout,
+    Known,
+}
+
+impl Default for RouteDiscovery {
+    fn default() -> Self {
+        Self::Scout
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedExitContent {
     #[serde(default)]
@@ -866,6 +881,8 @@ pub(super) struct SeedExitContent {
     pub(super) directionality: RouteDirectionality,
     #[serde(default)]
     pub(super) fallback_location_id: Option<u64>,
+    #[serde(default)]
+    pub(super) discovery: RouteDiscovery,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -947,7 +964,16 @@ pub(super) struct SeedLifecycleHookContent {
     #[serde(default)]
     pub(super) claim_scope: String,
     #[serde(default)]
+    pub(super) requirements: Vec<SeedLifecycleRequirementContent>,
+    #[serde(default)]
     pub(super) effects: Vec<EffectDescriptor>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedLifecycleRequirementContent {
+    pub(super) kind: String,
+    pub(super) tag_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1135,6 +1161,9 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
     if let Some(avatar_naming) = manifest.avatar_naming.as_ref() {
         cosyworld_ai_model::validate_avatar_naming_config(avatar_naming)
             .map_err(|error| format!("invalid worldpack avatar_naming: {error}"))?;
+    }
+    if let Some(first_tale) = manifest.first_tale.as_ref() {
+        validate_first_tale(first_tale)?;
     }
     let mut pack_ids = BTreeSet::new();
     for pack in &manifest.packs {
@@ -2845,6 +2874,30 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             }
         }
     }
+    if let Some(first_tale) = content.manifest.first_tale.as_ref() {
+        if !location_ids.contains(&first_tale.lead_location_id)
+            || !location_ids.contains(&first_tale.destination_location_id)
+        {
+            return Err("first-tale content references a missing location".to_string());
+        }
+        let Some(job) = content.jobs.iter().find(|job| job.id == first_tale.job_id) else {
+            return Err(format!(
+                "first-tale content references missing job {}",
+                first_tale.job_id
+            ));
+        };
+        if job.progress_clock_id != first_tale.progress_clock_id
+            || !clock_ids.contains(&first_tale.progress_clock_id)
+            || !job
+                .location_ids
+                .contains(&first_tale.destination_location_id)
+        {
+            return Err(format!(
+                "first-tale content does not match job {} destination or progress clock",
+                first_tale.job_id
+            ));
+        }
+    }
     for sheet in &content.room_sheets {
         for project_id in &sheet.projects {
             if !job_ids.contains(project_id) {
@@ -3527,6 +3580,19 @@ fn validate_seed_lifecycle_hook(
     }
     if hook.effects.is_empty() {
         return Err(format!("lifecycle hook {} has no effects", hook.hook));
+    }
+    if hook.hook == "on_clock_fill" && !hook.requirements.is_empty() {
+        return Err(
+            "on_clock_fill lifecycle hooks cannot declare dynamic requirements".to_string(),
+        );
+    }
+    for requirement in &hook.requirements {
+        if requirement.kind != "active_tag" || requirement.tag_id.trim().is_empty() {
+            return Err(format!(
+                "lifecycle hook {} has an invalid requirement",
+                hook.hook
+            ));
+        }
     }
     match hook.target_kind.as_str() {
         "room" => {

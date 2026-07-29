@@ -292,6 +292,11 @@ describe("Content Pack Manifest v1", () => {
         path.join(repoRoot, "v2/worlds/shared/cozy-fantasy-avatar-naming.json"),
         path.join(sharedWorldDir, "cozy-fantasy-avatar-naming.json"),
       );
+      fs.mkdirSync(path.join(root, "worlds/official"), { recursive: true });
+      fs.copyFileSync(
+        path.join(repoRoot, "v2/worlds/official/first-tale.json"),
+        path.join(root, "worlds/official/first-tale.json"),
+      );
 
       const worldPath = path.join(worldDir, "world.json");
       const corePackPath = path.join(contentRoot, "core/pack.json");
@@ -686,6 +691,14 @@ describe("Content Pack Manifest v1", () => {
         fs.copyFileSync(
           path.resolve(officialWorldDir, world.avatar_naming),
           namingTarget,
+        );
+      }
+      if (typeof world.first_tale === "string") {
+        const firstTaleTarget = path.resolve(worldDir, world.first_tale);
+        fs.mkdirSync(path.dirname(firstTaleTarget), { recursive: true });
+        fs.copyFileSync(
+          path.resolve(officialWorldDir, world.first_tale),
+          firstTaleTarget,
         );
       }
       const result = spawnSync(process.execPath, [

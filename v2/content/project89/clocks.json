@@ -80,5 +80,169 @@
       "completion_memory": "Oneirocom closed the current intervention after classifying the remaining signals as suppression targets."
     },
     "pack_id": "project89.operation-liberation"
+  },
+  {
+    "id": "project89.perimeter-stability",
+    "scope": "room",
+    "scope_id": 8920,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Perimeter Stability",
+    "segments": 8,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:8920:perimeter_mesh_stable",
+        "scope": "room",
+        "scope_id": 8920,
+        "label": "perimeter mesh stable",
+        "kind": "memory",
+        "reason": "perimeter_relay_stabilized"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "project89:stabilize-perimeter-relay",
+        "status": "completed",
+        "reason": "perimeter_relay_stabilized"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Can eight independent stations stabilize the mesh without appointing one controller?",
+      "rhythm": "multi_session",
+      "attention": "communal",
+      "priority": 72,
+      "situation": "Static, spillway pressure, salvage uncertainty, and route strain are propagating through the web.",
+      "stakes": "An opaque repair would make the mesh orderly but dependent on whoever owns its controls.",
+      "outcome": "Four disclosed interventions stabilize the web while leaving its many paths legible.",
+      "completion_memory": "Residents stabilized the perimeter as a shared mesh with public returns and repair duties."
+    },
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "id": "project89.mesh-cascade",
+    "scope": "room",
+    "scope_id": 8924,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Mesh Cascade",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:8924:mesh_cascade",
+        "scope": "room",
+        "scope_id": 8924,
+        "label": "mesh cascade active",
+        "kind": "hook",
+        "reason": "mesh_cascade_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "project89:stabilize-perimeter-relay",
+        "status": "failed",
+        "reason": "mesh_cascade_filled"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Will one failing route teach the whole mesh to fail?",
+      "rhythm": "multi_session",
+      "attention": "background",
+      "priority": 51,
+      "situation": "Unattributed control signals are coupling static, water, salvage, and weather pressure.",
+      "stakes": "A cascade closes the current repair window and scatters its evidence across generated paths.",
+      "outcome": "The mesh remains traversable, but the communal stabilization attempt must begin again.",
+      "completion_memory": "The perimeter cascade outpaced the current repair plan without deleting its routes or residents."
+    },
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "id": "project89.open-circuit-charter",
+    "scope": "room",
+    "scope_id": 8940,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Open Circuit Charter",
+    "segments": 8,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:8940:open_circuit_chartered",
+        "scope": "room",
+        "scope_id": 8940,
+        "label": "open circuit chartered",
+        "kind": "memory",
+        "reason": "open_circuit_chartered"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "project89:charter-the-open-circuit",
+        "status": "completed",
+        "reason": "open_circuit_chartered"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Can four distant stations promise exploration, maintenance, consent, and return at the same time?",
+      "rhythm": "multi_session",
+      "attention": "communal",
+      "priority": 79,
+      "situation": "Each station holds one necessary term of a frontier charter and one tool another station needs.",
+      "stakes": "A weak charter turns infinity into abandonment; a controlling charter makes departure another permission.",
+      "outcome": "The four stations publish a durable open-circuit charter before future forks appear.",
+      "completion_memory": "The stations chartered an infinite frontier around visible maintenance and an attended return."
+    },
+    "pack_id": "project89.open-signal-frontier"
+  },
+  {
+    "id": "project89.frontier-drift",
+    "scope": "room",
+    "scope_id": 8943,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Frontier Drift",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:8943:frontier_drift",
+        "scope": "room",
+        "scope_id": 8943,
+        "label": "frontier drift active",
+        "kind": "hook",
+        "reason": "frontier_drift_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "project89:charter-the-open-circuit",
+        "status": "failed",
+        "reason": "frontier_drift_filled"
+      }
+    ],
+    "presentation": {
+      "version": 1,
+      "question": "Will the four stations drift into private frontiers before they agree how to return?",
+      "rhythm": "multi_session",
+      "attention": "background",
+      "priority": 46,
+      "situation": "Long distances are turning local practices into incompatible rules.",
+      "stakes": "If drift fills, each station begins charging a different social price for passage.",
+      "outcome": "The circuit remains open, but its common charter must be rebuilt from four local compacts.",
+      "completion_memory": "Frontier drift divided the stations' rules without erasing the long routes between them."
+    },
+    "pack_id": "project89.open-signal-frontier"
   }
 ]

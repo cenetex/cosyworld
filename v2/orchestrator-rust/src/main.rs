@@ -28,6 +28,7 @@ mod content_policy;
 mod content_registry;
 mod contributions;
 mod crafting;
+mod first_tale;
 mod generated_places;
 mod generation_policy;
 mod hosted_access;
@@ -49,6 +50,7 @@ mod ownership;
 #[cfg(test)]
 mod project_push_tests;
 mod prompts;
+mod proxim8;
 mod quest_loot;
 mod rate_limit;
 mod relationships;
@@ -103,6 +105,7 @@ use content_registry::*;
 use contributions::*;
 use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use first_tale::*;
 use generated_places::*;
 use generation_policy::*;
 use hosted_access::*;
@@ -119,6 +122,7 @@ use natural_affordances::*;
 use offer_commands::*;
 use ownership::*;
 use prompts::*;
+use proxim8::*;
 use qrcode::{render::svg, QrCode};
 use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
@@ -455,9 +459,10 @@ const ZONE_SANCTUARY: &str = "sanctuary";
 const ZONE_FRONTIER: &str = "frontier";
 const COSY_COTTAGE_LOCATION_ID: u64 = 1;
 const RAIN_SOFT_GARDEN_LOCATION_ID: u64 = 2;
+#[cfg(test)]
 const FIRST_TALE_JOB_ID: &str = "rain-soft-garden:trustworthy-path";
+#[cfg(test)]
 const FIRST_TALE_PROGRESS_CLOCK_ID: &str = "rain-soft-garden.trustworthy-path";
-const FIRST_TALE_TRACE_SCHEMA_VERSION: u8 = 1;
 #[cfg(test)]
 const GREAT_LIBRARY_LOCATION_ID: u64 = 50;
 #[cfg(test)]
@@ -1203,6 +1208,13 @@ enum ProjectionMutation {
         item: CwItem,
         meta: ItemMeta,
         reason: String,
+    },
+    MaterializeProxim8Actor {
+        receipt: MaterializationReceiptState,
+        memory_item: CwItem,
+        memory_meta: ItemMeta,
+        collection_address: String,
+        goal: String,
     },
     UnmaterializeItem {
         receipt_id: String,
@@ -10202,6 +10214,7 @@ impl RuntimeWorld {
             || !self.route_record_preconditions_hold(record)
             || !self.job_contribution_record_preconditions_hold(record)
             || !self.ai_publication_preconditions_hold(record)
+            || !self.proxim8_materialization_record_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
@@ -11488,6 +11501,21 @@ impl RuntimeWorld {
                         reason,
                     ));
                 }
+                ProjectionMutation::MaterializeProxim8Actor {
+                    receipt,
+                    memory_item,
+                    memory_meta,
+                    collection_address,
+                    goal,
+                } => {
+                    events.extend(self.apply_proxim8_materialization(
+                        receipt,
+                        *memory_item,
+                        memory_meta,
+                        collection_address,
+                        goal,
+                    ));
+                }
                 ProjectionMutation::UnmaterializeItem { receipt_id, reason } => {
                     events.extend(self.unmaterialize_item(action.actor_id, receipt_id, reason));
                 }
@@ -11578,6 +11606,9 @@ impl RuntimeWorld {
     ) -> Vec<EventView> {
         let mut projected = Vec::new();
         for hook in lifecycle_hooks_for(hook_name, target_kind, target_id) {
+            if !lifecycle_hook_requirements_met(hook, &self.tags) {
+                continue;
+            }
             let effects = hook
                 .effects
                 .iter()
@@ -12194,54 +12225,6 @@ impl RuntimeWorld {
         projected
     }
 
-    fn apply_first_tale_public_trace_projection(
-        &mut self,
-        action: &CwAction,
-        events: &[EventView],
-    ) -> Vec<EventView> {
-        let shared_question_complete = self
-            .clocks
-            .get(FIRST_TALE_PROGRESS_CLOCK_ID)
-            .is_some_and(|clock| clock.filled >= clock.segments);
-        if !action_is_discovery_check(action)
-            || self.first_tale_trace_event_seq(action.actor_id).is_some()
-            || !self.listen_attempt_claimed_at(action.actor_id, COSY_COTTAGE_LOCATION_ID)
-            || !shared_question_complete
-        {
-            return Vec::new();
-        }
-        let Some(check) = events.iter().find(|event| {
-            event.type_name == "ability_check.rolled"
-                && event.actor_id == Some(action.actor_id)
-                && event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-        }) else {
-            return Vec::new();
-        };
-        if !check.success
-            || !check
-                .total
-                .zip(check.dc)
-                .is_some_and(|(total, dc)| total >= dc)
-        {
-            return Vec::new();
-        }
-
-        let mut trace = self.append_async_job_event(
-            "first_tale.public_trace",
-            action.actor_id,
-            None,
-            Some(
-                "marked the first uncovered stone so the next visitor can trust the washed path"
-                    .to_string(),
-            ),
-        );
-        trace.caused_by_event_seq = Some(check.seq);
-        self.replace_projected_event(&trace);
-        self.rpg_claims
-            .insert(first_tale_trace_claim_key(action.actor_id, trace.seq));
-        vec![trace]
-    }
-
     fn apply_bounded_magic_projection(
         &mut self,
         action: &CwAction,
@@ -12751,13 +12734,15 @@ impl RuntimeWorld {
             self.record_natural_investigation_contribution(&intent.job_id, contribution_event.seq);
         }
         if total_progress > 0
-            && intent.job_id == FIRST_TALE_JOB_ID
+            && active_first_tale()
+                .is_some_and(|first_tale| intent.job_id == first_tale.job_id.as_str())
             && self.first_tale_trace_event_seq(action.actor_id).is_none()
         {
-            self.rpg_claims.insert(first_tale_trace_claim_key(
-                action.actor_id,
-                contribution_event.seq,
-            ));
+            if let Some(claim_key) =
+                first_tale_trace_claim_key(action.actor_id, contribution_event.seq)
+            {
+                self.rpg_claims.insert(claim_key);
+            }
         }
 
         let mut events = vec![contribution_event.clone()];
@@ -17793,14 +17778,6 @@ impl RuntimeWorld {
         self.listen_attempt_claimed_at(actor_id, actor.location_id)
     }
 
-    fn first_tale_trace_event_seq(&self, actor_id: u64) -> Option<u64> {
-        let prefix = first_tale_trace_claim_prefix(actor_id);
-        self.rpg_claims
-            .iter()
-            .filter_map(|claim| claim.strip_prefix(&prefix)?.parse::<u64>().ok())
-            .min()
-    }
-
     fn listen_cost_orbs(&self, _actor_id: u64) -> i32 {
         0
     }
@@ -18830,10 +18807,11 @@ impl RuntimeWorld {
         let amount: u8 = lifecycle_hooks_for("on_use", "item", &target_id)
             .into_iter()
             .filter(|hook| {
-                actor_id
-                    .and_then(|id| lifecycle_hook_claim_key(hook, id, "item", &target_id, 0))
-                    .map(|claim_key| !self.rpg_claims.contains(&claim_key))
-                    .unwrap_or(true)
+                lifecycle_hook_requirements_met(hook, &self.tags)
+                    && actor_id
+                        .and_then(|id| lifecycle_hook_claim_key(hook, id, "item", &target_id, 0))
+                        .map(|claim_key| !self.rpg_claims.contains(&claim_key))
+                        .unwrap_or(true)
             })
             .flat_map(|hook| hook.effects.iter())
             .filter_map(|effect| match effect {
@@ -24193,116 +24171,6 @@ async fn wallet_challenge(
         nonce,
         message,
         expires_at_unix,
-    })
-}
-
-async fn wallet_session(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<WalletSessionRequest>,
-) -> Json<WalletSessionResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("wallet-auth-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS as u16,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("wallet authorization rate limited".to_string()),
-        });
-    }
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: 400,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("invalid wallet address".to_string()),
-        });
-    };
-    if let Some(login_id) = payload.qr_login_id.as_deref() {
-        if !qr_wallet_login_is_pending(&state, login_id) {
-            return Json(WalletSessionResponse {
-                ok: false,
-                status: 410,
-                wallet_address: None,
-                wallet_session: None,
-                expires_at_unix: None,
-                error: Some("QR login expired".to_string()),
-            });
-        }
-    }
-    let nonce = payload.nonce.trim().to_string();
-    let now = Instant::now();
-    let Some(challenge) = state.wallet_sessions.lock().ok().and_then(|mut sessions| {
-        sessions
-            .challenges
-            .retain(|_, challenge| challenge.expires_at > now);
-        sessions.challenges.remove(&nonce)
-    }) else {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: 401,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("wallet challenge expired".to_string()),
-        });
-    };
-    if challenge.wallet_address != wallet_address
-        || !verify_solana_wallet_signature(&wallet_address, &challenge.message, &payload.signature)
-    {
-        return Json(WalletSessionResponse {
-            ok: false,
-            status: 401,
-            wallet_address: None,
-            wallet_session: None,
-            expires_at_unix: None,
-            error: Some("wallet signature rejected".to_string()),
-        });
-    }
-
-    let session_token = random_hex(32);
-    let expires_at_unix = now_unix_secs() + 12 * 60 * 60;
-    if let Ok(mut sessions) = state.wallet_sessions.lock() {
-        sessions
-            .sessions
-            .retain(|_, session| session.expires_at > now);
-        sessions.sessions.insert(
-            session_token.clone(),
-            WalletSession {
-                wallet_address: wallet_address.clone(),
-                linked_wallet_addresses: Vec::new(),
-                expires_at: now + Duration::from_secs(12 * 60 * 60),
-            },
-        );
-    }
-    if let Some(login_id) = payload.qr_login_id.as_deref() {
-        if let Err(error) =
-            complete_qr_wallet_login(&state, login_id, &wallet_address, &session_token)
-        {
-            return Json(WalletSessionResponse {
-                ok: false,
-                status: 410,
-                wallet_address: None,
-                wallet_session: None,
-                expires_at_unix: None,
-                error: Some(error.to_string()),
-            });
-        }
-    }
-
-    Json(WalletSessionResponse {
-        ok: true,
-        status: 200,
-        wallet_address: Some(wallet_address),
-        wallet_session: Some(session_token),
-        expires_at_unix: Some(expires_at_unix),
-        error: None,
     })
 }
 
@@ -37193,14 +37061,6 @@ fn economy_disclosure_claim_key(viewer_actor_id: u64, target_actor_id: u64) -> S
 
 fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> String {
     format!("listen_attempt:{actor_id}:{location_id}")
-}
-
-fn first_tale_trace_claim_prefix(actor_id: u64) -> String {
-    format!("first_tale:v{FIRST_TALE_TRACE_SCHEMA_VERSION}:actor:{actor_id}:event:")
-}
-
-fn first_tale_trace_claim_key(actor_id: u64, event_seq: u64) -> String {
-    format!("{}{event_seq}", first_tale_trace_claim_prefix(actor_id))
 }
 
 fn clock_fill_claim_key(clock_id: &str, event_seq: u64) -> String {
@@ -57412,7 +57272,8 @@ mod tests {
         assert_eq!(complete.trace_event_seq, Some(contribution_event.seq));
         assert!(complete.completion_memory.contains("left the next visitor"));
         assert!(complete.next_invitation.contains("riverside"));
-        let trace_prefix = first_tale_trace_claim_prefix(5000);
+        let trace_prefix =
+            first_tale_trace_claim_prefix(5000).expect("official first tale is mounted");
         assert_eq!(
             runtime
                 .rpg_claims
@@ -60729,6 +60590,22 @@ mod tests {
     #[test]
     fn clock_fill_kernel_rejection_keeps_prior_projection_and_emits_partial() {
         let mut runtime = RuntimeWorld::seeded();
+        let route_id = runtime
+            .route_for_edge_in_any_lifecycle(COSY_COTTAGE_LOCATION_ID, 2)
+            .expect("seed cottage route")
+            .id
+            .clone();
+        runtime
+            .routes
+            .get_mut(&route_id)
+            .expect("seed cottage route")
+            .edges
+            .iter_mut()
+            .find(|edge| {
+                edge.from_location_id == COSY_COTTAGE_LOCATION_ID && edge.to_location_id == 2
+            })
+            .expect("seed cottage route edge")
+            .flags |= CW_EXIT_LOCKED;
         let exit = runtime.world.exits[..runtime.world.exit_count]
             .iter_mut()
             .find(|exit| {

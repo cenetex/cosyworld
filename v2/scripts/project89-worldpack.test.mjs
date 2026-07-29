@@ -4,6 +4,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  routeDirectionValidationErrors,
+  routeDiscoveryValidationErrors,
+} from "./route-direction.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const contentRoot = path.resolve(scriptDir, "../content");
 
@@ -22,7 +27,64 @@ function undirectedEdges(exits) {
   );
 }
 
-test("Project 89 keeps Ring 1 authored and opens exactly four item-commissioned spokes", () => {
+function weightedDiameter(nodeIds, edges) {
+  const distances = new Map(nodeIds.flatMap((left) =>
+    nodeIds.map((right) => [`${left}:${right}`, left === right ? 0 : Infinity])));
+  for (const [key, edge] of edges) {
+    const [left, right] = key.split(":").map(Number);
+    distances.set(`${left}:${right}`, edge.distance);
+    distances.set(`${right}:${left}`, edge.distance);
+  }
+  for (const through of nodeIds) {
+    for (const left of nodeIds) {
+      for (const right of nodeIds) {
+        distances.set(`${left}:${right}`, Math.min(
+          distances.get(`${left}:${right}`),
+          distances.get(`${left}:${through}`) + distances.get(`${through}:${right}`),
+        ));
+      }
+    }
+  }
+  return Math.max(...distances.values());
+}
+
+function bridgeCount(nodeIds, edges) {
+  let bridges = 0;
+  for (const removedKey of edges.keys()) {
+    const visited = new Set([nodeIds[0]]);
+    const pending = [nodeIds[0]];
+    while (pending.length) {
+      const current = pending.shift();
+      for (const key of edges.keys()) {
+        if (key === removedKey) continue;
+        const [left, right] = key.split(":").map(Number);
+        const next = left === current ? right : right === current ? left : null;
+        if (next !== null && !visited.has(next)) {
+          visited.add(next);
+          pending.push(next);
+        }
+      }
+    }
+    if (visited.size !== nodeIds.length) bridges += 1;
+  }
+  return bridges;
+}
+
+function assertExchangeCycle(actors, itemIds) {
+  assert.ok(actors.every((actor) => actor.ambient_autonomy === true));
+  assert.deepEqual(
+    new Set(actors.flatMap((actor) => actor.attachments.map((entry) => entry.item_id))),
+    itemIds,
+  );
+  assert.deepEqual(
+    new Set(actors.flatMap((actor) => actor.desires.map((entry) => entry.item_id))),
+    itemIds,
+  );
+  assert.ok(actors.every((actor) =>
+    actor.attachments[0].item_id !== actor.desires[0].item_id));
+}
+
+test("Project 89 keeps Ring 1 authored and commissions four permanent two-stage routes", () => {
   const exits = readJson("project89-operation-liberation", "exits.json");
   const bridgeExits = readJson("project89-three-rings-bridge", "exits.json");
   const hooks = readJson("project89-operation-liberation", "lifecycle_hooks.json");
@@ -50,7 +112,7 @@ test("Project 89 keeps Ring 1 authored and opens exactly four item-commissioned 
     && exit.to_location_id >= 8920
     && exit.to_location_id <= 8927);
   assert.equal(innerSpokes.length, 4);
-  assert.ok(innerSpokes.every((exit) => (exit.flags & 1) === 1));
+  assert.ok(bridgeExits.every((exit) => (exit.flags & 1) === 1));
 
   const expectedKeys = new Map([
     [8971, [8902, 8921]],
@@ -62,16 +124,41 @@ test("Project 89 keeps Ring 1 authored and opens exactly four item-commissioned 
     const endpoints = expectedKeys.get(Number(hook.target_id));
     assert.ok(endpoints, `unexpected relay-key hook ${hook.target_id}`);
     assert.equal(hook.claim_scope, "world_target_once");
+    assert.deepEqual(hook.requirements, [
+      { kind: "active_tag", tag_id: "room:8906:inner_loop_liberated" },
+    ]);
     const unlocks = hook.effects.filter((effect) => effect.op === "unlock_exit");
+    const outerByItem = new Map([
+      [8971, [8921, 8940]],
+      [8979, [8926, 8941]],
+      [8983, [8925, 8942]],
+      [8973, [8922, 8943]],
+    ]);
+    const outer = outerByItem.get(Number(hook.target_id));
     assert.deepEqual(
       unlocks.map((effect) => [effect.from_location_id, effect.to_location_id]),
-      [endpoints, [...endpoints].reverse()],
+      [endpoints, [...endpoints].reverse(), outer, [...outer].reverse()],
     );
   }
+
+  const job = readJson("project89-operation-liberation", "jobs.json")[0];
+  assert.equal(job.reward.orbs, 8);
+  assert.deepEqual(
+    job.contribution_strategies.map((strategy) => strategy.id),
+    ["expose-the-protocol", "reroute-with-consent", "dismantle-and-covenant"],
+  );
+  assert.ok(readJson("project89-operation-liberation", "actors.json")
+    .some((actor) => actor.name === "White Rabbit"));
 });
 
-test("Project 89 Ring 2 is a cubic mesh with generated route interiors", () => {
+test("Project 89 Ring 2 is an irregular populated web with no bridges", () => {
   const exits = readJson("project89-perimeter-relay", "exits.json");
+  const locations = readJson("project89-perimeter-relay", "locations.json");
+  const actors = readJson("project89-perimeter-relay", "actors.json");
+  const items = readJson("project89-perimeter-relay", "items.json");
+  const factions = readJson("project89-perimeter-relay", "factions.json");
+  const jobs = readJson("project89-perimeter-relay", "jobs.json");
+  const sheets = readJson("project89-perimeter-relay", "room_sheets.json");
   const policy = readJson("project89-perimeter-relay", "pack.json")
     .extensions["x-cosyworld-generation"];
   const edges = undirectedEdges(exits);
@@ -84,16 +171,26 @@ test("Project 89 Ring 2 is a cubic mesh with generated route interiors", () => {
 
   assert.equal(edges.size, 12);
   assert.equal(degrees.size, 8);
-  assert.ok([...degrees.values()].every((degree) => degree === 3));
-  assert.ok([...edges.values()].every((exit) => exit.distance === 2));
+  assert.deepEqual([...degrees.values()].sort(), [2, 3, 3, 3, 3, 3, 3, 4]);
+  assert.equal(weightedDiameter(locations.map((location) => location.id), edges), 11);
+  assert.equal(bridgeCount(locations.map((location) => location.id), edges), 0);
   assert.equal(edges.size - degrees.size + 1, 5);
+  assert.equal(actors.length, 8);
+  assert.equal(items.length, 8);
+  assert.equal(factions.length, 3);
+  assertExchangeCycle(actors, new Set(items.map((item) => item.id)));
+  assert.equal(jobs[0].reward.orbs, 4);
+  assert.equal(jobs[0].contribution_strategies.length, 4);
+  assert.ok(sheets.every((sheet) =>
+    sheet.projects.includes("project89:stabilize-perimeter-relay")));
   assert.equal(policy.topology.profile_id, "regional_mesh");
+  assert.deepEqual(policy.topology.budgets.weighted_distance, { min: 11, max: 11 });
   assert.equal(policy.place_anchor.action_label, "Scan the sector");
   assert.equal(policy.place_anchor.target_label, "a Signal Anchor");
   assert.equal(policy.media.prompt_prefix, "P89, anime style,");
 });
 
-test("Project 89 Ring 3 is a four-station 89-step circuit within kernel capacity", () => {
+test("Project 89 Ring 3 is a populated longhaul circuit within kernel capacity", () => {
   const ring1Locations = readJson("project89-operation-liberation", "locations.json");
   const ring2Locations = readJson("project89-perimeter-relay", "locations.json");
   const ring3Locations = readJson("project89-open-signal-frontier", "locations.json");
@@ -102,6 +199,13 @@ test("Project 89 Ring 3 is a four-station 89-step circuit within kernel capacity
   const bridgeExits = readJson("project89-three-rings-bridge", "exits.json");
   const policy = readJson("project89-open-signal-frontier", "pack.json")
     .extensions["x-cosyworld-generation"];
+  const frontier = readJson("project89-open-signal-frontier", "pack.json")
+    .extensions["x-project89-frontier"];
+  const actors = readJson("project89-open-signal-frontier", "actors.json");
+  const items = readJson("project89-open-signal-frontier", "items.json");
+  const factions = readJson("project89-open-signal-frontier", "factions.json");
+  const jobs = readJson("project89-open-signal-frontier", "jobs.json");
+  const sheets = readJson("project89-open-signal-frontier", "room_sheets.json");
   const ring3Edges = undirectedEdges(ring3Exits);
 
   assert.equal(ring3Locations.length, 4);
@@ -109,6 +213,15 @@ test("Project 89 Ring 3 is a four-station 89-step circuit within kernel capacity
   assert.ok([...ring3Edges.values()].every((exit) => exit.distance === 89));
   assert.equal(policy.topology.profile_id, "open_frontier");
   assert.equal(policy.topology.budgets.weighted_distance.min, 178);
+  assert.equal(frontier.executable_trunk_distance, 89);
+  assert.equal(frontier.narrative_trunk_span, 89);
+  assert.equal(actors.length, 4);
+  assert.equal(items.length, 4);
+  assert.equal(factions.length, 2);
+  assertExchangeCycle(actors, new Set(items.map((item) => item.id)));
+  assert.equal(jobs[0].reward.orbs, 8);
+  assert.ok(sheets.every((sheet) =>
+    sheet.projects.includes("project89:charter-the-open-circuit")));
 
   const stationReturns = bridgeExits.filter((exit) =>
     exit.from_location_id >= 8940
@@ -116,7 +229,7 @@ test("Project 89 Ring 3 is a four-station 89-step circuit within kernel capacity
     && exit.to_location_id >= 8920
     && exit.to_location_id <= 8927);
   assert.equal(stationReturns.length, 4);
-  assert.ok(stationReturns.every((exit) => (exit.flags & 1) === 0));
+  assert.ok(stationReturns.every((exit) => (exit.flags & 1) === 1));
 
   const authoredLocations =
     ring1Locations.length + ring2Locations.length + ring3Locations.length;
@@ -124,7 +237,7 @@ test("Project 89 Ring 3 is a four-station 89-step circuit within kernel capacity
     .reduce((total, exit) => total + exit.distance - 1, 0);
   const ring3Waypoints = [...ring3Edges.values()]
     .reduce((total, exit) => total + exit.distance - 1, 0);
-  assert.equal(authoredLocations + ring2Waypoints + ring3Waypoints, 385);
+  assert.equal(authoredLocations + ring2Waypoints + ring3Waypoints, 406);
   assert.ok(authoredLocations + ring2Waypoints + ring3Waypoints <= 512);
 });
 
@@ -136,4 +249,78 @@ test("Project 89 generated-place terminology never falls back to cairns", () => 
     assert.match(policy.place_anchor.visual_description, /teal/i);
     assert.match(policy.place_anchor.visual_description, /coral/i);
   }
+});
+
+test("Project 89 route directions are runtime-canonical and collision-free", () => {
+  const exits = [
+    ...readJson("project89-operation-liberation", "exits.json"),
+    ...readJson("project89-perimeter-relay", "exits.json"),
+    ...readJson("project89-open-signal-frontier", "exits.json"),
+    ...readJson("project89-three-rings-bridge", "exits.json"),
+  ];
+
+  assert.deepEqual(routeDirectionValidationErrors(exits, []), []);
+});
+
+test("Project 89 keeps authored infrastructure known and exploration routes scoutable", () => {
+  const operationExits = readJson(
+    "project89-operation-liberation",
+    "exits.json",
+  );
+  const bridgeExits = readJson("project89-three-rings-bridge", "exits.json");
+  const perimeterExits = readJson("project89-perimeter-relay", "exits.json");
+  const frontierExits = readJson(
+    "project89-open-signal-frontier",
+    "exits.json",
+  );
+  const exits = [
+    ...operationExits,
+    ...bridgeExits,
+    ...perimeterExits,
+    ...frontierExits,
+  ];
+
+  assert.deepEqual(routeDiscoveryValidationErrors(exits), []);
+  assert.ok(operationExits.every((exit) => exit.discovery === "known"));
+  assert.ok(bridgeExits.every((exit) => exit.discovery === "known"));
+  assert.ok(perimeterExits.every((exit) => exit.discovery === "scout"));
+  assert.ok(frontierExits.every((exit) => exit.discovery === "scout"));
+});
+
+test("Project 89 seeds Callum and activates owner-first-connect Proxim8 materialization", () => {
+  const pack = readJson("project89-operation-liberation", "pack.json");
+  const actors = readJson("project89-operation-liberation", "actors.json");
+  const items = readJson("project89-operation-liberation", "items.json");
+  const cards = readJson("project89-operation-liberation", "cards.json");
+  const policy = pack.extensions["x-cosyworld-actor-materialization"];
+
+  assert.deepEqual(policy.collection, {
+    name: "PROXIM8",
+    address: "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf",
+    chain: "solana",
+    standard: "metaplex_core",
+  });
+  assert.equal(policy.trigger, "first_verified_wallet_connection");
+  assert.equal(policy.ownership.authority, "trusted_server_feed");
+  assert.equal(policy.ownership.wallet_signature_proves_ownership, false);
+  assert.equal(policy.custody_changes_control, false);
+  assert.equal(policy.direct_actor_session, false);
+  assert.equal(policy.ambient_autonomy, true);
+  assert.equal(policy.media.trigger_word, "P89");
+  assert.equal(policy.media.base_model, "flux-1");
+  assert.equal(policy.media.lora_strength, 1);
+  assert.equal(policy.media.refinement_model, "flux-2");
+  assert.equal(policy.media.style, "washed-out watercolor anime style");
+
+  const callum = actors.find((actor) => actor.id === policy.pilot.actor_id);
+  assert.equal(callum.name, "Callum Synclaire");
+  assert.equal(callum.location_id, 8900);
+  assert.equal(callum.ambient_autonomy, true);
+  assert.match(JSON.stringify(callum.goals), /other Proxim8s/i);
+  assert.ok(callum.attachments.some(({ item_id }) => item_id === 8984));
+  assert.ok(items.some((item) => item.id === 8984 && /no right to command/i.test(item.description)));
+  assert.ok(cards.some((card) =>
+    card.subject_id === callum.id
+    && card.card_id === "project89-proxim8-callum-synclaire"));
+  assert.equal(policy.pilot.asset_id, "Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo");
 });

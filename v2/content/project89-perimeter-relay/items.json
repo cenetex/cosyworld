@@ -1,0 +1,10 @@
+[
+  { "id": 9100, "name": "Braided Source Receipt", "description": "A waterproof strip that keeps contradictory source chains legible without merging them.", "kind": "keepsake", "charges": 1, "location_id": 8920, "role": "tool", "weight_tenths": 1, "size": "tiny" },
+  { "id": 9101, "name": "Echo Coil", "description": "A listening coil calibrated to retain delay, noise, and the direction of an answer.", "kind": "keepsake", "charges": 1, "location_id": 8921, "role": "tool", "weight_tenths": 6, "size": "small" },
+  { "id": 9102, "name": "Return Token", "description": "A courier token that carries a revocable return channel instead of a claim on its bearer.", "kind": "keepsake", "charges": 1, "location_id": 8922, "role": "tool", "weight_tenths": 1, "size": "tiny" },
+  { "id": 9103, "name": "Static Prism", "description": "A faceted gauge that makes route stress visible as broken coral light.", "kind": "keepsake", "charges": 1, "location_id": 8923, "role": "tool", "weight_tenths": 7, "size": "small" },
+  { "id": 9104, "name": "Public Valve Key", "description": "A spillway key whose use is mechanically stamped into an open maintenance ledger.", "kind": "keepsake", "charges": 1, "location_id": 8924, "role": "tool", "weight_tenths": 9, "size": "small" },
+  { "id": 9105, "name": "Resonant Cutting", "description": "A living transmitter cutting offered only for an exchange that names its future care.", "kind": "keepsake", "charges": 1, "location_id": 8925, "role": "generic", "weight_tenths": 2, "size": "tiny" },
+  { "id": 9106, "name": "Consent Chalk", "description": "Weatherproof teal chalk used to mark what may be repaired, moved, or left untouched.", "kind": "keepsake", "charges": 8, "location_id": 8926, "role": "tool", "weight_tenths": 2, "size": "tiny" },
+  { "id": 9107, "name": "Strain Ribbon", "description": "A woven gauge that knots itself around observed pressure without predicting a preferred route.", "kind": "keepsake", "charges": 1, "location_id": 8927, "role": "tool", "weight_tenths": 3, "size": "tiny" }
+]

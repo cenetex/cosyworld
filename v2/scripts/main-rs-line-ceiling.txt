@@ -51,4 +51,9 @@
 # into the existing media-recipes seam.
 # 74516 -> 74434: extract the free bounded Chat endpoint and its concurrent-room
 # coverage into chat_action.rs.
-74434
+# 74434 -> 74454: sixteen test-only lines keep a manually locked kernel exit and
+# its new durable authored-route state aligned in the partial-effect fixture;
+# four wiring lines enforce typed lifecycle requirements before preview/apply.
+# 74454 -> 74311: move composition-owned first-tale behavior and tests into
+# first_tale.rs, and move Proxim8 ownership materialization into proxim8.rs.
+74311

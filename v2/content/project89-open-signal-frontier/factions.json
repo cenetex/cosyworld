@@ -1,0 +1,14 @@
+[
+  {
+    "id": "project89_longhaul_union", "name": "Longhaul Union", "axis": "Exploration vs Obligation",
+    "opposes": ["project89_station_covenant"], "truth": "The frontier becomes shared only when people can leave authored routes and report what they find.", "shadow": "Discovery can spend other people's rescue capacity without asking.",
+    "doctrine": "Depart by receipt, observe without claiming, and keep the return channel attended.", "verbs": ["depart", "map", "dispatch", "return"],
+    "motif": ["blank ledgers", "coral beacons", "patched longhaul coats"], "home_location_ids": [8940, 8943], "member_actor_ids": [9010, 9013], "player_facing": true
+  },
+  {
+    "id": "project89_station_covenant", "name": "Station Covenant", "axis": "Exploration vs Obligation",
+    "opposes": ["project89_longhaul_union"], "truth": "Every frontier freedom depends on somebody maintaining a place to return to.", "shadow": "Maintenance duty can harden into permission to prevent departure.",
+    "doctrine": "Power visibly, repair by consent, and reserve capacity for the unknown return.", "verbs": ["cultivate", "repair", "reserve", "receive"],
+    "motif": ["wet circuits", "open repair bays", "teal torque marks"], "home_location_ids": [8941, 8942], "member_actor_ids": [9011, 9012], "player_facing": true
+  }
+]

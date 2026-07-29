@@ -26,5 +26,65 @@
     ],
     "impending_outcome": "Oneirocom closes the current intervention and requires every unresolved signal to return through a controlled intake.",
     "pack_id": "project89.operation-liberation"
+  },
+  {
+    "id": "project89:coupled-mesh-cascade",
+    "premise": "Four local failures are teaching the relay web to amplify pressure faster than its residents can attribute it.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      8920,
+      8921,
+      8923,
+      8924,
+      8926,
+      8927
+    ],
+    "participant_ids": [
+      8990,
+      8991,
+      8993,
+      8994,
+      8996,
+      8997
+    ],
+    "stakes_questions": [
+      "Can the mesh remain amorphous without becoming unknowable?",
+      "Will residents exchange expertise without surrendering custody of their tools?"
+    ],
+    "portent_clock_id": "project89.mesh-cascade",
+    "job_ids": [
+      "project89:stabilize-perimeter-relay"
+    ],
+    "impending_outcome": "The current repair window collapses and the next attempt must recover evidence from the generated paths.",
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "id": "project89:frontier-drift",
+    "premise": "Distance is turning four station customs into mutually incompatible rules for the same open circuit.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      8940,
+      8941,
+      8942,
+      8943
+    ],
+    "participant_ids": [
+      9010,
+      9011,
+      9012,
+      9013
+    ],
+    "stakes_questions": [
+      "Can an infinite frontier keep a finite duty of care?",
+      "Who attends the return when every station wants to explore?"
+    ],
+    "portent_clock_id": "project89.frontier-drift",
+    "job_ids": [
+      "project89:charter-the-open-circuit"
+    ],
+    "impending_outcome": "Four private station rules replace the common charter while the long circuit remains traversable.",
+    "pack_id": "project89.open-signal-frontier"
   }
 ]

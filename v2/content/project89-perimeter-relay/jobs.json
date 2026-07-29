@@ -1,0 +1,45 @@
+[
+  {
+    "id": "project89:stabilize-perimeter-relay",
+    "premise": "Four different failures are coupling across the amorphous relay web while every station depends on another resident's portable expertise.",
+    "stakes": "The residents must stabilize a public mesh without flattening it into one centrally controlled route.",
+    "location_ids": [8920, 8921, 8922, 8923, 8924, 8925, 8926, 8927],
+    "participant_ids": [8990, 8991, 8992, 8993, 8994, 8995, 8996, 8997],
+    "progress_clock_id": "project89.perimeter-stability", "danger_clock_id": "project89.mesh-cascade", "status": "active",
+    "reward": { "label": "a stable public mesh and eight honored exchanges", "orbs": 4 },
+    "consequence": "the present repair window closes while the authored web and its residents remain available",
+    "memory_summary": "The perimeter residents exchanged portable expertise and repaired four coupled failures without centralizing the web.",
+    "action_copy": { "label": "Stabilize the perimeter", "summary": "Complete disclosed interventions at the Delta, Gardens, Spillway, and Boneyard." },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1, "id": "braid-delta-sources", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
+        "target": { "kind": "job", "id": "project89:stabilize-perimeter-relay", "label": "the Memory Delta braid" },
+        "requirements": [{ "kind": "at_location", "location_id": 8920 }, { "kind": "held_item", "item_id": 9101 }],
+        "resolution": { "kind": "certain" }, "clock_id": "project89.perimeter-stability", "baseline_progress": 2, "claim_policy": "once_per_target",
+        "strategy_label": "Braid the delta sources", "narration_key": "project89.perimeter.delta", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.perimeter-relay", "pack_version": "0.1.0"
+      },
+      {
+        "version": 1, "id": "bleed-garden-static", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
+        "target": { "kind": "job", "id": "project89:stabilize-perimeter-relay", "label": "the Glass Static terraces" },
+        "requirements": [{ "kind": "at_location", "location_id": 8923 }, { "kind": "held_item", "item_id": 9104 }],
+        "resolution": { "kind": "certain" }, "clock_id": "project89.perimeter-stability", "baseline_progress": 2, "claim_policy": "once_per_target",
+        "strategy_label": "Bleed the garden static", "narration_key": "project89.perimeter.gardens", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.perimeter-relay", "pack_version": "0.1.0"
+      },
+      {
+        "version": 1, "id": "open-spillway-ledger", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
+        "target": { "kind": "job", "id": "project89:stabilize-perimeter-relay", "label": "the Oneirocom Spillway" },
+        "requirements": [{ "kind": "at_location", "location_id": 8924 }, { "kind": "held_item", "item_id": 9103 }],
+        "resolution": { "kind": "certain" }, "clock_id": "project89.perimeter-stability", "baseline_progress": 2, "claim_policy": "once_per_target",
+        "strategy_label": "Open the spillway ledger", "narration_key": "project89.perimeter.spillway", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.perimeter-relay", "pack_version": "0.1.0"
+      },
+      {
+        "version": 1, "id": "mark-boneyard-consent", "action_kind": "work", "rules_action": "srd5.2.1:utilize",
+        "target": { "kind": "job", "id": "project89:stabilize-perimeter-relay", "label": "the Chimera salvage lanes" },
+        "requirements": [{ "kind": "at_location", "location_id": 8926 }, { "kind": "held_item", "item_id": 9107 }],
+        "resolution": { "kind": "certain" }, "clock_id": "project89.perimeter-stability", "baseline_progress": 2, "claim_policy": "once_per_target",
+        "strategy_label": "Mark the consent lanes", "narration_key": "project89.perimeter.boneyard", "rules_profile": "cosyworld.srd5/1", "rules_pack_id": "cosyworld.rules-profile-srd5", "rules_pack_version": "1.0.0", "pack_id": "project89.perimeter-relay", "pack_version": "0.1.0"
+      }
+    ]
+  }
+]

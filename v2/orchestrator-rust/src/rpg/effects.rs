@@ -54,6 +54,16 @@ pub(crate) enum EffectApplicationSource<'a> {
     JobContribution,
 }
 
+pub(crate) fn lifecycle_hook_requirements_met(
+    hook: &SeedLifecycleHookContent,
+    tags: &BTreeMap<String, RpgTagState>,
+) -> bool {
+    hook.requirements.iter().all(|requirement| {
+        requirement.kind == "active_tag"
+            && tags.get(&requirement.tag_id).is_some_and(|tag| tag.active)
+    })
+}
+
 impl<'a> EffectApplicationSource<'a> {
     fn default_reason(self) -> &'static str {
         match self {
@@ -171,6 +181,29 @@ impl RuntimeWorld {
                         source_event_seq,
                         false,
                     );
+                    if status == CW_OK {
+                        let unlock_event_seq = routed_events
+                            .iter()
+                            .find(|event| {
+                                event.success
+                                    && event.type_name == "exit.unlocked"
+                                    && event.location_id == Some(*from_location_id)
+                                    && event.destination_location_id == Some(*to_location_id)
+                            })
+                            .map(|event| event.seq)
+                            .unwrap_or(source_event_seq);
+                        let recorded = self.record_authored_route_unlock(
+                            *from_location_id,
+                            *to_location_id,
+                            actor_id,
+                            unlock_event_seq,
+                            reason,
+                        );
+                        debug_assert!(
+                            recorded,
+                            "validated authored exit unlock must update its canonical route"
+                        );
+                    }
                     events.extend(routed_events);
                     authoritative_status = Some(status);
                 }
@@ -281,6 +314,11 @@ impl RuntimeWorld {
                     if exit.flags & CW_EXIT_LOCKED == 0 {
                         return Err(format!(
                             "exit {from_location_id}->{to_location_id} is already unlocked"
+                        ));
+                    }
+                    if !self.authored_route_locked_for_edge(*from_location_id, *to_location_id) {
+                        return Err(format!(
+                            "exit {from_location_id}->{to_location_id} is not an authored locked route"
                         ));
                     }
                 }
@@ -403,4 +441,44 @@ pub(crate) fn insert_effect_test_clock(
             updated_event_seq: None,
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lifecycle_hook_active_tag_requirement_tracks_durable_tag_state() {
+        let hook = SeedLifecycleHookContent {
+            hook: "on_use".to_string(),
+            target_kind: "item".to_string(),
+            target_id: "2005".to_string(),
+            claim_scope: "world_target_once".to_string(),
+            requirements: vec![SeedLifecycleRequirementContent {
+                kind: "active_tag".to_string(),
+                tag_id: "room:1:test_gate_open".to_string(),
+            }],
+            effects: Vec::new(),
+        };
+        let mut tags = BTreeMap::new();
+        assert!(!lifecycle_hook_requirements_met(&hook, &tags));
+        tags.insert(
+            "room:1:test_gate_open".to_string(),
+            RpgTagState {
+                id: "room:1:test_gate_open".to_string(),
+                scope: "room".to_string(),
+                scope_id: COSY_COTTAGE_LOCATION_ID,
+                label: "test gate open".to_string(),
+                kind: "memory".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: None,
+            },
+        );
+        assert!(lifecycle_hook_requirements_met(&hook, &tags));
+        tags.get_mut("room:1:test_gate_open")
+            .expect("test tag remains present")
+            .active = false;
+        assert!(!lifecycle_hook_requirements_met(&hook, &tags));
+    }
 }

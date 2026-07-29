@@ -23,10 +23,18 @@ import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 import { validatePackMediaProfiles } from "./media-recipe-schema.mjs";
 import {
+  firstTaleValidationErrors,
+  normalizeFirstTaleConfig,
+} from "./first-tale-schema.mjs";
+import {
   generationPolicyForPack,
   validateCompiledGenerationPolicies,
   worldpackMediaRegistry,
 } from "./world-generation-policy.mjs";
+import {
+  routeDirectionValidationErrors,
+  routeDiscoveryValidationErrors,
+} from "./route-direction.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -107,6 +115,26 @@ function json(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+function validateLifecycleHookRequirements(hook, owner) {
+  const requirements = hook.requirements ?? [];
+  assert(Array.isArray(requirements), `${owner} requirements must be an array`);
+  assert(
+    hook.hook !== "on_clock_fill" || requirements.length === 0,
+    `${owner} cannot declare dynamic requirements`,
+  );
+  for (const requirement of requirements) {
+    assert(
+      requirement
+        && typeof requirement === "object"
+        && !Array.isArray(requirement)
+        && requirement.kind === "active_tag"
+        && typeof requirement.tag_id === "string"
+        && requirement.tag_id.trim(),
+      `${owner} has an invalid active_tag requirement`,
+    );
+  }
+}
+
 function loadAvatarNaming(world, worldDir) {
   if (world.avatar_naming === undefined) return null;
   assert(
@@ -130,6 +158,30 @@ function loadAvatarNaming(world, worldDir) {
   );
   assertAvatarNamingConfig(config, "world avatar_naming");
   return config;
+}
+
+function loadFirstTale(world, worldDir) {
+  if (world.first_tale === undefined) return null;
+  assert(
+    typeof world.first_tale === "string"
+      && world.first_tale.trim()
+      && !path.isAbsolute(world.first_tale),
+    "world first_tale must be a relative JSON path",
+  );
+  const filePath = path.resolve(worldDir, world.first_tale);
+  const worldsRoot = path.resolve(worldDir, "..");
+  const relativePath = path.relative(worldsRoot, filePath);
+  assert(
+    relativePath
+      && relativePath !== ".."
+      && !relativePath.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(relativePath),
+    "world first_tale must stay within v2/worlds",
+  );
+  const config = readJson(filePath);
+  const errors = firstTaleValidationErrors(config, "world first_tale");
+  assert(errors.length === 0, errors.join("; "));
+  return normalizeFirstTaleConfig(config);
 }
 
 function loadPackLifecycle(world) {
@@ -588,6 +640,7 @@ runContributionSchemaMutationTests();
 const engineVersion = readJson(path.resolve(v2Root, "../package.json")).version;
 const world = readJson(path.join(worldDir, "world.json"));
 const avatarNaming = loadAvatarNaming(world, worldDir);
+const firstTale = loadFirstTale(world, worldDir);
 const packLifecycleSource = loadPackLifecycle(world);
 const lockPath = path.join(worldDir, "pack.lock.json");
 const legacyLockPath = path.join(worldDir, "world.lock.json");
@@ -798,6 +851,12 @@ for (const pack of packs) {
     for (const row of rows) {
       assert(row && typeof row === "object" && !Array.isArray(row), `pack ${pack.manifest.id} resource ${resource} contains a non-object row`);
       validateWorldEntityResource(pack.manifest.id, resource, row);
+      if (resource === "lifecycle_hooks") {
+        validateLifecycleHookRequirements(
+          row,
+          `pack ${pack.manifest.id} lifecycle hook ${row.hook ?? "unknown"}`,
+        );
+      }
       if (resource === "locations") {
         assertNaturalAffordanceConfig(
           row,
@@ -953,6 +1012,15 @@ for (const location of resources.locations) {
   );
   locationOwnerById.set(location.id, location.pack_id);
 }
+for (const error of routeDirectionValidationErrors(
+  resources.exits,
+  resources.hidden_exits,
+)) {
+  assert(false, error);
+}
+for (const error of routeDiscoveryValidationErrors(resources.exits)) {
+  assert(false, error);
+}
 for (const [resourceName, paths] of [
   ["exit", resources.exits],
   ["hidden exit", resources.hidden_exits],
@@ -1060,12 +1128,14 @@ const packLifecycle = compilePackLifecycle(packLifecycleSource, resources);
 const {
   persistence_compatibility: _persistenceCompatibility,
   avatar_naming: _avatarNamingSource,
+  first_tale: _firstTaleSource,
   pack_lifecycle: _packLifecycleSource,
   ...worldIdentity
 } = world;
 const bundleHash = sha256([
   json(worldIdentity),
   ...(avatarNaming ? [json(avatarNaming)] : []),
+  ...(firstTale ? [json(firstTale)] : []),
   ...(packLifecycle ? [json(packLifecycle)] : []),
   json(packSummary),
   ...Object.values(resources).map(json),
@@ -1102,6 +1172,7 @@ const manifest = {
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,
   ...(avatarNaming ? { avatar_naming: avatarNaming } : {}),
+  ...(firstTale ? { first_tale: firstTale } : {}),
   ...(generationMediaRegistry ? { generation_media_registry: generationMediaRegistry } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,

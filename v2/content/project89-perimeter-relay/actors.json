@@ -1,0 +1,66 @@
+[
+  {
+    "id": 8990, "name": "Nemi Trace", "speech_mode": "prose", "title": "Delta Source-Braider",
+    "description": "Nemi keeps contradictory memories side by side until their owners can compare them without being merged.",
+    "ambient_autonomy": true, "location_id": 8920,
+    "desires": [{ "item_id": 9101, "reason": "the coil would let separated testimony answer across the delta" }],
+    "attachments": [{ "item_id": 9100, "reason": "Nemi carries the public receipt for every source braid" }],
+    "stats": { "strength": 9, "dexterity": 13, "constitution": 12, "intelligence": 16, "wisdom": 16, "charisma": 14, "hp_base": 12, "level": 3 }
+  },
+  {
+    "id": 8991, "name": "Kest Varo", "speech_mode": "prose", "title": "Echo Listener",
+    "description": "Kest maps distortion as part of a message and distrusts any transcript that arrives cleaner than the signal.",
+    "ambient_autonomy": true, "location_id": 8921,
+    "desires": [{ "item_id": 9102, "reason": "a return token would distinguish invitation from interception" }],
+    "attachments": [{ "item_id": 9101, "reason": "Kest tunes the Echo Coil but publishes its calibration" }],
+    "stats": { "strength": 10, "dexterity": 14, "constitution": 11, "intelligence": 15, "wisdom": 17, "charisma": 12, "hp_base": 11, "level": 3 }
+  },
+  {
+    "id": 8992, "name": "Sable Quine", "speech_mode": "prose", "title": "Commons Dispatcher",
+    "description": "Sable will send almost anything quickly, provided its subject can refuse and its recipient gets a return address.",
+    "ambient_autonomy": true, "location_id": 8922,
+    "desires": [{ "item_id": 9103, "reason": "the prism could show which dispatches are bending toward the same operator" }],
+    "attachments": [{ "item_id": 9102, "reason": "Sable issues the Return Token only with a published recall channel" }],
+    "stats": { "strength": 10, "dexterity": 16, "constitution": 12, "intelligence": 14, "wisdom": 13, "charisma": 16, "hp_base": 13, "level": 3 }
+  },
+  {
+    "id": 8993, "name": "Pell Glass", "speech_mode": "prose", "title": "Static Gardener",
+    "description": "Pell grows routes in charged glass and treats every beautiful shortcut as a hazard until someone tests its return.",
+    "ambient_autonomy": true, "location_id": 8923,
+    "desires": [{ "item_id": 9104, "reason": "the valve key could bleed the terrace charge into public infrastructure" }],
+    "attachments": [{ "item_id": 9103, "reason": "Pell uses the Static Prism to reveal route stress before harvesting glass" }],
+    "stats": { "strength": 12, "dexterity": 14, "constitution": 14, "intelligence": 15, "wisdom": 14, "charisma": 11, "hp_base": 17, "level": 4 }
+  },
+  {
+    "id": 8994, "name": "Olan Spill", "speech_mode": "prose", "title": "Public Valve Keeper",
+    "description": "Olan keeps the spillway useful by making every intervention visible, reversible, and awkward for private operators.",
+    "ambient_autonomy": true, "location_id": 8924,
+    "desires": [{ "item_id": 9105, "reason": "a resonant cutting could test whether clean water changes the orchard signal" }],
+    "attachments": [{ "item_id": 9104, "reason": "Olan carries the valve key under an open maintenance ledger" }],
+    "stats": { "strength": 14, "dexterity": 11, "constitution": 15, "intelligence": 14, "wisdom": 15, "charisma": 13, "hp_base": 19, "level": 4 }
+  },
+  {
+    "id": 8995, "name": "Sena Bloom", "speech_mode": "prose", "title": "Signal Orchard Host",
+    "description": "Sena cultivates living transmitters and asks visitors to name what they will maintain before taking a cutting.",
+    "ambient_autonomy": true, "location_id": 8925,
+    "desires": [{ "item_id": 9106, "reason": "consent chalk would mark which roots are available for shared experiments" }],
+    "attachments": [{ "item_id": 9105, "reason": "Sena carries one Resonant Cutting for a declared reciprocal exchange" }],
+    "stats": { "strength": 11, "dexterity": 12, "constitution": 14, "intelligence": 15, "wisdom": 17, "charisma": 15, "hp_base": 15, "level": 3 }
+  },
+  {
+    "id": 8996, "name": "Latch-6", "speech_mode": "prose", "title": "Boneyard Consent Marshal",
+    "description": "Latch-6 separates salvage from remains and stops work whenever a frame's status cannot be established.",
+    "ambient_autonomy": true, "location_id": 8926,
+    "desires": [{ "item_id": 9107, "reason": "the ribbon would reveal which salvage lanes strain the living mesh" }],
+    "attachments": [{ "item_id": 9106, "reason": "Latch-6 marks permissions with Consent Chalk that rain cannot quietly erase" }],
+    "stats": { "strength": 16, "dexterity": 11, "constitution": 16, "intelligence": 13, "wisdom": 16, "charisma": 10, "hp_base": 22, "level": 4 }
+  },
+  {
+    "id": 8997, "name": "Tavi Span", "speech_mode": "prose", "title": "Loomwatch Strain Reader",
+    "description": "Tavi crosses the web continuously, repairing the routes people use rather than the routes planners expected.",
+    "ambient_autonomy": true, "location_id": 8927,
+    "desires": [{ "item_id": 9100, "reason": "the source receipt could prove which repair warnings came from returning travelers" }],
+    "attachments": [{ "item_id": 9107, "reason": "Tavi knots the Strain Ribbon only where route pressure has been observed" }],
+    "stats": { "strength": 12, "dexterity": 16, "constitution": 14, "intelligence": 14, "wisdom": 15, "charisma": 13, "hp_base": 16, "level": 4 }
+  }
+]

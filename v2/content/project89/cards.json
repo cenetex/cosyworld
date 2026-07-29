@@ -252,6 +252,20 @@
     "pack_id": "project89.operation-liberation"
   },
   {
+    "subject_kind": "actor",
+    "subject_id": 8961,
+    "card_id": "project89-proxim8-callum-synclaire",
+    "display_name": "Callum Synclaire",
+    "role": "independent Proxim8 signal weaver",
+    "rarity": "free",
+    "title": "Searching for the Others",
+    "blurb": "The first arrival listens for the verified wallet signals that will materialize other Proxim8s.",
+    "aspect": "tall",
+    "source": "project89_operation_liberation",
+    "asset_status": "pending_art",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
     "subject_kind": "item",
     "subject_id": 8970,
     "card_id": "project89-charged-89-sigil",
@@ -442,6 +456,20 @@
     "rarity": "free",
     "title": "Commission the Orchard Route",
     "blurb": "Record a repair covenant in a living radial aperture.",
+    "aspect": "square",
+    "source": "project89_operation_liberation",
+    "asset_status": "pending_art",
+    "pack_id": "project89.operation-liberation"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 8984,
+    "card_id": "project89-callum-agent-memory-seed",
+    "display_name": "Callum's Agent Memory Seed",
+    "role": "personal continuity relic",
+    "rarity": "free",
+    "title": "Arrival Is Not Ownership",
+    "blurb": "A memory of verified arrival that grants nobody command.",
     "aspect": "square",
     "source": "project89_operation_liberation",
     "asset_status": "pending_art",

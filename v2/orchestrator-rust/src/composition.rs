@@ -562,7 +562,7 @@ impl RuntimeWorld {
             unavailable.provider = self.action_offer_provider("rest", actor_id, None, None);
             offers.push(unavailable);
         }
-        if let Some(target) = self.scout_action_offer_target(actor_id, access) {
+        for target in self.scout_action_offer_targets(actor_id, access) {
             let local_lead = self
                 .actionable_local_lead(actor_id)
                 .filter(|lead| target.id == Some(lead.destination_location_id))
@@ -1156,18 +1156,20 @@ impl RuntimeWorld {
         }
     }
 
-    pub(super) fn scout_action_offer_target(
+    pub(super) fn scout_action_offer_targets(
         &self,
         actor_id: u64,
         access: &AccessContext,
-    ) -> Option<ActionTargetView> {
-        let actor = self.actor_by_id(actor_id)?;
+    ) -> Vec<ActionTargetView> {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return Vec::new();
+        };
         if let Some(lead) = self.actionable_local_lead(actor_id) {
-            return Some(ActionTargetView {
+            return vec![ActionTargetView {
                 kind: "location".to_string(),
                 id: Some(lead.destination_location_id),
                 label: self.location_name(lead.destination_location_id),
-            });
+            }];
         }
         let exits = self.exit_views(actor.location_id, access);
         if let Some(journey) = self.journey_view(actor_id) {
@@ -1177,42 +1179,54 @@ impl RuntimeWorld {
                     .any(|exit| exit.destination_location_id == next_id)
             });
             if journey.next_location_id.is_some() && !next_is_revealed {
-                return Some(ActionTargetView {
+                return vec![ActionTargetView {
                     kind: "location".to_string(),
                     id: Some(journey.destination_location_id),
                     label: Some(journey.destination_name),
-                });
+                }];
             }
-            return None;
+            return Vec::new();
         }
-        exits
+
+        let mut targets = exits
             .into_iter()
-            .find(|exit| exit.distance > 1 && exit.accessible && !exit.locked)
+            .filter(|exit| exit.distance > 1 && exit.accessible && !exit.locked)
             .map(|exit| ActionTargetView {
                 kind: "location".to_string(),
                 id: Some(exit.destination_location_id),
                 label: Some(exit.destination_location_name),
             })
-            .or_else(|| {
-                active_content()
-                    .exits
-                    .iter()
-                    .find(|exit| {
-                        exit.from_location_id == actor.location_id
-                            && exit.flags & CW_EXIT_LOCKED == 0
-                            && location_access_allowed(exit.to_location_id, access)
-                            && !self
-                                .seed_exit_discovered(exit.from_location_id, exit.to_location_id)
-                            && self
-                                .pathway_for_anchors(actor.location_id, exit.to_location_id)
-                                .is_none()
-                    })
-                    .map(|exit| ActionTargetView {
-                        kind: "location".to_string(),
-                        id: Some(exit.to_location_id),
-                        label: self.location_name(exit.to_location_id),
-                    })
-            })
+            .collect::<Vec<_>>();
+        targets.extend(
+            active_content()
+                .exits
+                .iter()
+                .filter(|exit| {
+                    exit.from_location_id == actor.location_id
+                        && !self.authored_route_locked_for_edge(
+                            exit.from_location_id,
+                            exit.to_location_id,
+                        )
+                        && location_access_allowed(exit.to_location_id, access)
+                        && !self.seed_exit_discovered(exit.from_location_id, exit.to_location_id)
+                        && self
+                            .pathway_for_anchors(actor.location_id, exit.to_location_id)
+                            .is_none()
+                })
+                .map(|exit| ActionTargetView {
+                    kind: "location".to_string(),
+                    id: Some(exit.to_location_id),
+                    label: self.location_name(exit.to_location_id),
+                }),
+        );
+        targets.sort_by_key(|target| {
+            (
+                target.label.clone().unwrap_or_default(),
+                target.id.unwrap_or_default(),
+            )
+        });
+        targets.dedup_by_key(|target| target.id);
+        targets
     }
 
     pub(super) fn action_offer_source_collectible(
@@ -2044,6 +2058,62 @@ mod tests {
                 if resolved_destination_location_id == destination_location_id
         ));
         assert!(destination_location_id > 0);
+    }
+
+    #[test]
+    fn branching_undiscovered_routes_each_expose_a_targetable_scout_offer() {
+        const RAIN_SOFT_GARDEN_LOCATION_ID: u64 = 2;
+        const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
+        const CIRCLE_OF_THE_MOON_LOCATION_ID: u64 = 35;
+        const ALPINE_FOREST_LOCATION_ID: u64 = 50;
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Branch Mapper",
+        );
+        let access = AccessContext::default();
+        let (_, offers) = runtime.legal_action_candidates(Some(5000), &access);
+        let scouts = offers
+            .iter()
+            .filter(|offer| offer.kind == "explore_path")
+            .collect::<Vec<_>>();
+        let destinations = scouts
+            .iter()
+            .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            destinations,
+            BTreeSet::from([
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                CIRCLE_OF_THE_MOON_LOCATION_ID,
+                ALPINE_FOREST_LOCATION_ID,
+            ])
+        );
+        for offer in scouts {
+            let destination_location_id = offer
+                .target
+                .as_ref()
+                .and_then(|target| target.id)
+                .expect("Scout offer has a destination");
+            assert!(matches!(
+                runtime
+                    .resolve_command(&command_request(5000, &offer.command), &access)
+                    .expect("each advertised Scout command resolves")
+                    .dispatch,
+                CommandDispatch::Scout {
+                    destination_location_id: resolved_destination_location_id
+                } if resolved_destination_location_id == destination_location_id
+            ));
+        }
+        let ambiguous = runtime
+            .resolve_command(&command_request(5000, "scout"), &access)
+            .expect_err("a branch requires naming the Scout destination");
+        assert_eq!(ambiguous.status, 404);
+        assert!(ambiguous.output.contains("matches"));
     }
 
     #[test]

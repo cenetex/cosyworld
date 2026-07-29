@@ -33,6 +33,15 @@ pub(super) struct RouteDiscoveryState {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct RouteUnlockState {
+    pub(super) from_location_id: u64,
+    pub(super) to_location_id: u64,
+    pub(super) actor_id: u64,
+    pub(super) event_seq: u64,
+    pub(super) reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct RouteRecordState {
     pub(super) id: String,
     #[serde(default)]
@@ -53,6 +62,8 @@ pub(super) struct RouteRecordState {
     pub(super) lifecycle: RouteLifecycle,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) discovery: Option<RouteDiscoveryState>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) unlocks: Vec<RouteUnlockState>,
     pub(super) entity_version: u64,
 }
 
@@ -82,11 +93,13 @@ fn ordered_route_endpoints(left: u64, right: u64) -> (u64, u64) {
     }
 }
 
+#[cfg(test)]
 fn authored_route_id(left: u64, right: u64) -> String {
     let (left, right) = ordered_route_endpoints(left, right);
     format!("route:authored:{left}:{right}")
 }
 
+#[cfg(test)]
 fn hidden_route_id(hidden_exit_id: &str) -> String {
     format!("route:hidden:{hidden_exit_id}")
 }
@@ -141,6 +154,12 @@ impl RouteRecordState {
             edge.from_location_id == from_location_id && edge.to_location_id == to_location_id
         })
     }
+
+    pub(super) fn edge_is_unlocked(&self, from_location_id: u64, to_location_id: u64) -> bool {
+        self.unlocks.iter().any(|unlock| {
+            unlock.from_location_id == from_location_id && unlock.to_location_id == to_location_id
+        })
+    }
 }
 
 impl RuntimeWorld {
@@ -154,6 +173,7 @@ impl RuntimeWorld {
         let declared_worldpack_migration =
             historical_bundle_hash != active_content().manifest.bundle_hash;
         self.migrate_canonical_topology_for_snapshot(snapshot_version)?;
+        self.backfill_authored_route_unlocks_from_kernel();
         if snapshot_version >= 14 && !declared_worldpack_migration {
             self.validate_canonical_route_records()?;
         }
@@ -475,7 +495,7 @@ impl RuntimeWorld {
                 ),
             };
             let owner_pack_version = self.active_pack_version(&owner_pack_id);
-            expected
+            let route = expected
                 .entry(id.clone())
                 .or_insert_with(|| RouteRecordState {
                     canonical_id: id.clone(),
@@ -490,14 +510,21 @@ impl RuntimeWorld {
                     fallback_location_id: exit.fallback_location_id,
                     lifecycle: RouteLifecycle::Open,
                     discovery: None,
+                    unlocks: Vec::new(),
                     entity_version: 1,
-                })
-                .edges
-                .push(RouteEdgeState {
-                    from_location_id: exit.from_location_id,
-                    to_location_id: exit.to_location_id,
-                    flags: exit.flags,
                 });
+            if exit.discovery == RouteDiscovery::Known && route.discovery.is_none() {
+                route.discovery = Some(RouteDiscoveryState {
+                    actor_id: 0,
+                    event_seq: 0,
+                    reason: "authored_known".to_string(),
+                });
+            }
+            route.edges.push(RouteEdgeState {
+                from_location_id: exit.from_location_id,
+                to_location_id: exit.to_location_id,
+                flags: exit.flags,
+            });
         }
         for hidden in &active_content().hidden_exits {
             let owner_pack_id = if hidden.pack_id.is_empty() {
@@ -530,6 +557,7 @@ impl RuntimeWorld {
                 fallback_location_id: None,
                 lifecycle: RouteLifecycle::Latent,
                 discovery: None,
+                unlocks: Vec::new(),
                 entity_version: 1,
             };
             if expected.insert(id.clone(), record).is_some() {
@@ -572,6 +600,7 @@ impl RuntimeWorld {
                     fallback_location_id: None,
                     lifecycle: RouteLifecycle::Latent,
                     discovery: None,
+                    unlocks: Vec::new(),
                     entity_version: 1,
                 };
                 if expected.insert(id.clone(), record).is_some() {
@@ -604,6 +633,17 @@ impl RuntimeWorld {
             let mut expected_edges = expected_route.edges.clone();
             expected_edges
                 .sort_by_key(|edge| (edge.from_location_id, edge.to_location_id, edge.flags));
+            let mut unlock_keys = BTreeSet::new();
+            let unlocks_are_valid = route.unlocks.iter().all(|unlock| {
+                route.provenance == "authored_exit"
+                    && !unlock.reason.trim().is_empty()
+                    && unlock_keys.insert((unlock.from_location_id, unlock.to_location_id))
+                    && expected_route.edges.iter().any(|edge| {
+                        edge.from_location_id == unlock.from_location_id
+                            && edge.to_location_id == unlock.to_location_id
+                            && edge.flags & CW_EXIT_LOCKED != 0
+                    })
+            });
             if actual_edges != expected_edges
                 || route.owner != expected_route.owner
                 || route.owner_pack_id != expected_route.owner_pack_id
@@ -611,9 +651,10 @@ impl RuntimeWorld {
                 || route.provenance != expected_route.provenance
                 || route.directionality != expected_route.directionality
                 || route.fallback_location_id != expected_route.fallback_location_id
+                || !unlocks_are_valid
             {
                 return Err(format!(
-                    "route {} does not match its canonical owner, provenance, endpoints, or directionality",
+                    "route {} does not match its canonical owner, provenance, endpoints, directionality, or unlock history",
                     route.id
                 ));
             }
@@ -1239,6 +1280,11 @@ impl RuntimeWorld {
             || current.provenance != proposed.provenance
             || current.directionality != proposed.directionality
             || current.fallback_location_id != proposed.fallback_location_id;
+        let discovery_backfilled = current.discovery.is_none()
+            && proposed
+                .discovery
+                .as_ref()
+                .is_some_and(|discovery| discovery.reason == "authored_known");
         if structure_changed {
             current.edges = proposed.edges;
             current.canonical_id = proposed.canonical_id;
@@ -1249,9 +1295,12 @@ impl RuntimeWorld {
             current.provenance = proposed.provenance;
             current.directionality = proposed.directionality;
             current.fallback_location_id = proposed.fallback_location_id;
-            if !metadata_backfill {
-                current.entity_version = current.entity_version.saturating_add(1).max(1);
-            }
+        }
+        if discovery_backfilled {
+            current.discovery = proposed.discovery;
+        }
+        if (structure_changed || discovery_backfilled) && !metadata_backfill {
+            current.entity_version = current.entity_version.saturating_add(1).max(1);
         }
     }
 
@@ -1276,7 +1325,7 @@ impl RuntimeWorld {
                 ),
             };
             let owner_pack_version = self.active_pack_version(&owner_pack_id);
-            records
+            let route = records
                 .entry(id.clone())
                 .or_insert_with(|| RouteRecordState {
                     canonical_id: id.clone(),
@@ -1291,14 +1340,21 @@ impl RuntimeWorld {
                     fallback_location_id: exit.fallback_location_id,
                     lifecycle: RouteLifecycle::Open,
                     discovery: None,
+                    unlocks: Vec::new(),
                     entity_version: 1,
-                })
-                .edges
-                .push(RouteEdgeState {
-                    from_location_id: exit.from_location_id,
-                    to_location_id: exit.to_location_id,
-                    flags: exit.flags,
                 });
+            if exit.discovery == RouteDiscovery::Known && route.discovery.is_none() {
+                route.discovery = Some(RouteDiscoveryState {
+                    actor_id: 0,
+                    event_seq: 0,
+                    reason: "authored_known".to_string(),
+                });
+            }
+            route.edges.push(RouteEdgeState {
+                from_location_id: exit.from_location_id,
+                to_location_id: exit.to_location_id,
+                flags: exit.flags,
+            });
         }
         for record in records.into_values() {
             self.reconcile_route_record(record);
@@ -1338,6 +1394,7 @@ impl RuntimeWorld {
                 fallback_location_id: None,
                 lifecycle: RouteLifecycle::Latent,
                 discovery: None,
+                unlocks: Vec::new(),
                 entity_version: 1,
             });
         }
@@ -1389,6 +1446,7 @@ impl RuntimeWorld {
                 fallback_location_id: None,
                 lifecycle,
                 discovery: None,
+                unlocks: Vec::new(),
                 entity_version: 1,
             });
         }
@@ -1401,6 +1459,23 @@ impl RuntimeWorld {
     ) -> bool {
         self.route_for_edge_in_any_lifecycle(from_location_id, to_location_id)
             .is_some_and(|route| route.discovery.is_some())
+    }
+
+    pub(super) fn authored_route_locked_for_edge(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> bool {
+        self.route_for_edge_in_any_lifecycle(from_location_id, to_location_id)
+            .is_some_and(|route| {
+                route.provenance == "authored_exit"
+                    && route.edges.iter().any(|edge| {
+                        edge.from_location_id == from_location_id
+                            && edge.to_location_id == to_location_id
+                            && edge.flags & CW_EXIT_LOCKED != 0
+                    })
+                    && !route.edge_is_unlocked(from_location_id, to_location_id)
+            })
     }
 
     pub(super) fn mark_route_discovered_for_edge(
@@ -1431,6 +1506,110 @@ impl RuntimeWorld {
         });
         route.entity_version = route.entity_version.saturating_add(1).max(1);
         true
+    }
+
+    pub(super) fn record_authored_route_unlock(
+        &mut self,
+        from_location_id: u64,
+        to_location_id: u64,
+        actor_id: u64,
+        event_seq: u64,
+        reason: &str,
+    ) -> bool {
+        let Some(route_id) = self
+            .route_for_edge_in_any_lifecycle(from_location_id, to_location_id)
+            .map(|route| route.id.clone())
+        else {
+            return false;
+        };
+        let route = self
+            .routes
+            .get_mut(&route_id)
+            .expect("resolved route remains present");
+        if route.provenance != "authored_exit"
+            || !route.edges.iter().any(|edge| {
+                edge.from_location_id == from_location_id
+                    && edge.to_location_id == to_location_id
+                    && edge.flags & CW_EXIT_LOCKED != 0
+            })
+            || route.edge_is_unlocked(from_location_id, to_location_id)
+        {
+            return false;
+        }
+        let reason = reason.trim();
+        route.unlocks.push(RouteUnlockState {
+            from_location_id,
+            to_location_id,
+            actor_id,
+            event_seq,
+            reason: if reason.is_empty() {
+                "authored_exit_unlocked".to_string()
+            } else {
+                reason.to_string()
+            },
+        });
+        route.unlocks.sort_by_key(|unlock| {
+            (
+                unlock.from_location_id,
+                unlock.to_location_id,
+                unlock.event_seq,
+            )
+        });
+        if route.discovery.is_none() {
+            route.discovery = Some(RouteDiscoveryState {
+                actor_id,
+                event_seq,
+                reason: "authored_exit_unlocked".to_string(),
+            });
+        }
+        route.entity_version = route.entity_version.saturating_add(1).max(1);
+        true
+    }
+
+    fn backfill_authored_route_unlocks_from_kernel(&mut self) {
+        let structurally_locked_edges = self
+            .routes
+            .values()
+            .filter(|route| route.provenance == "authored_exit")
+            .flat_map(|route| route.edges.iter())
+            .filter(|edge| edge.flags & CW_EXIT_LOCKED != 0)
+            .map(|edge| (edge.from_location_id, edge.to_location_id))
+            .collect::<Vec<_>>();
+        let unlocks = structurally_locked_edges
+            .into_iter()
+            .filter(|(from_location_id, to_location_id)| {
+                self.world.exits[..self.world.exit_count]
+                    .iter()
+                    .any(|kernel_exit| {
+                        kernel_exit.from_location_id == *from_location_id
+                            && kernel_exit.to_location_id == *to_location_id
+                            && kernel_exit.flags & CW_EXIT_LOCKED == 0
+                    })
+            })
+            .map(|(from_location_id, to_location_id)| {
+                let event = self.event_log.iter().rev().find(|event| {
+                    event.success
+                        && event.type_name == "exit.unlocked"
+                        && event.location_id == Some(from_location_id)
+                        && event.destination_location_id == Some(to_location_id)
+                });
+                (
+                    from_location_id,
+                    to_location_id,
+                    event.and_then(|event| event.actor_id).unwrap_or_default(),
+                    event.map(|event| event.seq).unwrap_or_default(),
+                )
+            })
+            .collect::<Vec<_>>();
+        for (from_location_id, to_location_id, actor_id, event_seq) in unlocks {
+            self.record_authored_route_unlock(
+                from_location_id,
+                to_location_id,
+                actor_id,
+                event_seq,
+                "legacy_kernel_unlock",
+            );
+        }
     }
 
     pub(super) fn plan_direct_authored_route_discovery(
@@ -1589,7 +1768,7 @@ impl RuntimeWorld {
             .find(|route| route.contains_edge(from_location_id, to_location_id))
     }
 
-    fn route_for_edge_in_any_lifecycle(
+    pub(crate) fn route_for_edge_in_any_lifecycle(
         &self,
         from_location_id: u64,
         to_location_id: u64,
@@ -1798,7 +1977,14 @@ impl RuntimeWorld {
             .routes
             .values()
             .filter(|route| route.lifecycle == RouteLifecycle::Open)
-            .flat_map(|route| route.edges.iter().cloned())
+            .flat_map(|route| {
+                route.edges.iter().cloned().map(|mut edge| {
+                    if route.edge_is_unlocked(edge.from_location_id, edge.to_location_id) {
+                        edge.flags &= !CW_EXIT_LOCKED;
+                    }
+                    edge
+                })
+            })
             .filter(|edge| {
                 known_locations.contains(&edge.from_location_id)
                     && known_locations.contains(&edge.to_location_id)
@@ -1923,6 +2109,64 @@ impl RuntimeWorld {
 mod tests {
     use super::*;
 
+    fn lock_first_authored_route_edge(runtime: &mut RuntimeWorld) -> (String, u64, u64, u64) {
+        let (route_id, from_location_id, to_location_id) = runtime
+            .routes
+            .iter()
+            .find_map(|(route_id, route)| {
+                (route.provenance == "authored_exit" && route.lifecycle == RouteLifecycle::Open)
+                    .then(|| {
+                        route.edges.first().map(|edge| {
+                            (route_id.clone(), edge.from_location_id, edge.to_location_id)
+                        })
+                    })
+                    .flatten()
+            })
+            .expect("an open authored route fixture");
+        let route = runtime
+            .routes
+            .get_mut(&route_id)
+            .expect("fixture route remains");
+        let original_version = route.entity_version;
+        let edge = route
+            .edges
+            .iter_mut()
+            .find(|edge| {
+                edge.from_location_id == from_location_id && edge.to_location_id == to_location_id
+            })
+            .expect("fixture edge remains");
+        edge.flags |= CW_EXIT_LOCKED;
+        route.unlocks.clear();
+        runtime.rebuild_kernel_exits_from_routes();
+        assert!(runtime.authored_route_locked_for_edge(from_location_id, to_location_id));
+        assert_ne!(
+            runtime.world.exits[..runtime.world.exit_count]
+                .iter()
+                .find(|exit| {
+                    exit.from_location_id == from_location_id
+                        && exit.to_location_id == to_location_id
+                })
+                .expect("fixture edge is projected")
+                .flags
+                & CW_EXIT_LOCKED,
+            0
+        );
+        (route_id, from_location_id, to_location_id, original_version)
+    }
+
+    fn projected_exit_is_locked(
+        runtime: &RuntimeWorld,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> bool {
+        runtime.world.exits[..runtime.world.exit_count]
+            .iter()
+            .find(|exit| {
+                exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
+            })
+            .is_some_and(|exit| exit.flags & CW_EXIT_LOCKED != 0)
+    }
+
     fn legacy_pathway(
         runtime: &RuntimeWorld,
         origin_location_id: u64,
@@ -1976,6 +2220,246 @@ mod tests {
             &restored.world.exits[..restored.world.exit_count],
             &runtime.world.exits[..runtime.world.exit_count]
         );
+    }
+
+    #[test]
+    fn authored_unlock_is_durable_versioned_and_replay_deterministic() {
+        let mut runtime = RuntimeWorld::seeded();
+        let (route_id, from_location_id, to_location_id, original_version) =
+            lock_first_authored_route_edge(&mut runtime);
+        let stale_binding = runtime
+            .route_offer_binding(from_location_id, to_location_id)
+            .expect("locked authored route has an offer binding");
+        let effect = EffectDescriptor::UnlockExit {
+            from_location_id,
+            to_location_id,
+            reason: Some("key_item_attuned".to_string()),
+        };
+
+        let events = runtime.apply_effects(
+            EffectApplicationSource::Lifecycle("on_use"),
+            RATI_ACTOR_ID,
+            80_001,
+            std::slice::from_ref(&effect),
+        );
+
+        assert!(events.iter().any(|event| {
+            event.success
+                && event.type_name == "exit.unlocked"
+                && event.location_id == Some(from_location_id)
+                && event.destination_location_id == Some(to_location_id)
+        }));
+        let route = &runtime.routes[&route_id];
+        assert_eq!(route.entity_version, original_version.saturating_add(1));
+        assert_eq!(route.unlocks.len(), 1);
+        assert_eq!(route.unlocks[0].actor_id, RATI_ACTOR_ID);
+        assert_eq!(route.unlocks[0].reason, "key_item_attuned");
+        assert_eq!(
+            route.discovery.as_ref().map(|state| state.reason.as_str()),
+            Some("authored_exit_unlocked")
+        );
+        assert!(!runtime.authored_route_locked_for_edge(from_location_id, to_location_id));
+        assert!(!projected_exit_is_locked(
+            &runtime,
+            from_location_id,
+            to_location_id
+        ));
+        assert!(!runtime.route_binding_is_current(&stale_binding));
+
+        runtime.rebuild_kernel_exits_from_routes();
+        assert!(!projected_exit_is_locked(
+            &runtime,
+            from_location_id,
+            to_location_id
+        ));
+        if runtime.world.item_count > 0 && runtime.world.location_count > 1 {
+            let destination = runtime.world.locations[1].id;
+            let item = &mut runtime.world.items[0];
+            item.holder_actor_id = 0;
+            item.container_item_id = 0;
+            item.location_id = destination;
+            runtime.rebuild_kernel_exits_from_routes();
+            assert!(!projected_exit_is_locked(
+                &runtime,
+                from_location_id,
+                to_location_id
+            ));
+        }
+
+        let encoded = serde_json::to_vec(&runtime.routes).expect("serialize canonical routes");
+        let decoded: BTreeMap<String, RouteRecordState> =
+            serde_json::from_slice(&encoded).expect("deserialize canonical routes");
+        assert_eq!(
+            decoded[&route_id].unlocks,
+            runtime.routes[&route_id].unlocks
+        );
+
+        let mut replayed = RuntimeWorld::seeded();
+        let (replayed_route_id, replayed_from, replayed_to, _) =
+            lock_first_authored_route_edge(&mut replayed);
+        assert_eq!(
+            (replayed_route_id.as_str(), replayed_from, replayed_to),
+            (route_id.as_str(), from_location_id, to_location_id)
+        );
+        replayed.apply_effects(
+            EffectApplicationSource::Lifecycle("on_use"),
+            RATI_ACTOR_ID,
+            80_001,
+            &[effect],
+        );
+        assert_eq!(replayed.routes[&route_id], runtime.routes[&route_id]);
+        assert!(!projected_exit_is_locked(
+            &replayed,
+            from_location_id,
+            to_location_id
+        ));
+    }
+
+    #[test]
+    fn legacy_open_kernel_edge_backfills_durable_authored_unlock() {
+        let mut runtime = RuntimeWorld::seeded();
+        let (route_id, from_location_id, to_location_id, original_version) =
+            lock_first_authored_route_edge(&mut runtime);
+        let kernel_exit = runtime.world.exits[..runtime.world.exit_count]
+            .iter_mut()
+            .find(|exit| {
+                exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
+            })
+            .expect("fixture edge is projected");
+        kernel_exit.flags &= !CW_EXIT_LOCKED;
+
+        runtime.backfill_authored_route_unlocks_from_kernel();
+
+        assert!(!runtime.authored_route_locked_for_edge(from_location_id, to_location_id));
+        let route = &runtime.routes[&route_id];
+        assert_eq!(route.entity_version, original_version.saturating_add(1));
+        assert_eq!(route.unlocks.len(), 1);
+        assert_eq!(route.unlocks[0].actor_id, 0);
+        assert_eq!(route.unlocks[0].event_seq, 0);
+        assert_eq!(route.unlocks[0].reason, "legacy_kernel_unlock");
+        runtime.rebuild_kernel_exits_from_routes();
+        assert!(!projected_exit_is_locked(
+            &runtime,
+            from_location_id,
+            to_location_id
+        ));
+    }
+
+    #[test]
+    fn declared_locked_authored_unlock_survives_snapshot_restore() {
+        let mut runtime = RuntimeWorld::seeded();
+        let Some((from_location_id, to_location_id)) = runtime.world.exits
+            [..runtime.world.exit_count]
+            .iter()
+            .find(|exit| exit.flags & CW_EXIT_LOCKED != 0)
+            .map(|exit| (exit.from_location_id, exit.to_location_id))
+        else {
+            return;
+        };
+        let stale_binding = runtime
+            .route_offer_binding(from_location_id, to_location_id)
+            .expect("declared locked authored route has a binding");
+        let events = runtime.apply_effects(
+            EffectApplicationSource::Lifecycle("on_use"),
+            RATI_ACTOR_ID,
+            80_002,
+            &[EffectDescriptor::UnlockExit {
+                from_location_id,
+                to_location_id,
+                reason: Some("snapshot_unlock_test".to_string()),
+            }],
+        );
+        assert!(events
+            .iter()
+            .any(|event| event.success && event.type_name == "exit.unlocked"));
+
+        let encoded =
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime)).expect("write snapshot");
+        let snapshot: RuntimeSnapshot = serde_json::from_slice(&encoded).expect("read snapshot");
+        let restored = snapshot.into_runtime().expect("restore unlocked route");
+
+        assert!(!restored.authored_route_locked_for_edge(from_location_id, to_location_id));
+        assert!(!projected_exit_is_locked(
+            &restored,
+            from_location_id,
+            to_location_id
+        ));
+        assert!(!restored.route_binding_is_current(&stale_binding));
+    }
+
+    #[test]
+    fn authored_known_discovery_backfills_without_overwriting_dynamic_history() {
+        let mut runtime = RuntimeWorld::seeded();
+        let route_id = runtime
+            .routes
+            .values()
+            .find(|route| route.provenance == "authored_exit")
+            .expect("authored route fixture")
+            .id
+            .clone();
+        let authored_known = RouteDiscoveryState {
+            actor_id: 0,
+            event_seq: 0,
+            reason: "authored_known".to_string(),
+        };
+        let mut proposed = runtime.routes[&route_id].clone();
+        proposed.discovery = Some(authored_known.clone());
+        let original_version = runtime.routes[&route_id].entity_version;
+
+        runtime.reconcile_route_record(proposed.clone());
+
+        assert_eq!(
+            runtime.routes[&route_id].discovery,
+            Some(authored_known.clone())
+        );
+        assert_eq!(
+            runtime.routes[&route_id].entity_version,
+            original_version.saturating_add(1)
+        );
+
+        let dynamic = RouteDiscoveryState {
+            actor_id: RATI_ACTOR_ID,
+            event_seq: 89,
+            reason: "scout_direct_route".to_string(),
+        };
+        runtime
+            .routes
+            .get_mut(&route_id)
+            .expect("route remains")
+            .discovery = Some(dynamic.clone());
+        let dynamic_version = runtime.routes[&route_id].entity_version;
+
+        runtime.reconcile_route_record(proposed);
+
+        assert_eq!(runtime.routes[&route_id].discovery, Some(dynamic));
+        assert_eq!(runtime.routes[&route_id].entity_version, dynamic_version);
+    }
+
+    #[test]
+    fn authored_discovery_declarations_seed_known_and_leave_scout_unseen() {
+        let runtime = RuntimeWorld::seeded();
+        for route in runtime
+            .routes
+            .values()
+            .filter(|route| route.provenance == "authored_exit")
+        {
+            let declared_known = active_content().exits.iter().any(|exit| {
+                exit.discovery == RouteDiscovery::Known
+                    && route.contains_edge(exit.from_location_id, exit.to_location_id)
+            });
+            if declared_known {
+                assert_eq!(
+                    route.discovery,
+                    Some(RouteDiscoveryState {
+                        actor_id: 0,
+                        event_seq: 0,
+                        reason: "authored_known".to_string(),
+                    })
+                );
+            } else {
+                assert_eq!(route.discovery, None);
+            }
+        }
     }
 
     #[test]
@@ -2708,6 +3192,7 @@ mod tests {
                 fallback_location_id: None,
                 lifecycle: RouteLifecycle::Latent,
                 discovery: None,
+                unlocks: Vec::new(),
                 entity_version: 1,
             },
         );

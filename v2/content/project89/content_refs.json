@@ -1043,6 +1043,42 @@
       "runtime_handle": 3651719261348777
     },
     {
+      "canonical_ref": "pack://project89.open-signal-frontier/actor/9010",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "9010",
+      "legacy_runtime_id": 9010,
+      "runtime_handle": 9010
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/actor/9011",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "9011",
+      "legacy_runtime_id": 9011,
+      "runtime_handle": 9011
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/actor/9012",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "9012",
+      "legacy_runtime_id": 9012,
+      "runtime_handle": 9012
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/actor/9013",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "9013",
+      "legacy_runtime_id": 9013,
+      "runtime_handle": 9013
+    },
+    {
       "canonical_ref": "pack://project89.open-signal-frontier/card/project89-archive-meridian",
       "pack_id": "project89.open-signal-frontier",
       "pack_version": "0.1.0",
@@ -1073,6 +1109,90 @@
       "kind": "card",
       "local_id": "project89-rabbit-signal-freeport",
       "runtime_handle": 3272499223723841
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/clock/project89.frontier-drift",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "clock",
+      "local_id": "project89.frontier-drift",
+      "runtime_handle": 3340412436176787
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/clock/project89.open-circuit-charter",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "clock",
+      "local_id": "project89.open-circuit-charter",
+      "runtime_handle": 7856665941769981
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/faction/project89_longhaul_union",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "faction",
+      "local_id": "project89_longhaul_union",
+      "runtime_handle": 5716750984138608
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/faction/project89_station_covenant",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "faction",
+      "local_id": "project89_station_covenant",
+      "runtime_handle": 8160576098612764
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/front/project89%3Afrontier-drift",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "front",
+      "local_id": "project89:frontier-drift",
+      "runtime_handle": 6929902562913143
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/item/9120",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9120",
+      "legacy_runtime_id": 9120,
+      "runtime_handle": 9120
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/item/9121",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9121",
+      "legacy_runtime_id": 9121,
+      "runtime_handle": 9121
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/item/9122",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9122",
+      "legacy_runtime_id": 9122,
+      "runtime_handle": 9122
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/item/9123",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9123",
+      "legacy_runtime_id": 9123,
+      "runtime_handle": 9123
+    },
+    {
+      "canonical_ref": "pack://project89.open-signal-frontier/job/project89%3Acharter-the-open-circuit",
+      "pack_id": "project89.open-signal-frontier",
+      "pack_version": "0.1.0",
+      "kind": "job",
+      "local_id": "project89:charter-the-open-circuit",
+      "runtime_handle": 2115825795709752
     },
     {
       "canonical_ref": "pack://project89.open-signal-frontier/location/8940",
@@ -1224,6 +1344,33 @@
       "runtime_handle": 8958
     },
     {
+      "canonical_ref": "pack://project89.operation-liberation/actor/8959",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8959",
+      "legacy_runtime_id": 8959,
+      "runtime_handle": 8959
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/actor/8960",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8960",
+      "legacy_runtime_id": 8960,
+      "runtime_handle": 8960
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/actor/8961",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8961",
+      "legacy_runtime_id": 8961,
+      "runtime_handle": 8961
+    },
+    {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-89-archives",
       "pack_id": "project89.operation-liberation",
       "pack_version": "0.1.0",
@@ -1238,6 +1385,14 @@
       "kind": "card",
       "local_id": "project89-archive-cipher",
       "runtime_handle": 3869798373709656
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/card/project89-callum-agent-memory-seed",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "card",
+      "local_id": "project89-callum-agent-memory-seed",
+      "runtime_handle": 8408409692633185
     },
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-charged-89-sigil",
@@ -1430,6 +1585,14 @@
       "kind": "card",
       "local_id": "project89-parzival",
       "runtime_handle": 4995496350547269
+    },
+    {
+      "canonical_ref": "pack://project89.operation-liberation/card/project89-proxim8-callum-synclaire",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "card",
+      "local_id": "project89-proxim8-callum-synclaire",
+      "runtime_handle": 8094799971037698
     },
     {
       "canonical_ref": "pack://project89.operation-liberation/card/project89-reality-anchor",
@@ -1678,6 +1841,15 @@
       "runtime_handle": 8983
     },
     {
+      "canonical_ref": "pack://project89.operation-liberation/item/8984",
+      "pack_id": "project89.operation-liberation",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "8984",
+      "legacy_runtime_id": 8984,
+      "runtime_handle": 8984
+    },
+    {
       "canonical_ref": "pack://project89.operation-liberation/job/project89%3Aoperation-liberation",
       "pack_id": "project89.operation-liberation",
       "pack_version": "0.1.0",
@@ -1839,6 +2011,78 @@
       "runtime_handle": 2270459803696041
     },
     {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8990",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8990",
+      "legacy_runtime_id": 8990,
+      "runtime_handle": 8990
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8991",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8991",
+      "legacy_runtime_id": 8991,
+      "runtime_handle": 8991
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8992",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8992",
+      "legacy_runtime_id": 8992,
+      "runtime_handle": 8992
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8993",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8993",
+      "legacy_runtime_id": 8993,
+      "runtime_handle": 8993
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8994",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8994",
+      "legacy_runtime_id": 8994,
+      "runtime_handle": 8994
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8995",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8995",
+      "legacy_runtime_id": 8995,
+      "runtime_handle": 8995
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8996",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8996",
+      "legacy_runtime_id": 8996,
+      "runtime_handle": 8996
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/actor/8997",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "actor",
+      "local_id": "8997",
+      "legacy_runtime_id": 8997,
+      "runtime_handle": 8997
+    },
+    {
       "canonical_ref": "pack://project89.perimeter-relay/card/project89-chimera-boneyard",
       "pack_id": "project89.perimeter-relay",
       "pack_version": "0.1.0",
@@ -1901,6 +2145,134 @@
       "kind": "card",
       "local_id": "project89-white-rabbit-commons",
       "runtime_handle": 5515000522823930
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/clock/project89.mesh-cascade",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "clock",
+      "local_id": "project89.mesh-cascade",
+      "runtime_handle": 7521286847600952
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/clock/project89.perimeter-stability",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "clock",
+      "local_id": "project89.perimeter-stability",
+      "runtime_handle": 8231600321466060
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/faction/project89_meshkeepers",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "faction",
+      "local_id": "project89_meshkeepers",
+      "runtime_handle": 3580743366419337
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/faction/project89_return_network",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "faction",
+      "local_id": "project89_return_network",
+      "runtime_handle": 1967915498490776
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/faction/project89_spillway_compact",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "faction",
+      "local_id": "project89_spillway_compact",
+      "runtime_handle": 7473578248669384
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/front/project89%3Acoupled-mesh-cascade",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "front",
+      "local_id": "project89:coupled-mesh-cascade",
+      "runtime_handle": 7931581690813865
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9100",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9100",
+      "legacy_runtime_id": 9100,
+      "runtime_handle": 9100
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9101",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9101",
+      "legacy_runtime_id": 9101,
+      "runtime_handle": 9101
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9102",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9102",
+      "legacy_runtime_id": 9102,
+      "runtime_handle": 9102
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9103",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9103",
+      "legacy_runtime_id": 9103,
+      "runtime_handle": 9103
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9104",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9104",
+      "legacy_runtime_id": 9104,
+      "runtime_handle": 9104
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9105",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9105",
+      "legacy_runtime_id": 9105,
+      "runtime_handle": 9105
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9106",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9106",
+      "legacy_runtime_id": 9106,
+      "runtime_handle": 9106
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/item/9107",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "item",
+      "local_id": "9107",
+      "legacy_runtime_id": 9107,
+      "runtime_handle": 9107
+    },
+    {
+      "canonical_ref": "pack://project89.perimeter-relay/job/project89%3Astabilize-perimeter-relay",
+      "pack_id": "project89.perimeter-relay",
+      "pack_version": "0.1.0",
+      "kind": "job",
+      "local_id": "project89:stabilize-perimeter-relay",
+      "runtime_handle": 7700517694186391
     },
     {
       "canonical_ref": "pack://project89.perimeter-relay/location/8920",

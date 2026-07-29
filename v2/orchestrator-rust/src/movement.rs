@@ -203,39 +203,52 @@ impl RuntimeWorld {
     }
 
     pub(super) fn first_tale_destination_reached(&self, actor_id: u64) -> bool {
-        self.rpg_claims
-            .contains(&first_tale_destination_claim_key(actor_id))
+        let Some(first_tale) = active_first_tale() else {
+            return false;
+        };
+        let destination_location_id = first_tale.destination_location_id;
+        first_tale_destination_claim_key(actor_id)
+            .is_some_and(|claim_key| self.rpg_claims.contains(&claim_key))
             || self
                 .actor_by_id(actor_id)
-                .is_some_and(|actor| actor.location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+                .is_some_and(|actor| actor.location_id == destination_location_id)
     }
 
     pub(super) fn record_first_tale_destination_arrivals(&mut self, events: &[EventView]) {
+        let Some(first_tale) = active_first_tale() else {
+            return;
+        };
+        let destination_location_id = first_tale.destination_location_id;
         let actor_ids = events
             .iter()
             .filter(|event| {
                 event.success
                     && event.type_name == "actor.moved"
-                    && (event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-                        || event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+                    && (event.location_id == Some(destination_location_id)
+                        || event.destination_location_id == Some(destination_location_id))
             })
             .filter_map(|event| event.actor_id)
             .collect::<BTreeSet<_>>();
         for actor_id in actor_ids {
-            self.rpg_claims
-                .insert(first_tale_destination_claim_key(actor_id));
+            if let Some(claim_key) = first_tale_destination_claim_key(actor_id) {
+                self.rpg_claims.insert(claim_key);
+            }
         }
     }
 
     pub(super) fn backfill_first_tale_destination_arrivals(&mut self) {
+        let Some(first_tale) = active_first_tale() else {
+            return;
+        };
+        let destination_location_id = first_tale.destination_location_id;
         let mut actor_ids = self
             .event_log
             .iter()
             .filter(|event| {
                 event.success
                     && event.type_name == "actor.moved"
-                    && (event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-                        || event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+                    && (event.location_id == Some(destination_location_id)
+                        || event.destination_location_id == Some(destination_location_id))
             })
             .filter_map(|event| event.actor_id)
             .collect::<BTreeSet<_>>();
@@ -243,12 +256,13 @@ impl RuntimeWorld {
             journey
                 .path
                 .get(..=journey.current_step)
-                .is_some_and(|path| path.contains(&RAIN_SOFT_GARDEN_LOCATION_ID))
+                .is_some_and(|path| path.contains(&destination_location_id))
                 .then_some(*actor_id)
         }));
         for actor_id in actor_ids {
-            self.rpg_claims
-                .insert(first_tale_destination_claim_key(actor_id));
+            if let Some(claim_key) = first_tale_destination_claim_key(actor_id) {
+                self.rpg_claims.insert(claim_key);
+            }
         }
     }
 
@@ -483,10 +497,12 @@ impl RuntimeWorld {
     }
 }
 
-fn first_tale_destination_claim_key(actor_id: u64) -> String {
-    format!(
-        "first_tale:v{FIRST_TALE_TRACE_SCHEMA_VERSION}:actor:{actor_id}:destination:{RAIN_SOFT_GARDEN_LOCATION_ID}"
-    )
+fn first_tale_destination_claim_key(actor_id: u64) -> Option<String> {
+    let first_tale = active_first_tale()?;
+    Some(format!(
+        "first_tale:v{}:actor:{actor_id}:destination:{}",
+        first_tale.schema_version, first_tale.destination_location_id
+    ))
 }
 
 #[cfg(test)]
@@ -882,7 +898,7 @@ mod tests {
     }
 
     #[test]
-    fn scout_binds_one_authoritative_route_across_stale_submission_restart_and_replay() {
+    fn each_scout_offer_binds_one_authoritative_route_across_restart_and_replay() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -919,12 +935,21 @@ mod tests {
             .filter(|offer| offer.kind == "explore_path")
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(
-            scout_offers.len(),
-            1,
-            "the server deals one authoritative Scout route"
+        assert!(
+            scout_offers.len() >= 2,
+            "the server deals each scoutable branch as its own offer"
         );
-        let offer = scout_offers[0].clone();
+        let offer = scout_offers
+            .iter()
+            .find(|offer| {
+                offer
+                    .target
+                    .as_ref()
+                    .and_then(|target| target.id)
+                    .is_some_and(|destination| long_destinations.contains(&destination))
+            })
+            .expect("a long route has an exact Scout offer")
+            .clone();
         let offered_destination = offer
             .target
             .as_ref()
@@ -964,9 +989,12 @@ mod tests {
             rejected,
             Err("submitted payload target does not match the authoritative offer")
         );
-        assert!(runtime
-            .plan_scout_choice_action(actor_id, forged_destination)
-            .is_err());
+        assert!(
+            runtime
+                .plan_scout_choice_action(actor_id, forged_destination)
+                .is_ok(),
+            "the other route is legal through its own authoritative offer"
+        );
         assert_eq!(
             serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
                 .expect("serialize post-rejection state"),
@@ -1167,9 +1195,9 @@ mod tests {
         assert!(restored.first_tale_view(actor_id).is_none());
 
         let mut legacy_snapshot = RuntimeSnapshot::from_runtime(&runtime);
-        legacy_snapshot
-            .rpg_claims
-            .remove(&first_tale_destination_claim_key(actor_id));
+        let destination_claim =
+            first_tale_destination_claim_key(actor_id).expect("official first tale is mounted");
+        legacy_snapshot.rpg_claims.remove(&destination_claim);
         let backfilled = legacy_snapshot
             .into_runtime()
             .expect("legacy arrival progress backfills from movement");
@@ -1251,28 +1279,31 @@ mod tests {
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, actor_id);
 
-        let current_offer = |runtime: &RuntimeWorld, kind: &str, target_id: u64| {
-            let view = runtime.state_response(Some(actor_id), &AccessContext::default());
-            let offer = view
-                .action_offers
-                .into_iter()
-                .find(|offer| {
-                    offer.kind == kind
-                        && offer
-                            .target
-                            .as_ref()
-                            .is_some_and(|target| target.id == Some(target_id))
-                })
-                .unwrap_or_else(|| panic!("{kind} offer for {target_id} should be current"));
-            assert!(
-                view.action_hand
-                    .entries
-                    .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id),
-                "{kind} offer for {target_id} should use the browser hand identity"
-            );
-            offer
-        };
+        let current_offer =
+            |runtime: &RuntimeWorld, kind: &str, target_id: u64, require_hand: bool| {
+                let view = runtime.state_response(Some(actor_id), &AccessContext::default());
+                let offer = view
+                    .action_offers
+                    .into_iter()
+                    .find(|offer| {
+                        offer.kind == kind
+                            && offer
+                                .target
+                                .as_ref()
+                                .is_some_and(|target| target.id == Some(target_id))
+                    })
+                    .unwrap_or_else(|| panic!("{kind} offer for {target_id} should be current"));
+                if require_hand {
+                    assert!(
+                        view.action_hand
+                            .entries
+                            .iter()
+                            .any(|entry| entry.offer_id == offer.offer_id),
+                        "{kind} offer for {target_id} should use the browser hand identity"
+                    );
+                }
+                offer
+            };
 
         {
             let runtime = state.inner.lock().await;
@@ -1286,7 +1317,7 @@ mod tests {
         }
         let garden_offer = {
             let runtime = state.inner.lock().await;
-            current_offer(&runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID)
+            current_offer(&runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID, true)
         };
         let garden_response = submit_offer_for_test(
             &state,
@@ -1314,7 +1345,7 @@ mod tests {
         let mut final_travel_offer = None;
         let first_scout = {
             let runtime = state.inner.lock().await;
-            current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
+            current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID, false)
         };
         assert!(first_scout.route.is_some());
         let first_scout_response = submit_offer_for_test(
@@ -1341,7 +1372,7 @@ mod tests {
             };
             let travel = {
                 let runtime = state.inner.lock().await;
-                current_offer(&runtime, "move", next_location_id)
+                current_offer(&runtime, "move", next_location_id, true)
             };
             if step == 3 {
                 final_travel_offer = Some(travel.clone());
@@ -1381,7 +1412,7 @@ mod tests {
             if step < 3 {
                 let scout = {
                     let runtime = state.inner.lock().await;
-                    current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
+                    current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID, true)
                 };
                 assert!(scout.route.is_some(), "step {step} Scout route binding");
                 let scout_response = submit_offer_for_test(
@@ -1413,7 +1444,7 @@ mod tests {
         for destination_location_id in pathway[..pathway.len() - 1].iter().rev().copied() {
             let reverse_offer = {
                 let runtime = state.inner.lock().await;
-                current_offer(&runtime, "move", destination_location_id)
+                current_offer(&runtime, "move", destination_location_id, true)
             };
             let reverse_response = submit_offer_for_test(
                 &state,
