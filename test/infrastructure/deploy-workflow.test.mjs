@@ -5,6 +5,10 @@ const workflow = readFileSync(
   new URL('../../.github/workflows/deploy.yml', import.meta.url),
   'utf8'
 );
+const volumeHeadroomWorkflow = readFileSync(
+  new URL('../../.github/workflows/volume-headroom.yml', import.meta.url),
+  'utf8'
+);
 const primaryFlyConfig = readFileSync(
   new URL('../../fly.toml', import.meta.url),
   'utf8'
@@ -48,6 +52,37 @@ describe('deploy workflow', () => {
     expect(fly).not.toContain('--image');
     expect(workflow).not.toContain('\n  aws:');
     expect(job('github-release')).toContain('needs: [fly]');
+  });
+
+  it('auto-extends both data volumes before the deploy guard, with bounded spend', () => {
+    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
+      expect(config).toContain('auto_extend_size_threshold = 80');
+      expect(config).toContain('auto_extend_size_increment = "1GB"');
+      expect(config).toContain('auto_extend_size_limit = "5GB"');
+    }
+
+    const fly = job('fly', 'github-release');
+    expect(fly).toContain('check-fly-volume-space.sh cosyworld /data 85');
+    expect(fly).toContain(
+      'check-fly-volume-space.sh cosyworld-lonelyforest /data 85'
+    );
+    expect(80).toBeLessThan(85);
+  });
+
+  it('checks production volume headroom every fifteen minutes', () => {
+    expect(volumeHeadroomWorkflow).toContain('cron: "*/15 * * * *"');
+    expect(volumeHeadroomWorkflow).toContain(
+      'check-fly-volume-space.sh cosyworld /data 70'
+    );
+    expect(volumeHeadroomWorkflow).toContain(
+      'check-fly-volume-space.sh cosyworld-lonelyforest /data 70'
+    );
+    expect(volumeHeadroomWorkflow).toContain(
+      'FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}'
+    );
+    expect(volumeHeadroomWorkflow).toContain(
+      'FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}'
+    );
   });
 
   it('keeps the image workshop configured on both Fly tenants', () => {
