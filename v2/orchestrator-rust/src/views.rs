@@ -26,6 +26,32 @@ pub(super) struct FirstTaleView {
     pub(super) trace_event_seq: Option<u64>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum JournalBeatCategory {
+    Story,
+    Discovery,
+    Travel,
+    Search,
+    Relationship,
+    Growth,
+    Work,
+    Item,
+    Consequence,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(super) struct JournalBeatView {
+    pub(super) id: String,
+    pub(super) source_event_seqs: Vec<u64>,
+    pub(super) category: JournalBeatCategory,
+    pub(super) headline: String,
+    pub(super) location_id: u64,
+    pub(super) ordering_seq: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) world_beat_exposure_id: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct StateResponse {
     pub(super) world_id: String,
@@ -63,6 +89,7 @@ pub(super) struct StateResponse {
     pub(super) branch: Option<BranchView>,
     pub(super) safety: ActorSafetyView,
     pub(super) recent_events: Vec<EventView>,
+    pub(super) journal_beats: Vec<JournalBeatView>,
     pub(super) room_memory: RoomMemoryView,
     pub(super) primary_action: PrimaryAction,
     pub(super) action_offers: Vec<RankedActionOffer>,
@@ -70,6 +97,213 @@ pub(super) struct StateResponse {
     pub(super) inspector: InspectorView,
     pub(super) character_creation: Vec<CharacterCreationProfileView>,
     pub(super) character_identity: Option<CharacterIdentityView>,
+}
+
+fn semantic_receipt_journal_category(narration_key: &str) -> JournalBeatCategory {
+    let key = narration_key.to_ascii_lowercase();
+    if key.contains("work") || key.contains("build") || key.contains("job") {
+        JournalBeatCategory::Work
+    } else if key.contains("journey")
+        || key.contains("travel")
+        || key.contains("arrival")
+        || key.contains("move")
+    {
+        JournalBeatCategory::Travel
+    } else if key.contains("search") || key.contains("check") || key.contains("study") {
+        JournalBeatCategory::Search
+    } else if key.contains("discover")
+        || key.contains("reveal")
+        || key.contains("pathway")
+        || key.contains("scout")
+    {
+        JournalBeatCategory::Discovery
+    } else if key.contains("bond") || key.contains("friend") || key.contains("relationship") {
+        JournalBeatCategory::Relationship
+    } else if key.contains("growth")
+        || key.contains("skill")
+        || key.contains("calling")
+        || key.contains("ledger")
+        || key.contains("evolve")
+    {
+        JournalBeatCategory::Growth
+    } else if key.contains("item")
+        || key.contains("loot")
+        || key.contains("craft")
+        || key.contains("gift")
+        || key.contains("trade")
+    {
+        JournalBeatCategory::Item
+    } else if key.contains("combat")
+        || key.contains("danger")
+        || key.contains("consequence")
+        || key.contains("failure")
+    {
+        JournalBeatCategory::Consequence
+    } else {
+        JournalBeatCategory::Story
+    }
+}
+
+fn journal_beat_category(event: &EventView) -> Option<JournalBeatCategory> {
+    if event.type_name == semantic_receipts::STORY_RECEIPT_EVENT_TYPE {
+        return semantic_receipts::semantic_story_receipt(event)
+            .map(|receipt| semantic_receipt_journal_category(&receipt.narration_key));
+    }
+    let category = match event.type_name.as_str() {
+        "actor.created"
+        | "actor.entered_location"
+        | "first_tale.public_trace"
+        | "governance.selected" => JournalBeatCategory::Story,
+        "actor.moved"
+        | "combat.flee.success"
+        | "journey.started"
+        | "journey.progressed"
+        | "journey.narrated"
+        | "journey.completed"
+        | "journey.backtracked"
+        | "journey.paused" => JournalBeatCategory::Travel,
+        "exit.discovered"
+        | "exit.unlocked"
+        | "pathway.discovered"
+        | "pathway.familiarized"
+        | "natural_feature.revealed" => JournalBeatCategory::Discovery,
+        "feature.searched" | "location.searched" | "ability_check.rolled" => {
+            JournalBeatCategory::Search
+        }
+        "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => {
+            JournalBeatCategory::Relationship
+        }
+        "ledger.marked" | "ledger.banked" | "advancement.spent" | "skill.stepped"
+        | "calling.set" | "calling.revised" | "avatar.evolved" => JournalBeatCategory::Growth,
+        "job.contribution.resolved"
+        | "job.updated"
+        | "building.construction_opened"
+        | "building.completed"
+        | "building.upgraded"
+        | "world.trade.flowed"
+        | "world.trade.disrupted"
+        | "world.delivery.needed"
+        | "world.logistics.completed" => JournalBeatCategory::Work,
+        "quest.loot_allocated"
+        | "item.picked_up"
+        | "item.dropped"
+        | "item.used"
+        | "item.given"
+        | "item.traded"
+        | "item.found"
+        | "item.revealed"
+        | "item.crafted"
+        | "item.created"
+        | "item.transformed" => JournalBeatCategory::Item,
+        "move.blocked"
+        | "clock.updated"
+        | "tag.applied"
+        | "tag.cleared"
+        | "combat.attack.attempt"
+        | "combat.encounter.started"
+        | "combat.dodge"
+        | "combat.encounter.resolved"
+        | "world.weather.shifted"
+        | "world.weather.held"
+        | "world.faction.influence_shifted"
+        | "world.conflict.pressure_grew"
+        | "world.conflict.pressure_eased"
+        | "world.conflict.escalated"
+        | "magic.spell_cast" => JournalBeatCategory::Consequence,
+        type_name if type_name.starts_with("combat.") => JournalBeatCategory::Consequence,
+        _ => return None,
+    };
+    if event.type_name == "tag.applied"
+        && matches!(
+            event.content.as_deref(),
+            Some("search_location") | Some("search_feature")
+        )
+    {
+        None
+    } else {
+        Some(category)
+    }
+}
+
+fn complete_journal_headline(value: &str) -> Option<String> {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        return None;
+    }
+    if compact.ends_with(['.', '!', '?', '…']) {
+        Some(compact)
+    } else {
+        Some(format!("{compact}."))
+    }
+}
+
+fn journal_world_beat_exposure_id(event: &EventView) -> Option<String> {
+    matches!(
+        event.type_name.as_str(),
+        "world.weather.shifted"
+            | "world.weather.held"
+            | "world.trade.flowed"
+            | "world.trade.disrupted"
+            | "world.delivery.needed"
+            | "world.logistics.completed"
+            | "world.faction.influence_shifted"
+            | "world.conflict.pressure_grew"
+            | "world.conflict.pressure_eased"
+            | "world.conflict.escalated"
+    )
+    .then(|| format!("world-beat:v1:{}", event.seq))
+}
+
+fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeatView> {
+    let covered_event_seqs = semantic_receipts::semantic_receipt_covered_event_seqs(events);
+    let mut beats = events
+        .iter()
+        .filter(|event| !covered_event_seqs.contains(&event.seq))
+        .filter_map(|event| {
+            let category = journal_beat_category(event)?;
+            let (headline, mut source_event_seqs) =
+                if let Some(receipt) = semantic_receipts::semantic_story_receipt(event) {
+                    (
+                        complete_journal_headline(&receipt.text)?,
+                        receipt.event_seqs,
+                    )
+                } else if journal_world_beat_exposure_id(event).is_some() {
+                    (
+                        complete_journal_headline(event.content.as_deref()?)?,
+                        vec![event.seq],
+                    )
+                } else {
+                    (
+                        complete_journal_headline(&room_memory_log_text_at_location(
+                            event,
+                            location_id,
+                        )?)?,
+                        vec![event.seq],
+                    )
+                };
+            source_event_seqs.push(event.seq);
+            source_event_seqs.sort_unstable();
+            source_event_seqs.dedup();
+            Some(JournalBeatView {
+                id: format!("journal-beat:v1:{location_id}:{}", event.seq),
+                source_event_seqs,
+                category,
+                headline,
+                location_id,
+                ordering_seq: event.seq,
+                world_beat_exposure_id: journal_world_beat_exposure_id(event),
+            })
+        })
+        .collect::<Vec<_>>();
+    beats.sort_by(|left, right| {
+        left.ordering_seq
+            .cmp(&right.ordering_seq)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    if beats.len() > 60 {
+        beats.drain(0..beats.len() - 60);
+    }
+    beats
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1894,6 +2128,7 @@ impl RuntimeWorld {
             .take(80)
             .cloned()
             .collect::<Vec<_>>();
+        let journal_beats = journal_beat_views(&recent_events, location_id);
         let room_memory = fallback_room_memory_view(&location, &recent_events);
         StateResponse {
             world_id: OFFICIAL_WORLD_ID.to_string(),
@@ -1971,6 +2206,7 @@ impl RuntimeWorld {
             branch: None,
             safety: self.actor_safety_view(client_actor_id),
             recent_events,
+            journal_beats,
             room_memory,
             primary_action,
             action_offers,
@@ -3458,7 +3694,7 @@ impl RuntimeWorld {
 
 #[cfg(test)]
 mod tests {
-    use super::front_presentation;
+    use super::*;
 
     #[test]
     fn front_presentation_names_active_persisted_resolved_and_escalated_truths() {
@@ -3485,6 +3721,147 @@ mod tests {
                 "escalated",
                 format!("The larger trouble has escalated. {impending}")
             )
+        );
+    }
+
+    #[test]
+    fn journal_beats_group_semantic_receipts_with_their_source_evidence() {
+        let raw = EventView {
+            seq: 41,
+            type_name: "job.contribution.resolved".to_string(),
+            actor_name: Some("Pip Marrow".to_string()),
+            location_id: Some(804),
+            content: Some(
+                serde_json::json!({
+                    "job_id": "lantern-keeper:rekindle-the-beacon",
+                    "strategy_id": "rekindle",
+                    "strategy_label": "Rekindle the beacon",
+                    "narration_key": "lantern-keeper.work",
+                    "action_kind": "work",
+                    "target": {"kind": "feature", "id": "beacon", "label": "the beacon"},
+                    "resolution": "ability_check",
+                    "outcome": "success",
+                    "baseline_progress": 1,
+                    "success_progress": 1,
+                    "prepared_bonus_progress": 0,
+                    "total_progress": 2,
+                    "clock_id": "lantern-keeper.light",
+                    "source_event_seqs": [41],
+                    "rules_profile": "cosy",
+                    "rules_pack_id": "cosy",
+                    "rules_pack_version": "1",
+                    "pack_id": "official",
+                    "pack_version": "1"
+                })
+                .to_string(),
+            ),
+            ..EventView::default()
+        };
+        let receipt = EventView {
+            seq: 43,
+            type_name: semantic_receipts::STORY_RECEIPT_EVENT_TYPE.to_string(),
+            actor_name: Some("Pip Marrow".to_string()),
+            location_id: Some(804),
+            content: Some(
+                serde_json::json!({
+                    "schema_version": 1,
+                    "narration_key": "lantern-keeper.work",
+                    "text": "Pip Marrow rekindles the beacon",
+                    "event_seqs": [41, 42],
+                    "next_response": "carry the news home"
+                })
+                .to_string(),
+            ),
+            ..EventView::default()
+        };
+
+        let beats = journal_beat_views(&[receipt, raw], 804);
+
+        assert_eq!(
+            beats,
+            vec![JournalBeatView {
+                id: "journal-beat:v1:804:43".to_string(),
+                source_event_seqs: vec![41, 42, 43],
+                category: JournalBeatCategory::Work,
+                headline: "Pip Marrow rekindles the beacon.".to_string(),
+                location_id: 804,
+                ordering_seq: 43,
+                world_beat_exposure_id: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn journal_beats_are_typed_ordered_and_omit_unknown_events() {
+        let movement = EventView {
+            seq: 9,
+            type_name: "actor.moved".to_string(),
+            actor_name: Some("Pip Marrow".to_string()),
+            location_id: Some(2),
+            destination_location_id: Some(3),
+            destination_location_name: Some("Moonlit Trail".to_string()),
+            ..EventView::default()
+        };
+        let unknown = EventView {
+            seq: 10,
+            type_name: "future.internal.telemetry".to_string(),
+            location_id: Some(2),
+            content: Some("this must never become Journal prose".to_string()),
+            ..EventView::default()
+        };
+
+        let beats = journal_beat_views(&[unknown, movement], 2);
+
+        assert_eq!(beats.len(), 1);
+        assert_eq!(beats[0].category, JournalBeatCategory::Travel);
+        assert_eq!(beats[0].headline, "Pip Marrow left for Moonlit Trail.");
+        assert_eq!(beats[0].source_event_seqs, vec![9]);
+    }
+
+    #[test]
+    fn journal_beats_serialize_identically_across_replay_order() {
+        let earlier = EventView {
+            seq: 20,
+            type_name: "item.found".to_string(),
+            actor_name: Some("Pip Marrow".to_string()),
+            location_id: Some(7),
+            item_name: Some("Story Button".to_string()),
+            ..EventView::default()
+        };
+        let later = EventView {
+            seq: 21,
+            type_name: "bond.deepened".to_string(),
+            actor_name: Some("Pip Marrow".to_string()),
+            target_actor_name: Some("Moss Stitch".to_string()),
+            location_id: Some(7),
+            ..EventView::default()
+        };
+
+        let chronological =
+            serde_json::to_vec(&journal_beat_views(&[earlier.clone(), later.clone()], 7)).unwrap();
+        let replayed = serde_json::to_vec(&journal_beat_views(&[later, earlier], 7)).unwrap();
+
+        assert_eq!(chronological, replayed);
+    }
+
+    #[test]
+    fn journal_world_beats_keep_authored_prose_and_receipt_identity() {
+        let event = EventView {
+            seq: 31,
+            type_name: "world.weather.shifted".to_string(),
+            location_id: Some(7),
+            content: Some("Rain thins into pearl-grey mist".to_string()),
+            ..EventView::default()
+        };
+
+        let beats = journal_beat_views(&[event], 7);
+
+        assert_eq!(beats.len(), 1);
+        assert_eq!(beats[0].category, JournalBeatCategory::Consequence);
+        assert_eq!(beats[0].headline, "Rain thins into pearl-grey mist.");
+        assert_eq!(
+            beats[0].world_beat_exposure_id.as_deref(),
+            Some("world-beat:v1:31")
         );
     }
 }

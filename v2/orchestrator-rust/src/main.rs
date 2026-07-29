@@ -49086,9 +49086,9 @@ mod tests {
         ));
         assert!(INDEX_HTML.contains("return event?.type === \"message.created\""));
         assert!(INDEX_HTML.contains("function renderJournalLog"));
-        assert!(
-            INDEX_HTML.contains("narratedTranscriptEvents(logEvents.filter(eventIsJournalEvent))")
-        );
+        assert!(INDEX_HTML.contains("const beats = journalBeatsForPresentation()"));
+        assert!(INDEX_HTML.contains("headline.scrollWidth > headline.clientWidth + 2"));
+        assert!(!INDEX_HTML.contains("function journalEventHtml"));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
@@ -49304,8 +49304,8 @@ mod tests {
         assert!(INDEX_HTML.contains("world.logistics.completed"));
         assert!(INDEX_HTML.contains("world.faction.influence_shifted"));
         assert!(INDEX_HTML.contains("world.conflict.escalated"));
-        assert!(INDEX_HTML.contains("function eventIsJournalEvent"));
-        assert!(INDEX_HTML.contains("&& !eventMatchesCurrentLocation(event)"));
+        assert!(INDEX_HTML.contains("function journalBeatsForPresentation"));
+        assert!(INDEX_HTML.contains("const journalBeatCategories = new Set(["));
         assert!(INDEX_HTML.contains("function sceneCardEventHtml"));
         assert!(INDEX_HTML.contains("Story beat. ${text}"));
         assert!(INDEX_HTML.contains("makes room for ${actor}"));

@@ -3596,6 +3596,12 @@
       font-size: 12px;
       font-weight: 850;
     }
+    .journal-row.journal-beat:not(.is-overflowing) > summary {
+      cursor: default;
+    }
+    .journal-row.journal-beat:not(.is-overflowing) .journal-row-marker {
+      display: none;
+    }
     .journal-row[open] .journal-row-marker::before {
       content: "−";
     }
@@ -4305,6 +4311,7 @@
     let roomCopyExpanded = false;
     let journalOpen = false;
     let roomLogTickerFrame = null;
+    let journalBeatOverflowFrame = null;
     let lastRoomCopyLocationId = null;
     let economyFlash = null;
     let economyFlashTimer = null;
@@ -8026,6 +8033,16 @@
       if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
       const log = journalOpen ? $("journal-view") : $("log");
       if (!log || log.hidden || log.getClientRects().length === 0 || libraryPanelPinned || accountPanelPinned) return;
+      if (journalOpen) {
+        const beats = journalBeatsForPresentation();
+        for (const row of log.querySelectorAll("[data-world-beat-receipt][data-journal-beat-index]")) {
+          if (!worldBeatRowIsActuallyVisible(row, log)) continue;
+          const beat = beats[Number(row.dataset.journalBeatIndex || -1)];
+          if (!beat?.world_beat_exposure_id || !cleanStatusText(beat.headline)) continue;
+          void acknowledgeWorldBeatExposureId(beat.world_beat_exposure_id);
+        }
+        return;
+      }
       for (const row of log.querySelectorAll("[data-world-beat-exposure][data-world-beat-seq]")) {
         if (!worldBeatRowIsActuallyVisible(row, log)) continue;
         const seq = Number(row.dataset.worldBeatSeq || 0);
@@ -8037,6 +8054,10 @@
 
     async function acknowledgeWorldBeatExposure(event) {
       const exposureId = worldBeatExposureId(event);
+      await acknowledgeWorldBeatExposureId(exposureId);
+    }
+
+    async function acknowledgeWorldBeatExposureId(exposureId) {
       if (!exposureId) return;
       const previous = worldBeatReceiptState.get(exposureId);
       if (["in_flight", "acknowledged", "rejected"].includes(previous?.status)) return;
@@ -8657,6 +8678,7 @@
       if (open) {
         scheduleVisibleWorldBeatReceipts();
         scheduleVisibleClockPresentationReceipts();
+        scheduleJournalBeatOverflowSync();
       }
     }
 
@@ -8832,11 +8854,9 @@
       const toggle = $("room-log-toggle");
       const panel = $("room-memory");
       const memory = roomMemoryModel();
-      const latestJournalEvent = narratedTranscriptEvents(
-        logEvents.filter(eventIsJournalEvent),
-      ).at(-1);
-      const latestText = latestJournalEvent
-        ? journalEventSummary(latestJournalEvent)
+      const latestJournalBeat = journalBeatsForPresentation().at(-1);
+      const latestText = latestJournalBeat
+        ? latestJournalBeat.headline
         : memory.hasLatestEvent
           ? atmosphericMemoryBeat(memory.latest) || memory.latest.text
           : "";
@@ -9002,61 +9022,73 @@
       if (questions.length && journalOpen) scheduleVisibleClockPresentationReceipts();
     }
 
-    function eventIsJournalEvent(event) {
-      if (!event || eventIsMuted(event) || eventIsHiddenContext(event) || eventIsLowSignalStatus(event)) return false;
-      if (
-        (event.location_id || event.destination_location_id)
-        && !eventMatchesCurrentLocation(event)
-      ) return false;
-      if (event.type === "message.created") return false;
-      const meta = statusUpdateMeta(event);
-      return Boolean(meta?.text || sceneCardEventText(event));
+    const journalBeatCategories = new Set([
+      "story",
+      "discovery",
+      "travel",
+      "search",
+      "relationship",
+      "growth",
+      "work",
+      "item",
+      "consequence",
+    ]);
+
+    function journalBeatsForPresentation(view = state) {
+      return (Array.isArray(view?.journal_beats) ? view.journal_beats : [])
+        .filter((beat) => (
+          beat
+          && journalBeatCategories.has(String(beat.category || ""))
+          && cleanStatusText(beat.headline)
+        ))
+        .slice()
+        .sort((left, right) => (
+          Number(left.ordering_seq || 0) - Number(right.ordering_seq || 0)
+          || String(left.id || "").localeCompare(String(right.id || ""))
+        ))
+        .slice(-60);
     }
 
-    function journalEventSummary(event) {
-      if (isRollEvent(event)) {
-        const roll = rollMeta(event);
-        return journalSummary(`${roll.title} · ${roll.result}`);
-      }
-      const meta = statusUpdateMeta(event);
-      return journalSummary(meta?.text || sceneCardEventText(event));
-    }
-
-    function journalEventHtml(event) {
-      const storyReceipt = semanticStoryReceipt(event);
-      if (storyReceipt) {
-        const covered = new Set((storyReceipt.event_seqs || []).map(Number));
-        return journalRowHtml({
-          label: "story",
-          summary: journalSummary(storyReceipt.text),
-          detail: storyReceipt.text,
-          kind: "story",
-          inspector: logEvents.filter((candidate) => covered.has(Number(candidate?.seq || 0))),
-        });
-      }
-      if (isRollEvent(event)) {
-        const roll = rollMeta(event);
-        return journalRowHtml({
-          label: roll.label || "roll",
-          summary: journalEventSummary(event),
-          detail: roll.story || [roll.detail, roll.result].filter(Boolean).join("; "),
-          kind: event.success ? "success" : "failure",
-        });
-      }
-      const meta = statusUpdateMeta(event);
-      const summary = journalEventSummary(event);
-      if (!summary) return "";
-      const exposureId = worldBeatExposureId(event);
-      const attrs = exposureId
-        ? ` data-world-beat-exposure="${escapeAttr(exposureId)}" data-world-beat-seq="${Number(event.seq)}"`
+    function journalBeatHtml(beat, index) {
+      const category = String(beat.category || "");
+      const headline = cleanStatusText(beat.headline);
+      if (!journalBeatCategories.has(category) || !headline) return "";
+      const receiptAttrs = beat.world_beat_exposure_id
+        ? ` data-world-beat-receipt data-journal-beat-index="${Number(index)}"`
         : "";
-      return journalRowHtml({
-        label: meta?.label || "event",
-        summary,
-        detail: sceneCardEventText(event) || summary,
-        kind: meta?.kind || "status",
-        attrs,
+      return `<details class="journal-row journal-beat ${escapeAttr(category)}"${receiptAttrs} aria-label="${escapeAttr(`${category}. ${headline}`)}"><summary tabindex="-1" aria-disabled="true"><span class="journal-row-label">${escapeHtml(category)}</span><span class="journal-row-summary">${escapeHtml(headline)}</span><span class="journal-row-marker" aria-hidden="true"></span></summary><div class="journal-row-detail"><p>${escapeHtml(headline)}</p></div></details>`;
+    }
+
+    function scheduleJournalBeatOverflowSync() {
+      if (journalBeatOverflowFrame !== null) {
+        window.cancelAnimationFrame(journalBeatOverflowFrame);
+      }
+      journalBeatOverflowFrame = window.requestAnimationFrame(() => {
+        journalBeatOverflowFrame = null;
+        syncJournalBeatOverflow();
       });
+    }
+
+    function syncJournalBeatOverflow() {
+      for (const row of document.querySelectorAll("#journal-log .journal-beat")) {
+        const summary = row.querySelector(":scope > summary");
+        const headline = summary?.querySelector(".journal-row-summary");
+        const overflowing = Boolean(
+          headline
+          && headline.clientWidth > 0
+          && headline.scrollWidth > headline.clientWidth + 2
+        );
+        row.classList.toggle("is-overflowing", overflowing);
+        if (!overflowing) row.open = false;
+        if (summary) {
+          summary.tabIndex = overflowing ? 0 : -1;
+          if (overflowing) {
+            summary.removeAttribute("aria-disabled");
+          } else {
+            summary.setAttribute("aria-disabled", "true");
+          }
+        }
+      }
     }
 
     function renderJournalLog() {
@@ -9066,15 +9098,16 @@
       const wasAtBottom = !stream
         || stream.scrollHeight <= stream.clientHeight + 1
         || stream.scrollHeight - stream.scrollTop - stream.clientHeight < 28;
-      const events = narratedTranscriptEvents(logEvents.filter(eventIsJournalEvent)).slice(-60);
-      panel.innerHTML = events.length
-        ? events.map(journalEventHtml).join("")
+      const beats = journalBeatsForPresentation();
+      panel.innerHTML = beats.length
+        ? beats.map(journalBeatHtml).join("")
         : journalRowHtml({
             label: "room",
             summary: "Nothing has been written here yet",
             detail: "Explore the room or change the world to leave the first trace",
             kind: "empty",
           });
+      scheduleJournalBeatOverflowSync();
       if (stream) {
         stream.scrollTop = wasAtBottom ? stream.scrollHeight : previousScrollTop;
       }
@@ -13909,6 +13942,12 @@
 
     $("log").addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
     $("journal-log").closest(".journal-stream")?.addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
+    $("journal-log").addEventListener("click", (event) => {
+      const summary = event.target.closest(".journal-beat > summary");
+      if (summary && !summary.parentElement?.classList.contains("is-overflowing")) {
+        event.preventDefault();
+      }
+    });
     $("shared-questions").addEventListener("toggle", (event) => {
       const details = event.target.closest("details");
       if (!details?.open) return;
@@ -13948,6 +13987,7 @@
         renderRoomLogLatest($("room-log-toggle").dataset.latest || "");
         reconcileHand();
         renderCommands();
+        scheduleJournalBeatOverflowSync();
         scheduleVisibleClockPresentationReceipts();
       }
     });
