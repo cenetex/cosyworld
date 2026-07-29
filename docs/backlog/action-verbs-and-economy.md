@@ -34,12 +34,12 @@ are legal but not currently dealt.
 ## Product Decisions Proposed By This Backlog
 
 Except for item 1, these are recommendations until AVE-0 records the final
-decision. #354 and ADR 0002 settle item 1 now:
+decision. #529's amendment to ADR 0002 settles item 1 now:
 
 1. The ordinary two-card hand is a **spotlight over the legal action set**, not
-   the sole source of legality. Free deterministic redeal pages every other
-   currently legal choice without currency, command knowledge, or draw luck.
-   The proposed grouped **More Actions** surface is explicitly closed.
+   the sole source of legality. A compact grouped chooser renders every current
+   legal action and target directly. Free deterministic redeal remains an
+   optional way to replace the two suggestions.
 2. Every offer declares its action economy explicitly. Labels and action kinds
    never imply whether something consumes a world turn, Tempo, advancement, or
    an item use.
@@ -122,9 +122,8 @@ Every ticket in this epic must preserve these constraints:
 - Record the current runtime contract before changing it: two ordinary hand
   entries, up to five current combat choices, a complete server-side legal
   offer set, and structured non-browser access.
-- Consume ADR 0002's settled spotlight + deterministic redeal model. Do not
-  reopen the rejected **More Actions** list or leave “hard two-card gate” and
-  “all legal actions remain reachable” simultaneously normative.
+- Consume ADR 0002's settled spotlight + complete chooser model. Keep the
+  chooser a rendering of `action_offers`, never a client-authored legal set.
 - Resolve current three-versus-five combat-hand documentation drift.
 - Keep Say and shuffle/redeal as supported turn-exempt inputs, then update tests
   and help copy to match.
@@ -140,7 +139,8 @@ Every ticket in this epic must preserve these constraints:
 
 - The ADRs, RPG Bible, action-system document, browser copy, and runtime agree
   on ordinary and combat hand capacity and browser reachability.
-- Tests continue to require supported Say and shuffle/redeal. No test expects a
+- Tests continue to require the complete chooser, supported Say, and
+  shuffle/redeal compatibility. No test expects a
   retired Defend, Grow, or legacy skill action unless it is explicitly a
   compatibility test.
 - `npm run v2:worldpack:inspect` and `npm run v2:kernel` pass.
@@ -241,24 +241,26 @@ Every ticket in this epic must preserve these constraints:
 
 ---
 
-## AVE-3 — Make The Two-Card Hand And Redeal Complete
+## AVE-3 — Keep The Two-Card Spotlight And Complete Chooser Aligned
 
-**Priority**: P0 product decision resolved by #354; P1 implementation
+**Priority**: P0 product decision amended by #529; P1 implementation
 **Scope**: Browser action surface, action-hand ADR, accessibility, analytics
 **Depends on**: AVE-0, AVE-2
 
 ### What to do
 
 - Keep two authoritative spotlight actions in ordinary scenes.
-- Keep one compact free **redeal** affordance that replaces the visible pair
-  with the next pair in the finite server-authored legal-offer order.
+- Use the compact third affordance to open the complete current legal set,
+  grouped by intention with each target or strategy explicit.
+- Keep free **redeal** inside that chooser; it replaces the visible pair with
+  the next pair in the finite server-authored legal-offer order.
 - Exclude already shown offers until the current pool is exhausted, allow a
   final one-card page, then cycle back to the authoritative opening pair.
 - Keep `hand.shuffled` as the journal record and preserve `shuffle` plus `more`
   as input aliases for the same turn-exempt redeal.
-- Do not add the rejected grouped **More Actions** list, a command field, random
-  draw, or client-authored reconstruction. “More” means “next two,” not “show
-  all.”
+- Do not add a command field, random draw, or client-authored reconstruction.
+  The chooser must enumerate the same server-authored offers used by command,
+  stale-offer, replay, and action-hand fixtures.
 - Preserve provider reasoning—Calling, friendship, held item, job, location—
   as “why this is suggested,” not “why all other legal actions disappeared.”
 - During the active actor's combat turn, show every legal combat action family
@@ -268,19 +270,19 @@ Every ticket in this epic must preserve these constraints:
 
 ### Acceptance
 
-- Every legal ordinary action appears after a finite number of deterministic
-  redeals without luck, currency, or command knowledge.
+- Every legal ordinary action and target appears directly in the chooser
+  without luck, currency, command knowledge, or repeated redeals.
 - The first two cards remain deterministic and retain their provider reasons.
 - Redeal cannot create, re-rank, retarget, or enable an offer and consumes no
   world turn.
-- Keyboard and screen-reader users can advance the redeal cycle and enumerate
-  the complete legal set, including cost, risk, effect, target, and disabled
-  reason.
+- Keyboard and screen-reader users can enumerate and select the complete legal
+  set, including distinct targets; detail/confirm exposes cost, risk, effect,
+  and disabled reason.
 - Two clients with the same authoritative state receive the same spotlight and
   legal set and produce the same redeal order.
 - Combat continues to present its complete bounded choice set directly.
-- Browser contract tests continue to require the shuffle control, glyph, and
-  compact “more” label recorded by ADR 0002.
+- Browser contract tests require exactly two suggestions, the compact chooser,
+  target-bearing rows, and the optional journaled redeal control.
 
 ---
 
@@ -612,7 +614,7 @@ AVE-0 truthful baseline
   │     │     ├── AVE-5 generated-place copy and offers
   │     │     └── AVE-6 concrete project approaches
   │     └── AVE-2 explicit action economy
-  │             └── AVE-3 spotlight + deterministic redeal reachability
+  │             └── AVE-3 spotlight + complete chooser reachability
   │                     └── AVE-7 combat/6 two-Tempo economy
   │                             └── AVE-8 Dash, Disengage, Hide
   └── AVE-10 clarity gates grow alongside AVE-1 through AVE-6

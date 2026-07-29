@@ -17,7 +17,7 @@ issues are the source of truth for each slice's implementation state.
 | RT-3 — lodging feature and a Core inn | [#351](https://github.com/cenetex/cosyworld/issues/351) | P1 |
 | RT-4 — flip rest availability | [#352](https://github.com/cenetex/cosyworld/issues/352) | P1 |
 | RT-5 — the expedition ring | [#353](https://github.com/cenetex/cosyworld/issues/353) | P1 |
-| RT-6 — redeal wins; close More Actions | [#354](https://github.com/cenetex/cosyworld/issues/354) | P0 decision, resolved |
+| RT-6 — action reachability decision | [#354](https://github.com/cenetex/cosyworld/issues/354), amended by [#529](https://github.com/cenetex/cosyworld/issues/529) | P0 decision, resolved |
 | RT-7 — lodging pays in fiction | [#355](https://github.com/cenetex/cosyworld/issues/355) | P2 |
 
 **Related architecture**:
@@ -64,7 +64,7 @@ an expedition system instead of bookkeeping.
 | Rest availability | Requires `tired` **and** travel count ≥ `level.clamp(1,4)` | `main.rs:16523` |
 | `tired` sources | Work, repeated unprepared Help, repeat frontier Listen, knack practice | `main.rs:10766`, `:11512`, `:23081`, `:35697`, `:35880` |
 | Hand promotion | Rest ranks 84 outside the frontier; provider `rules:recovery` when tired | `main.rs:19846`, `:19961` |
-| Redeal | `hand.shuffled` event and free `shuffle`/`more` command exist; browser presents the compact “more” redeal control | `main.rs`, `index.html` |
+| Action reachability | Browser presents two suggestions plus a complete grouped chooser; `hand.shuffled` and free `shuffle`/`more` command compatibility remain | `main.rs`, `index.html` |
 | Lodging | `Wayside Lantern Inn` exists only in `v2/content/the-lantern-keeper/` | — |
 | Core zoning | 6 sanctuary / 16 frontier room sheets, no lodging rung | `v2/content/core/room_sheets.json` |
 
@@ -111,9 +111,9 @@ an expedition system instead of bookkeeping.
 - Record the ring as **expedition depth**, filling as the player travels out,
   discrete pips equal to `frontier_travel_since_rest_required`. Record that it
   is unlabeled, single (not concentric with HP), and animates only on commit.
-- Consume the redeal decision from ADR 0002 and RT-6. Rest and recovery offers
-  use the same ordinary hand and deterministic redeal as every other offer; no
-  rest ticket owns or changes that surface.
+- Consume the reachability decision from ADR 0002 and RT-6. Rest and recovery
+  offers use the same ordinary hand and complete chooser as every other offer;
+  no rest ticket owns or changes that surface.
 - State whether the ring supersedes or coexists with any future HP surfacing.
   Recommended answer: one ring, weariness only; wounds get portrait treatment.
 
@@ -121,8 +121,8 @@ an expedition system instead of bookkeeping.
 
 - The ADR names the four rest grades, their refresh contracts, the lodging
   gates, and the ring's semantics.
-- `PRD.md`, ADR 0002, and the RPG bible agree that free deterministic redeal is
-  the two-card hand's only complete-offer reachability surface.
+- `PRD.md`, ADR 0002, and the RPG bible agree that the two-card hand is a
+  spotlight and the grouped chooser renders the complete legal set.
 - The RPG bible's Rest row (`docs/systems/09-cosyworld-rpg-system.md:417`)
   reflects the kernel decision rather than "projection action now."
 - No document describes rest as both currency-priced and zero-Orb.
@@ -286,41 +286,42 @@ an expedition system instead of bookkeeping.
 
 ---
 
-## RT-6 — Redeal is normative; More Actions is closed
+## RT-6 — The two-card spotlight has a complete chooser
 
 **Priority**: P0 decision, no implementation of its own
 **Scope**: Decision only; recorded in ADR 0002 and consumed by AVE-3
 **Depends on**: RT-0
 
 The originating design conversation asked for a binary choice with an escape
-hatch — *don't like these two? here are two others*. That is a **redeal**.
-[AVE-3](action-verbs-and-economy.md) proposed a grouped **More Actions** list
-for the same problem. #354 resolves the conflict in favor of **redeal**.
+hatch — *don't like these two? here are two others*. #354 initially resolved
+that request in favor of **redeal** alone. #529 supersedes the reachability
+portion of that decision after playtest fixtures proved the browser could
+collapse same-kind target offers before the redeal cycle.
 
 ### Resolution
 
-- The ordinary surface remains two cards plus one compact free redeal control.
-  Redeal pages the finite authoritative legal-offer order without repeats until
-  the pool is exhausted, then cycles.
+- The ordinary resting surface remains exactly two suggested cards plus one
+  compact control that opens the complete legal set, grouped by intention and
+  target.
+- Redeal remains an optional control inside the chooser. It pages the finite
+  authoritative order without repeats until the pool is exhausted, then cycles.
 - `hand.shuffled` is the journal record. Redeal consumes no turn, currency,
   item use, or progression and cannot change legality, rank, target, cost,
   risk, effect, or resolver.
-- The grouped **More Actions** list loses and is explicitly closed. It must not
-  ship beside redeal or return under another label. The browser label “more”
-  means “draw the next two actions,” not “open all actions.”
+- The chooser is a rendering of the authoritative `action_offers` projection,
+  not a second legality source. It must preserve all same-kind targets and use
+  the same submission and stale-offer guards as the two suggestions.
 - Rest and recovery offers require no special surface. They enter the same
   legal set and can appear in the opening pair or a later redeal.
-- ADR 0002 deliberately upholds the browser assertions requiring the shuffle
-  control, glyph, and compact “more” label. The earlier no-shuffle assertion
-  cited by #354 is superseded, not silently deleted.
+- ADR 0002 requires exactly two suggestions, a complete accessible chooser,
+  and the optional journaled redeal. Command aliases remain compatible.
 
 ### Acceptance
 
-- Exactly one reachability surface—redeal—is normative in `PRD.md`, the action
-  hand ADR, and both backlogs; **More Actions** is explicitly closed in each
-  decision-bearing contract.
-- The current positive browser shuffle assertions are upheld by the recorded
-  decision and the earlier negative expectation is explicitly superseded.
+- `PRD.md`, the action-hand ADR, and both backlogs describe the same
+  two-suggestion spotlight and complete authoritative chooser.
+- Browser fixtures prove every legal action and target is reachable directly,
+  while shuffle assertions continue to cover the optional turn-free redeal.
 - No RT ticket depends on the outcome; the rest ladder is surface-agnostic.
 
 ---
@@ -359,8 +360,9 @@ for the same problem. #354 resolves the conflict in favor of **redeal**.
   Recommended: fills, matching the existing tag accumulation and reading
   cozier. Drains is the more orthodox OSR framing and is the alternative if
   playtesting shows depth reads as progress rather than cost.
-- **Closed — redeal or More Actions.** RT-6 selected deterministic redeal.
-  More Actions is rejected and must not reopen as a third surface.
+- **Closed — reachability surface.** #529 amended RT-6: the compact complete
+  chooser is authoritative presentation, with deterministic redeal optional
+  inside it.
 - **`tired` from Work.** Work is currently the main `tired` source. Once rest
   is graded and gear-gated, tiring a player inside sanctuary may strand nothing
   but still feel punitive. Confirm during RT-4 whether Work should tire only on

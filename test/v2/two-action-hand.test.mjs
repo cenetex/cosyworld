@@ -11,20 +11,33 @@ const browser = fs.readFileSync(
 );
 
 describe("two-action browser hand", () => {
-  it("keeps exactly two action slots and exposes a turn-free draw control", () => {
+  it("keeps exactly two action slots and exposes every action through an accessible chooser", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
-    expect(browser).not.toContain('id="all-actions-modal"');
+    expect(browser).toContain('id="all-actions-modal"');
+    expect(browser).toContain('aria-labelledby="all-actions-title"');
+    expect(browser).toContain('aria-describedby="all-actions-summary"');
+    expect(browser).toContain("data-all-action-index");
+    expect(browser).toContain('id="all-actions-draw"');
     expect(browser).toContain('id="primary"');
     expect(browser).toContain('id="secondary"');
     expect(browser).not.toContain('id="tertiary"');
     expect(browser).toContain('id="shuffle"');
+    expect(browser).toContain('aria-label="Open all actions"');
     expect(browser).toContain('const buttonIds = ["primary", "secondary"];');
     expect(browser).toContain('command: "shuffle"');
     expect(browser).toContain("advanceHandPage();");
     expect(browser).toContain('event.type === "hand.shuffled"');
     expect(browser).toMatch(/function handCapacity\(\) \{\s+return 2;\s+\}/);
+  });
+
+  it("groups every same-kind Search and Scout target before the hand is ranked", () => {
+    expect(browser).toContain('const searchOffers = (view.action_offers || []).filter((offer) => offer.kind === "search");');
+    expect(browser).toContain('choices: searchCandidates.map((candidate) => ({');
+    expect(browser).toContain('const scoutOffers = (view.action_offers || []).filter((offer) => (');
+    expect(browser).toContain('choices: scoutCandidates.map((candidate) => ({');
+    expect(browser).toContain('scoutAction.selectedPayload = () => ({');
   });
 
   it("submits room-feature Use offers through the typed item endpoint", () => {

@@ -1151,11 +1151,32 @@ pub(super) async fn apply_combat_choice(
         },
     };
     let need_time = matches!(choice, CombatChoice::NeedTime);
-    let record = if need_time {
+    let journey_transition = matches!(action.kind, CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE)
+        .then(|| {
+            runtime
+                .plan_journey_move(actor_id, action.destination_location_id)
+                .ok()
+                .flatten()
+                .and_then(|(planned_move, mut mutation, narration_plan)| {
+                    (planned_move.kind == CW_ACTION_MOVE).then(|| {
+                        if let ProjectionMutation::JourneyTransition { narration, .. } =
+                            &mut mutation
+                        {
+                            *narration = travel_narration_fallback(&narration_plan);
+                        }
+                        mutation
+                    })
+                })
+        })
+        .flatten();
+    let mut record = if need_time {
         JournalRecord::new(action, runtime.next_seed_value()).into_system()
     } else {
         JournalRecord::new(action, runtime.next_seed_value()).into_player_card()
     };
+    if let Some(mutation) = journey_transition {
+        record.projection_mutations.push(mutation);
+    }
     let Ok((mut status, player_events)) = commit_journal_record(&state, &mut runtime, record)
     else {
         drop(runtime);

@@ -575,62 +575,60 @@ async function main() {
       drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
     }));
     const drawOnce = async (previous) => {
-      const previousSignature = previous.visibleKeys.join("|");
       const [response] = await Promise.all([
         page.waitForResponse((candidate) => (
           candidate.request().method() === "POST"
           && new URL(candidate.url()).pathname === "/commands"
           && String(candidate.request().postData() || "").includes("\"command\":\"shuffle\"")
         )),
-        page.locator("#shuffle").click(),
+        page.locator("#all-actions-draw").click(),
       ]);
       const receipt = await response.json();
       const drawEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
       assert(receipt.ok && Number(drawEvent?.seq || 0) > previous.eventSeq,
         `drawing should commit one newer hand.shuffled event: ${JSON.stringify(receipt)}`);
-      await page.waitForFunction(({ signature, eventSeq }) => {
-        const visible = [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
-          .filter((button) => button.id !== "shuffle" && getComputedStyle(button).display !== "none")
-          .map((button) => button.dataset.handKey)
-          .filter(Boolean)
-          .join("|");
-        const latestDraw = Math.max(0, ...logEvents
-          .filter((event) => event.type === "hand.shuffled")
-          .map((event) => Number(event.seq || 0)));
-        return visible !== signature
-          && latestDraw >= eventSeq
-          && document.querySelector("#shuffle")?.disabled === false;
-      }, { signature: previousSignature, eventSeq: Number(drawEvent.seq) });
+      await page.waitForFunction(() => document.querySelector("#all-actions-draw")?.disabled === false);
       return handSnapshot();
     };
 
     const initial = await handSnapshot();
     assert(initial.allKeys.length > 2, `the opening scene should have actions beyond its first two cards: ${JSON.stringify(initial)}`);
-    assert(initial.drawVisible, "the draw control should appear whenever legal actions remain outside the two-card hand");
-    const initialSignature = initial.visibleKeys.join("|");
-    const seen = new Set();
-    let current = initial;
-    let drawCount = 0;
-    const maxDraws = Math.ceil(initial.allKeys.length / 2) + 1;
-    while (drawCount <= maxDraws) {
-      current.visibleKeys.forEach((key) => seen.add(key));
-      if (initial.allKeys.every((key) => seen.has(key))) break;
-      current = await drawOnce(current);
-      drawCount += 1;
-    }
+    assert(initial.drawVisible, "the all-actions control should appear whenever legal actions remain outside the two-card hand");
+    await page.locator("#shuffle").click();
+    await page.locator("#all-actions-modal:not([hidden])").waitFor();
+    await page.waitForFunction(() => document.activeElement?.hasAttribute?.("data-all-action-index"));
+    const completeSet = await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll("[data-all-action-index]")];
+      return {
+        keys: [...new Set(buttons.map((button) => (
+          actionHandKey(actions[Number(button.dataset.allActionIndex)])
+        )).filter(Boolean))],
+        targetRows: buttons.filter((button) => button.hasAttribute("data-all-action-choice-index")).length,
+        dialogLabel: document.querySelector("#all-actions-title")?.textContent?.trim() || "",
+        focusedEntry: document.activeElement?.hasAttribute?.("data-all-action-index") || false,
+      };
+    });
     assert(
-      initial.allKeys.every((key) => seen.has(key)),
-      `drawing should surface every legal browser action: ${JSON.stringify({ all: initial.allKeys, seen: [...seen] })}`,
+      initial.allKeys.every((key) => completeSet.keys.includes(key))
+        && completeSet.dialogLabel === "all actions"
+        && completeSet.focusedEntry,
+      `the chooser should expose and focus every legal browser action: ${JSON.stringify({ initial, completeSet })}`,
     );
-
-    while (current.visibleKeys.join("|") !== initialSignature && drawCount <= maxDraws + 1) {
-      current = await drawOnce(current);
-      drawCount += 1;
-    }
+    const current = await drawOnce(initial);
+    const refreshedCompleteSet = await page.evaluate(() => ({
+      allKeys: [...validActionHandKeySet()],
+      chooserKeys: [...new Set([...document.querySelectorAll("[data-all-action-index]")].map((button) => (
+        actionHandKey(actions[Number(button.dataset.allActionIndex)])
+      )).filter(Boolean))],
+    }));
     assert(
-      current.visibleKeys.join("|") === initialSignature,
-      `the hand should cycle deterministically to its first pair: ${JSON.stringify(current.visibleKeys)}`,
+      refreshedCompleteSet.allKeys.every((key) => refreshedCompleteSet.chooserKeys.includes(key))
+        && current.visibleKeys.length <= 2
+        && current.eventSeq > initial.eventSeq,
+      `redeal should stay journaled and refresh the complete chooser without expanding the hand: ${JSON.stringify({ initial, current, refreshedCompleteSet })}`,
     );
+    await page.locator("[data-all-actions-close]").click();
+    await page.waitForFunction(() => document.querySelector("#all-actions-modal")?.hidden);
 
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
@@ -644,9 +642,14 @@ async function main() {
     });
     assert(
       layout.promptFits && layout.drawFits && layout.journaled,
-      `two cards and their journaled draw control should fit the mobile footer: ${JSON.stringify(layout)}`,
+      `two cards and their all-actions control should fit the mobile footer: ${JSON.stringify(layout)}`,
     );
-    steps.push({ label: "browser draw reaches every legal action", actions: initial.allKeys.length, draws: drawCount });
+    steps.push({
+      label: "browser chooser reaches every legal action",
+      actions: initial.allKeys.length,
+      targetRows: completeSet.targetRows,
+      draws: 1,
+    });
   }
 
   async function assertFirstThreadGuide() {
@@ -6682,9 +6685,17 @@ async function main() {
           label: "Moonlit Trail",
         },
       };
+      const libraryScoutOffer = {
+        ...scoutOffer,
+        target: {
+          kind: "location",
+          id: 50,
+          label: "Great Library",
+        },
+      };
       const initial = buildActions({
         ...base,
-        action_offers: [...nonScoutOffers, scoutOffer],
+        action_offers: [...nonScoutOffers, scoutOffer, libraryScoutOffer],
         journey: null,
         search_available: false,
         primary_action: { options: [{ kind: "move" }] },
@@ -6706,10 +6717,10 @@ async function main() {
             locked: false,
           },
         ],
-      }).find((action) => action.command === "search pathway to Moonlit Trail");
+      }).find((action) => action.intention === "scout");
       const initialActions = buildActions({
         ...base,
-        action_offers: [...nonScoutOffers, scoutOffer],
+        action_offers: [...nonScoutOffers, scoutOffer, libraryScoutOffer],
         journey: null,
         search_available: false,
         primary_action: { options: [{ kind: "move" }] },
@@ -6731,6 +6742,13 @@ async function main() {
             locked: false,
           },
         ],
+      });
+      const initialTargets = (initial?.choices || []).map((choice) => {
+        initial.selectedChoice = choice.value;
+        return {
+          label: choice.label,
+          destinationId: initial.selectedPayload?.().destination_location_id,
+        };
       });
       const searchingActions = buildActions({
         ...base,
@@ -6845,6 +6863,35 @@ async function main() {
           next_location_name: "Foxglove Turn",
         },
       });
+      const searchOffers = ["hearth", "bookshelf", "window seat", "tea tray"].map((target, index) => ({
+        kind: "search",
+        intention: "inspect",
+        verb: "Inspect",
+        offer_id: `search-${index}`,
+        command: `search ${target}`,
+        target: {
+          kind: "location",
+          id: Number(base.location?.id || 1),
+          label: target,
+        },
+        effect: `${target} gives up one hidden detail`,
+      }));
+      const searchActions = buildActions({
+        ...base,
+        action_offers: [...nonScoutOffers.filter((offer) => offer.kind !== "search"), ...searchOffers],
+        primary_action: { options: [{ kind: "search" }] },
+        search_available: true,
+        exits: [],
+        journey: null,
+      });
+      const inspect = searchActions.find((action) => action.intention === "inspect");
+      const inspectTargets = (inspect?.choices || []).map((choice) => {
+        inspect.selectedChoice = choice.value;
+        return {
+          label: choice.label,
+          command: inspect.selectedTarget?.().command,
+        };
+      });
       return {
         searchingActionCount: searchingActions.length,
         travellingActionCount: travellingActions.length,
@@ -6863,7 +6910,7 @@ async function main() {
           effect: initial?.effect,
           command: initial?.command,
           choiceCount: initial?.choices?.length || 0,
-          payload: initial?.selectedPayload?.(),
+          targets: initialTargets,
         },
         searching: {
           label: searching?.label,
@@ -6889,16 +6936,22 @@ async function main() {
           effect: finalTravel?.effect,
           command: finalTravel?.command,
         },
+        inspect: {
+          count: searchActions.filter((action) => action.intention === "inspect").length,
+          choiceCount: inspect?.choices?.length || 0,
+          targets: inspectTargets,
+        },
       };
     });
     assert(
       result.initial.label === "scout"
-        && /toward Moonlit Trail/i.test(result.initial.detail)
-        && /hidden first stretch toward Moonlit Trail/i.test(result.initial.effect)
+        && /choose a distant destination/i.test(result.initial.detail)
+        && /chosen destination/i.test(result.initial.effect)
         && result.initialScoutCount === 1
-        && result.initial.choiceCount === 0
-        && result.initial.payload?.destination_location_id === 3,
-      `a long route should begin with Scout and reveal its first adjacent pathway location: ${JSON.stringify(result)}`,
+        && result.initial.choiceCount === 2
+        && result.initial.targets.some((target) => target.label === "Moonlit Trail" && target.destinationId === 3)
+        && result.initial.targets.some((target) => target.label === "Great Library" && target.destinationId === 50),
+      `each legal long route should be reachable and distinguishable through one Scout chooser: ${JSON.stringify(result)}`,
     );
     assert(
       result.searching.label === "scout"
@@ -6930,6 +6983,14 @@ async function main() {
       result.finalTravel.label === "travel"
         && /arrive in Moonlit Trail/i.test(result.finalTravel.effect),
       `the final adjacent Travel should arrive at the destination: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.inspect.count === 1
+        && result.inspect.choiceCount === 4
+        && result.inspect.targets.every((target) => (
+          target.command === `search ${target.label}`
+        )),
+      `every discovered Cottage detail should remain reachable through one Inspect chooser: ${JSON.stringify(result)}`,
     );
   }
 
@@ -7228,7 +7289,12 @@ async function main() {
       }
       await page.locator("#action-modal-confirm").click();
       const response = await responsePromise;
-      lastResult = { httpStatus: response.status(), body: await response.json() };
+      lastResult = {
+        httpStatus: response.status(),
+        path: new URL(response.url()).pathname,
+        request: response.request().postDataJSON(),
+        body: await response.json(),
+      };
       await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
       if (lastResult.body?.ok === true) {
         await assertNoVisibleOverflow();
@@ -7554,7 +7620,23 @@ async function main() {
         currentStep: Number(current.journey?.current_step || 0),
       });
       const focusedJourneyStep = await focusJourneyStep();
-      assert(focusedJourneyStep, `journey should remain an available hand option toward ${nextName}`);
+      assert(
+        focusedJourneyStep,
+        `journey should remain an available hand option toward ${nextName}: ${JSON.stringify({
+          location: current.location,
+          journey: current.journey,
+          exits: (current.exits || []).map((exit) => ({
+            id: exit.destination_location_id,
+            name: exit.destination_location_name,
+            accessible: exit.accessible,
+            locked: exit.locked,
+          })),
+          offers: (current.action_offers || []).map((offer) => ({
+            kind: offer.kind,
+            target: offer.target,
+          })),
+        })}`,
+      );
       const primary = focusedJourneyStep.text;
       if (focusedJourneyStep.intention === "scout" || /^(search|scout)\b/.test(primary)) {
         await confirmRouteTo(nextName, `search for ${nextName}`, focusJourneyStep);
@@ -8641,10 +8723,19 @@ async function main() {
   async function assertBrowserCommandEntryAbsent() {
     const before = await visibleCommandButtons();
     assert(
-      await page.locator("#command-toggle, #command-palette, #command-input, #all-actions-modal, #tertiary").count() === 0
-        && await page.locator("#shuffle").count() === 1,
-      "the browser room should expose two world action cards and one compact draw control",
+      await page.locator("#command-toggle, #command-palette, #command-input, #tertiary").count() === 0
+        && await page.locator("#shuffle").count() === 1
+        && await page.locator("#all-actions-modal").count() === 1,
+      "the browser room should expose two world action cards and one compact all-actions control",
     );
+    await page.locator("#shuffle").click();
+    await page.locator("#all-actions-modal:not([hidden])").waitFor();
+    assert(
+      await page.locator("#all-actions-modal [data-all-action-index]").count() >= before.length,
+      "the all-actions dialog should contain the legal action set",
+    );
+    await page.locator("[data-all-actions-close]").click();
+    await page.waitForFunction(() => document.querySelector("#all-actions-modal")?.hidden);
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.keyboard.press("Slash");
     await page.keyboard.press("KeyT");
@@ -10867,7 +10958,7 @@ async function main() {
         && action.providerCopy.includes(action.reason)
         && action.aria.includes(action.reason)
     ))
-      && /(path to Rain-Soft Garden is waiting|(?:nearby )?avatar.*(?:hoping|waiting).*keepsake)/i.test(projectedRoomHand.thread)
+      && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*keepsake)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,
     `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
   );
@@ -11527,6 +11618,7 @@ async function main() {
       .filter((event) => (
         event.type === "combat.flee.success"
         || (event.type === "actor.moved" && event.location_name === "Moonlit Trail")
+        || event.type === "journey.completed"
       ))
       .map((event) => event.destination_location_name);
     return {

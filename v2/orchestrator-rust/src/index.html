@@ -2140,6 +2140,7 @@
       border-top-color: rgba(101, 230, 138, 0.22);
     }
     .card-modal,
+    .all-actions-modal,
     .action-modal,
     .wallet-modal,
     .ai-modal {
@@ -2152,10 +2153,12 @@
       background: rgba(3, 5, 4, 0.76);
     }
     .card-modal[hidden],
+    .all-actions-modal[hidden],
     .action-modal[hidden],
     .wallet-modal[hidden],
     .ai-modal[hidden] { display: none; }
     .card-dialog,
+    .all-actions-dialog,
     .action-dialog,
     .wallet-dialog,
     .ai-dialog {
@@ -2168,6 +2171,7 @@
       padding: 12px;
     }
     .card-dialog:focus-visible,
+    .all-actions-dialog:focus-visible,
     .action-dialog:focus-visible,
     .wallet-dialog:focus-visible {
       outline: 2px solid var(--blue);
@@ -2177,6 +2181,7 @@
       position: relative;
     }
     .card-close,
+    .all-actions-close,
     .wallet-close,
     .ai-close {
       float: right;
@@ -2197,6 +2202,104 @@
     .action-dialog {
       display: grid;
       gap: 10px;
+    }
+    .all-actions-dialog {
+      width: min(560px, calc(100vw - 28px));
+      display: grid;
+      gap: 12px;
+    }
+    .all-actions-heading {
+      display: flex;
+      gap: 12px;
+      align-items: start;
+      justify-content: space-between;
+    }
+    .all-actions-heading .action-title {
+      padding-top: 4px;
+    }
+    .all-actions-groups {
+      display: grid;
+      gap: 14px;
+    }
+    .all-actions-group {
+      display: grid;
+      gap: 6px;
+    }
+    .all-actions-group-title {
+      margin: 0;
+      color: var(--dim);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .all-actions-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+    .all-action {
+      min-width: 0;
+      min-height: 56px;
+      display: grid;
+      gap: 3px;
+      align-content: center;
+      padding: 9px 10px;
+      border: 1px solid rgba(216, 247, 220, 0.16);
+      border-radius: 4px;
+      background: rgba(216, 247, 220, 0.04);
+      color: var(--text);
+      font: inherit;
+      text-align: left;
+    }
+    .all-action:hover {
+      border-color: rgba(101, 230, 138, 0.5);
+      background: rgba(101, 230, 138, 0.1);
+    }
+    .all-action:focus-visible,
+    .all-actions-close:focus-visible,
+    .all-actions-draw:focus-visible {
+      outline: 2px solid rgba(101, 230, 138, 0.86);
+      outline-offset: 2px;
+    }
+    .all-action.suggested {
+      border-color: rgba(239, 201, 107, 0.48);
+    }
+    .all-action-label {
+      color: var(--green);
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .all-action-detail {
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .all-action-status {
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .all-actions-draw {
+      min-height: 40px;
+      border: 1px solid rgba(139, 183, 255, 0.42);
+      border-radius: 4px;
+      background: rgba(139, 183, 255, 0.08);
+      color: var(--blue);
+      font: inherit;
+      font-weight: 900;
+    }
+    .all-actions-draw:disabled {
+      opacity: 0.52;
+      cursor: progress;
+    }
+    @media (max-width: 560px) {
+      .all-actions-list {
+        grid-template-columns: 1fr;
+      }
     }
     .action-art {
       clear: both;
@@ -4003,8 +4106,8 @@
       </div>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="draw" data-analytics-event="action.draw" aria-label="Draw two more actions">
-        <span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">more</span>
+      <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="action-menu" data-analytics-event="action.all_open" aria-label="Open all actions">
+        <span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">actions</span>
       </button>
     </footer>
   </div>
@@ -4031,6 +4134,17 @@
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
       <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>cancel</button>
+    </section>
+  </div>
+  <div class="all-actions-modal" id="all-actions-modal" hidden>
+    <section class="all-actions-dialog" role="dialog" aria-modal="true" aria-labelledby="all-actions-title" aria-describedby="all-actions-summary" tabindex="-1" data-player-concept="action-menu">
+      <div class="all-actions-heading">
+        <h2 class="action-title" id="all-actions-title">all actions</h2>
+        <button class="all-actions-close" type="button" data-all-actions-close aria-label="Close all actions">x</button>
+      </div>
+      <div class="action-summary" id="all-actions-summary">Choose any legal action. The two cards below the room remain your current suggestions.</div>
+      <div class="all-actions-groups" id="all-actions-groups"></div>
+      <button class="all-actions-draw" id="all-actions-draw" type="button" data-analytics-event="action.draw">draw two different suggestions</button>
     </section>
   </div>
   <div class="wallet-modal" id="wallet-modal" hidden>
@@ -4283,7 +4397,7 @@
     }
 
     function activeModal() {
-      return ["wallet-modal", "action-modal", "card-modal"]
+      return ["wallet-modal", "all-actions-modal", "action-modal", "card-modal"]
         .map((id) => $(id))
         .find((modal) => modal && !modal.hidden) || null;
     }
@@ -5285,48 +5399,107 @@
         }
         // Ordered-combat status belongs in the turn banner, not the card hand.
         // A waiting player receives no dealt card here, so nothing can bypass
-        // or crowd the combat floor. See issue #461.
-        return waitingActions.map(decorateActionHand);
-      }
+      // or crowd the combat floor. See issue #461.
+      return waitingActions.map(decorateActionHand);
+    }
 
       // Pass and Need time are timing controls, not ranked combat actions.
       // They render in the turn banner so the card row stays reserved for
       // legal combat choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
       const journey = view.journey || null;
-      const scoutOffer = offerFor("explore_path");
-      const scoutTargetId = Number(scoutOffer?.target?.id || 0);
-      if (journey) {
-        const nextLocationId = Number(journey.next_location_id || 0);
-        const nextIsDestination = nextLocationId === Number(journey.destination_location_id || 0);
-        const nextStretchRevealed = (view.exits || []).some((exit) => (
-          Number(exit.destination_location_id || 0) === nextLocationId
+      const scoutOffers = (view.action_offers || []).filter((offer) => (
+        offer.kind === "explore_path"
+          && offer?.target?.kind === "location"
+          && Number(offer?.target?.id || 0) > 0
+      ));
+      const scoutCandidates = scoutOffers.map((offer) => {
+        const destinationId = Number(offer.target.id);
+        const exit = (view.exits || []).find((candidate) => (
+          Number(candidate.destination_location_id || 0) === destinationId
+        )) || null;
+        const activeJourney = journey
+          && Number(journey.destination_location_id || 0) === destinationId
+          ? journey
+          : null;
+        const nextLocationId = Number(activeJourney?.next_location_id || 0);
+        const nextStretchRevealed = activeJourney && (view.exits || []).some((candidate) => (
+          Number(candidate.destination_location_id || 0) === nextLocationId
         ));
-        if (scoutOffer && !nextStretchRevealed) {
-          const scoutVerb = offerVerb(scoutOffer, "Scout");
-          const scoutLabel = targetBearingLabel("scout", scoutVerb, journey.destination_name);
-          built.push({
-            ...semanticAction(scoutOffer, "scout", scoutLabel),
-            label: scoutVerb.toLowerCase(),
-            detail: `toward ${journey.destination_name}`,
-            command: "search",
-            focusKey: `journey-search:${journey.destination_location_id}:${journey.current_step}`,
-            card: cardForLocation(view.location?.id),
-            shape: "location",
-            priority: Number(scoutOffer?.rank || 55),
-            modalTitle: scoutLabel.toLowerCase(),
-            modalSummary: `Reveal one stretch toward ${journey.destination_name} without moving.`,
-            effect: nextIsDestination
-              ? `the way to ${journey.destination_name} is revealed`
-              : `the hidden next stretch toward ${journey.destination_name} is revealed`,
-            busyLabel: "scouting",
-            busyDetail: "the next stretch is taking shape…",
-            run: () => action("/actions/explore-path", {
-              actor_id: actorId,
-              destination_location_id: scoutTargetId,
-            }),
-          });
-        }
+        const destinationName = String(
+          offer?.target?.label
+            || exit?.destination_location_name
+            || activeJourney?.destination_name
+            || `location ${destinationId}`,
+        ).trim();
+        return {
+          offer,
+          exit,
+          journey: activeJourney,
+          destinationId,
+          destinationName,
+          nextStretchRevealed,
+          nextIsDestination: activeJourney
+            && nextLocationId === Number(activeJourney.destination_location_id || 0),
+        };
+      }).filter((candidate) => !candidate.nextStretchRevealed);
+      if (scoutCandidates.length) {
+        const firstScout = scoutCandidates[0];
+        const oneScout = scoutCandidates.length === 1;
+        const scoutVerb = offerVerb(firstScout.offer, "Scout");
+        const scoutLabel = targetBearingLabel("scout", scoutVerb, firstScout.destinationName);
+        const scoutAction = {
+          ...semanticAction(firstScout.offer, "scout", scoutLabel),
+          target: oneScout ? firstScout.offer.target : null,
+          label: scoutVerb.toLowerCase(),
+          detail: oneScout ? `toward ${firstScout.destinationName}` : "choose a distant destination",
+          command: oneScout ? `scout toward ${firstScout.destinationName}` : "scout",
+          focusKey: oneScout
+            ? `journey-search:${firstScout.destinationId}:${firstScout.journey?.current_step || 0}`
+            : `scout:${scoutCandidates.map((candidate) => candidate.destinationId).join("|")}`,
+          focusKeys: scoutCandidates.map((candidate) => `exit:${candidate.destinationId}`),
+          card: oneScout
+            ? cardForLocation(firstScout.destinationId)
+            : cardForLocation(view.location?.id),
+          shape: "location",
+          priority: Math.min(...scoutCandidates.map((candidate) => Number(candidate.offer?.rank || 55))),
+          modalTitle: oneScout ? scoutLabel.toLowerCase() : "choose where to scout",
+          modalSummary: oneScout
+            ? `Reveal one stretch toward ${firstScout.destinationName} without moving.`
+            : "Choose a distant destination and reveal its next adjacent route segment without moving.",
+          effect: oneScout
+            ? (firstScout.nextIsDestination
+              ? `the way to ${firstScout.destinationName} is revealed`
+              : firstScout.journey
+                ? `the hidden next stretch toward ${firstScout.destinationName} is revealed`
+                : `a hidden first stretch toward ${firstScout.destinationName} is revealed`)
+            : "the hidden next stretch toward the chosen destination is revealed",
+          busyLabel: "scouting",
+          busyDetail: "the next stretch is taking shape…",
+          ...(oneScout ? {} : {
+            choices: scoutCandidates.map((candidate) => ({
+              label: candidate.exit?.route_label || candidate.destinationName,
+              detail: candidate.exit
+                ? `${Number(candidate.exit.distance || 1)} stretches toward ${candidate.destinationName}`
+                : `reveal the next stretch toward ${candidate.destinationName}`,
+              previewAlt: candidate.destinationName,
+              value: String(candidate.destinationId),
+              card: cardForLocation(candidate.destinationId),
+            })),
+            selectedChoice: String(firstScout.destinationId),
+          }),
+        };
+        scoutAction.selectedTarget = () => scoutCandidates.find((candidate) => (
+          String(candidate.destinationId) === String(
+            scoutAction.selectedChoice || firstScout.destinationId,
+          )
+        )) || firstScout;
+        scoutAction.selectedPayload = () => ({
+          actor_id: actorId,
+          destination_location_id: scoutAction.selectedTarget().destinationId,
+        });
+        scoutAction.run = () => action("/actions/explore-path", scoutAction.selectedPayload());
+        built.push(scoutAction);
       }
 
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
@@ -5642,32 +5815,61 @@
       }
       if (view.search_available === true || options.has("search")) {
         const locationName = view.location?.name || "this room";
-        const searchOffer = offerFor("search");
-        const searchTarget = String(searchOffer?.target?.label || locationName).trim() || locationName;
-        const searchCommand = String(searchOffer?.command || "search").trim() || "search";
-        const clueLedSearch = searchTarget !== locationName;
-        const inspectVerb = offerVerb(searchOffer, "Inspect");
-        const inspectLabel = targetBearingLabel("inspect", inspectVerb, searchTarget);
-        built.push({
-          ...semanticAction(searchOffer, "inspect", inspectLabel),
+        const searchOffers = (view.action_offers || []).filter((offer) => offer.kind === "search");
+        const searchCandidates = (searchOffers.length ? searchOffers : [null]).map((offer, index) => {
+          const target = String(offer?.target?.label || locationName).trim() || locationName;
+          return {
+            offer,
+            target,
+            command: String(offer?.command || "search").trim() || "search",
+            value: String(offer?.offer_id || offer?.id || `${index}:${target}`),
+          };
+        });
+        const firstSearch = searchCandidates[0];
+        const oneSearch = searchCandidates.length === 1;
+        const clueLedSearch = firstSearch.target !== locationName;
+        const inspectVerb = offerVerb(firstSearch.offer, "Inspect");
+        const inspectLabel = targetBearingLabel("inspect", inspectVerb, firstSearch.target);
+        const inspectAction = {
+          ...semanticAction(firstSearch.offer, "inspect", inspectLabel),
+          target: oneSearch ? firstSearch.offer?.target || null : null,
           label: inspectVerb.toLowerCase(),
-          detail: searchTarget,
-          command: searchCommand,
-          focusKey: clueLedSearch
-            ? `location:${view.location?.id || "current"}:search:${searchTarget.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
-            : `location:${view.location?.id || "current"}:search`,
+          detail: oneSearch ? firstSearch.target : "choose what to inspect",
+          command: oneSearch ? firstSearch.command : "inspect",
+          focusKey: oneSearch
+            ? (clueLedSearch
+              ? `location:${view.location?.id || "current"}:search:${firstSearch.target.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+              : `location:${view.location?.id || "current"}:search`)
+            : `location:${view.location?.id || "current"}:search:${searchCandidates.map((candidate) => candidate.value).join("|")}`,
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: projectSearchPriority,
-          modalTitle: inspectLabel.toLowerCase(),
-          modalSummary: clueLedSearch
-            ? `Inspect ${searchTarget} and reveal the hidden content tied to it.`
-            : `Inspect ${searchTarget} for one hidden thing.`,
-          effect: clueLedSearch
-            ? `the clue tucked into ${searchTarget} comes to light`
-            : (searchOffer?.effect || `one hidden thing in ${locationName} comes to light`),
-          run: () => runCommandText(searchCommand),
-        });
+          modalTitle: oneSearch ? inspectLabel.toLowerCase() : "choose what to inspect",
+          modalSummary: oneSearch
+            ? (clueLedSearch
+              ? `Inspect ${firstSearch.target} and reveal the hidden content tied to it.`
+              : `Inspect ${firstSearch.target} for one hidden thing.`)
+            : "Choose one discovered detail to inspect.",
+          effect: oneSearch
+            ? (clueLedSearch
+              ? `the clue tucked into ${firstSearch.target} comes to light`
+              : (firstSearch.offer?.effect || `one hidden thing in ${locationName} comes to light`))
+            : "the hidden content tied to the chosen detail comes to light",
+          ...(oneSearch ? {} : {
+            choices: searchCandidates.map((candidate) => ({
+              label: candidate.target,
+              detail: candidate.offer?.effect || `inspect ${candidate.target}`,
+              value: candidate.value,
+              card: cardForLocation(view.location?.id),
+            })),
+            selectedChoice: firstSearch.value,
+          }),
+        };
+        inspectAction.selectedTarget = () => searchCandidates.find((candidate) => (
+          candidate.value === String(inspectAction.selectedChoice || firstSearch.value)
+        )) || firstSearch;
+        inspectAction.run = () => runCommandText(inspectAction.selectedTarget().command);
+        built.push(inspectAction);
       }
       const chatAction = buildChatAction();
       if (chatAction) built.push(chatAction);
@@ -5856,24 +6058,15 @@
       if (routeExits.length && (escaping || options.has("move"))) {
         const routeGroups = escaping
           ? [{ exits: routeExits, mode: "flee" }]
-          : [
-              {
-                exits: routeExits.filter((exit) => (
-                  scoutTargetId > 0
-                    && Number(exit.distance || 1) > 1
-                    && Number(exit.destination_location_id || 0) === scoutTargetId
-                )),
-                mode: "pathway",
-              },
-              { exits: routeExits.filter((exit) => Number(exit.distance || 1) <= 1), mode: "travel" },
-            ].filter((group) => group.exits.length);
+          : [{ exits: routeExits.filter((exit) => Number(exit.distance || 1) <= 1), mode: "travel" }]
+            .filter((group) => group.exits.length);
         for (const routeGroup of routeGroups) {
           const groupedExits = routeGroup.exits;
           const firstExit = groupedExits[0];
           const onePath = groupedExits.length === 1;
-          const searchingPathway = routeGroup.mode === "pathway";
+          const searchingPathway = false;
           const fleeing = routeGroup.mode === "flee";
-          const routeOffer = searchingPathway ? scoutOffer : offerFor(fleeing ? "flee" : "move");
+          const routeOffer = offerFor(fleeing ? "flee" : "move");
           const routeIntention = searchingPathway ? "scout" : (fleeing ? "flee" : "travel");
           const routeVerb = offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
           const routeVerbLower = routeVerb.toLowerCase();
@@ -8585,6 +8778,10 @@
       const inspect = findIntention("inspect");
       if (inspect) {
         const roomName = String(view?.location?.name || "this room");
+        const choices = Array.isArray(inspect.choices) ? inspect.choices : [];
+        if (choices.length > 1) {
+          return makeThread(inspect, "A few details here are still hiding something", "search");
+        }
         const target = String(inspect?.target?.label || inspect.detail || "").trim();
         if (target && target !== roomName) {
           return makeThread(inspect, `${target} is still hiding something`, "search");
@@ -8592,6 +8789,10 @@
       }
       const scout = findIntention("scout");
       if (scout) {
+        const choices = Array.isArray(scout.choices) ? scout.choices : [];
+        if (choices.length > 1) {
+          return makeThread(scout, "A few distant routes are waiting to be scouted", "scout");
+        }
         const destination = String(scout?.target?.label || scout.detail || "").replace(/^toward\s+/i, "").trim();
         return makeThread(
           scout,
@@ -12052,6 +12253,73 @@
       openModal("action-modal", $("action-modal-confirm"));
     }
 
+    function allActionsGroupLabel(action) {
+      const value = String(action?.intention || action?.kind || action?.label || "other")
+        .trim()
+        .replaceAll("_", " ");
+      return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "Other";
+    }
+
+    function renderAllActionsModal() {
+      const groupsNode = $("all-actions-groups");
+      if (!groupsNode) return;
+      const suggestedKeys = new Set(actionBarActions().map((action) => actionHandKey(action)));
+      const groups = new Map();
+      actions.forEach((action, actionIndex) => {
+        const groupLabel = allActionsGroupLabel(action);
+        if (!groups.has(groupLabel)) groups.set(groupLabel, []);
+        const choices = Array.isArray(action?.choices) && action.choices.length
+          ? action.choices
+          : [null];
+        choices.forEach((choice, choiceIndex) => {
+          groups.get(groupLabel).push({ action, actionIndex, choice, choiceIndex });
+        });
+      });
+      groupsNode.innerHTML = [...groups.entries()].map(([groupLabel, entries]) => {
+        const groupId = `all-actions-group-${groupLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        const buttons = entries.map(({ action, actionIndex, choice, choiceIndex }) => {
+          const suggested = suggestedKeys.has(actionHandKey(action));
+          const actionLabel = compactActionLabel(action) || action.label || action.command || "act";
+          const targetLabel = choice?.label || action.detail || action.accessibleLabel || "";
+          const detail = choice?.detail || (choice ? action.detail : "") || "";
+          const ariaLabel = [
+            actionLabel,
+            targetLabel,
+            detail,
+            suggested ? "suggested now" : "",
+          ].filter(Boolean).join(", ");
+          return `<button class="all-action${suggested ? " suggested" : ""}" type="button" data-all-action-index="${actionIndex}"${choice ? ` data-all-action-choice-index="${choiceIndex}"` : ""} aria-label="${escapeAttr(ariaLabel)}"><span class="all-action-label">${escapeHtml(actionLabel)}</span>${targetLabel ? `<span class="all-action-detail">${escapeHtml(targetLabel)}</span>` : ""}${detail && detail !== targetLabel ? `<span class="all-action-detail">${escapeHtml(detail)}</span>` : ""}${suggested ? `<span class="all-action-status">suggested now</span>` : ""}</button>`;
+        }).join("");
+        return `<section class="all-actions-group" aria-labelledby="${escapeAttr(groupId)}"><h3 class="all-actions-group-title" id="${escapeAttr(groupId)}">${escapeHtml(groupLabel)}</h3><div class="all-actions-list">${buttons}</div></section>`;
+      }).join("");
+      $("all-actions-draw").disabled = handShuffleBusy;
+    }
+
+    function openAllActionsModal() {
+      if (!actions.length || actionBusy) return;
+      renderAllActionsModal();
+      openModal(
+        "all-actions-modal",
+        $("all-actions-groups").querySelector("[data-all-action-index]") || $("all-actions-draw"),
+      );
+    }
+
+    function closeAllActionsModal() {
+      closeModal("all-actions-modal");
+    }
+
+    function chooseAllAction(actionIndex, choiceIndex = null) {
+      const selected = actions[actionIndex];
+      if (!selected) return;
+      if (Number.isInteger(choiceIndex) && Array.isArray(selected.choices)) {
+        const choice = selected.choices[choiceIndex];
+        if (!choice) return;
+        selected.selectedChoice = choice.value;
+      }
+      closeAllActionsModal();
+      openActionModal(selected);
+    }
+
     function setCreationModalStage(action, stage) {
       const profile = action?.creationProfile;
       if (!profile || !["species", "origin"].includes(stage)) return;
@@ -12734,8 +13002,10 @@
         return null;
       }
       const button = $("shuffle");
+      const modalButton = $("all-actions-draw");
       handShuffleBusy = true;
       button.disabled = true;
+      modalButton.disabled = true;
       try {
         const result = await post("/commands", withAccess({
           actor_id: actorId,
@@ -12750,10 +13020,12 @@
         }
         advanceHandPage();
         renderCommands();
+        renderAllActionsModal();
         return result;
       } finally {
         handShuffleBusy = false;
         button.disabled = false;
+        modalButton.disabled = false;
       }
     }
 
@@ -12807,6 +13079,7 @@
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
       }
+      if (!$("all-actions-modal").hidden) renderAllActionsModal();
     }
 
     function actionForButton(id) {
@@ -13530,6 +13803,27 @@
     });
 
     $("shuffle").addEventListener("click", () => {
+      openAllActionsModal();
+    });
+
+    $("all-actions-modal").addEventListener("click", (event) => {
+      const actionButton = event.target.closest("[data-all-action-index]");
+      if (actionButton) {
+        event.preventDefault();
+        const choiceIndex = actionButton.hasAttribute("data-all-action-choice-index")
+          ? Number(actionButton.dataset.allActionChoiceIndex)
+          : null;
+        chooseAllAction(Number(actionButton.dataset.allActionIndex), choiceIndex);
+        return;
+      }
+      if (event.target.closest("[data-all-actions-close]") || event.target.id === "all-actions-modal") {
+        event.preventDefault();
+        closeAllActionsModal();
+      }
+    });
+
+    $("all-actions-draw").addEventListener("click", (event) => {
+      event.preventDefault();
       void shuffleHand();
     });
 
@@ -13540,6 +13834,14 @@
         if (event.key === "Escape") {
           event.preventDefault();
           closeWalletQrModal(false);
+        }
+        return;
+      }
+      if (!$("all-actions-modal").hidden) {
+        if (trapModalFocus(event, $("all-actions-modal"))) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeAllActionsModal();
         }
         return;
       }
