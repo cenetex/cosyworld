@@ -75,4 +75,6 @@
 # 74356 -> 74293: move Scout request/access projection and offer/choice planning into
 # movement.rs so gated routes validate and resolve against the same access set, while
 # the remaining handlers reuse the same access-aware rejection and journey seams.
-74293
+# 74293 -> 74291: route kernel events through the existing bounded projected-event
+# append so recent-room and same-speaker publication context stays current.
+74291

@@ -1437,6 +1437,7 @@ mod tests {
             max_words: 20,
             anchors: vec!["teapot".to_string()],
             recent_lines: Vec::new(),
+            recent_speaker_shingle_hashes: Vec::new(),
             has_proposed_action: false,
             envelope_valid: true,
             candidate_round: 1,
@@ -1820,6 +1821,61 @@ mod tests {
             .unwrap();
         assert_eq!(status, "unavailable");
         let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn repeated_signature_phrase_exhaustion_stays_inside_the_attempt_budget() {
+        let config = three_candidates(VoiceRoutingConfig {
+            max_attempts: 3,
+            hedge_width: 2,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_outputs([
+            (
+                "provider/tiny-a",
+                "Bethlehem at last, my biscuit survived the journey beneath clear bells.",
+                0,
+            ),
+            (
+                "provider/tiny-b",
+                "Bethlehem at last, my biscuit survived the journey through silver rain.",
+                0,
+            ),
+            (
+                "provider/small-c",
+                "Bethlehem at last, my biscuit survived the journey beside warm lanterns.",
+                0,
+            ),
+        ]);
+        let mut publication_gate = gate("signature-exhausted-beat");
+        publication_gate.max_words = 24;
+        publication_gate.anchors = vec!["Bethlehem".to_string()];
+        publication_gate.recent_speaker_shingle_hashes =
+            crate::ai_publication::voice_signature_shingle_hashes(
+                "Bethlehem at last! My biscuit survived the journey, though my knees are filing a formal complaint.",
+            );
+
+        let error = route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            publication_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect_err("every candidate repeats the same speaker's signature phrase");
+
+        assert_eq!(error.code(), "voice_candidates_exhausted");
+        assert_eq!(error.rejections().len(), 3);
+        assert!(error.rejections().iter().all(|rejection| {
+            rejection.failure_code
+                == crate::ai_publication::PublicationCheckCode::VoiceRecentDuplicate
+        }));
+        assert_eq!(
+            backend.call_count(),
+            3,
+            "phrase rejection never creates an unbounded retry loop"
+        );
     }
 
     #[tokio::test]

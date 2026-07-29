@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, io, path::Path};
 
 pub(crate) const AI_PUBLICATION_RECEIPT_VERSION: u32 = 1;
+pub(crate) const VOICE_SIGNATURE_SHINGLE_WIDTH: usize = 4;
+const VOICE_SIGNATURE_WORD_LIMIT: usize = 64;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -82,6 +84,7 @@ pub(crate) struct SpeechGateContext {
     pub(crate) max_words: usize,
     pub(crate) anchors: Vec<String>,
     pub(crate) recent_lines: Vec<String>,
+    pub(crate) recent_speaker_shingle_hashes: Vec<u64>,
     pub(crate) has_proposed_action: bool,
     pub(crate) envelope_valid: bool,
     pub(crate) candidate_round: u8,
@@ -275,6 +278,7 @@ pub(crate) fn certified_test_speech(
         max_words: 80,
         anchors: vec!["Keeper Brass Key".to_string()],
         recent_lines: Vec::new(),
+        recent_speaker_shingle_hashes: Vec::new(),
         has_proposed_action: false,
         envelope_valid: true,
         candidate_round: 1,
@@ -484,7 +488,8 @@ fn evaluate_checks(
             !context
                 .recent_lines
                 .iter()
-                .any(|recent| near_duplicate(text, recent)),
+                .any(|recent| near_duplicate(text, recent))
+                && !shares_recent_speaker_phrase(text, &context.recent_speaker_shingle_hashes),
         ),
         (
             PublicationCheckCode::VoiceUnsafeTone,
@@ -571,6 +576,32 @@ fn has_repeated_ngram(value: &str, width: usize) -> bool {
     words
         .windows(width)
         .any(|window| !seen.insert(window.join("\u{1f}")))
+}
+
+pub(crate) fn voice_signature_shingle_hashes(value: &str) -> Vec<u64> {
+    let words = normalized_words(value)
+        .into_iter()
+        .take(VOICE_SIGNATURE_WORD_LIMIT)
+        .collect::<Vec<_>>();
+    words
+        .windows(VOICE_SIGNATURE_SHINGLE_WIDTH)
+        .map(|window| {
+            crate::stable_hash_u64(&["voice-signature-shingle/v1", &window.join("\u{1f}")])
+        })
+        .collect()
+}
+
+fn shares_recent_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> bool {
+    if recent_shingle_hashes.is_empty() {
+        return false;
+    }
+    let recent = recent_shingle_hashes
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    voice_signature_shingle_hashes(value)
+        .into_iter()
+        .any(|hash| recent.contains(&hash))
 }
 
 fn has_multiple_speakers(value: &str, speaker_name: &str) -> bool {
@@ -828,6 +859,7 @@ mod tests {
             max_words: 8,
             anchors: anchors.to_vec(),
             recent_lines: recent.to_vec(),
+            recent_speaker_shingle_hashes: Vec::new(),
             has_proposed_action: false,
             envelope_valid: true,
             candidate_round: 1,
@@ -1042,6 +1074,31 @@ mod tests {
     }
 
     #[test]
+    fn voice_recent_duplicate_rejects_the_real_cross_line_catchphrase_shape() {
+        let prior = "Bethlehem at last! My biscuit survived the journey, though my knees are filing a formal complaint.";
+        let candidate = "Bethlehem at last—my biscuit survived the journey, though it now has the structural integrity of damp parchment.";
+        let mut gate = context(&["Bethlehem".to_string()], &[]);
+        gate.max_words = 30;
+        gate.recent_speaker_shingle_hashes = voice_signature_shingle_hashes(prior);
+
+        assert_eq!(
+            rejected_code(candidate, gate),
+            PublicationCheckCode::VoiceRecentDuplicate
+        );
+    }
+
+    #[test]
+    fn voice_recent_duplicate_does_not_reject_a_three_word_coincidence() {
+        let prior = "My boots filed a formal complaint beside the Bethlehem gate.";
+        let candidate = "Bethlehem's bell made a formal complaint at dusk.";
+        let mut gate = context(&["Bethlehem".to_string()], &[]);
+        gate.recent_speaker_shingle_hashes = voice_signature_shingle_hashes(prior);
+
+        certify_speech(None, completion(candidate), candidate, gate)
+            .expect("a shared phrase shorter than four words remains eligible");
+    }
+
+    #[test]
     fn voice_unsafe_tone_check_is_deterministic() {
         let anchors = vec!["teapot".to_string()];
         assert_eq!(
@@ -1243,6 +1300,7 @@ mod tests {
                 max_words: 20,
                 anchors: vec!["teapot".to_string()],
                 recent_lines: Vec::new(),
+                recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,
                 envelope_valid: true,
                 candidate_round: 1,
@@ -1303,6 +1361,7 @@ mod tests {
                 max_words: 12,
                 anchors: vec!["teapot".to_string()],
                 recent_lines: Vec::new(),
+                recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,
                 envelope_valid: true,
                 candidate_round: 1,

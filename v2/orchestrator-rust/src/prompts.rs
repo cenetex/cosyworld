@@ -183,6 +183,8 @@ pub(super) struct AvatarChatPlan {
     pub(super) location_memory: Vec<String>,
     pub(super) cast: Vec<String>,
     pub(super) recent_lines: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) recent_speaker_shingle_hashes: Vec<u64>,
     pub(super) fresh_subject: Option<String>,
     pub(super) missing_need: Option<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -546,6 +548,7 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         max_words: if followup { 28 } else { 34 },
         anchors,
         recent_lines: plan.recent_lines.clone(),
+        recent_speaker_shingle_hashes: plan.recent_speaker_shingle_hashes.clone(),
         has_proposed_action: false,
         envelope_valid: true,
         candidate_round: 1,
@@ -574,6 +577,7 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         max_words: resident_word_budget(plan),
         anchors,
         recent_lines: plan.recent_lines.clone(),
+        recent_speaker_shingle_hashes: plan.resident_continuity.recent_voice_shingle_hashes.clone(),
         has_proposed_action,
         envelope_valid: true,
         candidate_round: 1,
