@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "cosyworld-orchestrator"
-version = "0.0.232"
+version = "0.0.233"
 dependencies = [
  "axum",
  "base64 0.22.1",

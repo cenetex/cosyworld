@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.composition.core-holy-land",
   "name": "CosyWorld Core + Holy Land Bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kind": "world",
   "description": "Composition-owned paths connecting CosyWorld Core and The Holy Land.",
   "license": "MIT",
@@ -25,7 +25,7 @@
     },
     {
       "id": "cosyworld.the-holy-land",
-      "version": ">=1.1.2 <2.0.0",
+      "version": ">=1.2.1 <2.0.0",
       "capabilities": [
         "cosyworld.the-holy-land/world"
       ]
@@ -57,9 +57,51 @@
     "x-cosyworld-generation": {
       "schema_version": 1,
       "policy_id": "cosyworld.composition.core-holy-land/generation/1",
-      "migration_version": 1,
+      "migration_version": 2,
       "collision_namespace": "pack://cosyworld.composition.core-holy-land/generated/v1",
+      "place_anchor": {
+        "action_label": "Build a cairn",
+        "target_label": "a cairn",
+        "question": "Can someone build a cairn here?",
+        "description": "Stack local stones into a durable trail marker that future travelers can inspect.",
+        "completion_memory": "A cairn now marks this place for future travelers.",
+        "visual_description": "A small hand-built cairn of weathered local fieldstones, stable and human-scaled, using the same geology and watercolor palette as its surroundings; no writing, symbols, plaque, people, logo, or modern material."
+      },
+      "prose": {
+        "profile_id": "cosyworld.pathway-prose.ecology/1",
+        "prompt_versions": [
+          "pathway-content-v2"
+        ],
+        "ecology": {
+          "interpolation": "endpoint_blend/1",
+          "required_context": [
+            "route_id",
+            "route_version",
+            "origin",
+            "destination",
+            "travel_direction",
+            "segment_index",
+            "segment_count",
+            "biome",
+            "terrain",
+            "climate",
+            "landforms",
+            "geology",
+            "hydrology",
+            "vegetation",
+            "fauna",
+            "resource_cues",
+            "nearby_authored_descriptions"
+          ]
+        }
+      },
       "migrations": [
+        {
+          "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
+          "from_migration_version": 1,
+          "from_pack_version": "1.0.1",
+          "mode": "preserve_descendants"
+        },
         {
           "from_policy_id": "cosyworld.compatibility.host-generation/1",
           "from_migration_version": 0,
@@ -77,7 +119,7 @@
           "generated_descendant_owner": "cosyworld.composition.core-holy-land",
           "topology_authority": {
             "pack_id": "cosyworld.composition.core-holy-land",
-            "migration_version": 1
+            "migration_version": 2
           },
           "ecology_transition": "endpoint_blend/1",
           "media_profile_id": "cosyworld.holy-land.generated-landscape/1",

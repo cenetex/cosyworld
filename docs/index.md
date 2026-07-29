@@ -81,6 +81,9 @@ do not define V2 behavior.
 - **[Seventh-Visit Operating Queue](backlog/seventh-visit-operating-queue.md)** —
   the bounded production-trust, authority, and first-campaign delivery waves,
   with portfolio gates and backlog-state rules.
+- **[Holy Land Integration Playtest](backlog/holy-land-integration-playtest.md)** —
+  legal-action reachability, generated pilgrimage-road presentation, and
+  direct-avatar continuity boundaries found in the first end-to-end journey.
 
 GitHub Issues are the live execution backlog. These local backlogs carry the
 long-form contracts and acceptance gates that do not fit cleanly in an issue.

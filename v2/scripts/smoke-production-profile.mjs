@@ -16,6 +16,34 @@ const feedToken = "cosyworld-production-profile-smoke-token";
 const boxAssetAddress = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 const boxCollectionAddress = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
 const recentBlockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
+const productionAiRegistry = JSON.stringify({
+  schema_version: 1,
+  snapshot_version: "production-profile-smoke-v1",
+  declared: [
+    {
+      requested_model_id: "openai/gpt-5.6-luna",
+      provider: "openrouter",
+      concrete_model: { model_id: "openai/gpt-5.6-luna" },
+      input_modalities: ["text"],
+      output_modalities: ["text"],
+      supported_parameters: {
+        structured_output: true,
+        json_mode: true,
+        tools: true,
+        seed: true,
+        stop: true,
+      },
+      data_policy: {
+        retention: "none",
+        training: "prohibited",
+      },
+      capabilities: ["voice", "intent_json", "world_content"],
+      prompt_adapter: { id: "openai-chat", version: "1" },
+      sampling: { hard_output_cap: 2048 },
+    },
+  ],
+  discovered: [],
+});
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -209,6 +237,7 @@ async function main() {
     COSYWORLD_WEBAUTHN_ORIGIN: `http://localhost:${port}`,
     COSYWORLD_BOX_BURN_SOLANA_RPC_URL: rpc.url,
     COSYWORLD_BOX_CORE_COLLECTION_ADDRESS: boxCollectionAddress,
+    COSYWORLD_AI_REGISTRY_JSON: productionAiRegistry,
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
   });
