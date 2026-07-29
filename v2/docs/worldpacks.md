@@ -328,6 +328,21 @@ composition authoritative; it never seeds a fresh public history under the same
 world id or runs mixed-composition writers. See
 [`canonical-world.md`](canonical-world.md) for the migration and failover gate.
 
+### Pre-deploy bundle gate
+
+`v2/scripts/check-deploy-worldpack.mjs` runs in the deploy workflow before any
+image is swapped. It reads the candidate bundle hash and declared
+`replay_compatible_bundle_hashes` from the committed compiled registry, fetches
+the live app's bundle hash from its public `/meta` (the hash the live journal
+was written under), and refuses the deploy unless the two match exactly or the
+candidate declares the live hash replay-compatible. An unreadable or
+unverifiable live identity fails closed: the deploy stops instead of
+discovering the mismatch as a crash-loop after the old machine is gone. A
+rollback across a migration boundary is blocked by construction, because the
+older bundle cannot declare a newer hash. The gate never mutates the journal,
+the snapshot, or the recorded hashes; the remedy for a blocked deploy is the
+declared migration path above, never a hand-edited hash.
+
 Pack content has a canonical, version-independent identity of the form
 `pack://<pack-id>/<kind>/<local-id>`. For example,
 `pack://five-e-commons/creature/goblin-warrior` and
