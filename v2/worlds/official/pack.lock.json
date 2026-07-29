@@ -264,12 +264,12 @@
     },
     {
       "id": "cosyworld.composition.core-holy-land",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "source": {
         "type": "workspace",
         "path": "../../content/core-holy-land-bridge"
       },
-      "integrity": "sha256:05450ef20aaadc4ff6fed20d9aeb3fe2d5834005c426ff01fec62c7efb3e8df8",
+      "integrity": "sha256:da22e27f794e1f880b86b0286b65ddc3cdf952ff2d075164cc9d331530b51d75",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -598,7 +598,7 @@
     {
       "pack_id": "cosyworld.composition.core-holy-land",
       "name": "CosyWorld Core + Holy Land Bridge",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
