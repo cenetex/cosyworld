@@ -201,6 +201,50 @@ function terminate(proc) {
   });
 }
 
+async function assertProductionAiRegistryGuard(env, tempDir) {
+  const outputLines = [];
+  const guardEnv = {
+    ...env,
+    COSYWORLD_AI_API_KEY: "production-profile-smoke-ai-key",
+    COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "missing-ai-registry-snapshot.json"),
+    COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "missing-ai-registry-events.sqlite"),
+  };
+  delete guardEnv.COSYWORLD_AI_REGISTRY_JSON;
+  const proc = spawn(binaryPath, {
+    cwd: orchestratorDir,
+    env: guardEnv,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  proc.stdout.on("data", (chunk) => outputLines.push(chunk.toString()));
+  proc.stderr.on("data", (chunk) => outputLines.push(chunk.toString()));
+
+  try {
+    const exitCode = await new Promise((resolveExit, rejectExit) => {
+      const timeout = setTimeout(() => {
+        rejectExit(new Error(
+          `production AI without a registry did not fail startup\n${outputLines.slice(-40).join("")}`,
+        ));
+      }, 8_000);
+      proc.once("exit", (code) => {
+        clearTimeout(timeout);
+        resolveExit(code);
+      });
+    });
+    const output = outputLines.join("");
+    assert(exitCode !== 0, "production AI without a registry must exit unsuccessfully");
+    assert(
+      output.includes("COSYWORLD_AI_REGISTRY_JSON is required when AI is enabled"),
+      `missing actionable AI registry startup error:\n${output}`,
+    );
+    assert(
+      output.includes("disable AI by unsetting"),
+      `missing disabled-AI recovery guidance:\n${output}`,
+    );
+  } finally {
+    await terminate(proc);
+  }
+}
+
 async function main() {
   await assertBuiltBinary();
   const tempDir = await mkdtemp(resolve(tmpdir(), "cosyworld-production-profile-"));
@@ -241,6 +285,8 @@ async function main() {
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
   });
+
+  await assertProductionAiRegistryGuard(env, tempDir);
 
   const proc = spawn(binaryPath, {
     cwd: orchestratorDir,

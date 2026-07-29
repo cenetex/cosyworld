@@ -150,9 +150,8 @@ impl AiConfig {
             }
         });
         let base_url = base_url.trim_end_matches('/').to_string();
-        let api_key = match api_key {
+        let api_key = match enabled_ai_api_key(api_key, &base_url) {
             Some(key) => key,
-            None if local_ai_base_url(&base_url) => "local-ai".to_string(),
             None => return Ok(None),
         };
         let configured_model = std::env::var("COSYWORLD_AI_MODEL")
@@ -175,6 +174,7 @@ impl AiConfig {
                     .map_err(|error| format!("{AI_REGISTRY_ENV}: {error}"))
             })
             .transpose()?;
+        require_explicit_production_registry(registry.as_deref(), data_policy_mode)?;
         let model = configured_model.unwrap_or_else(|| {
             registry
                 .as_deref()
@@ -285,6 +285,22 @@ impl AiConfig {
         )?
         .pin_all(capability, self.data_policy_mode)
     }
+}
+
+fn enabled_ai_api_key(api_key: Option<String>, base_url: &str) -> Option<String> {
+    api_key.or_else(|| local_ai_base_url(base_url).then(|| "local-ai".to_string()))
+}
+
+fn require_explicit_production_registry(
+    registry: Option<&CapabilityRegistrySnapshot>,
+    data_policy_mode: DataPolicyMode,
+) -> Result<(), String> {
+    if data_policy_mode == DataPolicyMode::Production && registry.is_none() {
+        return Err(format!(
+            "{AI_REGISTRY_ENV} is required when AI is enabled and COSYWORLD_DEPLOY_PROFILE=production. Configure a reviewed capability registry (for Fly, set its [env] entry in fly.toml), or disable AI by unsetting COSYWORLD_AI_API_KEY, OPENROUTER_API_KEY, and OPENAI_API_KEY and not configuring a local AI base URL."
+        ));
+    }
+    Ok(())
 }
 
 fn validate_ai_routing_configuration(
@@ -1542,6 +1558,35 @@ mod tests {
         assert!(local_ai_base_url("http://localhost:8080/v1"));
         assert!(!local_ai_base_url("https://openrouter.ai/api/v1"));
         assert!(!local_ai_base_url("https://api.openai.com/v1"));
+        assert_eq!(
+            enabled_ai_api_key(None, "http://127.0.0.1:8080/v1").as_deref(),
+            Some("local-ai")
+        );
+        assert_eq!(
+            enabled_ai_api_key(None, "https://api.openai.com/v1"),
+            None,
+            "omitting credentials from a remote deployment keeps AI disabled"
+        );
+    }
+
+    #[test]
+    fn enabled_production_ai_requires_an_explicit_registry() {
+        let error = require_explicit_production_registry(None, DataPolicyMode::Production)
+            .expect_err("production AI without a reviewed registry must not boot");
+
+        assert!(error.contains(AI_REGISTRY_ENV), "{error}");
+        assert!(
+            error.contains("COSYWORLD_DEPLOY_PROFILE=production"),
+            "{error}"
+        );
+        assert!(error.contains("disable AI by unsetting"), "{error}");
+        assert!(error.contains("OPENROUTER_API_KEY"), "{error}");
+
+        require_explicit_production_registry(None, DataPolicyMode::Development)
+            .expect("development keeps the legacy fallback");
+        let registry = startup_validation_registry();
+        require_explicit_production_registry(Some(&registry), DataPolicyMode::Production)
+            .expect("a configured production registry passes the presence guard");
     }
 
     fn startup_validation_registry() -> CapabilityRegistrySnapshot {

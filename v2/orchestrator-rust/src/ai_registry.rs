@@ -1839,9 +1839,9 @@ mod tests {
             .audit_required_capabilities(DataPolicyMode::Development)
             .is_covered());
 
-        // The legacy fallback is only built when no registry is configured, so
-        // the startup audit never sees it. Its unknown data policy still fails
-        // closed on every production pin, exactly as before this guard.
+        // Production startup now requires an explicit registry before building
+        // this fallback. Keep the policy audit fail-closed as defense in depth
+        // for any future caller that constructs a legacy snapshot directly.
         let production = legacy.audit_required_capabilities(DataPolicyMode::Production);
         assert!(!production.is_covered());
         assert!(
