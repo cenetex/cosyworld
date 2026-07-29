@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 /* Version 9 is reserved by #411 for project-push ABI state. */
-#define CW_KERNEL_VERSION 10u
+#define CW_KERNEL_VERSION 11u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -204,7 +204,12 @@ typedef enum {
      their projection-owned meaning. */
   CW_ACTION_PROJECT_PUSH = 31,
   /* Action 31 is reserved by #411 for CW_ACTION_PROJECT_PUSH. */
-  CW_ACTION_REST = 32
+  CW_ACTION_REST = 32,
+  /* Terminal closure for an encounter that can never advance again. The
+     orchestrator commits this only after bounded recovery attempts fail
+     deterministically; it resolves the encounter with no winning side so a
+     stuck scene releases its participants instead of retrying forever. */
+  CW_ACTION_COMBAT_ABANDON = 33
 } cw_action_kind;
 
 typedef enum {

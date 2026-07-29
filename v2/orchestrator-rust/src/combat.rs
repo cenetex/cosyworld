@@ -715,37 +715,174 @@ fn focused_combat_turn_needs_recovery(
         })
 }
 
-async fn recover_available_combat_turns(state: &AppState) -> io::Result<Vec<EventView>> {
+/// Consecutive deterministic recovery failures a focused encounter may take
+/// before the scheduler closes it. A deterministic kernel status means the
+/// encounter cannot advance from the state it is in, so retrying the same sweep
+/// cannot help; the small cap only absorbs a legitimate state change racing
+/// with the attempt.
+const FOCUSED_RECOVERY_DETERMINISTIC_FAILURE_LIMIT: u32 = 3;
+
+/// Consecutive transient recovery failures before the same terminal closure.
+/// Higher than the deterministic cap because I/O and inference failures do
+/// genuinely clear on their own, but still bounded so nothing retries forever.
+const FOCUSED_RECOVERY_TRANSIENT_FAILURE_LIMIT: u32 = 20;
+
+/// How long to leave a deterministically stuck encounter alone before trying
+/// again. Each attempt holds the runtime lock for its whole duration, so
+/// retrying a known-stuck encounter every second is what starved `/world` and
+/// `/meta` during the 2026-07-28 incident.
+const FOCUSED_RECOVERY_DETERMINISTIC_BACKOFF: Duration = Duration::from_secs(30);
+
+/// A kernel status that will not change while the encounter stays as it is.
+/// `CW_ERR_FULL` is excluded: a full event buffer clears once the pending
+/// events drain.
+fn focused_recovery_status_is_deterministic(status: u32) -> bool {
+    matches!(status, CW_ERR_RULE | CW_ERR_INVALID | CW_ERR_NOT_FOUND)
+}
+
+#[derive(Default)]
+struct FocusedRecoveryFailures {
+    consecutive: u32,
+    retry_after: Option<Instant>,
+}
+
+/// Per-encounter recovery failure history for one scheduler task. This is
+/// deliberately task-local rather than world state: it is a retry budget, not a
+/// world fact, so it must not enter snapshots or the journal. A restart simply
+/// grants a stuck encounter a fresh budget before closing it again.
+#[derive(Default)]
+struct FocusedRecoveryTracker {
+    encounters: BTreeMap<u64, FocusedRecoveryFailures>,
+}
+
+impl FocusedRecoveryTracker {
+    fn is_backing_off(&self, encounter_id: u64, now: Instant) -> bool {
+        self.encounters
+            .get(&encounter_id)
+            .and_then(|failures| failures.retry_after)
+            .is_some_and(|retry_after| now < retry_after)
+    }
+
+    fn clear(&mut self, encounter_id: u64) {
+        self.encounters.remove(&encounter_id);
+    }
+
+    /// Record a failed attempt and report whether the encounter has exhausted
+    /// its budget and must now be closed.
+    fn record_failure(&mut self, encounter_id: u64, deterministic: bool, now: Instant) -> bool {
+        let failures = self.encounters.entry(encounter_id).or_default();
+        failures.consecutive = failures.consecutive.saturating_add(1);
+        failures.retry_after = deterministic.then(|| now + FOCUSED_RECOVERY_DETERMINISTIC_BACKOFF);
+        let limit = if deterministic {
+            FOCUSED_RECOVERY_DETERMINISTIC_FAILURE_LIMIT
+        } else {
+            FOCUSED_RECOVERY_TRANSIENT_FAILURE_LIMIT
+        };
+        failures.consecutive >= limit
+    }
+}
+
+/// Terminally resolve an encounter that has exhausted its recovery budget. The
+/// closure goes through the journal so replay reproduces it, and resolves with
+/// no winning side so the room simply settles.
+fn abandon_stuck_encounter(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    encounter_id: u64,
+    events: &mut Vec<EventView>,
+) -> io::Result<u32> {
+    let actor_id = runtime
+        .combat_current_actor_id(encounter_id)
+        .or_else(|| {
+            let encounter = runtime.combat_encounter(encounter_id)?;
+            encounter.participants[..encounter.participant_count]
+                .first()
+                .map(|participant| participant.actor_id)
+        })
+        .unwrap_or_default();
+    let record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_COMBAT_ABANDON,
+            actor_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_system();
+    let (status, abandon_events) = commit_journal_record(state, runtime, record)?;
+    events.extend(abandon_events);
+    Ok(status)
+}
+
+async fn recover_available_combat_turns(
+    state: &AppState,
+    tracker: &mut FocusedRecoveryTracker,
+) -> Vec<EventView> {
+    let now = Instant::now();
     let mut runtime = state.inner.lock().await;
     let encounter_ids = runtime.world.combat_encounters[..runtime.world.combat_encounter_count]
         .iter()
         .map(|encounter| encounter.id)
         .filter(|encounter_id| runtime.active_combat_encounter(*encounter_id).is_some())
         .collect::<Vec<_>>();
+    tracker
+        .encounters
+        .retain(|encounter_id, _| encounter_ids.contains(encounter_id));
     let mut events = Vec::new();
     for encounter_id in encounter_ids {
-        if !focused_combat_turn_needs_recovery(state, &runtime, encounter_id) {
+        if tracker.is_backing_off(encounter_id, now) {
             continue;
         }
-        let status =
-            drive_available_combat_turns(state, &mut runtime, encounter_id, 0, &mut events)?;
-        if status != CW_OK {
-            return Err(io::Error::other(format!(
-                "focused encounter {encounter_id} recovery failed with status {status}"
-            )));
+        if !focused_combat_turn_needs_recovery(state, &runtime, encounter_id) {
+            tracker.clear(encounter_id);
+            continue;
+        }
+        // One encounter's failure must not abandon the sweep: the rest of the
+        // world still needs its turns driven.
+        let outcome =
+            drive_available_combat_turns(state, &mut runtime, encounter_id, 0, &mut events);
+        let (deterministic, detail) = match outcome {
+            Ok(CW_OK) => {
+                tracker.clear(encounter_id);
+                continue;
+            }
+            Ok(status) => (
+                focused_recovery_status_is_deterministic(status),
+                format!("status {status}"),
+            ),
+            Err(error) => (false, format!("error {error}")),
+        };
+        if !tracker.record_failure(encounter_id, deterministic, now) {
+            warn!("focused encounter {encounter_id} recovery failed with {detail}; will retry");
+            continue;
+        }
+        match abandon_stuck_encounter(state, &mut runtime, encounter_id, &mut events) {
+            Ok(CW_OK) => {
+                warn!(
+                    "focused encounter {encounter_id} could not recover ({detail}); closed it and released its participants"
+                );
+                tracker.clear(encounter_id);
+            }
+            Ok(status) => warn!(
+                "focused encounter {encounter_id} could not recover ({detail}) and closing it was rejected with status {status}"
+            ),
+            Err(error) => warn!(
+                "focused encounter {encounter_id} could not recover ({detail}) and closing it failed: {error}"
+            ),
         }
     }
-    Ok(events)
+    events
 }
 
 pub(super) fn start_focused_encounter_scheduler(state: AppState) {
     tokio::spawn(async move {
+        let mut tracker = FocusedRecoveryTracker::default();
         loop {
             tokio::time::sleep(Duration::from_secs(1)).await;
-            match recover_available_combat_turns(&state).await {
-                Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
-                Ok(_) => {}
-                Err(error) => warn!("focused encounter recovery failed: {error}"),
+            let events = recover_available_combat_turns(&state, &mut tracker).await;
+            if !events.is_empty() {
+                broadcast_events(&state, &events);
             }
             match recover_available_focused_job_turns(&state).await {
                 Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
@@ -1254,10 +1391,10 @@ mod tests {
         ));
         let _ = fs::remove_file(&path);
         let state = test_app_state(runtime, Some(path.clone()));
+        let mut tracker = FocusedRecoveryTracker::default();
         assert!(
-            recover_available_combat_turns(&state)
+            recover_available_combat_turns(&state, &mut tracker)
                 .await
-                .expect("idle recovery succeeds")
                 .is_empty(),
             "a scene with nobody available must not churn Pass records"
         );
@@ -1267,9 +1404,7 @@ mod tests {
             actor_for_session(&state.actor_sessions, &session),
             Some(5000)
         );
-        let events = recover_available_combat_turns(&state)
-            .await
-            .expect("focused scheduler recovery succeeds");
+        let events = recover_available_combat_turns(&state, &mut tracker).await;
         assert!(events
             .iter()
             .any(|event| { event.type_name == "combat.pass" && event.actor_id == Some(5001) }));
@@ -1291,6 +1426,171 @@ mod tests {
             assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
         }
         assert_eq!(replayed.combat_current_actor_id(encounter_id), Some(5000));
+        let _ = fs::remove_file(path);
+    }
+
+    /// Production ran this loop for seven hours on 2026-07-28: an encounter
+    /// whose current participant can never complete a turn fails recovery with
+    /// the same deterministic status every sweep. The scheduler must give up
+    /// and close the scene instead of holding the runtime lock forever.
+    #[tokio::test]
+    async fn a_stuck_focused_encounter_is_closed_after_bounded_recovery_failures() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Held Witness",
+        );
+        create_test_human(&mut runtime, 5001, MOONLIT_TRAIL_LOCATION_ID, "Stuck Rival");
+        for (actor_id, dexterity) in [(5000, 50), (5001, 100)] {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == actor_id)
+                .expect("stuck encounter participant");
+            actor.stats.dexterity = dexterity;
+            actor.stats.hp_base = 100;
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+        }
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5001,
+                target_actor_id: 5000,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            72_310,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5001));
+
+        // Strand the scene the way production was stranded: the participant
+        // holding the turn can no longer act, so no Pass will ever be accepted
+        // for them and the encounter can never advance on its own.
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5001)
+            .expect("stuck current participant")
+            .status = CW_ACTOR_KNOCKED_OUT;
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-stuck-encounter-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (session, _) = issue_actor_session(&state, 5000);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &session),
+            Some(5000)
+        );
+
+        let mut tracker = FocusedRecoveryTracker::default();
+        for attempt in 1..FOCUSED_RECOVERY_DETERMINISTIC_FAILURE_LIMIT {
+            let events = recover_available_combat_turns(&state, &mut tracker).await;
+            assert!(
+                !events
+                    .iter()
+                    .any(|event| event.type_name == "combat.encounter.resolved"),
+                "the scene must not close before its recovery budget is spent"
+            );
+            let failures = tracker
+                .encounters
+                .get_mut(&encounter_id)
+                .expect("a failed recovery is tracked");
+            assert_eq!(failures.consecutive, attempt);
+            assert!(
+                failures.retry_after.is_some(),
+                "a deterministic failure must back off instead of retrying every second"
+            );
+            // Serve the backoff instantly so the test spends the budget without
+            // sleeping; the assertion above is what pins the backoff itself.
+            failures.retry_after = None;
+        }
+
+        let events = recover_available_combat_turns(&state, &mut tracker).await;
+        let resolved = events
+            .iter()
+            .find(|event| event.type_name == "combat.encounter.resolved")
+            .expect("the exhausted scene closes");
+        assert!(resolved.success);
+        assert_eq!(resolved.content_id, Some(encounter_id));
+        // The kernel resolves an abandoned scene with winning side 0, which the
+        // projection carries as absent. Both clients already read that as "the
+        // scuffle is over for now" rather than announcing a victor.
+        assert_eq!(
+            resolved.total, None,
+            "an abandoned scene has no winning side"
+        );
+
+        let runtime = state.inner.lock().await;
+        assert!(
+            runtime.active_combat_encounter(encounter_id).is_none(),
+            "the encounter is closed"
+        );
+        // Participants are released back to ordinary presence.
+        for actor_id in [5000, 5001] {
+            assert!(
+                runtime
+                    .active_combat_encounter_for_actor(actor_id)
+                    .is_none(),
+                "actor {actor_id} is released from the closed scene"
+            );
+        }
+        let offered = runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .primary_action
+            .options
+            .iter()
+            .map(|option| option.kind.clone())
+            .collect::<Vec<_>>();
+        for ordinary in ["work", "search"] {
+            assert!(
+                offered.iter().any(|kind| kind == ordinary),
+                "ordinary play offers {ordinary} again once the scene closes; got {offered:?}"
+            );
+        }
+        drop(runtime);
+
+        let journal = read_action_journal(&path).expect("stuck encounter journal");
+        assert!(
+            journal.iter().any(|record| {
+                record.action.kind == CW_ACTION_COMBAT_ABANDON
+                    && record.action.content_id == encounter_id
+                    && record.origin == JournalOrigin::System
+            }),
+            "the closure is journaled so it is not invented at read time"
+        );
+
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("stuck encounter checkpoint restores");
+        assert!(
+            replayed.active_combat_encounter(encounter_id).is_some(),
+            "the restored checkpoint still holds the stuck scene open"
+        );
+        for record in &journal {
+            replayed.apply_journal_record(record);
+        }
+        assert!(
+            replayed.active_combat_encounter(encounter_id).is_none(),
+            "replay reproduces the closure"
+        );
         let _ = fs::remove_file(path);
     }
 

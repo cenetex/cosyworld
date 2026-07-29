@@ -397,6 +397,88 @@ static void test_rules_utilize_item_records_project_use_without_consuming(void) 
   assert(item->charges == 3);
 }
 
+static void test_combat_abandon_closes_a_stuck_encounter(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.actor_id = 5101;
+  create.location_id = 3;
+  assert(cw_world_apply(&world, &create, 401, &events) == CW_OK);
+
+  cw_actor *human = &world.actors[5];
+  cw_actor *echo = &world.actors[3];
+  human->stats.hp_base = 100;
+  echo->stats.hp_base = 100;
+
+  cw_action start = {0};
+  start.kind = CW_ACTION_COMBAT_START;
+  start.actor_id = human->id;
+  start.target_actor_id = echo->id;
+  start.content_id = 9101;
+  assert(cw_world_apply(&world, &start, 501, &events) == CW_OK);
+  cw_combat_encounter *encounter = &world.combat_encounters[0];
+  assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
+
+  /* An unknown encounter is rejected rather than closing anything. */
+  cw_action missing = {0};
+  missing.kind = CW_ACTION_COMBAT_ABANDON;
+  missing.actor_id = human->id;
+  missing.content_id = encounter->id + 7777;
+  assert(cw_world_apply(&world, &missing, 502, &events) == CW_ERR_RULE);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
+
+  /* An abandon without an encounter id is an invalid action. */
+  cw_action untargeted = {0};
+  untargeted.kind = CW_ACTION_COMBAT_ABANDON;
+  untargeted.actor_id = human->id;
+  assert(cw_world_apply(&world, &untargeted, 503, &events) == CW_ERR_RULE);
+  assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
+
+  /* An unrelated actor cannot use the system recovery action to close
+     somebody else's encounter. */
+  cw_action unrelated = {0};
+  unrelated.kind = CW_ACTION_COMBAT_ABANDON;
+  unrelated.actor_id = world.actors[0].id;
+  unrelated.content_id = encounter->id;
+  assert(cw_world_apply(&world, &unrelated, 504, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_NOT_PARTICIPANT);
+  assert(encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE);
+
+  /* Abandon closes the encounter with no winning side, from any participant
+     and regardless of whose turn it currently is. */
+  cw_id waiting_id = encounter->participants[encounter->current_index].actor_id == human->id
+      ? echo->id
+      : human->id;
+  cw_action abandon = {0};
+  abandon.kind = CW_ACTION_COMBAT_ABANDON;
+  abandon.actor_id = waiting_id;
+  abandon.content_id = encounter->id;
+  assert(cw_world_apply(&world, &abandon, 505, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_COMBAT_ENCOUNTER_RESOLVED);
+  assert(events.events[0].success == 1);
+  assert(events.events[0].content_id == encounter->id);
+  assert(events.events[0].total == 0);
+  assert(encounter->status == CW_COMBAT_ENCOUNTER_RESOLVED);
+
+  /* Participants are released: ordinary play is legal again for both. */
+  cw_action move = {0};
+  move.kind = CW_ACTION_MOVE;
+  move.actor_id = human->id;
+  move.destination_location_id = 2;
+  assert(cw_world_apply(&world, &move, 506, &events) == CW_OK);
+
+  /* Abandoning an already-resolved encounter is rejected, so a repeated
+     closure can never double-resolve on replay. */
+  assert(cw_world_apply(&world, &abandon, 507, &events) == CW_ERR_RULE);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+}
+
 static void test_combat_v2_encounter_turns_dodge_targeting_and_escape(void) {
   cw_world world;
   cw_event_buffer events;
@@ -1791,6 +1873,7 @@ int main(void) {
   test_items_and_combat_gate();
   test_rules_utilize_item_records_project_use_without_consuming();
   test_combat_v2_encounter_turns_dodge_targeting_and_escape();
+  test_combat_abandon_closes_a_stuck_encounter();
   test_combat_v4_weapon_profile_and_legacy_replay();
   test_card_zones_spell_exhaustion_and_theft_atomicity();
   test_rest_grade_refresh_matrix_and_atomic_validation();

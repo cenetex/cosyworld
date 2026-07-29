@@ -2253,6 +2253,36 @@ static cw_status apply_combat_pass(cw_world *world, const cw_action *action, cw_
   return CW_OK;
 }
 
+/* Close an encounter that can never advance again. Unlike every other combat
+   action this does not require the caller to hold the current turn: a stuck
+   encounter is precisely one whose current turn can never be completed. It
+   resolves with no winning side (total 0) and releases the participants. */
+static cw_status apply_combat_abandon(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  if (!action->content_id) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  cw_combat_encounter *encounter = find_combat_encounter(world, action->content_id);
+  if (!encounter || encounter->status != CW_COMBAT_ENCOUNTER_ACTIVE) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_NOT_FOUND);
+  }
+  if (!find_combat_participant_const(encounter, action->actor_id)) {
+    return reject(world, out_events, action, CW_REASON_NOT_PARTICIPANT);
+  }
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    cw_actor *participant = find_actor(world, encounter->participants[i].actor_id);
+    if (participant) participant->conditions &= ~CW_CONDITION_DODGING;
+  }
+  encounter->status = CW_COMBAT_ENCOUNTER_RESOLVED;
+  append_event(world, out_events, CW_EVENT_COMBAT_ENCOUNTER_RESOLVED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = action->actor_id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+    event->total = 0;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_combat_need_time(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_combat_encounter *encounter = 0;
   cw_actor *actor = 0;
@@ -2313,6 +2343,7 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       && action->kind != CW_ACTION_COMBAT_DODGE
       && action->kind != CW_ACTION_COMBAT_ESCAPE
       && action->kind != CW_ACTION_COMBAT_PASS
+      && action->kind != CW_ACTION_COMBAT_ABANDON
       && action->kind != CW_ACTION_COMBAT_NEED_TIME) {
     cw_status status = reject(world, out_events, action, CW_REASON_COMBAT_ACTION_REQUIRED);
     if (out_events && out_events->count > 0) {
@@ -2412,6 +2443,9 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       break;
     case CW_ACTION_COMBAT_NEED_TIME:
       status = apply_combat_need_time(world, action, out_events);
+      break;
+    case CW_ACTION_COMBAT_ABANDON:
+      status = apply_combat_abandon(world, action, out_events);
       break;
     case CW_ACTION_UNLOCK_EXIT:
       status = apply_unlock_exit(world, action, out_events);

@@ -295,6 +295,7 @@ pub(super) fn focused_encounter_context_for_action(
         | CW_ACTION_COMBAT_FINESSE_ATTACK
         | CW_ACTION_COMBAT_DODGE
         | CW_ACTION_COMBAT_ESCAPE
+        | CW_ACTION_COMBAT_ABANDON
         | CW_ACTION_COMBAT_PASS => FocusedActivationStep::Commit,
         _ => return None,
     };
@@ -460,6 +461,7 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         | CW_ACTION_COMBAT_DODGE
         | CW_ACTION_COMBAT_ESCAPE
         | CW_ACTION_COMBAT_PASS
+        | CW_ACTION_COMBAT_ABANDON
         | CW_ACTION_COMBAT_NEED_TIME => ConcurrencyPolicy::SceneTurn,
         CW_ACTION_PICK_UP_ITEM
         | CW_ACTION_DROP_ITEM
