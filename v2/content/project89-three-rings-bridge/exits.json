@@ -7,12 +7,12 @@
   { "from_location_id": 8925, "to_location_id": 8906, "flags": 1, "distance": 1, "direction": "in", "discovery": "known" },
   { "from_location_id": 8907, "to_location_id": 8922, "flags": 1, "distance": 1, "direction": "out", "discovery": "known" },
   { "from_location_id": 8922, "to_location_id": 8907, "flags": 1, "distance": 1, "direction": "in", "discovery": "known" },
-  { "from_location_id": 8921, "to_location_id": 8940, "flags": 0, "distance": 1, "direction": "out", "discovery": "known" },
-  { "from_location_id": 8940, "to_location_id": 8921, "flags": 0, "distance": 1, "direction": "in", "discovery": "known" },
-  { "from_location_id": 8926, "to_location_id": 8941, "flags": 0, "distance": 1, "direction": "out", "discovery": "known" },
-  { "from_location_id": 8941, "to_location_id": 8926, "flags": 0, "distance": 1, "direction": "in", "discovery": "known" },
-  { "from_location_id": 8925, "to_location_id": 8942, "flags": 0, "distance": 1, "direction": "out", "discovery": "known" },
-  { "from_location_id": 8942, "to_location_id": 8925, "flags": 0, "distance": 1, "direction": "in", "discovery": "known" },
-  { "from_location_id": 8922, "to_location_id": 8943, "flags": 0, "distance": 1, "direction": "out", "discovery": "known" },
-  { "from_location_id": 8943, "to_location_id": 8922, "flags": 0, "distance": 1, "direction": "in", "discovery": "known" }
+  { "from_location_id": 8921, "to_location_id": 8940, "flags": 1, "distance": 1, "direction": "out", "discovery": "known" },
+  { "from_location_id": 8940, "to_location_id": 8921, "flags": 1, "distance": 1, "direction": "in", "discovery": "known" },
+  { "from_location_id": 8926, "to_location_id": 8941, "flags": 1, "distance": 1, "direction": "out", "discovery": "known" },
+  { "from_location_id": 8941, "to_location_id": 8926, "flags": 1, "distance": 1, "direction": "in", "discovery": "known" },
+  { "from_location_id": 8925, "to_location_id": 8942, "flags": 1, "distance": 1, "direction": "out", "discovery": "known" },
+  { "from_location_id": 8942, "to_location_id": 8925, "flags": 1, "distance": 1, "direction": "in", "discovery": "known" },
+  { "from_location_id": 8922, "to_location_id": 8943, "flags": 1, "distance": 1, "direction": "out", "discovery": "known" },
+  { "from_location_id": 8943, "to_location_id": 8922, "flags": 1, "distance": 1, "direction": "in", "discovery": "known" }
 ]

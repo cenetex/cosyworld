@@ -248,7 +248,9 @@
       "memory_channels": 3,
       "crossings": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -271,7 +273,9 @@
       "echoes": 3,
       "antenna_parts": 1
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -294,7 +298,9 @@
       "dispatches": 3,
       "shelter": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -317,7 +323,9 @@
       "resonant_glass": 2,
       "cover": 1
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -340,7 +348,9 @@
       "clean_water": 2,
       "conduits": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -363,7 +373,9 @@
       "resonant_fruit": 2,
       "repairs": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -386,7 +398,9 @@
       "salvage": 2,
       "recovery_space": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -409,7 +423,9 @@
       "weather_data": 3,
       "bridge_repair": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:stabilize-perimeter-relay"
+    ],
     "pack_id": "project89.perimeter-relay"
   },
   {
@@ -417,7 +433,7 @@
     "location_id": 8940,
     "name": "Archive Meridian",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "last indexed station",
       "blank pages beyond receipts"
@@ -427,13 +443,15 @@
       "travelers can evacuate inward to Echo Observatory"
     ],
     "hooks": [
-      "the first 89-segment trunk waits for a scout"
+      "the first longhaul trunk waits for a scout"
     ],
     "resources": {
       "maps": 3,
       "shelter": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:charter-the-open-circuit"
+    ],
     "pack_id": "project89.open-signal-frontier"
   },
   {
@@ -441,7 +459,7 @@
     "location_id": 8941,
     "name": "Chimera Reach",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "consent-safe repair",
       "unknown remains left untouched"
@@ -457,7 +475,9 @@
       "repairs": 3,
       "salvage_review": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:charter-the-open-circuit"
+    ],
     "pack_id": "project89.open-signal-frontier"
   },
   {
@@ -465,7 +485,7 @@
     "location_id": 8942,
     "name": "Green Loom Expanse",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "visible maintenance",
       "wetland circuits"
@@ -481,7 +501,9 @@
       "shelter": 3,
       "cultivation": 3
     },
-    "projects": [],
+    "projects": [
+      "project89:charter-the-open-circuit"
+    ],
     "pack_id": "project89.open-signal-frontier"
   },
   {
@@ -489,7 +511,7 @@
     "location_id": 8943,
     "name": "Rabbit Signal Freeport",
     "safety": "safe",
-    "zone": "sanctuary",
+    "zone": "frontier",
     "aspects": [
       "moving network",
       "departures by receipt"
@@ -505,7 +527,9 @@
       "dispatches": 3,
       "trade": 2
     },
-    "projects": [],
+    "projects": [
+      "project89:charter-the-open-circuit"
+    ],
     "pack_id": "project89.open-signal-frontier"
   }
 ]

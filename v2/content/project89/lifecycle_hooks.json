@@ -4,6 +4,12 @@
     "target_kind": "item",
     "target_id": "8971",
     "claim_scope": "world_target_once",
+    "requirements": [
+      {
+        "kind": "active_tag",
+        "tag_id": "room:8906:inner_loop_liberated"
+      }
+    ],
     "effects": [
       {
         "op": "unlock_exit",
@@ -16,6 +22,18 @@
         "from_location_id": 8921,
         "to_location_id": 8902,
         "reason": "archive_cipher_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8921,
+        "to_location_id": 8940,
+        "reason": "meridian_gate_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8940,
+        "to_location_id": 8921,
+        "reason": "meridian_gate_commissioned"
       },
       {
         "op": "set_tag",
@@ -34,6 +52,12 @@
     "target_kind": "item",
     "target_id": "8979",
     "claim_scope": "world_target_once",
+    "requirements": [
+      {
+        "kind": "active_tag",
+        "tag_id": "room:8906:inner_loop_liberated"
+      }
+    ],
     "effects": [
       {
         "op": "unlock_exit",
@@ -46,6 +70,18 @@
         "from_location_id": 8926,
         "to_location_id": 8908,
         "reason": "chimera_spine_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8926,
+        "to_location_id": 8941,
+        "reason": "reach_gate_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8941,
+        "to_location_id": 8926,
+        "reason": "reach_gate_commissioned"
       },
       {
         "op": "set_tag",
@@ -64,6 +100,12 @@
     "target_kind": "item",
     "target_id": "8983",
     "claim_scope": "world_target_once",
+    "requirements": [
+      {
+        "kind": "active_tag",
+        "tag_id": "room:8906:inner_loop_liberated"
+      }
+    ],
     "effects": [
       {
         "op": "unlock_exit",
@@ -76,6 +118,18 @@
         "from_location_id": 8925,
         "to_location_id": 8906,
         "reason": "green_loom_thread_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8925,
+        "to_location_id": 8942,
+        "reason": "expanse_gate_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8942,
+        "to_location_id": 8925,
+        "reason": "expanse_gate_commissioned"
       },
       {
         "op": "set_tag",
@@ -94,6 +148,12 @@
     "target_kind": "item",
     "target_id": "8973",
     "claim_scope": "world_target_once",
+    "requirements": [
+      {
+        "kind": "active_tag",
+        "tag_id": "room:8906:inner_loop_liberated"
+      }
+    ],
     "effects": [
       {
         "op": "unlock_exit",
@@ -106,6 +166,18 @@
         "from_location_id": 8922,
         "to_location_id": 8907,
         "reason": "white_rabbit_relay_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8922,
+        "to_location_id": 8943,
+        "reason": "freeport_gate_commissioned"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 8943,
+        "to_location_id": 8922,
+        "reason": "freeport_gate_commissioned"
       },
       {
         "op": "set_tag",

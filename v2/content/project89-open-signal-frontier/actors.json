@@ -1,0 +1,34 @@
+[
+  {
+    "id": 9010, "name": "Ada Meridian", "speech_mode": "prose", "title": "Longhaul Cartographer",
+    "description": "Ada maps what travelers actually survive and leaves blank every frontier claim that lacks a return receipt.",
+    "ambient_autonomy": true, "location_id": 8940,
+    "desires": [{ "item_id": 9121, "reason": "the torque would let a route record the limits its travelers consented to" }],
+    "attachments": [{ "item_id": 9120, "reason": "Ada carries the public route ledger but cannot erase another traveler's entry" }],
+    "stats": { "strength": 11, "dexterity": 14, "constitution": 14, "intelligence": 17, "wisdom": 15, "charisma": 13, "hp_base": 16, "level": 4 }
+  },
+  {
+    "id": 9011, "name": "Hexa Vale", "speech_mode": "prose", "title": "Reach Repair Advocate",
+    "description": "Hexa negotiates repairs with machines, ecosystems, and travelers as separate parties whose silence grants nothing.",
+    "ambient_autonomy": true, "location_id": 8941,
+    "desires": [{ "item_id": 9122, "reason": "the battery could prove a living station can power repair without stripping unknown remains" }],
+    "attachments": [{ "item_id": 9121, "reason": "Hexa uses the Consent Torque to cap every authorized intervention" }],
+    "stats": { "strength": 15, "dexterity": 11, "constitution": 16, "intelligence": 14, "wisdom": 16, "charisma": 14, "hp_base": 21, "level": 4 }
+  },
+  {
+    "id": 9012, "name": "Miren Reed", "speech_mode": "prose", "title": "Wet-Circuit Cultivator",
+    "description": "Miren grows power slowly enough that the station's maintenance burden stays visible to everyone using it.",
+    "ambient_autonomy": true, "location_id": 8942,
+    "desires": [{ "item_id": 9123, "reason": "the beacon would carry a living station's promise to accept returning travelers" }],
+    "attachments": [{ "item_id": 9122, "reason": "Miren tends the Reed Battery as shared infrastructure, not a portable reserve" }],
+    "stats": { "strength": 10, "dexterity": 12, "constitution": 15, "intelligence": 15, "wisdom": 17, "charisma": 14, "hp_base": 17, "level": 4 }
+  },
+  {
+    "id": 9013, "name": "Juno Relay", "speech_mode": "prose", "title": "Freeport Return Caller",
+    "description": "Juno dispatches people into the unknown only after somebody at the station commits to hearing them come back.",
+    "ambient_autonomy": true, "location_id": 8943,
+    "desires": [{ "item_id": 9120, "reason": "the ledger could turn private frontier stories into accountable shared routes" }],
+    "attachments": [{ "item_id": 9123, "reason": "Juno carries the Return Beacon while on dispatch and leaves it public at rest" }],
+    "stats": { "strength": 10, "dexterity": 16, "constitution": 13, "intelligence": 14, "wisdom": 14, "charisma": 17, "hp_base": 15, "level": 4 }
+  }
+]

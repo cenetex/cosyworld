@@ -86,7 +86,7 @@
         "type": "workspace",
         "path": "../../content/project89-operation-liberation"
       },
-      "integrity": "sha256:3b3be424d55f455b6f6f5a7f3a65986b4754abff39910cbcf15648bf65ed4832",
+      "integrity": "sha256:ebcf67ade9125e2315de214721b561df4b46b41fcb28356d8e95080c05aa5879",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -123,7 +123,7 @@
         "type": "workspace",
         "path": "../../content/project89-perimeter-relay"
       },
-      "integrity": "sha256:e65f5758d9ef8996544169fc7c21329dac4dfa39df56d01607154befb3cd21ac",
+      "integrity": "sha256:c5e294238f466bd61b0431c5f349d3747cc47da414a9ae044d82845dcdc075e3",
       "dependencies": [
         {
           "id": "project89.operation-liberation",
@@ -168,7 +168,7 @@
         "type": "workspace",
         "path": "../../content/project89-open-signal-frontier"
       },
-      "integrity": "sha256:671e9ed9ce3979c8306509588c52f9009e3cfbe487bd1469a79415f60ae0443e",
+      "integrity": "sha256:18e19e2904972acea28e1f2f4901b92fa305538d7d9e6b7ea0e2134d6a3d7719",
       "dependencies": [
         {
           "id": "project89.perimeter-relay",
@@ -204,7 +204,7 @@
         "author": "Cenetex",
         "source_name": "Project 89 worldpack prototype",
         "source_url": "https://www.project89.org/",
-        "modification_notice": "The four stations, 89-segment circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
+        "modification_notice": "The four stations, 89-span narrative circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
       }
     },
     {
@@ -214,7 +214,7 @@
         "type": "workspace",
         "path": "../../content/project89-three-rings-bridge"
       },
-      "integrity": "sha256:7d60de105cac1236929c4393f10ee59ddd85b6a4e9110b3eab6f7e3f3c99f56c",
+      "integrity": "sha256:f9e874c53a3b50424ad7c7b1ebe5aff2aa10b4129d4640c79c95c72f244caa96",
       "dependencies": [
         {
           "id": "project89.operation-liberation",
@@ -368,7 +368,7 @@
         "author": "Cenetex",
         "source_name": "Project 89 worldpack prototype",
         "source_url": "https://www.project89.org/",
-        "modification_notice": "The four stations, 89-segment circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
+        "modification_notice": "The four stations, 89-span narrative circuit, ecologies, and future fork contract are tentative CosyWorld adaptations."
       },
       "notices": [
         {

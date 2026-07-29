@@ -100,5 +100,28 @@
     "desires": [{ "item_id": 8979, "reason": "the access spine can open a route without reclassifying the lab's residents as cargo" }],
     "attachments": [{ "item_id": 8979, "reason": "the Warden retains the access spine until a consent-safe route is agreed" }],
     "stats": { "strength": 16, "dexterity": 11, "constitution": 16, "intelligence": 13, "wisdom": 15, "charisma": 10, "hp_base": 22, "level": 4 }
+  },
+  {
+    "id": 8959,
+    "name": "Rook Rill",
+    "speech_mode": "prose",
+    "title": "Interference Broker",
+    "description": "A market mediator who can price a repair without pricing the person who needs it, and who remembers which favors include a return route.",
+    "ambient_autonomy": true,
+    "location_id": 8907,
+    "desires": [{ "item_id": 8973, "reason": "the relay can turn four private rumors into one accountable public route" }],
+    "stats": { "strength": 10, "dexterity": 14, "constitution": 12, "intelligence": 15, "wisdom": 14, "charisma": 16, "hp_base": 13, "level": 3 }
+  },
+  {
+    "id": 8960,
+    "name": "White Rabbit",
+    "speech_mode": "prose",
+    "title": "Return-Signal Courier",
+    "description": "An independent courier who moves ahead of certainty, publishes a way back, and refuses deliveries that turn a person into a package.",
+    "ambient_autonomy": true,
+    "location_id": 8907,
+    "desires": [{ "item_id": 8983, "reason": "a living covenant would make the frontier route answerable to its maintainers" }],
+    "attachments": [{ "item_id": 8973, "reason": "White Rabbit carries the relay but does not own the route it can commission" }],
+    "stats": { "strength": 9, "dexterity": 17, "constitution": 11, "intelligence": 14, "wisdom": 13, "charisma": 15, "hp_base": 12, "level": 3 }
   }
 ]

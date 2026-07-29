@@ -1,0 +1,20 @@
+[
+  {
+    "id": "project89.perimeter-stability", "scope": "room", "scope_id": 8920, "kind": "progress", "zone": "frontier",
+    "label": "Perimeter Stability", "segments": 8, "filled": 0, "visible_to_players": true, "status": "active",
+    "on_fill": [
+      { "op": "set_tag", "tag_id": "room:8920:perimeter_mesh_stable", "scope": "room", "scope_id": 8920, "label": "perimeter mesh stable", "kind": "memory", "reason": "perimeter_relay_stabilized" },
+      { "op": "set_job_status", "job_id": "project89:stabilize-perimeter-relay", "status": "completed", "reason": "perimeter_relay_stabilized" }
+    ],
+    "presentation": { "version": 1, "question": "Can eight independent stations stabilize the mesh without appointing one controller?", "rhythm": "multi_session", "attention": "communal", "priority": 72, "situation": "Static, spillway pressure, salvage uncertainty, and route strain are propagating through the web.", "stakes": "An opaque repair would make the mesh orderly but dependent on whoever owns its controls.", "outcome": "Four disclosed interventions stabilize the web while leaving its many paths legible.", "completion_memory": "Residents stabilized the perimeter as a shared mesh with public returns and repair duties." }
+  },
+  {
+    "id": "project89.mesh-cascade", "scope": "room", "scope_id": 8924, "kind": "danger", "zone": "frontier",
+    "label": "Mesh Cascade", "segments": 6, "filled": 0, "visible_to_players": true, "status": "active",
+    "on_fill": [
+      { "op": "set_tag", "tag_id": "room:8924:mesh_cascade", "scope": "room", "scope_id": 8924, "label": "mesh cascade active", "kind": "hook", "reason": "mesh_cascade_filled" },
+      { "op": "set_job_status", "job_id": "project89:stabilize-perimeter-relay", "status": "failed", "reason": "mesh_cascade_filled" }
+    ],
+    "presentation": { "version": 1, "question": "Will one failing route teach the whole mesh to fail?", "rhythm": "multi_session", "attention": "background", "priority": 51, "situation": "Unattributed control signals are coupling static, water, salvage, and weather pressure.", "stakes": "A cascade closes the current repair window and scatters its evidence across generated paths.", "outcome": "The mesh remains traversable, but the communal stabilization attempt must begin again.", "completion_memory": "The perimeter cascade outpaced the current repair plan without deleting its routes or residents." }
+  }
+]

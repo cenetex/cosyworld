@@ -23,14 +23,16 @@
       8955,
       8956,
       8957,
-      8958
+      8958,
+      8959,
+      8960
     ],
     "progress_clock_id": "project89.liberation-signal",
     "danger_clock_id": "project89.oneirocom-suppression",
     "status": "active",
     "reward": {
-      "label": "the inner loop liberated and four relay apertures commissionable",
-      "orbs": 0
+      "label": "the inner loop liberated and four two-stage relay routes commissionable",
+      "orbs": 8
     },
     "consequence": "the current intervention closes and must be approached again through the surviving loop",
     "memory_summary": "Travelers attributed the evidence, recovered independent witnesses, and confronted the convergence protocol.",
@@ -42,13 +44,13 @@
     "contribution_strategies": [
       {
         "version": 1,
-        "id": "commit-liberation-choice",
+        "id": "expose-the-protocol",
         "action_kind": "work",
         "rules_action": "srd5.2.1:utilize",
         "target": {
           "kind": "job",
           "id": "project89:operation-liberation",
-          "label": "the convergence protocol"
+          "label": "the protocol's attributed evidence"
         },
         "requirements": [
           {
@@ -67,15 +69,63 @@
             "item_id": 8972
           },
           {
+            "kind": "feature_searched",
+            "location_id": 8904,
+            "feature_key": "auditor_terminal"
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 8905,
+            "feature_key": "convergence_controls",
+            "item_id": 8974
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.liberation-signal",
+        "baseline_progress": 8,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Expose the protocol",
+        "narration_key": "project89.operation-liberation.expose",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.operation-liberation",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "reroute-with-consent",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:operation-liberation",
+          "label": "a consent-safe reroute"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8905
+          },
+          {
             "kind": "feature_used",
             "location_id": 8903,
             "feature_key": "recovery_channel",
             "item_id": 8977
           },
           {
-            "kind": "feature_searched",
+            "kind": "feature_used",
             "location_id": 8904,
-            "feature_key": "auditor_terminal"
+            "feature_key": "auditor_terminal",
+            "item_id": 8979
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 8905,
+            "feature_key": "convergence_controls",
+            "item_id": 8981
           },
           {
             "kind": "feature_used",
@@ -90,8 +140,59 @@
         "clock_id": "project89.liberation-signal",
         "baseline_progress": 8,
         "claim_policy": "once_per_target",
-        "strategy_label": "Commit the liberation choice",
-        "narration_key": "project89.operation-liberation.work",
+        "strategy_label": "Reroute with consent",
+        "narration_key": "project89.operation-liberation.reroute",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.operation-liberation",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "dismantle-and-covenant",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:operation-liberation",
+          "label": "the convergence machinery"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8905
+          },
+          {
+            "kind": "feature_searched",
+            "location_id": 8902,
+            "feature_key": "parzival_testimony"
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 8903,
+            "feature_key": "recovery_channel",
+            "item_id": 8978
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 8905,
+            "feature_key": "convergence_controls",
+            "item_id": 8982
+          },
+          {
+            "kind": "held_item",
+            "item_id": 8983
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.liberation-signal",
+        "baseline_progress": 8,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Dismantle and covenant",
+        "narration_key": "project89.operation-liberation.dismantle",
         "rules_profile": "cosyworld.srd5/1",
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
@@ -120,5 +221,353 @@
       }
     ],
     "pack_id": "project89.operation-liberation"
+  },
+  {
+    "id": "project89:stabilize-perimeter-relay",
+    "premise": "Four different failures are coupling across the amorphous relay web while every station depends on another resident's portable expertise.",
+    "stakes": "The residents must stabilize a public mesh without flattening it into one centrally controlled route.",
+    "location_ids": [
+      8920,
+      8921,
+      8922,
+      8923,
+      8924,
+      8925,
+      8926,
+      8927
+    ],
+    "participant_ids": [
+      8990,
+      8991,
+      8992,
+      8993,
+      8994,
+      8995,
+      8996,
+      8997
+    ],
+    "progress_clock_id": "project89.perimeter-stability",
+    "danger_clock_id": "project89.mesh-cascade",
+    "status": "active",
+    "reward": {
+      "label": "a stable public mesh and eight honored exchanges",
+      "orbs": 4
+    },
+    "consequence": "the present repair window closes while the authored web and its residents remain available",
+    "memory_summary": "The perimeter residents exchanged portable expertise and repaired four coupled failures without centralizing the web.",
+    "action_copy": {
+      "label": "Stabilize the perimeter",
+      "summary": "Complete disclosed interventions at the Delta, Gardens, Spillway, and Boneyard."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "braid-delta-sources",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:stabilize-perimeter-relay",
+          "label": "the Memory Delta braid"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8920
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9101
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.perimeter-stability",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Braid the delta sources",
+        "narration_key": "project89.perimeter.delta",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.perimeter-relay",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "bleed-garden-static",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:stabilize-perimeter-relay",
+          "label": "the Glass Static terraces"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8923
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9104
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.perimeter-stability",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Bleed the garden static",
+        "narration_key": "project89.perimeter.gardens",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.perimeter-relay",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "open-spillway-ledger",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:stabilize-perimeter-relay",
+          "label": "the Oneirocom Spillway"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8924
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9103
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.perimeter-stability",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Open the spillway ledger",
+        "narration_key": "project89.perimeter.spillway",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.perimeter-relay",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "mark-boneyard-consent",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:stabilize-perimeter-relay",
+          "label": "the Chimera salvage lanes"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8926
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9107
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.perimeter-stability",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Mark the consent lanes",
+        "narration_key": "project89.perimeter.boneyard",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.perimeter-relay",
+        "pack_version": "0.1.0"
+      }
+    ],
+    "pack_id": "project89.perimeter-relay"
+  },
+  {
+    "id": "project89:charter-the-open-circuit",
+    "premise": "Four distant stations must agree what exploration owes to maintenance, consent, evidence, and return before the engine begins growing forks.",
+    "stakes": "The frontier should become infinite without becoming ownerless, privately gated, or centrally controlled.",
+    "location_ids": [
+      8940,
+      8941,
+      8942,
+      8943
+    ],
+    "participant_ids": [
+      9010,
+      9011,
+      9012,
+      9013
+    ],
+    "progress_clock_id": "project89.open-circuit-charter",
+    "danger_clock_id": "project89.frontier-drift",
+    "status": "active",
+    "reward": {
+      "label": "the published Open Circuit Charter and a funded first expedition",
+      "orbs": 8
+    },
+    "consequence": "the stations keep their circuit but negotiate the next charter from four incompatible local rules",
+    "memory_summary": "Four stations exchanged their portable authorities and chartered exploration around an attended return.",
+    "action_copy": {
+      "label": "Charter the open circuit",
+      "summary": "Carry each station's necessary instrument to the station that can turn it into a public term."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "publish-longhaul-evidence",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:charter-the-open-circuit",
+          "label": "the Meridian evidence term"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8940
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9121
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.open-circuit-charter",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Publish the evidence term",
+        "narration_key": "project89.frontier.meridian",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.open-signal-frontier",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "limit-frontier-repair",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:charter-the-open-circuit",
+          "label": "the Reach consent term"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8941
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9122
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.open-circuit-charter",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Limit frontier repair",
+        "narration_key": "project89.frontier.reach",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.open-signal-frontier",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "reserve-visible-power",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:charter-the-open-circuit",
+          "label": "the Expanse maintenance term"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8942
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9123
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.open-circuit-charter",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Reserve visible power",
+        "narration_key": "project89.frontier.expanse",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.open-signal-frontier",
+        "pack_version": "0.1.0"
+      },
+      {
+        "version": 1,
+        "id": "attend-the-return",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "project89:charter-the-open-circuit",
+          "label": "the Freeport return term"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 8943
+          },
+          {
+            "kind": "held_item",
+            "item_id": 9120
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "project89.open-circuit-charter",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Attend the return",
+        "narration_key": "project89.frontier.freeport",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "project89.open-signal-frontier",
+        "pack_version": "0.1.0"
+      }
+    ],
+    "pack_id": "project89.open-signal-frontier"
   }
 ]

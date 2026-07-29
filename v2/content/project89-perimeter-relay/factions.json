@@ -1,0 +1,20 @@
+[
+  {
+    "id": "project89_meshkeepers", "name": "Perimeter Meshkeepers", "axis": "Resilience vs Legibility",
+    "opposes": ["project89_spillway_compact"], "truth": "A route network survives by adapting to how people actually travel.", "shadow": "Adaptation can become an excuse for routes nobody can audit.",
+    "doctrine": "Observe the strain, preserve a return, and repair the used path first.", "verbs": ["listen", "span", "braid", "repair"],
+    "motif": ["strain ribbon", "echo bowls", "braided receipts"], "home_location_ids": [8920, 8921, 8927], "member_actor_ids": [8990, 8991, 8997], "player_facing": true
+  },
+  {
+    "id": "project89_spillway_compact", "name": "Spillway Compact", "axis": "Resilience vs Legibility",
+    "opposes": ["project89_meshkeepers"], "truth": "Shared infrastructure stays free only when its interventions are public.", "shadow": "Perfect disclosure can delay repairs until a crisis chooses for everyone.",
+    "doctrine": "Open the ledger, expose the pressure, and make the control reversible.", "verbs": ["disclose", "divert", "test", "stabilize"],
+    "motif": ["open valves", "coral gauges", "glass terraces"], "home_location_ids": [8923, 8924], "member_actor_ids": [8993, 8994], "player_facing": true
+  },
+  {
+    "id": "project89_return_network", "name": "Return Network", "axis": "Circulation vs Consent",
+    "opposes": [], "truth": "Every useful departure needs a live way to refuse or return.", "shadow": "Protecting every possible refusal can make urgent aid arrive too late.",
+    "doctrine": "Ask before carrying, publish the recall, and cultivate what comes back.", "verbs": ["dispatch", "host", "mark", "return"],
+    "motif": ["return tokens", "living transmitters", "consent marks"], "home_location_ids": [8922, 8925, 8926], "member_actor_ids": [8992, 8995, 8996], "player_facing": true
+  }
+]

@@ -24,7 +24,7 @@
     "verbs": ["dispatch", "relay", "connect", "return"],
     "motif": ["patched radios", "courier marks", "canvas roofs", "moving maps"],
     "home_location_ids": [8907],
-    "member_actor_ids": [],
+    "member_actor_ids": [8959, 8960],
     "player_facing": true
   },
   {
