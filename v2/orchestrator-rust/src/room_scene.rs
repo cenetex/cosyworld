@@ -18,10 +18,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::media_recipes::media_verdict::{
-    make_visual_verdict, media_candidate_approved, media_candidate_violations,
-    media_provider_route_available, prepare_media_candidate, record_media_provider_failure,
-    record_media_visual_verdict, FrozenMediaBrief, MediaCandidateInput, MediaVerdictDisposition,
-    MediaViolation,
+    bounded_brief_constraints, make_visual_verdict, media_candidate_approved,
+    media_candidate_violations, media_provider_route_available, prepare_media_candidate,
+    record_media_provider_failure, record_media_visual_verdict, FrozenMediaBrief,
+    MediaCandidateInput, MediaVerdictDisposition, MediaViolation,
 };
 use crate::{
     active_content, allow_actor_mutation, client_actor_authorized_for_state,
@@ -208,30 +208,33 @@ fn room_scene_media_brief(job: &FrozenRoomSceneJob) -> FrozenMediaBrief {
         &job.prompt,
         job.aspect_ratio.clone(),
     );
-    brief.required_subjects = job
-        .actors
-        .iter()
-        .map(|actor| format!("actor {} ({})", actor.actor_id, actor.name))
-        .collect();
-    brief.required_environment = std::iter::once(job.location_name.clone())
-        .chain(job.environmental_facts.iter().cloned())
-        .collect();
-    brief.required_item_holder = job.selected_item.as_ref().map(|item| {
-        format!(
+    brief.required_subjects = bounded_brief_constraints(
+        job.actors
+            .iter()
+            .map(|actor| format!("actor {} ({})", actor.actor_id, actor.name)),
+    );
+    brief.required_environment = bounded_brief_constraints(
+        std::iter::once(job.location_name.clone()).chain(job.environmental_facts.iter().cloned()),
+    );
+    brief.required_item_holder = job.selected_item.as_ref().and_then(|item| {
+        bounded_brief_constraints([format!(
             "item {} ({}) held by {}",
             item.item_id,
             item.name,
             item.holder_actor_id
                 .map(|actor_id| actor_id.to_string())
                 .unwrap_or_else(|| "room floor".to_string())
-        )
+        )])
+        .into_iter()
+        .next()
     });
     brief.crop = job.crop.clone();
-    brief.safe_areas = job.safe_areas.clone();
-    brief.forbidden.extend(job.forbidden_facts.clone());
-    brief
-        .pack_negative_constraints
-        .extend(job.style_constraints.clone());
+    brief.safe_areas = bounded_brief_constraints(job.safe_areas.iter().cloned());
+    brief.forbidden.extend(bounded_brief_constraints(
+        job.forbidden_facts.iter().cloned(),
+    ));
+    brief.pack_negative_constraints =
+        bounded_brief_constraints(job.style_constraints.iter().cloned());
     brief.approved_reference_digests = job
         .references
         .iter()
