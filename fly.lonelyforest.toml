@@ -44,6 +44,11 @@ primary_region = "sjc"
 [[mounts]]
   source = "lonelyforest_data"
   destination = "/data"
+  # Keep the installation writable through a growth spike without allowing
+  # unbounded storage spend.
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "5GB"
 
 # Deploy strategy stays `rolling`: bluegreen/canary would boot a second
 # machine beside this one, and the /data volume is single-writer — two

@@ -39,6 +39,12 @@ primary_region = "sjc"
 [[mounts]]
   source = "cosyworld_data"
   destination = "/data"
+  # Extend before the 85% deploy guard can become the only warning. The 5 GB
+  # ceiling bounds spend while leaving several recovery windows after the
+  # 2026-07-28 full-disk outage.
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "5GB"
 
 [[vm]]
   cpu_kind = "shared"

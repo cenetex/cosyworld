@@ -146,6 +146,10 @@ NODE_OPTIONS="--max-old-space-size=4096"
 - V2 health endpoints: `/health`, `/meta`
 - Node companion runtime discovery: `/api/runtime`
 - Logs: platform logs or `/logs/` for legacy Node deployments
+- Fly volume headroom: the scheduled `Volume headroom` GitHub Actions workflow
+  checks both production `/data` mounts every 15 minutes and fails at 70% used.
+  The mounts auto-extend at 80% in 1 GB increments, capped at 5 GB; the deploy
+  gate remains a separate fail-closed check at 85%.
 
 ---
 
