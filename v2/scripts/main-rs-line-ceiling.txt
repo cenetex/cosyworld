@@ -68,4 +68,8 @@
 # 74481 -> 74373: move canonical identity/version persistence regressions out
 # of the root test module and into canonical_identity_tests.rs while fixing the
 # stable-reference insertion and legacy reachability boundary.
-74373
+#
+# 74373 -> 74356: move the bounded projected-event append into the journal
+# checkpoint seam while making restore-time sequence and ledger-claim dedupe
+# authoritative there.
+74356
