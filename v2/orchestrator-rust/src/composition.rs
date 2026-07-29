@@ -421,7 +421,7 @@ impl RuntimeWorld {
                     target
                         .as_ref()
                         .and_then(|target| target.label.as_deref())
-                        .map(|label| format!("chat {label}"))
+                        .map(|label| format!("bond {label}"))
                         .unwrap_or_else(|| option.command.clone())
                 } else {
                     option.command.clone()
@@ -1369,14 +1369,20 @@ impl RuntimeWorld {
                 id: Some(actor.location_id),
                 label: self.location_name(actor.location_id),
             }),
-            "chat" | "influence" => {
-                self.default_chat_target(actor_id)
-                    .map(|target| ActionTargetView {
-                        kind: "actor".to_string(),
-                        id: Some(target.id),
-                        label: self.actor_name(target.id),
-                    })
-            }
+            "chat" => self
+                .default_inference_chat_target(actor_id)
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
+            "influence" => self
+                .default_chat_target(actor_id)
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
 
             "attack" | "defend" => self
                 .active_combat_encounter_for_actor(actor_id)

@@ -258,7 +258,10 @@ fn dispatch_for_offer(
         "work" => Ok(CommandDispatch::Work),
         "help" => Ok(CommandDispatch::Help),
         "rest" => Ok(CommandDispatch::Rest),
-        "chat" | "create_bond" => {
+        "chat" => Ok(CommandDispatch::Chat {
+            target_actor_id: required_target_id(offer, "actor")?,
+        }),
+        "create_bond" => {
             let target_actor_id = required_target_id(offer, "actor")?;
             let target_name = runtime
                 .actor_name(target_actor_id)

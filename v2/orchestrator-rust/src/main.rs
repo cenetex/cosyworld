@@ -15,6 +15,7 @@ mod beliefs_tests;
 mod canonical_journal;
 mod canonical_world;
 mod cards;
+mod chat_action;
 mod combat;
 mod communal_governance;
 mod community_art;
@@ -91,6 +92,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use canonical_journal::*;
 use canonical_world::*;
 use cards::*;
+use chat_action::*;
 use combat::*;
 use communal_governance::*;
 use community_art::*;
@@ -19384,6 +19386,7 @@ impl RuntimeWorld {
         let can_use_item_contribution = self
             .job_contribution_intent(actor_id, "use_item", None, None, None)
             .is_some();
+        let can_chat = self.default_inference_chat_target(actor_id).is_some();
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
         let can_cast_spell = self.default_spell_card(actor_id).is_some();
@@ -19570,13 +19573,24 @@ impl RuntimeWorld {
                 command: "cast steady light".to_string(),
             });
         }
+        if can_chat {
+            let command = self
+                .default_inference_chat_target(actor_id)
+                .map(|target| format!("chat {}", self.actor_view(target).name))
+                .unwrap_or_else(|| "chat".to_string());
+            options.push(ActionOption {
+                kind: "chat".to_string(),
+                label: "Chat".to_string(),
+                command,
+            });
+        }
         if can_create_bond {
             let command = self
                 .default_bond_command(actor_id)
                 .unwrap_or_else(|| "bond".to_string());
             options.push(ActionOption {
                 kind: "create_bond".to_string(),
-                label: "Chat".to_string(),
+                label: "Befriend".to_string(),
                 command,
             });
         }
@@ -19624,7 +19638,7 @@ impl RuntimeWorld {
                 "work" if self.work_finishes_active_progress(actor_id) => "Finish",
                 "work" => "Work",
                 "help" => "Help",
-                "create_bond" => "Chat",
+                "create_bond" => "Befriend",
                 "resolve_bond" => "Remember",
                 _ => "Act",
             }
@@ -19653,6 +19667,16 @@ impl RuntimeWorld {
 
     fn default_chat_target(&self, actor_id: u64) -> Option<CwActor> {
         self.active_chat_targets(actor_id).into_iter().next()
+    }
+
+    fn default_inference_chat_target(&self, actor_id: u64) -> Option<CwActor> {
+        self.active_chat_targets(actor_id)
+            .into_iter()
+            .find(|target| {
+                self.actor_uses_inference(target.id)
+                    && !self.actors_blocked(actor_id, target.id)
+                    && !self.actor_muted(actor_id, target.id)
+            })
     }
 
     fn has_active_chat_target(&self, actor_id: u64) -> bool {
@@ -25780,7 +25804,7 @@ fn action_offer_rejected(reason: impl Into<String>) -> Json<ActionResponse> {
 
 fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     match path {
-        "/actions/chat" => kind == "create_bond",
+        "/actions/chat" => kind == "chat",
         "/actions/move" => kind == "move",
         "/actions/explore-path" => kind == "explore_path",
         "/actions/flee" => kind == "flee",
@@ -26092,30 +26116,6 @@ async fn submit_action_offer(
         }
         _ => action_offer_rejected("unsupported offer submission path"),
     }
-}
-
-async fn chat(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<ChatRequest>,
-) -> Json<ActionResponse> {
-    let target_name = {
-        let runtime = state.inner.lock().await;
-        runtime
-            .actor_name(payload.target_actor_id)
-            .unwrap_or_else(|| format!("Actor {}", payload.target_actor_id))
-    };
-    create_bond(
-        ConnectInfo(client_addr),
-        State(state),
-        Json(ReviseBondRequest {
-            actor_id: payload.actor_id,
-            actor_session: payload.actor_session,
-            target_actor_id: payload.target_actor_id,
-            statement: default_bond_statement(&target_name),
-        }),
-    )
-    .await
 }
 
 static COMMUNITY_ART_FUNDING_LOCKS: OnceLock<StdMutex<BTreeMap<String, Weak<Mutex<()>>>>> =
@@ -26708,8 +26708,27 @@ async fn complete_queued_orb_chat(
         None,
         started_at.elapsed(),
     );
-    if let Some(reply_plan) = reply_plan {
-        complete_orb_chat_exchange(state, actor_id, target_actor_id, reply_plan).await;
+    let exchange_result = match reply_plan {
+        Some(reply_plan) => {
+            complete_orb_chat_exchange(state, actor_id, target_actor_id, reply_plan).await
+        }
+        None => Err("the target could not answer the opening line".to_string()),
+    };
+    if let Err(error) = exchange_result {
+        warn!("bounded avatar chat ended early: {}", error);
+        commit_chat_status(
+            state,
+            actor_id,
+            target_actor_id,
+            "failed",
+            "the conversation ended early; try talking again",
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            Some(plan.location_id),
+        )
+        .await;
+        return;
     }
     commit_chat_status(
         state,
@@ -29066,6 +29085,19 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
+        CommandDispatch::Chat { target_actor_id } => {
+            let Json(response) = chat(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ChatRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
         CommandDispatch::Influence { target_actor_id } => {
             let Json(response) = influence(
                 ConnectInfo(client_addr),
@@ -29875,7 +29907,7 @@ async fn complete_orb_chat_exchange(
     actor_id: u64,
     target_actor_id: u64,
     first_reply_plan: AvatarReplyPlan,
-) {
+) -> Result<(), String> {
     let first_proposal = match avatar_reply_intent(state, &first_reply_plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
@@ -29884,7 +29916,7 @@ async fn complete_orb_chat_exchange(
                 error
             );
             record_rejected_ai_publication(state, &error);
-            return;
+            return Err(error.to_string());
         }
     };
     let first_reply_events = {
@@ -29892,7 +29924,7 @@ async fn complete_orb_chat_exchange(
         commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal, None)
     };
     let Some(first_reply_events) = first_reply_events else {
-        return;
+        return Err("the target reply no longer fit the current room".to_string());
     };
     broadcast_events(state, &first_reply_events);
     tokio::time::sleep(Duration::from_millis(260)).await;
@@ -29908,7 +29940,7 @@ async fn complete_orb_chat_exchange(
         plan.map(|plan| plan.with_reply_beat("avatar-chat-followup", &first_reply_plan))
     };
     let Some(followup_plan) = followup_plan else {
-        return;
+        return Err("the participants moved apart before the follow-up".to_string());
     };
     let certified_followup = match avatar_chat_followup_text(state, &followup_plan).await {
         Ok(followup) => followup,
@@ -29918,7 +29950,7 @@ async fn complete_orb_chat_exchange(
                 error
             );
             record_rejected_ai_publication(state, &error);
-            return;
+            return Err(error.to_string());
         }
     };
     let (proposed_followup, followup_receipt) =
@@ -29929,12 +29961,12 @@ async fn complete_orb_chat_exchange(
             .avatar_chat_plan_for(actor_id, target_actor_id)
             .is_none()
         {
-            return;
+            return Err("the participants moved apart before the follow-up".to_string());
         }
         let Some(followup) = runtime.collision_safe_avatar_followup(actor_id, &proposed_followup)
         else {
             warn!("AI avatar follow-up repeated recent dialogue; ending chat exchange");
-            return;
+            return Err("the avatar follow-up repeated recent dialogue".to_string());
         };
         let content_id = runtime.next_content_id_value();
         let mut record = JournalRecord::new(
@@ -29966,10 +29998,10 @@ async fn complete_orb_chat_exchange(
                 reason: format!("chat:{actor_id}:{target_actor_id}"),
             });
         let Ok((status, events)) = commit_journal_record(state, &mut runtime, record) else {
-            return;
+            return Err("the avatar follow-up could not be committed".to_string());
         };
         if status != CW_OK || events.is_empty() {
-            return;
+            return Err("the avatar follow-up was no longer valid".to_string());
         }
         let plan = runtime
             .resident_reply_plan_for_target(actor_id, target_actor_id, &followup)
@@ -29988,7 +30020,7 @@ async fn complete_orb_chat_exchange(
     tokio::time::sleep(Duration::from_millis(260)).await;
 
     let Some(closing_plan) = closing_plan else {
-        return;
+        return Err("the target could not answer the follow-up".to_string());
     };
     let closing_proposal = match avatar_reply_intent(state, &closing_plan).await {
         Ok(proposal) => proposal,
@@ -29998,16 +30030,18 @@ async fn complete_orb_chat_exchange(
                 error
             );
             record_rejected_ai_publication(state, &error);
-            return;
+            return Err(error.to_string());
         }
     };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
         commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal, None)
     };
-    if let Some(events) = closing_events {
-        broadcast_events(state, &events);
-    }
+    let Some(events) = closing_events else {
+        return Err("the closing reply no longer fit the current room".to_string());
+    };
+    broadcast_events(state, &events);
+    Ok(())
 }
 
 fn commit_resident_reply_record(
@@ -49109,7 +49143,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));
         assert!(INDEX_HTML.contains("pendingAction?.kind === \"orb-chat\""));
         assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
-        assert!(INDEX_HTML.contains("kind: \"advancement-chat\""));
+        assert!(INDEX_HTML.contains("kind: \"orb-chat\""));
+        assert!(INDEX_HTML.contains("kind: \"advancement-bond\""));
         assert!(!INDEX_HTML.contains("label: \"grow closer\""));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
@@ -49268,7 +49303,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
         assert!(!INDEX_HTML.contains("flashEconomy(`-${spent}`"));
-        assert!(INDEX_HTML.contains("Chat uses one advancement point and begins a friendship."));
+        assert!(INDEX_HTML.contains("Befriending uses one advancement point."));
         assert!(!INDEX_HTML.contains("one Orb for the whole exchange"));
         assert!(INDEX_HTML.contains("/actions/fund-image"));
         assert!(INDEX_HTML.contains("fund community images only"));
@@ -49329,7 +49364,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"chat\""));
+        assert!(INDEX_HTML.contains("label: \"befriend\""));
         assert!(INDEX_HTML.contains("choose someone to chat with"));
+        assert!(INDEX_HTML.contains("choose someone to befriend"));
         assert!(INDEX_HTML.contains("Choose whose story to carry forward."));
         assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
         assert!(INDEX_HTML.contains("your friendship with ${firstTargetName} begins"));
@@ -54153,7 +54190,7 @@ mod tests {
         assert_eq!(state.economy.listen_cost_orbs, 0);
         assert!(state.economy.listen_reward_claimable);
         assert!(!state.economy.openrouter_connected);
-        assert_eq!(state.economy.chat_payer, "advancement");
+        assert_eq!(state.economy.chat_payer, "cosyworld_system");
     }
 
     #[test]
@@ -56373,10 +56410,10 @@ mod tests {
             });
         assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
         let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let default_command = "chat Rati";
+        let default_command = "bond Rati";
         assert!(banked_state.primary_action.options.iter().any(|option| {
             option.kind == "create_bond"
-                && option.label == "Chat"
+                && option.label == "Befriend"
                 && option.command == default_command
         }));
         let bond_offer = banked_state
@@ -61186,158 +61223,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn legacy_chat_endpoint_uses_advancement_to_begin_a_friendship() {
-        let state = test_app_state(RuntimeWorld::seeded(), None);
-        {
-            let mut runtime = state.inner.lock().await;
-            create_test_human(
-                &mut runtime,
-                5000,
-                COSY_COTTAGE_LOCATION_ID,
-                "Inference Tester",
-            );
-            grant_test_advancement(&mut runtime, 5000, "test:chat-growth");
-        }
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-
-        let response = chat(
-            ConnectInfo("127.0.0.1:44001".parse().expect("client address")),
-            State(state.clone()),
-            Json(ChatRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                target_actor_id: RATI_ACTOR_ID,
-            }),
-        )
-        .await
-        .0;
-
-        assert!(response.ok);
-        assert_eq!(response.status, CW_OK);
-        assert!(response.events.iter().any(|event| {
-            event.type_name == "bond.created"
-                && event.actor_id == Some(5000)
-                && event.target_actor_id == Some(RATI_ACTOR_ID)
-        }));
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "advancement.spent"));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "chat.queued"));
-        let runtime = state.inner.lock().await;
-        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
-        assert_eq!(runtime.advancement_points_available(5000), 0);
-        assert!(runtime.active_bond(5000, RATI_ACTOR_ID).is_some());
-        assert!(!runtime
-            .event_log
-            .iter()
-            .any(|event| { event.type_name == "message.created" && event.actor_id == Some(5000) }));
-    }
-
-    #[tokio::test]
-    async fn co_present_advancement_chat_is_not_owned_by_a_room_turn() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Current Player",
-        );
-        create_test_human(
-            &mut runtime,
-            5001,
-            COSY_COTTAGE_LOCATION_ID,
-            "Waiting Chatter",
-        );
-        grant_test_advancement(&mut runtime, 5000, "test:chat-turn:5000");
-        grant_test_advancement(&mut runtime, 5001, "test:chat-turn:5001");
-        let state = test_app_state(runtime, None);
-        let (session_5000, _) = issue_actor_session(&state, 5000);
-        let (session_5001, _) = issue_actor_session(&state, 5001);
-        assert_eq!(
-            ping_actor_session_for_actor(&state.actor_sessions, 5000, &session_5000),
-            Some(false)
-        );
-        assert_eq!(
-            ping_actor_session_for_actor(&state.actor_sessions, 5001, &session_5001),
-            Some(false)
-        );
-
-        let before_tick = {
-            let runtime = state.inner.lock().await;
-            let active_direct_actors = active_actor_ids_for_state(&state);
-            let turn = room_turn_view_for_runtime(
-                &state,
-                &runtime,
-                COSY_COTTAGE_LOCATION_ID,
-                Some(5000),
-                &active_direct_actors,
-            );
-            assert!(!turn.enabled);
-            assert_eq!(turn.policy, "concurrent");
-            runtime.world.tick
-        };
-
-        let first = chat(
-            ConnectInfo("127.0.0.1:44002".parse().expect("client address")),
-            State(state.clone()),
-            Json(ChatRequest {
-                actor_id: 5001,
-                actor_session: Some(session_5001),
-                target_actor_id: RATI_ACTOR_ID,
-            }),
-        )
-        .await
-        .0;
-        assert!(
-            first.ok,
-            "a co-present avatar can chat without owning a room turn"
-        );
-        assert!(first
-            .events
-            .iter()
-            .any(|event| event.type_name == "bond.created"));
-
-        let second = chat(
-            ConnectInfo("127.0.0.1:44003".parse().expect("client address")),
-            State(state.clone()),
-            Json(ChatRequest {
-                actor_id: 5000,
-                actor_session: Some(session_5000),
-                target_actor_id: RATI_ACTOR_ID,
-            }),
-        )
-        .await
-        .0;
-        assert!(
-            second.ok,
-            "a second co-present avatar can commit the compatible chat independently"
-        );
-        assert!(second
-            .events
-            .iter()
-            .any(|event| event.type_name == "bond.created"));
-
-        let runtime = state.inner.lock().await;
-        let active_direct_actors = active_actor_ids_for_state(&state);
-        let turn = room_turn_view_for_runtime(
-            &state,
-            &runtime,
-            COSY_COTTAGE_LOCATION_ID,
-            Some(5000),
-            &active_direct_actors,
-        );
-        assert_eq!(runtime.world.tick, before_tick + 2);
-        assert!(!turn.enabled);
-        assert_eq!(turn.policy, "concurrent");
-        assert_eq!(turn.current_actor_id, None);
-        assert!(!turn.is_current_actor);
-    }
-
-    #[tokio::test]
     async fn ordered_combat_pass_and_need_time_share_one_replayable_kernel_path() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -63105,11 +62990,15 @@ mod tests {
             .as_deref()
             .is_some_and(|risk| risk.contains("rushing in may tire you")));
         assert!(
+            state.action_offers.iter().any(|offer| offer.kind == "chat"),
+            "free Chat remains an ordinary room offer without advancement"
+        );
+        assert!(
             !state
                 .action_offers
                 .iter()
-                .any(|offer| matches!(offer.kind.as_str(), "chat" | "create_bond")),
-            "Chat is not an ordinary room offer without available advancement"
+                .any(|offer| offer.kind == "create_bond"),
+            "only advancement-backed Befriend is gated at zero advancement"
         );
         let move_offer = state
             .action_offers
@@ -66335,11 +66224,10 @@ mod tests {
             .resolve_command(&command_request(5000, "talk rati"), &access)
             .expect("chat resolves");
         match chat.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("already share a friendship"));
+            CommandDispatch::Chat { target_actor_id } => {
+                assert_eq!(target_actor_id, RATI_ACTOR_ID);
             }
-            other => panic!("Chat should not create a duplicate friendship, got {other:?}"),
+            other => panic!("Chat should remain available within a friendship, got {other:?}"),
         }
 
         let report = runtime
@@ -66553,11 +66441,16 @@ mod tests {
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
         assert_eq!(state.primary_action.command, "take Hearth Tonic");
+        assert!(state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "chat"));
         assert!(!state
             .primary_action
             .options
             .iter()
-            .any(|option| matches!(option.kind.as_str(), "chat" | "create_bond")));
+            .any(|option| option.kind == "create_bond"));
         assert!(state
             .primary_action
             .options
@@ -71179,11 +71072,16 @@ mod tests {
         assert!(state.branch.is_none());
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
+        assert!(state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "chat"));
         assert!(!state
             .primary_action
             .options
             .iter()
-            .any(|option| matches!(option.kind.as_str(), "chat" | "create_bond")));
+            .any(|option| option.kind == "create_bond"));
     }
 
     #[test]
@@ -71258,11 +71156,16 @@ mod tests {
         assert!(state.branch.is_none());
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
+        assert!(state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "chat"));
         assert!(!state
             .primary_action
             .options
             .iter()
-            .any(|option| matches!(option.kind.as_str(), "chat" | "create_bond")));
+            .any(|option| option.kind == "create_bond"));
     }
 
     #[test]

@@ -496,6 +496,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         | CommandDispatch::Craft { .. }
         | CommandDispatch::Work
         | CommandDispatch::Help
+        | CommandDispatch::Chat { .. }
         | CommandDispatch::CreateBond { .. }
         | CommandDispatch::ReviseBond { .. }
         | CommandDispatch::ResolveBond { .. }
