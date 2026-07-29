@@ -429,8 +429,24 @@ impl RuntimeWorld {
                     generation.generation_policy = binding.clone();
                 } else {
                     return Err(format!(
-                        "generated media {} policy binding differs from its pathway",
-                        generation.subject_id
+                        "generated media {} policy binding differs from its pathway: \
+                         media={{schema:{}, policy:{}, migration:{}, owner:{}@{}, composition:{}, bundle:{}}}; \
+                         pathway={{schema:{}, policy:{}, migration:{}, owner:{}@{}, composition:{}, bundle:{}}}",
+                        generation.subject_id,
+                        generation.generation_policy.schema_version,
+                        generation.generation_policy.policy_id,
+                        generation.generation_policy.migration_version,
+                        generation.generation_policy.owner_pack_id,
+                        generation.generation_policy.owner_pack_version,
+                        generation.generation_policy.composition_id,
+                        generation.generation_policy.composition_bundle_hash,
+                        binding.schema_version,
+                        binding.policy_id,
+                        binding.migration_version,
+                        binding.owner_pack_id,
+                        binding.owner_pack_version,
+                        binding.composition_id,
+                        binding.composition_bundle_hash,
                     ));
                 }
             }
