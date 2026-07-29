@@ -370,39 +370,11 @@ pub(super) async fn request_ai_avatar_intent(
         (planning, voice_action)
     };
     let system = resident_system_prompt(plan);
-    let recent = if plan.recent_lines.is_empty() {
-        "No recent room dialogue.".to_string()
-    } else {
-        plan.recent_lines.join("\n")
-    };
-    let recent_activity = if plan.recent_activity.is_empty() {
-        "No recent played-card or room-log activity.".to_string()
-    } else {
-        plan.recent_activity.join("\n")
-    };
-    let location_memory = format_location_memory(&plan.location_memory);
-    let goals = format_goal_lines(&plan.goals);
-    let resident_continuity = format_resident_continuity(&plan.resident_continuity);
     let planning_brief = resident_voice_planning_brief(&ResidentPlanningResult {
         proposed_action: voice_action,
         trace: planning.trace.clone(),
     });
-    let user = format!(
-        "where i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwhat i carry with me:\n{resident_continuity}\nwhat i can spend: {economy_note}\nwho is here with me: {cast}\nwhat has been happening, oldest to newest:\n{recent_activity}\nwhat has just been said:\n{recent}\nwhat i am answering right now:\n{line}\nwhat i am only turning over: {planning_brief}\n\ni answer the thing in front of me first. the room log and the played cards are what actually happened, newer over older, even where my memory disagrees. i hook one concrete detail out of all that — and if it is a named item or place i use the name, so we do not quietly drift onto some other subject. only i speak, and only as {name}. what i am turning over is not what i have done.\n\nso —",
-        location = plan.location_name,
-        location_title = plan.location_title,
-        location_description = plan.location_description,
-        location_persona = plan.location_persona,
-        location_memory = location_memory,
-        goals = goals,
-        resident_continuity = resident_continuity,
-        economy_note = plan.economy_note,
-        cast = plan.cast.join(", "),
-        recent_activity = recent_activity,
-        recent = recent,
-        line = plan.user_text,
-        name = plan.speaker_name
-    );
+    let user = resident_voice_user_prompt(plan, &planning_brief);
 
     let speech = route_certified_voice(
         config,
@@ -433,6 +405,38 @@ pub(super) async fn request_ai_avatar_intent(
         speech,
         planning: planning.trace,
     })
+}
+
+fn resident_voice_user_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> String {
+    let recent = if plan.recent_lines.is_empty() {
+        "No recent room dialogue.".to_string()
+    } else {
+        plan.recent_lines.join("\n")
+    };
+    let recent_activity = if plan.recent_activity.is_empty() {
+        "No recent played-card or room-log activity.".to_string()
+    } else {
+        plan.recent_activity.join("\n")
+    };
+    let location_memory = format_location_memory(&plan.location_memory);
+    let goals = format_goal_lines(&plan.goals);
+    let resident_continuity = format_resident_continuity(&plan.resident_continuity);
+    format!(
+        "where i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwhat i carry with me:\n{resident_continuity}\nwhat i can spend: {economy_note}\nwho is here with me: {cast}\nwhat has been happening, oldest to newest:\n{recent_activity}\nwhat has just been said:\n{recent}\nwhat i am answering right now:\n{line}\nwhat i am only turning over: {planning_brief}\n\ni answer the thing in front of me first. the room log and the played cards are what actually happened, newer over older, even where my memory disagrees. i hook one concrete detail out of all that — and if it is a named item or place i use the name, so we do not quietly drift onto some other subject. only i speak, and only as {name}. what i am turning over is not what i have done.\n\nso —",
+        location = plan.location_name,
+        location_title = plan.location_title,
+        location_description = plan.location_description,
+        location_persona = plan.location_persona,
+        location_memory = location_memory,
+        goals = goals,
+        resident_continuity = resident_continuity,
+        economy_note = plan.economy_note,
+        cast = plan.cast.join(", "),
+        recent_activity = recent_activity,
+        recent = recent,
+        line = plan.user_text,
+        name = plan.speaker_name
+    )
 }
 
 fn resident_disposition_for_voice(
@@ -933,6 +937,154 @@ mod publication_tests {
         );
         assert!(!reply.planner_requested);
         assert!(reply.planner_candidates.is_empty());
+    }
+
+    #[test]
+    fn cross_pack_direct_reaction_request_excludes_stale_economy_and_planner_intent() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Lila Wayfarer",
+        );
+        let bethlehem_id = runtime
+            .locations
+            .iter()
+            .find_map(|(location_id, name)| (name == "Bethlehem").then_some(*location_id))
+            .expect("official world includes Bethlehem");
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("direct avatar exists")
+            .location_id = bethlehem_id;
+        runtime.event_log.push(EventView {
+            seq: 90_001,
+            type_name: "actor.moved".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Lila Wayfarer".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            location_name: Some("The Cosy Cottage".to_string()),
+            destination_location_id: Some(bethlehem_id),
+            destination_location_name: Some("Bethlehem".to_string()),
+            ..EventView::default()
+        });
+
+        let initial = runtime
+            .resident_reply_plan_for_target_with_context(
+                5000,
+                5000,
+                "Lila Wayfarer just arrived in Bethlehem.",
+            )
+            .expect("direct avatar can react to her arrival");
+        let proposed_action = AvatarProposedAction {
+            kind: "search".to_string(),
+            item_id: Some(HEARTH_TONIC_ITEM_ID),
+            reason: Some("the old cottage motive is still pending".to_string()),
+            ..AvatarProposedAction::default()
+        };
+        let mut pending_trace = ResidentPlanningTrace::absent(&initial);
+        pending_trace.status = ResidentPlanningStatus::Accepted;
+        let mut committed_trace = pending_trace.clone();
+        committed_trace.status = ResidentPlanningStatus::Committed;
+        let mut stale = initial.resident_continuity.clone();
+        stale.current_intent = Some("seek Hearth Tonic near The Cosy Cottage".to_string());
+        stale
+            .open_obligations
+            .push("return for Hearth Tonic at The Cosy Cottage".to_string());
+        stale.pending_action = Some(proposed_action.clone());
+        stale.pending_planning = Some(pending_trace);
+        stale.last_planning_disposition = Some(ResidentPlanningDisposition {
+            trace: committed_trace,
+            proposed_action: Some(proposed_action),
+        });
+        runtime.resident_continuities.insert(5000, stale);
+
+        let direct = runtime
+            .resident_reply_plan_for_target_with_context(
+                5000,
+                5000,
+                "Lila Wayfarer just arrived in Bethlehem.",
+            )
+            .expect("direct reaction plan remains available");
+        assert_eq!(
+            direct.economy_note,
+            DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT
+        );
+        assert!(direct.resident_continuity.current_intent.is_none());
+        assert!(direct.resident_continuity.open_obligations.is_empty());
+        assert!(direct.resident_continuity.pending_action.is_none());
+        assert!(direct.resident_continuity.pending_planning.is_none());
+        assert!(direct
+            .resident_continuity
+            .last_planning_disposition
+            .is_none());
+        assert!(direct
+            .resident_continuity
+            .memory_atoms
+            .iter()
+            .all(|atom| atom.kind != BELIEF_KIND_ACTOR_WANTS_ITEM));
+        assert!(direct
+            .resident_continuity
+            .memory_atoms
+            .iter()
+            .any(|atom| atom.kind == BELIEF_KIND_ACTOR_LOCATION));
+        let (planning, voice_action) = resident_disposition_for_voice(&direct);
+        assert_eq!(planning.trace.status, ResidentPlanningStatus::Absent);
+        assert!(voice_action.is_none());
+        let request =
+            resident_voice_user_prompt(&direct, &resident_voice_planning_brief(&planning));
+        assert!(request.contains("Lila Wayfarer just arrived in Bethlehem."));
+        assert!(request.contains("where i am: Bethlehem"));
+        assert!(!request.contains("Hearth Tonic"), "{request}");
+        assert!(!request.contains("status=committed"));
+        assert!(direct
+            .recent_activity
+            .iter()
+            .any(|activity| activity.contains("Bethlehem")));
+
+        let rati = runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("inference resident exists");
+        let npc_initial = runtime
+            .resident_reply_plan_for_target_with_context(
+                RATI_ACTOR_ID,
+                RATI_ACTOR_ID,
+                "The kettle rattled.",
+            )
+            .expect("inference resident can speak");
+        let mut npc_trace = ResidentPlanningTrace::absent(&npc_initial);
+        npc_trace.status = ResidentPlanningStatus::Committed;
+        let mut npc_continuity = runtime.resident_continuity_for(rati);
+        npc_continuity.current_intent = Some("seek Moonwool Thread".to_string());
+        npc_continuity.pending_action = Some(AvatarProposedAction {
+            kind: "search".to_string(),
+            ..AvatarProposedAction::default()
+        });
+        npc_continuity.last_planning_disposition = Some(ResidentPlanningDisposition {
+            trace: npc_trace,
+            proposed_action: npc_continuity.pending_action.clone(),
+        });
+        runtime
+            .resident_continuities
+            .insert(RATI_ACTOR_ID, npc_continuity);
+        let npc = runtime
+            .resident_reply_plan_for_target_with_context(
+                RATI_ACTOR_ID,
+                RATI_ACTOR_ID,
+                "The kettle rattled.",
+            )
+            .expect("inference resident keeps full continuity");
+        assert_eq!(
+            npc.resident_continuity.current_intent.as_deref(),
+            Some("seek Moonwool Thread")
+        );
+        assert!(npc.resident_continuity.pending_action.is_some());
+        assert!(npc.resident_continuity.last_planning_disposition.is_some());
     }
 
     #[test]

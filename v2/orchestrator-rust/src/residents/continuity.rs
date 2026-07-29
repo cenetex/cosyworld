@@ -62,6 +62,17 @@ impl ResidentContinuityState {
             last_observed_event_seq: 0,
         }
     }
+
+    fn into_direct_reaction_view(mut self) -> Self {
+        self.current_intent = None;
+        self.open_obligations.clear();
+        self.pending_action = None;
+        self.pending_planning = None;
+        self.last_planning_disposition = None;
+        self.memory_atoms
+            .retain(|atom| atom.kind != BELIEF_KIND_ACTOR_WANTS_ITEM);
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -256,6 +267,18 @@ impl RuntimeWorld {
             .last_observed_event_seq
             .max(self.latest_observed_event_seq_for_resident(resident));
         continuity
+    }
+
+    pub(crate) fn resident_continuity_for_reaction(
+        &self,
+        resident: CwActor,
+    ) -> ResidentContinuityState {
+        let continuity = self.resident_continuity_for(resident);
+        if self.actor_uses_inference(resident.id) {
+            continuity
+        } else {
+            continuity.into_direct_reaction_view()
+        }
     }
 
     pub(crate) fn refresh_resident_continuity(&mut self, resident_id: u64) {
