@@ -7488,6 +7488,18 @@ async function main() {
   }
 
   async function travelTo(name) {
+    const current = await fetchCurrentState();
+    const destinationIsDirect = (current.exits || []).some((exit) => (
+      exit.destination_location_name === name
+    ));
+    const journeyTargetsDestination = current.journey?.destination_name === name;
+    if (!destinationIsDirect && !journeyTargetsDestination) {
+      // A completed long-route journey leaves its generated waypoints in the
+      // world. Later trips must follow those adjacent exits instead of looking
+      // for a card that still names the authored endpoint.
+      await travelPathTo(name);
+      return;
+    }
     const focusedRoute = await focusRoute(name);
     steps.push({ label: `focus ${name}`, primary: focusedRoute });
     const route = focusedRoute.toLowerCase();
