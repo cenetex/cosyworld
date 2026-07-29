@@ -10,7 +10,7 @@ analytics names.
 
 | Concept | Player-facing noun | Ownership and authority | Lifecycle | Primary affordance |
 | --- | --- | --- | --- | --- |
-| A verb offered in the three-choice hand | **action** | The engine deals legal actions from authoritative room state. A player chooses one; it is not owned or collected. | Replaced after a choice or redeal. | Command-shaped action button in the hand; `data-player-concept="action"`. |
+| A verb offered by the action controller | **action** | The engine derives legal actions from authoritative room state. A player chooses one; it is not owned or collected. | Replaced when room state changes; the two suggestions may also be redealt. | Command-shaped button in the two-action hand or grouped chooser; `data-player-concept="action"` and `data-player-concept="action-menu"`. |
 | An actor, item, or location representation in the collection | **keepsake** | A wallet or local collection may hold the representation. It can influence which actions appear, but never replaces the world entity. | Persists in the collection; up to three may be kept close. | Illustrated collection tile and details dialog; `data-player-concept="keepsake"`. |
 | Permission to enter a gated place | **pass** or **access** | A mounted world pack declares the grant; a verified entitlement provider proves it. The kernel receives only allowed/denied movement. | Dormant if its consuming world pack is unmounted; does not alter world state. | Locked-place badge reading “pass required”; `data-player-concept="pass"`. |
 | A revealable group of keepsakes | **bundle** | A verified Box receipt or trusted ownership feed associates the unopened bundle with an account. | Opened once; yields keepsakes and leaves a durable receipt. | Avatar Bundle tile and “open bundle” action; `data-player-concept="bundle"`. |
@@ -60,7 +60,7 @@ generic `card.click` or `pack.open`:
 
 | Event | Meaning |
 | --- | --- |
-| `action.select`, `action.confirm`, `action.redeal` | choose, confirm, or replace a hand action |
+| `action.select`, `action.confirm`, `action.all_open`, `action.draw` | choose, confirm, enumerate all, or replace the two suggestions |
 | `keepsake.collection.open`, `keepsake.open`, `keepsake.toggle` | inspect the collection, inspect a keepsake, or change the kept-close loadout |
 | `bundle.open` | reveal one Avatar Bundle |
 | `world_pack.library.open` | open the mounted World Library |

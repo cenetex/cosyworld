@@ -72,4 +72,7 @@
 # 74373 -> 74356: move the bounded projected-event append into the journal
 # checkpoint seam while making restore-time sequence and ledger-claim dedupe
 # authoritative there.
-74356
+# 74356 -> 74293: move Scout request/access projection and offer/choice planning into
+# movement.rs so gated routes validate and resolve against the same access set, while
+# the remaining handlers reuse the same access-aware rejection and journey seams.
+74293

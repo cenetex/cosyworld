@@ -1,5 +1,122 @@
 use super::*;
 
+#[derive(Debug, Deserialize)]
+pub(super) struct ScoutRequest {
+    pub(super) actor_id: u64,
+    pub(super) actor_session: Option<String>,
+    pub(super) destination_location_id: u64,
+    pub(super) wallet_address: Option<String>,
+    pub(super) wallet: Option<String>,
+    pub(super) wallet_session: Option<String>,
+    pub(super) owned_card_ids: Option<String>,
+    pub(super) cards: Option<String>,
+}
+
+pub(super) async fn scout_access_context(
+    state: &AppState,
+    payload: &ScoutRequest,
+) -> AccessContext {
+    let ownership = state.ownership_snapshot().await;
+    AccessContext::from_query(
+        &StateQuery {
+            actor_id: Some(payload.actor_id),
+            actor_session: payload.actor_session.clone(),
+            wallet_address: payload.wallet_address.clone(),
+            wallet: payload.wallet.clone(),
+            wallet_session: payload.wallet_session.clone(),
+            owned_card_ids: payload.owned_card_ids.clone(),
+            cards: payload.cards.clone(),
+            openrouter_connected: None,
+        },
+        &ownership,
+        state.trust_client_card_ids,
+        &state.wallet_sessions,
+        state.allow_unsigned_wallet_claims,
+    )
+}
+
+impl RuntimeWorld {
+    pub(crate) fn plan_scout_offer_with_access(
+        &self,
+        actor_id: u64,
+        offer: &RankedActionOffer,
+        access: &AccessContext,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        if offer.kind != "explore_path" || !action_offer_is_reachable(offer) {
+            return Err("Scout needs a current reachable route offer.".to_string());
+        }
+        let current_offer = self
+            .current_reachable_offer_with_access(actor_id, offer, access)
+            .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
+        let destination_location_id = current_offer
+            .target
+            .as_ref()
+            .filter(|target| target.kind == "location")
+            .and_then(|target| target.id)
+            .ok_or_else(|| "Scout has no route destination.".to_string())?;
+        if let Some(journey) = self.journeys.get(&actor_id) {
+            if journey.destination_location_id != destination_location_id {
+                return Err("Scout target no longer matches the active journey.".to_string());
+            }
+            return self.plan_pathway_search(actor_id);
+        }
+        if let Some(mut plan) =
+            self.plan_direct_authored_route_discovery(actor_id, destination_location_id)
+        {
+            if let Some(lead) = self.local_lead_for_offer(actor_id, &current_offer) {
+                if let ProjectionMutation::DiscoverSeedExit { reason, .. } = &mut plan.1 {
+                    *reason = format!("follow_local_lead:{}", lead.id);
+                }
+            }
+            return Ok(plan);
+        }
+        self.plan_journey_move(actor_id, destination_location_id)?
+            .ok_or_else(|| "Scout needs a route longer than one open step.".to_string())
+    }
+
+    pub(crate) fn plan_scout_offer(
+        &self,
+        actor_id: u64,
+        offer: &RankedActionOffer,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        self.plan_scout_offer_with_access(actor_id, offer, &AccessContext::default())
+    }
+
+    pub(super) fn plan_scout_choice_action_with_access(
+        &self,
+        actor_id: u64,
+        destination_location_id: u64,
+        access: &AccessContext,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        let offer = self
+            .legal_action_candidates(Some(actor_id), access)
+            .1
+            .into_iter()
+            .filter(action_offer_is_reachable)
+            .find(|offer| {
+                offer.kind == "explore_path"
+                    && offer.target.as_ref().is_some_and(|target| {
+                        target.kind == "location" && target.id == Some(destination_location_id)
+                    })
+            })
+            .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
+        self.plan_scout_offer_with_access(actor_id, &offer, access)
+    }
+
+    #[cfg(test)]
+    pub(super) fn plan_scout_choice_action(
+        &self,
+        actor_id: u64,
+        destination_location_id: u64,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        self.plan_scout_choice_action_with_access(
+            actor_id,
+            destination_location_id,
+            &AccessContext::default(),
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum PathwayWayClass {
@@ -154,6 +271,21 @@ pub(super) enum MovementPlan {
 }
 
 impl RuntimeWorld {
+    pub(super) fn journey_at_actor_location(&self, actor_id: u64) -> Option<JourneyState> {
+        let mut journey = self.journeys.get(&actor_id)?.clone();
+        let actor_location_id = self.actor_by_id(actor_id)?.location_id;
+        if journey.path.get(journey.current_step).copied() != Some(actor_location_id) {
+            if let Some(actual_step) = journey
+                .path
+                .iter()
+                .position(|location_id| *location_id == actor_location_id)
+            {
+                journey.current_step = actual_step;
+            }
+        }
+        Some(journey)
+    }
+
     fn generated_pathway_for_edge(
         &self,
         from_location_id: u64,
@@ -520,6 +652,81 @@ fn first_tale_destination_claim_key(actor_id: u64) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn journey_cursor_recovers_from_the_actors_actual_path_location() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Escaping Traveller",
+        );
+        let mut pathway = runtime
+            .generated_pathway(
+                actor_id,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+                MOONLIT_TRAIL_LOCATION_ID,
+                3,
+            )
+            .expect("generated journey");
+        let path = runtime.pathway_path(
+            &pathway,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+        );
+        for edge in path.windows(2).take(2) {
+            pathway
+                .revealed_edges
+                .insert(pathway_edge_key(edge[0], edge[1]));
+            runtime.ensure_generated_pathway_edge(&pathway, edge[0], edge[1]);
+        }
+        let pathway_id = pathway.id.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway_id.clone(), pathway);
+        runtime.journeys.insert(
+            actor_id,
+            JourneyState {
+                actor_id,
+                pathway_id,
+                origin_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                destination_location_id: MOONLIT_TRAIL_LOCATION_ID,
+                destination_name: "Moonlit Trail".to_string(),
+                path: path.clone(),
+                current_step: 0,
+                explorer: false,
+            },
+        );
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == actor_id)
+            .expect("traveller exists")
+            .location_id = path[1];
+
+        let recovered = runtime
+            .journey_view(actor_id)
+            .expect("the active journey remains visible");
+        assert_eq!(recovered.current_step, 1);
+        assert_eq!(recovered.next_location_id, Some(path[2]));
+        let MovementPlan::Journey { mutation, .. } = runtime
+            .plan_move_choice_action(actor_id, path[2], &AccessContext::default())
+            .expect("the next revealed segment remains a legal Travel choice")
+        else {
+            panic!("the recovered route should remain a journey");
+        };
+        let ProjectionMutation::JourneyTransition {
+            journey: Some(next_journey),
+            ..
+        } = *mutation
+        else {
+            panic!("the recovered journey should advance");
+        };
+        assert_eq!(next_journey.current_step, 2);
+    }
 
     #[test]
     fn route_labels_are_directional_and_traffic_does_not_reallocate_identity() {
@@ -1130,6 +1337,47 @@ mod tests {
                 .expect("serialize restarted state"),
             serde_json::to_value(after).expect("serialize direct state"),
             "restart preserves the authoritative Travel-after-Scout state"
+        );
+    }
+
+    #[test]
+    fn scout_choice_uses_the_same_gated_access_as_its_offer() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Gated Scout",
+        );
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            MOONLIT_TRAIL_LOCATION_ID,
+            GREAT_LIBRARY_LOCATION_ID,
+        );
+        let access = AccessContext {
+            owned_card_ids: BTreeSet::from(["location-library".to_string()]),
+            ..AccessContext::default()
+        };
+        assert!(
+            runtime
+                .state_response(Some(actor_id), &access)
+                .action_offers
+                .iter()
+                .any(|offer| {
+                    offer.kind == "explore_path"
+                        && offer
+                            .target
+                            .as_ref()
+                            .is_some_and(|target| target.id == Some(GREAT_LIBRARY_LOCATION_ID))
+                }),
+            "the owned destination should produce a legal Scout offer"
+        );
+        assert!(
+            runtime
+                .plan_scout_choice_action_with_access(actor_id, GREAT_LIBRARY_LOCATION_ID, &access,)
+                .is_ok(),
+            "the submitted Scout choice must resolve with the offer's access context"
         );
     }
 

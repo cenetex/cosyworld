@@ -1158,7 +1158,7 @@ impl RuntimeWorld {
     }
 
     pub(super) fn journey_view(&self, actor_id: u64) -> Option<JourneyView> {
-        let journey = self.journeys.get(&actor_id)?;
+        let journey = self.journey_at_actor_location(actor_id)?;
         let total_steps = journey.path.len().saturating_sub(1);
         let current_location_id = journey.path.get(journey.current_step).copied();
         let next_location_id = journey.path.get(journey.current_step + 1).copied();

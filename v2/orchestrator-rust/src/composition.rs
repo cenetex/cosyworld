@@ -1164,21 +1164,21 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return Vec::new();
         };
-        if let Some(lead) = self.actionable_local_lead(actor_id) {
-            return vec![ActionTargetView {
-                kind: "location".to_string(),
-                id: Some(lead.destination_location_id),
-                label: self.location_name(lead.destination_location_id),
-            }];
-        }
         let exits = self.exit_views(actor.location_id, access);
-        if let Some(journey) = self.journey_view(actor_id) {
-            let next_is_revealed = journey.next_location_id.is_some_and(|next_id| {
-                exits
-                    .iter()
-                    .any(|exit| exit.destination_location_id == next_id)
+        if let Some(journey) = self.journey_at_actor_location(actor_id) {
+            let next_step = journey.current_step + 1;
+            let next_location_id = journey.path.get(next_step).copied();
+            let next_is_revealed = next_location_id.is_some_and(|next_id| {
+                let current_location_id = journey.path[journey.current_step];
+                self.generated_pathways
+                    .get(&journey.pathway_id)
+                    .is_some_and(|pathway| {
+                        pathway
+                            .revealed_edges
+                            .contains(&pathway_edge_key(current_location_id, next_id))
+                    })
             });
-            if journey.next_location_id.is_some() && !next_is_revealed {
+            if next_location_id.is_some() && !next_is_revealed {
                 return vec![ActionTargetView {
                     kind: "location".to_string(),
                     id: Some(journey.destination_location_id),
@@ -1186,6 +1186,13 @@ impl RuntimeWorld {
                 }];
             }
             return Vec::new();
+        }
+        if let Some(lead) = self.actionable_local_lead(actor_id) {
+            return vec![ActionTargetView {
+                kind: "location".to_string(),
+                id: Some(lead.destination_location_id),
+                label: self.location_name(lead.destination_location_id),
+            }];
         }
 
         let mut targets = exits
@@ -2170,5 +2177,74 @@ mod tests {
             .action_offers
             .iter()
             .any(|offer| offer.kind == "explore_path"));
+    }
+
+    #[test]
+    fn actionable_local_lead_does_not_override_a_revealed_journey_segment() {
+        const ALPINE_FOREST_LOCATION_ID: u64 = 50;
+        const LIBRARY_LOCATION_ID: u64 = 12;
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, ALPINE_FOREST_LOCATION_ID, "Lead Keeper");
+        let mut pathway = runtime
+            .generated_pathway(5000, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID, 3)
+            .expect("generated pathway");
+        let path = runtime.pathway_path(&pathway, ALPINE_FOREST_LOCATION_ID, LIBRARY_LOCATION_ID);
+        let first_edge: [u64; 2] = path[0..2].try_into().expect("journey has a first edge");
+        pathway
+            .revealed_edges
+            .insert(pathway_edge_key(first_edge[0], first_edge[1]));
+        runtime.ensure_generated_pathway_edge(&pathway, first_edge[0], first_edge[1]);
+        let pathway_id = pathway.id.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway_id.clone(), pathway);
+        runtime.journeys.insert(
+            5000,
+            JourneyState {
+                actor_id: 5000,
+                pathway_id,
+                origin_location_id: ALPINE_FOREST_LOCATION_ID,
+                destination_location_id: LIBRARY_LOCATION_ID,
+                destination_name: "Library".to_string(),
+                path,
+                current_step: 0,
+                explorer: true,
+            },
+        );
+        runtime.local_leads.insert(
+            "lead:5000:library".to_string(),
+            LocalLeadState {
+                id: "lead:5000:library".to_string(),
+                actor_id: 5000,
+                source_actor_id: RATI_ACTOR_ID,
+                source_offer_id: "test-lead".to_string(),
+                source_reference: "test".to_string(),
+                source_event_seq: 1,
+                origin_location_id: ALPINE_FOREST_LOCATION_ID,
+                destination_location_id: LIBRARY_LOCATION_ID,
+                destination_hint: "the old library road".to_string(),
+                received_tick: runtime.world.tick,
+                consumed: false,
+                settled: false,
+                forgotten: false,
+                consumed_event_seq: None,
+                settled_event_seq: None,
+            },
+        );
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(
+            state.action_offers.iter().any(|offer| offer.kind == "move"
+                && offer.target.as_ref().and_then(|target| target.id) == Some(first_edge[1])),
+            "the revealed next edge must be advertised as Travel"
+        );
+        assert!(
+            !state
+                .action_offers
+                .iter()
+                .any(|offer| offer.kind == "explore_path"),
+            "an old local lead must not re-advertise Scout during an active journey"
+        );
     }
 }

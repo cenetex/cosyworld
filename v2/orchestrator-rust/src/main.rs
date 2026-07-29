@@ -3766,13 +3766,6 @@ struct ActorRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct ScoutRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    destination_location_id: u64,
-}
-
-#[derive(Debug, Deserialize)]
 struct ReviseCallingRequest {
     actor_id: u64,
     actor_session: Option<String>,
@@ -14000,7 +13993,7 @@ impl RuntimeWorld {
         let actor = self
             .actor_by_id(actor_id)
             .ok_or_else(|| "The traveller is no longer here.".to_string())?;
-        if let Some(current) = self.journeys.get(&actor_id).cloned() {
+        if let Some(current) = self.journey_at_actor_location(actor_id) {
             let next_step = current.current_step + 1;
             let next_location_id = current
                 .path
@@ -14302,9 +14295,7 @@ impl RuntimeWorld {
         actor_id: u64,
     ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
         let current = self
-            .journeys
-            .get(&actor_id)
-            .cloned()
+            .journey_at_actor_location(actor_id)
             .ok_or_else(|| "There is no unfinished journey here.".to_string())?;
         let next_step = current.current_step + 1;
         let next_location_id = current
@@ -14536,63 +14527,6 @@ impl RuntimeWorld {
             dc: LISTEN_DC,
             ..CwAction::default()
         })
-    }
-
-    fn plan_scout_offer(
-        &self,
-        actor_id: u64,
-        offer: &RankedActionOffer,
-    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
-        if offer.kind != "explore_path" || !action_offer_is_reachable(offer) {
-            return Err("Scout needs a current reachable route offer.".to_string());
-        }
-        let current_offer = self
-            .current_reachable_offer(actor_id, offer)
-            .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
-        let destination_location_id = current_offer
-            .target
-            .as_ref()
-            .filter(|target| target.kind == "location")
-            .and_then(|target| target.id)
-            .ok_or_else(|| "Scout has no route destination.".to_string())?;
-        if let Some(journey) = self.journeys.get(&actor_id) {
-            if journey.destination_location_id != destination_location_id {
-                return Err("Scout target no longer matches the active journey.".to_string());
-            }
-            return self.plan_pathway_search(actor_id);
-        }
-        if let Some(mut plan) =
-            self.plan_direct_authored_route_discovery(actor_id, destination_location_id)
-        {
-            if let Some(lead) = self.local_lead_for_offer(actor_id, &current_offer) {
-                if let ProjectionMutation::DiscoverSeedExit { reason, .. } = &mut plan.1 {
-                    *reason = format!("follow_local_lead:{}", lead.id);
-                }
-            }
-            return Ok(plan);
-        }
-        self.plan_journey_move(actor_id, destination_location_id)?
-            .ok_or_else(|| "Scout needs a route longer than one open step.".to_string())
-    }
-
-    fn plan_scout_choice_action(
-        &self,
-        actor_id: u64,
-        destination_location_id: u64,
-    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
-        let offer = self
-            .legal_action_candidates(Some(actor_id), &AccessContext::default())
-            .1
-            .into_iter()
-            .filter(action_offer_is_reachable)
-            .find(|offer| {
-                offer.kind == "explore_path"
-                    && offer.target.as_ref().is_some_and(|target| {
-                        target.kind == "location" && target.id == Some(destination_location_id)
-                    })
-            })
-            .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
-        self.plan_scout_offer(actor_id, &offer)
     }
 
     fn actor_by_id(&self, actor_id: u64) -> Option<CwActor> {
@@ -28991,6 +28925,11 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     destination_location_id,
+                    wallet_address: payload.wallet_address,
+                    wallet: payload.wallet,
+                    wallet_session: payload.wallet_session,
+                    owned_card_ids: payload.owned_card_ids,
+                    cards: payload.cards,
                 }),
             )
             .await;
@@ -32926,6 +32865,7 @@ async fn explore_pathway(
     ) {
         return action_rate_limited_response();
     }
+    let access = scout_access_context(&state, &payload).await;
     let planned = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
@@ -32936,17 +32876,15 @@ async fn explore_pathway(
         ) {
             return client_actor_rejected_response();
         }
-        runtime.plan_scout_choice_action(payload.actor_id, payload.destination_location_id)
+        runtime.plan_scout_choice_action_with_access(
+            payload.actor_id,
+            payload.destination_location_id,
+            &access,
+        )
     };
     let (action, mut mutation, narration_plan) = match planned {
         Ok(plan) => plan,
-        Err(_) => {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        }
+        Err(reason) => return action_offer_rejected(reason),
     };
     // Exploring a known journey step should resolve without a second AI round trip.
     let narration = travel_narration_fallback(&narration_plan);
@@ -49256,10 +49194,9 @@ mod tests {
         assert!(INDEX_HTML.contains("class=\"shuffle-glyph\""));
         assert!(INDEX_HTML.contains("more</span>"));
         assert!(INDEX_HTML.contains("Reveal one stretch toward"));
-        assert!(INDEX_HTML
-            .contains("the hidden next stretch toward ${journey.destination_name} is revealed"));
+        assert!(INDEX_HTML.contains("${firstScout.destinationName} is revealed"));
         assert!(INDEX_HTML.contains("const built = [];"));
-        assert!(INDEX_HTML.contains("scoutOffer && !nextStretchRevealed"));
+        assert!(INDEX_HTML.contains("!candidate.nextStretchRevealed"));
         assert!(!INDEX_HTML.contains("function mergeDuplicateSearchCards"));
         assert!(!INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
         assert!(INDEX_HTML.contains("Reveal the first adjacent stretch toward"));
@@ -49342,7 +49279,7 @@ mod tests {
         assert!(INDEX_HTML.contains("no new image will be bought while review is unavailable"));
         assert!(INDEX_HTML.contains("no more provider credits will be used"));
         assert!(INDEX_HTML.contains("art.retryable_without_orbs"));
-        assert!(INDEX_HTML.contains("Inspect ${searchTarget} for one hidden thing."));
+        assert!(INDEX_HTML.contains("Inspect ${firstSearch.target} for one hidden thing."));
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
         assert!(INDEX_HTML.contains("choose who receives it"));

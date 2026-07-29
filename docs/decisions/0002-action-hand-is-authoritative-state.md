@@ -2,9 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-07-17
-- Amended: 2026-07-27 by #354
+- Amended: 2026-07-27 by #354; 2026-07-29 by #529
 - Decision owners: CosyWorld maintainers
-- Related: #20, #48, #94, #354
+- Related: #20, #48, #94, #354, #529
 
 ## Context
 
@@ -75,39 +75,35 @@ present when one is reachable.
 Clients use `action_hand.entries` for initial card order and use
 `provider.reason` on the card, accessible name, hover copy, and confirmation
 dialog. A client may merge equivalent offers into one choice-bearing card, but
-it must not hash, randomize, or silently re-rank the authoritative opening
-hand. A change to the projected offer/provider ids is the signal to recompose
-it.
+every merged target must remain an explicit choice. A client must not hash,
+randomize, silently re-rank the authoritative opening hand, or discard
+same-kind offers before rendering them. A change to the projected
+offer/provider ids is the signal to recompose it.
 
-### Complete-offer reachability: redeal
+### Complete-offer reachability: two-card spotlight plus chooser
 
-The free deterministic **redeal** is the only ordinary-scene escape hatch from
-the opening pair. Each redeal replaces both visible cards with the next pair in
-the authoritative legal-offer order, excluding offers already shown in that
-cycle. After every currently legal offer has appeared, the next redeal begins
-the same cycle again. A final one-card page is allowed when the remaining pool
-is odd.
+The resting surface remains exactly two suggested cards. Its compact
+**all actions** affordance opens a keyboard- and screen-reader-accessible
+rendering of the same current `action_offers` projection, grouped by intention
+with every legal target or strategy represented explicitly. Selecting a row
+opens the ordinary detail/confirm surface and submits the exact current offer.
+The chooser neither creates another legal set nor changes rank, cost, target,
+risk, effect, or resolver.
 
-Redeal is browsing, not a world action or a random draw. It consumes no world
-turn, currency, item use, or progression; it cannot change the legal set,
-provider rank, target, cost, risk, effect, or resolver. The `hand.shuffled`
-event is its journal record. The browser-local page cursor is disposable
-presentation state: refresh may return to the authoritative opening pair, while
-the durable event still records that the player asked for another page.
+The free deterministic **redeal** remains available inside that chooser as an
+optional way to replace the two suggestions. It advances through the finite
+authoritative order, consumes no world turn, currency, item use, or
+progression, and records `hand.shuffled`. The browser-local page cursor is
+disposable presentation state; the complete chooser does not depend on that
+cursor for reachability.
 
-A grouped **More Actions** list is explicitly rejected and closed by #354. It
-would be a second ordinary action surface with different reachability and
-spotlight behavior, not another rendering of redeal. The browser's compact
-“more” control means “draw the next two actions”; it must never open or imply a
-complete pick-list. Future transports may render the same redeal as a reaction,
-terminal command, or voice intent, but may not introduce the rejected list
-under another name.
-
-This amendment deliberately upholds the browser's shuffle/redeal contract. The
-regression assertions requiring `id="shuffle"`, `class="shuffle-glyph"`, and
-the compact “more” label remain normative. They supersede the earlier
-no-shuffle browser expectation cited by #354 and must not be quietly removed or
-inverted.
+#529 supersedes #354's conclusion that redeal alone guarantees browser
+reachability. Playtest fixtures showed why: the client could merge same-kind
+Search or Scout offers before paging, so no number of redeals could restore
+the omitted targets. The accepted chooser is a complete rendering of the one
+authoritative offer set, not a parallel authority. Future transports may
+render that same set differently, but must preserve its full target
+cardinality and stale-offer guards.
 
 ## Command submission
 
@@ -138,8 +134,9 @@ client to recognize a deliberately changed composition contract.
 
 Property-style fixtures cover stable repeated responses, reachable targets,
 the generally useful fallback, Calling/Journal/friendship/held-item changes,
-and snapshot round trips. Browser smoke covers the visible two-card hand, its
-required redeal control, and verifies that kept-close cards remain cosmetic.
+and snapshot round trips. Browser smoke covers the visible two-card hand, the
+complete chooser, optional redeal, grouped same-kind targets, and verifies that
+kept-close cards remain cosmetic.
 
 ## Consequences
 
@@ -149,7 +146,8 @@ but cannot inject client-local priority. Debugging an unexpected hand starts
 from three inspectable values—offer, provider, tie-break—instead of browser
 storage or a deal nonce.
 
-The cost of closing **More Actions** is that reaching a specific low-ranked
-offer can take several redeals. The benefit is one small learnable control
-surface, no duplicate grouping taxonomy, and behavior that already matches the
-browser, terminal alias, PRD, `hand.shuffled` event, and no-turn redeal tests.
+The two-card spotlight remains small and learnable while the chooser makes
+reachability direct and auditable. Clients now own one additional grouping
+presentation, but it is tested against the authoritative legal superset and
+cannot manufacture or resolve offers. The `shuffle` and `more` command aliases,
+`hand.shuffled` event, and no-turn redeal semantics remain compatible.
