@@ -485,8 +485,10 @@ pub(super) fn generated_policy_drift_is_declared_preserving_upgrade(
     let pathway_is_current = pathway.policy_id == policy.policy_id
         && pathway.migration_version == policy.migration_version
         && pathway.owner_pack_version == pack.version;
-    let pathway_is_preserved_history = pathway.policy_id == policy.policy_id
-        && policy_declares_preserved_binding(&policy, pathway);
+    // A pathway can itself still carry an explicitly preserved compatibility
+    // policy. Requiring its policy id to equal the active policy id would
+    // ignore the exact cross-policy tuple named by the migration manifest.
+    let pathway_is_preserved_history = policy_declares_preserved_binding(&policy, pathway);
     let record_is_preserved_history = policy_declares_preserved_binding(&policy, record);
     let transition_is_monotonic = pathway_is_current
         || (pathway_is_preserved_history
@@ -1098,6 +1100,96 @@ mod tests {
         assert_eq!(
             restored.community_art_generations[&key].generation_policy,
             pathway_binding
+        );
+    }
+
+    #[test]
+    fn production_legacy_media_owner_upgrade_adopts_the_pathway_binding() {
+        // Production checkpoint subject 157216 was generated under Holy Land
+        // 1.1.4's host compatibility policy. Its pathway was then migrated to
+        // 1.1.6 with every other identity field unchanged. The active policy
+        // declares this exact historical tuple as descendant-preserving.
+        let mut runtime = RuntimeWorld::seeded();
+        let mut pathway = holy_land_pathway(&runtime);
+        // Use the fixture pathway's canonical waypoint id; subject 157216 is
+        // the production instance carrying the same policy tuple.
+        let subject_id = pathway.waypoints[0].id;
+        let shared_bundle =
+            "sha256:9e91a900766633f5f52b8fe58e8f409f020233553e3fe5bf24ff519553e972ac";
+        let pathway_binding = legacy_generated_policy_binding(
+            "cosyworld.the-holy-land",
+            "1.1.6",
+            "cosyworld.official",
+            shared_bundle,
+        );
+        pathway.owner_pack_version = pathway_binding.owner_pack_version.clone();
+        pathway.generation_policy = pathway_binding.clone();
+        for waypoint in &mut pathway.waypoints {
+            waypoint.generation_policy = pathway_binding.clone();
+        }
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway);
+        let _ = runtime.apply_fund_community_art_projection(
+            "location",
+            subject_id,
+            1,
+            1,
+            RATI_ACTOR_ID,
+            "production-media-157216",
+            1,
+            337_009,
+            None,
+        );
+        let media_binding = legacy_generated_policy_binding(
+            "cosyworld.the-holy-land",
+            "1.1.4",
+            "cosyworld.official",
+            shared_bundle,
+        );
+        let policy = policy_for_pack("cosyworld.the-holy-land")
+            .expect("active Holy Land policy resolves")
+            .expect("Holy Land owns a generation policy");
+        assert!(
+            policy_declares_preserved_binding(&policy, &media_binding),
+            "the active policy must name the exact legacy media tuple"
+        );
+        assert!(
+            policy_declares_preserved_binding(&policy, &pathway_binding),
+            "the active policy must name the exact legacy pathway tuple"
+        );
+        let key = community_art_generation_key("location", subject_id, 1);
+        runtime
+            .community_art_generations
+            .get_mut(&key)
+            .expect("production-shaped generated media exists")
+            .generation_policy = media_binding.clone();
+
+        assert!(
+            generated_policy_drift_is_declared_preserving_upgrade(
+                &media_binding,
+                &pathway_binding,
+            )
+            .expect("reviewed policy lookup succeeds"),
+            "the exact production owner upgrade must be declared"
+        );
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("the production-shaped legacy media checkpoint must load");
+        assert_eq!(
+            restored.community_art_generations[&key].generation_policy,
+            pathway_binding
+        );
+
+        let mut undeclared = media_binding;
+        undeclared.owner_pack_version = "1.1.2".to_string();
+        assert!(
+            !generated_policy_drift_is_declared_preserving_upgrade(
+                &undeclared,
+                &restored.community_art_generations[&key].generation_policy,
+            )
+            .expect("reviewed policy lookup succeeds"),
+            "nearby but undeclared legacy history must remain rejected"
         );
     }
 
