@@ -42,7 +42,9 @@
       "sha256:9b955ecb68da8efde6e6f598ce73754c1377fde0ce2c21a72852d9d641ada836",
       "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170",
       "sha256:a4e8e14c025ceed0247a3e475d51399496cbad6ff386d8eccea93572fe704f7a",
-      "sha256:54cdcd2ed0d23a8a1f216bf6240035d7f6cf312a910e5e10b2a323d39ac1a333"
+      "sha256:54cdcd2ed0d23a8a1f216bf6240035d7f6cf312a910e5e10b2a323d39ac1a333",
+      "sha256:936fb16d280df4e073056c41c6c81034162b4407012ae2dbc9302813d31948df",
+      "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028"
     ]
   },
   "pack_lifecycle": {
@@ -769,7 +771,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028",
+  "bundle_hash": "sha256:29e213d646b50e015753b90346a6ecc82ab38c75b16125d533cb6188c07f1d1f",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2446,7 +2448,7 @@
       "id": "cosyworld.composition.core-holy-land",
       "name": "CosyWorld Core + Holy Land Bridge",
       "description": "Composition-owned paths connecting CosyWorld Core and The Holy Land.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2578,7 +2580,19 @@
           "migrations": [
             {
               "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
+              "from_migration_version": 2,
+              "from_pack_version": "1.0.2",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
               "from_migration_version": 1,
+              "from_pack_version": "1.0.1",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.compatibility.host-generation/1",
+              "from_migration_version": 0,
               "from_pack_version": "1.0.1",
               "mode": "preserve_descendants"
             },
@@ -2620,7 +2634,7 @@
         "type": "workspace",
         "path": "../../content/core-holy-land-bridge"
       },
-      "integrity": "sha256:123f2f9b11b427f25659a44da85dafcca4a4a65151f22850100b10b19d69d719"
+      "integrity": "sha256:da22e27f794e1f880b86b0286b65ddc3cdf952ff2d075164cc9d331530b51d75"
     },
     {
       "id": "ruby-high.first-bell",
