@@ -20991,7 +20991,7 @@ impl RuntimeWorld {
             speech_mode: responder_meta
                 .map(|meta| meta.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
-            resident_continuity: self.resident_continuity_for(responder),
+            resident_continuity: self.resident_continuity_for_reaction(responder),
             economy_note,
             goals: self.narrative_goal_lines(Some(target_actor_id), responder.location_id),
             location_name: self
