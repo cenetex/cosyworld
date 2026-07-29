@@ -396,7 +396,8 @@ impl RuntimeWorld {
             // pathway binding on load exactly as begin would; treating the
             // unbound state as divergence rejects every checkpoint the running
             // build writes. A non-empty binding still has to match: that is a
-            // real divergence and fails closed.
+            // real divergence unless it is an explicitly declared,
+            // descendant-preserving policy upgrade.
             if generation.generation_policy.is_empty() {
                 generation.generation_policy = binding.clone();
             }
@@ -410,7 +411,10 @@ impl RuntimeWorld {
                 if generated_policy_drift_is_legacy_bookkeeping(
                     &generation.generation_policy,
                     binding,
-                ) {
+                ) || generated_policy_drift_is_declared_preserving_upgrade(
+                    &generation.generation_policy,
+                    binding,
+                )? {
                     generation.generation_policy = binding.clone();
                 } else {
                     return Err(format!(
