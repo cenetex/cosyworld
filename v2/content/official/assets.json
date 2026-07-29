@@ -27,14 +27,14 @@
   },
   {
     "pack_id": "cosyworld.the-holy-land",
-    "pack_version": "1.1.6",
-    "pack_integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822",
+    "pack_version": "1.2.0",
+    "pack_integrity": "sha256:5663b6e1e0b4c841b1683dbacbcaebb953594fbed57d468b5e4cd2473ba0e1b0",
     "provider": "cosyworld.the-holy-land/assets",
     "mount": "cards",
     "root": "the-holy-land",
     "directory": "assets/cards",
     "public_prefix": "/assets/the-holy-land/cards",
-    "content_hash": "sha256:4d00007f69a374cf5cb478c9aff4b26e33ec4ac4223c0df5c8b8cac4d428ee7a",
+    "content_hash": "sha256:61865d00e777907b22ad2411651e5ec638362e346661ac81e3f5e191054de9e2",
     "optional": false,
     "fallback": null
   },

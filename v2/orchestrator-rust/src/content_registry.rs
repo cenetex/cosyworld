@@ -767,7 +767,7 @@ pub(super) fn actor_goal_lines(actor_id: u64) -> Vec<String> {
         .flat_map(|actor| &actor.goals)
         .map(|goal| {
             format!(
-                "Personal goal: {} Private motivation: {}",
+                "Planner-only goal: {} Planner-only motivation: {}",
                 goal.objective, goal.motivation
             )
         })
@@ -1085,7 +1085,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn holy_land_disciples_have_distinct_private_search_motivations() {
+    fn holy_land_disciples_have_distinct_planner_only_search_motivations() {
         let disciples = active_content()
             .actors
             .iter()
@@ -1106,9 +1106,82 @@ mod tests {
         );
         let goals = actor_goal_lines(7002);
         assert!(goals.iter().any(|goal| {
-            goal.contains("Personal goal: Search for Christ.")
-                && goal.contains("Private motivation:")
+            goal.contains("Planner-only goal: Search for Christ.")
+                && goal.contains("Planner-only motivation:")
         }));
+    }
+
+    #[test]
+    fn holy_land_search_is_playable_without_instantiating_christ() {
+        let content = active_content();
+        let holy_land_actor_ids = content
+            .actors
+            .iter()
+            .filter(|actor| actor.pack_id == "cosyworld.the-holy-land")
+            .map(|actor| actor.id)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(holy_land_actor_ids.len(), 16);
+        assert!(content.actors.iter().all(|actor| actor.name != "Jesus"
+            && actor.name != "Jesus Christ"
+            && actor.name != "Christ"));
+        assert!(content.cards.iter().all(|card| {
+            !(card.pack_id == "cosyworld.the-holy-land"
+                && card.display_name.to_ascii_lowercase().contains("jesus"))
+        }));
+
+        let project = content
+            .jobs
+            .iter()
+            .find(|job| job.id == "holy-land:follow-the-traces")
+            .expect("Holy Land search project is mounted");
+        assert_eq!(project.progress_clock_id, "holy-land.traces");
+        assert_eq!(project.danger_clock_id, "holy-land.rumors");
+        assert_eq!(project.contribution_strategies.len(), 7);
+        assert!(project
+            .participant_ids
+            .iter()
+            .all(|actor_id| holy_land_actor_ids.contains(actor_id)));
+
+        let holy_land_items = content
+            .items
+            .iter()
+            .filter(|item| item.pack_id == "cosyworld.the-holy-land")
+            .collect::<Vec<_>>();
+        assert_eq!(holy_land_items.len(), 10);
+        assert!(holy_land_items
+            .iter()
+            .any(|item| item.name == "Pearl of Great Price" && item.role == "relic"));
+        assert!(holy_land_items
+            .iter()
+            .any(|item| item.name == "Samaritan Oil and Linen" && item.role == "consumable"));
+        assert!(content.fronts.iter().any(|front| {
+            front.id == "holy-land:voices-on-the-road"
+                && front.portent_clock_id == "holy-land.rumors"
+                && front.impending_outcome.contains("false claimant")
+        }));
+        let completion = content
+            .clocks
+            .iter()
+            .find(|clock| clock.id == "holy-land.traces")
+            .map(|clock| &clock.presentation)
+            .expect("search completion has a player-facing presentation");
+        assert!(completion.outcome.contains("Christ has gone ahead"));
+        assert!(!completion.outcome.contains("appears"));
+
+        for location in content
+            .locations
+            .iter()
+            .filter(|location| location.pack_id == "cosyworld.the-holy-land")
+        {
+            let memory = location.memory.join(" ").to_ascii_lowercase();
+            for editorial_word in ["gospel", "tradition", "scholarly", "disputed"] {
+                assert!(
+                    !memory.contains(editorial_word),
+                    "{} leaks editorial language into runtime memory",
+                    location.name
+                );
+            }
+        }
     }
 
     fn capability(id: &str) -> SeedPackCapability {

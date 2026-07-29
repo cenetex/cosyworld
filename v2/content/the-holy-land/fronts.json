@@ -1,0 +1,17 @@
+[
+  {
+    "id": "holy-land:voices-on-the-road",
+    "premise": "Need, sincere testimony, careless repetition, and ambitious claimants all travel the same roads while the disciples search for Christ.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [705, 709, 710, 712, 714],
+    "participant_ids": [7013, 7014, 7015, 7016, 7017],
+    "stakes_questions": [
+      "Can the disciples listen closely without treating every confident report as truth?",
+      "Will practical mercy remain part of the search when spectacle offers a quicker answer?"
+    ],
+    "portent_clock_id": "holy-land.rumors",
+    "job_ids": ["holy-land:follow-the-traces"],
+    "impending_outcome": "A persuasive false claimant gathers followers and turns the roads toward rivalry, fear, and spectacle."
+  }
+]

@@ -13,7 +13,6 @@ use crate::{
     media_evolution::{
         FrozenCommunityArtEvolutionJob, EVOLUTION_CANARY_MODEL_REVISION, EVOLUTION_CANARY_RECIPE,
     },
-    ReplicateAvatarArtConfig,
 };
 
 #[allow(dead_code)]
@@ -32,6 +31,86 @@ pub(super) use self::assets::{
 const EMBEDDED_MEDIA_RECIPE_REGISTRY: &str = include_str!("../../media/recipes.json");
 pub(super) const BASE_COMMUNITY_ART_PROFILE: &str = "cosyworld.community-art.base/1";
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
+
+#[derive(Clone, Debug)]
+pub(super) struct ReplicateAvatarArtConfig {
+    pub(super) api_token: String,
+    pub(super) model: String,
+    pub(super) version: Option<String>,
+    pub(super) lora_url: Option<String>,
+    pub(super) lora_input_key: String,
+    pub(super) lora_scale_input_key: String,
+    pub(super) lora_scale: f64,
+    pub(super) prompt_prefix: String,
+    pub(super) output_format: String,
+    pub(super) provider_defaults: serde_json::Map<String, serde_json::Value>,
+}
+
+impl ReplicateAvatarArtConfig {
+    pub(super) fn from_env() -> Option<Self> {
+        let api_token = std::env::var("COSYWORLD_REPLICATE_API_TOKEN")
+            .ok()
+            .or_else(|| std::env::var("REPLICATE_API_TOKEN").ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())?;
+        let model = std::env::var("COSYWORLD_REPLICATE_AVATAR_MODEL")
+            .ok()
+            .or_else(|| std::env::var("REPLICATE_AVATAR_MODEL").ok())
+            .or_else(|| std::env::var("REPLICATE_BASE_MODEL").ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())?;
+        let version = std::env::var("COSYWORLD_REPLICATE_AVATAR_VERSION")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let lora_url = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA")
+            .ok()
+            .or_else(|| std::env::var("COSYWORLD_MIRQUO_LORA_URL").ok())
+            .or_else(|| std::env::var("REPLICATE_LORA_WEIGHTS").ok())
+            .or_else(|| std::env::var("REPLICATE_MODEL").ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let lora_input_key = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_INPUT")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "lora_weights".to_string());
+        let lora_scale_input_key = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "lora_scale".to_string());
+        let lora_scale = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_SCALE")
+            .ok()
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .unwrap_or(0.85)
+            .clamp(0.0, 2.0);
+        let prompt_prefix = std::env::var("COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX")
+            .ok()
+            .or_else(|| std::env::var("REPLICATE_LORA_TRIGGER").ok())
+            .or_else(|| std::env::var("LORA_TRIGGER_WORD").ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "MRQ, cozy storybook trading-card portrait".to_string());
+        let output_format = std::env::var("COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "png".to_string());
+        Some(Self {
+            api_token,
+            model,
+            version,
+            lora_url,
+            lora_input_key,
+            lora_scale_input_key,
+            lora_scale,
+            prompt_prefix,
+            output_format,
+            provider_defaults: serde_json::Map::new(),
+        })
+    }
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -1180,7 +1259,7 @@ fn replicate_invocation_model(
 fn replicate_avatar_input(
     config: &ReplicateAvatarArtConfig,
 ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
-    let mut input = match std::env::var("COSYWORLD_REPLICATE_AVATAR_INPUT_JSON") {
+    let configured_input = match std::env::var("COSYWORLD_REPLICATE_AVATAR_INPUT_JSON") {
         Ok(value) if !value.trim().is_empty() => {
             match serde_json::from_str::<serde_json::Value>(&value) {
                 Ok(serde_json::Value::Object(map)) => map,
@@ -1194,6 +1273,8 @@ fn replicate_avatar_input(
         }
         _ => serde_json::Map::new(),
     };
+    let mut input = config.provider_defaults.clone();
+    input.extend(configured_input);
     if config.version.is_some() {
         input.remove("version");
     }
@@ -1360,6 +1441,7 @@ mod tests {
             lora_scale: 0.85,
             prompt_prefix: "cozy card art".to_string(),
             output_format: "png".to_string(),
+            provider_defaults: serde_json::Map::new(),
         }
     }
 
@@ -1475,6 +1557,54 @@ mod tests {
                 "https://assets.example/callum-original.png"
             ])
         );
+    }
+
+    #[test]
+    fn legacy_flux_request_keeps_reviewed_model_native_provider_defaults_without_weights() {
+        let registry = MediaRecipeRegistry::embedded().expect("registry parses");
+        let controls = MediaRecipeRuntimeControls::default();
+        let resolved = registry
+            .resolve(
+                &controls,
+                MediaJobRequest {
+                    job_key: "location:712:level:1".to_string(),
+                    profile: "cosyworld.community-art.base/1".to_string(),
+                    operation: MediaOperation::BaseGeneration,
+                    intent: MediaIntent::Location,
+                    prompt: "B43L, rough unfinished watercolor, Jerusalem.".to_string(),
+                    references: Vec::new(),
+                    aspect_ratio: "16:9".to_string(),
+                    output_format: "webp".to_string(),
+                    mask_url: None,
+                    seed: None,
+                },
+            )
+            .expect("base recipe resolves");
+        let mut config = art_config();
+        config.model = "ratimics/b43l".to_string();
+        config.version =
+            Some("2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f".to_string());
+        config.lora_url = None;
+        config.provider_defaults = serde_json::from_value(serde_json::json!({
+            "model": "dev",
+            "num_outputs": 1,
+            "num_inference_steps": 28,
+            "guidance_scale": 4.5,
+            "lora_scale": 1.25
+        }))
+        .expect("provider defaults map");
+
+        let prepared = prepare_replicate_execution(&config, resolved).expect("request prepares");
+        let input = prepared.request.body["input"]
+            .as_object()
+            .expect("Replicate input object");
+        assert_eq!(input.get("lora_scale"), Some(&serde_json::json!(1.25)));
+        assert_eq!(input.get("guidance_scale"), Some(&serde_json::json!(4.5)));
+        assert_eq!(
+            input.get("num_inference_steps"),
+            Some(&serde_json::json!(28))
+        );
+        assert!(!input.contains_key("lora_weights"));
     }
 
     #[test]

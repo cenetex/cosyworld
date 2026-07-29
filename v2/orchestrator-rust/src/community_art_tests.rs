@@ -23,6 +23,7 @@ fn test_art_config() -> ReplicateAvatarArtConfig {
         lora_scale: 1.0,
         prompt_prefix: "cozy card art".to_string(),
         output_format: "png".to_string(),
+        provider_defaults: serde_json::Map::new(),
     }
 }
 

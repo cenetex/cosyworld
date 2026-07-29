@@ -1,0 +1,126 @@
+[
+  {
+    "id": 7201,
+    "name": "Mended Net Cord",
+    "description": "A small coil of flax cord, already knotted once and still strong enough to close a torn fishing net.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 705,
+    "role": "tool",
+    "weight_tenths": 3,
+    "size": "tiny"
+  },
+  {
+    "id": 7202,
+    "name": "Plain Water Jar",
+    "description": "A sound clay jar with a rope handle, light enough for a traveler to carry back from the well.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 709,
+    "role": "tool",
+    "weight_tenths": 18,
+    "size": "small"
+  },
+  {
+    "id": 7203,
+    "name": "Boatwright's Adze",
+    "description": "A compact iron-edged adze whose worn olive-wood handle fits the empty place in the boat-yard basket.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 707,
+    "role": "tool",
+    "weight_tenths": 22,
+    "size": "small"
+  },
+  {
+    "id": 7204,
+    "name": "Road Bread",
+    "description": "A round barley loaf wrapped in linen, enough to divide among several tired walkers at evening.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 711,
+    "role": "generic",
+    "weight_tenths": 8,
+    "size": "small"
+  },
+  {
+    "id": 7205,
+    "name": "Watch Lamp Oil",
+    "description": "A thumb-stoppered flask of ordinary olive oil, kept for a lamp that must remain lit through the night.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 712,
+    "role": "generic",
+    "weight_tenths": 5,
+    "size": "tiny"
+  },
+  {
+    "id": 7206,
+    "name": "Pearl of Great Price",
+    "description": "A luminous pearl carried by a traveling storyteller when speaking of a merchant's single incomparable find.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 706,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 7207,
+    "name": "Lost Silver Coin",
+    "description": "A small silver drachma used when telling of a house swept from corner to corner for one missing coin.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 701,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 7208,
+    "name": "Mustard Seed Pouch",
+    "description": "A thumb-sized cloth pouch holding seeds small enough to vanish in a palm and numerous enough to begin a thicket.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 706,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 7209,
+    "name": "Waiting Wedding Lamp",
+    "description": "A plain clay lamp kept trimmed for a wedding procession whose hour is known only when the street begins to stir.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 703,
+    "role": "tool",
+    "weight_tenths": 6,
+    "size": "small"
+  },
+  {
+    "id": 7210,
+    "name": "Samaritan Oil and Linen",
+    "description": "A travel flask and folded strip of clean linen for tending a stranger found hurt beside the road.",
+    "kind": "potion",
+    "charges": 1,
+    "location_id": 710,
+    "role": "consumable",
+    "weight_tenths": 5,
+    "size": "small",
+    "mechanics": {
+      "binding": "srd5.2.1:utilize",
+      "equipment_profile": "carried",
+      "target_predicate": "active_actor_same_location_needing_healing",
+      "resolver": "item_utilize_v1",
+      "effect_budget": {
+        "healing": 4
+      },
+      "uses": 1,
+      "exhaustion": "consume_charge",
+      "recovery": "none",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
+  }
+]

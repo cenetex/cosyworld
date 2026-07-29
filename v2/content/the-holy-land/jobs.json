@@ -1,0 +1,299 @@
+[
+  {
+    "id": "holy-land:follow-the-traces",
+    "premise": "Christ has gone ahead, and the disciples must follow the traces left in work, hospitality, testimony, and changed lives.",
+    "stakes": "If they hurry past ordinary need, loud rumors and false claimants will decide the road for them.",
+    "location_ids": [705, 706, 707, 709, 710, 711, 712, 713, 714],
+    "participant_ids": [7002, 7003, 7004, 7005, 7006, 7007, 7008, 7009, 7010, 7011, 7012, 7013, 7014, 7015, 7016, 7017],
+    "progress_clock_id": "holy-land.traces",
+    "danger_clock_id": "holy-land.rumors",
+    "status": "active",
+    "reward": {
+      "label": "a trustworthy road onward",
+      "orbs": 2
+    },
+    "consequence": "a false claimant turns the search toward spectacle and rivalry",
+    "memory_summary": "The disciples search for Christ by attending to witnesses, repairing what is broken, and carrying ordinary help from place to place.",
+    "action_copy": {
+      "label": "Follow the traces",
+      "summary": "Gather testimony and answer practical needs until the scattered signs point toward a trustworthy road."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "mend-the-lake-net",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "drying-nets",
+          "label": "the torn lake net"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 705
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 705,
+            "feature_key": "drying-nets",
+            "item_id": 7201
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Mend the lake net",
+        "narration_key": "holy-land.trace.net",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      },
+      {
+        "version": 1,
+        "id": "hear-the-hillside-words",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:study",
+        "target": {
+          "kind": "feature",
+          "id": "listening-stone",
+          "label": "the remembered words on the hillside"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 706
+          },
+          {
+            "kind": "feature_searched",
+            "location_id": 706,
+            "feature_key": "listening-stone"
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 10
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Compare the remembered words",
+        "narration_key": "holy-land.trace.hillside",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      },
+      {
+        "version": 1,
+        "id": "restore-the-boat-tool",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "bethsaida-boat-yard",
+          "label": "the halted boat repair"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 707
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 707,
+            "feature_key": "bethsaida-boat-yard",
+            "item_id": 7203
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Restore the boatwright's tool",
+        "narration_key": "holy-land.trace.boat",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      },
+      {
+        "version": 1,
+        "id": "draw-water-for-a-traveler",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "jacobs-well",
+          "label": "the traveler waiting at the well"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 709
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 709,
+            "feature_key": "jacobs-well",
+            "item_id": 7202
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Draw water for a traveler",
+        "narration_key": "holy-land.trace.well",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      },
+      {
+        "version": 1,
+        "id": "share-bread-at-bethany",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "bethany-table",
+          "label": "the extra place at the table"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 711
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 711,
+            "feature_key": "bethany-table",
+            "item_id": 7204
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Share the road bread",
+        "narration_key": "holy-land.trace.bread",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      },
+      {
+        "version": 1,
+        "id": "tend-the-roadside-stranger",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "jericho-roadside",
+          "label": "the hurt traveler beside the road"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 710
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 710,
+            "feature_key": "jericho-roadside",
+            "item_id": 7210
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Tend the roadside stranger",
+        "narration_key": "holy-land.trace.neighbor",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      },
+      {
+        "version": 1,
+        "id": "keep-the-garden-watch",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "old-olive",
+          "label": "the long watch beneath the olives"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 713
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 713,
+            "feature_key": "old-olive",
+            "item_id": 7205
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Keep the garden watch",
+        "narration_key": "holy-land.trace.watch",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.0"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "holy-land.rumors",
+        "filled": 1,
+        "narration_key": "holy-land.rumor.first",
+        "text": "Two travelers repeat the same report, but neither can name the witness who began it."
+      },
+      {
+        "clock_id": "holy-land.rumors",
+        "filled": 2,
+        "narration_key": "holy-land.rumor.claim",
+        "text": "A speaker at the road begins answering questions that were never asked of him."
+      },
+      {
+        "clock_id": "holy-land.rumors",
+        "filled": 3,
+        "narration_key": "holy-land.rumor.followers",
+        "text": "A small crowd abandons its errands to follow a claimant promising an immediate sign."
+      }
+    ]
+  }
+]

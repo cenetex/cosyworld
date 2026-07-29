@@ -31,9 +31,8 @@ test("Holy Land actor art starts in medias res with a compact B43L prompt", () =
   assert.match(prompt, /already mid-journey/);
   assert.match(prompt, /heavy pigment/);
   assert.match(prompt, /raw paper/);
-  assert.match(prompt, /first-century Levantine traveler/);
-  assert.match(prompt, /no halo, cross, text, modern gear/);
-  assert.ok(prompt.split(/\s+/).length < 80);
+  assert.doesNotMatch(prompt, /\bno\b/i);
+  assert.ok(prompt.split(/\s+/).length < 55);
   for (const label of OLD_PROMPT_LABELS) assert.doesNotMatch(prompt, new RegExp(label));
 });
 
@@ -49,10 +48,9 @@ test("Holy Land location art uses the same brief unfinished-watercolor direction
 
   assert.equal(prompt.split("\n").length, 2);
   assert.match(prompt, /^B43L\. Rough unfinished watercolor;/);
-  assert.match(prompt, /Arrive mid-journey at Bethlehem/);
-  assert.match(prompt, /First-century Levant only/);
-  assert.match(prompt, /no later religious monuments/);
-  assert.ok(prompt.split(/\s+/).length < 80);
+  assert.match(prompt, /Bethlehem, Town of the Nativity, already mid-journey/);
+  assert.doesNotMatch(prompt, /\bno\b/i);
+  assert.ok(prompt.split(/\s+/).length < 55);
   for (const label of OLD_PROMPT_LABELS) assert.doesNotMatch(prompt, new RegExp(label));
 });
 
@@ -73,5 +71,5 @@ test("Holy Land sample runs can isolate one style phrase for A/B testing", () =>
 
   assert.match(prompt, /^B43L\. Half-painted wet watercolor study, raw paper\./);
   assert.doesNotMatch(prompt, /Rough unfinished watercolor/);
-  assert.match(prompt, /no halo, cross, text, modern gear/);
+  assert.doesNotMatch(prompt, /\bno\b/i);
 });

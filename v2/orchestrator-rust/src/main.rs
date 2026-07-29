@@ -389,19 +389,6 @@ struct RoomMemoryChapter {
     source: String,
 }
 
-#[derive(Clone, Debug)]
-struct ReplicateAvatarArtConfig {
-    api_token: String,
-    model: String,
-    version: Option<String>,
-    lora_url: Option<String>,
-    lora_input_key: String,
-    lora_scale_input_key: String,
-    lora_scale: f64,
-    prompt_prefix: String,
-    output_format: String,
-}
-
 #[cfg(test)]
 #[derive(Clone, Debug)]
 struct AmbientConfig {
@@ -5937,71 +5924,6 @@ impl AppState {
             .lock()
             .map(|mut limiter| limiter.allow(key.into(), limit, Instant::now()))
             .unwrap_or(false)
-    }
-}
-
-impl ReplicateAvatarArtConfig {
-    fn from_env() -> Option<Self> {
-        let api_token = std::env::var("COSYWORLD_REPLICATE_API_TOKEN")
-            .ok()
-            .or_else(|| std::env::var("REPLICATE_API_TOKEN").ok())
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())?;
-        let model = std::env::var("COSYWORLD_REPLICATE_AVATAR_MODEL")
-            .ok()
-            .or_else(|| std::env::var("REPLICATE_AVATAR_MODEL").ok())
-            .or_else(|| std::env::var("REPLICATE_BASE_MODEL").ok())
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())?;
-        let version = std::env::var("COSYWORLD_REPLICATE_AVATAR_VERSION")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let lora_url = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA")
-            .ok()
-            .or_else(|| std::env::var("COSYWORLD_MIRQUO_LORA_URL").ok())
-            .or_else(|| std::env::var("REPLICATE_LORA_WEIGHTS").ok())
-            .or_else(|| std::env::var("REPLICATE_MODEL").ok())
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let lora_input_key = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_INPUT")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "lora_weights".to_string());
-        let lora_scale_input_key = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "lora_scale".to_string());
-        let lora_scale = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_SCALE")
-            .ok()
-            .and_then(|value| value.trim().parse::<f64>().ok())
-            .unwrap_or(0.85)
-            .clamp(0.0, 2.0);
-        let prompt_prefix = std::env::var("COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX")
-            .ok()
-            .or_else(|| std::env::var("REPLICATE_LORA_TRIGGER").ok())
-            .or_else(|| std::env::var("LORA_TRIGGER_WORD").ok())
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "MRQ, cozy storybook trading-card portrait".to_string());
-        let output_format = std::env::var("COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "png".to_string());
-        Some(Self {
-            api_token,
-            model,
-            version,
-            lora_url,
-            lora_input_key,
-            lora_scale_input_key,
-            lora_scale,
-            prompt_prefix,
-            output_format,
-        })
     }
 }
 
@@ -61851,7 +61773,7 @@ mod tests {
         assert_eq!(content.actors.len(), 56);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 17);
+        assert_eq!(content.items.len(), 27);
         let satchel = content
             .items
             .iter()
@@ -61871,7 +61793,7 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 39);
+        assert_eq!(content.room_features.len(), 40);
         assert_eq!(content.room_sheets.len(), 49);
         for location_id in [4, 800] {
             let lodging = content
@@ -61887,8 +61809,8 @@ mod tests {
                 Some("open")
             );
         }
-        assert_eq!(content.clocks.len(), 14);
-        assert_eq!(content.jobs.len(), 7);
+        assert_eq!(content.clocks.len(), 16);
+        assert_eq!(content.jobs.len(), 8);
         assert!(content
             .jobs
             .iter()
@@ -61903,7 +61825,7 @@ mod tests {
                 .orbs(),
             1
         );
-        assert_eq!(content.fronts.len(), 6);
+        assert_eq!(content.fronts.len(), 7);
         assert_eq!(content.cards.len(), 119);
         assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);

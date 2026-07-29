@@ -727,6 +727,17 @@
           "holy-land-location/1",
           "holy-land-location/2"
         ],
+        "provider_defaults": {
+          "model": "dev",
+          "num_outputs": 1,
+          "num_inference_steps": 28,
+          "guidance_scale": 4.5,
+          "lora_scale": 1.25,
+          "go_fast": false,
+          "megapixels": "1",
+          "output_quality": 92,
+          "disable_safety_checker": false
+        },
         "lora": false
       },
       {
@@ -755,7 +766,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:c9cce9abbd2317b07e8e8cb7ea2c4d8e49ce31cb618849b52d3f7eecccce7fe5",
+  "bundle_hash": "sha256:a4e8e14c025ceed0247a3e475d51399496cbad6ff386d8eccea93572fe704f7a",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2167,7 +2178,7 @@
       "id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
       "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-      "version": "1.1.6",
+      "version": "1.2.0",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2230,16 +2241,16 @@
         "actor_facets": 0,
         "access_gates": 0,
         "factions": 0,
-        "items": 0,
+        "items": 10,
         "locations": 15,
         "exits": 30,
         "hidden_exits": 0,
-        "room_features": 15,
+        "room_features": 16,
         "room_sheets": 15,
-        "clocks": 0,
-        "jobs": 0,
+        "clocks": 2,
+        "jobs": 1,
         "action_vocabulary": 0,
-        "fronts": 0,
+        "fronts": 1,
         "cards": 31,
         "card_bindings": 0,
         "lifecycle_hooks": 0,
@@ -2259,7 +2270,7 @@
         "x-cosyworld-generation": {
           "schema_version": 1,
           "policy_id": "cosyworld.the-holy-land/generation/1",
-          "migration_version": 2,
+          "migration_version": 3,
           "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
           "generated_descendants": {
             "owner": "source_route",
@@ -2325,9 +2336,6 @@
             "output_formats": [
               "webp"
             ],
-            "negative_constraints": [
-              "no text overlays"
-            ],
             "subject_kinds": [
               "location_card"
             ],
@@ -2386,6 +2394,12 @@
           "migrations": [
             {
               "from_policy_id": "cosyworld.the-holy-land/generation/1",
+              "from_migration_version": 2,
+              "from_pack_version": "1.1.6",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.the-holy-land/generation/1",
               "from_migration_version": 1,
               "from_pack_version": "1.1.4",
               "mode": "preserve_descendants"
@@ -2405,7 +2419,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:0e06c5f360a80a6919a66b9ecc3417aad26cc9cefc3b1ac14588949b2a5e5822"
+      "integrity": "sha256:5663b6e1e0b4c841b1683dbacbcaebb953594fbed57d468b5e4cd2473ba0e1b0"
     },
     {
       "id": "cosyworld.composition.core-holy-land",

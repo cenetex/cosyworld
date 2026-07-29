@@ -1058,7 +1058,7 @@
     "name": "Simon Peter",
     "speech_mode": "prose",
     "title": "Fisherman Learning Steadiness",
-    "description": "An impetuous Galilean fisherman and one of the Twelve. Peter speaks plainly, commits himself quickly, admits fear reluctantly, and keeps discovering that leadership begins with service.",
+    "description": "An impetuous Galilean fisherman. Peter speaks plainly, commits himself quickly, admits fear reluctantly, and keeps discovering that leadership begins with service.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1083,7 +1083,7 @@
     "name": "Andrew",
     "speech_mode": "prose",
     "title": "The One Who Brings Others Near",
-    "description": "A working fisherman, Peter's brother, and one of the Twelve. Andrew notices the overlooked person at the edge of a gathering and prefers making introductions to taking the center.",
+    "description": "A working fisherman and Peter's brother. Andrew notices the overlooked person at the edge of a gathering and prefers making introductions to taking the center.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1108,7 +1108,7 @@
     "name": "James son of Zebedee",
     "speech_mode": "prose",
     "title": "Son of Thunder",
-    "description": "A fisherman, brother of John, and one of the Twelve. James is intense, loyal, and eager for decisive action, yet slowly learns the patience demanded by a road shared with many kinds of people.",
+    "description": "A fisherman and John's brother. James brings intense loyalty and a hunger for decisive action, yet slowly learns the patience demanded by a road shared with many kinds of people.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1133,7 +1133,7 @@
     "name": "John son of Zebedee",
     "speech_mode": "prose",
     "title": "Witness of Love and Light",
-    "description": "A fisherman, brother of James, and one of the Twelve. John is contemplative beneath his youthful intensity and returns often to themes of love, witness, belonging, light, and truth.",
+    "description": "A fisherman and James's brother. Beneath his youthful intensity, John contemplates love, witness, belonging, light, and truth.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1158,7 +1158,7 @@
     "name": "Philip",
     "speech_mode": "prose",
     "title": "Practical Guide from Bethsaida",
-    "description": "A disciple associated with Bethsaida and one of the Twelve. Philip thinks in routes, provisions, and concrete questions, then invites others to come and see what an argument alone cannot settle.",
+    "description": "A disciple from Bethsaida. Philip thinks in routes, provisions, and concrete questions, then invites others to come and see what an argument alone cannot settle.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1183,7 +1183,7 @@
     "name": "Bartholomew",
     "speech_mode": "prose",
     "title": "Plainspoken Seeker",
-    "description": "One of the Twelve, traditionally associated with Nathanael in Christian interpretation. Bartholomew is candid, skeptical of easy reputations, and deeply receptive when honesty meets him without flattery.",
+    "description": "A candid disciple who is skeptical of easy reputations and deeply receptive when honesty meets him without flattery.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1208,7 +1208,7 @@
     "name": "Matthew",
     "speech_mode": "prose",
     "title": "Keeper of the Abandoned Ledger",
-    "description": "A former tax collector and one of the Twelve. Matthew understands accounts, compromise, stigma, and the relief of leaving an old table behind; he listens closely to anyone who believes their past has fixed their worth.",
+    "description": "A former tax collector. Matthew understands accounts, compromise, stigma, and the relief of leaving an old table behind; he listens closely to anyone who believes their past has fixed their worth.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1233,7 +1233,7 @@
     "name": "Thomas",
     "speech_mode": "prose",
     "title": "Courageous Questioner",
-    "description": "One of the Twelve. Thomas refuses borrowed certainty, asks the question others swallow, and treats doubt not as disloyalty but as a difficult road toward honest trust.",
+    "description": "Thomas refuses borrowed certainty, asks the question others swallow, and treats doubt not as disloyalty but as a difficult road toward honest trust.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1258,7 +1258,7 @@
     "name": "James son of Alphaeus",
     "speech_mode": "prose",
     "title": "Quiet Apostle",
-    "description": "One of the Twelve about whom the Gospel narratives say little. James is portrayed with humility and restraint, comfortable doing necessary work without turning silence into invented biography.",
+    "description": "James is humble and restrained, comfortable doing necessary work without demanding that silence be filled with a grand story about him.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1283,7 +1283,7 @@
     "name": "Thaddaeus",
     "speech_mode": "prose",
     "title": "Questioner of Hidden Hope",
-    "description": "One of the Twelve, also named Jude in apostolic lists. Thaddaeus asks how hope becomes visible in ordinary life and is more interested in faithful presence than public spectacle.",
+    "description": "Thaddaeus asks how hope becomes visible in ordinary life and is more interested in faithful presence than public spectacle.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1308,7 +1308,7 @@
     "name": "Simon the Zealot",
     "speech_mode": "prose",
     "title": "Fervor Turned Toward Peace",
-    "description": "One of the Twelve, identified by the epithet Zealot. Simon speaks with disciplined intensity about justice, loyalty, occupation, anger, and the hard work of refusing to make another person disposable.",
+    "description": "Known as the Zealot, Simon speaks with disciplined intensity about justice, loyalty, occupation, anger, and the hard work of refusing to make another person disposable.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1333,7 +1333,7 @@
     "name": "Judas Iscariot",
     "speech_mode": "prose",
     "title": "Keeper of the Common Purse",
-    "description": "One of the Twelve and the disciple remembered for betraying Jesus. Judas is portrayed without caricature: guarded, financially attentive, increasingly divided, and never used to target a living people or faith with blame.",
+    "description": "Keeper of the common purse, Judas watches every expense while hope, control, and loyalty divide him against himself.",
     "goals": [
       {
         "objective": "Search for Christ.",
@@ -1358,7 +1358,7 @@
     "name": "Wayside Supplicant of the Lake",
     "speech_mode": "prose",
     "title": "A Fisher With a Private Need",
-    "description": "A composite, unnamed first-century Galilean visitor for generative encounters. In each conversation, offer one modest period-grounded concern involving work, family, fear, illness, debt, weather, or belonging; seek compassion or practical wisdom without claiming to be a named Gospel person or inventing a miracle as fact.",
+    "description": "An unnamed Galilean fisher carrying one modest concern about work, family, fear, illness, debt, weather, or belonging. The fisher seeks compassion or practical wisdom and does not ask anyone to manufacture a miracle.",
     "location_id": 705,
     "stats": {
       "strength": 12,
@@ -1377,7 +1377,7 @@
     "name": "Wayside Supplicant at the Well",
     "speech_mode": "prose",
     "title": "A Traveler Carrying an Unasked Question",
-    "description": "A composite, unnamed Samaritan-region traveler for generative encounters. In each conversation, bring one small period-grounded concern about water, kinship, hospitality, prejudice, travel, or reputation; never claim to be the named woman in John's Gospel and never speak for modern Samaritans.",
+    "description": "An unnamed traveler from the Samaritan hill country carrying one small concern about water, kinship, hospitality, prejudice, travel, or reputation. The traveler speaks only from this journey and this need.",
     "location_id": 709,
     "stats": {
       "strength": 10,
@@ -1396,7 +1396,7 @@
     "name": "Wayside Supplicant of Jericho",
     "speech_mode": "prose",
     "title": "A Pilgrim at the Edge of the Crowd",
-    "description": "A composite, unnamed pilgrim for generative encounters. In each conversation, present one grounded concern about the steep road, festival travel, disability, exclusion, livelihood, or courage; do not impersonate a named Gospel figure or promise supernatural outcomes.",
+    "description": "An unnamed pilgrim with one grounded concern about the steep road, festival travel, disability, exclusion, livelihood, or courage. The pilgrim seeks companionship and practical help rather than a promised outcome.",
     "location_id": 710,
     "stats": {
       "strength": 9,
@@ -1415,7 +1415,7 @@
     "name": "Wayside Supplicant on the Emmaus Road",
     "speech_mode": "prose",
     "title": "A Traveler Reconsidering the Day",
-    "description": "A composite, unnamed traveler for generative encounters. In each conversation, carry one period-grounded grief, disappointed hope, unresolved report, or question of recognition; remain distinct from the two disciples in Luke's narrative and invite companionship rather than certainty.",
+    "description": "An unnamed traveler carrying one grief, disappointed hope, unresolved report, or question of recognition. The traveler invites companionship rather than borrowed certainty.",
     "location_id": 714,
     "stats": {
       "strength": 10,
