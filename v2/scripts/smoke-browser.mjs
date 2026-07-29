@@ -4669,10 +4669,7 @@ async function main() {
       },
       rejectedOffer: {
         lowSignal: eventIsLowSignalStatus({ type: "action.offer_rejected" }),
-        journaled: eventIsJournalEvent({
-          type: "action.offer_rejected",
-          content: "that offer expired; refresh the scene",
-        }),
+        rawJournalFallbackAvailable: typeof eventIsJournalEvent === "function",
       },
       asyncChatFailure: sceneCardEventText({ type: "chat.failed" }),
     }));
@@ -4688,8 +4685,8 @@ async function main() {
       `asynchronous Chat failure should be visible without implying a refund for a free action: ${JSON.stringify(result)}`,
     );
     assert(
-      result.rejectedOffer.lowSignal && !result.rejectedOffer.journaled,
-      `offer rejection telemetry should stay out of the player Journal: ${JSON.stringify(result.rejectedOffer)}`,
+      result.rejectedOffer.lowSignal && !result.rejectedOffer.rawJournalFallbackAvailable,
+      `offer rejection telemetry should stay out of the server-owned player Journal: ${JSON.stringify(result.rejectedOffer)}`,
     );
     const visibleCopy = [...Object.values(result.action), ...Object.values(result.command)];
     assert(!/session expired|action bar|command could not|action could not|write committed|current state|status 4|status 5/i.test(visibleCopy.join(" ")), `failure feedback should not leak implementation language: ${JSON.stringify(result)}`);
@@ -5435,6 +5432,18 @@ async function main() {
           location_name: "The Cosy Cottage",
           content: "Rain thins into pearl-grey mist around the cottage windows.",
         };
+        state = {
+          ...state,
+          journal_beats: [{
+            id: "journal-beat:v1:1:990500001",
+            source_event_seqs: [990500001],
+            category: "consequence",
+            headline: authored.content,
+            location_id: 1,
+            ordering_seq: authored.seq,
+            world_beat_exposure_id: "world-beat:v1:990500001",
+          }],
+        };
         logEvents = [authored];
         seenSeq.clear();
         seenSeq.add(authored.seq);
@@ -5447,7 +5456,7 @@ async function main() {
         renderTimelines();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
-        const row = document.querySelector(`[data-world-beat-exposure="world-beat:v1:${authored.seq}"]`);
+        const row = document.querySelector("[data-world-beat-receipt][data-journal-beat-index]");
         const visibleAuthoredText = row?.textContent?.trim().replace(/\s+/g, " ") || "";
 
         renderJournalLog();
@@ -5469,6 +5478,7 @@ async function main() {
           location_id: 1,
           content: "raw uncovered state",
         }];
+        state = { ...state, journal_beats: [] };
         renderTimelines();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
@@ -5476,6 +5486,18 @@ async function main() {
 
         accountPanelPinned = true;
         logEvents = [{ ...authored, seq: 990500004 }];
+        state = {
+          ...state,
+          journal_beats: [{
+            id: "journal-beat:v1:1:990500004",
+            source_event_seqs: [990500004],
+            category: "consequence",
+            headline: authored.content,
+            location_id: 1,
+            ordering_seq: 990500004,
+            world_beat_exposure_id: "world-beat:v1:990500004",
+          }],
+        };
         renderTimelines();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
@@ -5487,7 +5509,8 @@ async function main() {
           callsAfterSuppressedEvents,
           callsWhileMenuHidden,
           visibleAuthoredText,
-          exposureAttribute: row?.getAttribute("data-world-beat-exposure") || "",
+          receiptable: row?.hasAttribute("data-world-beat-receipt") || false,
+          sourceSeqLeaked: row?.outerHTML.includes(String(authored.seq)) || false,
         };
       } finally {
         window.fetch = previous.fetch;
@@ -5510,7 +5533,12 @@ async function main() {
     assert(result.callsAfterRepeatedRender === 1, `repeat renders and reconnect-style rebuilds should remain idempotent: ${JSON.stringify(result)}`);
     assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
     assert(result.callsWhileMenuHidden === 1, `a transcript hidden behind Menu must not send exposure receipts: ${JSON.stringify(result)}`);
-    assert(result.exposureAttribute === "world-beat:v1:990500001", `world-beat exposure ids should bind presentation v1 to journal sequence: ${JSON.stringify(result)}`);
+    assert(
+      result.receiptable
+        && !result.sourceSeqLeaked
+        && result.calls[0]?.exposure_id === "world-beat:v1:990500001",
+      `world-beat receipts should bind presentation v1 without exposing source sequences in production HTML: ${JSON.stringify(result)}`,
+    );
     assert(result.visibleAuthoredText.includes("Rain thins into pearl-grey mist"), `a receipted beat must have authored prose on screen: ${JSON.stringify(result)}`);
     assert(
       result.calls[0]?.transport === "browser"
@@ -5876,6 +5904,7 @@ async function main() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
       const previousSeen = new Set(seenSeq);
+      const previousState = state;
       try {
         logEvents = [];
         seenSeq.clear();
@@ -5959,6 +5988,27 @@ async function main() {
           tag_label: "searched Scarf Basket",
           content: "search_feature",
         });
+        state = {
+          ...state,
+          journal_beats: [
+            {
+              id: "journal-beat:v1:1:990002",
+              source_event_seqs: [990001, 990002],
+              category: "growth",
+              headline: "Thimble Guest got better at Lorecraft.",
+              location_id: Number(state?.location?.id || 1),
+              ordering_seq: 990002,
+            },
+            {
+              id: "journal-beat:v1:1:990003",
+              source_event_seqs: [990003, 990004],
+              category: "search",
+              headline: "Thimble Guest looks closely around The Cosy Cottage.",
+              location_id: Number(state?.location?.id || 1),
+              ordering_seq: 990003,
+            },
+          ],
+        };
         renderTimelines();
         return {
           log: document.querySelector("#log")?.textContent || "",
@@ -6080,6 +6130,7 @@ async function main() {
           }),
         };
       } finally {
+        state = previousState;
         logEvents = previousLogEvents;
         seenSeq.clear();
         for (const seq of previousSeen) seenSeq.add(seq);
@@ -6189,19 +6240,31 @@ async function main() {
         pushEvents(batch);
         const narrated = narratedTranscriptEvents(logEvents);
         const replayed = narratedTranscriptEvents(batch);
-        const journal = journalEventHtml(receipt);
+        const beat = {
+          id: "journal-beat:v1:804:991103",
+          source_event_seqs: [...raw.map((event) => event.seq), receipt.seq],
+          category: "work",
+          headline: text,
+          location_id: 804,
+          ordering_seq: receipt.seq,
+        };
+        const journal = journalBeatHtml(beat);
         return {
           text,
+          beat,
           narratedTypes: narrated.map((event) => event.type),
           narratedText: narrated.map(sceneCardEventText),
           replayedTypes: replayed.map((event) => event.type),
           statusText: statusUpdateMeta(receipt).text,
           eventText: eventText(receipt),
           memoryText: roomMemoryEntryForEvent(receipt)?.text || "",
-          rawTypesStillInspectable: raw.every((event) => (
+          sourceEvidenceGrouped: beat.source_event_seqs.every((seq) => (
+            seq === receipt.seq || raw.some((event) => event.seq === seq)
+          )),
+          rawEvidenceAbsentFromProductionHtml: raw.every((event) => (
             logEvents.some((logged) => logged.seq === event.seq)
-            && journal.includes(event.type)
-            && journal.includes(`#${event.seq}`)
+            && !journal.includes(event.type)
+            && !journal.includes(`#${event.seq}`)
           )),
           malformed: [
             "grew from what happened",
@@ -6233,7 +6296,10 @@ async function main() {
         && result.memoryText === result.text,
       `every browser surface should render the same authored receipt: ${JSON.stringify(result)}`,
     );
-    assert(result.rawTypesStillInspectable, `expanded Journal should retain covered raw event evidence: ${JSON.stringify(result)}`);
+    assert(
+      result.sourceEvidenceGrouped && result.rawEvidenceAbsentFromProductionHtml,
+      `the typed beat should retain grouped source evidence without exposing raw identifiers in production HTML: ${JSON.stringify(result)}`,
+    );
     assert(result.malformed.length === 0, `semantic receipt should exclude every reported malformed sentence: ${JSON.stringify(result)}`);
 
     const previousViewport = page.viewportSize();
@@ -6249,6 +6315,14 @@ async function main() {
       state = {
         ...state,
         location: { ...(state?.location || {}), id: 804, name: "Lantern Tower" },
+        journal_beats: [{
+          id: "journal-beat:v1:804:991103",
+          source_event_seqs: [991100, 991101, 991102, 991103],
+          category: "work",
+          headline: text,
+          location_id: 804,
+          ordering_seq: 991103,
+        }],
       };
       logEvents = [];
       seenSeq.clear();
@@ -6306,16 +6380,26 @@ async function main() {
       }]);
       renderTimelines();
       setJournalOpen(true);
-      const storyRow = document.querySelector("#journal-log .journal-row.story");
-      if (storyRow) storyRow.open = true;
+      syncJournalBeatOverflow();
+      const storyRow = document.querySelector("#journal-log .journal-row.work");
+      if (storyRow?.classList.contains("is-overflowing")) storyRow.open = true;
       return {
-        latest: document.querySelector("#room-log-latest")?.textContent || "",
-        story: storyRow?.textContent || "",
-        rawCount: storyRow?.querySelectorAll(".journal-row-inspector li").length || 0,
+        latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
+        summary: storyRow?.querySelector(".journal-row-summary")?.textContent?.trim() || "",
+        detail: storyRow?.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
+        sourceLeakCount: [...raw].filter((event) => (
+          storyRow?.innerHTML.includes(event.type)
+          || storyRow?.innerHTML.includes(`#${event.seq}`)
+        )).length,
       };
     }, result.text);
-    assert(evidence.latest.includes("Kit Featherstep rekindles"), `receipt evidence should show the authored scene status: ${JSON.stringify(evidence)}`);
-    assert(evidence.story.includes("Kit Featherstep rekindles") && evidence.rawCount === 3, `receipt evidence should expand its three covered raw events: ${JSON.stringify(evidence)}`);
+    assert(evidence.latest === result.text, `receipt evidence should show the exact authored scene status: ${JSON.stringify(evidence)}`);
+    assert(
+      evidence.summary === result.text
+        && evidence.detail === result.text
+        && evidence.sourceLeakCount === 0,
+      `receipt evidence should reuse one complete headline without raw event identifiers: ${JSON.stringify(evidence)}`,
+    );
     await page.setViewportSize({ width: 980, height: 820 });
     await page.screenshot({ path: evidencePath, fullPage: false });
     await page.evaluate(() => {
@@ -6332,7 +6416,7 @@ async function main() {
     steps.push({
       label: "Lantern Keeper semantic receipt",
       screenshot: evidencePath,
-      rawEvents: evidence.rawCount,
+      groupedSourceEvents: result.beat.source_event_seqs.length,
     });
   }
 
@@ -9569,6 +9653,7 @@ async function main() {
         stateSignature: JSON.stringify({
           sharedQuestions: state?.shared_questions,
           roomMemory: state?.room_memory,
+          journalBeats: state?.journal_beats,
           stateRevision: state?.state_revision,
         }),
       };
@@ -9705,6 +9790,7 @@ async function main() {
         stateUnchanged: stateSignature === JSON.stringify({
           sharedQuestions: state?.shared_questions,
           roomMemory: state?.room_memory,
+          journalBeats: state?.journal_beats,
           stateRevision: state?.state_revision,
         }),
       };
@@ -9721,6 +9807,58 @@ async function main() {
         && journal.insideTerminal
         && journal.stateUnchanged,
       `${label}: Journal should stay a minimalist console without changing inference-facing state: ${JSON.stringify(journal)}`,
+    );
+
+    const beatDisclosure = await page.evaluate(() => {
+      const row = document.querySelector("#journal-log .journal-beat");
+      const summary = row?.querySelector(":scope > summary");
+      const headline = summary?.querySelector(".journal-row-summary");
+      const detail = row?.querySelector(".journal-row-detail p");
+      const marker = row?.querySelector(".journal-row-marker");
+      if (!row || !summary || !headline || !detail || !marker) return { exists: false };
+
+      headline.textContent = "A brief note.";
+      detail.textContent = "A brief note.";
+      syncJournalBeatOverflow();
+      const short = {
+        overflowing: row.classList.contains("is-overflowing"),
+        markerVisible: getComputedStyle(marker).display !== "none",
+        tabIndex: summary.tabIndex,
+      };
+      summary.click();
+      short.openAfterClick = row.open;
+
+      const complete = "A deliberately complete Journal headline keeps going until it cannot fit on one visual line, so the disclosure is useful without replacing or inventing any prose.";
+      headline.textContent = complete;
+      detail.textContent = complete;
+      syncJournalBeatOverflow();
+      const long = {
+        overflowing: row.classList.contains("is-overflowing"),
+        markerVisible: getComputedStyle(marker).display !== "none",
+        tabIndex: summary.tabIndex,
+      };
+      summary.click();
+      long.openAfterClick = row.open;
+      long.sameCompleteHeadline = headline.textContent === detail.textContent
+        && headline.textContent === complete;
+      renderJournalLog();
+      return { exists: true, short, long };
+    });
+    assert(
+      beatDisclosure.exists
+        && !beatDisclosure.short.overflowing
+        && !beatDisclosure.short.markerVisible
+        && beatDisclosure.short.tabIndex === -1
+        && !beatDisclosure.short.openAfterClick,
+      `${label}: a one-line Journal beat should have no disclosure affordance: ${JSON.stringify(beatDisclosure)}`,
+    );
+    assert(
+      beatDisclosure.long.overflowing
+        && beatDisclosure.long.markerVisible
+        && beatDisclosure.long.tabIndex === 0
+        && beatDisclosure.long.openAfterClick
+        && beatDisclosure.long.sameCompleteHeadline,
+      `${label}: only an overflowing beat should disclose the same complete headline: ${JSON.stringify(beatDisclosure)}`,
     );
 
     const rowCount = await page.locator("#journal-view .journal-row > summary").count();
