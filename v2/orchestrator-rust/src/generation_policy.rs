@@ -510,7 +510,16 @@ pub(super) fn generation_policy_allows_upgrade(
         .ok_or_else(|| "generation policy disappeared during pack upgrade".to_string())?;
     policy_declares_preserved_binding(&policy, binding)
         .then_some(())
-        .ok_or_else(|| "pack upgrade has no exact generated-descendant migration".to_string())
+        .ok_or_else(|| {
+            format!(
+                "pack upgrade from {}@{} policy {} migration {} to {} has no exact generated-descendant migration",
+                binding.owner_pack_id,
+                binding.owner_pack_version,
+                binding.policy_id,
+                binding.migration_version,
+                active_pack_version,
+            )
+        })
 }
 
 pub(super) fn resolve_generation_media_config(
@@ -793,7 +802,12 @@ mod tests {
 
         let mut wrong_version = declared.clone();
         wrong_version.owner_pack_version = "1.1.2".to_string();
-        assert!(generation_policy_allows_upgrade(&wrong_version, "1.1.5").is_err());
+        let error = generation_policy_allows_upgrade(&wrong_version, "1.1.5")
+            .expect_err("an undeclared historical tuple must fail closed");
+        assert_eq!(
+            error,
+            "pack upgrade from cosyworld.the-holy-land@1.1.2 policy cosyworld.the-holy-land/generation/1 migration 1 to 1.1.5 has no exact generated-descendant migration"
+        );
         let mut wrong_policy = declared;
         wrong_policy.policy_id = "cosyworld.other/generation/1".to_string();
         assert!(generation_policy_allows_upgrade(&wrong_policy, "1.1.5").is_err());
