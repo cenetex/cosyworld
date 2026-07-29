@@ -77,4 +77,10 @@
 # the remaining handlers reuse the same access-aware rejection and journey seams.
 # 74293 -> 74291: route kernel events through the existing bounded projected-event
 # append so recent-room and same-speaker publication context stays current.
-74291
+# 74291 -> 74648: preserve speaker/recipient ownership through the existing
+# bounded Chat worker. The new lines carry committed directed turns instead of
+# rebuilding from ambient room history, bind reply causality to those events,
+# keep observed actions distinct from literal speech, and re-check room, safety
+# consent, and inference ownership at each asynchronous commit. The added lines
+# also pin those context and causality boundaries with focused regressions.
+74648

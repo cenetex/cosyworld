@@ -290,10 +290,24 @@ pub(crate) fn publication_generation_id(
     context: &SpeechGateContext,
     prompt_version: &str,
 ) -> String {
+    publication_generation_id_for(
+        context.feature,
+        prompt_version,
+        &context.generation_key,
+        context.speaker_actor_id,
+    )
+}
+
+fn publication_generation_id_for(
+    feature: &str,
+    prompt_version: &str,
+    generation_key: &str,
+    speaker_actor_id: u64,
+) -> String {
     sha256_hex(
         format!(
             "{}\0{}\0{}\0{}",
-            context.feature, prompt_version, context.generation_key, context.speaker_actor_id
+            feature, prompt_version, generation_key, speaker_actor_id
         )
         .as_bytes(),
     )
@@ -435,6 +449,13 @@ impl crate::RuntimeWorld {
         };
         record.action.kind == crate::CW_ACTION_SAY
             && !self.ai_publications.contains_key(&receipt.generation_id)
+            && receipt.generation_id
+                == publication_generation_id_for(
+                    &receipt.feature,
+                    &receipt.prompt_version,
+                    &receipt.generation_key,
+                    record.action.actor_id,
+                )
             && record
                 .content_upserts
                 .get(&record.action.content_id)
@@ -1418,6 +1439,29 @@ mod tests {
                 .map(|stored| stored.publication_id.as_str()),
             Some(receipt.publication_id.as_str())
         );
+    }
+
+    #[test]
+    fn certified_speech_cannot_be_committed_under_another_actor() {
+        let mut record = certified_record(
+            RATI_ACTOR_ID,
+            98_004,
+            "The teapot is waiting beside the basket.",
+            "speaker-binding-context",
+        );
+        let receipt = record.ai_publication.as_ref().unwrap().clone();
+        record.action.actor_id = WHISKERWIND_ACTOR_ID;
+
+        let mut runtime = RuntimeWorld::seeded();
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_ERR_RULE);
+        assert!(events.is_empty());
+        assert!(!runtime.ai_publications.contains_key(&receipt.generation_id));
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(WHISKERWIND_ACTOR_ID)
+                && event.content.as_deref() == Some("The teapot is waiting beside the basket.")
+        }));
     }
 
     #[test]

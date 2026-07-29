@@ -287,7 +287,7 @@ impl RuntimeWorld {
         observation: &PlayerTickObservation,
     ) -> Option<AvatarReplyPlan> {
         let expectation = observation.relationship_reply.as_ref()?;
-        self.resident_reply_plan_for_target(
+        self.resident_reaction_plan_for_target(
             expectation.actor_id,
             expectation.target_actor_id,
             &expectation.user_text,

@@ -1930,11 +1930,14 @@ mod tests {
             ("provider/tiny-b", "Teapot replay b.", 0),
             ("provider/small-c", "Teapot replay c.", 0),
         ]);
+        let mut replay_gate = gate("replay-beat");
+        replay_gate.speaker_actor_id = 1001;
+        replay_gate.speaker_name = "Rati".to_string();
         let certified = route_certified_voice_with(
             &config,
             Some(&path),
             request("dialogue_avatar"),
-            gate("replay-beat"),
+            replay_gate.clone(),
             Arc::new(backend),
         )
         .await
@@ -1965,7 +1968,7 @@ mod tests {
             &config,
             Some(&path),
             request("dialogue_avatar"),
-            gate("replay-beat"),
+            replay_gate,
             Arc::new(replay_backend.clone()),
         )
         .await
