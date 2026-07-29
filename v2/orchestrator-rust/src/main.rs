@@ -52680,7 +52680,7 @@ mod tests {
             acting_avatar.economy_note,
             DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT
         );
-        assert!(resident_system_prompt(&acting_avatar).contains("Speak briefly on behalf"));
+        assert!(resident_system_prompt(&acting_avatar).contains("i speak for us both"));
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -52698,9 +52698,7 @@ mod tests {
             other_avatar.economy_note,
             DIRECTLY_CONTROLLED_REACTION_CONTEXT
         );
-        assert!(
-            resident_system_prompt(&other_avatar).contains("Do not impersonate the acting avatar")
-        );
+        assert!(resident_system_prompt(&other_avatar).contains("in my own mouth — never theirs"));
     }
 
     #[test]
@@ -53813,7 +53811,7 @@ mod tests {
             .location_memory
             .iter()
             .any(|line| line.contains("Leaf")));
-        assert!(resident_system_prompt(&plan).contains("four short voices"));
+        assert!(resident_system_prompt(&plan).contains("i've never been just one voice"));
     }
 
     #[test]
@@ -68758,7 +68756,7 @@ mod tests {
             .memory_atoms
             .iter()
             .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
-        assert!(format_resident_continuity(continuity).contains("memory atoms:"));
+        assert!(format_resident_continuity(continuity).contains("i remember:"));
 
         let snapshot = RuntimeSnapshot::from_runtime(&runtime);
         assert!(snapshot.resident_continuities.is_empty());
@@ -70682,10 +70680,10 @@ mod tests {
             .any(|note| note.text.contains("button has already moved")));
         assert!(continuity.last_observed_event_seq >= speech_seq);
         let formatted = format_resident_continuity(continuity);
-        assert!(formatted.contains("beliefs:"));
-        assert!(formatted.contains("desires:"));
-        assert!(formatted.contains("promises:"));
-        assert!(formatted.contains("refusals:"));
+        assert!(formatted.contains("i believe:"));
+        assert!(formatted.contains("i want:"));
+        assert!(formatted.contains("i promised:"));
+        assert!(formatted.contains("i refuse:"));
 
         let snapshot_path = std::env::temp_dir().join(format!(
             "cosyworld-v2-snapshot-continuity-{}-{}.json",
