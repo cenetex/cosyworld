@@ -11578,6 +11578,9 @@ impl RuntimeWorld {
     ) -> Vec<EventView> {
         let mut projected = Vec::new();
         for hook in lifecycle_hooks_for(hook_name, target_kind, target_id) {
+            if !lifecycle_hook_requirements_met(hook, &self.tags) {
+                continue;
+            }
             let effects = hook
                 .effects
                 .iter()
@@ -18830,10 +18833,11 @@ impl RuntimeWorld {
         let amount: u8 = lifecycle_hooks_for("on_use", "item", &target_id)
             .into_iter()
             .filter(|hook| {
-                actor_id
-                    .and_then(|id| lifecycle_hook_claim_key(hook, id, "item", &target_id, 0))
-                    .map(|claim_key| !self.rpg_claims.contains(&claim_key))
-                    .unwrap_or(true)
+                lifecycle_hook_requirements_met(hook, &self.tags)
+                    && actor_id
+                        .and_then(|id| lifecycle_hook_claim_key(hook, id, "item", &target_id, 0))
+                        .map(|claim_key| !self.rpg_claims.contains(&claim_key))
+                        .unwrap_or(true)
             })
             .flat_map(|hook| hook.effects.iter())
             .filter_map(|effect| match effect {
@@ -60729,6 +60733,22 @@ mod tests {
     #[test]
     fn clock_fill_kernel_rejection_keeps_prior_projection_and_emits_partial() {
         let mut runtime = RuntimeWorld::seeded();
+        let route_id = runtime
+            .route_for_edge_in_any_lifecycle(COSY_COTTAGE_LOCATION_ID, 2)
+            .expect("seed cottage route")
+            .id
+            .clone();
+        runtime
+            .routes
+            .get_mut(&route_id)
+            .expect("seed cottage route")
+            .edges
+            .iter_mut()
+            .find(|edge| {
+                edge.from_location_id == COSY_COTTAGE_LOCATION_ID && edge.to_location_id == 2
+            })
+            .expect("seed cottage route edge")
+            .flags |= CW_EXIT_LOCKED;
         let exit = runtime.world.exits[..runtime.world.exit_count]
             .iter_mut()
             .find(|exit| {

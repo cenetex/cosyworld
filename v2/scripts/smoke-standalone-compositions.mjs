@@ -52,6 +52,25 @@ const worldCases = [
     offerVerb: "Tune in",
     marker: "ruby-only journal loop",
   },
+  {
+    label: "Project89 three rings",
+    registryPath: resolve(contentRoot, "project89/registry.json"),
+    worldpackId: "project89.three-rings",
+    packIds: [
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "project89.operation-liberation",
+      "project89.perimeter-relay",
+      "project89.open-signal-frontier",
+      "project89.composition.three-rings",
+    ],
+    location: "Threshold Interface",
+    locationPack: "project89.operation-liberation",
+    selectedBy: null,
+    capability: null,
+    offerVerb: null,
+    marker: "project89 journal loop",
+  },
 ];
 
 function assert(condition, message) {
@@ -208,19 +227,35 @@ function assertMountedComposition(meta, spec) {
 
 function assertScene(state, spec, { requireOffer = true } = {}) {
   assert(state.location?.name === spec.location, JSON.stringify(state.location));
-  assert(
-    state.rules_context?.location_pack_id === spec.locationPack
-      && state.rules_context?.selected_by_pack_id === spec.selectedBy
-      && state.rules_context?.capability_id === spec.capability,
-    `${spec.label} selected the wrong rules context: ${JSON.stringify(state.rules_context)}`,
-  );
-  if (requireOffer) {
+  if (spec.selectedBy) {
     assert(
-      state.action_offers?.some((offer) => offer.verb === spec.offerVerb),
-      `${spec.label} did not expose ${spec.offerVerb}: ${JSON.stringify(
-        state.action_offers?.map(({ kind, verb }) => ({ kind, verb })),
-      )}`,
+      state.rules_context?.location_pack_id === spec.locationPack
+        && state.rules_context?.selected_by_pack_id === spec.selectedBy
+        && state.rules_context?.capability_id === spec.capability,
+      `${spec.label} selected the wrong rules context: ${JSON.stringify(state.rules_context)}`,
     );
+  } else {
+    assert(
+      state.rules_context == null,
+      `${spec.label} unexpectedly selected a pack-local rules context: ${
+        JSON.stringify(state.rules_context)
+      }`,
+    );
+  }
+  if (requireOffer) {
+    if (spec.offerVerb) {
+      assert(
+        state.action_offers?.some((offer) => offer.verb === spec.offerVerb),
+        `${spec.label} did not expose ${spec.offerVerb}: ${JSON.stringify(
+          state.action_offers?.map(({ kind, verb }) => ({ kind, verb })),
+        )}`,
+      );
+    } else {
+      assert(
+        state.action_offers?.length > 0,
+        `${spec.label} exposed no legal action offers`,
+      );
+    }
   }
 }
 

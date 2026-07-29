@@ -850,6 +850,19 @@ pub(super) struct SeedLodgingGateContent {
     pub(super) kind: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum RouteDiscovery {
+    Scout,
+    Known,
+}
+
+impl Default for RouteDiscovery {
+    fn default() -> Self {
+        Self::Scout
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedExitContent {
     #[serde(default)]
@@ -866,6 +879,8 @@ pub(super) struct SeedExitContent {
     pub(super) directionality: RouteDirectionality,
     #[serde(default)]
     pub(super) fallback_location_id: Option<u64>,
+    #[serde(default)]
+    pub(super) discovery: RouteDiscovery,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -947,7 +962,16 @@ pub(super) struct SeedLifecycleHookContent {
     #[serde(default)]
     pub(super) claim_scope: String,
     #[serde(default)]
+    pub(super) requirements: Vec<SeedLifecycleRequirementContent>,
+    #[serde(default)]
     pub(super) effects: Vec<EffectDescriptor>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedLifecycleRequirementContent {
+    pub(super) kind: String,
+    pub(super) tag_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -3527,6 +3551,19 @@ fn validate_seed_lifecycle_hook(
     }
     if hook.effects.is_empty() {
         return Err(format!("lifecycle hook {} has no effects", hook.hook));
+    }
+    if hook.hook == "on_clock_fill" && !hook.requirements.is_empty() {
+        return Err(
+            "on_clock_fill lifecycle hooks cannot declare dynamic requirements".to_string(),
+        );
+    }
+    for requirement in &hook.requirements {
+        if requirement.kind != "active_tag" || requirement.tag_id.trim().is_empty() {
+            return Err(format!(
+                "lifecycle hook {} has an invalid requirement",
+                hook.hook
+            ));
+        }
     }
     match hook.target_kind.as_str() {
         "room" => {

@@ -1782,16 +1782,40 @@ impl RuntimeWorld {
                 })
             }
             "scout" => {
-                let target = self
-                    .scout_action_offer_target(actor.id, access)
-                    .ok_or_else(|| {
-                        command_error(
-                            &command,
-                            "scout",
-                            404,
-                            "There is no route to Scout here.",
-                        )
-                    })?;
+                let targets = self.scout_action_offer_targets(actor.id, access);
+                if targets.is_empty() {
+                    return Err(command_error(
+                        &command,
+                        "scout",
+                        404,
+                        "There is no route to Scout here.",
+                    ));
+                }
+                let query = trim_command_filler(rest);
+                let target = if query.is_empty() && targets.len() == 1 {
+                    targets.into_iter().next()
+                } else if query.is_empty() {
+                    None
+                } else {
+                    let query_key = command_key(query);
+                    targets.into_iter().filter_map(|target| {
+                        let (score, label_len) = {
+                            let label = target.label.as_deref()?;
+                            (command_match_score(label, &query_key)?, label.len())
+                        };
+                        Some((score, label_len, target))
+                    })
+                    .min_by_key(|(score, len, _)| (*score, *len))
+                    .map(|(_, _, target)| target)
+                }
+                .ok_or_else(|| {
+                    command_error(
+                        &command,
+                        "scout",
+                        404,
+                        "No available Scout route matches that command.",
+                    )
+                })?;
                 let destination = target.id.ok_or_else(|| {
                     command_error(
                         &command,
@@ -1803,17 +1827,6 @@ impl RuntimeWorld {
                 let target_label = target
                     .label
                     .unwrap_or_else(|| self.location_name(destination).unwrap_or_default());
-                let query = trim_command_filler(rest);
-                if !query.is_empty()
-                    && command_match_score(&target_label, &command_key(query)).is_none()
-                {
-                    return Err(command_error(
-                        &command,
-                        "scout",
-                        404,
-                        "No current journey destination matches that command.",
-                    ));
-                }
                 let canonical = format!("scout {target_label}");
                 Ok(ResolvedCommand {
                     command: canonical.clone(),

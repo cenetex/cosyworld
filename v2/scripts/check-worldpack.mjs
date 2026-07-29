@@ -28,6 +28,10 @@ import {
   worldpackMediaRegistry,
 } from "./world-generation-policy.mjs";
 import { roomFeatureSchemaValidationErrors } from "./room-feature-schema.mjs";
+import {
+  routeDirectionValidationErrors,
+  routeDiscoveryValidationErrors,
+} from "./route-direction.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -1704,7 +1708,6 @@ for (const location of locations) {
 }
 
 const exitPairs = new Set();
-const exitDirections = new Set();
 const exitOwnerByEndpoints = new Map();
 const exitsByPair = new Map();
 const maximumAuthoredPathwayDistance = 89;
@@ -1768,13 +1771,6 @@ for (const exit of exits) {
     );
   } else {
     exitOwnerByEndpoints.set(endpointKey, exit.pack_id);
-  }
-  if (isNonEmptyString(exit.direction)) {
-    const directionKey = `${exit.from_location_id}:${exit.direction.trim().toLowerCase()}`;
-    if (exitDirections.has(directionKey)) {
-      fail(`duplicate direction ${exit.direction} from location ${exit.from_location_id}`);
-    }
-    exitDirections.add(directionKey);
   }
 }
 
@@ -1867,14 +1863,13 @@ for (const hiddenExit of hiddenExits) {
   if (!featureKeys.has(featureKey)) {
     fail(`hidden exit ${hiddenExit.id} references missing feature ${featureKey}`);
   }
-  const outboundDirection = `${hiddenExit.from_location_id}:${String(hiddenExit.direction || "").trim().toLowerCase()}`;
-  if (exitDirections.has(outboundDirection)) {
-    fail(`hidden exit ${hiddenExit.id} duplicates visible direction ${hiddenExit.direction} from location ${hiddenExit.from_location_id}`);
-  }
-  const returnDirection = `${hiddenExit.to_location_id}:${String(hiddenExit.return_direction || "").trim().toLowerCase()}`;
-  if (exitDirections.has(returnDirection)) {
-    fail(`hidden exit ${hiddenExit.id} duplicates visible direction ${hiddenExit.return_direction} from location ${hiddenExit.to_location_id}`);
-  }
+}
+
+for (const error of routeDirectionValidationErrors(exits, hiddenExits)) {
+  fail(error);
+}
+for (const error of routeDiscoveryValidationErrors(exits)) {
+  fail(error);
 }
 
 const entryLocationMatch = String(manifest.entry_location).match(/location\/(\d+)$/);
@@ -2580,6 +2575,22 @@ for (const hook of lifecycleHooks) {
   }
   if (!Array.isArray(hook.effects) || hook.effects.length === 0) {
     fail(`hook ${hook.hook} has no effects`);
+  }
+  if (!Array.isArray(hook.requirements ?? [])) {
+    fail(`hook ${hook.hook} requirements must be an array`);
+  }
+  if (hook.hook === "on_clock_fill" && (hook.requirements ?? []).length > 0) {
+    fail(`hook ${hook.hook} cannot declare dynamic requirements`);
+  }
+  for (const requirement of hook.requirements ?? []) {
+    if (
+      !isObject(requirement)
+      || requirement.kind !== "active_tag"
+      || typeof requirement.tag_id !== "string"
+      || requirement.tag_id.trim().length === 0
+    ) {
+      fail(`hook ${hook.hook} has an invalid active_tag requirement`);
+    }
   }
   const targetId = Number(hook.target_id);
   if (hook.target_kind === "room" && !has(locationIds, targetId)) {

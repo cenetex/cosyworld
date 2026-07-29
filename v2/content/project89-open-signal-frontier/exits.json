@@ -1,10 +1,10 @@
 [
-  { "from_location_id": 8940, "to_location_id": 8941, "flags": 0, "distance": 89, "direction": "salvage meridian" },
-  { "from_location_id": 8941, "to_location_id": 8940, "flags": 0, "distance": 89, "direction": "archive meridian" },
-  { "from_location_id": 8941, "to_location_id": 8942, "flags": 0, "distance": 89, "direction": "living reach" },
-  { "from_location_id": 8942, "to_location_id": 8941, "flags": 0, "distance": 89, "direction": "chimera reach" },
-  { "from_location_id": 8942, "to_location_id": 8943, "flags": 0, "distance": 89, "direction": "rabbit expanse" },
-  { "from_location_id": 8943, "to_location_id": 8942, "flags": 0, "distance": 89, "direction": "loom expanse" },
-  { "from_location_id": 8943, "to_location_id": 8940, "flags": 0, "distance": 89, "direction": "archive freeway" },
-  { "from_location_id": 8940, "to_location_id": 8943, "flags": 0, "distance": 89, "direction": "rabbit freeway" }
+  { "from_location_id": 8940, "to_location_id": 8941, "flags": 0, "distance": 89, "direction": "east", "discovery": "scout" },
+  { "from_location_id": 8941, "to_location_id": 8940, "flags": 0, "distance": 89, "direction": "west", "discovery": "scout" },
+  { "from_location_id": 8941, "to_location_id": 8942, "flags": 0, "distance": 89, "direction": "south", "discovery": "scout" },
+  { "from_location_id": 8942, "to_location_id": 8941, "flags": 0, "distance": 89, "direction": "north", "discovery": "scout" },
+  { "from_location_id": 8942, "to_location_id": 8943, "flags": 0, "distance": 89, "direction": "west", "discovery": "scout" },
+  { "from_location_id": 8943, "to_location_id": 8942, "flags": 0, "distance": 89, "direction": "east", "discovery": "scout" },
+  { "from_location_id": 8943, "to_location_id": 8940, "flags": 0, "distance": 89, "direction": "north", "discovery": "scout" },
+  { "from_location_id": 8940, "to_location_id": 8943, "flags": 0, "distance": 89, "direction": "south", "discovery": "scout" }
 ]

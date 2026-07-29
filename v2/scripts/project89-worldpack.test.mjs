@@ -4,6 +4,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  routeDirectionValidationErrors,
+  routeDiscoveryValidationErrors,
+} from "./route-direction.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const contentRoot = path.resolve(scriptDir, "../content");
 
@@ -136,4 +141,40 @@ test("Project 89 generated-place terminology never falls back to cairns", () => 
     assert.match(policy.place_anchor.visual_description, /teal/i);
     assert.match(policy.place_anchor.visual_description, /coral/i);
   }
+});
+
+test("Project 89 route directions are runtime-canonical and collision-free", () => {
+  const exits = [
+    ...readJson("project89-operation-liberation", "exits.json"),
+    ...readJson("project89-perimeter-relay", "exits.json"),
+    ...readJson("project89-open-signal-frontier", "exits.json"),
+    ...readJson("project89-three-rings-bridge", "exits.json"),
+  ];
+
+  assert.deepEqual(routeDirectionValidationErrors(exits, []), []);
+});
+
+test("Project 89 keeps authored infrastructure known and exploration routes scoutable", () => {
+  const operationExits = readJson(
+    "project89-operation-liberation",
+    "exits.json",
+  );
+  const bridgeExits = readJson("project89-three-rings-bridge", "exits.json");
+  const perimeterExits = readJson("project89-perimeter-relay", "exits.json");
+  const frontierExits = readJson(
+    "project89-open-signal-frontier",
+    "exits.json",
+  );
+  const exits = [
+    ...operationExits,
+    ...bridgeExits,
+    ...perimeterExits,
+    ...frontierExits,
+  ];
+
+  assert.deepEqual(routeDiscoveryValidationErrors(exits), []);
+  assert.ok(operationExits.every((exit) => exit.discovery === "known"));
+  assert.ok(bridgeExits.every((exit) => exit.discovery === "known"));
+  assert.ok(perimeterExits.every((exit) => exit.discovery === "scout"));
+  assert.ok(frontierExits.every((exit) => exit.discovery === "scout"));
 });

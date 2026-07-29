@@ -27,6 +27,10 @@ import {
   validateCompiledGenerationPolicies,
   worldpackMediaRegistry,
 } from "./world-generation-policy.mjs";
+import {
+  routeDirectionValidationErrors,
+  routeDiscoveryValidationErrors,
+} from "./route-direction.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -105,6 +109,26 @@ function assert(condition, message) {
 
 function json(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function validateLifecycleHookRequirements(hook, owner) {
+  const requirements = hook.requirements ?? [];
+  assert(Array.isArray(requirements), `${owner} requirements must be an array`);
+  assert(
+    hook.hook !== "on_clock_fill" || requirements.length === 0,
+    `${owner} cannot declare dynamic requirements`,
+  );
+  for (const requirement of requirements) {
+    assert(
+      requirement
+        && typeof requirement === "object"
+        && !Array.isArray(requirement)
+        && requirement.kind === "active_tag"
+        && typeof requirement.tag_id === "string"
+        && requirement.tag_id.trim(),
+      `${owner} has an invalid active_tag requirement`,
+    );
+  }
 }
 
 function loadAvatarNaming(world, worldDir) {
@@ -798,6 +822,12 @@ for (const pack of packs) {
     for (const row of rows) {
       assert(row && typeof row === "object" && !Array.isArray(row), `pack ${pack.manifest.id} resource ${resource} contains a non-object row`);
       validateWorldEntityResource(pack.manifest.id, resource, row);
+      if (resource === "lifecycle_hooks") {
+        validateLifecycleHookRequirements(
+          row,
+          `pack ${pack.manifest.id} lifecycle hook ${row.hook ?? "unknown"}`,
+        );
+      }
       if (resource === "locations") {
         assertNaturalAffordanceConfig(
           row,
@@ -952,6 +982,15 @@ for (const location of resources.locations) {
     `location ${location.id} is declared by more than one pack`,
   );
   locationOwnerById.set(location.id, location.pack_id);
+}
+for (const error of routeDirectionValidationErrors(
+  resources.exits,
+  resources.hidden_exits,
+)) {
+  assert(false, error);
+}
+for (const error of routeDiscoveryValidationErrors(resources.exits)) {
+  assert(false, error);
 }
 for (const [resourceName, paths] of [
   ["exit", resources.exits],

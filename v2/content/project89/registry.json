@@ -144,7 +144,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:9eb645fe2b387f50645f5befb6acee98f231222ab7aeb1e0ab4325a272032c7c",
+    "bundle_hash": "sha256:0685ad088a21ae82ed5a069ac7d2265fc9512e934f3ad58f5d2595aaea8d80d4",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -432,7 +432,7 @@
           "type": "workspace",
           "path": "../../content/project89-operation-liberation"
         },
-        "integrity": "sha256:81c9c22ff9ff44ba766dde1f80c19a1b15c0270bd7ae44d85f0a7ef75202502b"
+        "integrity": "sha256:3b3be424d55f455b6f6f5a7f3a65986b4754abff39910cbcf15648bf65ed4832"
       },
       {
         "id": "project89.perimeter-relay",
@@ -689,7 +689,7 @@
           "type": "workspace",
           "path": "../../content/project89-perimeter-relay"
         },
-        "integrity": "sha256:598ccc90c5b2198d780f074cfee7be1b46dead56ddec547f5efc7b2f4e77783b"
+        "integrity": "sha256:e65f5758d9ef8996544169fc7c21329dac4dfa39df56d01607154befb3cd21ac"
       },
       {
         "id": "project89.open-signal-frontier",
@@ -968,7 +968,7 @@
           "type": "workspace",
           "path": "../../content/project89-open-signal-frontier"
         },
-        "integrity": "sha256:3850c2edf6a6d138ed2ec070fc042a5fd20836959f23e90788c8a9fed056c5b9"
+        "integrity": "sha256:671e9ed9ce3979c8306509588c52f9009e3cfbe487bd1469a79415f60ae0443e"
       },
       {
         "id": "project89.composition.three-rings",
@@ -1263,7 +1263,7 @@
           "type": "workspace",
           "path": "../../content/project89-three-rings-bridge"
         },
-        "integrity": "sha256:b389f5108deb749960a7ec219ff6f60f2ee857a5a27746e8dcf2ef895380ffb0"
+        "integrity": "sha256:7d60de105cac1236929c4393f10ee59ddd85b6a4e9110b3eab6f7e3f3c99f56c"
       }
     ],
     "files": {
@@ -2326,7 +2326,8 @@
         "to_location_id": 8901,
         "flags": 0,
         "distance": 1,
-        "direction": "safehouse signal",
+        "direction": "north",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2334,7 +2335,8 @@
         "to_location_id": 8900,
         "flags": 0,
         "distance": 1,
-        "direction": "threshold signal",
+        "direction": "south",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2342,7 +2344,8 @@
         "to_location_id": 8902,
         "flags": 0,
         "distance": 1,
-        "direction": "archive route",
+        "direction": "east",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2350,7 +2353,8 @@
         "to_location_id": 8901,
         "flags": 0,
         "distance": 1,
-        "direction": "safehouse route",
+        "direction": "west",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2358,7 +2362,8 @@
         "to_location_id": 8903,
         "flags": 0,
         "distance": 1,
-        "direction": "farm trace",
+        "direction": "east",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2366,7 +2371,8 @@
         "to_location_id": 8902,
         "flags": 0,
         "distance": 1,
-        "direction": "archive trace",
+        "direction": "west",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2374,7 +2380,8 @@
         "to_location_id": 8904,
         "flags": 0,
         "distance": 1,
-        "direction": "tower uplink",
+        "direction": "south",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2382,7 +2389,8 @@
         "to_location_id": 8903,
         "flags": 0,
         "distance": 1,
-        "direction": "farm downlink",
+        "direction": "north",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2390,7 +2398,8 @@
         "to_location_id": 8905,
         "flags": 0,
         "distance": 1,
-        "direction": "engine lift",
+        "direction": "south",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2398,7 +2407,8 @@
         "to_location_id": 8904,
         "flags": 0,
         "distance": 1,
-        "direction": "tower lift",
+        "direction": "north",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2406,7 +2416,8 @@
         "to_location_id": 8906,
         "flags": 0,
         "distance": 1,
-        "direction": "loom discharge",
+        "direction": "west",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2414,7 +2425,8 @@
         "to_location_id": 8905,
         "flags": 0,
         "distance": 1,
-        "direction": "engine approach",
+        "direction": "east",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2422,7 +2434,8 @@
         "to_location_id": 8907,
         "flags": 0,
         "distance": 1,
-        "direction": "market circuit",
+        "direction": "west",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2430,7 +2443,8 @@
         "to_location_id": 8906,
         "flags": 0,
         "distance": 1,
-        "direction": "loom circuit",
+        "direction": "east",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2438,7 +2452,8 @@
         "to_location_id": 8900,
         "flags": 0,
         "distance": 1,
-        "direction": "threshold return",
+        "direction": "north",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2446,7 +2461,8 @@
         "to_location_id": 8907,
         "flags": 0,
         "distance": 1,
-        "direction": "market signal",
+        "direction": "south",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2454,7 +2470,8 @@
         "to_location_id": 8908,
         "flags": 0,
         "distance": 1,
-        "direction": "chimera side channel",
+        "direction": "northeast",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2462,7 +2479,8 @@
         "to_location_id": 8907,
         "flags": 0,
         "distance": 1,
-        "direction": "market side channel",
+        "direction": "southwest",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2470,7 +2488,8 @@
         "to_location_id": 8904,
         "flags": 0,
         "distance": 1,
-        "direction": "access spine",
+        "direction": "east",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2478,7 +2497,8 @@
         "to_location_id": 8908,
         "flags": 0,
         "distance": 1,
-        "direction": "lab access",
+        "direction": "west",
+        "discovery": "known",
         "pack_id": "project89.operation-liberation"
       },
       {
@@ -2486,7 +2506,8 @@
         "to_location_id": 8921,
         "flags": 0,
         "distance": 2,
-        "direction": "echo thread",
+        "direction": "east",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2494,7 +2515,8 @@
         "to_location_id": 8920,
         "flags": 0,
         "distance": 2,
-        "direction": "delta thread",
+        "direction": "west",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2502,7 +2524,8 @@
         "to_location_id": 8922,
         "flags": 0,
         "distance": 2,
-        "direction": "rabbit thread",
+        "direction": "north",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2510,7 +2533,8 @@
         "to_location_id": 8920,
         "flags": 0,
         "distance": 2,
-        "direction": "memory thread",
+        "direction": "south",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2518,7 +2542,8 @@
         "to_location_id": 8924,
         "flags": 0,
         "distance": 2,
-        "direction": "spillway thread",
+        "direction": "up",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2526,7 +2551,8 @@
         "to_location_id": 8920,
         "flags": 0,
         "distance": 2,
-        "direction": "delta return",
+        "direction": "down",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2534,7 +2560,8 @@
         "to_location_id": 8923,
         "flags": 0,
         "distance": 2,
-        "direction": "glass thread",
+        "direction": "north",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2542,7 +2569,8 @@
         "to_location_id": 8921,
         "flags": 0,
         "distance": 2,
-        "direction": "echo return",
+        "direction": "south",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2550,7 +2578,8 @@
         "to_location_id": 8926,
         "flags": 0,
         "distance": 2,
-        "direction": "chimera trace",
+        "direction": "up",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2558,7 +2587,8 @@
         "to_location_id": 8921,
         "flags": 0,
         "distance": 2,
-        "direction": "observatory trace",
+        "direction": "down",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2566,7 +2596,8 @@
         "to_location_id": 8923,
         "flags": 0,
         "distance": 2,
-        "direction": "garden dispatch",
+        "direction": "east",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2574,7 +2605,8 @@
         "to_location_id": 8922,
         "flags": 0,
         "distance": 2,
-        "direction": "commons dispatch",
+        "direction": "west",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2582,7 +2614,8 @@
         "to_location_id": 8925,
         "flags": 0,
         "distance": 2,
-        "direction": "orchard dispatch",
+        "direction": "up",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2590,7 +2623,8 @@
         "to_location_id": 8922,
         "flags": 0,
         "distance": 2,
-        "direction": "rabbit return",
+        "direction": "down",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2598,7 +2632,8 @@
         "to_location_id": 8926,
         "flags": 0,
         "distance": 2,
-        "direction": "boneyard conduit",
+        "direction": "east",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2606,7 +2641,8 @@
         "to_location_id": 8924,
         "flags": 0,
         "distance": 2,
-        "direction": "spillway conduit",
+        "direction": "west",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2614,7 +2650,8 @@
         "to_location_id": 8925,
         "flags": 0,
         "distance": 2,
-        "direction": "orchard runoff",
+        "direction": "north",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2622,7 +2659,8 @@
         "to_location_id": 8924,
         "flags": 0,
         "distance": 2,
-        "direction": "spillway return",
+        "direction": "south",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2630,7 +2668,8 @@
         "to_location_id": 8927,
         "flags": 0,
         "distance": 2,
-        "direction": "loomwatch refraction",
+        "direction": "up",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2638,7 +2677,8 @@
         "to_location_id": 8923,
         "flags": 0,
         "distance": 2,
-        "direction": "garden refraction",
+        "direction": "down",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2646,7 +2686,8 @@
         "to_location_id": 8927,
         "flags": 0,
         "distance": 2,
-        "direction": "loomwatch salvage line",
+        "direction": "north",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2654,7 +2695,8 @@
         "to_location_id": 8926,
         "flags": 0,
         "distance": 2,
-        "direction": "chimera salvage line",
+        "direction": "south",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2662,7 +2704,8 @@
         "to_location_id": 8927,
         "flags": 0,
         "distance": 2,
-        "direction": "loomwatch circuit",
+        "direction": "east",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2670,7 +2713,8 @@
         "to_location_id": 8925,
         "flags": 0,
         "distance": 2,
-        "direction": "orchard circuit",
+        "direction": "west",
+        "discovery": "scout",
         "pack_id": "project89.perimeter-relay"
       },
       {
@@ -2678,7 +2722,8 @@
         "to_location_id": 8941,
         "flags": 0,
         "distance": 89,
-        "direction": "salvage meridian",
+        "direction": "east",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2686,7 +2731,8 @@
         "to_location_id": 8940,
         "flags": 0,
         "distance": 89,
-        "direction": "archive meridian",
+        "direction": "west",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2694,7 +2740,8 @@
         "to_location_id": 8942,
         "flags": 0,
         "distance": 89,
-        "direction": "living reach",
+        "direction": "south",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2702,7 +2749,8 @@
         "to_location_id": 8941,
         "flags": 0,
         "distance": 89,
-        "direction": "chimera reach",
+        "direction": "north",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2710,7 +2758,8 @@
         "to_location_id": 8943,
         "flags": 0,
         "distance": 89,
-        "direction": "rabbit expanse",
+        "direction": "west",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2718,7 +2767,8 @@
         "to_location_id": 8942,
         "flags": 0,
         "distance": 89,
-        "direction": "loom expanse",
+        "direction": "east",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2726,7 +2776,8 @@
         "to_location_id": 8940,
         "flags": 0,
         "distance": 89,
-        "direction": "archive freeway",
+        "direction": "north",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2734,7 +2785,8 @@
         "to_location_id": 8943,
         "flags": 0,
         "distance": 89,
-        "direction": "rabbit freeway",
+        "direction": "south",
+        "discovery": "scout",
         "pack_id": "project89.open-signal-frontier"
       },
       {
@@ -2742,7 +2794,8 @@
         "to_location_id": 8921,
         "flags": 1,
         "distance": 1,
-        "direction": "archive aperture",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2750,7 +2803,8 @@
         "to_location_id": 8902,
         "flags": 1,
         "distance": 1,
-        "direction": "archive return",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2758,7 +2812,8 @@
         "to_location_id": 8926,
         "flags": 1,
         "distance": 1,
-        "direction": "chimera aperture",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2766,7 +2821,8 @@
         "to_location_id": 8908,
         "flags": 1,
         "distance": 1,
-        "direction": "chimera return",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2774,7 +2830,8 @@
         "to_location_id": 8925,
         "flags": 1,
         "distance": 1,
-        "direction": "loom aperture",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2782,7 +2839,8 @@
         "to_location_id": 8906,
         "flags": 1,
         "distance": 1,
-        "direction": "loom return",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2790,7 +2848,8 @@
         "to_location_id": 8922,
         "flags": 1,
         "distance": 1,
-        "direction": "rabbit aperture",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2798,7 +2857,8 @@
         "to_location_id": 8907,
         "flags": 1,
         "distance": 1,
-        "direction": "rabbit return",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2806,7 +2866,8 @@
         "to_location_id": 8940,
         "flags": 0,
         "distance": 1,
-        "direction": "meridian gate",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2814,7 +2875,8 @@
         "to_location_id": 8921,
         "flags": 0,
         "distance": 1,
-        "direction": "meridian descent",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2822,7 +2884,8 @@
         "to_location_id": 8941,
         "flags": 0,
         "distance": 1,
-        "direction": "reach gate",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2830,7 +2893,8 @@
         "to_location_id": 8926,
         "flags": 0,
         "distance": 1,
-        "direction": "reach descent",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2838,7 +2902,8 @@
         "to_location_id": 8942,
         "flags": 0,
         "distance": 1,
-        "direction": "expanse gate",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2846,7 +2911,8 @@
         "to_location_id": 8925,
         "flags": 0,
         "distance": 1,
-        "direction": "expanse descent",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2854,7 +2920,8 @@
         "to_location_id": 8943,
         "flags": 0,
         "distance": 1,
-        "direction": "freeport gate",
+        "direction": "out",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       },
       {
@@ -2862,7 +2929,8 @@
         "to_location_id": 8922,
         "flags": 0,
         "distance": 1,
-        "direction": "freeport descent",
+        "direction": "in",
+        "discovery": "known",
         "pack_id": "project89.composition.three-rings"
       }
     ],

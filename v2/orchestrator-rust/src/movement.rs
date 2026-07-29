@@ -882,7 +882,7 @@ mod tests {
     }
 
     #[test]
-    fn scout_binds_one_authoritative_route_across_stale_submission_restart_and_replay() {
+    fn each_scout_offer_binds_one_authoritative_route_across_restart_and_replay() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -919,12 +919,21 @@ mod tests {
             .filter(|offer| offer.kind == "explore_path")
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(
-            scout_offers.len(),
-            1,
-            "the server deals one authoritative Scout route"
+        assert!(
+            scout_offers.len() >= 2,
+            "the server deals each scoutable branch as its own offer"
         );
-        let offer = scout_offers[0].clone();
+        let offer = scout_offers
+            .iter()
+            .find(|offer| {
+                offer
+                    .target
+                    .as_ref()
+                    .and_then(|target| target.id)
+                    .is_some_and(|destination| long_destinations.contains(&destination))
+            })
+            .expect("a long route has an exact Scout offer")
+            .clone();
         let offered_destination = offer
             .target
             .as_ref()
@@ -964,9 +973,12 @@ mod tests {
             rejected,
             Err("submitted payload target does not match the authoritative offer")
         );
-        assert!(runtime
-            .plan_scout_choice_action(actor_id, forged_destination)
-            .is_err());
+        assert!(
+            runtime
+                .plan_scout_choice_action(actor_id, forged_destination)
+                .is_ok(),
+            "the other route is legal through its own authoritative offer"
+        );
         assert_eq!(
             serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
                 .expect("serialize post-rejection state"),
@@ -1251,28 +1263,31 @@ mod tests {
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, actor_id);
 
-        let current_offer = |runtime: &RuntimeWorld, kind: &str, target_id: u64| {
-            let view = runtime.state_response(Some(actor_id), &AccessContext::default());
-            let offer = view
-                .action_offers
-                .into_iter()
-                .find(|offer| {
-                    offer.kind == kind
-                        && offer
-                            .target
-                            .as_ref()
-                            .is_some_and(|target| target.id == Some(target_id))
-                })
-                .unwrap_or_else(|| panic!("{kind} offer for {target_id} should be current"));
-            assert!(
-                view.action_hand
-                    .entries
-                    .iter()
-                    .any(|entry| entry.offer_id == offer.offer_id),
-                "{kind} offer for {target_id} should use the browser hand identity"
-            );
-            offer
-        };
+        let current_offer =
+            |runtime: &RuntimeWorld, kind: &str, target_id: u64, require_hand: bool| {
+                let view = runtime.state_response(Some(actor_id), &AccessContext::default());
+                let offer = view
+                    .action_offers
+                    .into_iter()
+                    .find(|offer| {
+                        offer.kind == kind
+                            && offer
+                                .target
+                                .as_ref()
+                                .is_some_and(|target| target.id == Some(target_id))
+                    })
+                    .unwrap_or_else(|| panic!("{kind} offer for {target_id} should be current"));
+                if require_hand {
+                    assert!(
+                        view.action_hand
+                            .entries
+                            .iter()
+                            .any(|entry| entry.offer_id == offer.offer_id),
+                        "{kind} offer for {target_id} should use the browser hand identity"
+                    );
+                }
+                offer
+            };
 
         {
             let runtime = state.inner.lock().await;
@@ -1286,7 +1301,7 @@ mod tests {
         }
         let garden_offer = {
             let runtime = state.inner.lock().await;
-            current_offer(&runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID)
+            current_offer(&runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID, true)
         };
         let garden_response = submit_offer_for_test(
             &state,
@@ -1314,7 +1329,7 @@ mod tests {
         let mut final_travel_offer = None;
         let first_scout = {
             let runtime = state.inner.lock().await;
-            current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
+            current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID, false)
         };
         assert!(first_scout.route.is_some());
         let first_scout_response = submit_offer_for_test(
@@ -1341,7 +1356,7 @@ mod tests {
             };
             let travel = {
                 let runtime = state.inner.lock().await;
-                current_offer(&runtime, "move", next_location_id)
+                current_offer(&runtime, "move", next_location_id, true)
             };
             if step == 3 {
                 final_travel_offer = Some(travel.clone());
@@ -1381,7 +1396,7 @@ mod tests {
             if step < 3 {
                 let scout = {
                     let runtime = state.inner.lock().await;
-                    current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
+                    current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID, true)
                 };
                 assert!(scout.route.is_some(), "step {step} Scout route binding");
                 let scout_response = submit_offer_for_test(
@@ -1413,7 +1428,7 @@ mod tests {
         for destination_location_id in pathway[..pathway.len() - 1].iter().rev().copied() {
             let reverse_offer = {
                 let runtime = state.inner.lock().await;
-                current_offer(&runtime, "move", destination_location_id)
+                current_offer(&runtime, "move", destination_location_id, true)
             };
             let reverse_response = submit_offer_for_test(
                 &state,
