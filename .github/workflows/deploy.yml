@@ -25,10 +25,20 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Guard primary volume free space
+        run: scripts/check-fly-volume-space.sh cosyworld /data 85
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
       - name: Deploy primary Fly app
         run: flyctl deploy --remote-only --config fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Guard Lonely Forest volume free space
+        run: scripts/check-fly-volume-space.sh cosyworld-lonelyforest /data 85
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Build and deploy Lonely Forest
         run: flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false
