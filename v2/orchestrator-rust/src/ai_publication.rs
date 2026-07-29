@@ -367,6 +367,14 @@ pub(crate) fn record_rejected_ai_publication(
     state: &crate::AppState,
     error: &crate::prompts::GeneratedSpeechError,
 ) {
+    for rejection in error.rejections() {
+        tracing::warn!(
+            feature = %rejection.receipt.feature,
+            failure_code = rejection.failure_code.as_str(),
+            candidate_round = rejection.receipt.candidate_round,
+            "AI voice candidate rejected by publication gate"
+        );
+    }
     record_ai_publication_rejections(state, error.rejections());
 }
 

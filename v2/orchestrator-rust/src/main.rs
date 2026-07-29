@@ -26501,6 +26501,30 @@ async fn commit_chat_status(
         Vec::new()
     }
 }
+
+async fn announce_chat_typing(
+    state: &AppState,
+    speaker_actor_id: u64,
+    listener_actor_id: u64,
+    caused_by_event_seq: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: Option<u64>,
+) {
+    let _ = commit_chat_status(
+        state,
+        speaker_actor_id,
+        listener_actor_id,
+        "typing",
+        "the next line is being composed",
+        caused_by_event_seq,
+        source_world_tick,
+        observed_through_seq,
+        source_location_id,
+    )
+    .await;
+}
+
 async fn complete_queued_orb_chat(
     state: &AppState,
     actor_id: u64,
@@ -26513,6 +26537,16 @@ async fn complete_queued_orb_chat(
     let plan = plan.with_publication_beat("avatar-chat", queue_event_id, source_world_tick);
     let started_at = Instant::now();
     let usage_config = state.ai_config.as_ref().clone();
+    announce_chat_typing(
+        state,
+        actor_id,
+        target_actor_id,
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        Some(plan.location_id),
+    )
+    .await;
     if state.avatar_chat_delay > Duration::ZERO {
         tokio::time::sleep(state.avatar_chat_delay).await;
     }
@@ -29839,6 +29873,16 @@ async fn complete_orb_chat_exchange(
     target_actor_id: u64,
     first_reply_plan: AvatarReplyPlan,
 ) -> Result<(), String> {
+    announce_chat_typing(
+        state,
+        target_actor_id,
+        actor_id,
+        first_reply_plan.caused_by_event_seq,
+        first_reply_plan.source_world_tick,
+        first_reply_plan.observed_through_seq,
+        first_reply_plan.source_location_id,
+    )
+    .await;
     let first_proposal = match avatar_reply_intent(state, &first_reply_plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
@@ -29858,6 +29902,16 @@ async fn complete_orb_chat_exchange(
         return Err("the target reply no longer fit the current room".to_string());
     };
     broadcast_events(state, &first_reply_events);
+    announce_chat_typing(
+        state,
+        actor_id,
+        target_actor_id,
+        first_reply_plan.caused_by_event_seq,
+        first_reply_plan.source_world_tick,
+        first_reply_plan.observed_through_seq,
+        first_reply_plan.source_location_id,
+    )
+    .await;
     tokio::time::sleep(Duration::from_millis(260)).await;
 
     let followup_plan = {
@@ -29948,6 +30002,16 @@ async fn complete_orb_chat_exchange(
         (events, plan)
     };
     broadcast_events(state, &followup_events);
+    announce_chat_typing(
+        state,
+        target_actor_id,
+        actor_id,
+        first_reply_plan.caused_by_event_seq,
+        first_reply_plan.source_world_tick,
+        first_reply_plan.observed_through_seq,
+        first_reply_plan.source_location_id,
+    )
+    .await;
     tokio::time::sleep(Duration::from_millis(260)).await;
 
     let Some(closing_plan) = closing_plan else {
@@ -49092,8 +49156,11 @@ mod tests {
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
         assert!(INDEX_HTML.contains("function pendingConversationHtml"));
-        assert!(INDEX_HTML.contains("finding the thread…"));
         assert!(INDEX_HTML.contains("function pendingChatsHtml"));
+        assert!(INDEX_HTML.contains("function resolvePendingChat"));
+        assert!(INDEX_HTML.contains("event.type === \"chat.typing\""));
+        assert!(INDEX_HTML.contains("if (resolvePendingChat(event)) changed = true;"));
+        assert!(INDEX_HTML.contains("typing…"));
         assert!(INDEX_HTML.contains("if (!actorId || action?.kind !== \"orb-chat\") return 0;"));
         assert!(!INDEX_HTML.contains("reacting to your card…"));
         assert!(!INDEX_HTML.contains("responding to your card…"));
@@ -53914,7 +53981,9 @@ mod tests {
             .location_memory
             .iter()
             .any(|line| line.contains("Leaf")));
-        assert!(resident_system_prompt(&plan).contains("i've never been just one voice"));
+        let oak_prompt = resident_system_prompt(&plan);
+        assert!(oak_prompt.contains("i've never been just one voice"));
+        assert!(oak_prompt.contains("no line breaks, no speaker names, and no colons"));
     }
 
     #[test]

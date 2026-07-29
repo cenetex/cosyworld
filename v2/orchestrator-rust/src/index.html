@@ -7588,7 +7588,7 @@
         }
         if (!event || eventIsMuted(event) || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
-        resolvePendingChat(event);
+        if (resolvePendingChat(event)) changed = true;
         if (eventIsHiddenContext(event)) continue;
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
@@ -7627,10 +7627,13 @@
       const target = reactionTargetForAction(action);
       if (!target) return 0;
       const id = nextPendingChatId++;
+      const self = actorForId(actorId);
       pendingChats.push({
         id,
         targetActorId: Number(target.id || 0),
         targetName: actorLabel(target),
+        typingActorId: Number(actorId),
+        typingName: self ? actorLabel(self) : "Your avatar",
         afterSeq: latestSeenSeq(),
       });
       window.setTimeout(() => {
@@ -7647,23 +7650,37 @@
     }
 
     function resolvePendingChat(event) {
-      if (!event || !pendingChats.length) return;
+      if (!event || !pendingChats.length) return false;
       const eventSeq = Number(event.seq || 0);
-      if (event.type === "chat.failed" || event.type === "chat.completed") {
-        const statusIndex = pendingChats.findIndex((chat) => (
-          eventSeq > Number(chat.afterSeq || 0)
-          && Number(event.actor_id || 0) === Number(actorId || 0)
-          && Number(event.target_actor_id || 0) === Number(chat.targetActorId || 0)
-        ));
-        if (statusIndex >= 0) pendingChats.splice(statusIndex, 1);
-        return;
-      }
-      if (event.type !== "message.created") return;
-      const index = pendingChats.findIndex((chat) => (
+      const matchingChatIndex = pendingChats.findIndex((chat) => (
         eventSeq > Number(chat.afterSeq || 0)
-        && Number(event.actor_id || 0) === Number(chat.targetActorId || 0)
+        && (
+          (Number(event.actor_id || 0) === Number(actorId || 0)
+            && Number(event.target_actor_id || 0) === Number(chat.targetActorId || 0))
+          || (Number(event.actor_id || 0) === Number(chat.targetActorId || 0)
+            && Number(event.target_actor_id || 0) === Number(actorId || 0))
+        )
       ));
-      if (index >= 0) pendingChats.splice(index, 1);
+      if (event.type === "chat.typing") {
+        if (matchingChatIndex >= 0) {
+          const speakerId = Number(event.actor_id || 0);
+          const speaker = actorForId(speakerId);
+          pendingChats[matchingChatIndex] = {
+            ...pendingChats[matchingChatIndex],
+            typingActorId: speakerId,
+            typingName: String(event.actor_name || (speaker ? actorLabel(speaker) : "Someone nearby")),
+          };
+          return true;
+        }
+        return false;
+      }
+      if (event.type === "chat.failed" || event.type === "chat.completed") {
+        if (matchingChatIndex >= 0) {
+          pendingChats.splice(matchingChatIndex, 1);
+          return true;
+        }
+      }
+      return false;
     }
 
     function rebuildLog(events) {
@@ -8044,6 +8061,7 @@
       return event.type === "world.bootstrapped"
         || event.type === "actor.presence"
         || event.type === "chat.queued"
+        || event.type === "chat.typing"
         || event.type === "chat.completed"
         || event.type === "dialogue.delivered"
         || event.type === "avatar.refined"
@@ -9662,23 +9680,20 @@
 
     function pendingConversationHtml() {
       if (!actionBusy || pendingAction?.kind !== "orb-chat") return "";
-      const targetId = Number(
-        typeof pendingAction.pendingTargetActorId === "function"
-          ? pendingAction.pendingTargetActorId()
-          : pendingAction.targetActorId
-      );
-      const target = actorForId(targetId);
-      const speaker = target ? actorLabel(target) : (pendingAction.targetName || "A neighbour");
-      const aria = `${speaker} is finding the thread. Your conversation is unfolding.`;
-      return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: targetId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
+      const speaker = actorForId(actorId);
+      const name = speaker ? actorLabel(speaker) : "Your avatar";
+      const aria = `${name} is choosing an opening line.`;
+      return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: actorId }, name)}<span class="speaker">${escapeHtml(name)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>choosing an opening line…</span></div>`;
     }
 
     function pendingChatsHtml() {
       if (actionBusy && pendingAction?.kind === "orb-chat") return "";
       return pendingChats.map((chat) => {
-        const speaker = chat.targetName || "Someone nearby";
-        const aria = `${speaker} is finding the thread. Your next actions are ready while the conversation unfolds.`;
-        return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: chat.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
+        const typingActorId = Number(chat.typingActorId || chat.targetActorId || 0);
+        const actor = actorForId(typingActorId);
+        const speaker = chat.typingName || (actor ? actorLabel(actor) : chat.targetName || "Someone nearby");
+        const aria = `${speaker} is typing. Your next actions are ready while the conversation unfolds.`;
+        return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: typingActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>typing…</span></div>`;
       }).join("");
     }
 

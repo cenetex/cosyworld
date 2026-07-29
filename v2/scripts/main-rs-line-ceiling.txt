@@ -60,4 +60,8 @@
 # segment, preserving the endpoint journey and adding its regression contract.
 # The web card additionally names the route's far endpoint so the player can
 # tell where the visible segment leads; this stays in index.html.
-74414
+# 74414 -> 74481: chat typing statuses coordinate the bounded avatar exchange
+# with its SSE transcript, and the accompanying cross-surface contract pins
+# the speaker-specific pending UI. This remains in main.rs beside the existing
+# chat orchestration and its browser integration contract.
+74481
