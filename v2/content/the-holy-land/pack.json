@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "kind": "world",
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
@@ -78,7 +78,7 @@
     "x-cosyworld-generation": {
       "schema_version": 1,
       "policy_id": "cosyworld.the-holy-land/generation/1",
-      "migration_version": 3,
+      "migration_version": 4,
       "collision_namespace": "pack://cosyworld.the-holy-land/generated/v1",
       "generated_descendants": {
         "owner": "source_route",
@@ -97,7 +97,7 @@
       },
       "prose": {
         "profile_id": "cosyworld.pathway-prose.ecology/1",
-        "prompt_versions": ["pathway-content-v1"],
+        "prompt_versions": ["pathway-content-v2"],
         "ecology": {
           "interpolation": "endpoint_blend/1",
           "required_context": [
@@ -161,6 +161,12 @@
           "from_policy_id": "cosyworld.compatibility.host-generation/1",
           "from_migration_version": 0,
           "from_pack_version": "1.1.6",
+          "mode": "preserve_descendants"
+        },
+        {
+          "from_policy_id": "cosyworld.the-holy-land/generation/1",
+          "from_migration_version": 3,
+          "from_pack_version": "1.2.0",
           "mode": "preserve_descendants"
         },
         {

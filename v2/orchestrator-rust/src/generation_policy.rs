@@ -861,7 +861,7 @@ mod tests {
         );
         assert_eq!(
             restored.routes[&source_route_id].owner_pack_version,
-            "1.2.0"
+            "1.2.1"
         );
 
         let replayed = RuntimeSnapshot::from_runtime(&restored)

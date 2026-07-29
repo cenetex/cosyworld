@@ -94,3 +94,17 @@ negative lists; occasional visual mistakes remain material for later orb
 upgrades. The default model-native LoRA scale is `1.25` and can be overridden
 with `HOLY_LAND_LORA_SCALE`. Existing images and their recorded prompts remain
 historical provenance until an image is actually regenerated.
+
+## Official-world bridge
+
+The separately versioned `cosyworld.composition.core-holy-land` bridge owns the
+long route between The Cosy Cottage and Bethlehem. Its generated waypoints use
+the Holy Land media profile, the current ecology-grounded pathway prose
+contract, and the same cairn terminology as generated places inside this pack.
+Upgrades preserve already-discovered descendants rather than renaming or
+reallocating them.
+
+The compact action hand, deterministic fallback waypoint naming, and
+direct-avatar reaction context remain runtime concerns rather than pack
+authority. Their playtest contracts are tracked in
+[`docs/backlog/holy-land-integration-playtest.md`](../../../docs/backlog/holy-land-integration-playtest.md).
