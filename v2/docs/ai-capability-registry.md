@@ -89,6 +89,14 @@ capabilities, family/size hints, and observations, but remain ineligible until
 a matching declaration exists. A matching declaration and discovery entry are
 normalized into one candidate.
 
+Production AI has no implicit registry fallback. When
+`COSYWORLD_DEPLOY_PROFILE=production` and an AI credential or local AI endpoint
+enables inference, startup requires `COSYWORLD_AI_REGISTRY_JSON` and rejects a
+missing snapshot with operator recovery guidance. To run production with AI
+disabled, omit `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, and
+`OPENAI_API_KEY` and do not configure a loopback AI base URL. Development keeps
+the legacy single-model fallback for local compatibility.
+
 Use `COSYWORLD_AI_CAPABILITY_MODELS_JSON` to pin configured defaults without
 collapsing the pools:
 
