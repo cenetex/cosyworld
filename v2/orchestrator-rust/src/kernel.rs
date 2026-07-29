@@ -21,9 +21,12 @@ pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
 // Kernel version 9 is reserved by #411 for project-push ABI state.
-pub const CW_KERNEL_VERSION: u32 = 10;
+pub const CW_KERNEL_VERSION: u32 = 11;
 
 pub const CW_OK: u32 = 0;
+pub const CW_ERR_INVALID: u32 = 1;
+pub const CW_ERR_FULL: u32 = 2;
+pub const CW_ERR_NOT_FOUND: u32 = 3;
 pub const CW_ERR_RULE: u32 = 4;
 
 pub const CW_ACTOR_HUMAN: u8 = 1;
@@ -129,6 +132,10 @@ pub const CW_ACTION_RULES_UTILIZE_ITEM: u8 = 30;
 pub const CW_ACTION_PROJECT_PUSH: u8 = 31;
 // Action 31 is reserved by #411 for CW_ACTION_PROJECT_PUSH.
 pub const CW_ACTION_REST: u8 = 32;
+// Terminal closure for an encounter that can never advance again. Committed
+// only by the focused-encounter scheduler after bounded deterministic recovery
+// failures; see `combat::start_focused_encounter_scheduler`.
+pub const CW_ACTION_COMBAT_ABANDON: u8 = 33;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;

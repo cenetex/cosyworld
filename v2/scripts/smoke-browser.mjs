@@ -7802,7 +7802,13 @@ async function main() {
       await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
       if ((await currentLocation()) !== "Moonlit Trail") await travelTo("Moonlit Trail");
     }
-    let firstListenCommitted = false;
+    let firstListenCommitted = startingState.economy?.listen_attempted_here === true;
+    if (firstListenCommitted) {
+      steps.push({
+        label: "frontier notice already attempted",
+        location: await currentLocation(),
+      });
+    }
     for (let attempt = 1; attempt <= 3 && !firstListenCommitted; attempt += 1) {
       const firstListen = await drawPrimaryMatching("first frontier notice", ["notice", "for a clue"]);
       steps.push({ label: "first frontier notice", primary: firstListen, location: await currentLocation(), attempt });
@@ -11039,20 +11045,51 @@ async function main() {
         ["take", "swap"].includes(String(action.label || "").toLowerCase())
           && String(action.detail || action.command || "").toLowerCase().includes("wolfprint charm")
       )));
+      let primerCommitted = false;
+      progressPrimer = wolfprintAvailable ? "feature use" : "safe help";
       if (wolfprintAvailable) {
         await takeItem("Wolfprint Charm");
         const projectCluePrimary = await primaryText();
         steps.push({ label: "project clue default", primary: projectCluePrimary });
-        if (projectCluePrimary.toLowerCase().includes("search")) {
-          await clickPrimary("search project clue");
+        const projectClueNeedles = await page.evaluate(() => {
+          const visibleActions = actions.map((action) => [
+            action.label,
+            action.detail,
+            action.command,
+          ].filter(Boolean).join(" ").toLowerCase());
+          if (visibleActions.some((text) => text.includes("investigate this place"))) {
+            return ["investigate this place"];
+          }
+          if (visibleActions.some((text) => (
+            text.includes("search") && text.includes("moonlit trail")
+          ))) {
+            return ["search", "moonlit trail"];
+          }
+          return null;
+        });
+        if (projectClueNeedles) {
+          await drawPrimaryMatching("investigate project clue", projectClueNeedles);
+          await clickPrimary("investigate project clue");
           await page.waitForFunction(
             () => !document.querySelector("#primary")?.disabled,
           );
+          const projectAfterClue = await fetchCurrentState();
+          const projectProgressAfterClue = (projectAfterClue.clocks || []).find(
+            (clock) => clock.id === "moonlit-trail.progress",
+          );
+          primerCommitted = Number(projectProgressAfterClue?.filled || 0)
+            > Number(projectProgressBeforePrimer?.filled || 0);
+          if (primerCommitted) {
+            progressPrimer = "investigate project clue";
+            steps.push({
+              label: "investigation primed project",
+              progress: Number(projectProgressAfterClue?.filled || 0),
+            });
+          }
         }
       }
-      progressPrimer = wolfprintAvailable ? "feature use" : "safe help";
-      let featureUseCommitted = false;
-      if (wolfprintAvailable) {
+      let featureUseCommitted = primerCommitted;
+      if (wolfprintAvailable && !featureUseCommitted) {
         try {
           const projectUsePrimary = await drawPrimaryMatching(
             "project feature use",
@@ -11082,15 +11119,39 @@ async function main() {
           await clickPrimary("rest before helping project");
           progressPrimer = "rest then safe help";
         }
-        const projectHelpPrimary = await drawPrimaryMatching(
-          "project safe help",
-          ["steady the trail together", "coach"],
-        );
-        assert(
-          projectHelpPrimary.toLowerCase().includes("quiet the echo"),
-          "fallback project help should retain the authored project card",
-        );
-        await clickPrimary("help project safely");
+        const legacyProjectHelpAvailable = await page.evaluate(() => (
+          actions.some((action) => {
+            const text = [
+              action.label,
+              action.detail,
+              action.command,
+              ...(action.choices || []).flatMap((choice) => [choice.label, choice.detail]),
+            ].filter(Boolean).join(" ").toLowerCase();
+            return text.includes("steady the trail together") && text.includes("coach");
+          })
+        ));
+        if (legacyProjectHelpAvailable) {
+          const projectHelpPrimary = await drawPrimaryMatching(
+            "project safe help",
+            ["steady the trail together", "coach"],
+          );
+          assert(
+            projectHelpPrimary.toLowerCase().includes("quiet the echo"),
+            "fallback project help should retain the authored project card",
+          );
+          await clickPrimary("help project safely");
+        } else {
+          const projectInvestigatePrimary = await drawPrimaryMatching(
+            "project safe investigation",
+            ["investigate this place", "moonlit trail"],
+          );
+          assert(
+            projectInvestigatePrimary.toLowerCase().includes("choose an approach"),
+            "fallback project investigation should retain its authored approaches",
+          );
+          await clickPrimary("investigate project safely");
+          progressPrimer = "safe investigation";
+        }
       }
     }
     await page.waitForFunction(() => {
