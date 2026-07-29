@@ -49,4 +49,6 @@
 # integration, not further feature growth in main.rs.
 # 74609 -> 74531: move ReplicateAvatarArtConfig and its environment loader
 # into the existing media-recipes seam.
-74531
+# 74516 -> 74434: extract the free bounded Chat endpoint and its concurrent-room
+# coverage into chat_action.rs.
+74434

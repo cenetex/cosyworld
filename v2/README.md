@@ -151,7 +151,7 @@ The Rust orchestrator currently owns:
   or combat targets without durable consent, blocks fail closed, and private
   economy details are visible only to the controlling avatar.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
-- Advancement-backed `Chat` for beginning a friendship, plus moderated human-authored `say` lines for shared room speech.
+- Bounded avatar-to-resident `Chat` exchanges, advancement-backed `Befriend`, and moderated human-authored `say` lines for shared room speech.
 - OpenAI-compatible contextual resident replies with no deterministic dialogue substitute when inference is unavailable.
 - Event projection.
 - Snapshot persistence.
@@ -289,7 +289,7 @@ http://127.0.0.1:3102/?reset=1
 
 The avatar gate begins with an immediate character question and carries that answer through the visible game as the avatar's purpose. A quiet transcript frames `a new tale is waiting`; the completed Begin lands as a visible arrival beat and arms the first resident heartbeat. The new avatar sheet describes moments and people still ahead, calls a local session a `local tale`, and reports the carried deck by physical weight rather than a fixed card count.
 
-The browser frames onboarding as `Your first tale`: Notice a clue, watch the Journal settle the earned growth in that same action, then keep exploring or use advancement through a relevant character surface. Chat spends one advancement point to begin a friendship and opens a resident picker when several eligible new friends are nearby. Advancement never creates a charm, skill, spell, or weapon card. Remember handles mature friendships separately.
+The browser frames onboarding as `Your first tale`: Notice a clue, watch the Journal settle the earned growth in that same action, then keep exploring or use advancement through a relevant character surface. Chat starts a short system-funded exchange with an eligible nearby resident; Befriend spends one advancement point to begin a friendship and opens a resident picker when several eligible new friends are nearby. Advancement never creates a charm, skill, spell, or weapon card. Remember handles mature friendships separately.
 
 Multi-target verbs stay compact: Take, Use, Give, Trade, Attack, and Chat put legal targets inside one card instead of duplicating hand slots. Long connections remain ordinary segmented geography—Search reveals one adjacent pathway and Travel enters it. Player-facing copy describes story outcomes rather than exposing raw d20, damage, HP, or clock arithmetic. The collapsed room `LOG` names who did what and what changed; the expanded history preserves the audited sequence. That log is also supplied to resident inference, so a delayed reply can refer to cards played and changes that happened in the channel instead of inventing an isolated conversation.
 
@@ -334,7 +334,7 @@ runs both the deterministic visual/accessibility pass and the longer
 living-world journey. Together they verify runtime metadata, signed wallet
 challenge/session access and avatar recovery, avatar creation, actor-session
 continuity, walletless `connect wallet`, one-button normal play, zero-Orb
-earning-action priority, no-typing `listen`, advancement-backed Chat,
+earning-action priority, no-typing `listen`, bounded Chat, advancement-backed Befriend,
 contextual resident heartbeats, moderated room speech and `/me` emotes, moderation/report flows, two-browser
 fanout and presence leave, compass/typed command behavior, weighted-deck item
 take/drop/retake behavior, multiple loose cards at one location, reload
@@ -705,13 +705,14 @@ This is the adapter seam for replacing the dev snapshot with Ruby High wallet/se
 
 The world remains shared: `location-science-lab`, `location-homeroom`, `location-library`, `location-cafeteria`, `location-greenhouse`, and `location-courtyard` unlock travel to their one global rooms. They do not create per-wallet rooms or teacher DMs.
 
-Chat is advancement-backed friendship, not a human text box or branch picker:
+Chat is a bounded avatar-to-resident exchange, not a human text box, branch picker, or friendship purchase:
 
-- When a banked advancement point and an eligible nearby resident make `create_bond` legal, the browser labels that offer `Chat`.
-- The server validates the actor session, target resident, shared location, room turn, rate limit, available advancement, and absence of an existing Bond.
-- Success spends one advancement point, creates the Bond, passes the room turn, and arms the room's normal delayed reply heartbeat.
-- Chat never spends an Orb. The resident reply is system-funded and, if inference is unavailable or invalid, the friendship remains committed without canned dialogue.
-- The legacy `/actions/chat` route delegates to the same advancement-backed contract for older clients.
+- When an inference-controlled, unblocked, unmuted resident is actively nearby, the browser offers `Chat`; a resident picker appears when several targets qualify.
+- The server validates the actor session, target resident, shared location, rate limit, and current presence before queuing one durable exchange.
+- A successful exchange emits exactly four authoritative `message.created` events—two lines from the player's avatar and two from the resident—through the normal journal and SSE feed.
+- Chat spends neither an Orb nor advancement and does not create a Bond. A rapid retry reuses the active durable job instead of starting a duplicate exchange.
+- The separate `Befriend` action spends one advancement point and creates a Bond when `create_bond` is legal.
+- If inference, context, or commit fails, the server emits a visible `chat.failed` status instead of silently doing nothing or substituting canned dialogue.
 - `say <message>`, `/me <action>`, and `POST /actions/say` commit moderated human-authored room text as normal `message.created` events; unsafe or overlong text is rejected before it reaches the journal.
 - Legacy branch records in old snapshots are ignored by `/state` and do not change the primary action.
 
@@ -942,7 +943,7 @@ Public mutation endpoints also pass through lightweight in-memory rate limits be
 
 - Avatar creation: 12 attempts per client IP per 10 minutes.
 - Wallet challenge/session: 30 attempts per client IP per minute.
-- Chat/friendship and player room-message actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
+- Chat, friendship, and player room-message actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
 - Player reports: 12 attempts per actor per 10 minutes, with the broader shared IP mutation cap.
 - Movement, item, check, and combat actions: 180 attempts per actor per minute, with the same shared IP mutation cap.
 

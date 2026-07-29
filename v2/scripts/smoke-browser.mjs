@@ -1129,12 +1129,12 @@ async function main() {
   async function assertFreeActionsIgnoreOrbBalance() {
     const claimableActions = await zeroOrbActionLabels(true);
     const claimableLabels = claimableActions.map((action) => action.label);
-    assert(claimableLabels[0] === "notice", `the first Notice should remain available with no Orbs: ${JSON.stringify(claimableActions)}`);
+    assert(claimableLabels.includes("notice"), `the first Notice should remain available with no Orbs: ${JSON.stringify(claimableActions)}`);
     assert(!claimableLabels.includes("connect ai"), `free actions should not offer Connect AI as a command: ${JSON.stringify(claimableActions)}`);
     const exhaustedActions = await zeroOrbActionLabels(false);
     const exhaustedLabels = exhaustedActions.map((action) => action.label);
     assert(!exhaustedLabels.includes("notice"), `a claimed first clue should become repeat Notice: ${JSON.stringify(exhaustedActions)}`);
-    assert(exhaustedActions[0]?.label === "notice again" && exhaustedActions[0]?.detail === "free", `repeat Notice should ignore a stale legacy cost and remain free at zero Orbs: ${JSON.stringify(exhaustedActions)}`);
+    assert(exhaustedActions.some((action) => action.label === "notice again" && action.detail === "free"), `repeat Notice should ignore a stale legacy cost and remain free at zero Orbs: ${JSON.stringify(exhaustedActions)}`);
     const travelActions = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -1423,7 +1423,7 @@ async function main() {
     });
     assert(result.fresh[0]?.label === "notice", `fresh room clue should still lead the first action: ${JSON.stringify(result)}`);
     assert(result.repeat[0]?.label !== "notice again", `repeat Notice should not stay the default action: ${JSON.stringify(result)}`);
-    assert(!result.repeat.some((action) => action.label === "chat"), `Chat should stay absent when no advancement-backed friendship is offered: ${JSON.stringify(result)}`);
+    assert(result.repeat.some((action) => action.label === "chat"), `free Chat should remain available beside repeat Notice when the server exposes an eligible resident: ${JSON.stringify(result)}`);
     const repeatIndex = result.repeat.findIndex((action) => action.label === "notice again");
     assert(repeatIndex > 0 && result.repeat[repeatIndex]?.detail === "free", `free repeat Notice should remain available without hijacking the primary action: ${JSON.stringify(result)}`);
     const stalePaidRepeat = result.stalePaidRepeat.find((action) => action.label === "notice again");
@@ -1488,7 +1488,7 @@ async function main() {
     const chatIndex = result.findIndex((action) => action.label === "chat");
     const notice = result.find((action) => action.intention === "notice");
     assert(result[0]?.label === "notice", `fresh Notice can still lead calm-room discovery: ${JSON.stringify(result)}`);
-    assert(chatIndex === -1, `calm-room fixtures without advancement should not invent Chat: ${JSON.stringify(result)}`);
+    assert(chatIndex >= 0, `calm-room fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
     assert(searchIndex === -1 || searchIndex > travelIndex, `calm-room feature search should stay behind travel unless focused: ${JSON.stringify(result)}`);
     assert(locationSearch?.title === "inspect the cosy cottage", `room Inspect should name where the player is looking: ${JSON.stringify(result)}`);
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
@@ -1612,7 +1612,7 @@ async function main() {
     const listenAgainIndex = result.findIndex((action) => action.label === "notice again");
     const travelIndex = result.findIndex((action) => action.label === "travel");
     const chatIndex = result.findIndex((action) => action.label === "chat");
-    assert(chatIndex === -1, `optional feature fixtures without advancement should not invent Chat: ${JSON.stringify(result)}`);
+    assert(chatIndex >= 0, `optional feature fixtures with an eligible resident should retain free Chat: ${JSON.stringify(result)}`);
     assert(listenAgainIndex > travelIndex && result[listenAgainIndex]?.detail === "free", `repeat Notice should remain available without outranking concrete travel: ${JSON.stringify(result)}`);
     assert(useIndex === -1 || useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
     if (useIndex >= 0) {
@@ -1927,15 +1927,23 @@ async function main() {
       const baseState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
-          kind: "create_bond",
-          options: [{ kind: "create_bond" }],
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "create_bond" }],
         },
-        action_offers: [{
-          kind: "create_bond",
-          command: "chat Skull",
-          target: { kind: "actor", id: 1003, label: "Skull" },
-          effect: "a friendship with Skull begins",
-        }],
+        action_offers: [
+          {
+            kind: "chat",
+            command: "chat Skull",
+            target: { kind: "actor", id: 1003, label: "Skull" },
+            effect: "opens a small exchange with Skull",
+          },
+          {
+            kind: "create_bond",
+            command: "bond Skull: I bring small kindnesses to Skull.",
+            target: { kind: "actor", id: 1003, label: "Skull" },
+            effect: "a friendship with Skull begins",
+          },
+        ],
         economy: { orbs: 0, chat_cost_orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
         ledger: { advancement_points: 1 },
         bonds: [],
@@ -2000,13 +2008,24 @@ async function main() {
         const chatActions = chatActionsFor(patch);
         return (command ? chatActions.find((entry) => entry.command === command) : chatActions[0]) || null;
       };
+      const bondActionFor = (patch) => {
+        const fakeState = { ...baseState, ...patch };
+        state = fakeState;
+        actorId = 5000;
+        const entry = buildActions(fakeState).find((action) => action.label === "befriend");
+        return entry ? {
+          summary: actionSummary(entry),
+          rows: actionModalRows(entry),
+          payload: entry.selectedPayload?.() || null,
+        } : null;
+      };
       const orderedActionsFor = (patch) => {
         const fakeState = {
           ...baseState,
           ...patch,
           primary_action: {
-            kind: "create_bond",
-            options: [{ kind: "create_bond" }, { kind: "move" }],
+            kind: "chat",
+            options: [{ kind: "chat" }, { kind: "create_bond" }, { kind: "move" }],
           },
           exits: [{
             destination_location_id: 2,
@@ -2028,9 +2047,9 @@ async function main() {
         const fakeState = {
           ...baseState,
           action_offers: [{
-            ...baseState.action_offers[0],
+            ...baseState.action_offers[1],
             target: { kind: "actor", id: 1001, label: "Rati" },
-            command: "chat Rati",
+            command: "bond Rati: I bring small kindnesses to Rati.",
           }],
           actors: [
             baseState.actors[0],
@@ -2053,7 +2072,7 @@ async function main() {
         };
         state = fakeState;
         actorId = 5000;
-        const action = buildActions(fakeState).find((entry) => entry.label === "chat");
+        const action = buildActions(fakeState).find((entry) => entry.label === "befriend");
         openActionModal(action);
         const before = [...document.querySelectorAll("#action-modal-meta .action-row")]
           .map((node) => node.textContent.trim().replace(/\s+/g, " "));
@@ -2103,11 +2122,11 @@ async function main() {
               },
             },
           }),
-          mara: chatActionFor({
+          mara: bondActionFor({
             action_offers: [{
-              ...baseState.action_offers[0],
+              ...baseState.action_offers[1],
               target: { kind: "actor", id: 8301, label: "Mara Wick" },
-              command: "chat Mara Wick",
+              command: "bond Mara Wick: I keep watch with Mara Wick.",
             }],
             actors: [
               baseState.actors[0],
@@ -2134,33 +2153,33 @@ async function main() {
         actorId = previousActorId;
       }
     });
-    assert(result.serverPaid?.detail === "with Skull · use what you learned", `Chat should show the resident and advancement source: ${JSON.stringify(result)}`);
-    assert(result.staleConnectedHint?.detail === "with Skull · use what you learned", `stale OpenRouter hints must not affect advancement-backed Chat: ${JSON.stringify(result)}`);
-    assert(result.claimed === null, `Chat should disappear once that friendship already exists: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.detail === "with Skull · a short exchange", `Chat should show the resident and bounded exchange: ${JSON.stringify(result)}`);
+    assert(result.staleConnectedHint?.detail === "with Skull · a short exchange", `stale OpenRouter hints must not affect Chat: ${JSON.stringify(result)}`);
+    assert(result.claimed?.detail === "with Skull · a short exchange", `Chat should remain available after friendship begins: ${JSON.stringify(result)}`);
     assert(result.freshOrder?.some((action) => action.label === "chat"), `eligible Chat should stay available beside travel: ${JSON.stringify(result)}`);
-    assert(result.claimedOrder?.[0]?.label === "travel" && !result.claimedOrder.some((action) => action.label === "chat"), `an existing friendship should remove Chat: ${JSON.stringify(result)}`);
+    assert(result.claimedOrder?.some((action) => action.label === "chat"), `an existing friendship should not remove Chat: ${JSON.stringify(result)}`);
     assert(result.multiResident?.length === 1, `nearby residents should share one choice-bearing Chat card: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.detail === "choose someone · use what you learned", `multi-resident Chat should advertise its in-card choice and advancement source: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.detail === "choose someone nearby", `multi-resident Chat should advertise its in-card target choice: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.title === "choose someone to chat with", `multi-resident Chat should open a clear target picker: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Choose someone nearby. Chat uses one advancement point and begins a friendship.", `multi-resident Chat should explain its advancement and friendship result: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Choose someone nearby for a short back-and-forth conversation.", `multi-resident Chat should explain its bounded conversation: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.choices?.map((choice) => choice.label).join(",") === "Rati,Skull", `the Chat card should carry every eligible resident choice: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.alternateTargetId === 1003, `confirming an alternate Chat choice should address that resident: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.focusKeys?.includes("actor:1001") && result.multiResident[0]?.focusKeys?.includes("actor:1003"), `one Chat card should retain affinity for every resident it can reach: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "chat with Skull", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.summary === "Use one advancement point to begin a friendship with Skull.", `Chat confirmation should explain its advancement cost: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.summary === "Your avatar and Skull will trade a few short lines.", `Chat confirmation should explain its bounded exchange: ${JSON.stringify(result)}`);
     assert(!result.serverPaid?.rows?.some((row) => row[0] === "Costs"), `chat confirmation should never display an Orb cost: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.rows?.some((row) => row[0] === "Spend" && row[1] === "one advancement point"), `Chat confirmation should name the advancement spend: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.rows?.some((row) => row[0] === "Then" && row[1].includes("room heartbeat")), `Chat confirmation should explain the delayed room reply: ${JSON.stringify(result)}`);
+    assert(!result.serverPaid?.rows?.some((row) => row[0] === "Spend"), `Chat confirmation should not spend advancement: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.rows?.some((row) => row[0] === "Then" && row[1].includes("two short lines each")), `Chat confirmation should explain the bounded exchange: ${JSON.stringify(result)}`);
     assert(!/reply hook|authors a line|-[0-9]+ Orb/i.test(JSON.stringify(result.serverPaid)), `chat confirmation should hide implementation and subtraction jargon: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("lv"), `chat cards should let the evolved art and title carry character growth: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("/"), `chat detail should not include card title chrome: ${JSON.stringify(result)}`);
     assert(!String(result.staleConnectedHint?.detail || "").includes("/"), `stale OpenRouter chat detail should not include card title chrome: ${JSON.stringify(result)}`);
-    assert(result.mara?.summary.includes("forming relationship") && result.mara?.summary.includes("Mara is watching"), `Mara Chat should preview the forming relationship statement: ${JSON.stringify(result)}`);
-    assert(result.mara?.rows?.some((row) => row[0] === "Status" && row[1].includes("does not claim friendship")), `Mara Chat must not present an established friendship: ${JSON.stringify(result)}`);
-    assert(result.mara?.rows?.some((row) => row[0] === "Campaign beat" && row[1].includes("empty key hook")), `Mara Chat should preview its deterministic campaign beat: ${JSON.stringify(result)}`);
-    assert(result.mara?.rows?.some((row) => row[0] === "Dialogue" && row[1].includes("explicit unavailable result")), `Mara Chat should distinguish optional dialogue from the relationship mutation: ${JSON.stringify(result)}`);
-    assert(result.mara?.payload?.statement === "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.", `Mara Chat must submit the confirmed authored statement: ${JSON.stringify(result)}`);
-    assert(result.renderedMara?.before?.length === 0, `an ordinary Chat target should keep the existing compact modal: ${JSON.stringify(result.renderedMara)}`);
+    assert(result.mara?.summary.includes("forming relationship") && result.mara?.summary.includes("Mara is watching"), `Mara Befriend should preview the forming relationship statement: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Status" && row[1].includes("does not claim friendship")), `Mara Befriend must not present an established friendship: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Campaign beat" && row[1].includes("empty key hook")), `Mara Befriend should preview its deterministic campaign beat: ${JSON.stringify(result)}`);
+    assert(result.mara?.rows?.some((row) => row[0] === "Dialogue" && row[1].includes("explicit unavailable result")), `Mara Befriend should distinguish optional dialogue from the relationship mutation: ${JSON.stringify(result)}`);
+    assert(result.mara?.payload?.statement === "Mara is watching whether I follow the failed lamps and return Rowan's Keeper Brass Key.", `Mara Befriend must submit the confirmed authored statement: ${JSON.stringify(result)}`);
+    assert(result.renderedMara?.before?.some((row) => row.includes("one advancement point")), `an ordinary Befriend target should show the relationship spend: ${JSON.stringify(result.renderedMara)}`);
     assert(
       result.renderedMara?.selected?.map((row) => row.label).join(",")
         === "Relationship,Status,Campaign beat,Spend,Dialogue",
@@ -3565,21 +3584,21 @@ async function main() {
     const actions = result.single;
     const bondIndex = actions.findIndex((action) => action.focusKey === "bond:1001");
     const travelIndex = actions.findIndex((action) => action.label === "travel");
-    assert(bondIndex >= 0, `Chat should surface when a resident can become a friend: ${JSON.stringify(result)}`);
-    assert(bondIndex < travelIndex, `Chat should appear before leaving with spendable advancement: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.label === "chat", `relationship action should use the unified Chat verb: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.detail === "with Rati · use what you learned", `Chat should preview its person and cost simply: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.title === "chat with Rati", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.summary === "Use one advancement point to begin a friendship with Rati.", `Chat confirmation should explain its advancement cost: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.rows?.some((row) => row[1] === "a friendship begins and their response arrives on the room heartbeat"), `Chat confirmation should describe its friendship and heartbeat outcome: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.confirm === "chat", `relationship confirmation should keep the Chat verb: ${JSON.stringify(result)}`);
+    assert(bondIndex >= 0, `Befriend should surface when a resident can become a friend: ${JSON.stringify(result)}`);
+    assert(bondIndex < travelIndex, `Befriend should appear before leaving with spendable advancement: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.label === "befriend", `relationship action should use the distinct Befriend verb: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.detail === "with Rati · use what you learned", `Befriend should preview its person and cost simply: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.title === "befriend Rati", `Befriend confirmation should name the resident: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.summary === "Use one advancement point to begin a friendship with Rati.", `Befriend confirmation should explain its advancement cost: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.rows?.some((row) => row[1] === "a friendship begins and their response arrives on the room heartbeat"), `Befriend confirmation should describe its friendship and heartbeat outcome: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.confirm === "befriend", `relationship confirmation should keep the Befriend verb: ${JSON.stringify(result)}`);
     assert(actions[bondIndex]?.command === "bond Rati: I bring small kindnesses to Rati.", `relationship action should keep the underlying command intact: ${JSON.stringify(result)}`);
-    const multipleBonds = result.multiple.filter((action) => action.label === "chat");
-    assert(multipleBonds.length === 1 && multipleBonds[0]?.detail === "choose someone · use what you learned", `several possible friends should share one Chat card: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.title === "choose someone to chat with" && multipleBonds[0]?.summary === "Choose someone nearby. Chat uses one advancement point and begins a friendship.", `Chat should make the promised friendship choice explicit: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.choices.join(",") === "Rati,Gust" && multipleBonds[0]?.alternatePayload?.target_actor_id === 1002, `Chat should submit the resident selected inside the card: ${JSON.stringify(result)}`);
+    const multipleBonds = result.multiple.filter((action) => action.label === "befriend");
+    assert(multipleBonds.length === 1 && multipleBonds[0]?.detail === "choose someone · use what you learned", `several possible friends should share one Befriend card: ${JSON.stringify(result)}`);
+    assert(multipleBonds[0]?.title === "choose someone to befriend" && multipleBonds[0]?.summary === "Choose someone nearby. Befriending uses one advancement point.", `Befriend should make the promised friendship choice explicit: ${JSON.stringify(result)}`);
+    assert(multipleBonds[0]?.choices.join(",") === "Rati,Gust" && multipleBonds[0]?.alternatePayload?.target_actor_id === 1002, `Befriend should submit the resident selected inside the card: ${JSON.stringify(result)}`);
     assert(multipleBonds[0]?.alternatePayload?.statement === "I bring small kindnesses to Gust.", `each friendship choice should carry its own warm statement: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.focusKeys.includes("actor:1001") && multipleBonds[0]?.focusKeys.includes("actor:1002"), `one Chat card should retain affinity for every eligible friend: ${JSON.stringify(result)}`);
+    assert(multipleBonds[0]?.focusKeys.includes("actor:1001") && multipleBonds[0]?.focusKeys.includes("actor:1002"), `one Befriend card should retain affinity for every eligible friend: ${JSON.stringify(result)}`);
     const visibleRelationshipCopy = {
       label: actions[bondIndex]?.label,
       detail: actions[bondIndex]?.detail,
@@ -4652,6 +4671,7 @@ async function main() {
           content: "that offer expired; refresh the scene",
         }),
       },
+      asyncChatFailure: sceneCardEventText({ type: "chat.failed" }),
     }));
     assert(result.action.chatCost === "That choice did not land. Here are the choices you have now.", `a stale Chat payment error should not imply that Chat costs Orbs: ${JSON.stringify(result)}`);
     assert(result.action.orbCost === "That choice did not land. Here are the choices you have now.", `non-image payment errors should not advertise another Orb sink: ${JSON.stringify(result)}`);
@@ -4660,6 +4680,10 @@ async function main() {
     assert(result.command.changed === "That choice changed while you were deciding. Nothing else happened; look again.", `stale typed commands should explain the atomic outcome naturally: ${JSON.stringify(result)}`);
     assert(result.action.hurry === "The room needs a breath. Try again in a moment.", `rate limits should sound like the room, not infrastructure: ${JSON.stringify(result)}`);
     assert(result.command.serverGuidance === "There is no need to fight here now.", `typed commands should preserve contextual server guidance: ${JSON.stringify(result)}`);
+    assert(
+      result.asyncChatFailure === "The conversation slipped away before it could begin. Try talking again.",
+      `asynchronous Chat failure should be visible without implying a refund for a free action: ${JSON.stringify(result)}`,
+    );
     assert(
       result.rejectedOffer.lowSignal && !result.rejectedOffer.journaled,
       `offer rejection telemetry should stay out of the player Journal: ${JSON.stringify(result.rejectedOffer)}`,
@@ -7341,21 +7365,22 @@ async function main() {
   }
 
   async function clickPrimaryAndAssertPending(label) {
-    await page.locator("#primary").click();
+    if (useFocusedActionOnNextClick) {
+      await page.evaluate(() => openActionModal(focusedAction()));
+      useFocusedActionOnNextClick = false;
+    } else {
+      await page.locator("#primary").click();
+    }
     await confirmActionModalIfOpen();
     await page.waitForFunction(() => {
-      const primary = document.querySelector("#primary");
-      return primary
-        && !primary.disabled
-        && primary.getAttribute("aria-busy") !== "true"
-        && Boolean(document.querySelector("#log .line.chat.pending[role='status']"));
+      return Boolean(document.querySelector("#log .line.chat.pending[role='status']"));
     });
     const pendingCopy = await page.locator("#log .line.chat.pending").getAttribute("aria-label");
     assert(
-      /is finding the thread\. Your next actions are ready while the conversation unfolds\./.test(pendingCopy || ""),
-      `queued Chat should announce that play can continue: ${pendingCopy}`,
+      /is finding the thread\.(?: Your conversation is unfolding| Your next actions are ready while the conversation unfolds)\./.test(pendingCopy || ""),
+      `queued Chat should announce that the conversation is unfolding: ${pendingCopy}`,
     );
-    steps.push({ label, pending: "queued", cards: "ready" });
+    steps.push({ label, pending: "queued" });
   }
 
   async function beginAvatarAndAssertArrival() {
@@ -8051,13 +8076,6 @@ async function main() {
               || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(residentName.toLowerCase()))
             )
         )),
-        chat: actions.some((action) => (
-          String(action.label || "").toLowerCase() === "chat"
-            && (
-              String(action.detail || "").toLowerCase().includes(residentName.toLowerCase())
-              || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(residentName.toLowerCase()))
-            )
-        )),
         use: actions.some((action) => (
           String(action.label || "").toLowerCase() === "use"
             && [
@@ -8071,9 +8089,7 @@ async function main() {
       lastAvailability = availability;
       if (!availability.nearby) continue;
       if (!availability.give) {
-        if (availability.chat) {
-          await clickActionMatching(`learn what ${name} wants`, ["chat", name.toLowerCase()]);
-        } else if (availability.use) {
+        if (availability.use) {
           await clickActionMatching(`use ${itemName} for ${name}`, ["use", itemName.toLowerCase()]);
           return lastJourney;
         } else {
@@ -9751,7 +9767,7 @@ async function main() {
         roomLineCount: document.querySelectorAll("#log .line.event.room").length,
         sceneLineCount: document.querySelectorAll("#log .line.event.scene-card").length,
         chatFailureSceneCount: [...document.querySelectorAll("#log .line.event.scene-card")]
-          .filter((node) => /conversation slipped away.*Orb came back/i.test(node.textContent || "")).length,
+          .filter((node) => /conversation slipped away.*try talking again/i.test(node.textContent || "")).length,
         rollLineCount: document.querySelectorAll("#log .roll-line").length,
         roomFallbackStacked: !roomRow || Boolean(roomLabelRect && roomTextRect && roomLabelRect.bottom <= roomTextRect.top + 1),
         roomFallbackClipped: Boolean(roomText && roomText.scrollHeight > roomText.clientHeight + 1),
@@ -10444,7 +10460,15 @@ async function main() {
 
   async function focusedChatTargetId() {
     const focusedTargetId = await page.evaluate(() => {
-      const focused = actionForButton("primary") || focusedAction();
+      const focused = focusedAction() || actionForButton("primary");
+      const selected = focused?.selectedTarget?.();
+      const selectedId = Number(
+        selected?.id
+          || focused?.targetActorId
+          || focused?.pendingTargetActorId?.()
+          || 0,
+      );
+      if (selectedId) return selectedId;
       const match = String(focused?.focusKey || "").match(/^(?:actor|talk):(\d+)$/);
       return Number(match?.[1] || 0);
     });
@@ -10488,8 +10512,10 @@ async function main() {
         });
         return response.json();
       }, targetActorId);
-      assert(duplicate.ok === false && duplicate.status === 409, `overlapping chat should be rejected: ${JSON.stringify(duplicate)}`);
-      assert((duplicate.events || []).length === 0, "overlapping chat should not emit events");
+      assert(
+        duplicate.ok === true && (duplicate.events || []).length === 0,
+        `overlapping Chat should idempotently reuse the active exchange: ${JSON.stringify(duplicate)}`,
+      );
       await assertNoVisibleOverflow();
       chatPendingChecked = true;
     } else {
@@ -10524,7 +10550,7 @@ async function main() {
       return;
     }
     let exchange = [];
-    for (let attempt = 0; attempt < 100 && exchange.length === 0; attempt += 1) {
+    for (let attempt = 0; attempt < 750 && exchange.length < 4; attempt += 1) {
       exchange = await page.evaluate(async ({ actorId, targetActorId, afterSeq }) => {
         const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
         const params = new URLSearchParams({
@@ -10549,25 +10575,22 @@ async function main() {
         }
         return exchange;
       }, { actorId: before.actorId, targetActorId, afterSeq: before.latestMessageSeq });
-      if (exchange.length === 0) await page.waitForTimeout(100);
+      if (exchange.length < 4) await page.waitForTimeout(100);
     }
     assert(
-      exchange.length >= 1
-        && exchange.length <= 4
+      exchange.length === 4
         && exchange[0]?.actorId === before.actorId
         && exchange.every((line, index) => line.actorId === (index % 2 === 0 ? before.actorId : targetActorId)),
-      `Chat should commit an inferred avatar line and any available alternating continuation beats: ${JSON.stringify(exchange)}`,
+      `Chat should commit exactly two alternating lines from each participant: ${JSON.stringify(exchange)}`,
     );
     assert(
       exchange.every((line) => String(line.content || "").trim().length >= 2),
       `every inferred Chat beat should contain a visible line: ${JSON.stringify(exchange)}`,
     );
-    if (exchange.length === 4) {
-      assert(
-        !/\?\s*$/.test(exchange[3]?.content || ""),
-        `the fourth beat should gently close the exchange instead of opening another question: ${JSON.stringify(exchange)}`,
-      );
-    }
+    assert(
+      !/\?\s*$/.test(exchange[3]?.content || ""),
+      `the fourth beat should gently close the exchange instead of opening another question: ${JSON.stringify(exchange)}`,
+    );
     await page.waitForFunction(
       () => !document.querySelector("#primary")?.disabled,
       null,
@@ -10906,11 +10929,15 @@ async function main() {
   assert(
     residentChatDiagnostic.advancement > 0
       && residentChatDiagnostic.offers.includes("create_bond")
-      && residentChatDiagnostic.actions.includes("chat"),
-    `Chat should remain available while another advancement-backed friendship can begin: ${JSON.stringify(residentChatDiagnostic)}`,
+      && residentChatDiagnostic.offers.includes("chat")
+      && residentChatDiagnostic.actions.includes("chat")
+      && residentChatDiagnostic.actions.includes("befriend"),
+    `Chat and Befriend should remain distinct while a friendship can begin: ${JSON.stringify(residentChatDiagnostic)}`,
   );
-  await focusPrimaryMatching("spend one advancement on Chat", (text) => text.startsWith("chat"), 32);
-  await clickPrimary("spend one advancement on Chat");
+  await focusPrimaryMatching("focus Chat with a nearby resident", (text) => text.startsWith("chat"), 32);
+  await chatWithFocusedResident("Chat button starts a bounded exchange");
+  await focusPrimaryMatching("spend one advancement on Befriend", (text) => text.startsWith("befriend"), 32);
+  await clickPrimary("spend one advancement on Befriend");
   await page.waitForFunction(
     (before) => Number(state?.ledger?.advancement_points || 0) < before,
     residentChatDiagnostic.advancement,
@@ -10925,13 +10952,13 @@ async function main() {
   });
   assert(
     spentChatDiagnostic.advancement === residentChatDiagnostic.advancement - 1,
-    `Chat should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
+    `Befriend should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
   );
   if (spentChatDiagnostic.advancement === 0) {
     assert(
       !spentChatDiagnostic.offers.includes("create_bond")
-        && !spentChatDiagnostic.actions.includes("chat"),
-      `Chat should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+        && !spentChatDiagnostic.actions.includes("befriend"),
+      `Befriend should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
     );
   }
   steps.push({ label: "spent one advancement on friendship", location: residentChatDiagnostic.location });

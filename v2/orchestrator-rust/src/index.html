@@ -5126,6 +5126,69 @@
         accessibleLabel: String(accessibleLabel || offer?.accessible_label || "").trim(),
       });
       const buildChatAction = () => {
+        if (!options.has("chat")) return null;
+        const chatOffer = offerFor("chat");
+        const offeredTargetId = Number(chatOffer?.target?.id || 0);
+        const chatCandidates = actorTargets
+          .filter((actor) => (
+            actor.control_mode !== "direct_input"
+            && !actor.blocked_by_you
+            && !actor.muted_by_you
+          ))
+          .sort((left, right) => (
+            Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
+            || actorLabel(left).localeCompare(actorLabel(right))
+          ));
+        if (!chatCandidates.length) return null;
+        const firstChat = chatCandidates[0];
+        const oneChat = chatCandidates.length === 1;
+        const firstTargetName = firstChat.name || actorLabel(firstChat);
+        const chatAction = {
+          ...semanticAction(chatOffer, "chat"),
+          kind: "orb-chat",
+          label: "chat",
+          detail: oneChat ? `with ${actorLabel(firstChat)} · a short exchange` : "choose someone nearby",
+          command: oneChat ? (chatOffer?.command || `chat ${firstTargetName}`) : "chat",
+          focusKey: oneChat
+            ? `talk:${firstChat.id}`
+            : `talk:${chatCandidates.map((actor) => actor.id).join("|")}`,
+          focusKeys: chatCandidates.map((actor) => `actor:${actor.id}`),
+          card: cardForActor(firstChat.id),
+          shape: "avatar",
+          priority: Number(chatOffer?.rank || 70),
+          targetName: oneChat ? firstTargetName : "",
+          targetActorId: firstChat.id,
+          modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
+          modalSummary: oneChat
+            ? `Your avatar and ${firstTargetName} will trade a few short lines.`
+            : "Choose someone nearby for a short back-and-forth conversation.",
+          effect: oneChat
+            ? `a short conversation with ${firstTargetName} unfolds`
+            : "a short conversation unfolds",
+          busyLabel: "chatting",
+          busyDetail: "finding the thread…",
+          ...(oneChat ? {} : {
+            choices: chatCandidates.map((actor) => ({
+              label: actorLabel(actor),
+              detail: actor.title || "share a short exchange",
+              value: String(actor.id),
+              card: cardForActor(actor.id),
+            })),
+            selectedChoice: String(firstChat.id),
+          }),
+        };
+        chatAction.selectedTarget = () => chatCandidates.find((actor) => (
+          String(actor.id) === String(chatAction.selectedChoice || firstChat.id)
+        )) || firstChat;
+        chatAction.pendingTargetActorId = () => Number(chatAction.selectedTarget().id);
+        chatAction.selectedPayload = () => ({
+          actor_id: actorId,
+          target_actor_id: Number(chatAction.selectedTarget().id),
+        });
+        chatAction.run = () => action("/actions/chat", chatAction.selectedPayload());
+        return chatAction;
+      };
+      const buildBondAction = () => {
         if (!options.has("create_bond") || Number(ledger.advancement_points || 0) <= 0) return null;
         const chatOffer = offerFor("create_bond");
         const offeredTargetId = Number(chatOffer?.target?.id || 0);
@@ -5142,13 +5205,13 @@
         const firstRelationship = firstChat.relationship || null;
         const authoredRelationship = firstRelationship?.initial_status === "forming";
         const chatAction = {
-          ...semanticAction(chatOffer, "chat"),
-          kind: "advancement-chat",
-          label: "chat",
+          ...semanticAction(chatOffer, "befriend"),
+          kind: "advancement-bond",
+          label: "befriend",
           detail: oneChat
             ? `with ${actorLabel(firstChat)} · use what you learned`
             : "choose someone · use what you learned",
-          command: oneChat ? (chatOffer?.command || `chat ${firstTargetName}`) : "chat",
+          command: oneChat ? (chatOffer?.command || `bond ${firstTargetName}`) : "bond",
           focusKey: oneChat
             ? `bond:${firstChat.id}`
             : `bond:${chatCandidates.map((actor) => actor.id).join("|")}`,
@@ -5157,12 +5220,12 @@
           shape: "avatar",
           priority: Number(chatOffer?.rank || 77),
           targetName: oneChat ? firstTargetName : "",
-          modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
+          modalTitle: oneChat ? `befriend ${firstTargetName}` : "choose someone to befriend",
           modalSummary: oneChat
             ? (authoredRelationship
               ? `Use one advancement point to begin this forming relationship: “${firstRelationship.statement}”`
               : `Use one advancement point to begin a friendship with ${firstTargetName}.`)
-            : "Choose someone nearby. Chat uses one advancement point and begins a friendship.",
+            : "Choose someone nearby. Befriending uses one advancement point.",
           effect: oneChat
             ? (authoredRelationship
               ? firstRelationship.deterministic_consequence
@@ -5608,6 +5671,8 @@
       }
       const chatAction = buildChatAction();
       if (chatAction) built.push(chatAction);
+      const bondAction = buildBondAction();
+      if (bondAction) built.push(bondAction);
       if (options.has("pick_up")) {
         const roomItems = (view.items || []).filter((item) => (
           Number(item.location_id || 0) === currentLocationId
@@ -6973,7 +7038,7 @@
 
     function offerKindsForPath(path, actionCard = pendingAction) {
       const byPath = {
-        "/actions/chat": ["create_bond"],
+        "/actions/chat": ["chat"],
         "/actions/move": ["move"],
         "/actions/explore-path": ["explore_path"],
         "/actions/flee": ["flee"],
@@ -9461,7 +9526,7 @@
       const deck = state?.deck || {};
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
-      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="keepsake-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "appears when advancement can begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="keepsake-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
     }
 
     function libraryPanelHtml() {
@@ -10029,7 +10094,7 @@
         return `The way opens, and ${actor} steps into ${event.destination_location_name || "somewhere new"}.`;
       }
       if (type === "chat.failed") {
-        return "The conversation slipped away before it could begin. Your Orb came back.";
+        return "The conversation slipped away before it could begin. Try talking again.";
       }
       if (type === "dialogue.unavailable") {
         return "Dialogue unavailable: Mara's promised reply could not run. The authored relationship beat still stands, and no substitute speech was created.";
@@ -11632,6 +11697,11 @@
         const targetName = action?.targetName || String(action.detail).split(/[·,]/)[0].trim();
         return `chat with ${targetName}`;
       }
+      if (label === "befriend" && action?.choices?.length) return "choose someone to befriend";
+      if (label === "befriend" && action?.detail) {
+        const targetName = action?.targetName || String(action.detail).split(/[·,]/)[0].trim();
+        return `befriend ${targetName}`;
+      }
       if (label === "take" && action?.choices?.length) return "choose what to take";
       if (label === "swap" && action?.choices?.length) return "choose what to swap";
       if (label === "give" && action?.choices?.length) return "choose who receives it";
@@ -11746,7 +11816,19 @@
           ["Watch for", friendlyActionText(action?.risk)],
         ].filter((row) => String(row[1] || "").trim());
       }
-      if (String(action?.label || "").toLowerCase() === "chat") {
+      if (String(action?.kind || "") === "orb-chat") {
+        if (action?.choices?.length) {
+          return [
+            ["Choose", "who you want to talk with"],
+            ["Then", "your avatar and theirs trade two short lines each"],
+          ];
+        }
+        return [
+          ["With", action?.targetName || String(action?.detail || "").split(/[·,]/)[0].trim()],
+          ["Then", "your avatar and theirs trade two short lines each"],
+        ];
+      }
+      if (String(action?.label || "").toLowerCase() === "befriend") {
         const selectedRelationship = action?.selectedTarget?.()?.relationship || action?.relationship;
         if (selectedRelationship?.initial_status === "forming") {
           return [
@@ -11859,10 +11941,9 @@
     }
 
     function renderActionModalRows(action) {
-      const selectedRelationship = action?.selectedTarget?.()?.relationship || action?.relationship;
-      const authoredRelationship = String(action?.label || "").toLowerCase() === "chat"
-        && selectedRelationship?.initial_status === "forming";
-      const rows = (authoredRelationship ? actionModalRows(action) : [])
+      const showConversationDetails = ["orb-chat", "advancement-bond"]
+        .includes(String(action?.kind || ""));
+      const rows = (showConversationDetails ? actionModalRows(action) : [])
         .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim());
       const meta = $("action-modal-meta");
       meta.innerHTML = rows.map(([key, value]) => {

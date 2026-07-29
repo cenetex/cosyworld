@@ -81,6 +81,9 @@ pub(crate) enum CommandDispatch {
     },
     Check,
     Study,
+    Chat {
+        target_actor_id: u64,
+    },
     Influence {
         target_actor_id: u64,
     },
@@ -603,6 +606,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
             "Those container contents changed while you were choosing. Check your deck."
         }
         CommandDispatch::ReviseCalling { .. } => "That purpose cannot change just now.",
+        CommandDispatch::Chat { .. } => "That conversation is no longer within reach.",
         CommandDispatch::CreateBond { .. } => "There is not a friendship ready to grow just now.",
         CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
         CommandDispatch::TrainSkill { .. } => {
@@ -2368,39 +2372,28 @@ impl RuntimeWorld {
                     .map_err(|output| command_error(&command, "chat", 404, output))?;
                 let target_name = self.actor_view(target).name;
                 let chat_command = format!("chat {target_name}");
-                if self.active_bond(actor.id, target.id).is_some() {
+                if !self.actor_uses_inference(target.id)
+                    || self.actors_blocked(actor.id, target.id)
+                    || self.actor_muted(actor.id, target.id)
+                {
                     return Ok(ResolvedCommand {
                         command: chat_command.clone(),
                         verb,
-                        action: Some(command_action("create_bond", "Chat", &chat_command)),
+                        action: Some(command_action("chat", "Chat", &chat_command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
                             output: format!(
-                                "You already share a friendship with {target_name}; play another card and let the room answer."
+                                "A shared conversation with {target_name} is not available."
                             ),
-                        },
-                    });
-                }
-                if self.advancement_points_available(actor.id) < usize::from(BOND_SLOT_COST) {
-                    return Ok(ResolvedCommand {
-                        command: chat_command.clone(),
-                        verb,
-                        action: Some(command_action("create_bond", "Chat", &chat_command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: advancement_gate_output(&format!(
-                                "Chat with {target_name}"
-                            )),
                         },
                     });
                 }
                 Ok(ResolvedCommand {
                     command: chat_command.clone(),
                     verb,
-                    action: Some(command_action("create_bond", "Chat", &chat_command)),
-                    dispatch: CommandDispatch::CreateBond {
+                    action: Some(command_action("chat", "Chat", &chat_command)),
+                    dispatch: CommandDispatch::Chat {
                         target_actor_id: target.id,
-                        statement: default_bond_statement(&target_name),
                     },
                 })
             }
@@ -3865,8 +3858,20 @@ mod tests {
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "New Friend");
         assert_eq!(runtime.advancement_points_available(5000), 0);
 
+        let chat = runtime
+            .resolve_command(&command_request("chat Rati"), &AccessContext::default())
+            .expect("free Chat should resolve without advancement");
+        assert!(
+            matches!(
+                chat.dispatch,
+                CommandDispatch::Chat {
+                    target_actor_id: RATI_ACTOR_ID
+                }
+            ),
+            "Chat is conversation, not an advancement-spending friendship action"
+        );
+
         for command in [
-            "chat Rati",
             "purpose I listen for odd jobs.",
             "friendship Rati: I bring small kindnesses to Rati.",
         ] {

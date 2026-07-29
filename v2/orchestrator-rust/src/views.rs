@@ -1976,7 +1976,7 @@ impl RuntimeWorld {
                 listen_reward_claimable,
                 listen_attempted_here,
                 openrouter_connected: false,
-                chat_payer: "advancement".to_string(),
+                chat_payer: "cosyworld_system".to_string(),
                 wooden_boxes: access.owned_box_ids.len(),
                 unopened_packs: access.unopened_pack_ids.len(),
             },
