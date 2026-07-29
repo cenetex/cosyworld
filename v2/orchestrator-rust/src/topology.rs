@@ -149,11 +149,22 @@ impl RuntimeWorld {
         snapshot_version: u32,
         historical_bundle_hash: &str,
     ) -> Result<(), String> {
+        // The caller has already rejected every hash that is neither exact nor
+        // explicitly declared replay-compatible.
+        let declared_worldpack_migration =
+            historical_bundle_hash != active_content().manifest.bundle_hash;
         self.migrate_canonical_topology_for_snapshot(snapshot_version)?;
-        if snapshot_version >= 14 {
+        if snapshot_version >= 14 && !declared_worldpack_migration {
             self.validate_canonical_route_records()?;
         }
+        // A declared worldpack migration may change authored pack versions or
+        // route metadata while preserving route identity and player history.
+        // Reconcile only after the persisted bundle has passed the explicit
+        // compatibility gate; exact current snapshots remain fail-closed
+        // above. Lifecycle, discovery, and entity history are preserved by
+        // reconcile_route_record.
         self.ensure_authored_route_records();
+        self.ensure_hidden_route_records();
         self.migrate_generated_pathways_for_snapshot(snapshot_version, historical_bundle_hash)?;
         self.validate_canonical_route_records()
     }
@@ -2930,6 +2941,52 @@ mod tests {
             .edges[0]
             .to_location_id = 9_999_999;
         assert!(wrong_endpoints.into_runtime().is_err());
+    }
+
+    #[test]
+    fn declared_worldpack_migration_reconciles_historical_authored_route_metadata() {
+        let runtime = RuntimeWorld::seeded();
+        let route_id = runtime
+            .route_for_edge(700, 712)
+            .expect("Holy Land authored route")
+            .id
+            .clone();
+        let expected = runtime.routes[&route_id].clone();
+        let discovery = RouteDiscoveryState {
+            actor_id: RATI_ACTOR_ID,
+            event_seq: 19_379,
+            reason: "production-checkpoint".to_string(),
+        };
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.worldpack_bundle_hash =
+            "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170".to_string();
+        let historical = snapshot
+            .routes
+            .get_mut(&route_id)
+            .expect("historical authored route");
+        historical.owner_pack_version = "1.1.6".to_string();
+        historical.lifecycle = RouteLifecycle::Blocked;
+        historical.discovery = Some(discovery.clone());
+        historical.entity_version = 7;
+
+        let restored = snapshot
+            .into_runtime()
+            .expect("declared historical route metadata must migrate");
+        let migrated = &restored.routes[&route_id];
+        assert_eq!(migrated.edges, expected.edges);
+        assert_eq!(migrated.owner, expected.owner);
+        assert_eq!(migrated.owner_pack_id, expected.owner_pack_id);
+        assert_eq!(migrated.owner_pack_version, expected.owner_pack_version);
+        assert_eq!(migrated.provenance, expected.provenance);
+        assert_eq!(migrated.directionality, expected.directionality);
+        assert_eq!(migrated.lifecycle, RouteLifecycle::Blocked);
+        assert_eq!(migrated.discovery, Some(discovery));
+        assert_eq!(migrated.entity_version, 8);
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("the migrated current checkpoint is idempotent");
+        assert_eq!(replayed.routes, restored.routes);
     }
 
     #[test]
