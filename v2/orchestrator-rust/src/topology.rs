@@ -767,7 +767,8 @@ impl RuntimeWorld {
             generation_policy_allows_upgrade(
                 &pathway.generation_policy,
                 &source_route.owner_pack_version,
-            )?;
+            )
+            .map_err(|error| format!("generated pathway {}: {error}", pathway.id))?;
         }
         if pathway.generation_policy.is_empty() {
             if !allow_legacy_backfill {
