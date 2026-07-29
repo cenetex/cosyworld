@@ -703,6 +703,14 @@ mod tests {
             runtime.frontier_travel_since_rest_required(5000)
         );
 
+        let (scout_action, scout_mutation, _) = runtime
+            .plan_scout_choice_action(5000, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("the frontier route can be scouted");
+        let mut scout_record = JournalRecord::new(scout_action, 18_711);
+        scout_record.bind_offer_kind("explore_path");
+        scout_record.projection_mutations.push(scout_mutation);
+        assert_eq!(runtime.apply_journal_record(&scout_record).0, CW_OK);
+        let frontier_step_id = runtime.journeys[&5000].path[1];
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let safe_offer = state
             .action_offers
@@ -722,10 +730,9 @@ mod tests {
             .iter()
             .find(|offer| {
                 offer.kind == "move"
-                    && offer.target.as_ref().and_then(|target| target.id)
-                        == Some(MOONLIT_TRAIL_LOCATION_ID)
+                    && offer.target.as_ref().and_then(|target| target.id) == Some(frontier_step_id)
             })
-            .expect("full-ring weary actor keeps a frontier-bound Travel offer");
+            .expect("full-ring weary actor can Travel the revealed frontier step");
         assert!(frontier_offer
             .risk
             .as_deref()

@@ -338,6 +338,11 @@ impl RuntimeWorld {
         if let Some((action, mutation, narration)) =
             self.plan_journey_move(actor_id, destination_location_id)?
         {
+            if action.kind != CW_ACTION_MOVE {
+                return Err(
+                    "That route still needs scouting before it can be travelled.".to_string(),
+                );
+            }
             return Ok(MovementPlan::Journey {
                 action,
                 mutation: Box::new(mutation),
@@ -367,7 +372,7 @@ impl RuntimeWorld {
         self.plan_move_offer_action(actor_id, &offer, access)
     }
 
-    fn movement_offer_exits(&self, actor_id: u64, access: &AccessContext) -> Vec<ExitView> {
+    fn accessible_movement_exits(&self, actor_id: u64, access: &AccessContext) -> Vec<ExitView> {
         let Some(actor) = self
             .actor_by_id(actor_id)
             .filter(|actor| Self::actor_can_act(*actor))
@@ -389,6 +394,13 @@ impl RuntimeWorld {
             )
         });
         exits
+    }
+
+    fn movement_offer_exits(&self, actor_id: u64, access: &AccessContext) -> Vec<ExitView> {
+        self.accessible_movement_exits(actor_id, access)
+            .into_iter()
+            .filter(|exit| exit.distance <= 1)
+            .collect()
     }
 
     fn retarget_route_action_offer(
@@ -478,8 +490,13 @@ impl RuntimeWorld {
                 expanded.push(offer);
                 continue;
             }
-            expanded.extend(
+            let exits = if offer.kind == "flee" {
+                self.accessible_movement_exits(actor_id, access)
+            } else {
                 self.movement_offer_exits(actor_id, access)
+            };
+            expanded.extend(
+                exits
                     .into_iter()
                     .map(|exit| self.retarget_route_action_offer(actor_id, offer.clone(), exit)),
             );
@@ -488,12 +505,7 @@ impl RuntimeWorld {
     }
 
     pub(super) fn has_accessible_exit(&self, actor_id: u64, access: &AccessContext) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return false;
-        };
-        self.exit_views(actor.location_id, access)
-            .into_iter()
-            .any(|exit| exit.accessible && !exit.locked)
+        !self.accessible_movement_exits(actor_id, access).is_empty()
     }
 }
 
@@ -700,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    fn movement_offers_bind_every_accessible_route_for_every_controller() {
+    fn movement_offers_bind_every_immediately_travelable_route_for_every_controller() {
         let mut runtime = RuntimeWorld::seeded();
         runtime
             .world
@@ -727,13 +739,17 @@ mod tests {
         let access = AccessContext::default();
         let exits = runtime.movement_offer_exits(RATI_ACTOR_ID, &access);
         assert!(
-            exits.len() >= 2,
-            "the route parity fixture needs at least two accessible exits"
+            !exits.is_empty(),
+            "the route parity fixture needs an immediately travelable exit"
         );
         let expected_destination_ids = exits
             .iter()
             .map(|exit| exit.destination_location_id)
             .collect::<Vec<_>>();
+        assert!(
+            exits.iter().all(|exit| exit.distance <= 1),
+            "Travel only binds routes whose next open step is immediately walkable"
+        );
 
         let direct_offers = runtime
             .legal_action_candidates(Some(RATI_ACTOR_ID), &access)
@@ -929,6 +945,18 @@ mod tests {
             long_destinations.len() >= 2,
             "the fixture must expose multiple long routes"
         );
+        let travel_destinations = initial
+            .action_offers
+            .iter()
+            .filter(|offer| offer.kind == "move")
+            .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+            .collect::<BTreeSet<_>>();
+        assert!(
+            long_destinations
+                .iter()
+                .all(|destination| !travel_destinations.contains(destination)),
+            "a route that still requires discovery must say Scout, not Travel"
+        );
         let scout_offers = initial
             .action_offers
             .iter()
@@ -956,6 +984,12 @@ mod tests {
             .filter(|target| target.kind == "location")
             .and_then(|target| target.id)
             .expect("Scout offer has an exact destination");
+        assert_eq!(
+            runtime
+                .plan_move_choice_action(actor_id, offered_destination, &access)
+                .expect_err("Scout-only routes cannot be submitted as Travel"),
+            "That Travel offer is no longer current."
+        );
         let forged_destination = long_destinations
             .iter()
             .copied()
