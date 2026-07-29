@@ -665,7 +665,7 @@ mod tests {
             .memory_atoms
             .iter()
             .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
-        assert!(format_resident_continuity(continuity).contains("memory atoms:"));
+        assert!(format_resident_continuity(continuity).contains("i remember:"));
 
         let snapshot = RuntimeSnapshot::from_runtime(&runtime);
         assert!(snapshot.resident_continuities.is_empty());
@@ -803,10 +803,10 @@ mod tests {
             .any(|note| note.text.contains("button has already moved")));
         assert!(continuity.last_observed_event_seq >= speech_seq);
         let formatted = format_resident_continuity(continuity);
-        assert!(formatted.contains("beliefs:"));
-        assert!(formatted.contains("desires:"));
-        assert!(formatted.contains("promises:"));
-        assert!(formatted.contains("refusals:"));
+        assert!(formatted.contains("i believe:"));
+        assert!(formatted.contains("i want:"));
+        assert!(formatted.contains("i promised:"));
+        assert!(formatted.contains("i refuse:"));
 
         let snapshot_path = std::env::temp_dir().join(format!(
             "cosyworld-v2-snapshot-continuity-{}-{}.json",

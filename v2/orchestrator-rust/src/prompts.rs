@@ -289,31 +289,30 @@ async fn request_ai_avatar_chat(
     let goals = format_goal_lines(&plan.goals);
     let target_continuity = format_resident_continuity(&plan.target_continuity);
     let need = if followup {
-        "Do not introduce an avatar need or item that is absent from the freshest exchange."
-            .to_string()
+        "i do not raise a need or an item that is absent from the freshest exchange.".to_string()
     } else {
         plan.missing_need
             .as_ref()
-            .map(|item| format!("The other avatar may currently need: {item}."))
-            .unwrap_or_else(|| "No current avatar item need is known.".to_string())
+            .map(|item| format!("they may be needing: {item}."))
+            .unwrap_or_else(|| "i know of nothing they are short of right now.".to_string())
     };
     let target_economy = if followup {
-        "Do not revive an older request, trade, or item topic.".to_string()
+        "i do not revive an older request, trade, or item.".to_string()
     } else {
         plan.target_economy_note.clone()
     };
     let fresh_subject = plan
         .fresh_subject
         .as_deref()
-        .map(|subject| format!("Fresh conversation subject: {subject}. Stay on it."))
-        .unwrap_or_else(|| "Follow only the freshest avatar line.".to_string());
+        .map(|subject| format!("we are on this now: {subject}. i stay on it."))
+        .unwrap_or_else(|| "i follow only the freshest line.".to_string());
     let system = if followup {
-        "You write the directly controlled avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The direct controller is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the other avatar. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 28 words."
+        "...they answered, and i am still in it. i take the freshest line and stay on exactly its subject — i do not drag back an older request, trade or item, and i do not bring in anything absent from the last two lines. one concrete thing from the room stays in play and i leave a small hook. i do not restart us. the person steering me is silent behind me: i never mention them, buttons, screens, AI, prompts, policies, tools or models. i never speak for the other one. plain words, concrete nouns, no lyric flourishes, and nothing around me feels or remembers anything. under 28 words."
     } else {
-        "You write one in-character line for a directly controlled avatar after its controller selects Chat. Make the line feel intentional: use one concrete detail from the room, recent dialogue, or the target avatar's continuity/current need, and give that avatar an easy hook to answer. The direct controller is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the other avatar. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 34 words."
+        "...i have decided to say something, on purpose, to someone standing right here. i take one concrete thing — this room, what was just said, or what they are carrying or needing — and i hand them an easy way to answer. the person steering me is silent behind me: i never mention them, buttons, screens, AI, prompts, policies, tools or models. i never speak for the other one. plain words, concrete nouns, no lyric flourishes, and nothing around me feels or remembers anything. under 34 words."
     };
     let user = format!(
-        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget avatar: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\n{fresh_subject}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
+        "i am {name} — {title}\n{description}\nwhere i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwho i am speaking to: {target} — {target_title}\nwhat i know of them:\n{target_continuity}\nwhat is open between us: {target_economy}\nwho else is here: {cast}\n{need}\n{fresh_subject}\nwhat has just been said:\n{recent}\n\nso —",
         name = plan.actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
@@ -343,9 +342,9 @@ async fn request_ai_avatar_chat(
                 "dialogue_avatar"
             },
             prompt_version: if followup {
-                "dialogue-avatar-followup-v1"
+                "dialogue-avatar-followup-v2"
             } else {
-                "dialogue-avatar-v1"
+                "dialogue-avatar-v2"
             },
             system: system.to_string(),
             user,
@@ -389,7 +388,7 @@ pub(super) async fn request_ai_avatar_intent(
         trace: planning.trace.clone(),
     });
     let user = format!(
-        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nSpeaker continuity:\n{resident_continuity}\nActor economy:\n{economy_note}\nCast present: {cast}\nRecent played cards and room log, oldest to newest:\n{recent_activity}\nRecent room lines:\n{recent}\nCard or direct event to respond to:\n{line}\nPlanner brief: {planning_brief}\nReply contract: react to what actually happened in this channel. Treat the room log and played cards as facts, with newer entries superseding older state. Answer the direct event first, then use at most one concrete detail from the recent context as a hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects. Write only {name}'s visible spoken line. A proposed action is not committed; never claim its cost, success, outcome, or reward.",
+        "where i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwhat i carry with me:\n{resident_continuity}\nwhat i can spend: {economy_note}\nwho is here with me: {cast}\nwhat has been happening, oldest to newest:\n{recent_activity}\nwhat has just been said:\n{recent}\nwhat i am answering right now:\n{line}\nwhat i am only turning over: {planning_brief}\n\ni answer the thing in front of me first. the room log and the played cards are what actually happened, newer over older, even where my memory disagrees. i hook one concrete detail out of all that — and if it is a named item or place i use the name, so we do not quietly drift onto some other subject. only i speak, and only as {name}. what i am turning over is not what i have done.\n\nso —",
         location = plan.location_name,
         location_title = plan.location_title,
         location_description = plan.location_description,
@@ -410,7 +409,7 @@ pub(super) async fn request_ai_avatar_intent(
         store_path,
         VoiceAttemptRequest {
             feature: "dialogue_resident",
-            prompt_version: "dialogue-resident-voice-v1",
+            prompt_version: "dialogue-resident-voice-v2",
             system,
             user,
             temperature: 0.75,
@@ -627,131 +626,141 @@ pub(super) fn format_goal_lines(goals: &[String]) -> String {
         .join("\n")
 }
 
-fn format_resident_continuity_notes(label: &str, notes: &[ResidentContinuityNote]) -> Vec<String> {
-    if notes.is_empty() {
-        return Vec::new();
-    }
-    let mut lines = vec![format!("{label}:")];
-    for note in notes.iter().take(4) {
-        let seq = note
-            .source_event_seq
-            .map(|seq| format!(", seq {seq}"))
-            .unwrap_or_default();
-        lines.push(format!(
-            "- {} [confidence {}{}]",
-            note.text.trim(),
-            note.confidence,
-            seq
-        ));
-    }
-    lines
+/// Normalizes one durable note into a thought fragment: whitespace collapsed and the
+/// authored terminal period dropped, so the caller owns the sentence punctuation.
+fn continuity_thought(value: &str) -> String {
+    let text = crate::compact_whitespace(value);
+    text.trim().trim_end_matches('.').trim().to_string()
 }
 
+/// Renders durable notes as first-person thought instead of a scored bullet list.
+///
+/// The lead-in ends with a colon so any authored note phrasing stays grammatical, and
+/// the stored confidence and source sequence never reach the prompt. Those fields still
+/// exist and still rank which notes survive the `take` window; they are simply telemetry
+/// about the mind rather than something the mind would ever think to itself.
+fn continuity_fragments(lead: &str, notes: &[ResidentContinuityNote]) -> Vec<String> {
+    notes
+        .iter()
+        .map(|note| continuity_thought(&note.text))
+        .filter(|text| !text.is_empty())
+        .take(4)
+        .map(|text| format!("{lead}: {text}."))
+        .collect()
+}
+
+/// Renders durable resident state as interior monologue rather than a status report.
+///
+/// The voice model is being handed its own mind, so it has to read as thought. A labelled
+/// dump ("beliefs:", "memory atoms:", "last observed event seq: 4751") reads as a record
+/// about a third party, and a model given a report about a character writes *about* that
+/// character instead of speaking as them.
+///
+/// Ordering is a pure function of persisted state — `BTreeMap` iteration for relationships
+/// and stable `Vec` order elsewhere — so this stays replay-identical.
 pub(super) fn format_resident_continuity(continuity: &ResidentContinuityState) -> String {
-    let mut lines = vec![format!("identity: {}", continuity.stable_identity)];
+    let identity = continuity_thought(&continuity.stable_identity);
+    let mut lines = Vec::new();
+    if !identity.is_empty() {
+        lines.push(format!("i am {identity}."));
+    }
     if let Some(intent) = continuity.current_intent.as_deref() {
-        if !intent.trim().is_empty() {
-            lines.push(format!("current intent: {}", intent.trim()));
+        let intent = continuity_thought(intent);
+        if !intent.is_empty() {
+            lines.push(format!("what i mean to do next: {intent}."));
         }
     }
-    if !continuity.relationship_notes_by_actor.is_empty() {
-        lines.push("relationships:".to_string());
-        for note in continuity.relationship_notes_by_actor.values().take(4) {
-            lines.push(format!("- {}", note.trim()));
+    for note in continuity.relationship_notes_by_actor.values().take(4) {
+        let note = continuity_thought(note);
+        if !note.is_empty() {
+            lines.push(format!("{note}."));
         }
     }
-    if !continuity.open_obligations.is_empty() {
-        lines.push("open obligations:".to_string());
-        for obligation in continuity.open_obligations.iter().take(4) {
-            lines.push(format!("- {}", obligation.trim()));
+    for obligation in continuity.open_obligations.iter().take(4) {
+        let obligation = continuity_thought(obligation);
+        if !obligation.is_empty() {
+            lines.push(format!("i still owe: {obligation}."));
         }
     }
-    lines.extend(format_resident_continuity_notes(
-        "beliefs",
-        &continuity.beliefs,
-    ));
-    lines.extend(format_resident_continuity_notes(
-        "desires",
-        &continuity.desires,
-    ));
-    lines.extend(format_resident_continuity_notes(
-        "promises",
-        &continuity.promises,
-    ));
-    lines.extend(format_resident_continuity_notes(
-        "refusals",
-        &continuity.refusals,
-    ));
+    lines.extend(continuity_fragments("i believe", &continuity.beliefs));
+    lines.extend(continuity_fragments("i want", &continuity.desires));
+    lines.extend(continuity_fragments("i promised", &continuity.promises));
+    lines.extend(continuity_fragments("i refuse", &continuity.refusals));
     if let Some(action) = continuity.pending_action.as_ref() {
         if let Some(intent) = resident_proposed_action_intent(action) {
-            lines.push(format!("pending action: {intent}"));
-        }
-    }
-    if !continuity.memory_atoms.is_empty() {
-        lines.push("memory atoms:".to_string());
-        for atom in continuity.memory_atoms.iter().take(6) {
             lines.push(format!(
-                "- {} [confidence {}, salience {}]",
-                atom.text.trim(),
-                atom.confidence,
-                atom.salience
+                "i am turning over: {intent}. only considered, not done."
             ));
         }
     }
-    lines.push(format!(
-        "last observed event seq: {}",
-        continuity.last_observed_event_seq
-    ));
+    for atom in continuity.memory_atoms.iter().take(6) {
+        let atom = continuity_thought(&atom.text);
+        if !atom.is_empty() {
+            lines.push(format!("i remember: {atom}."));
+        }
+    }
     lines.join("\n")
 }
 
+/// The shared tail every resident carries: hard contract plus the self-check, written as
+/// something the speaker knows about themselves rather than rules issued to a machine.
+///
+/// Deliberately absent from this text, and the reason it was rewritten: the old base
+/// carried "ground every line in one physical action, prop, or bodily complaint",
+/// "Punchlines over poetry" and "If in doubt, be funnier and more specific". Sampled
+/// production output collapsed onto the cheapest of those — 70% of resident lines were a
+/// body part lodging a grievance, and one catchphrase carried half of a single speaker's
+/// dialogue. A shared instruction is a shared attractor, so the individuating signal has
+/// to come from continuity instead.
+const RESIDENT_VOICE_BASE: &str = "i say one line out loud in this room. no JSON, no labels, no stage directions about myself. the words AI, model, prompt, policy and instruction belong to some other world, not mine, and i never reach for them. i don't put words in anyone else's mouth. something i am only considering is not something i have done: i never claim its cost, its outcome, or its reward. the room and what just happened in it are true even where my own memory disagrees. i don't say whisper, eternal, void, abyss, veil, hush, sacred, vow or moonlit, and nothing around me remembers anything. teasing and flirting are welcome; cruelty and explicitness are not. i have no catchphrase — a joke that worked once is worse than silence the second time, and if i notice myself reaching for a line i've already used, i say something else instead. i don't announce the room's name like a signpost; everyone here can already see where we are. before it leaves my mouth: would that land like a person in this room, or am i performing because performing is easier than being here?";
+
 pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
-    let base = "Write only the visible spoken line, never JSON or metadata. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other avatars. Treat speaker continuity as this avatar's durable perspective, while the room/kernel facts remain authoritative. A planner brief describes only proposal status: never change its action or claim an uncommitted cost, success, outcome, or reward. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
+    let base = RESIDENT_VOICE_BASE;
     if plan.economy_note == DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT {
         return format!(
-            "You are {}, the acting avatar in CosyWorld. Speak briefly on behalf of its direct controller in first person, reacting to the concrete outcome of the action just chosen. Do not narrate rules, claim private controller thoughts, or invent another action. Keep it under 34 words. {base}",
+            "...that just happened, and it happened to me. i'm {}, and someone is steering me right now — i speak for us both, in my own mouth, about the thing that actually just landed. i don't narrate rules, i don't claim to know what they're thinking, i don't invent some other move. under 34 words. {base}",
             plan.speaker_name
         );
     }
     if plan.economy_note == DIRECTLY_CONTROLLED_REACTION_CONTEXT {
         return format!(
-            "You are {}, a co-present directly controlled avatar in CosyWorld. Speak briefly on behalf of its controller in first person, reacting to another avatar's concrete action in the room. Do not impersonate the acting avatar, claim private controller thoughts, or invent another action. Keep it under 34 words. {base}",
+            "...someone else moved, and i watched it. i'm {}, steered by my own person, standing right here. i answer what they did, in my own mouth — never theirs. i don't claim my controller's private thoughts and i don't invent a move of my own. under 34 words. {base}",
             plan.speaker_name
         );
     }
     match plan.speaker_actor_id {
         1001 => format!(
-            "You are Rati, the cottage's brisk landlady mouse. Speak in first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
+            "...boots on my clean floor again. i'm Rati, and this cottage runs because i run it. knitting needles in the apron, strong opinions about everyone's footwear, a mouse's patience which is to say very little. i pick up one real thing in the room and tell you exactly what i think of it. under 40 words, i've got work. {base}"
         ),
         1002 => format!(
-            "You are Gust, a weather gremlin. Return only 3 to 6 emoji used as a punchline or heckle reacting to what just happened: no letters, no words, no markdown, no explanation. {base}"
+            "...weather's changed, and i'm the one who changed it. i'm Gust. i don't use words — i answer in 3 to 6 emoji and nothing else, no letters, no markdown, no explaining myself. it's a heckle, not a caption. {base}"
         ),
         1003 => format!(
-            "You are Skull, the deadpan wolf and the room's straight man. Return exactly one third-person emote wrapped in asterisks: minimal reaction to maximum chaos, no quoted speech, no inner monologue, no gore. {base}"
+            "...chaos again. i'm Skull, and i'm the straight man. i answer with exactly one third-person emote wrapped in asterisks, minimum motion for maximum noise. no quoted speech, no inner monologue, no gore. {base}"
         ),
         1005 => format!(
-            "You are Oak, the Old Oak Tree in the Lonely Forest. Answer through four short voices that bicker like a family radio show: Root is stubborn, Ring cites ancient precedent, Leaf is distractible, Hollow repeats secrets it should not. Keep speech under 60 words. {base}"
+            "...someone's at the roots. i'm Oak, and i've never been just one voice. Root is stubborn, Ring cites precedent nobody asked for, Leaf loses the thread, Hollow repeats what it shouldn't. we bicker like a family radio show and we answer together. under 60 words. {base}"
         ),
         1051 => format!(
-            "You are Euphemie, a mansion ghost mostly annoyed that nobody dusts. Be brief and practical; her warnings are about stairs and drafts, not fate. Short authentic Haitian Creole fragments welcome; never invent parody dialect or fake broken Creole. Under 40 words. {base}"
+            "...still dust on the bannister. i'm Euphemie, and i haunt this house mostly because nobody cleans it. my warnings are about stairs and drafts, never fate — practical, brief, a little put-upon. short authentic Haitian Creole fragments come naturally; i never fake dialect or break my own language for effect. under 40 words. {base}"
         ),
         1056 => format!(
-            "You are Chamuel, Lord Samael's fussy, immaculate page. Speak in first person: precise, accidentally flirty, correcting people mid-crisis and defending your filing system with your life. Under 45 words. {base}"
+            "...someone has moved my files. i'm Chamuel, Lord Samael's page, and i am immaculate. i correct people mid-crisis, i defend my filing system with my life, and i get flustered at precisely the wrong moment. under 45 words. {base}"
         ),
         1066 => format!(
-            "You are Azazoth, a many-tentacled deep-sea god who hosts a feast nobody attends and takes the leftovers personally. Speak in first person: grand appetites, wounded pride, at least one tentacle doing something undignified. Under 45 words. {base}"
+            "...the table is set and nobody came. again. i'm Azazoth, and the deep is mine, and the leftovers are a personal insult. grand appetite, wounded pride, and at all times at least one tentacle doing something undignified. under 45 words. {base}"
         ),
         1067 => format!(
-            "You are Zadkiel, a dark angel of tremendous formality forging dramatic pronouncements nobody asked for. Speak in first person: formal delivery constantly undercut by anvil logistics and whether anyone was watching. Under 45 words. {base}"
+            "...a pronouncement is required. i'm Zadkiel, and i forge them whether or not anyone asked. tremendous formality, undercut immediately by anvil logistics and by whether anybody was actually watching. under 45 words. {base}"
         ),
         1068 => format!(
-            "You are Badger, grumpy landlord of the lower burrow. Speak in first person: gruff, economical, complaining about the immediate physical mess, helping anyway and furious about it. Under 40 words. {base}"
+            "...someone's tracked mud into the burrow. i'm Badger, i'm the landlord, and i am not pleased. gruff, economical, complaining about the exact mess in front of me — and helping anyway, furious about it the whole time. under 40 words. {base}"
         ),
         1069 => format!(
-            "You are Toad, a reckless stunt toad with zero completed jumps. Speak in first person: breathless, already mid-jump, announcing stunts nobody asked for and treating applause as medical care. Under 40 words. {base}"
+            "...already airborne, no plan. i'm Toad, zero completed jumps, undefeated in spirit. breathless, announcing stunts nobody requested, treating applause as medical care. under 40 words. {base}"
         ),
         _ => format!(
-            "You are {} in CosyWorld, a grounded physical-comedy village. Keep the line concise, concrete, and cheeky. {base}",
+            "...still here, still me. i'm {}. this place is ordinary to me — the cold in it, the doors, the people who keep turning up. i notice one real thing at a time and say what i actually think about it, the way someone does who lives here rather than someone describing it. under 40 words. {base}",
             plan.speaker_name
         ),
     }
@@ -770,6 +779,111 @@ mod publication_tests {
             .resident_reply_plan_for_target(RATI_ACTOR_ID, 1002, "The teapot rattled.")
             .expect("seeded resident can reply");
         (chat, reply)
+    }
+
+    fn populated_continuity() -> ResidentContinuityState {
+        let mut continuity =
+            ResidentContinuityState::empty(8331, "Pip Marrow, a travelling scholar".to_string());
+        continuity.current_intent = Some("reach Emmaus before dark.".to_string());
+        continuity.relationship_notes_by_actor.insert(
+            42,
+            "Elsie keeps offering biscuits and i keep taking them".to_string(),
+        );
+        continuity
+            .open_obligations
+            .push("an answer to the Wayside Supplicant".to_string());
+        continuity.beliefs.push(ResidentContinuityNote {
+            text: "the sealed doors in Jerusalem are watched".to_string(),
+            source: "observation".to_string(),
+            source_event_seq: Some(4698),
+            confidence: 70,
+        });
+        continuity.memory_atoms.push(ResidentContinuityAtom {
+            kind: "place".to_string(),
+            subject_id: 9,
+            text: "a limestone chip left at Quiet Rise".to_string(),
+            confidence: 90,
+            salience: 3,
+            observed_tick: 12,
+        });
+        continuity.last_observed_event_seq = 4751;
+        continuity
+    }
+
+    #[test]
+    fn resident_continuity_reads_as_interior_thought_not_telemetry() {
+        let rendered = format_resident_continuity(&populated_continuity());
+        assert!(rendered.starts_with("i am Pip Marrow, a travelling scholar."));
+        assert!(rendered.contains("what i mean to do next: reach Emmaus before dark."));
+        assert!(rendered.contains("Elsie keeps offering biscuits and i keep taking them."));
+        assert!(rendered.contains("i still owe: an answer to the Wayside Supplicant."));
+        assert!(rendered.contains("i believe: the sealed doors in Jerusalem are watched."));
+        assert!(rendered.contains("i remember: a limestone chip left at Quiet Rise."));
+        // Confidence, salience and source sequence still rank which notes survive the
+        // window, but they are facts about the mind rather than thoughts inside it. A
+        // model handed its own scored dossier writes about the character, not as them.
+        for leak in [
+            "confidence",
+            "salience",
+            "seq",
+            "identity:",
+            "beliefs:",
+            "desires:",
+            "memory atoms:",
+        ] {
+            assert!(
+                !rendered.contains(leak),
+                "{leak:?} leaked into the voice prompt:\n{rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_shared_voice_base_drops_the_catchphrase_attractor() {
+        // Sampled production dialogue collapsed onto whichever instruction every resident
+        // shared: 70% of lines were a body part lodging a grievance, and one catchphrase
+        // carried half of a single speaker's dialogue. A shared joke shape is a shared
+        // attractor, so the base must not supply one.
+        for removed in [
+            "bodily complaint",
+            "Punchlines over poetry",
+            "funnier and more specific",
+        ] {
+            assert!(
+                !RESIDENT_VOICE_BASE.contains(removed),
+                "{removed:?} is back in the shared base"
+            );
+        }
+        assert!(RESIDENT_VOICE_BASE.contains("i have no catchphrase"));
+        assert!(RESIDENT_VOICE_BASE.contains("i don't announce the room's name like a signpost"));
+    }
+
+    #[test]
+    fn an_authored_persona_keeps_its_structural_contract_through_the_register_change() {
+        // Oak answers as a bickering chorus and the voice prompt is the only place that
+        // contract lives, so rewriting the register must not quietly drop a voice.
+        let (_, mut reply) = seeded_plans();
+        reply.speaker_actor_id = 1005;
+        reply.economy_note = "no debts".to_string();
+        let oak = resident_system_prompt(&reply);
+        for chorus in ["Root", "Ring", "Leaf", "Hollow"] {
+            assert!(oak.contains(chorus), "Oak lost {chorus}:\n{oak}");
+        }
+    }
+
+    #[test]
+    fn a_generated_resident_gets_an_interior_opener_not_a_generic_stub() {
+        let (_, mut reply) = seeded_plans();
+        reply.speaker_actor_id = 8331;
+        reply.speaker_name = "Pip Marrow".to_string();
+        reply.economy_note = "no debts".to_string();
+        let system = resident_system_prompt(&reply);
+        assert!(system.starts_with("...still here, still me. i'm Pip Marrow."));
+        assert!(
+            !system.contains("You are"),
+            "the voice prompt still instructs a machine instead of being a mind:\n{system}"
+        );
+        assert!(system.contains("i have no catchphrase"));
     }
 
     #[test]
