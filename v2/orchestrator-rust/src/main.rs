@@ -14159,6 +14159,69 @@ impl RuntimeWorld {
 
         let distance = self.pathway_distance(actor.location_id, requested_destination_id);
         if distance <= 1 {
+            let known_pathway_start = self.generated_pathways.values().find_map(|pathway| {
+                let destination_location_id = if pathway.origin_location_id == actor.location_id {
+                    pathway.destination_location_id
+                } else if pathway.destination_location_id == actor.location_id {
+                    pathway.origin_location_id
+                } else {
+                    return None;
+                };
+                let path = self.pathway_path(pathway, actor.location_id, destination_location_id);
+                let next_location_id = path.get(1).copied()?;
+                (path.len() > 2
+                    && next_location_id == requested_destination_id
+                    && pathway
+                        .revealed_edges
+                        .contains(&pathway_edge_key(actor.location_id, next_location_id)))
+                .then_some((pathway.clone(), path, destination_location_id))
+            });
+            if let Some((pathway, path, destination_location_id)) = known_pathway_start {
+                let pathway_id = pathway.id.clone();
+                let destination_name = self
+                    .location_name(destination_location_id)
+                    .unwrap_or_else(|| "the far end of the path".to_string());
+                let to_name = self
+                    .location_name(requested_destination_id)
+                    .unwrap_or_else(|| destination_name.clone());
+                return Ok(Some((
+                    CwAction {
+                        kind: CW_ACTION_MOVE,
+                        actor_id,
+                        destination_location_id: requested_destination_id,
+                        ..CwAction::default()
+                    },
+                    ProjectionMutation::JourneyTransition {
+                        pathway,
+                        journey: Some(JourneyState {
+                            actor_id,
+                            pathway_id,
+                            origin_location_id: actor.location_id,
+                            destination_location_id,
+                            destination_name: destination_name.clone(),
+                            path: path.clone(),
+                            current_step: 1,
+                            explorer: self.actor_is_explorer(actor_id),
+                        }),
+                        reveal_edges: Vec::new(),
+                        narration: String::new(),
+                        event_type: "journey.progressed".to_string(),
+                    },
+                    JourneyNarrationPlan {
+                        actor_name: self
+                            .actor_name(actor_id)
+                            .unwrap_or_else(|| "The traveller".to_string()),
+                        from_name: self
+                            .location_name(actor.location_id)
+                            .unwrap_or_else(|| "the path's edge".to_string()),
+                        to_name,
+                        destination_name,
+                        current_step: 1,
+                        total_steps: path.len().saturating_sub(1),
+                        discovery: false,
+                    },
+                )));
+            }
             return Ok(None);
         }
         self.plan_new_journey(actor, requested_destination_id, distance)
@@ -48031,6 +48094,46 @@ mod tests {
             reverse_state.journey.unwrap().next_location_name.as_deref(),
             Some(reverse_next_waypoint_name.as_str())
         );
+
+        create_test_human(
+            &mut runtime,
+            5003,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Return Card Traveller",
+        );
+        let return_path = runtime.pathway_path(
+            runtime
+                .pathway_for_anchors(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID)
+                .expect("generated route remains available"),
+            MOONLIT_TRAIL_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        let return_segment_id = return_path[1];
+        let MovementPlan::Journey {
+            action, mutation, ..
+        } = runtime
+            .plan_move_choice_action(5003, return_segment_id, &AccessContext::default())
+            .expect("the visible return segment starts its known journey")
+        else {
+            panic!("the visible return segment should preserve the route destination");
+        };
+        assert_eq!(action.destination_location_id, return_segment_id);
+        let mut return_record = JournalRecord::new(action, 900_012);
+        return_record.projection_mutations.push(*mutation);
+        assert_eq!(runtime.apply_journal_record(&return_record).0, CW_OK);
+        assert_eq!(
+            runtime.actor_by_id(5003).map(|actor| actor.location_id),
+            Some(return_segment_id)
+        );
+        let resumed_return = runtime
+            .journeys
+            .get(&5003)
+            .expect("the return segment keeps the generated journey active");
+        assert_eq!(
+            resumed_return.destination_location_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID
+        );
+        assert_eq!(resumed_return.current_step, 1);
     }
 
     #[test]
