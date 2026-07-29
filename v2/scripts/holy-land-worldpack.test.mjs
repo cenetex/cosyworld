@@ -89,7 +89,9 @@ test("the official bridge keeps Holy Land prose, art, and cairn vocabulary", () 
   assert.ok(
     policy.migrations.some(
       (migration) =>
-        migration.from_migration_version === 1
+        migration.from_policy_id
+          === "cosyworld.composition.core-holy-land/generation/1"
+        && migration.from_migration_version === 1
         && migration.from_pack_version === "1.0.1"
         && migration.mode === "preserve_descendants",
     ),
