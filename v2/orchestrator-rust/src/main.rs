@@ -5400,6 +5400,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
     start_focused_encounter_scheduler(state.clone());
     start_actor_job_worker(state.clone());
+    resume_pending_community_art_generations(&state);
     start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
     start_hosted_access_scheduler(state.clone());

@@ -1808,6 +1808,58 @@ pub(super) fn schedule_community_art_generation(
     });
 }
 
+pub(super) fn pending_community_art_resumption_plans(
+    runtime: &RuntimeWorld,
+    generated_asset_dir: &Path,
+) -> Vec<(u64, CommunityArtPlan)> {
+    runtime
+        .community_art_generations
+        .values()
+        .filter(|generation| {
+            generation.funded_orbs >= generation.required_orbs
+                && matches!(
+                    generation.status.as_str(),
+                    "funded" | "generating" | "reviewing"
+                )
+        })
+        .filter_map(|generation| {
+            generation.contributions.keys().copied().find_map(|actor_id| {
+                let plan = runtime
+                    .community_art_plan(
+                        actor_id,
+                        &generation.subject_kind,
+                        generation.subject_id,
+                    )
+                    .ok()?;
+                let candidate_exists =
+                    community_art_candidate_availability(generated_asset_dir, &plan)
+                        != CommunityArtCandidateAvailability::Absent;
+                plan.generation_retryable(generation, candidate_exists)
+                    .then_some((actor_id, plan))
+            })
+        })
+        .collect()
+}
+
+/// Replaces the in-memory worker that disappears when a deployment interrupts
+/// a funded generation. The durable generation record remains authoritative;
+/// only eligible work with a still-visible contributor is resumed.
+pub(super) fn resume_pending_community_art_generations(state: &AppState) {
+    if state.avatar_art_config.as_ref().is_none() {
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        let resumptions = {
+            let runtime = state.inner.lock().await;
+            pending_community_art_resumption_plans(&runtime, &state.generated_asset_dir)
+        };
+        for (actor_id, plan) in resumptions {
+            schedule_community_art_generation(&state, actor_id, plan);
+        }
+    });
+}
+
 pub(super) fn publish_community_art_candidate(
     generated_asset_dir: &Path,
     plan: &CommunityArtPlan,

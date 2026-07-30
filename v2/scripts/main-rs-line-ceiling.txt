@@ -85,4 +85,7 @@
 # also pin those context and causality boundaries with focused regressions.
 # 74648 -> 74646: replace legacy Journal detail assertions with the smaller
 # semantic-region and truthful-overflow contract.
-74646
+# 74646 -> 74647: boot wiring resumes durable, fully funded community-art jobs
+# interrupted by a process restart; selection and tests remain in the focused
+# community_art seam.
+74647

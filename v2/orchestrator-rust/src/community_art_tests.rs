@@ -193,6 +193,47 @@ fn policy_preflight_fixture_is_a_real_sized_png() {
     assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 64);
 }
 
+#[test]
+fn funded_avatar_generation_is_selected_for_boot_resumption() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Restarted Art Patron",
+    );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("active patron can fund their visible avatar");
+    fund_test_community_art(
+        &mut runtime,
+        5000,
+        &plan,
+        "test-boot-community-art-resumption",
+        9001,
+    );
+    let key = community_art_generation_key("actor", 5000, plan.level);
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("funded avatar generation");
+    generation.status = "generating".to_string();
+    generation.provider_attempts = 1;
+
+    let asset_root = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-resume-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    std::fs::create_dir_all(&asset_root).expect("create temporary generated-asset root");
+    let resumptions = pending_community_art_resumption_plans(&runtime, &asset_root);
+    assert_eq!(resumptions.len(), 1);
+    assert_eq!(resumptions[0].0, 5000);
+    assert_eq!(resumptions[0].1.subject_kind, "actor");
+    assert_eq!(resumptions[0].1.subject_id, 5000);
+    let _ = std::fs::remove_dir_all(asset_root);
+}
+
 #[tokio::test]
 async fn location_art_funding_fails_before_debit_without_policy_review() {
     let mut runtime = RuntimeWorld::seeded();
