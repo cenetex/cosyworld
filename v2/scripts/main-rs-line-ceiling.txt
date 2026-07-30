@@ -95,4 +95,6 @@
 # durable-state recovery and pin the failure path with an exact snapshot
 # regression. The recovery wiring stays at the existing persistence boundary;
 # no new gameplay system is added.
-74708
+# 74708 -> 74498: move checkpoint compaction, canonical-commit retention, and
+# compacted event-range hydration into the existing journal_checkpoint seam.
+74498

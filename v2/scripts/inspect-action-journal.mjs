@@ -117,24 +117,43 @@ function inspectCompaction(database) {
   if (!tableExists) {
     return {
       action_journal_floor_seq: 0,
+      canonical_commit_floor_journal_seq: 0,
       world_event_floor_seq: 0,
       last_compacted_at_ms: null,
       deleted_action_journal_rows: 0,
+      deleted_canonical_commit_rows: 0,
       deleted_world_event_rows: 0,
     };
   }
+  const columns = new Set(
+    database.prepare("PRAGMA table_info(persistence_compaction)")
+      .all()
+      .map((column) => column.name),
+  );
+  const canonicalCommitFloor = columns.has("canonical_commit_floor_journal_seq")
+    ? "canonical_commit_floor_journal_seq"
+    : "0 AS canonical_commit_floor_journal_seq";
+  const deletedCanonicalCommits = columns.has("deleted_canonical_commit_rows")
+    ? "deleted_canonical_commit_rows"
+    : "0 AS deleted_canonical_commit_rows";
   const row = database.prepare(
-    `SELECT action_journal_floor_seq, world_event_floor_seq,
+    `SELECT action_journal_floor_seq, ${canonicalCommitFloor},
+            world_event_floor_seq,
             last_compacted_at_ms, deleted_action_journal_rows,
+            ${deletedCanonicalCommits},
             deleted_world_event_rows
      FROM persistence_compaction
      WHERE singleton = 1`,
   ).get();
   return {
     action_journal_floor_seq: jsonInteger(row?.action_journal_floor_seq ?? 0),
+    canonical_commit_floor_journal_seq: jsonInteger(
+      row?.canonical_commit_floor_journal_seq ?? 0,
+    ),
     world_event_floor_seq: jsonInteger(row?.world_event_floor_seq ?? 0),
     last_compacted_at_ms: jsonInteger(row?.last_compacted_at_ms ?? null),
     deleted_action_journal_rows: jsonInteger(row?.deleted_action_journal_rows ?? 0),
+    deleted_canonical_commit_rows: jsonInteger(row?.deleted_canonical_commit_rows ?? 0),
     deleted_world_event_rows: jsonInteger(row?.deleted_world_event_rows ?? 0),
   };
 }
