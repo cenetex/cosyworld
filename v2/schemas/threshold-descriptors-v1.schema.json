@@ -1,0 +1,495 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cosyworld.dev/schemas/threshold-descriptors-v1.schema.json",
+  "title": "Cosyworld threshold descriptor catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "descriptor_version",
+    "accepted_intent_version",
+    "authoring_authority",
+    "lead_state_migrations",
+    "recoveries",
+    "anchors",
+    "leads",
+    "gates",
+    "hazards",
+    "pressures"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "descriptor_version": { "const": "threshold-descriptor-v1" },
+    "accepted_intent_version": { "const": "threshold-intent-v1" },
+    "authoring_authority": { "const": "authored_pack" },
+    "lead_state_migrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latent", "sign", "followable", "lost", "marked", "mapped"],
+      "properties": {
+        "latent": { "$ref": "#/$defs/leadState" },
+        "sign": { "$ref": "#/$defs/leadState" },
+        "followable": { "$ref": "#/$defs/leadState" },
+        "lost": { "$ref": "#/$defs/leadState" },
+        "marked": { "$ref": "#/$defs/leadState" },
+        "mapped": { "$ref": "#/$defs/leadState" }
+      }
+    },
+    "recoveries": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/recovery" }
+    },
+    "anchors": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/anchor" }
+    },
+    "leads": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/lead" }
+    },
+    "gates": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "hazards": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/hazard" }
+    },
+    "pressures": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/pressure" }
+    }
+  },
+  "$defs": {
+    "canonicalId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]*:[a-z][a-z0-9-]*/[a-z][a-z0-9._/-]*$"
+    },
+    "localId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,63}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255
+    },
+    "leadState": {
+      "enum": ["latent", "signed", "followable", "lost", "marked", "mapped", "resolved"]
+    },
+    "targetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "actor",
+            "item",
+            "feature",
+            "route",
+            "location",
+            "resource",
+            "lore",
+            "gate",
+            "hazard",
+            "pressure",
+            "lead",
+            "anchor"
+          ]
+        },
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "exact_item",
+            "item_capability",
+            "installed_item",
+            "minimum_charges",
+            "actor_tag",
+            "clock_status",
+            "job_status",
+            "minimum_standing",
+            "bond_state",
+            "access_grant",
+            "per_actor_claim"
+          ]
+        },
+        "item_id": { "$ref": "#/$defs/canonicalId" },
+        "target_id": { "$ref": "#/$defs/canonicalId" },
+        "tag_id": { "$ref": "#/$defs/canonicalId" },
+        "clock_id": { "$ref": "#/$defs/canonicalId" },
+        "job_id": { "$ref": "#/$defs/canonicalId" },
+        "faction_id": { "$ref": "#/$defs/canonicalId" },
+        "actor_id": { "$ref": "#/$defs/canonicalId" },
+        "grant_id": { "$ref": "#/$defs/canonicalId" },
+        "claim_id": { "$ref": "#/$defs/canonicalId" },
+        "capability": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "amount": { "$ref": "#/$defs/version" },
+        "level": { "$ref": "#/$defs/version" },
+        "status": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "state": { "type": "string", "minLength": 1, "maxLength": 32 }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "clauses"],
+      "properties": {
+        "mode": { "const": "all" },
+        "clauses": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/predicate" }
+        }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target_id"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "set_gate_state",
+            "consume_item_charge",
+            "consume_item",
+            "set_hazard_state",
+            "advance_clock",
+            "set_lead_state",
+            "set_anchor_state",
+            "advance_pressure"
+          ]
+        },
+        "target_id": { "$ref": "#/$defs/canonicalId" },
+        "state": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "track": { "enum": ["progress", "danger"] },
+        "amount": { "$ref": "#/$defs/version" }
+      }
+    },
+    "effects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/effect" }
+    },
+    "slotRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_type",
+        "allowed_result_type",
+        "slot_id",
+        "slot_version",
+        "claim_policy",
+        "receipt_version",
+        "receipt_ref",
+        "finite_budget",
+        "fallback",
+        "materialized_ids"
+      ],
+      "properties": {
+        "source_type": { "enum": ["lead", "gate", "hazard", "pressure"] },
+        "allowed_result_type": {
+          "enum": ["item", "feature", "actor", "route", "location", "resource", "lore"]
+        },
+        "slot_id": { "$ref": "#/$defs/canonicalId" },
+        "slot_version": { "$ref": "#/$defs/version" },
+        "table_id": { "$ref": "#/$defs/canonicalId" },
+        "table_version": { "$ref": "#/$defs/version" },
+        "claim_policy": { "const": "once_per_scope" },
+        "receipt_version": { "const": "discovery-receipt-v1" },
+        "receipt_ref": { "$ref": "#/$defs/canonicalId" },
+        "finite_budget": { "$ref": "#/$defs/version" },
+        "fallback": { "enum": ["deny", "retain_state", "required_result"] },
+        "materialized_ids": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/canonicalId" }
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "action", "requirements", "success_effects"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "action": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "success_effects": { "$ref": "#/$defs/effects" },
+        "failure_effects": { "$ref": "#/$defs/effects" },
+        "recovery_ref": { "$ref": "#/$defs/canonicalId" },
+        "recovery_version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "reset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy"],
+      "properties": {
+        "policy": { "enum": ["never", "manual", "scene_end", "world_tick"] },
+        "after_turns": { "$ref": "#/$defs/version" }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "effects"],
+      "properties": {
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" },
+        "effects": { "$ref": "#/$defs/effects" }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "location_ref",
+        "state",
+        "return_chain",
+        "branch_authorization",
+        "durable_mark_state"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" },
+        "location_ref": { "$ref": "#/$defs/targetRef" },
+        "state": { "enum": ["provisional", "marked", "mapped"] },
+        "return_chain": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/targetRef" }
+        },
+        "branch_authorization": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/targetRef" }
+        },
+        "durable_mark_state": { "enum": ["marked", "mapped"] }
+      }
+    },
+    "leadTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "method", "effects"],
+      "properties": {
+        "from": { "$ref": "#/$defs/leadState" },
+        "to": { "$ref": "#/$defs/leadState" },
+        "method": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "effects": { "$ref": "#/$defs/effects" }
+      }
+    },
+    "lead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "source_ref",
+        "target_ref",
+        "scope",
+        "initial_state",
+        "state_path",
+        "anchor_id",
+        "anchor_version",
+        "slot",
+        "transitions"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" },
+        "source_ref": { "$ref": "#/$defs/targetRef" },
+        "target_ref": { "$ref": "#/$defs/targetRef" },
+        "scope": { "enum": ["actor", "expedition", "world"] },
+        "initial_state": { "$ref": "#/$defs/leadState" },
+        "state_path": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/leadState" }
+        },
+        "anchor_id": { "$ref": "#/$defs/canonicalId" },
+        "anchor_version": { "$ref": "#/$defs/version" },
+        "slot": { "$ref": "#/$defs/slotRef" },
+        "transitions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/leadTransition" }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "target_ref",
+        "scope",
+        "transition",
+        "persistence",
+        "closed_requirements",
+        "methods",
+        "reset"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" },
+        "target_ref": { "$ref": "#/$defs/targetRef" },
+        "scope": { "enum": ["actor", "expedition", "world", "holder"] },
+        "transition": { "enum": ["open", "unlock", "cross", "unseal", "install", "consume"] },
+        "persistence": { "enum": ["persistent", "resettable"] },
+        "closed_requirements": { "$ref": "#/$defs/requirements" },
+        "methods": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/method" }
+        },
+        "reset": { "$ref": "#/$defs/reset" },
+        "slot": { "$ref": "#/$defs/slotRef" }
+      }
+    },
+    "hazard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "target_ref",
+        "scope",
+        "tells",
+        "triggers",
+        "severity",
+        "methods",
+        "bypasses",
+        "consequences",
+        "reset"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" },
+        "target_ref": { "$ref": "#/$defs/targetRef" },
+        "scope": { "enum": ["actor", "expedition", "world", "holder"] },
+        "tells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "triggers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "enum": ["interact", "open", "cross", "search", "failed_method"] }
+        },
+        "severity": { "enum": ["minor", "major", "severe"] },
+        "methods": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/method" }
+        },
+        "bypasses": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/method" }
+        },
+        "consequences": { "$ref": "#/$defs/effects" },
+        "reset": { "$ref": "#/$defs/reset" },
+        "slot": { "$ref": "#/$defs/slotRef" }
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock_id", "question", "maximum"],
+      "properties": {
+        "clock_id": { "$ref": "#/$defs/canonicalId" },
+        "question": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "maximum": { "type": "integer", "minimum": 1, "maximum": 32 }
+      }
+    },
+    "strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "turn_cost",
+        "requirements",
+        "success_effects",
+        "soft_consequences",
+        "hard_consequences"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "turn_cost": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "success_effects": { "$ref": "#/$defs/effects" },
+        "soft_consequences": { "$ref": "#/$defs/effects" },
+        "hard_consequences": { "$ref": "#/$defs/effects" }
+      }
+    },
+    "pressure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "participant_refs",
+        "progress",
+        "danger",
+        "terminal_states",
+        "strategies",
+        "slot"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/canonicalId" },
+        "version": { "$ref": "#/$defs/version" },
+        "participant_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/targetRef" }
+        },
+        "progress": { "$ref": "#/$defs/clock" },
+        "danger": { "$ref": "#/$defs/clock" },
+        "terminal_states": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 32 }
+        },
+        "strategies": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/strategy" }
+        },
+        "slot": { "$ref": "#/$defs/slotRef" }
+      }
+    }
+  }
+}

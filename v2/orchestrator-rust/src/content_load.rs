@@ -2,6 +2,8 @@ use super::*;
 
 #[path = "discovery_authority.rs"]
 mod discovery_authority;
+#[path = "threshold_descriptors.rs"]
+mod threshold_descriptors;
 
 const LANTERN_KEEPER_PACK_ID: &str = "cosyworld.campaign.the-lantern-keeper";
 const LANTERN_KEEPER_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";
@@ -1589,6 +1591,7 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
 pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     validate_seed_building_archetypes(content)?;
     discovery_authority::validate_seed_discovery_authority(content)?;
+    threshold_descriptors::validate_seed_threshold_descriptors(content)?;
     validate_seed_loot_tables(content)?;
     let packs_by_id = content
         .manifest
