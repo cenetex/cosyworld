@@ -571,6 +571,54 @@ pub(super) fn validate_active_region(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(super) fn prepare_partition_leases_for_region(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    expected_store_id: &str,
+    region_id: &str,
+    partition_keys: &BTreeSet<String>,
+    owner_id: &str,
+    now_ms: u64,
+    ttl_ms: u64,
+) -> io::Result<BTreeMap<String, AuthorityLease>> {
+    let mut existing = BTreeMap::new();
+    for partition_key in partition_keys {
+        let Some(lease) =
+            current_partition_lease(path, world_id, world_epoch, partition_key, now_ms)?
+        else {
+            // An absent or expired lease needs a fenced acquisition. Once
+            // acquired, the world transaction renews it on every command.
+            return acquire_partition_leases_for_region(
+                path,
+                world_id,
+                world_epoch,
+                expected_store_id,
+                region_id,
+                partition_keys,
+                owner_id,
+                now_ms,
+                ttl_ms,
+            );
+        };
+        if lease.owner_id != owner_id {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "partition {partition_key} is leased by canonical owner {}",
+                    lease.owner_id
+                ),
+            ));
+        }
+        existing.insert(partition_key.clone(), lease);
+    }
+    // The journal transaction validates the fencing epoch and renews these
+    // leases atomically with the world mutation. Writing the same renewal in
+    // preflight added a second durable commit without strengthening safety.
+    Ok(existing)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(super) fn acquire_partition_leases_for_region(
     path: &Path,
     world_id: &str,
@@ -2275,8 +2323,19 @@ fn open_canonical_store(path: &Path) -> io::Result<Connection> {
         .map_err(sqlite_error)?;
     // WAL lets readers continue beside the single writer; NORMAL avoids an
     // fsync per commit while retaining crash-safe journal recovery.
-    conn.pragma_update(None, "journal_mode", "WAL")
+    //
+    // journal_mode persists in the database. Re-applying the write-form
+    // pragma on every short-lived connection asks SQLite to take the mode
+    // change lock even when the store is already WAL. On the production Fly
+    // volume that lock round-trip sat on every command path. Inspect first and
+    // only mutate the persistent setting while initializing a non-WAL store.
+    let journal_mode = conn
+        .query_row("PRAGMA journal_mode", [], |row| row.get::<_, String>(0))
         .map_err(sqlite_error)?;
+    if !journal_mode.eq_ignore_ascii_case("wal") {
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(sqlite_error)?;
+    }
     conn.pragma_update(None, "synchronous", "NORMAL")
         .map_err(sqlite_error)?;
     Ok(conn)
@@ -2361,6 +2420,63 @@ mod tests {
 
         drop(keepalive);
         let _ = fs::remove_file(&wal_path);
+        let _ = fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn live_local_lease_preflight_is_read_only() {
+        let path = temp_db("lease-preflight");
+        initialize(&path);
+        let world_id = "world://test";
+        let world_epoch = 1;
+        let store_id = "store:test";
+        let region_id = "region:test";
+        let owner_id = "owner:test";
+        ensure_canonical_store_identity(&path, world_id, world_epoch, store_id, 1).unwrap();
+        ensure_region_authority(&path, world_id, world_epoch, region_id, 1).unwrap();
+        let partitions = BTreeSet::from(["room:test".to_string()]);
+        let acquired = acquire_partition_leases_for_region(
+            &path,
+            world_id,
+            world_epoch,
+            store_id,
+            region_id,
+            &partitions,
+            owner_id,
+            10,
+            30_000,
+        )
+        .unwrap();
+        let inspector = open_event_store(&path).unwrap();
+        let data_version_before = inspector
+            .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
+            .unwrap();
+
+        let prepared = prepare_partition_leases_for_region(
+            &path,
+            world_id,
+            world_epoch,
+            store_id,
+            region_id,
+            &partitions,
+            owner_id,
+            20,
+            30_000,
+        )
+        .unwrap();
+
+        let data_version_after = inspector
+            .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
+            .unwrap();
+        assert_eq!(prepared, acquired);
+        assert_eq!(
+            data_version_after, data_version_before,
+            "a live local lease preflight must not add a durable transaction"
+        );
+
+        drop(inspector);
+        let _ = fs::remove_file(PathBuf::from(format!("{}-wal", path.display())));
         let _ = fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
         let _ = fs::remove_file(path);
     }
