@@ -13,7 +13,10 @@ export const buildOomQuery = (app, window = '30m') => {
   if (!DURATION_PATTERN.test(window)) {
     throw new Error('window must be a positive Prometheus duration such as 30m or 2h');
   }
-  return `max(max_over_time(fly_instance_exit_oom{app="${app}"}[${window}]))`;
+  return (
+    `max(max_over_time(fly_instance_exit_oom{app="${app}"}[${window}]))`
+    + ` or (0 * max(fly_instance_up{app="${app}"}))`
+  );
 };
 
 export const flyAuthorization = (token) => {
