@@ -79,7 +79,7 @@ impl ResidentContinuityState {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct ResidentContinuitySnapshot {
+pub(crate) struct ResidentContinuitySnapshot {
     version: u32,
     #[serde(default)]
     worldpack_bundle_hash: String,
@@ -89,7 +89,7 @@ struct ResidentContinuitySnapshot {
 }
 
 impl ResidentContinuitySnapshot {
-    fn from_runtime(runtime: &RuntimeWorld) -> Self {
+    pub(crate) fn from_runtime(runtime: &RuntimeWorld) -> Self {
         let residents = runtime.world.actors[..runtime.world.actor_count]
             .iter()
             .copied()
@@ -156,6 +156,7 @@ impl RuntimeWorld {
         applied
     }
 
+    #[cfg(test)]
     pub(crate) fn save_resident_continuity_snapshot(&self, path: &Path) -> io::Result<()> {
         if let Some(parent) = path.parent() {
             if !parent.as_os_str().is_empty() {
