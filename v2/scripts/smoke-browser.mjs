@@ -664,7 +664,6 @@ async function main() {
         roomClean: Boolean(journal?.hidden && node?.getClientRects().length === 0),
         text: node?.textContent?.trim().replace(/\s+/g, " ") || "",
         aria: firstThread?.getAttribute("aria-label") || "",
-        detail: firstThread?.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
         cue: firstThread?.querySelector(".journal-row-label")?.textContent?.trim() || "",
         layout: firstThreadText ? {
           whiteSpace: getComputedStyle(firstThreadText).whiteSpace,
@@ -914,7 +913,6 @@ async function main() {
           visible: !node.hidden,
           text: node.textContent.trim().replace(/\s+/g, " "),
           aria: node.querySelector(".journal-row")?.getAttribute("aria-label") || "",
-          detail: node.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
         };
         result.completionText = firstTaleCompletionText();
         firstTaleCelebration = false;
@@ -973,7 +971,7 @@ async function main() {
       return result;
     });
     assert(guide.visible && guide.roomClean, `new-avatar guidance should exist inside the closed Journal without occupying chat: ${JSON.stringify(guide)}`);
-    assert(guide.cue === "next" && /notice what the rain has changed/i.test(guide.aria), `fresh first-thread guidance should be one compact next beat: ${JSON.stringify(guide)}`);
+    assert(guide.cue === "story" && /notice what the rain has changed/i.test(guide.aria), `fresh first-thread guidance should be one compact semantic thread: ${JSON.stringify(guide)}`);
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
     assert(guide.layout?.whiteSpace === "nowrap" && guide.layout?.overflow === "hidden", `collapsed Journal guidance should stay on one line: ${JSON.stringify(guide)}`);
@@ -994,19 +992,18 @@ async function main() {
     );
     assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
-    assert(guide.completionBeat?.visible && /your first tale is yours/i.test(guide.completionBeat?.text || ""), `finishing the opening should earn a visible celebration: ${JSON.stringify(guide)}`);
-    assert(/helped uncover the first stones/i.test(guide.completionBeat?.detail || ""), `the ending should recap the durable shared-world consequence in one expanded sentence: ${JSON.stringify(guide)}`);
+    assert(!guide.completionBeat?.visible, `completed first-tale memory should leave the unresolved Open threads region: ${JSON.stringify(guide)}`);
     assert(guide.completionText === "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.", `the first-tale ending should be server-authored consequence memory: ${JSON.stringify(guide)}`);
-    assert(guide.completionRepeats === true, `the first-tale memory should survive rerender and reconnect: ${JSON.stringify(guide)}`);
+    assert(guide.completionRepeats === false, `completed first-tale memory should not reappear as an open thread after rerender: ${JSON.stringify(guide)}`);
     assert(guide.travelThread?.text === "A path to Rain-Soft Garden is waiting." && guide.travelThread?.actionKey === "exit:2", `an open route should become a grounded clickable room thread: ${JSON.stringify(guide)}`);
     assert(guide.giftThread?.text === "Rati is waiting for Story Button.", `a wanted gift should outrank generic exploration in the room thread: ${JSON.stringify(guide)}`);
     assert(guide.ordinaryGiftThread?.kind === "search", `an optional gift should not be misrepresented as a resident waiting for it: ${JSON.stringify(guide)}`);
     assert(guide.searchThread?.text === "Something in The Cosy Cottage is still waiting to be found.", `a searchable room should offer a gentle discovery thread: ${JSON.stringify(guide)}`);
     assert(guide.roomHookThread?.text === "The hearth notices unfinished promises.", `an authored room hook should remain as the non-mechanical fallback thread: ${JSON.stringify(guide)}`);
     assert(
-      guide.roomThreadSurfaceAfterCompletion?.visible === true
+      guide.roomThreadSurfaceAfterCompletion?.visible === false
         && guide.roomThreadSurfaceAfterCompletion.storyThread === false,
-      `the completed first-tale memory should stay visible without restoring the redundant room-thread strip: ${JSON.stringify(guide)}`,
+      `completed first-tale state should not restore a redundant open-thread strip: ${JSON.stringify(guide)}`,
     );
     assert(
       guide.roomThreadHand?.labels?.join(",") === "chat,travel"
@@ -6380,13 +6377,17 @@ async function main() {
       }]);
       renderTimelines();
       setJournalOpen(true);
-      syncJournalBeatOverflow();
+      syncJournalRowOverflow();
       const storyRow = document.querySelector("#journal-log .journal-row.work");
       if (storyRow?.classList.contains("is-overflowing")) storyRow.open = true;
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
         summary: storyRow?.querySelector(".journal-row-summary")?.textContent?.trim() || "",
-        detail: storyRow?.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
+        proseNodeCount: storyRow?.querySelectorAll(".journal-row-summary").length || 0,
+        detailBlockCount: storyRow?.querySelectorAll(".journal-row-detail").length || 0,
+        expandedWhiteSpace: storyRow
+          ? getComputedStyle(storyRow.querySelector(".journal-row-summary")).whiteSpace
+          : "",
         sourceLeakCount: [...raw].filter((event) => (
           storyRow?.innerHTML.includes(event.type)
           || storyRow?.innerHTML.includes(`#${event.seq}`)
@@ -6396,9 +6397,11 @@ async function main() {
     assert(evidence.latest === result.text, `receipt evidence should show the exact authored scene status: ${JSON.stringify(evidence)}`);
     assert(
       evidence.summary === result.text
-        && evidence.detail === result.text
+        && evidence.proseNodeCount === 1
+        && evidence.detailBlockCount === 0
+        && (!evidence.expandedWhiteSpace || evidence.expandedWhiteSpace === "normal")
         && evidence.sourceLeakCount === 0,
-      `receipt evidence should reuse one complete headline without raw event identifiers: ${JSON.stringify(evidence)}`,
+      `receipt evidence should render one complete prose node without duplicate detail or raw event identifiers: ${JSON.stringify(evidence)}`,
     );
     await page.setViewportSize({ width: 980, height: 820 });
     await page.screenshot({ path: evidencePath, fullPage: false });
@@ -6579,15 +6582,11 @@ async function main() {
       };
       return {
         frontText: front?.textContent || "",
-        frontSummary: front?.querySelector(".journal-row-summary")?.textContent || "",
-        frontDescription: [...(front?.querySelectorAll(".journal-row-lines li") || [])]
-          .map((line) => line.textContent || "")
-          .join(" "),
+        frontProse: front?.querySelector(".journal-row-summary")?.textContent || "",
         frontInspectorLists: front?.querySelectorAll(".journal-row-inspector").length || 0,
         questionText: question?.textContent || "",
-        questionDescription: [...(question?.querySelectorAll(".journal-row-lines li") || [])]
-          .map((line) => line.textContent || "")
-          .join(" "),
+        questionProse: question?.querySelector(".journal-row-summary")?.textContent || "",
+        questionDetailBlocks: question?.querySelectorAll(".journal-row-detail").length || 0,
         meters,
         buttons,
         roomStoryCount: document.querySelectorAll(".room .story-front, .room .active-question, #promoted-question").length,
@@ -6599,30 +6598,23 @@ async function main() {
       };
     });
     assert(
-      evidence.frontSummary.includes("beacon's shadow has learned Rowan's shape")
-        && evidence.frontDescription.includes("Can Rowan be separated from the shadow")
-        && evidence.frontDescription.includes("Will the party restore a guiding light")
-        && evidence.frontDescription.includes("the answer still matters to Pip Thistle, Moth-Eaten Knight, and Rowan Vale")
+      evidence.frontProse.includes("beacon's shadow has learned Rowan's shape")
+        && evidence.frontProse.includes("Can Rowan be separated from the shadow")
         && evidence.frontInspectorLists === 0,
-      `the Journal should present the front as compact accessible narrative, not a roster: ${JSON.stringify(evidence)}`,
+      `the Journal should name the unresolved front as one compact prose string: ${JSON.stringify(evidence)}`,
     );
     assert(
-      evidence.questionText.includes("Can the Mothwood beacon be relit")
-        && evidence.questionDescription.includes("progress is 2/6")
-        && evidence.questionDescription.includes("danger is 1/6")
-        && evidence.questionDescription.includes("if danger fills")
-        && evidence.questionDescription.includes("finishing could")
-        && evidence.questionDescription.includes("choice 1/2")
-        && evidence.questionDescription.includes("choice 2/2")
-        && evidence.questionDescription.includes("target the brass beacon shutters")
-        && evidence.questionDescription.includes("risk trouble may draw nearer while you rest"),
-      `the compact Journal question should preserve clocks, outcomes, and both rationales: ${JSON.stringify(evidence)}`,
+      evidence.questionProse.includes("Can the Mothwood beacon be relit")
+        && evidence.questionProse.includes("One more road lamp has gone out")
+        && evidence.questionProse.includes("2/6 progress")
+        && evidence.questionProse.includes("1/6 danger")
+        && !/choice 1\/2|target the brass beacon shutters|risk trouble/i.test(evidence.questionText)
+        && evidence.questionDetailBlocks === 0,
+      `the Open threads question should name the unresolved matter without duplicating action-hand choices: ${JSON.stringify(evidence)}`,
     );
     assert(
-      JSON.stringify(evidence.meters) === JSON.stringify([
-        { label: "Progress", now: "2", max: "6" },
-      ]),
-      `the collapsed Journal row should expose exact progress without dashboard meter chrome: ${JSON.stringify(evidence)}`,
+      evidence.meters.length === 0,
+      `the one-prose Journal row should keep progress in prose rather than extra meter chrome: ${JSON.stringify(evidence)}`,
     );
     assert(
       evidence.roomStoryCount === 0
@@ -6662,26 +6654,19 @@ async function main() {
         };
         render();
         const front = document.querySelector("#shared-questions .story-front");
-        front.open = true;
+        if (front) front.open = true;
         return {
           presentationState: frontCase.presentation_state,
           text: front?.textContent || "",
-          describedText: [...(front?.querySelectorAll(".journal-row-lines li") || [])]
-            .map((line) => line.textContent || "")
-            .join(" "),
+          prose: front?.querySelector(".journal-row-summary")?.textContent || "",
         };
       });
     });
     assert(
-      evidence.frontOutcomes.every((outcome) => (
-        outcome.text.includes(outcome.presentationState === "persisted"
-          ? "remains unresolved"
-          : `larger trouble ${outcome.presentationState === "resolved" ? "is resolved" : "has escalated"}`)
-        && outcome.describedText.includes(outcome.presentationState === "persisted"
-          ? "remains unresolved"
-          : `larger trouble ${outcome.presentationState === "resolved" ? "is resolved" : "has escalated"}`)
-      )),
-      `front outcomes should keep their visible and described story truth aligned: ${JSON.stringify(evidence)}`,
+      evidence.frontOutcomes.find((outcome) => outcome.presentationState === "persisted")?.prose.includes("remains unresolved")
+        && evidence.frontOutcomes.find((outcome) => outcome.presentationState === "escalated")?.prose.includes("has escalated")
+        && evidence.frontOutcomes.find((outcome) => outcome.presentationState === "resolved")?.text === "",
+      `only unresolved fronts should remain in Open threads, with one visible prose string: ${JSON.stringify(evidence)}`,
     );
     evidence.terminal = await page.evaluate(() => {
       const activeQuestion = state.shared_questions[0];
@@ -6705,8 +6690,7 @@ async function main() {
       render();
       const front = document.querySelector("#shared-questions .story-front");
       const memory = document.querySelector("#shared-questions .completed-memory");
-      front.open = true;
-      memory.open = true;
+      if (front) front.open = true;
       return {
         frontText: front?.textContent || "",
         text: memory?.textContent || "",
@@ -6716,11 +6700,10 @@ async function main() {
     });
     assert(
       evidence.terminal.frontText.includes("the larger trouble remains unresolved")
-        && evidence.terminal.text.includes("road went fully dark")
-        && evidence.terminal.text.includes("Mara Wick, Road Reader were involved")
+        && evidence.terminal.text === ""
         && evidence.terminal.progressbars === 0
         && evidence.terminal.suggestions === 0,
-      `terminal question should retire task bars to contributor memory: ${JSON.stringify(evidence)}`,
+      `completed questions should retire from Open threads while unresolved fronts remain: ${JSON.stringify(evidence)}`,
     );
     await writeFile(metadataPath, `${JSON.stringify(evidence, null, 2)}\n`);
     await page.evaluate(() => {
@@ -7907,15 +7890,15 @@ async function main() {
         rendered: !node.hidden,
         roomClean: document.querySelector("#journal-view")?.hidden === true,
         text: node.textContent.trim().replace(/\s+/g, " "),
-        detail: node.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
+        memory: firstTaleCompletionText(state),
       }));
       assert(
-        completion.rendered && completion.roomClean && /your first tale is yours/i.test(completion.text),
-        `the opening should end with a warm completion beat inside the closed Journal: ${JSON.stringify(completion)}`,
+        !completion.rendered && completion.roomClean && completion.text === "",
+        `the completed opening should leave Open threads without occupying chat: ${JSON.stringify(completion)}`,
       );
       assert(
-        /uncovered line toward the riverside/i.test(completion.detail),
-        `the completion beat should offer one causal next invitation: ${JSON.stringify(completion)}`,
+        /uncovered line toward the riverside/i.test(completion.memory),
+        `the authoritative completion memory should remain available to semantic history: ${JSON.stringify(completion)}`,
       );
     } else if (Number(current.ledger?.learned_truth_count || 0) > 0) {
       assert(
@@ -9746,18 +9729,23 @@ async function main() {
       );
       const rows = [...document.querySelectorAll("#journal-view .journal-row")];
       const summaries = rows.map((row) => row.querySelector(".journal-row-summary")).filter(Boolean);
-      const detailNodes = rows.map((row) => row.querySelector(".journal-row-detail")).filter(Boolean);
       const terminalRect = document.querySelector(".terminal")?.getBoundingClientRect();
       const journalRect = document.querySelector("#journal-view")?.getBoundingClientRect();
       const chatRect = document.querySelector("#log")?.getBoundingClientRect();
       const journalStyle = getComputedStyle(document.querySelector("#journal-view"));
+      const regionNames = [...document.querySelectorAll("#journal-view .journal-region")]
+        .filter(visible)
+        .map((region) => {
+          const headingId = region.getAttribute("aria-labelledby") || "";
+          return document.getElementById(headingId)?.textContent?.trim() || "";
+        });
       return {
         expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
         journalVisible: visible(document.querySelector("#journal-view")),
         heroVisible: visible(document.querySelector("#room-hero")),
         transcriptVisible: visible(document.querySelector("#log")),
         promptVisible: visible(document.querySelector("footer.prompt")),
-        role: document.querySelector("#journal-log")?.getAttribute("role") || "",
+        regionNames,
         heading: document.querySelector(".journal-heading h2")?.textContent || "",
         fontFamily: journalStyle.fontFamily,
         rowCount: rows.length,
@@ -9769,7 +9757,10 @@ async function main() {
             && style.overflow === "hidden"
             && node.scrollHeight <= Math.ceil(Number.parseFloat(style.lineHeight) * 1.5);
         }),
-        detailsHidden: detailNodes.every((node) => !visible(node)),
+        oneProseNodePerRow: rows.every((row) => (
+          row.querySelectorAll(".journal-row-summary").length === 1
+          && row.querySelectorAll(".journal-row-detail").length === 0
+        )),
         noDashboardCopy: !/why this matters|what we know/i.test(document.querySelector("#journal-view")?.textContent || ""),
         noCardChrome: document.querySelectorAll("#journal-view article, #journal-view img, #journal-view .shared-question-meter, #journal-view .shared-question-suggestions").length === 0,
         panesDoNotOverlap: Boolean(
@@ -9797,8 +9788,19 @@ async function main() {
     }, room.stateSignature);
     assert(journal.expanded === "true" && journal.journalVisible, `${label}: Journal should open from beside the location name: ${JSON.stringify(journal)}`);
     assert(journal.transcriptVisible && journal.promptVisible && journal.panesDoNotOverlap, `${label}: Journal must remain separate from visible chat and actions: ${JSON.stringify(journal)}`);
-    assert(journal.role === "region" && journal.rowCount >= 2, `${label}: Journal should expose current context and chronological history without replaying it as a live log: ${JSON.stringify(journal)}`);
-    assert(journal.allCollapsed && journal.rowsCompact && journal.summariesOneLine && journal.detailsHidden, `${label}: Journal rows should begin as true one-line summaries: ${JSON.stringify(journal)}`);
+    assert(
+      journal.regionNames.includes("Current place")
+        && journal.regionNames.includes("Story so far")
+        && journal.rowCount >= 2,
+      `${label}: Journal should expose labeled current-place and chronological-history regions: ${JSON.stringify(journal)}`,
+    );
+    assert(
+      journal.allCollapsed
+        && journal.rowsCompact
+        && journal.summariesOneLine
+        && journal.oneProseNodePerRow,
+      `${label}: Journal rows should begin as one semantic tag beside one prose line: ${JSON.stringify(journal)}`,
+    );
     assert(
       journal.heading === "journal://"
         && /mono|menlo|consolas/i.test(journal.fontFamily)
@@ -9813,13 +9815,11 @@ async function main() {
       const row = document.querySelector("#journal-log .journal-beat");
       const summary = row?.querySelector(":scope > summary");
       const headline = summary?.querySelector(".journal-row-summary");
-      const detail = row?.querySelector(".journal-row-detail p");
       const marker = row?.querySelector(".journal-row-marker");
-      if (!row || !summary || !headline || !detail || !marker) return { exists: false };
+      if (!row || !summary || !headline || !marker) return { exists: false };
 
       headline.textContent = "A brief note.";
-      detail.textContent = "A brief note.";
-      syncJournalBeatOverflow();
+      syncJournalRowOverflow();
       const short = {
         overflowing: row.classList.contains("is-overflowing"),
         markerVisible: getComputedStyle(marker).display !== "none",
@@ -9830,8 +9830,7 @@ async function main() {
 
       const complete = "A deliberately complete Journal headline keeps going until it cannot fit on one visual line, so the disclosure is useful without replacing or inventing any prose.";
       headline.textContent = complete;
-      detail.textContent = complete;
-      syncJournalBeatOverflow();
+      syncJournalRowOverflow();
       const long = {
         overflowing: row.classList.contains("is-overflowing"),
         markerVisible: getComputedStyle(marker).display !== "none",
@@ -9839,8 +9838,10 @@ async function main() {
       };
       summary.click();
       long.openAfterClick = row.open;
-      long.sameCompleteHeadline = headline.textContent === detail.textContent
-        && headline.textContent === complete;
+      long.sameCompleteHeadline = headline.textContent === complete;
+      long.expandedWhiteSpace = getComputedStyle(headline).whiteSpace;
+      long.proseNodeCount = row.querySelectorAll(".journal-row-summary").length;
+      long.detailBlockCount = row.querySelectorAll(".journal-row-detail").length;
       renderJournalLog();
       return { exists: true, short, long };
     });
@@ -9857,31 +9858,24 @@ async function main() {
         && beatDisclosure.long.markerVisible
         && beatDisclosure.long.tabIndex === 0
         && beatDisclosure.long.openAfterClick
-        && beatDisclosure.long.sameCompleteHeadline,
-      `${label}: only an overflowing beat should disclose the same complete headline: ${JSON.stringify(beatDisclosure)}`,
+        && beatDisclosure.long.sameCompleteHeadline
+        && beatDisclosure.long.expandedWhiteSpace === "normal"
+        && beatDisclosure.long.proseNodeCount === 1
+        && beatDisclosure.long.detailBlockCount === 0,
+      `${label}: only an overflowing beat should unclip the same complete prose node: ${JSON.stringify(beatDisclosure)}`,
     );
 
-    const rowCount = await page.locator("#journal-view .journal-row > summary").count();
-    assert(rowCount >= 1, `${label}: Journal should have an expandable row`);
-    await page.locator("#journal-view .journal-row > summary").first().click();
-    const expandedRow = await page.evaluate(() => {
-      const open = document.querySelector("#journal-view .journal-row[open]");
-      const detail = open?.querySelector(".journal-row-detail")?.textContent?.trim() || "";
-      return {
-        detail,
-        lineCount: open?.querySelectorAll(".journal-row-lines li").length || 0,
-        paragraphCount: open?.querySelectorAll(".journal-row-detail > p").length || 0,
-        chromeCount: open?.querySelectorAll("h1, h2, h3, article, img").length || 0,
-        openCount: document.querySelectorAll("#journal-view .journal-row[open]").length,
-      };
-    });
+    const rowContract = await page.evaluate(() => ({
+      rows: document.querySelectorAll("#journal-view .journal-prose-row").length,
+      proseNodes: document.querySelectorAll("#journal-view .journal-row-summary").length,
+      duplicateDetails: document.querySelectorAll("#journal-view .journal-row-detail").length,
+      actionControls: document.querySelectorAll("#journal-view button").length,
+    }));
     assert(
-      expandedRow.openCount === 1
-        && expandedRow.detail
-        && expandedRow.lineCount <= 12
-        && expandedRow.paragraphCount <= 1
-        && expandedRow.chromeCount === 0,
-      `${label}: expanding a row should reveal bounded console detail without card chrome: ${JSON.stringify(expandedRow)}`,
+      rowContract.rows === rowContract.proseNodes
+        && rowContract.duplicateDetails === 0
+        && rowContract.actionControls === 0,
+      `${label}: every Journal row should contain one prose string and no duplicate detail or action surface: ${JSON.stringify(rowContract)}`,
     );
 
     await page.locator("#room-log-toggle").click();

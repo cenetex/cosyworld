@@ -83,4 +83,6 @@
 # keep observed actions distinct from literal speech, and re-check room, safety
 # consent, and inference ownership at each asynchronous commit. The added lines
 # also pin those context and causality boundaries with focused regressions.
-74648
+# 74648 -> 74646: replace legacy Journal detail assertions with the smaller
+# semantic-region and truthful-overflow contract.
+74646

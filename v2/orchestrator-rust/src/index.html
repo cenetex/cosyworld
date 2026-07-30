@@ -3516,6 +3516,23 @@
     .journal-stream > [hidden] {
       display: none;
     }
+    .journal-region {
+      min-width: 0;
+      margin: 0;
+      padding: 8px 0 0;
+    }
+    .journal-region + .journal-region {
+      margin-top: 6px;
+      border-top: 1px solid rgba(239, 201, 107, 0.16);
+    }
+    .journal-region-heading {
+      margin: 0;
+      padding: 0 0 3px;
+      color: var(--faint);
+      font: 750 9px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
     .shared-questions,
     .updates,
     .room-memory,
@@ -3553,7 +3570,7 @@
       min-height: 30px;
       padding: 5px 0;
       display: grid;
-      grid-template-columns: minmax(10ch, 16ch) minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(10ch, 16ch) minmax(0, 1fr) auto;
       gap: 6px;
       align-items: center;
       list-style: none;
@@ -3585,99 +3602,35 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .journal-row-progress {
-      color: var(--green);
-      font-size: 10px;
-      font-weight: 850;
-      white-space: nowrap;
-    }
     .journal-row-marker {
       color: var(--faint);
       font-size: 12px;
       font-weight: 850;
     }
-    .journal-row.journal-beat:not(.is-overflowing) > summary {
+    .journal-row.journal-prose-row:not(.is-overflowing) > summary {
       cursor: default;
     }
-    .journal-row.journal-beat:not(.is-overflowing) .journal-row-marker {
+    .journal-row.journal-prose-row:not(.is-overflowing) .journal-row-marker {
       display: none;
+    }
+    .journal-row[open] > summary {
+      align-items: start;
+    }
+    .journal-row[open] .journal-row-summary {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+    }
+    .journal-row.is-measuring-overflow .journal-row-summary {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .journal-row[open] .journal-row-marker::before {
       content: "−";
     }
     .journal-row:not([open]) .journal-row-marker::before {
       content: "+";
-    }
-    .journal-row-detail {
-      margin: -1px 0 7px;
-      padding: 0 20px 0 min(14ch, 104px);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 10px;
-      color: var(--text);
-    }
-    .journal-row:not([open]) > .journal-row-detail {
-      display: none;
-    }
-    .journal-row-detail p {
-      min-width: 0;
-      margin: 0;
-      font-size: 12px;
-      line-height: 1.4;
-      overflow-wrap: anywhere;
-    }
-    .journal-row-lines {
-      flex: 1 1 100%;
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 3px;
-      list-style: none;
-      color: var(--dim);
-      font-size: 11px;
-      line-height: 1.35;
-    }
-    .journal-row-lines li {
-      overflow-wrap: anywhere;
-    }
-    .journal-row-lines li::before {
-      content: "$ ";
-      color: var(--faint);
-    }
-    .journal-row-inspector {
-      flex-basis: 100%;
-      margin: 2px 0 0;
-      padding: 6px 0 0;
-      border-top: 1px solid var(--line);
-      list-style: none;
-      color: var(--dim);
-      font-size: 10px;
-    }
-    .journal-row-inspector li {
-      display: grid;
-      grid-template-columns: minmax(15ch, auto) 1fr;
-      gap: 8px;
-      padding: 2px 0;
-    }
-    .journal-row-detail button {
-      flex: 0 0 auto;
-      border: 0;
-      border-bottom: 1px solid var(--line-strong);
-      background: transparent;
-      color: var(--dim);
-      min-height: 28px;
-      padding: 4px 0;
-      font: inherit;
-      font-size: 10px;
-      cursor: pointer;
-    }
-    .journal-row-detail button:hover,
-    .journal-row-detail button:focus-visible {
-      border-bottom-color: var(--amber);
-      color: var(--amber);
-      outline: 0;
     }
     .terminal.journal-open {
       grid-template-columns: minmax(0, 1fr) minmax(300px, 38%);
@@ -3754,12 +3707,8 @@
       }
       .journal-row > summary {
         min-height: 36px;
-        grid-template-columns: minmax(8ch, 11ch) minmax(0, 1fr) auto auto;
+        grid-template-columns: minmax(8ch, 11ch) minmax(0, 1fr) auto;
         gap: 6px;
-      }
-      .journal-row-detail {
-        padding-left: 0;
-        padding-right: 18px;
       }
     }
 
@@ -3770,7 +3719,6 @@
     body.large-text .room-copy,
     body.large-text .line,
     body.large-text .journal-row-summary,
-    body.large-text .journal-row-detail p,
     body.large-text .library-pack-copy,
     body.large-text .account-row {
       font-size: 1rem;
@@ -4096,10 +4044,19 @@
           <span id="journal-location"></span>
         </header>
         <div class="journal-stream">
-          <section class="shared-questions" id="shared-questions" aria-label="Current story and shared questions in this place" hidden></section>
-          <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
-          <div class="room-memory" id="room-memory" hidden></div>
-          <section class="journal-log" id="journal-log" role="region" aria-label="Room history"></section>
+          <section class="journal-region journal-current-place" id="journal-current-place" aria-labelledby="journal-current-place-heading">
+            <h3 class="journal-region-heading" id="journal-current-place-heading">Current place</h3>
+            <div class="room-memory" id="room-memory" hidden></div>
+          </section>
+          <section class="journal-region journal-open-threads" id="journal-open-threads" aria-labelledby="journal-open-threads-heading" hidden>
+            <h3 class="journal-region-heading" id="journal-open-threads-heading">Open threads</h3>
+            <section class="shared-questions" id="shared-questions" aria-label="Unresolved matters in this place" hidden></section>
+            <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
+          </section>
+          <section class="journal-region journal-story-history" id="journal-story-history" aria-labelledby="journal-story-history-heading">
+            <h3 class="journal-region-heading" id="journal-story-history-heading">Story so far</h3>
+            <section class="journal-log" id="journal-log" aria-label="Chronological story history"></section>
+          </section>
         </div>
       </section>
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
@@ -4311,7 +4268,8 @@
     let roomCopyExpanded = false;
     let journalOpen = false;
     let roomLogTickerFrame = null;
-    let journalBeatOverflowFrame = null;
+    let journalRowOverflowFrame = null;
+    let journalRowResizeObserver = null;
     let lastRoomCopyLocationId = null;
     let economyFlash = null;
     let economyFlashTimer = null;
@@ -8613,48 +8571,15 @@
       return /[.!?…]["')\]]*$/.test(sentence) ? sentence : `${sentence}.`;
     }
 
-    function journalClause(value) {
-      return journalSentence(value).replace(/[.!?…]+["')\]]*$/, "").trim();
-    }
-
-    function journalSummary(value) {
-      const text = cleanStatusText(value);
-      if (text.length <= 150) return text;
-      return `${text.slice(0, 147).trimEnd()}…`;
-    }
-
-    function journalRowHtml({
-      label = "note",
-      summary = "",
-      detail = "",
-      progress = "",
+    function journalProseRowHtml({
+      category = "story",
+      prose = "",
       kind = "",
       attrs = "",
-      action = "",
-      inspector = [],
-      detailLines = [],
     } = {}) {
-      const compactSummary = journalSummary(summary || detail || "Something changed");
-      const sentence = journalSentence(detail || summary || "Something changed");
-      const progressParts = String(progress || "").match(/^(\d+)\/(\d+)$/);
-      const progressHtml = progress
-        ? `<span class="journal-row-progress"${progressParts ? ` role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="${Number(progressParts[2])}" aria-valuenow="${Number(progressParts[1])}"` : ""}>${escapeHtml(progress)}</span>`
-        : "";
-      const inspectorHtml = inspector.length
-        ? `<ul class="journal-row-inspector" aria-label="Raw events">${inspector.map((entry) => `<li><code>#${Number(entry.seq || 0)} ${escapeHtml(entry.type || "event")}</code><span>${escapeHtml(cleanStatusText(eventText(entry)))}</span></li>`).join("")}</ul>`
-        : "";
-      const lines = (Array.isArray(detailLines) ? detailLines : [])
-        .map(cleanStatusText)
-        .filter(Boolean)
-        .slice(0, 12);
-      const detailLinesHtml = lines.length
-        ? `<ul class="journal-row-lines">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
-        : "";
-      const detailHtml = sentence || detailLinesHtml || inspectorHtml || action
-        ? `<div class="journal-row-detail">${sentence ? `<p>${escapeHtml(sentence)}</p>` : ""}${detailLinesHtml}${inspectorHtml}${action}</div>`
-        : "";
-      const aria = [label, compactSummary, progress].filter(Boolean).join(". ");
-      return `<details class="journal-row ${escapeAttr(kind)}"${attrs} aria-label="${escapeAttr(aria)}"><summary><span class="journal-row-label">${escapeHtml(label)}</span><span class="journal-row-summary">${escapeHtml(compactSummary)}</span>${progressHtml}<span class="journal-row-marker" aria-hidden="true"></span></summary>${detailHtml}</details>`;
+      const text = cleanStatusText(prose);
+      if (!text) return "";
+      return `<details class="journal-row journal-prose-row ${escapeAttr(kind)}"${attrs} aria-label="${escapeAttr(`${category}. ${text}`)}"><summary tabindex="-1" aria-disabled="true"><span class="journal-row-label">${escapeHtml(category)}</span><span class="journal-row-summary">${escapeHtml(text)}</span><span class="journal-row-marker" aria-hidden="true"></span></summary></details>`;
     }
 
     function syncJournalMode() {
@@ -8678,7 +8603,7 @@
       if (open) {
         scheduleVisibleWorldBeatReceipts();
         scheduleVisibleClockPresentationReceipts();
-        scheduleJournalBeatOverflowSync();
+        scheduleJournalRowOverflowSync();
       }
     }
 
@@ -8692,6 +8617,7 @@
       renderRoomMemory();
       renderJournalLog();
       renderLog();
+      syncJournalRegions();
       syncJournalMode();
     }
 
@@ -8709,28 +8635,17 @@
       if (firstThread) {
         firstTaleStageSeen = Math.max(firstTaleStageSeen, Number(firstThread.stage || 0));
       }
-      firstTaleCelebration = Boolean(
-        currentActorId && state?.first_tale?.phase === "complete"
-      );
+      firstTaleCelebration = Boolean(currentActorId && state?.first_tale?.phase === "complete");
       firstTaleCompletionSeen = firstTaleCelebration;
-      updates.hidden = !firstThread && !firstTaleCelebration;
-      const firstTaleEnding = firstTaleCompletionText(state);
+      updates.hidden = !firstThread;
       const html = firstThread
-        ? journalRowHtml({
-            label: "next",
-            summary: firstThread.text,
-            detail: `Your first tale continues when you ${lowerInitial(firstThread.text)}`,
+        ? journalProseRowHtml({
+            category: "story",
+            prose: `Your first tale continues when you ${lowerInitial(firstThread.text)}`,
             kind: "first-thread",
           })
-        : firstTaleCelebration
-          ? journalRowHtml({
-              label: "tale",
-              summary: "Your first tale is yours",
-              detail: firstTaleEnding,
-              kind: "first-thread complete",
-            })
-          : "";
-      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || firstTaleEnding}`;
+        : "";
+      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || ""}`;
       if (signature !== firstTaleRenderSignature) {
         updates.innerHTML = html;
         firstTaleRenderSignature = signature;
@@ -8863,10 +8778,28 @@
       toggle.hidden = false;
       renderRoomLogLatest(latestText);
       panel.hidden = false;
-      panel.innerHTML = journalRowHtml({
-        label: "room",
-        summary: atmosphericMemoryBeat(memory.latest) || memory.latest.text,
-        detail: memory.summary || openingBeat(state),
+      const latestMemoryProse = cleanStatusText(atmosphericMemoryBeat(memory.latest) || memory.latest.text);
+      const memorySummary = cleanStatusText(memory.summary || openingBeat(state));
+      const latestIsHistory = Boolean(
+        latestJournalBeat
+        && latestMemoryProse === cleanStatusText(latestJournalBeat.headline)
+      );
+      const placeProse = (
+        !latestIsHistory
+        && latestMemoryProse
+        && !memorySummary.toLowerCase().includes(memoryPhrase(latestMemoryProse).toLowerCase())
+      )
+        ? `${memorySummary} ${latestMemoryProse}`
+        : memorySummary;
+      const distinctPlaceProse = (
+        latestJournalBeat
+        && placeProse === cleanStatusText(latestJournalBeat.headline)
+      )
+        ? cleanStatusText(openingBeat(state))
+        : placeProse;
+      panel.innerHTML = journalProseRowHtml({
+        category: "story",
+        prose: distinctPlaceProse,
         kind: "memory",
       });
     }
@@ -8899,114 +8832,51 @@
 
     function sharedQuestionsForPresentation(view = state) {
       const questions = Array.isArray(view?.shared_questions) ? view.shared_questions : [];
-      const promoted = questions
+      return questions
         .filter((question) => question.promoted && question.presentation_state === "active")
         .sort((left, right) => Number(left.promotion_rank || 999) - Number(right.promotion_rank || 999));
-      if (promoted.length) return promoted;
-      return questions
-        .filter((question) => question.presentation_state === "completed_memory")
-        .sort((left, right) => Number(right.updated_event_seq || 0) - Number(left.updated_event_seq || 0))
-        .slice(0, 1);
     }
 
     function frontsForPresentation(view = state) {
       const fronts = Array.isArray(view?.fronts) ? view.fronts : [];
-      return fronts.filter((front) => front.presentation_state !== "dormant");
-    }
-
-    function narrativeNames(names) {
-      const values = (names || []).map((name) => String(name || "").trim()).filter(Boolean);
-      if (values.length < 2) return values[0] || "";
-      if (values.length === 2) return `${values[0]} and ${values[1]}`;
-      return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+      return fronts.filter((front) => (
+        ["active", "persisted", "escalated"].includes(String(front.presentation_state || "active"))
+      ));
     }
 
     function sharedFrontHtml(front) {
       const stateName = String(front.presentation_state || "active");
-      const stakes = (front.stakes_questions || []).filter(Boolean);
-      const names = narrativeNames(front.participant_names);
+      const unresolved = (front.stakes_questions || []).map(cleanStatusText).find(Boolean) || "";
       const outcome = String(front.outcome_statement || "").trim();
-      const label = {
-        persisted: "front:persisted",
-        resolved: "front:resolved",
-        escalated: "front:escalated",
-      }[stateName] || "front:active";
-      const detailLines = [
-        ...stakes.map(journalClause),
-        names ? `the answer still matters to ${names}` : "",
-        outcome,
-      ].filter(Boolean);
-      return journalRowHtml({
-        label,
-        summary: front.premise,
-        detailLines,
+      const prose = [
+        cleanStatusText(front.premise),
+        unresolved,
+        ["persisted", "escalated"].includes(stateName) ? cleanStatusText(outcome) : "",
+      ].filter(Boolean).join(" ");
+      return journalProseRowHtml({
+        category: stateName === "escalated" ? "consequence" : "story",
+        prose,
         kind: `story-front ${stateName}`,
       });
     }
 
     function sharedQuestionHtml(question) {
-      const completed = question.presentation_state === "completed_memory";
-      const rhythm = String(question.rhythm || "shared").replaceAll("_", " ");
       const progress = `${Number(question.filled || 0)}/${Number(question.segments || 0)}`;
-      const available = (question.strategies || []).filter((strategy) => strategy.available);
-      const helpers = available
-        .slice(0, 3)
-        .map((strategy) => [
-          journalClause(strategy.label || "contribute"),
-          strategy.target_label ? `at ${journalClause(strategy.target_label)}` : "",
-        ].filter(Boolean).join(" "))
-        .filter(Boolean);
-      const participants = (question.participant_names || []).slice(0, 4).filter(Boolean);
-      const recent = (question.recent_contributions || []).slice(0, 2);
-      const attrs = ` data-clock-presentation data-clock-id="${escapeAttr(question.progress_clock_id || "")}" data-question-state="${completed ? "completed_memory" : "active"}"`;
-      const action = `<button type="button" data-question-comprehension>${completed ? "understood" : "mark understood"}</button>`;
-      if (completed) {
-        const hands = recent
-          .map((entry) => `${entry.actor_name || "a traveler"} ${lowerInitial(entry.strategy_label || "helped")}`)
-          .join(" and ");
-        const detailLines = [
-          journalClause(question.completion_memory || question.situation),
-          hands ? `${hands} helped change it` : "",
-          participants.length ? `${participants.join(", ")} were involved` : "",
-        ].filter(Boolean);
-        return journalRowHtml({
-          label: "changed",
-          summary: question.completion_memory || question.situation,
-          detailLines,
-          kind: "completed-memory",
-          attrs,
-          action,
-        });
-      }
-      const suggestions = (question.suggested_actions || []).slice(0, 2);
-      const suggestionLines = suggestions.map((suggestion, index) => {
-        const risk = journalClause(suggestion.risk || "no special risk is expected");
-        return [
-          `choice ${index + 1}/${suggestions.length}: ${journalClause(suggestion.label)}`,
-          suggestion.target_label ? `target ${journalClause(suggestion.target_label)}` : "",
-          suggestion.source ? `source ${journalClause(suggestion.source)}` : "",
-          suggestion.likely_effect ? `likely ${lowerInitial(journalClause(suggestion.likely_effect))}` : "",
-          risk ? `risk ${lowerInitial(risk)}` : "",
-        ].filter(Boolean).join(" · ");
-      });
-      const detailLines = [
-        journalClause(question.situation),
-        `progress is ${progress}`,
-        question.danger_segments ? `danger is ${Number(question.danger_filled || 0)}/${Number(question.danger_segments || 0)}` : "",
-        question.danger_situation ? `danger now: ${journalClause(question.danger_situation)}` : "",
-        question.danger_consequence ? `if danger fills: ${lowerInitial(journalClause(question.danger_consequence))}` : "",
-        question.outcome ? `finishing could ${lowerInitial(journalClause(question.outcome))}` : "",
-        ...suggestionLines,
-        suggestions.length === 0 && helpers.length ? `help by ${helpers.join(", ")}` : "",
-      ].filter(Boolean);
-      return journalRowHtml({
-        label: `question:${rhythm}`,
-        summary: question.question,
-        detailLines,
-        progress,
+      const danger = question.danger_segments
+        ? `${Number(question.danger_filled || 0)}/${Number(question.danger_segments || 0)} danger`
+        : "";
+      const status = [progress !== "0/0" ? `${progress} progress` : "", danger].filter(Boolean).join(" and ");
+      const prose = [
+        cleanStatusText(question.question),
+        cleanStatusText(question.situation),
+        status ? `The unresolved work stands at ${status}.` : "",
+      ].filter(Boolean).join(" ");
+      const attrs = ` data-clock-presentation data-clock-id="${escapeAttr(question.progress_clock_id || "")}" data-question-state="active"`;
+      return journalProseRowHtml({
+        category: "work",
+        prose,
         kind: "active-question",
         attrs,
-        action,
       });
     }
 
@@ -9020,6 +8890,11 @@
         ...questions.map(sharedQuestionHtml),
       ].join("");
       if (questions.length && journalOpen) scheduleVisibleClockPresentationReceipts();
+    }
+
+    function syncJournalRegions() {
+      const openThreads = $("journal-open-threads");
+      openThreads.hidden = $("shared-questions").hidden && $("updates").hidden;
     }
 
     const journalBeatCategories = new Set([
@@ -9056,28 +8931,35 @@
       const receiptAttrs = beat.world_beat_exposure_id
         ? ` data-world-beat-receipt data-journal-beat-index="${Number(index)}"`
         : "";
-      return `<details class="journal-row journal-beat ${escapeAttr(category)}"${receiptAttrs} aria-label="${escapeAttr(`${category}. ${headline}`)}"><summary tabindex="-1" aria-disabled="true"><span class="journal-row-label">${escapeHtml(category)}</span><span class="journal-row-summary">${escapeHtml(headline)}</span><span class="journal-row-marker" aria-hidden="true"></span></summary><div class="journal-row-detail"><p>${escapeHtml(headline)}</p></div></details>`;
-    }
-
-    function scheduleJournalBeatOverflowSync() {
-      if (journalBeatOverflowFrame !== null) {
-        window.cancelAnimationFrame(journalBeatOverflowFrame);
-      }
-      journalBeatOverflowFrame = window.requestAnimationFrame(() => {
-        journalBeatOverflowFrame = null;
-        syncJournalBeatOverflow();
+      return journalProseRowHtml({
+        category,
+        prose: headline,
+        kind: `journal-beat ${category}`,
+        attrs: receiptAttrs,
       });
     }
 
-    function syncJournalBeatOverflow() {
-      for (const row of document.querySelectorAll("#journal-log .journal-beat")) {
+    function scheduleJournalRowOverflowSync() {
+      if (journalRowOverflowFrame !== null) {
+        window.cancelAnimationFrame(journalRowOverflowFrame);
+      }
+      journalRowOverflowFrame = window.requestAnimationFrame(() => {
+        journalRowOverflowFrame = null;
+        syncJournalRowOverflow();
+      });
+    }
+
+    function syncJournalRowOverflow() {
+      for (const row of document.querySelectorAll("#journal-view .journal-prose-row")) {
         const summary = row.querySelector(":scope > summary");
         const headline = summary?.querySelector(".journal-row-summary");
+        row.classList.add("is-measuring-overflow");
         const overflowing = Boolean(
           headline
           && headline.clientWidth > 0
           && headline.scrollWidth > headline.clientWidth + 2
         );
+        row.classList.remove("is-measuring-overflow");
         row.classList.toggle("is-overflowing", overflowing);
         if (!overflowing) row.open = false;
         if (summary) {
@@ -9101,13 +8983,12 @@
       const beats = journalBeatsForPresentation();
       panel.innerHTML = beats.length
         ? beats.map(journalBeatHtml).join("")
-        : journalRowHtml({
-            label: "room",
-            summary: "Nothing has been written here yet",
-            detail: "Explore the room or change the world to leave the first trace",
+        : journalProseRowHtml({
+            category: "story",
+            prose: "Nothing has been written here yet. Explore the room or change the world to leave the first trace.",
             kind: "empty",
           });
-      scheduleJournalBeatOverflowSync();
+      scheduleJournalRowOverflowSync();
       if (stream) {
         stream.scrollTop = wasAtBottom ? stream.scrollHeight : previousScrollTop;
       }
@@ -13274,6 +13155,7 @@
         "reduce-motion",
         localStorage.getItem("cosyworld.ui.reduceMotion") === "true",
       );
+      scheduleJournalRowOverflowSync();
     }
 
     function escapeHtml(value) {
@@ -13942,8 +13824,8 @@
 
     $("log").addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
     $("journal-log").closest(".journal-stream")?.addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
-    $("journal-log").addEventListener("click", (event) => {
-      const summary = event.target.closest(".journal-beat > summary");
+    $("journal-view").addEventListener("click", (event) => {
+      const summary = event.target.closest(".journal-prose-row > summary");
       if (summary && !summary.parentElement?.classList.contains("is-overflowing")) {
         event.preventDefault();
       }
@@ -13958,19 +13840,6 @@
       ));
       if (question) void acknowledgeClockPresentation(question, "explanation_opened");
     }, true);
-    $("shared-questions").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-question-comprehension]");
-      if (!button) return;
-      const row = button.closest("[data-clock-presentation][data-clock-id]");
-      const clockId = String(row?.dataset.clockId || "");
-      const question = (state?.shared_questions || []).find((candidate) => (
-        String(candidate?.progress_clock_id || "") === clockId
-      ));
-      if (!question) return;
-      button.disabled = true;
-      button.textContent = "Story understood";
-      void acknowledgeClockPresentation(question, "comprehension_confirmed");
-    });
     window.addEventListener("scroll", scheduleVisibleClockPresentationReceipts, { passive: true });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
@@ -13987,10 +13856,16 @@
         renderRoomLogLatest($("room-log-toggle").dataset.latest || "");
         reconcileHand();
         renderCommands();
-        scheduleJournalBeatOverflowSync();
+        scheduleJournalRowOverflowSync();
         scheduleVisibleClockPresentationReceipts();
       }
     });
+
+    if (typeof ResizeObserver === "function") {
+      journalRowResizeObserver = new ResizeObserver(scheduleJournalRowOverflowSync);
+      journalRowResizeObserver.observe($("journal-view"));
+    }
+    document.fonts?.addEventListener?.("loadingdone", scheduleJournalRowOverflowSync);
 
     applyUiPreferences();
 
