@@ -74,7 +74,7 @@ test("the official bridge keeps Holy Land prose, art, and cairn vocabulary", () 
   );
   const route = policy.cross_pack_routes[0];
 
-  assert.equal(bridgePack.version, "1.0.3");
+  assert.equal(bridgePack.version, "1.0.4");
   assert.equal(dependency.version, ">=1.2.1 <2.0.0");
   assert.equal(policy.migration_version, 2);
   assert.deepEqual(policy.prose.prompt_versions, ["pathway-content-v2"]);

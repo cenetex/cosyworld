@@ -80,12 +80,12 @@
     },
     {
       "id": "cosyworld.core",
-      "version": "1.3.10",
+      "version": "1.3.11",
       "source": {
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ddb78350dc0bb2a4067cb1094b6445ac0b0f72bfb68b3d3798a5c2d1b74c7f45",
+      "integrity": "sha256:dd4a3fd5d6cb32774ee084f49dff8d47633ce57f9759205edd27576460c6f654",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -292,7 +292,7 @@
     {
       "pack_id": "cosyworld.core",
       "name": "CosyWorld Core",
-      "version": "1.3.10",
+      "version": "1.3.11",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
