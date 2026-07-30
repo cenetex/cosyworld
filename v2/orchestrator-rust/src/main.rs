@@ -185,6 +185,7 @@ struct AppState {
     last_snapshot_at_ms: Arc<AtomicU64>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     event_store_path: Option<Arc<PathBuf>>,
+    _event_store_keepalive: Option<Arc<StdMutex<Connection>>>,
     event_store_health: Arc<StdMutex<EventStoreHealth>>,
     account_auth: Arc<AccountAuth>,
     ownership_index: Arc<RwLock<OwnershipIndex>>,
@@ -5842,6 +5843,10 @@ impl AppState {
                 now,
             )?;
         }
+        let event_store_keepalive = event_store_path
+            .as_deref()
+            .map(|path| open_event_store_keepalive(path))
+            .transpose()?;
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
@@ -5851,6 +5856,8 @@ impl AppState {
             last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path,
             event_store_path,
+            _event_store_keepalive: event_store_keepalive
+                .map(|connection| Arc::new(StdMutex::new(connection))),
             event_store_health: Arc::new(StdMutex::new(event_store_health)),
             account_auth,
             ownership_index,
@@ -41726,30 +41733,6 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
     })
 }
 
-fn open_event_store(path: &Path) -> io::Result<Connection> {
-    let conn = Connection::open(path).map_err(sqlite_error)?;
-    // Background reconciliation and canonical commands share one WAL writer.
-    // A short busy window turned bounded queueing into false refresh failures
-    // during six-player bursts; wait within the HTTP command deadline instead.
-    conn.busy_timeout(Duration::from_secs(30))
-        .map_err(sqlite_error)?;
-    configure_event_store_pragmas(&conn)?;
-    Ok(conn)
-}
-
-/// WAL lets readers proceed alongside the single writer and
-/// `synchronous=NORMAL` keeps commits crash-safe without an fsync per
-/// accepted action. `journal_mode` persists in the database header, so the
-/// update is a no-op once the store is in WAL; `synchronous` is
-/// per-connection and must be set on every open.
-fn configure_event_store_pragmas(conn: &Connection) -> io::Result<()> {
-    conn.pragma_update(None, "journal_mode", "WAL")
-        .map_err(sqlite_error)?;
-    conn.pragma_update(None, "synchronous", "NORMAL")
-        .map_err(sqlite_error)?;
-    Ok(())
-}
-
 fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
     format!("{world_id}\u{0}{intent_id}")
 }
@@ -73750,6 +73733,7 @@ mod tests {
             last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path: None,
             event_store_path: None,
+            _event_store_keepalive: None,
             event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
             account_auth: AccountAuth::for_test(None),
             ownership_index: Arc::new(RwLock::new(initial)),

@@ -2255,12 +2255,26 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, alter_sql: &str) 
     Ok(())
 }
 
+pub(super) fn open_event_store(path: &Path) -> io::Result<Connection> {
+    open_canonical_store(path)
+}
+
+/// Retain an activated WAL reader for the process lifetime so closing each
+/// short-lived writer does not checkpoint the whole database.
+pub(super) fn open_event_store_keepalive(path: &Path) -> io::Result<Connection> {
+    let connection = open_event_store(path)?;
+    let _: i64 = connection
+        .query_row("SELECT COUNT(*) FROM world_events", [], |row| row.get(0))
+        .map_err(sqlite_error)?;
+    Ok(connection)
+}
+
 fn open_canonical_store(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
     conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
         .map_err(sqlite_error)?;
-    // Match the event-store durability profile: WAL plus crash-safe,
-    // non-fsync-per-commit writes (see configure_event_store_pragmas).
+    // WAL lets readers continue beside the single writer; NORMAL avoids an
+    // fsync per commit while retaining crash-safe journal recovery.
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(sqlite_error)?;
     conn.pragma_update(None, "synchronous", "NORMAL")
@@ -2287,7 +2301,7 @@ fn sqlite_error(error: rusqlite::Error) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::{fs, path::PathBuf};
 
     fn temp_db(name: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
@@ -2320,6 +2334,35 @@ mod tests {
         )
         .unwrap();
         init_canonical_journal(&conn, "world://test", 1).unwrap();
+    }
+
+    #[test]
+    fn process_keepalive_prevents_a_checkpoint_on_every_writer_close() {
+        let path = temp_db("wal-keepalive");
+        initialize(&path);
+        let keepalive =
+            open_event_store_keepalive(&path).expect("open active process WAL keepalive");
+        let writer = crate::open_event_store(&path).expect("open short-lived writer");
+        writer
+            .execute(
+                "INSERT INTO world_events
+                    (seq, event_type, payload_json, created_at_ms)
+                 VALUES (1, 'test.committed', '{}', 1)",
+                [],
+            )
+            .expect("commit through short-lived writer");
+        drop(writer);
+
+        let wal_path = PathBuf::from(format!("{}-wal", path.display()));
+        assert!(
+            wal_path.metadata().is_ok_and(|metadata| metadata.len() > 0),
+            "the process connection must keep WAL mode open between commands"
+        );
+
+        drop(keepalive);
+        let _ = fs::remove_file(&wal_path);
+        let _ = fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
+        let _ = fs::remove_file(path);
     }
 
     #[test]
