@@ -2085,6 +2085,9 @@ pub(super) fn insert_atomic_command_receipt(
     conn: &Connection,
     row: &CanonicalReceiptRow<'_>,
 ) -> io::Result<()> {
+    if row.intent_id.starts_with("compat:") {
+        return Ok(());
+    }
     let response_json = encode_command_response_for_storage(row.response_json)?;
     conn.execute(
         "INSERT INTO canonical_command_receipts
@@ -2118,17 +2121,10 @@ pub(super) fn finalize_atomic_command_receipt(
     world_seq: u64,
     updated_at_ms: u64,
 ) -> io::Result<bool> {
-    let conn = open_canonical_store(path)?;
     let Some(response_json) = retained_response_json else {
-        let deleted = conn
-            .execute(
-                "DELETE FROM canonical_command_receipts
-                 WHERE world_id = ?1 AND intent_id = ?2 AND request_hash = ?3",
-                params![world_id, intent_id, request_hash],
-            )
-            .map_err(sqlite_error)?;
-        return Ok(deleted == 1);
+        return Ok(true);
     };
+    let conn = open_canonical_store(path)?;
     let response_json = encode_command_response_for_storage(response_json)?;
     let updated = conn
         .execute(
@@ -2455,7 +2451,7 @@ mod tests {
     }
 
     #[test]
-    fn compatibility_receipt_is_discarded_after_its_atomic_commit() {
+    fn compatibility_receipt_storage_is_a_no_op() {
         let path = temp_db("compatibility-receipt");
         initialize(&path);
         let conn = open_canonical_store(&path).unwrap();
@@ -2465,7 +2461,7 @@ mod tests {
                 world_id: "world://test",
                 intent_id: "compat:generated",
                 request_hash: "hash",
-                response_json: r#"{"ok":true}"#,
+                response_json: &"response".repeat(20_000),
                 commit_id: "commit:1",
                 world_epoch: 1,
                 world_seq: 1,
