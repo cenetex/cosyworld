@@ -381,6 +381,13 @@ fn compact_event_store_after_snapshot_now(
     through_event_seq: u64,
     retained_world_events: usize,
 ) -> io::Result<PersistenceCompactionReport> {
+    // A command may advance the journal after the worker captured and wrote
+    // its snapshot. That snapshot is still a valid boot checkpoint, but it is
+    // no longer safe to use as a compaction frontier. Skip the expected race
+    // before taking the SQLite write lock; the transaction rechecks below.
+    if checkpoint_seq != latest_action_journal_seq(path)? {
+        return Ok(PersistenceCompactionReport::default());
+    }
     init_event_store(path)?;
     let mut conn = open_event_store(path)?;
     let tx = conn
@@ -396,9 +403,7 @@ fn compact_event_store_after_snapshot_now(
     let journal_head = u64::try_from(journal_head)
         .map_err(|_| snapshot_error("action journal returned a negative sequence"))?;
     if checkpoint_seq != journal_head {
-        return Err(snapshot_error(format!(
-            "snapshot checkpoint {checkpoint_seq} does not match action-journal head {journal_head}"
-        )));
+        return Ok(PersistenceCompactionReport::default());
     }
     if checkpoint_seq > 0 {
         let checkpoint_present = tx
@@ -969,6 +974,37 @@ mod tests {
             .expect("spawn journal compaction test thread")
             .join()
             .expect("journal compaction test thread");
+    }
+
+    #[test]
+    fn stale_snapshot_compaction_is_a_quiet_noop() {
+        let journal_path = temp_path("stale-snapshot-compaction", "sqlite");
+        let _ = fs::remove_file(&journal_path);
+        for seed in 1..=2 {
+            append_action_journal(
+                &journal_path,
+                &JournalRecord::new(CwAction::default(), seed),
+            )
+            .expect("append journal fixture");
+        }
+
+        let compacted =
+            compact_event_store_after_snapshot(&journal_path, 1, 0, MAX_EVENT_STORE_SCAN)
+                .expect("stale snapshot should skip compaction");
+        assert_eq!(compacted.action_journal_floor_seq, 0);
+        assert_eq!(compacted.deleted_action_journal_rows, 0);
+        assert_eq!(
+            latest_action_journal_seq(&journal_path).expect("read retained journal head"),
+            2
+        );
+        assert_eq!(
+            read_persistence_compaction_report(&journal_path)
+                .expect("read untouched compaction report")
+                .action_journal_floor_seq,
+            0
+        );
+
+        let _ = fs::remove_file(journal_path);
     }
 
     fn run_compacted_journal_requires_snapshot() {
