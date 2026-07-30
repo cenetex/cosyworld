@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "0.0.261"
+version = "0.0.262"
 edition = "2021"
 publish = false
 
@@ -27,3 +27,4 @@ tower-http = { version = "0.6", features = ["compression-full", "cors", "trace"]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 webauthn-rs = { version = "0.5.5", features = ["conditional-ui"] }
+zstd = "0.13"

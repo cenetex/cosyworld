@@ -23610,9 +23610,12 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let item_count = runtime.world.item_count;
     let location_count = runtime.world.location_count;
     let event_count = runtime.event_log.len();
-    let retained_command_receipts = runtime.command_receipts.len();
-    let retained_command_receipt_bytes = runtime.command_receipts.retained_bytes();
     drop(runtime);
+    let (retained_command_receipts, retained_command_receipt_bytes) = state
+        .event_store_path
+        .as_deref()
+        .and_then(|path| command_receipt_storage_report(path).ok())
+        .unwrap_or_default();
 
     let wallet_count = state.ownership_index.read().await.wallets.len();
     let actor_session_count = state
@@ -28381,7 +28384,7 @@ async fn command_with_forwarding(
                 &envelope.world_id,
                 &envelope.intent_id,
                 &stored.request_hash,
-                &stored.response_json,
+                (!compatibility_envelope).then_some(stored.response_json.as_str()),
                 response
                     .receipt
                     .as_ref()
@@ -28390,7 +28393,14 @@ async fn command_with_forwarding(
                 now_millis(),
             )
         } else {
-            write_canonical_command_response(path, &envelope.world_id, &envelope.intent_id, &stored)
+            write_canonical_command_response(
+                path,
+                &envelope.world_id,
+                &envelope.intent_id,
+                &stored,
+                !compatibility_envelope,
+                now_millis(),
+            )
         };
         if let Err(error) = persisted {
             warn!(
@@ -41759,54 +41769,6 @@ fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
     format!("{world_id}\u{0}{intent_id}")
 }
 
-fn read_canonical_command_response(
-    path: &Path,
-    world_id: &str,
-    intent_id: &str,
-) -> io::Result<Option<StoredCommandResponse>> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    conn.query_row(
-        "SELECT request_hash, response_json
-         FROM canonical_command_receipts
-         WHERE world_id = ?1 AND intent_id = ?2 AND finalized = 1",
-        params![world_id, intent_id],
-        |row| {
-            Ok(StoredCommandResponse {
-                request_hash: row.get(0)?,
-                response_json: row.get(1)?,
-            })
-        },
-    )
-    .optional()
-    .map_err(sqlite_error)
-}
-
-fn write_canonical_command_response(
-    path: &Path,
-    world_id: &str,
-    intent_id: &str,
-    stored: &StoredCommandResponse,
-) -> io::Result<bool> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    let inserted = conn
-        .execute(
-            "INSERT OR IGNORE INTO canonical_command_receipts
-             (world_id, intent_id, request_hash, response_json, created_at_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![
-                world_id,
-                intent_id,
-                stored.request_hash,
-                stored.response_json,
-                now_millis() as i64
-            ],
-        )
-        .map_err(sqlite_error)?;
-    Ok(inserted == 1)
-}
-
 fn purge_expired_command_receipts(
     path: &Path,
     retention: CommandReceiptRetention,
@@ -43906,7 +43868,7 @@ mod tests {
             OFFICIAL_WORLD_ID,
             "test:provisional",
             "hash",
-            r#"{"receipt":{"world_seq":1}}"#,
+            Some(r#"{"receipt":{"world_seq":1}}"#),
             1,
             11,
         )
@@ -49937,6 +49899,8 @@ mod tests {
                 request_hash: "sha256:reset".to_string(),
                 response_json: "{}".to_string(),
             },
+            true,
+            now_millis(),
         )
         .expect("insert reset command receipt");
         assert_eq!(table_count(&path, "canonical_command_receipts"), 1);

@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "cosyworld-orchestrator"
-version = "0.0.261"
+version = "0.0.262"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -334,6 +334,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "webauthn-rs",
+ "zstd",
 ]
 
 [[package]]
