@@ -601,38 +601,99 @@ pub(super) fn combat_ability_name(ability: u8) -> &'static str {
     }
 }
 
-fn drive_combat_inference_turns(
+/// Outcome of one attempt to advance an ordered scene by a single beat.
+enum CombatBeat {
+    /// An action was committed. The caller stops so the beat can be published
+    /// and answered before anything else acts.
+    Committed,
+    /// Nothing was eligible to act automatically; the scene waits.
+    Idle,
+    /// The kernel refused the action.
+    Refused(u32),
+}
+
+/// Commit at most one automated action for whoever currently holds the turn.
+///
+/// Previously this drained every consecutive inference actor inside one call, so
+/// a whole automated sequence could race past the shared room transcript before
+/// players could read what happened. One beat per call is what lets the room
+/// reply between them. See issue #466.
+fn commit_next_automated_combat_beat(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     encounter_id: u64,
+    requesting_actor_id: u64,
     events: &mut Vec<EventView>,
-) -> io::Result<u32> {
-    for _ in 0..CW_MAX_COMBAT_PARTICIPANTS {
-        let Some(actor_id) = runtime.combat_current_actor_id(encounter_id) else {
-            return Ok(CW_OK);
-        };
-        let Some(actor) = runtime.actor_by_id(actor_id) else {
-            return Ok(CW_OK);
-        };
-        if !runtime.actor_uses_inference(actor.id) {
-            return Ok(CW_OK);
-        }
+) -> io::Result<CombatBeat> {
+    let Some(current_actor_id) = runtime.combat_current_actor_id(encounter_id) else {
+        return Ok(CombatBeat::Idle);
+    };
+    if runtime.actor_by_id(current_actor_id).is_none() {
+        return Ok(CombatBeat::Idle);
+    }
+
+    // An inference-controlled actor decides for itself. The record is rebuilt
+    // from current state under the runtime lock, and the kernel re-checks whose
+    // turn it is, so a stale or duplicated attempt cannot double-act.
+    if runtime.actor_uses_inference(current_actor_id) {
         let Some(record) = runtime.resident_combat_autonomy_record(
             encounter_id,
             runtime.next_seed_value(),
             events.last().map(|event| event.seq),
         ) else {
-            return Ok(CW_OK);
+            // No legal automated choice. Mechanics must not deadlock behind a
+            // missing decision, so the scene simply waits for recovery.
+            return Ok(CombatBeat::Idle);
         };
         let (status, inference_events) = commit_journal_record(state, runtime, record)?;
         events.extend(inference_events);
-        if status != CW_OK {
-            return Ok(status);
-        }
+        return Ok(if status == CW_OK {
+            CombatBeat::Committed
+        } else {
+            CombatBeat::Refused(status)
+        });
     }
-    Ok(CW_OK)
+
+    // A directly controlled actor keeps its turn while its controller is still
+    // within the grace period. Only an absent one is passed for.
+    if current_actor_id == requesting_actor_id {
+        return Ok(CombatBeat::Idle);
+    }
+    let grace_period_ms = ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
+        if combat_need_time_used(runtime, encounter_id, current_actor_id) {
+            ORDERED_SCENE_NEED_TIME_MS
+        } else {
+            0
+        },
+    );
+    if active_actor_ids_for_focused_grace(state, grace_period_ms).contains(&current_actor_id) {
+        return Ok(CombatBeat::Idle);
+    }
+    let record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_COMBAT_PASS,
+            actor_id: current_actor_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_system();
+    let (status, pass_events) = commit_journal_record(state, runtime, record)?;
+    events.extend(pass_events);
+    Ok(if status == CW_OK {
+        CombatBeat::Committed
+    } else {
+        CombatBeat::Refused(status)
+    })
 }
 
+/// Advance an ordered scene by at most one automated beat.
+///
+/// Continuation is server-owned: `start_focused_encounter_scheduler` picks the
+/// next eligible automated actor up on a later tick, so consecutive automated
+/// actors each get their own transcript beat with a reply opportunity between
+/// them, and a hidden or disconnected client cannot pause the encounter.
 pub(super) fn drive_available_combat_turns(
     state: &AppState,
     runtime: &mut RuntimeWorld,
@@ -640,45 +701,16 @@ pub(super) fn drive_available_combat_turns(
     requesting_actor_id: u64,
     events: &mut Vec<EventView>,
 ) -> io::Result<u32> {
-    for _ in 0..CW_MAX_COMBAT_PARTICIPANTS {
-        let status = drive_combat_inference_turns(state, runtime, encounter_id, events)?;
-        if status != CW_OK {
-            return Ok(status);
-        }
-        let Some(current_actor_id) = runtime.combat_current_actor_id(encounter_id) else {
-            return Ok(CW_OK);
-        };
-        let grace_period_ms = ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
-            if combat_need_time_used(runtime, encounter_id, current_actor_id) {
-                ORDERED_SCENE_NEED_TIME_MS
-            } else {
-                0
-            },
-        );
-        let active_direct_actors = active_actor_ids_for_focused_grace(state, grace_period_ms);
-        if current_actor_id == requesting_actor_id
-            || runtime.actor_uses_inference(current_actor_id)
-            || active_direct_actors.contains(&current_actor_id)
-        {
-            return Ok(CW_OK);
-        }
-        let record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_COMBAT_PASS,
-                actor_id: current_actor_id,
-                content_id: encounter_id,
-                ..CwAction::default()
-            },
-            runtime.next_seed_value(),
-        )
-        .into_system();
-        let (status, pass_events) = commit_journal_record(state, runtime, record)?;
-        events.extend(pass_events);
-        if status != CW_OK {
-            return Ok(status);
-        }
+    match commit_next_automated_combat_beat(
+        state,
+        runtime,
+        encounter_id,
+        requesting_actor_id,
+        events,
+    )? {
+        CombatBeat::Committed | CombatBeat::Idle => Ok(CW_OK),
+        CombatBeat::Refused(status) => Ok(status),
     }
-    Ok(CW_ERR_RULE)
 }
 
 fn focused_combat_turn_needs_recovery(
@@ -1267,12 +1299,37 @@ mod tests {
             actor_for_session(&state.actor_sessions, &session),
             Some(5000)
         );
+        // Issue #466: one sweep advances the scene by exactly one beat. Two
+        // absent controllers therefore take two sweeps, each producing its own
+        // transcript entry with a reply opportunity between them, rather than
+        // draining past the shared room in a single call.
         let events = recover_available_combat_turns(&state)
             .await
             .expect("focused scheduler recovery succeeds");
-        assert!(events
-            .iter()
-            .any(|event| { event.type_name == "combat.pass" && event.actor_id == Some(5001) }));
+        let passes = |events: &[EventView]| {
+            events
+                .iter()
+                .filter(|event| event.type_name == "combat.pass")
+                .filter_map(|event| event.actor_id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            passes(&events),
+            vec![5001],
+            "one sweep must commit exactly one automated beat"
+        );
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(1004));
+        drop(runtime);
+
+        let events = recover_available_combat_turns(&state)
+            .await
+            .expect("focused scheduler recovery succeeds");
+        assert_eq!(
+            passes(&events),
+            vec![1004],
+            "the next sweep passes the next absent controller, as its own beat"
+        );
         let runtime = state.inner.lock().await;
         assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5000));
         drop(runtime);
@@ -1291,6 +1348,116 @@ mod tests {
             assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
         }
         assert_eq!(replayed.combat_current_actor_id(encounter_id), Some(5000));
+        let _ = fs::remove_file(path);
+    }
+
+    /// Issue #466: the scheduler used to drain every consecutive
+    /// inference-controlled turn inside one call, so a whole automated sequence
+    /// could race past the shared room transcript before players could read what
+    /// happened. One sweep must now commit at most one automated action, so each
+    /// automated actor gets its own beat with a reply opportunity between them.
+    #[tokio::test]
+    async fn consecutive_automated_actors_act_one_beat_per_sweep() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Slow Witness",
+        );
+        for (actor_id, dexterity, mode) in [
+            (5000, 1, ActorControlMode::DirectInput),
+            (1002, 100, ActorControlMode::ReactiveAi),
+            (1004, 50, ActorControlMode::ReactiveAi),
+        ] {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == actor_id)
+                .expect("pacing participant");
+            actor.stats.hp_base = 100;
+            actor.stats.dexterity = dexterity;
+            actor.location_id = MOONLIT_TRAIL_LOCATION_ID;
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = mode;
+        }
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        assert_eq!(
+            runtime
+                .apply_journal_record(
+                    &JournalRecord::new(
+                        CwAction {
+                            kind: CW_ACTION_COMBAT_START,
+                            actor_id: 1002,
+                            target_actor_id: 5000,
+                            content_id: encounter_id,
+                            ..CwAction::default()
+                        },
+                        72_610,
+                    )
+                    .into_system()
+                )
+                .0,
+            CW_OK
+        );
+        assert_eq!(
+            runtime
+                .apply_journal_record(
+                    &JournalRecord::new(combat_join_action(1004, encounter_id), 72_611)
+                        .into_system()
+                )
+                .0,
+            CW_OK
+        );
+        // Both automated actors hold the turn before the slow human does.
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(1002));
+
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-combat-pacing-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(runtime, Some(path.clone()));
+
+        let mut acted = Vec::new();
+        for _ in 0..2 {
+            let mut runtime = state.inner.lock().await;
+            let mut events = Vec::new();
+            let status =
+                drive_available_combat_turns(&state, &mut runtime, encounter_id, 0, &mut events)
+                    .expect("a pacing sweep succeeds");
+            assert_eq!(status, CW_OK);
+            let committed = events
+                .iter()
+                .filter(|event| event.actor_id.is_some())
+                .filter(|event| {
+                    matches!(
+                        event.type_name.as_str(),
+                        "combat.attack.attempt" | "combat.defend" | "combat.dodge" | "combat.pass"
+                    )
+                })
+                .filter_map(|event| event.actor_id)
+                .collect::<std::collections::BTreeSet<_>>();
+            assert!(
+                committed.len() <= 1,
+                "one sweep committed more than one automated actor: {committed:?}"
+            );
+            acted.extend(committed);
+            drop(runtime);
+        }
+
+        // Two sweeps, two distinct automated actors — never both in one sweep.
+        assert_eq!(
+            acted,
+            vec![1002, 1004],
+            "each automated actor must take its own beat"
+        );
         let _ = fs::remove_file(path);
     }
 
