@@ -26,7 +26,10 @@ if ! df_output="$(flyctl ssh console -a "$APP" -C "df -P $MOUNT" 2>&1)"; then
   exit 1
 fi
 
-df_line="$(echo "$df_output" | awk 'NR==2 {print}')"
+df_line="$(
+  printf '%s\n' "$df_output" \
+    | awk -v mount="$MOUNT" '$5 ~ /^[0-9]+%$/ && $6 == mount { print; exit }'
+)"
 if [ -z "$df_line" ]; then
   df_output="${df_output//$'\n'/ }"
   echo "::error::could not read df for $MOUNT on app $APP — refusing to deploy blind. flyctl: $df_output" >&2
