@@ -25,6 +25,7 @@ issues are the source of truth for each slice's implementation state.
 - [SRD-Backed Action and Collectible System](../systems/04-action-system.md)
 - [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
 - [ADR 0002: the action hand is authoritative state](../decisions/0002-action-hand-is-authoritative-state.md)
+- [ADR 0005: thresholds, trails, and the strict referee](../decisions/0005-thresholds-trails-and-strict-referee.md)
 
 **Related backlog**: [Action Verbs And Economy](action-verbs-and-economy.md).
 AVE owns the verb lexicon, per-offer cost/risk presentation, and complete legal
@@ -88,6 +89,16 @@ an expedition system instead of bookkeeping.
    not appear in player copy (`PRD.md:56`).
 8. Old journaled rest records keep their tag-clearing meaning. A new grade
    semantic needs a new action code, never a reinterpretation.
+9. A cairn, Signal Anchor, temporary Mark, active Lead, route familiarity, or
+   discovered place is navigation state, not shelter or rest entitlement.
+   Camp still requires equipped shelter; Lodged and Hearth keep their own
+   eligibility.
+
+ADR 0005 does not change current weariness or Rest behavior. The proposed
+short-rest/fatigue cadence is owned by
+[#603](https://github.com/cenetex/cosyworld/issues/603) and must explicitly
+supersede any conflicting current rule before implementation in #604. Scout
+and Pressure consume that decision; they cannot embed a second fatigue ladder.
 
 ---
 

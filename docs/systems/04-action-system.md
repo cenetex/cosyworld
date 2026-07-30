@@ -90,10 +90,16 @@ mechanical offer declares its stable identity:
 
 | Current/product wording | Stable meaning |
 | --- | --- |
-| Listen, Notice, Tune In | Search, normally using Wisdom. |
-| Inspect, Investigate, Recall | Study, normally using Intelligence; use Search when perception is decisive. |
-| Scout, Scope Out | Search or Study followed by movement, not a new universal action. |
-| Travel, Head To | Movement through a legal exit. |
+| Scene notice | Free obvious sensory projection on arrival or relevant state change; never a roll or action. |
+| Listen, Notice, Tune In | Focused Notice: one played broad sensory result, currently Search-compatible and target `focused_notice_v2`; absent when no unresolved authored result exists. |
+| Search | Exhaustive physical examination of one named local target; safe Search is certain and does not Open or Take. |
+| Study, Recall | Interpretation of an already perceived target; exposes meaning, operation, requirements, provenance, or a better method without materializing physical truth. |
+| Inspect, Investigate | Search when physical examination is decisive; Study when interpretation is decisive. The offer must declare which binding it uses. |
+| Scout, Scope Out | The CosyWorld geographic procedure: pursue an exact Lead from an Anchor or active foray and reveal an authorized segment/target without moving. It is not a universal SRD action. |
+| Travel, Head To | Movement through a revealed route whose Gate permits the actor; it performs no discovery. |
+| Mark | A temporary expedition return cue on a traversed leg; no topology, forward reveal, independent branch, or Anchor. |
+| Open | One certified Gate method on a door, seal, or container; no implicit reveal or transfer. |
+| Take | Transfer one revealed accessible item after custody and capacity checks; no implicit Open, equip, install, or use. |
 | Chat | Spend one banked advancement point to begin a friendship with an eligible nearby resident; absent when that growth option is unavailable. |
 | Say | Ordinary moderated room communication; Influence only when changing attitude or cooperation is at stake. |
 | Use | Utilize for a nonmagical object; Magic for a spell, magic feature, or magic item. |
@@ -107,6 +113,12 @@ mechanical offer declares its stable identity:
 The compiler should reject a label that omits its mechanical binding. A reskin
 may change `label`, `detail`, art, and narration; it may not change costs,
 targets, checks, effects, or timing.
+
+The threshold bindings and their compatibility versions are normative in
+[ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md).
+Current `scout_v1` records remain legacy Search plus an `explore_path`
+projection mutation. New discovery procedures must use append-only versions
+and may not reinterpret those records.
 
 ## Cards Are Offers and Playable Things
 

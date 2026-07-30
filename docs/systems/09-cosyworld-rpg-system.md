@@ -344,22 +344,31 @@ Influence and Magic, Pick Up/Use/Give/Drop/Trade items, theft, crafting, and the
 versioned combat encounter actions. Journaled Rust reducers own the bounded
 project, loadout, materialization, and progression operations.
 
-### Current Product Verbs
+### Product Verb Contract
 
 Friendly labels now map to stable SRD 5.2.1 actions or explicit non-action
 operations in the compiled registry. The same authoritative envelopes drive
 the browser, terminal, inspector, and submission endpoint; see
 [the action-system design](04-action-system.md) and
 [the implementation ledger](../backlog/srd-action-card-foundation.md).
+[ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md)
+separates topology, legibility, access, and safety and versions the target
+discovery procedures. Existing v1 journal records keep their historical
+bindings until those procedures land.
 
 | Product verb | Kernel or projection | Purpose |
 | --- | --- | --- |
 | Chat | kernel Say plus AI generation | Public in-character line and resident response; deepens bonds. |
-| Notice | kernel Ability Check | Receive an ambient room lead, mark the ledger, advance memory. |
-| Inspect | kernel Ability Check | Examine a named target to reveal hidden content. |
-| Scout | projection pathway action | Reveal the next adjacent route segment toward a named destination without moving. |
-| Travel | kernel Move | Move through legal, accessible exits; crossing into frontier is explicit. |
-| Take | kernel Pick Up Item | Move item to inventory. |
+| Scene notice | free server projection; no action | Show obvious exits, creatures, objects, landmark cues, sensory Signs, and perceivable Hazard tells on arrival or relevant state change. It never rolls or consumes played time. |
+| Notice | current rules Search/legacy check; target `focused_notice_v2` | Spend one turn resolving one broad authored sensory Lead or safety/environment result. It is absent when no unresolved result exists. |
+| Search | current rules Search; target `search_v2` | Exhaustively examine one named local physical target. Safe Search is certain and reveal never implies Open or Take. |
+| Study | current rules Study; target `study_v2` | Interpret an already perceived target to learn requirements, operation, provenance, meaning, or a better method; never materialize physical truth. |
+| Inspect | approved Search or Study reskin | Bind to Search for physical examination or Study for interpretation; never a third resolver. |
+| Scout | current `scout_v1` projection; target `scout_v2` | Pursue one exact geographic Lead from an Anchor or active foray and reveal one authorized segment or target without moving. |
+| Travel | kernel Move | Move through a revealed route whose Gate permits this actor or expedition. Travel never reveals the way. |
+| Mark | target `mark_v1` procedure | Leave a temporary expedition return cue on a traversed leg. It creates no topology, forward reveal, independent branch, or Anchor. |
+| Open | current kernel unlock where applicable; target `open_v1` Gate procedure | Apply one certified method to a door, seal, or container. Open does not reveal hidden contents or transfer them. |
+| Take | kernel Pick Up Item | Transfer one revealed, accessible item after custody and capacity checks; never implicitly reveal, Open, equip, install, or use it. |
 | Give | kernel Give Item | Resident evolution, bonds, job delivery, covenant contribution. |
 | Use | kernel Use Item | Consumables, tools, relics, room effects. |
 | Attack | kernel Attack | Rare frontier conflict, resolved as a risk toward an objective. |
@@ -369,7 +378,23 @@ the browser, terminal, inspector, and submission endpoint; see
 | Rest | New append-only kernel procedure for authoritative card refresh; legacy projection-only records keep their historical meaning | Follow [ADR 0004](../decisions/0004-rest-grades-and-expedition-depth.md): Camp clears `tired` and one spell; Lodged also clears `trained_since_rest` and refreshes the whole spell hand; Hearth additionally clears expedition depth and refreshes charms and relics; frontier Rest without equipped shelter is not offered. |
 | Contribute | kernel Push action plus projection clock application | Advance one named job or covenant clock through job-specific Push and, when available, Help strategies. |
 
-Generated long-distance pathways use these same verbs and UI rules. Scout reveals one adjacent stretch as shared geography without moving, but it never replaces the rest of the hand or locks future movement. When an Explorer first opens a route, bounded structured generation may create every hidden waypoint's narrative identity from its deterministic biome and terrain; each identity remains concealed until its Scout edge is revealed. Invalid or disabled generation keeps the deterministic identity, and neither form may change topology or rules. Generated waypoint rooms begin risky and frontier-zoned. Every generated route receives one shared familiarity job and progress clock across its waypoint rooms; Push and Help are strategies on one contribution card and advance that same clock. Filling the clock settles the route into sanctuary rules and unlocks generated landscape art, while the deterministic SVG remains available throughout discovery and as the inference fallback.
+Generated long-distance pathways use these same verbs and UI rules. The
+deployed `scout_v1` reveals one adjacent stretch as shared geography without
+moving. Canonical `scout_v2` keeps that no-movement result but additionally
+binds the exact Lead, legal Anchor or active foray, route/entity version, and
+no-null-commit evidence. Travel is always the later movement commit. When an
+Explorer first opens a route, bounded structured generation may create every
+hidden waypoint's narrative identity from its deterministic biome and terrain;
+each identity remains concealed until its Scout edge is revealed. Invalid or
+disabled generation keeps the deterministic identity, and neither form may
+change topology or rules. Generated waypoint rooms begin risky and
+frontier-zoned. Every generated route receives one shared familiarity job and
+progress clock across its waypoint rooms; Push and Help are strategies on one
+contribution card and advance that same clock. Familiarity is separate from
+route reveal, navigation Anchors, place settlement, shelter, and rest grade.
+Filling the existing familiarity clock settles the route under its own
+versioned contract and unlocks generated landscape art, while the deterministic
+SVG remains available throughout discovery and as the inference fallback.
 
 Project Push resolution is append-only at kernel action `31`. Its recorded input
 contains the direct progress, authored preparation bonus, prepared flag,
