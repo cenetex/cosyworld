@@ -163,6 +163,7 @@ fn journal_beat_category(event: &EventView) -> Option<JournalBeatCategory> {
         | "journey.backtracked"
         | "journey.paused" => JournalBeatCategory::Travel,
         "exit.discovered"
+        | "avatar.discovered"
         | "exit.unlocked"
         | "pathway.discovered"
         | "pathway.familiarized"
@@ -197,8 +198,6 @@ fn journal_beat_category(event: &EventView) -> Option<JournalBeatCategory> {
         | "item.transformed" => JournalBeatCategory::Item,
         "move.blocked"
         | "clock.updated"
-        | "tag.applied"
-        | "tag.cleared"
         | "combat.attack.attempt"
         | "combat.encounter.started"
         | "combat.dodge"
@@ -213,16 +212,7 @@ fn journal_beat_category(event: &EventView) -> Option<JournalBeatCategory> {
         type_name if type_name.starts_with("combat.") => JournalBeatCategory::Consequence,
         _ => return None,
     };
-    if event.type_name == "tag.applied"
-        && matches!(
-            event.content.as_deref(),
-            Some("search_location") | Some("search_feature")
-        )
-    {
-        None
-    } else {
-        Some(category)
-    }
+    Some(category)
 }
 
 fn complete_journal_headline(value: &str) -> Option<String> {
@@ -254,47 +244,389 @@ fn journal_world_beat_exposure_id(event: &EventView) -> Option<String> {
     .then(|| format!("world-beat:v1:{}", event.seq))
 }
 
+const JOURNAL_ACTION_EVENT_SPAN: u64 = 24;
+
+fn journal_search_event(event: &EventView) -> bool {
+    matches!(
+        event.type_name.as_str(),
+        "feature.searched" | "location.searched"
+    )
+}
+
+fn journal_discovery_outcome(event: &EventView) -> bool {
+    matches!(
+        event.type_name.as_str(),
+        "exit.discovered"
+            | "avatar.discovered"
+            | "item.found"
+            | "item.revealed"
+            | "natural_feature.revealed"
+            | "pathway.discovered"
+    )
+}
+
+fn journal_search_evidence(event: &EventView) -> bool {
+    matches!(event.type_name.as_str(), "tag.applied" | "tag.cleared")
+        && matches!(
+            event.content.as_deref(),
+            Some("search_location") | Some("search_feature")
+        )
+        || event.type_name == "ledger.marked"
+            && event
+                .content
+                .as_deref()
+                .is_some_and(|content| content.contains("search"))
+}
+
+fn journal_same_actor_and_location(left: &EventView, right: &EventView) -> bool {
+    left.actor_id.is_some()
+        && left.actor_id == right.actor_id
+        && left.location_id.is_some()
+        && left.location_id == right.location_id
+}
+
+fn journal_explicitly_related(left: &EventView, right: &EventView) -> bool {
+    left.caused_by_event_seq == Some(right.seq) || right.caused_by_event_seq == Some(left.seq)
+}
+
+fn journal_nearest_search<'a>(
+    searches: &[&'a EventView],
+    event: &EventView,
+) -> Option<&'a EventView> {
+    searches
+        .iter()
+        .copied()
+        .filter(|search| journal_same_actor_and_location(search, event))
+        .filter(|search| {
+            journal_explicitly_related(search, event)
+                || search.seq.abs_diff(event.seq) <= JOURNAL_ACTION_EVENT_SPAN
+        })
+        .min_by_key(|search| {
+            (
+                u8::from(!journal_explicitly_related(search, event)),
+                search.seq.abs_diff(event.seq),
+                search.seq,
+            )
+        })
+}
+
+fn journal_discovery_outcome_priority(event: &EventView) -> u8 {
+    match event.type_name.as_str() {
+        "exit.discovered" | "pathway.discovered" => 4,
+        "avatar.discovered" => 3,
+        "natural_feature.revealed" => 2,
+        "item.found" | "item.revealed" => 1,
+        _ => 0,
+    }
+}
+
+fn journal_search_target(search: &EventView) -> Option<&str> {
+    (search.type_name == "feature.searched")
+        .then(|| {
+            search
+                .content
+                .as_deref()?
+                .split(':')
+                .next()
+                .map(str::trim)
+                .filter(|target| !target.is_empty())
+        })
+        .flatten()
+}
+
+fn journal_natural_feature_name(event: &EventView) -> Option<String> {
+    event
+        .content
+        .as_deref()
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+        .and_then(|content| {
+            content
+                .get("feature")
+                .and_then(|feature| feature.get("resource_kind"))
+                .and_then(serde_json::Value::as_str)
+                .map(|resource| resource.replace('_', " "))
+        })
+}
+
+fn journal_search_headline(search: &EventView, outcomes: &[&EventView]) -> Option<String> {
+    let actor = search.actor_name.as_deref().unwrap_or("Someone");
+    let location = search.location_name.as_deref().unwrap_or("the area");
+    let outcome = outcomes
+        .iter()
+        .copied()
+        .max_by_key(|event| (journal_discovery_outcome_priority(event), event.seq));
+    let headline = match outcome.map(|event| event.type_name.as_str()) {
+        Some("exit.discovered" | "pathway.discovered") => {
+            let destination = outcome?
+                .destination_location_name
+                .as_deref()
+                .unwrap_or("somewhere new");
+            format!(
+                "{actor} discovered a path to {destination} while searching {location}; the route is now available for travel"
+            )
+        }
+        Some("avatar.discovered") => format!(
+            "{actor} discovered {} while searching {location}",
+            outcome?
+                .target_actor_name
+                .as_deref()
+                .unwrap_or("someone nearby")
+        ),
+        Some("item.found" | "item.revealed") => format!(
+            "{actor} found {} while searching {location}",
+            outcome?.item_name.as_deref().unwrap_or("something useful")
+        ),
+        Some("natural_feature.revealed") => format!(
+            "{actor} discovered {} while searching {location}",
+            journal_natural_feature_name(outcome?)
+                .as_deref()
+                .unwrap_or("a useful feature")
+        ),
+        _ if search.type_name == "feature.searched" => format!(
+            "{actor} searched {} in {location}, but found nothing new",
+            journal_search_target(search).unwrap_or("a tucked-away detail")
+        ),
+        _ => format!("{actor} searched {location}, but found nothing new"),
+    };
+    complete_journal_headline(&headline)
+}
+
+fn journal_journey_event(event: &EventView) -> bool {
+    matches!(
+        event.type_name.as_str(),
+        "journey.started"
+            | "journey.progressed"
+            | "journey.narrated"
+            | "journey.completed"
+            | "journey.backtracked"
+            | "journey.paused"
+    )
+}
+
+fn journal_nearest_movement<'a>(
+    movements: &[&'a EventView],
+    journey: &EventView,
+    assigned_movements: &BTreeSet<u64>,
+) -> Option<&'a EventView> {
+    movements
+        .iter()
+        .copied()
+        .filter(|movement| !assigned_movements.contains(&movement.seq))
+        .filter(|movement| movement.actor_id.is_some() && movement.actor_id == journey.actor_id)
+        .filter(|movement| movement.destination_location_id == journey.location_id)
+        .filter(|movement| {
+            movement.seq <= journey.seq
+                && (journal_explicitly_related(movement, journey)
+                    || journey.seq - movement.seq <= JOURNAL_ACTION_EVENT_SPAN)
+        })
+        .min_by_key(|movement| {
+            (
+                u8::from(!journal_explicitly_related(movement, journey)),
+                journey.seq - movement.seq,
+                Reverse(movement.seq),
+            )
+        })
+}
+
+fn journal_journey_destination<'a>(
+    journey: &'a EventView,
+    events: &'a [&EventView],
+) -> Option<&'a str> {
+    journey.destination_location_name.as_deref().or_else(|| {
+        events
+            .iter()
+            .copied()
+            .filter(|event| event.actor_id == journey.actor_id && event.seq < journey.seq)
+            .filter(|event| journal_journey_event(event) || event.type_name == "pathway.discovered")
+            .filter_map(|event| {
+                event
+                    .destination_location_name
+                    .as_deref()
+                    .map(|destination| (event.seq, destination))
+            })
+            .max_by_key(|(seq, _)| *seq)
+            .map(|(_, destination)| destination)
+    })
+}
+
+fn journal_travel_headline(
+    movement: &EventView,
+    journey: &EventView,
+    events: &[&EventView],
+) -> Option<String> {
+    let actor = movement.actor_name.as_deref().unwrap_or("Someone");
+    let origin = movement
+        .location_name
+        .as_deref()
+        .unwrap_or("the last place");
+    let step = movement
+        .destination_location_name
+        .as_deref()
+        .unwrap_or("the next place");
+    let destination = journal_journey_destination(journey, events).unwrap_or(step);
+    let headline = match journey.type_name.as_str() {
+        "journey.paused" => format!(
+            "{actor} left {origin} for {step}; the journey to {destination} is paused and can be resumed later"
+        ),
+        "journey.completed" => format!(
+            "{actor} traveled from {origin} to {step} and completed the journey to {destination}"
+        ),
+        "journey.backtracked" => format!(
+            "{actor} traveled from {origin} back to {step}; the journey to {destination} remains open"
+        ),
+        _ => format!(
+            "{actor} traveled from {origin} to {step}; the journey to {destination} continues"
+        ),
+    };
+    complete_journal_headline(&headline)
+}
+
+fn journal_grouped_beat(
+    location_id: u64,
+    identity_seq: u64,
+    category: JournalBeatCategory,
+    headline: String,
+    members: &[&EventView],
+) -> JournalBeatView {
+    let mut source_event_seqs = members.iter().map(|event| event.seq).collect::<Vec<_>>();
+    source_event_seqs.sort_unstable();
+    source_event_seqs.dedup();
+    JournalBeatView {
+        id: format!("journal-beat:v1:{location_id}:{identity_seq}"),
+        ordering_seq: source_event_seqs.last().copied().unwrap_or(identity_seq),
+        source_event_seqs,
+        category,
+        headline,
+        location_id,
+        world_beat_exposure_id: None,
+    }
+}
+
 fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeatView> {
     let covered_event_seqs = semantic_receipts::semantic_receipt_covered_event_seqs(events);
-    let mut beats = events
+    let mut chronological = events
         .iter()
         .filter(|event| !covered_event_seqs.contains(&event.seq))
-        .filter_map(|event| {
-            let category = journal_beat_category(event)?;
-            let (headline, mut source_event_seqs) =
-                if let Some(receipt) = semantic_receipts::semantic_story_receipt(event) {
-                    (
-                        complete_journal_headline(&receipt.text)?,
-                        receipt.event_seqs,
-                    )
-                } else if journal_world_beat_exposure_id(event).is_some() {
-                    (
-                        complete_journal_headline(event.content.as_deref()?)?,
-                        vec![event.seq],
-                    )
-                } else {
-                    (
-                        complete_journal_headline(&room_memory_log_text_at_location(
-                            event,
-                            location_id,
-                        )?)?,
-                        vec![event.seq],
-                    )
-                };
-            source_event_seqs.push(event.seq);
-            source_event_seqs.sort_unstable();
-            source_event_seqs.dedup();
-            Some(JournalBeatView {
-                id: format!("journal-beat:v1:{location_id}:{}", event.seq),
-                source_event_seqs,
-                category,
-                headline,
-                location_id,
-                ordering_seq: event.seq,
-                world_beat_exposure_id: journal_world_beat_exposure_id(event),
-            })
-        })
         .collect::<Vec<_>>();
+    chronological.sort_by_key(|event| event.seq);
+
+    let searches = chronological
+        .iter()
+        .copied()
+        .filter(|event| journal_search_event(event))
+        .collect::<Vec<_>>();
+    let mut search_outcomes = BTreeMap::<u64, Vec<&EventView>>::new();
+    let mut search_evidence = BTreeMap::<u64, Vec<&EventView>>::new();
+    for event in chronological.iter().copied() {
+        if journal_discovery_outcome(event) {
+            if let Some(search) = journal_nearest_search(&searches, event) {
+                search_outcomes.entry(search.seq).or_default().push(event);
+            }
+        } else if journal_search_evidence(event) {
+            if let Some(search) = journal_nearest_search(&searches, event) {
+                search_evidence.entry(search.seq).or_default().push(event);
+            }
+        }
+    }
+
+    let movements = chronological
+        .iter()
+        .copied()
+        .filter(|event| event.type_name == "actor.moved")
+        .collect::<Vec<_>>();
+    let mut travel_pairs = BTreeMap::<u64, &EventView>::new();
+    let mut assigned_movements = BTreeSet::new();
+    for journey in chronological
+        .iter()
+        .copied()
+        .filter(|event| journal_journey_event(event))
+    {
+        if let Some(movement) = journal_nearest_movement(&movements, journey, &assigned_movements) {
+            assigned_movements.insert(movement.seq);
+            travel_pairs.insert(movement.seq, journey);
+        }
+    }
+
+    let mut consumed = BTreeSet::new();
+    let mut beats = Vec::new();
+    for search in searches {
+        let outcomes = search_outcomes.remove(&search.seq).unwrap_or_default();
+        let mut members = vec![search];
+        members.extend(outcomes.iter().copied());
+        members.extend(search_evidence.remove(&search.seq).unwrap_or_default());
+        consumed.extend(members.iter().map(|event| event.seq));
+        if let Some(headline) = journal_search_headline(search, &outcomes) {
+            beats.push(journal_grouped_beat(
+                location_id,
+                search.seq,
+                if outcomes.is_empty() {
+                    JournalBeatCategory::Search
+                } else {
+                    JournalBeatCategory::Discovery
+                },
+                headline,
+                &members,
+            ));
+        }
+    }
+
+    for movement in movements {
+        let Some(journey) = travel_pairs.remove(&movement.seq) else {
+            continue;
+        };
+        let members = [movement, journey];
+        consumed.extend(members.iter().map(|event| event.seq));
+        if let Some(headline) = journal_travel_headline(movement, journey, &chronological) {
+            beats.push(journal_grouped_beat(
+                location_id,
+                movement.seq,
+                JournalBeatCategory::Travel,
+                headline,
+                &members,
+            ));
+        }
+    }
+
+    beats.extend(
+        chronological
+            .into_iter()
+            .filter(|event| !consumed.contains(&event.seq))
+            .filter_map(|event| {
+                let category = journal_beat_category(event)?;
+                let (headline, mut source_event_seqs) =
+                    if let Some(receipt) = semantic_receipts::semantic_story_receipt(event) {
+                        (
+                            complete_journal_headline(&receipt.text)?,
+                            receipt.event_seqs,
+                        )
+                    } else if journal_world_beat_exposure_id(event).is_some() {
+                        (
+                            complete_journal_headline(event.content.as_deref()?)?,
+                            vec![event.seq],
+                        )
+                    } else {
+                        (
+                            complete_journal_headline(&room_memory_log_text_at_location(
+                                event,
+                                location_id,
+                            )?)?,
+                            vec![event.seq],
+                        )
+                    };
+                source_event_seqs.push(event.seq);
+                source_event_seqs.sort_unstable();
+                source_event_seqs.dedup();
+                Some(JournalBeatView {
+                    id: format!("journal-beat:v1:{location_id}:{}", event.seq),
+                    source_event_seqs,
+                    category,
+                    headline,
+                    location_id,
+                    ordering_seq: event.seq,
+                    world_beat_exposure_id: journal_world_beat_exposure_id(event),
+                })
+            }),
+    );
     beats.sort_by(|left, right| {
         left.ordering_seq
             .cmp(&right.ordering_seq)
@@ -3816,6 +4148,207 @@ mod tests {
         assert_eq!(beats[0].category, JournalBeatCategory::Travel);
         assert_eq!(beats[0].headline, "Pip Marrow left for Moonlit Trail.");
         assert_eq!(beats[0].source_event_seqs, vec![9]);
+    }
+
+    #[test]
+    fn journal_beats_group_search_discovery_by_semantics_not_input_adjacency() {
+        let search = EventView {
+            seq: 100,
+            type_name: "location.searched".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            ..EventView::default()
+        };
+        let search_tag = EventView {
+            seq: 101,
+            type_name: "tag.applied".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            content: Some("search_location".to_string()),
+            tag_label: Some("path to the Old Oak Tree".to_string()),
+            ..EventView::default()
+        };
+        let search_memory = EventView {
+            seq: 103,
+            type_name: "ledger.marked".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            content: Some(
+                "location:You noticed what this place keeps.:location_search:7".to_string(),
+            ),
+            ..EventView::default()
+        };
+        let discovery = EventView {
+            seq: 105,
+            type_name: "exit.discovered".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            destination_location_id: Some(9),
+            destination_location_name: Some("the Old Oak Tree".to_string()),
+            caused_by_event_seq: Some(100),
+            ..EventView::default()
+        };
+
+        let chronological = journal_beat_views(
+            &[
+                search.clone(),
+                search_tag.clone(),
+                search_memory.clone(),
+                discovery.clone(),
+            ],
+            7,
+        );
+        let reordered = journal_beat_views(&[search_memory, discovery, search_tag, search], 7);
+
+        assert_eq!(chronological, reordered);
+        assert_eq!(
+            chronological,
+            vec![JournalBeatView {
+                id: "journal-beat:v1:7:100".to_string(),
+                source_event_seqs: vec![100, 101, 103, 105],
+                category: JournalBeatCategory::Discovery,
+                headline: "Elsie discovered a path to the Old Oak Tree while searching Rain-Soft Garden; the route is now available for travel.".to_string(),
+                location_id: 7,
+                ordering_seq: 105,
+                world_beat_exposure_id: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn journal_beats_keep_empty_search_as_one_clear_beat() {
+        let search = EventView {
+            seq: 200,
+            type_name: "feature.searched".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            content: Some("mossy bench:nothing stirred:search_feature".to_string()),
+            ..EventView::default()
+        };
+        let search_tag = EventView {
+            seq: 202,
+            type_name: "tag.applied".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            content: Some("search_feature".to_string()),
+            ..EventView::default()
+        };
+        let search_memory = EventView {
+            seq: 203,
+            type_name: "ledger.marked".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            content: Some(
+                "feature:You recorded a room detail.:feature_search:7:mossy-bench".to_string(),
+            ),
+            ..EventView::default()
+        };
+
+        let beats = journal_beat_views(&[search_memory, search, search_tag], 7);
+
+        assert_eq!(beats.len(), 1);
+        assert_eq!(beats[0].category, JournalBeatCategory::Search);
+        assert_eq!(
+            beats[0].headline,
+            "Elsie searched mossy bench in Rain-Soft Garden, but found nothing new."
+        );
+        assert_eq!(beats[0].source_event_seqs, vec![200, 202, 203]);
+    }
+
+    #[test]
+    fn journal_beats_group_movement_and_paused_journey_with_resumable_destination() {
+        let journey_origin = EventView {
+            seq: 90,
+            type_name: "pathway.discovered".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            destination_location_id: Some(9),
+            destination_location_name: Some("the Old Oak Tree".to_string()),
+            content: Some("Elsie found the first usable stretch of the path.".to_string()),
+            ..EventView::default()
+        };
+        let movement = EventView {
+            seq: 110,
+            type_name: "actor.moved".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            destination_location_id: Some(8),
+            destination_location_name: Some("the Cosy Cottage".to_string()),
+            ..EventView::default()
+        };
+        let intermediate = EventView {
+            seq: 112,
+            type_name: "tag.applied".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(8),
+            location_name: Some("the Cosy Cottage".to_string()),
+            content: Some("frontier_travel".to_string()),
+            tag_label: Some("frontier travel".to_string()),
+            ..EventView::default()
+        };
+        let paused = EventView {
+            seq: 114,
+            type_name: "journey.paused".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(8),
+            location_name: Some("the Cosy Cottage".to_string()),
+            content: Some("journey.paused -> raw transition".to_string()),
+            ..EventView::default()
+        };
+
+        let chronological = journal_beat_views(
+            &[
+                journey_origin.clone(),
+                movement.clone(),
+                intermediate.clone(),
+                paused.clone(),
+            ],
+            7,
+        );
+        let reordered = journal_beat_views(&[paused, intermediate, journey_origin, movement], 7);
+        let travel = chronological
+            .iter()
+            .find(|beat| beat.category == JournalBeatCategory::Travel)
+            .expect("movement and pause form one travel beat");
+
+        assert_eq!(chronological, reordered);
+        assert_eq!(
+            travel.headline,
+            "Elsie left Rain-Soft Garden for the Cosy Cottage; the journey to the Old Oak Tree is paused and can be resumed later."
+        );
+        assert_eq!(travel.source_event_seqs, vec![110, 114]);
+        assert!(!serde_json::to_string(&chronological)
+            .unwrap()
+            .contains("journey.paused"));
+        assert!(
+            !chronological.iter().any(|beat| beat.headline.contains("->")
+                || beat.headline.split_whitespace().any(|word| {
+                    matches!(
+                        word.trim_matches(|character: char| !character.is_ascii_alphabetic()),
+                        "tag" | "event"
+                    )
+                }))
+        );
     }
 
     #[test]
