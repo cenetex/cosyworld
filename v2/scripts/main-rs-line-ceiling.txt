@@ -100,4 +100,6 @@
 # 74498 -> 74462: move durable command-receipt encoding and capacity enforcement
 # into the existing canonical_journal seam.
 # 74462 -> 74460: keep the actor-job contention regression outside main.rs.
-74460
+# 74460 -> 74447: replace the full-state action receipt with bounded revision
+# metadata; clients refresh the authoritative projection after the world lock.
+74447

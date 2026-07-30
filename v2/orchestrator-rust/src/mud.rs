@@ -498,7 +498,7 @@ pub(crate) async fn commit_shuffle_hand_command(
         });
     };
     if status == CW_OK && !events.is_empty() {
-        append_action_receipt(state, &runtime, payload.actor_id, &mut events);
+        append_action_receipt(&runtime, payload.actor_id, &mut events);
     }
     drop(runtime);
     broadcast_events(state, &events);

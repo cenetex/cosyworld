@@ -1177,6 +1177,7 @@ pub(super) fn room_turn_view_for_runtime(
         .unwrap_or_else(|| RoomTurnView::idle(location_id))
 }
 
+#[cfg(test)]
 pub(super) fn actor_room_turn_view(
     state: &AppState,
     runtime: &RuntimeWorld,
@@ -1398,7 +1399,7 @@ pub(super) fn advance_turn_and_capture_player_tick_observation(
     advance_actor_room_turn_after_commit(state, runtime, location_id, actor_id, status, events);
     let observation = player_tick_observation(runtime, location_id, actor_id, status, events);
     if status == CW_OK {
-        append_action_receipt(state, runtime, actor_id, events);
+        append_action_receipt(runtime, actor_id, events);
     }
     observation
 }
@@ -1823,7 +1824,7 @@ async fn apply_focused_control(
     };
     let observation = if control == "need_time" {
         if status == CW_OK {
-            append_action_receipt(&state, &runtime, actor_id, &mut events);
+            append_action_receipt(&runtime, actor_id, &mut events);
         }
         None
     } else {

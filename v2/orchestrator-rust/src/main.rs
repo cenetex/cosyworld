@@ -30303,26 +30303,10 @@ fn commit_resident_reply_record(
     (status == CW_OK).then_some(events)
 }
 
-fn append_action_receipt(
-    state: &AppState,
-    runtime: &RuntimeWorld,
-    actor_id: u64,
-    events: &mut Vec<EventView>,
-) {
-    let access = AccessContext::for_linked_actor_receipt(state, actor_id);
-    let active_direct_actors = active_actor_ids_for_state(state);
-    let mut next_state = runtime.state_response_with_presence(
-        Some(actor_id),
-        &access,
-        Some(&active_direct_actors),
-        false,
-    );
-    next_state.turn = actor_room_turn_view(state, runtime, actor_id, &active_direct_actors)
-        .unwrap_or_else(|| RoomTurnView::idle(next_state.location.id));
+fn append_action_receipt(runtime: &RuntimeWorld, actor_id: u64, events: &mut Vec<EventView>) {
     let Ok(content) = serde_json::to_string(&serde_json::json!({
         "world_tick": runtime.world.tick,
         "state_revision": runtime.world.next_event_seq.saturating_sub(1),
-        "state": next_state,
     })) else {
         return;
     };
@@ -35190,7 +35174,7 @@ async fn unlock_charm_slot(
         });
     };
     if status == CW_OK && !events.is_empty() {
-        append_action_receipt(&state, &runtime, payload.actor_id, &mut events);
+        append_action_receipt(&runtime, payload.actor_id, &mut events);
     }
     drop(runtime);
     broadcast_events(&state, &events);
@@ -41744,7 +41728,10 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
 
 fn open_event_store(path: &Path) -> io::Result<Connection> {
     let conn = Connection::open(path).map_err(sqlite_error)?;
-    conn.busy_timeout(Duration::from_secs(5))
+    // Background reconciliation and canonical commands share one WAL writer.
+    // A short busy window turned bounded queueing into false refresh failures
+    // during six-player bursts; wait within the HTTP command deadline instead.
+    conn.busy_timeout(Duration::from_secs(30))
         .map_err(sqlite_error)?;
     configure_event_store_pragmas(&conn)?;
     Ok(conn)
@@ -50857,7 +50844,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bracelet_growth_returns_authoritative_state_and_cannot_repeat_without_advancement() {
+    async fn bracelet_growth_returns_compact_receipt_and_cannot_repeat_without_advancement() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -50916,27 +50903,25 @@ mod tests {
             .find(|event| event.type_name == "action.receipt")
             .and_then(|event| event.content.as_deref())
             .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-            .expect("bracelet growth returns its updated authoritative state");
-        assert_eq!(receipt["state"]["deck"]["bracelet_slots"], 2);
-        assert_eq!(receipt["state"]["ledger"]["spent_count"], 1);
-        assert_eq!(receipt["state"]["ledger"]["advancement_points"], 0);
-        assert_eq!(
-            receipt["state"]["deck"]["carried_cards"]
-                .as_array()
-                .map(Vec::len),
-            Some(carried_count)
-        );
-        assert_eq!(
-            receipt["state"]["deck"]["equipped_charms"]
-                .as_array()
-                .map(Vec::len),
-            Some(1)
-        );
-        assert!(receipt["state"]["primary_action"]["options"]
-            .as_array()
-            .is_some_and(|options| options
-                .iter()
-                .all(|option| option["kind"] != "unlock_charm_slot")));
+            .expect("bracelet growth returns a compact state revision receipt");
+        assert!(receipt.get("state").is_none());
+        assert!(receipt["state_revision"].as_u64().unwrap_or_default() > 0);
+        assert!(serde_json::to_vec(&receipt).unwrap().len() < 256);
+        let current = state
+            .inner
+            .lock()
+            .await
+            .state_response(Some(5000), &AccessContext::default());
+        assert_eq!(current.deck.bracelet_slots, 2);
+        assert_eq!(current.ledger.spent_count, 1);
+        assert_eq!(current.ledger.advancement_points, 0);
+        assert_eq!(current.deck.carried_cards.len(), carried_count);
+        assert_eq!(current.deck.equipped_charms.len(), 1);
+        assert!(current
+            .primary_action
+            .options
+            .iter()
+            .all(|option| option.kind != "unlock_charm_slot"));
 
         let repeat = unlock_charm_slot(
             ConnectInfo("127.0.0.1:43010".parse().expect("client address")),
@@ -61209,20 +61194,22 @@ mod tests {
             .find(|event| event.type_name == "action.receipt")
             .and_then(|event| event.content.as_deref())
             .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-            .expect("Need time returns ordered scene state");
+            .expect("Need time returns a compact state revision receipt");
         assert_eq!(need_time_receipt["world_tick"], before_tick);
-        assert_eq!(need_time_receipt["state"]["turn"]["policy"], "scene-turn");
-        assert!(
-            need_time_receipt["state"]["turn"]["grace_period_ms"]
-                .as_u64()
-                .unwrap_or_default()
-                > 8_000
-        );
-        assert_eq!(need_time_receipt["state"]["turn"]["current_actor_id"], 5000);
+        assert!(need_time_receipt.get("state").is_none());
+        assert!(serde_json::to_vec(&need_time_receipt).unwrap().len() < 256);
+        let active_direct_actors = active_actor_ids_for_state(&state);
+        let runtime = state.inner.lock().await;
+        let turn = actor_room_turn_view(&state, &runtime, 5000, &active_direct_actors)
+            .expect("Need time keeps the ordered scene current");
+        assert_eq!(turn.policy, "scene-turn");
+        assert!(turn.grace_period_ms > 8_000);
+        assert_eq!(turn.current_actor_id, Some(5000));
         assert_eq!(
-            need_time_receipt["state"]["turn"]["grace_period_ms"],
+            turn.grace_period_ms,
             ORDERED_SCENE_BASE_GRACE_MS + ORDERED_SCENE_NEED_TIME_MS
         );
+        drop(runtime);
 
         let mut incompatible_command = command_request(5000, "work");
         incompatible_command.actor_session = Some(actor_session.clone());

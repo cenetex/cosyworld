@@ -1203,7 +1203,7 @@ pub(super) async fn apply_combat_choice(
     }
     let observation = if need_time {
         if status == CW_OK {
-            append_action_receipt(&state, &runtime, actor_id, &mut events);
+            append_action_receipt(&runtime, actor_id, &mut events);
         }
         None
     } else {

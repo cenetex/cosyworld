@@ -7309,7 +7309,7 @@
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
-      } else if (["/actions/move", "/actions/flee", "/actions/explore-path", "/actions/timeout"].includes(path)) {
+      } else {
         await refresh();
       }
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
@@ -7706,7 +7706,15 @@
       if (event?.type !== "action.receipt" || !event.content) return false;
       try {
         const receipt = JSON.parse(event.content);
-        if (!receipt?.state) return false;
+        if (!receipt?.state) {
+          if (!state || !Number.isFinite(Number(receipt?.state_revision))) return false;
+          state.world_tick = Number(receipt.world_tick || state.world_tick || 0);
+          state.state_revision = Math.max(
+            Number(state.state_revision || 0),
+            Number(receipt.state_revision || 0),
+          );
+          return true;
+        }
         const previousLocationId = state?.location?.id || null;
         const previousAccess = state?.access || null;
         const previousAccount = state?.account || null;
@@ -12985,6 +12993,7 @@
           setError(commandFailureMessage(result));
           return result;
         }
+        await refresh();
         advanceHandPage();
         renderCommands();
         renderAllActionsModal();

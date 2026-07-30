@@ -568,8 +568,9 @@ fn compact_event_store_after_snapshot_now(
     )
     .map_err(sqlite_error)?;
     tx.commit().map_err(sqlite_error)?;
-    conn.execute_batch("PRAGMA incremental_vacuum(1024);")
-        .map_err(sqlite_error)?;
+    // Deleted pages are intentional reusable headroom. Vacuuming synchronously
+    // here rewrites the volume while the world lock is held and stalls player
+    // commands; SQLite will reuse these pages for later journal appends.
     Ok(PersistenceCompactionReport {
         action_journal_floor_seq,
         canonical_commit_floor_journal_seq,
