@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.core",
   "name": "CosyWorld Core",
-  "version": "1.3.10",
+  "version": "1.3.11",
   "kind": "world",
   "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
   "license": "MIT",
@@ -70,6 +70,28 @@
     "offers": "offers.json"
   },
   "extensions": {
+    "x-cosyworld-progression-safety": {
+      "schema_version": 1,
+      "proof_version": "progression-safety-v1",
+      "entry_location_id": 1,
+      "required_location_ids": [
+        1, 2, 3, 4, 30, 31, 32, 33, 34, 35, 36,
+        40, 41, 42, 43, 44, 50, 60, 61, 62, 63, 64
+      ],
+      "optional_content": [
+        {
+          "kind": "location",
+          "id": 65,
+          "missable": true
+        }
+      ],
+      "recoveries": [],
+      "access_methods": [],
+      "reclosable_gates": [],
+      "required_discoveries": [],
+      "required_leads": [],
+      "frontier_transitions": []
+    },
     "x-cosyworld-building-archetypes": {
       "schema_version": 1,
       "footprint_class": "major",

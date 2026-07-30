@@ -163,7 +163,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:f7badd8b1f67ae31d8b949b0005ccab768162c4ceeb0ec2e0ec9e410e3c1dd95",
+    "bundle_hash": "sha256:59edf68d1d71bf1b2fb2368f38f8604df9bae5bdacc6c87d795fdd3b6a869d51",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -1030,7 +1030,7 @@
         "id": "project89.composition.three-rings",
         "name": "Project 89 Three-Ring Bridge",
         "description": "Composition-owned locked relay apertures between the Project 89 authored loop, perimeter mesh, and four frontier stations.",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "kind": "world",
         "license": "LicenseRef-Project89-Prototype",
         "license_url": "https://www.project89.org/",
@@ -1124,6 +1124,219 @@
           "extensions": 0
         },
         "extensions": {
+          "x-cosyworld-progression-safety": {
+            "schema_version": 1,
+            "proof_version": "progression-safety-v1",
+            "entry_location_id": 8900,
+            "required_location_ids": [
+              8900,
+              8901,
+              8902,
+              8903,
+              8904,
+              8905,
+              8906,
+              8907,
+              8908,
+              8920,
+              8921,
+              8922,
+              8923,
+              8924,
+              8925,
+              8926,
+              8927,
+              8940,
+              8941,
+              8942,
+              8943
+            ],
+            "optional_content": [],
+            "recoveries": [
+              {
+                "id": "project89.composition.three-rings:recovery/archive-cipher",
+                "version": 1,
+                "source_location_id": 8902,
+                "mode": "return_to_source"
+              },
+              {
+                "id": "project89.composition.three-rings:recovery/white-rabbit-relay",
+                "version": 1,
+                "source_location_id": 8907,
+                "mode": "return_to_source"
+              },
+              {
+                "id": "project89.composition.three-rings:recovery/chimera-access-spine",
+                "version": 1,
+                "source_location_id": 8908,
+                "mode": "resident_release"
+              },
+              {
+                "id": "project89.composition.three-rings:recovery/green-loom-thread",
+                "version": 1,
+                "source_location_id": 8906,
+                "mode": "return_to_source"
+              }
+            ],
+            "access_methods": [
+              {
+                "id": "project89.composition.three-rings:gate/archive-meridian",
+                "version": 1,
+                "kind": "mission_key",
+                "item_id": 8971,
+                "source_location_id": 8902,
+                "unlock_routes": [
+                  {
+                    "from_location_id": 8902,
+                    "to_location_id": 8921
+                  },
+                  {
+                    "from_location_id": 8921,
+                    "to_location_id": 8902
+                  },
+                  {
+                    "from_location_id": 8921,
+                    "to_location_id": 8940
+                  },
+                  {
+                    "from_location_id": 8940,
+                    "to_location_id": 8921
+                  }
+                ],
+                "persistence": "permanent",
+                "custody": {
+                  "recovery_ref": "project89.composition.three-rings:recovery/archive-cipher",
+                  "recovery_version": 1,
+                  "give": "recoverable",
+                  "set_down": "recoverable",
+                  "storage": "recoverable",
+                  "actor_departure": "recoverable",
+                  "resident_custody": "recoverable",
+                  "defeat": "recoverable",
+                  "installation": "inert",
+                  "exhaustion": "inert"
+                }
+              },
+              {
+                "id": "project89.composition.three-rings:gate/rabbit-freeport",
+                "version": 1,
+                "kind": "mission_key",
+                "item_id": 8973,
+                "source_location_id": 8907,
+                "unlock_routes": [
+                  {
+                    "from_location_id": 8907,
+                    "to_location_id": 8922
+                  },
+                  {
+                    "from_location_id": 8922,
+                    "to_location_id": 8907
+                  },
+                  {
+                    "from_location_id": 8922,
+                    "to_location_id": 8943
+                  },
+                  {
+                    "from_location_id": 8943,
+                    "to_location_id": 8922
+                  }
+                ],
+                "persistence": "permanent",
+                "custody": {
+                  "recovery_ref": "project89.composition.three-rings:recovery/white-rabbit-relay",
+                  "recovery_version": 1,
+                  "give": "recoverable",
+                  "set_down": "recoverable",
+                  "storage": "recoverable",
+                  "actor_departure": "recoverable",
+                  "resident_custody": "recoverable",
+                  "defeat": "recoverable",
+                  "installation": "inert",
+                  "exhaustion": "inert"
+                }
+              },
+              {
+                "id": "project89.composition.three-rings:gate/chimera-reach",
+                "version": 1,
+                "kind": "mission_key",
+                "item_id": 8979,
+                "source_location_id": 8908,
+                "unlock_routes": [
+                  {
+                    "from_location_id": 8908,
+                    "to_location_id": 8926
+                  },
+                  {
+                    "from_location_id": 8926,
+                    "to_location_id": 8908
+                  },
+                  {
+                    "from_location_id": 8926,
+                    "to_location_id": 8941
+                  },
+                  {
+                    "from_location_id": 8941,
+                    "to_location_id": 8926
+                  }
+                ],
+                "persistence": "permanent",
+                "custody": {
+                  "recovery_ref": "project89.composition.three-rings:recovery/chimera-access-spine",
+                  "recovery_version": 1,
+                  "give": "recoverable",
+                  "set_down": "recoverable",
+                  "storage": "recoverable",
+                  "actor_departure": "recoverable",
+                  "resident_custody": "recoverable",
+                  "defeat": "recoverable",
+                  "installation": "inert",
+                  "exhaustion": "inert"
+                }
+              },
+              {
+                "id": "project89.composition.three-rings:gate/loom-expanse",
+                "version": 1,
+                "kind": "mission_key",
+                "item_id": 8983,
+                "source_location_id": 8906,
+                "unlock_routes": [
+                  {
+                    "from_location_id": 8906,
+                    "to_location_id": 8925
+                  },
+                  {
+                    "from_location_id": 8925,
+                    "to_location_id": 8906
+                  },
+                  {
+                    "from_location_id": 8925,
+                    "to_location_id": 8942
+                  },
+                  {
+                    "from_location_id": 8942,
+                    "to_location_id": 8925
+                  }
+                ],
+                "persistence": "permanent",
+                "custody": {
+                  "recovery_ref": "project89.composition.three-rings:recovery/green-loom-thread",
+                  "recovery_version": 1,
+                  "give": "recoverable",
+                  "set_down": "recoverable",
+                  "storage": "recoverable",
+                  "actor_departure": "recoverable",
+                  "resident_custody": "recoverable",
+                  "defeat": "recoverable",
+                  "installation": "inert",
+                  "exhaustion": "inert"
+                }
+              }
+            ],
+            "reclosable_gates": [],
+            "required_discoveries": [],
+            "required_leads": [],
+            "frontier_transitions": []
+          },
           "x-cosyworld-composition": {
             "schema_version": 1,
             "role": "bridge"
@@ -1133,7 +1346,14 @@
             "policy_id": "project89.composition.three-rings/generation/1",
             "migration_version": 1,
             "collision_namespace": "pack://project89.composition.three-rings/generated/v1",
-            "migrations": [],
+            "migrations": [
+              {
+                "from_policy_id": "project89.composition.three-rings/generation/1",
+                "from_migration_version": 1,
+                "from_pack_version": "0.1.0",
+                "mode": "preserve_descendants"
+              }
+            ],
             "cross_pack_routes": [
               {
                 "endpoints": [
@@ -1319,7 +1539,7 @@
           "type": "workspace",
           "path": "../../content/project89-three-rings-bridge"
         },
-        "integrity": "sha256:a3e3fff05dd223ffcd4cf8349269ecdfcaf156783d3358cb5d4a84d996cb831c"
+        "integrity": "sha256:2428ab72d492a7915ac890e3b75bc8b1eb23f10b753c327a2977fef2439f0e91"
       }
     ],
     "files": {
@@ -7984,7 +8204,7 @@
     {
       "pack_id": "project89.composition.three-rings",
       "name": "Project 89 Three-Ring Bridge",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license_identifier": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
       "provenance": {

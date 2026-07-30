@@ -209,12 +209,12 @@
     },
     {
       "id": "project89.composition.three-rings",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": {
         "type": "workspace",
         "path": "../../content/project89-three-rings-bridge"
       },
-      "integrity": "sha256:a3e3fff05dd223ffcd4cf8349269ecdfcaf156783d3358cb5d4a84d996cb831c",
+      "integrity": "sha256:2428ab72d492a7915ac890e3b75bc8b1eb23f10b753c327a2977fef2439f0e91",
       "dependencies": [
         {
           "id": "project89.operation-liberation",
@@ -382,7 +382,7 @@
     {
       "pack_id": "project89.composition.three-rings",
       "name": "Project 89 Three-Ring Bridge",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license_identifier": "LicenseRef-Project89-Prototype",
       "license_url": "https://www.project89.org/",
       "provenance": {

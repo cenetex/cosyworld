@@ -44,7 +44,8 @@
       "sha256:a4e8e14c025ceed0247a3e475d51399496cbad6ff386d8eccea93572fe704f7a",
       "sha256:54cdcd2ed0d23a8a1f216bf6240035d7f6cf312a910e5e10b2a323d39ac1a333",
       "sha256:936fb16d280df4e073056c41c6c81034162b4407012ae2dbc9302813d31948df",
-      "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028"
+      "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028",
+      "sha256:531f773526919ce1da0b8713401ebf60e900f2a906f790ba9a443c6809fed0fa"
     ]
   },
   "pack_lifecycle": {
@@ -790,7 +791,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:531f773526919ce1da0b8713401ebf60e900f2a906f790ba9a443c6809fed0fa",
+  "bundle_hash": "sha256:f760e930ed3fc83d1e363e1e10bbe7dd4e08ae7b981f8316907fcd63682cff55",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -954,7 +955,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.10",
+      "version": "1.3.11",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1035,6 +1036,48 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-progression-safety": {
+          "schema_version": 1,
+          "proof_version": "progression-safety-v1",
+          "entry_location_id": 1,
+          "required_location_ids": [
+            1,
+            2,
+            3,
+            4,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            40,
+            41,
+            42,
+            43,
+            44,
+            50,
+            60,
+            61,
+            62,
+            63,
+            64
+          ],
+          "optional_content": [
+            {
+              "kind": "location",
+              "id": 65,
+              "missable": true
+            }
+          ],
+          "recoveries": [],
+          "access_methods": [],
+          "reclosable_gates": [],
+          "required_discoveries": [],
+          "required_leads": [],
+          "frontier_transitions": []
+        },
         "x-cosyworld-building-archetypes": {
           "schema_version": 1,
           "footprint_class": "major",
@@ -1884,7 +1927,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ddb78350dc0bb2a4067cb1094b6445ac0b0f72bfb68b3d3798a5c2d1b74c7f45"
+      "integrity": "sha256:dd4a3fd5d6cb32774ee084f49dff8d47633ce57f9759205edd27576460c6f654"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -2467,7 +2510,7 @@
       "id": "cosyworld.composition.core-holy-land",
       "name": "CosyWorld Core + Holy Land Bridge",
       "description": "Composition-owned paths connecting CosyWorld Core and The Holy Land.",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2551,6 +2594,21 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-progression-safety": {
+          "schema_version": 1,
+          "proof_version": "progression-safety-v1",
+          "entry_location_id": 1,
+          "required_location_ids": [
+            700
+          ],
+          "optional_content": [],
+          "recoveries": [],
+          "access_methods": [],
+          "reclosable_gates": [],
+          "required_discoveries": [],
+          "required_leads": [],
+          "frontier_transitions": []
+        },
         "x-cosyworld-composition": {
           "schema_version": 1,
           "role": "bridge"
@@ -2597,6 +2655,12 @@
             }
           },
           "migrations": [
+            {
+              "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
+              "from_migration_version": 2,
+              "from_pack_version": "1.0.3",
+              "mode": "preserve_descendants"
+            },
             {
               "from_policy_id": "cosyworld.composition.core-holy-land/generation/1",
               "from_migration_version": 2,
@@ -2653,7 +2717,7 @@
         "type": "workspace",
         "path": "../../content/core-holy-land-bridge"
       },
-      "integrity": "sha256:da22e27f794e1f880b86b0286b65ddc3cdf952ff2d075164cc9d331530b51d75"
+      "integrity": "sha256:33ec60037a997b8a40d92805bb2a9aff60428eeadf32a78489c179ef160af3d9"
     },
     {
       "id": "ruby-high.first-bell",

@@ -825,14 +825,14 @@ mod tests {
             "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170",
         );
         assert!(
-            generation_policy_allows_upgrade(&production_bridge, "1.0.3").is_ok(),
+            generation_policy_allows_upgrade(&production_bridge, "1.0.4").is_ok(),
             "the exact production bridge pathway tuple must migrate"
         );
         let mut undeclared_bridge = production_bridge;
-        undeclared_bridge.owner_pack_version = "1.0.2".to_string();
+        undeclared_bridge.owner_pack_version = "0.9.9".to_string();
         assert!(
-            generation_policy_allows_upgrade(&undeclared_bridge, "1.0.3").is_err(),
-            "adjacent bridge history must remain fail-closed"
+            generation_policy_allows_upgrade(&undeclared_bridge, "1.0.4").is_err(),
+            "undeclared bridge history must remain fail-closed"
         );
     }
 
@@ -939,7 +939,7 @@ mod tests {
         );
         assert_eq!(
             restored.routes[&source_route_id].owner_pack_version,
-            "1.0.3"
+            "1.0.4"
         );
 
         let replayed = RuntimeSnapshot::from_runtime(&restored)

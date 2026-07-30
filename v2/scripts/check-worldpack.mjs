@@ -33,6 +33,7 @@ import {
   routeDirectionValidationErrors,
   routeDiscoveryValidationErrors,
 } from "./route-direction.mjs";
+import { progressionSafetyWorldValidationErrors } from "./progression-safety-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -1396,6 +1397,13 @@ if (manifest.pack_lifecycle !== undefined) {
   }
 }
 try {
+  for (const error of progressionSafetyWorldValidationErrors(
+    packs,
+    content,
+    "compiled worldpack",
+  )) {
+    fail(error);
+  }
   validateCompiledGenerationPolicies(
     packs,
     { locations, exits, hidden_exits: hiddenExits },

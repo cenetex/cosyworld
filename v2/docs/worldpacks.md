@@ -752,6 +752,38 @@ contents, bounded ruin pressure, and a cairn-markable Lead. Anchor
 `return_chain` identifies already-legal continuation separately from
 `branch_authorization`; a mark does not invent forward topology.
 
+## Progression safety proofs
+
+World and composition packs may publish
+`x-cosyworld-progression-safety` at `progression-safety-v1`. The proof is
+checked against the composed authored resources, not trusted as prose. It
+names required locations, explicitly missable optional content, exact
+mission-key or reusable-capability access methods, recovery sources,
+reclosable Gates, required Discovery Slots and Leads, and bounded frontier
+transitions.
+
+The compiler starts from the proof entry location, excludes locked exits, and
+then repeatedly acquires reachable access methods and applies only their
+authored `unlock_exit` transitions. Required components must become reachable.
+Cross-pack Gate routes must agree with the composition's generated-route
+owner. Permanent key transitions must be `world_target_once`; reclosable
+installed-item Gates must preserve an authored return, alternate route,
+rescue, or intentional one-way contract.
+
+Every mission key classifies Give, Set Down, storage, actor departure,
+resident custody, defeat, installation, and exhaustion as recoverable or
+inert. Recoverable states point to an exact reachable recovery descriptor.
+Inert is legal only after a permanent transition. Required Discovery Slots
+retain a finite Sign budget and deterministic fallback; required lost Leads
+name an exact recovery and last secure Anchor. Frontier transitions preserve
+at least one authored retreat, camp, aid, or rescue path before fatigue can
+restrict action.
+
+Core's authored graph, the Core/Holy Land bridge, Project 89's four relay
+keys, and the shared bounded-ruin fixture run through this proof in the
+worldpack publication gate. Failures identify the exact Gate, item, recovery,
+Slot, Lead, Anchor, or unreachable component.
+
 ## Campaign packs
 
 `cosyworld.campaign.the-lantern-keeper` is the first short campaign pack. It

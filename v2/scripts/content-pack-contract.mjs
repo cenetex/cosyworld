@@ -6,6 +6,7 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 
 import { discoveryAuthorityExtensionValidationErrors } from "./discovery-authority-schema.mjs";
+import { progressionSafetyExtensionValidationErrors } from "./progression-safety-schema.mjs";
 import { thresholdDescriptorExtensionValidationErrors } from "./threshold-descriptor-schema.mjs";
 import { validateGenerationPolicyManifest } from "./world-generation-policy.mjs";
 
@@ -357,6 +358,9 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
     contractError(error);
   }
   for (const error of thresholdDescriptorExtensionValidationErrors(manifest, label)) {
+    contractError(error);
+  }
+  for (const error of progressionSafetyExtensionValidationErrors(manifest, label)) {
     contractError(error);
   }
   validateGenerationPolicyManifest(manifest, label);

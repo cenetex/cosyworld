@@ -35,6 +35,7 @@ import {
   routeDirectionValidationErrors,
   routeDiscoveryValidationErrors,
 } from "./route-direction.mjs";
+import { progressionSafetyWorldValidationErrors } from "./progression-safety-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -1047,6 +1048,13 @@ validateCompiledGenerationPolicies(
   world.pack_lifecycle,
   "worldpack compiler",
 );
+for (const error of progressionSafetyWorldValidationErrors(
+  packs.map(({ manifest }) => manifest),
+  resources,
+  "worldpack compiler",
+)) {
+  assert(false, error);
+}
 const generationMediaRegistry = packs.some(({ manifest }) => {
   const policy = generationPolicyForPack(manifest);
   return policy?.media || policy?.cross_pack_routes?.length > 0;
