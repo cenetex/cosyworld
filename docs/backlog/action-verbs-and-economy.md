@@ -15,6 +15,7 @@ authorize or imply full SRD 5.2.1 compatibility.
 - Generated-place lifecycle contract (dedicated document pending)
 - [ADR-001: SRD 5.2.1 Action-Card Profile](../decisions/001-srd-action-card-profile.md)
 - [ADR 0002: the action hand is authoritative state](../decisions/0002-action-hand-is-authoritative-state.md)
+- [ADR 0005: thresholds, trails, and the strict referee](../decisions/0005-thresholds-trails-and-strict-referee.md)
 
 The current rules substrate is sounder than its vocabulary. Stable rule
 bindings, targets, resolvers, traces, and stale-offer rejection exist, but
@@ -54,6 +55,25 @@ decision. #529's amendment to ADR 0002 settles item 1 now:
 6. Dash, Disengage, and Hide land only with the movement, engagement,
    visibility, and replay state that makes them real. Adding names to the
    registry or browser is not implementation.
+
+ADR 0005 settles the discovery and threshold vocabulary rather than leaving it
+for AVE implementation to reinvent:
+
+- scene notice is free obvious sensory truth;
+- focused Notice resolves one broad authored sensory result;
+- Search examines one named local physical target;
+- Study interprets an already perceived target;
+- Inspect is an approved Search or Study reskin only when the offer declares
+  which binding it uses;
+- Scout follows one exact geographic Lead from an Anchor or active foray and
+  reveals without moving;
+- Travel is the separate movement commit;
+- Mark is a temporary expedition return cue;
+- Open resolves one Gate method; and
+- Take performs a separate custody/capacity-checked transfer.
+
+Reveal never implies Open, Take, or Travel. These meanings are accepted product
+law; AVE tickets own presentation and reachability work around them.
 
 ---
 
@@ -105,7 +125,7 @@ Every ticket in this epic must preserve these constraints:
 | Remember | Resolve an active Bond | It does not disclose that the active Bond ends | **Close this chapter with Rati**, with an explicit consequence |
 | Make room for Watch Bell | Spend advancement to unlock a bracelet slot | It may sound like equipping or granting the charm | **Add a bracelet slot for Watch Bell** |
 | Prepare | Create a scoped, consumable project setup | It does not name what is prepared or what consumes it | **Lay out the repair tools** / **Brace the lantern frame** |
-| Inspect | Study in product copy; Look in the terminal alias table | The same word invokes different domains | Reserve Inspect for analytical Study; use Look for read-only examination |
+| Inspect | Search or Study reskin in product copy; Look in the terminal alias table | The same word can hide different domains | Require each Inspect offer to declare Search or Study; keep Look read-only |
 | Help | SRD Help in product copy; command help in the terminal | The same word is both gameplay and interface | Gameplay keeps Help; terminal documentation becomes Commands or `?` |
 | Defend / Dodge | One current combat action under two primary names | Players cannot form a stable combat vocabulary | Dodge is canonical; Defend remains an input-only compatibility alias |
 
@@ -160,8 +180,16 @@ Every ticket in this epic must preserve these constraints:
 ### What to do
 
 - Adopt one canonical player meaning for each core word:
-  - Notice → perceptual Search;
-  - Inspect → analytical Study;
+  - scene notice → free obvious sensory projection;
+  - Notice → one focused broad sensory result;
+  - Search → exhaustive examination of one named local physical target;
+  - Study → interpretation of an already perceived target;
+  - Inspect → a target-bound Search or Study reskin whose binding is explicit;
+  - Scout → exact geographic Lead pursuit and reveal without movement;
+  - Travel → movement through a revealed accessible route;
+  - Mark → a temporary expedition return cue;
+  - Open → one certified Gate method;
+  - Take → custody/capacity-checked item transfer;
   - Use → Utilize;
   - Cast → Magic;
   - Help → the Help action;
@@ -174,7 +202,8 @@ Every ticket in this epic must preserve these constraints:
     or creating a Bond, and name it truthfully.
 - Move terminal documentation from `help` to `commands` and/or `?`, leaving
   Help available as a gameplay verb.
-- Make Look the read-only examination verb and Inspect the Study-bound action.
+- Make Look the read-only examination verb and require every Inspect action to
+  declare whether it binds Search or Study.
 - Retain old words as input-only compatibility aliases where replay or muscle
   memory warrants it. Do not render two primary names for one mechanic.
 - Generate aliases and help output from the same registry consumed by action

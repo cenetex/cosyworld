@@ -91,6 +91,19 @@ Future HP or wound presentation may coexist with expedition depth, but not as
 another ring. The ring belongs exclusively to expedition depth; wounds change
 the portrait treatment. There are no concentric HP and expedition arcs.
 
+### Navigation Anchors are not rest
+
+[ADR 0005](0005-thresholds-trails-and-strict-referee.md) gives cairns, Signal
+Anchors, and other pack-authored navigation fixtures one narrow role: they make
+an already traversed return leg durable and may authorize later branching.
+They are not shelter, lodging, Hearths, or settlement. They never grant Camp,
+Lodged, or Hearth recovery and never change this ADR's grade derivation.
+
+Camp still requires valid equipped shelter. Lodged still requires an authored
+lodging feature and satisfied gate. Hearth still requires sanctuary. Route
+familiarity, a temporary Mark, an active Lead, and place discovery are likewise
+irrelevant to rest grade.
+
 ### Replay and compatibility
 
 Existing projection-only Rest journal records retain their historical
@@ -109,6 +122,9 @@ once, without coupling the rest ladder to either outcome.
 This ADR also does not tune danger-clock movement, define the shelter or
 lodging feature schemas, author an inn, change Rest offer ranking, or implement
 the kernel procedure or ring. Those are follow-up implementation slices.
+The later rest/fatigue cadence decision belongs to
+[#603](https://github.com/cenetex/cosyworld/issues/603); Scout and Pressure may
+consume that contract but cannot define a second fatigue system.
 
 ## Consequences
 

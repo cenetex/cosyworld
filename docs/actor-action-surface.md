@@ -34,14 +34,18 @@ generated line for a `direct_input` avatar is public proxy speech on that
 player's behalf: it cannot create a private belief, promise, desire, pending
 intent, or extra mechanical action.
 
-The surface includes Notice/Search, Study, Scout, Travel, Craft, Prepare,
+The scene projects free obvious sensory truth, then the action surface includes
+focused Notice, Search, Study, Scout, Travel, Mark, Open, Craft, Prepare,
 Work/Help, Take, Set Down, Give, Use, Trade, Influence, Rest, Defend/Flee, and
-bounded Attack when their authoritative targets exist. Kernel offers, room
-state, authored content, inventory, clocks, combat state, and access rules
-certify candidates. Gifts may target any co-located avatar that can carry the
-item; an authored request ranks a gift but does not make it legal. Trades use
-the same transfer rule but require the recipient controller's acceptance
-policy. No controller may add an action or target.
+bounded Attack when their authoritative targets exist. Per
+[ADR 0005](decisions/0005-thresholds-trails-and-strict-referee.md), reveal,
+access, safety, transfer, and movement remain distinct: Scout does not Travel,
+Open does not Take, and Search does neither. Kernel offers, room state,
+authored content, inventory, clocks, combat state, and access rules certify
+candidates. Gifts may target any co-located avatar that can carry the item; an
+authored request ranks a gift but does not make it legal. Trades use the same
+transfer rule but require the recipient controller's acceptance policy. No
+controller may add an action or target.
 
 Inference-controller selection is deterministic. Safety, recovery, active
 projects, represented delivery needs, witnessed item memories, possessed

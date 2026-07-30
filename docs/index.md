@@ -23,6 +23,9 @@ do not define V2 behavior.
 - **[CosyWorld RPG System Bible](systems/09-cosyworld-rpg-system.md)** —
   Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, and
   progression invariants.
+- **[ADR 0005: Thresholds, Trails, and the Strict Referee](decisions/0005-thresholds-trails-and-strict-referee.md)** —
+  topology/legibility/access/safety ownership, discovery procedures, table
+  authority, Anchor/foray law, and migration compatibility.
 - **[Economy](../ECONOMY.md)** — Orbs, Boxes, packs, provenance, and the optional
   NFT bridge.
 - **[AI](../AI.md)** — inference, payer modes, media, and the boundary between AI
@@ -84,6 +87,9 @@ do not define V2 behavior.
 - **[Holy Land Integration Playtest](backlog/holy-land-integration-playtest.md)** —
   legal-action reachability, generated pilgrimage-road presentation, and
   direct-avatar continuity boundaries found in the first end-to-end journey.
+- **[Thresholds, Trails, and the Strict Referee](backlog/thresholds-trails-and-strict-referee.md)** —
+  dependency-ordered Discovery Slot, Lead, Gate, Hazard, Pressure, trail, and
+  recovery work following ADR 0005.
 
 GitHub Issues are the live execution backlog. These local backlogs carry the
 long-form contracts and acceptance gates that do not fit cleanly in an issue.
@@ -101,4 +107,4 @@ current PRD take precedence:
 - [Historical fixes](fixes/)
 - [X402 agentic economy report](X402_AGENTIC_ECONOMY_REPORT.md)
 
-Last reviewed: 2026-07-28.
+Last reviewed: 2026-07-30.

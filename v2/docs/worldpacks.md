@@ -373,6 +373,33 @@ current-format persistence with missing identity fields is rejected. During the
 v12 snapshot upgrade, legacy `route:generated:*` keys are replaced by canonical
 segment keys without changing route lifecycle, discovery, or entity version.
 
+### Threshold state separation
+
+[ADR 0005](../../docs/decisions/0005-thresholds-trails-and-strict-referee.md)
+is the route and threshold product contract. A pack and the compiler must keep
+four questions independent:
+
+- topology says whether a canonical target or edge exists;
+- legibility says who has a Sign, Lead, or shared reveal;
+- access says which Gate method permits this actor, expedition, or the world
+  to Open, Take, use, or Travel; and
+- safety says which Hazard tell, trigger, bypass, and consequence applies.
+
+`discovery: known|scout`, route lifecycle, locked exit flags,
+`revealed_edges`, and route familiarity are compatibility projections of
+different questions; none may be treated as the others. A new authored hidden
+truth uses a versioned bounded Discovery Slot. A stocking table freezes truth
+once, an event table applies Pressure only after relevant committed play, and a
+presentation table changes wording only.
+
+Scout pursues one exact geographic Lead from a legal Anchor or active foray and
+reveals the authorized next segment or target without moving. Travel is the
+separate movement commit. A cairn or worldpack-specific Signal Anchor can make
+a traversed return leg durable and authorize later branching, but cannot
+invent or reveal topology, settle a place, provide shelter, grant a rest grade,
+or create sanctuary. Generated-pathway familiarity and generated-place
+settlement remain separate versioned state.
+
 Snapshots, action-journal records, and stored world events now carry a
 `content_context` containing the mapping version, every relevant canonical
 reference, owning pack version, runtime handle, legacy id when applicable, and
