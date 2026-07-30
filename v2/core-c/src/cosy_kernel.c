@@ -1244,6 +1244,37 @@ static cw_status apply_ability_check(cw_world *world, const cw_action *action, u
   return CW_OK;
 }
 
+static cw_status apply_discovery_procedure(
+    cw_world *world,
+    const cw_action *action,
+    uint64_t seed,
+    uint8_t event_type,
+    cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  if (!action->location_id
+      || action->location_id != actor->location_id
+      || !find_location_const(world, action->location_id)) {
+    return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
+  }
+  /* Under pressure, the check only decides whether the separately frozen
+     event consequence fires. It never decides whether authored truth exists
+     or whether the procedure reveals it. */
+  if (action->dc) {
+    status = apply_ability_check(world, action, seed, out_events);
+    if (status != CW_OK) return status;
+  }
+  append_event(world, out_events, event_type);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
@@ -3247,6 +3278,22 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
     case CW_ACTION_GATE_TRANSITION:
       status = apply_gate_transition(world, action, seed, out_events);
       break;
+    case CW_ACTION_FOCUSED_NOTICE_V2:
+      status = apply_discovery_procedure(
+          world, action, seed, CW_EVENT_FOCUSED_NOTICE_COMMITTED, out_events);
+      break;
+    case CW_ACTION_SEARCH_V2:
+      status = apply_discovery_procedure(
+          world, action, seed, CW_EVENT_SEARCH_COMMITTED, out_events);
+      break;
+    case CW_ACTION_STUDY_V2:
+      status = apply_discovery_procedure(
+          world, action, seed, CW_EVENT_STUDY_COMMITTED, out_events);
+      break;
+    case CW_ACTION_SCOUT_V2:
+      status = apply_discovery_procedure(
+          world, action, seed, CW_EVENT_SCOUT_COMMITTED, out_events);
+      break;
     default:
       status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);
       break;
@@ -3454,6 +3501,10 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_INSTALLED: return "item.installed";
     case CW_EVENT_ITEM_REMOVED: return "item.removed";
     case CW_EVENT_ITEM_RENDERED_INERT: return "item.rendered_inert";
+    case CW_EVENT_FOCUSED_NOTICE_COMMITTED: return "discovery.notice.committed";
+    case CW_EVENT_SEARCH_COMMITTED: return "discovery.search.committed";
+    case CW_EVENT_STUDY_COMMITTED: return "discovery.study.committed";
+    case CW_EVENT_SCOUT_COMMITTED: return "discovery.scout.committed";
     default: return "unknown";
   }
 }

@@ -247,6 +247,7 @@ pub(super) struct StateResponse {
     pub(super) items: Vec<ItemView>,
     pub(super) factions: Vec<FactionView>,
     pub(super) room_features: Vec<RoomFeatureView>,
+    pub(super) scene_notices: Vec<DiscoverySceneNoticeView>,
     pub(super) search_available: bool,
     pub(super) clocks: Vec<ClockView>,
     pub(super) shared_questions: Vec<SharedQuestionView>,
@@ -2619,6 +2620,9 @@ impl RuntimeWorld {
             items,
             factions: faction_views(),
             room_features: Vec::new(),
+            scene_notices: client_actor_id
+                .map(|id| self.discovery_scene_notices(id))
+                .unwrap_or_default(),
             search_available: client_actor_id
                 .map(|id| self.default_search_target(id).is_some())
                 .unwrap_or(false),

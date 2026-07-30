@@ -816,6 +816,28 @@ impl RuntimeWorld {
                 self.plan_threshold_method_offer_action(actor.id, &offer)
                     .ok()
             }
+            FOCUSED_NOTICE_OFFER_KIND
+            | DISCOVERY_SEARCH_OFFER_KIND
+            | DISCOVERY_STUDY_OFFER_KIND
+            | DISCOVERY_SCOUT_OFFER_KIND => {
+                let candidate_id = proposal.candidate_id.as_deref()?;
+                let composition_id = proposal.composition_id.as_deref()?;
+                let state_revision = proposal.state_revision?;
+                let offer = self
+                    .legal_action_candidates(Some(actor.id), &AccessContext::default())
+                    .1
+                    .into_iter()
+                    .find(|offer| {
+                        offer.kind == proposal.kind
+                            && offer.offer_id == candidate_id
+                            && offer.composition_id == composition_id
+                            && offer.state_revision == state_revision
+                            && action_offer_is_reachable(offer)
+                    })?;
+                self.discovery_record_for_offer(actor.id, &offer, 0)
+                    .ok()
+                    .map(|record| record.action)
+            }
             _ => None,
         }
     }

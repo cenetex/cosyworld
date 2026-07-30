@@ -5372,6 +5372,56 @@
       // They render in the turn banner so the card row stays reserved for
       // legal combat choices. See issue #461 and turnBannerControlSpecs.
       const built = [];
+      const discoveryKinds = new Set([
+        "focused_notice",
+        "search_discovery",
+        "study_discovery",
+        "scout_discovery",
+      ]);
+      for (const offer of (view.action_offers || []).filter((candidate) => (
+        discoveryKinds.has(String(candidate?.kind || ""))
+        && candidate?.discovery?.procedure
+        && candidate?.discovery?.slot_id
+        && candidate?.discovery?.receipt_id
+      ))) {
+        const binding = offer.discovery;
+        const targetId = Number(offer?.target?.id || 0);
+        const targetLabel = String(
+          offer?.target?.label || binding.target_kind || "authored clue"
+        ).trim();
+        const verb = offerVerb(offer, binding.procedure);
+        const label = targetBearingLabel(
+          binding.procedure === "scout" ? "scout" : "inspect",
+          verb,
+          targetLabel,
+        );
+        built.push({
+          ...semanticAction(offer, binding.procedure, label),
+          label: verb.toLowerCase(),
+          detail: targetLabel,
+          command: String(
+            offer.command || `${binding.procedure} ${targetLabel}`
+          ).trim(),
+          focusKey: `discovery:${binding.claim_key}:${binding.procedure}`,
+          card: binding.target_kind === "item" && targetId
+            ? cardForItem(targetId)
+            : cardForLocation(view.location?.id),
+          shape: binding.target_kind === "item" ? "item" : "location",
+          priority: Number(offer.rank || 55),
+          modalTitle: label.toLowerCase(),
+          modalSummary: binding.resolution === "consequence_avoidance_check"
+            ? "Reveal the frozen authored truth. The check only determines whether its frozen pressure consequence lands."
+            : "Reveal the frozen authored truth with no roll.",
+          effect: offer.effect,
+          risk: offer.risk,
+          run: () => action("/actions/discover", {
+            actor_id: actorId,
+            procedure: binding.procedure,
+            slot_id: binding.slot_id,
+            receipt_id: binding.receipt_id,
+          }),
+        });
+      }
       const journey = view.journey || null;
       const scoutOffers = (view.action_offers || []).filter((offer) => (
         offer.kind === "explore_path"
@@ -7252,6 +7302,12 @@
         "/actions/open": ["open"],
         "/actions/check": ["check"],
         "/actions/study": ["study"],
+        "/actions/discover": [
+          "focused_notice",
+          "search_discovery",
+          "study_discovery",
+          "scout_discovery",
+        ],
         "/actions/influence": ["influence"],
         "/actions/cast-spell": ["cast_spell"],
         "/actions/pick-up": ["pick_up"],
@@ -7321,6 +7377,13 @@
           || Number(offer.target.id) === submittedTarget;
         const providerMatches = path !== "/actions/use-item"
           || offer?.provider?.id === `item:${Number(payload.item_id || 0)}`;
+        const discoveryMatches = path !== "/actions/discover"
+          || (
+            String(offer?.discovery?.procedure || "") === String(payload.procedure || "")
+            && String(offer?.discovery?.slot_id || "") === String(payload.slot_id || "")
+            && (!payload.receipt_id
+              || String(offer?.discovery?.receipt_id || "") === String(payload.receipt_id || ""))
+          );
         const featureMatches = path !== "/actions/use-item"
           || offer.kind !== "use_feature"
           || String(offer.id || "").startsWith(
@@ -7332,6 +7395,7 @@
           && thresholdMethodMatches
           && targetMatches
           && providerMatches
+          && discoveryMatches
           && featureMatches;
       }) || null;
     }
@@ -8894,11 +8958,22 @@
       )
         ? cleanStatusText(openingBeat(state))
         : placeProse;
-      panel.innerHTML = journalProseRowHtml({
-        category: "story",
-        prose: distinctPlaceProse,
-        kind: "memory",
-      });
+      const obviousTells = (Array.isArray(state?.scene_notices) ? state.scene_notices : [])
+        .flatMap((notice) => Array.isArray(notice?.tells) ? notice.tells : [])
+        .map((tell) => cleanStatusText(tell?.text || ""))
+        .filter((text, index, values) => text && values.indexOf(text) === index);
+      panel.innerHTML = [
+        journalProseRowHtml({
+          category: "story",
+          prose: distinctPlaceProse,
+          kind: "memory",
+        }),
+        ...obviousTells.map((prose) => journalProseRowHtml({
+          category: "discovery",
+          prose,
+          kind: "scene-notice",
+        })),
+      ].join("");
     }
 
     function renderRoomLogLatest(text) {

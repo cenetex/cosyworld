@@ -84,6 +84,11 @@ pub(crate) enum CommandDispatch {
     },
     Check,
     Study,
+    Discover {
+        procedure: String,
+        slot_id: String,
+        receipt_id: String,
+    },
     Chat {
         target_actor_id: u64,
     },
@@ -564,6 +569,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         }
         CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
         CommandDispatch::Study => "There is no authored subject to Study here now.",
+        CommandDispatch::Discover { .. } => {
+            "That discovery claim changed while you were choosing. Look again."
+        }
         CommandDispatch::Influence { .. } => "That bounded request is no longer available.",
         CommandDispatch::CastSpell { .. } => "That prepared spell cannot be cast right now.",
         CommandDispatch::PickUp { .. } => "Someone moved that item. Look around once more.",

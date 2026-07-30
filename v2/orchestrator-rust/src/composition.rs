@@ -56,6 +56,23 @@ fn submitted_feature_binding_matches(
             == Some(feature_key)
 }
 
+fn submitted_discovery_binding_matches(
+    offer: &RankedActionOffer,
+    payload: &serde_json::Value,
+) -> bool {
+    let Some(discovery) = offer.discovery.as_ref() else {
+        return true;
+    };
+    payload.get("procedure").and_then(serde_json::Value::as_str)
+        == Some(discovery.procedure.as_str())
+        && payload.get("slot_id").and_then(serde_json::Value::as_str)
+            == Some(discovery.slot_id.as_str())
+        && payload
+            .get("receipt_id")
+            .and_then(serde_json::Value::as_str)
+            .is_none_or(|receipt_id| receipt_id == discovery.receipt_id)
+}
+
 fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Option<&str> {
     let prefix = format!(
         "{}:{}:",
@@ -151,6 +168,8 @@ impl RuntimeWorld {
             Err("submitted payload target does not match the authoritative offer")
         } else if !submitted_feature_binding_matches(offer, &submission.payload) {
             Err("submitted feature binding does not match the authoritative offer")
+        } else if !submitted_discovery_binding_matches(offer, &submission.payload) {
+            Err("submitted discovery binding does not match the authoritative offer")
         } else if offer.project.as_ref().is_some_and(|project| {
             submission
                 .payload
@@ -510,6 +529,7 @@ impl RuntimeWorld {
                     state_revision,
                     route: None,
                     threshold_method: None,
+                    discovery: None,
                     category: action_offer_category(&option.kind).to_string(),
                     intention,
                     kind: option.kind,
@@ -544,6 +564,7 @@ impl RuntimeWorld {
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
         offers.extend(self.threshold_method_action_offers(actor_id, access));
+        offers.extend(self.discovery_action_offers(actor_id));
         if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
             let mut unavailable = self.ranked_offer_from_parts(
                 "rest",
@@ -632,6 +653,7 @@ impl RuntimeWorld {
                 state_revision,
                 route,
                 threshold_method: None,
+                discovery: None,
                 category: action_offer_category(kind).to_string(),
                 verb,
                 label,
@@ -782,6 +804,7 @@ impl RuntimeWorld {
             state_revision,
             route: None,
             threshold_method: None,
+            discovery: None,
             kind: kind.to_string(),
             intention: action_offer_intention(kind).to_string(),
             category: action_offer_category(kind).to_string(),
@@ -1975,6 +1998,366 @@ impl RuntimeWorld {
                 .map(|bond| format!("bond_resolved:{}", bond.id)),
             _ => None,
         }
+    }
+}
+
+pub(super) fn action_provider(
+    kind: impl Into<String>,
+    id: impl Into<String>,
+    label: impl Into<String>,
+    reason: impl Into<String>,
+    priority: u8,
+) -> ActionProviderView {
+    ActionProviderView {
+        kind: kind.into(),
+        id: id.into(),
+        label: label.into(),
+        reason: reason.into(),
+        priority,
+    }
+}
+
+pub(super) fn calling_matches_inspect(statement: &str) -> bool {
+    let statement = statement.to_ascii_lowercase();
+    [
+        "clue", "lost", "stuck", "shy room", "strange", "warning", "errand",
+    ]
+    .iter()
+    .any(|needle| statement.contains(needle))
+}
+
+pub(super) fn action_offer_requires_target(kind: &str) -> bool {
+    matches!(
+        kind,
+        "chat"
+            | "influence"
+            | "attack"
+            | "defend"
+            | "flee"
+            | "pick_up"
+            | "use_item"
+            | "use_feature"
+            | "give_item"
+            | "trade_item"
+            | "search"
+            | "study"
+            | "work"
+            | "help"
+            | "craft"
+            | "move"
+            | "create_bond"
+            | "resolve_bond"
+            | "explore_path"
+            | FOCUSED_NOTICE_OFFER_KIND
+            | DISCOVERY_SEARCH_OFFER_KIND
+            | DISCOVERY_STUDY_OFFER_KIND
+            | DISCOVERY_SCOUT_OFFER_KIND
+            | "open"
+    )
+}
+
+pub(super) fn action_offer_is_reachable(offer: &RankedActionOffer) -> bool {
+    if offer.disabled {
+        return false;
+    }
+    if action_offer_requires_target(&offer.kind) && offer.target.is_none() {
+        return false;
+    }
+    if matches!(offer.kind.as_str(), "prepare" | "work" | "help" | "study")
+        && offer.project.is_none()
+    {
+        return false;
+    }
+    true
+}
+
+pub(super) fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
+    if offer.intention == "contribute" {
+        return offer
+            .project
+            .as_ref()
+            .map(|project| format!("contribute:{}", project.progress_clock_id))
+            .unwrap_or_else(|| "contribute".to_string());
+    }
+    if matches!(offer.kind.as_str(), "give_item" | "trade_item") {
+        return offer.kind.clone();
+    }
+    if matches!(offer.kind.as_str(), "use_item" | "use_feature") {
+        return "use".to_string();
+    }
+    offer.id.clone()
+}
+
+pub(super) fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> bool {
+    matches!(
+        offer.kind.as_str(),
+        "check"
+            | "search"
+            | FOCUSED_NOTICE_OFFER_KIND
+            | DISCOVERY_SEARCH_OFFER_KIND
+            | DISCOVERY_STUDY_OFFER_KIND
+            | DISCOVERY_SCOUT_OFFER_KIND
+            | "move"
+            | "chat"
+            | "rest"
+    )
+}
+
+pub(super) fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
+    const CAPACITY: usize = 2;
+    let mut candidates: Vec<_> = offers
+        .iter()
+        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
+        .collect();
+    candidates.sort_by(|left, right| {
+        left.provider
+            .priority
+            .cmp(&right.provider.priority)
+            .then_with(|| left.rank.cmp(&right.rank))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
+    let mut grouped = Vec::new();
+    let mut seen_groups = BTreeSet::new();
+    for offer in candidates {
+        if seen_groups.insert(action_offer_hand_group(offer)) {
+            grouped.push(offer);
+        }
+    }
+
+    let mut selected = Vec::new();
+    let mut provider_counts = BTreeMap::<String, u8>::new();
+    for offer in &grouped {
+        let provider_key = format!("{}:{}", offer.provider.kind, offer.provider.id);
+        let count = provider_counts.entry(provider_key).or_default();
+        if *count < 2 {
+            selected.push(*offer);
+            *count += 1;
+        }
+        if selected.len() == CAPACITY {
+            break;
+        }
+    }
+    if selected.len() < CAPACITY {
+        for offer in &grouped {
+            if selected.iter().any(|selected| selected.id == offer.id) {
+                continue;
+            }
+            selected.push(*offer);
+            if selected.len() == CAPACITY {
+                break;
+            }
+        }
+    }
+
+    if !selected
+        .iter()
+        .any(|offer| action_offer_is_generally_useful(offer))
+    {
+        if let Some(general) = grouped
+            .iter()
+            .copied()
+            .find(|offer| action_offer_is_generally_useful(offer))
+        {
+            if selected.len() < CAPACITY {
+                selected.push(general);
+            } else if let Some(last) = selected.last_mut() {
+                *last = general;
+            }
+        }
+    }
+
+    selected.sort_by(|left, right| {
+        left.provider
+            .priority
+            .cmp(&right.provider.priority)
+            .then_with(|| left.rank.cmp(&right.rank))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    selected.dedup_by(|left, right| left.id == right.id);
+
+    ActionHandView {
+        schema_version: 1,
+        capacity: CAPACITY as u8,
+        entries: selected
+            .into_iter()
+            .map(|offer| ActionHandEntryView {
+                offer_id: offer.offer_id.clone(),
+                kind: offer.kind.clone(),
+                intention: offer.intention.clone(),
+                provider: offer.provider.clone(),
+            })
+            .collect(),
+    }
+}
+
+pub(super) fn action_offer_rank(kind: &str) -> u16 {
+    match kind {
+        "give_item" => 10,
+        "open" => 18,
+        "use_item" | "use_feature" => 20,
+        "rest" => 25,
+        "pick_up" | "drop_item" => 30,
+        "craft" => 31,
+        "prepare" => 32,
+        "attack" => 40,
+        "defend" => 45,
+        "work" => 48,
+        "help" => 49,
+        "flee" => 50,
+        FOCUSED_NOTICE_OFFER_KIND => 52,
+        DISCOVERY_SEARCH_OFFER_KIND => 53,
+        DISCOVERY_STUDY_OFFER_KIND => 54,
+        "explore_path" | DISCOVERY_SCOUT_OFFER_KIND => 55,
+        "search" => 58,
+        "check" => 60,
+        "study" => 61,
+        "cast_spell" => 22,
+        "chat" => 70,
+        "trade_item" => 74,
+        "train_skill" => 76,
+        "create_bond" => 77,
+        "resolve_bond" => 79,
+        "move" => 80,
+        _ => 500,
+    }
+}
+
+pub(super) fn practice_category_matches_offer(category: &str, kind: &str) -> bool {
+    match category {
+        "exploration" => matches!(
+            kind,
+            "explore_path"
+                | "search"
+                | "check"
+                | FOCUSED_NOTICE_OFFER_KIND
+                | DISCOVERY_SEARCH_OFFER_KIND
+                | DISCOVERY_SCOUT_OFFER_KIND
+                | "open"
+                | "move"
+        ),
+        "craft" => matches!(kind, "craft" | "use_feature"),
+        "delivery" => matches!(kind, "move" | "give_item" | "trade_item"),
+        "stewardship" => matches!(kind, "prepare" | "work" | "help"),
+        "care" => matches!(kind, "defend" | "use_item" | "rest"),
+        "mediation" => matches!(kind, "influence" | "chat" | "create_bond" | "resolve_bond"),
+        "lore" => matches!(
+            kind,
+            "study"
+                | "search"
+                | "check"
+                | FOCUSED_NOTICE_OFFER_KIND
+                | DISCOVERY_SEARCH_OFFER_KIND
+                | DISCOVERY_STUDY_OFFER_KIND
+        ),
+        _ => false,
+    }
+}
+
+pub(super) fn action_offer_intention(kind: &str) -> &str {
+    match kind {
+        "check" => "notice",
+        "search" => "inspect",
+        "explore_path" => "scout",
+        FOCUSED_NOTICE_OFFER_KIND => "notice",
+        DISCOVERY_SEARCH_OFFER_KIND => "inspect",
+        DISCOVERY_STUDY_OFFER_KIND => "study",
+        DISCOVERY_SCOUT_OFFER_KIND => "scout",
+        "move" => "travel",
+        "open" => "open",
+        "work" | "help" => "contribute",
+        _ => kind,
+    }
+}
+
+pub(super) fn contribution_resolution_label(policy: &ContributionResolutionPolicy) -> &'static str {
+    match policy {
+        ContributionResolutionPolicy::Certain => "certain",
+        ContributionResolutionPolicy::SrdCheck { .. } => "srd_check",
+        ContributionResolutionPolicy::ExistingKernelOutcome { .. } => "existing_kernel_outcome",
+    }
+}
+
+pub(super) fn default_action_offer_verb(kind: &str) -> &str {
+    match kind {
+        "check" => "Notice",
+        "search" => "Inspect",
+        "explore_path" => "Scout",
+        FOCUSED_NOTICE_OFFER_KIND => "Notice",
+        DISCOVERY_SEARCH_OFFER_KIND => "Search",
+        DISCOVERY_STUDY_OFFER_KIND => "Study",
+        DISCOVERY_SCOUT_OFFER_KIND => "Scout",
+        "move" => "Travel",
+        "open" => "Open",
+        "work" => "Push",
+        "help" => "Help",
+        "flee" => "Flee",
+        "prepare" => "Prepare",
+        "pick_up" => "Take",
+        "drop_item" => "Drop",
+        _ => "Act",
+    }
+}
+
+pub(super) fn non_empty_text(value: &str) -> Option<&str> {
+    let value = value.trim();
+    (!value.is_empty()).then_some(value)
+}
+
+pub(super) fn action_target_phrase(verb: &str, preposition: &str, target: Option<&str>) -> String {
+    let Some(target) = target.and_then(non_empty_text) else {
+        return verb.to_string();
+    };
+    if preposition.is_empty()
+        || verb
+            .to_ascii_lowercase()
+            .ends_with(&format!(" {preposition}"))
+    {
+        format!("{verb} {target}")
+    } else {
+        format!("{verb} {preposition} {target}")
+    }
+}
+
+pub(super) fn fallback_job_action_label(job_id: &str) -> String {
+    let words = job_id
+        .rsplit_once(':')
+        .map(|(_, suffix)| suffix)
+        .unwrap_or(job_id)
+        .split(['-', '_'])
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>();
+    let fallback = if words.is_empty() {
+        "Contribute".to_string()
+    } else {
+        words.join(" ")
+    };
+    let mut characters = fallback.chars();
+    characters
+        .next()
+        .map(|first| first.to_uppercase().collect::<String>() + characters.as_str())
+        .unwrap_or_else(|| "Contribute".to_string())
+}
+
+pub(super) fn action_offer_category(kind: &str) -> &'static str {
+    match kind {
+        "create_avatar" => "system",
+        "move" | "flee" | "explore_path" => "travel",
+        "attack" | "defend" => "danger",
+        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item"
+        | "open" => "inventory",
+        "craft" => "craft",
+        "chat" | "help" | "create_bond" | "resolve_bond" => "social",
+        "check"
+        | "search"
+        | FOCUSED_NOTICE_OFFER_KIND
+        | DISCOVERY_SEARCH_OFFER_KIND
+        | DISCOVERY_STUDY_OFFER_KIND
+        | DISCOVERY_SCOUT_OFFER_KIND => "discovery",
+        "prepare" | "work" => "project",
+        "rest" => "recovery",
+        "train_skill" | "revise_calling" | "revise_bond" => "growth",
+        _ => "other",
     }
 }
 

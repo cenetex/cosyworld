@@ -12,7 +12,16 @@ impl RuntimeWorld {
             .filter(|offer| {
                 matches!(
                     offer.kind.as_str(),
-                    "search" | "craft" | "influence" | "check" | "explore_path" | "open"
+                    "search"
+                        | "craft"
+                        | "influence"
+                        | "check"
+                        | "explore_path"
+                        | "open"
+                        | FOCUSED_NOTICE_OFFER_KIND
+                        | DISCOVERY_SEARCH_OFFER_KIND
+                        | DISCOVERY_STUDY_OFFER_KIND
+                        | DISCOVERY_SCOUT_OFFER_KIND
                 )
             })
             .filter_map(|offer| self.resident_record_for_shared_offer(actor, offer, seed))
@@ -76,19 +85,40 @@ impl RuntimeWorld {
         actor: CwActor,
         record: &JournalRecord,
     ) -> (u8, i16) {
+        let planner_selected_discovery = record
+            .projection_mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::ResolveDiscovery { .. }))
+            && self
+                .resident_continuities
+                .get(&actor.id)
+                .and_then(|continuity| continuity.pending_action.as_ref())
+                .and_then(|proposal| proposal.candidate_id.as_deref())
+                .is_some_and(|candidate_id| {
+                    self.legal_action_candidates(Some(actor.id), &AccessContext::default())
+                        .1
+                        .iter()
+                        .any(|offer| {
+                            offer.offer_id == candidate_id
+                                && self.resident_offer_matches_record(offer, record)
+                        })
+                });
         let item_score = |item_id| {
             self.item_by_id(item_id)
                 .map(|item| self.resident_item_offer_score(actor, item))
                 .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE)
         };
-        let (rank, score) = if let Some(intent) =
+        let (rank, score) = if planner_selected_discovery {
+            (2, 0)
+        } else if let Some(intent) =
             record
                 .projection_mutations
                 .iter()
                 .find_map(|mutation| match mutation {
                     ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
                     _ => None,
-                }) {
+                })
+        {
             (
                 35,
                 i16::from(self.contribution_progress_amount(actor.id, intent)),
@@ -128,6 +158,10 @@ impl RuntimeWorld {
                 "move" => (60, RESIDENT_DEFAULT_ITEM_SCORE),
                 "open" => (55, RESIDENT_DEFAULT_ITEM_SCORE),
                 "search" => (65, 0),
+                FOCUSED_NOTICE_OFFER_KIND => (64, 0),
+                DISCOVERY_SEARCH_OFFER_KIND => (65, 0),
+                DISCOVERY_STUDY_OFFER_KIND => (66, 0),
+                DISCOVERY_SCOUT_OFFER_KIND => (67, 0),
                 "craft"
                     if self.resident_needs_medicine(actor)
                         && record.projection_mutations.iter().any(|mutation| {

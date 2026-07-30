@@ -29,7 +29,7 @@ pub const CW_MAX_GATE_CLAIMS: usize = 128;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
 // Kernel version 9 is reserved by #411 for project-push ABI state.
-pub const CW_KERNEL_VERSION: u32 = 12;
+pub const CW_KERNEL_VERSION: u32 = 13;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_INVALID: u32 = 1;
@@ -185,6 +185,10 @@ pub const CW_ACTION_REST: u8 = 32;
 // failures; see `combat::start_focused_encounter_scheduler`.
 pub const CW_ACTION_COMBAT_ABANDON: u8 = 33;
 pub const CW_ACTION_GATE_TRANSITION: u8 = 34;
+pub const CW_ACTION_FOCUSED_NOTICE_V2: u8 = 35;
+pub const CW_ACTION_SEARCH_V2: u8 = 36;
+pub const CW_ACTION_STUDY_V2: u8 = 37;
+pub const CW_ACTION_SCOUT_V2: u8 = 38;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ABILITY_CHECK_ROLLED: u8 = 6;
@@ -227,6 +231,10 @@ pub const CW_EVENT_GATE_TRANSITION_APPLIED: u8 = 43;
 pub const CW_EVENT_ITEM_INSTALLED: u8 = 44;
 pub const CW_EVENT_ITEM_REMOVED: u8 = 45;
 pub const CW_EVENT_ITEM_RENDERED_INERT: u8 = 46;
+pub const CW_EVENT_FOCUSED_NOTICE_COMMITTED: u8 = 47;
+pub const CW_EVENT_SEARCH_COMMITTED: u8 = 48;
+pub const CW_EVENT_STUDY_COMMITTED: u8 = 49;
+pub const CW_EVENT_SCOUT_COMMITTED: u8 = 50;
 
 // These append-only values mirror the authoritative `CW_REASON_*` enum in
 // core-c. The numeric value remains the replay contract; player-facing copy is
@@ -304,7 +312,7 @@ pub struct CwActor {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CwLocation {
     pub id: u64,
     pub flags: u32,
@@ -319,7 +327,7 @@ pub struct CwExit {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CwItem {
     pub id: u64,
     pub kind: u8,

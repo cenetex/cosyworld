@@ -541,6 +541,12 @@ class Game:
             "/actions/flee": {"flee"},
             "/actions/check": {"check"},
             "/actions/study": {"study"},
+            "/actions/discover": {
+                "focused_notice",
+                "search_discovery",
+                "study_discovery",
+                "scout_discovery",
+            },
             "/actions/influence": {"influence"},
             "/actions/cast-spell": {"cast_spell"},
             "/actions/pick-up": {"pick_up"},
@@ -568,6 +574,18 @@ class Game:
             if offer.get("kind") in kinds and not offer.get("disabled")
         ]
         for offer in offers:
+            discovery = offer.get("discovery") or {}
+            if path == "/actions/discover":
+                if (
+                    str(discovery.get("procedure") or "") != str(payload.get("procedure") or "")
+                    or str(discovery.get("slot_id") or "") != str(payload.get("slot_id") or "")
+                    or (
+                        payload.get("receipt_id")
+                        and str(discovery.get("receipt_id") or "")
+                        != str(payload.get("receipt_id") or "")
+                    )
+                ):
+                    continue
             target = offer.get("target") or {}
             expected = target.get("id")
             key = {
