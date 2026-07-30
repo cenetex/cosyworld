@@ -12,7 +12,7 @@ impl RuntimeWorld {
             .filter(|offer| {
                 matches!(
                     offer.kind.as_str(),
-                    "search" | "craft" | "influence" | "check" | "explore_path"
+                    "search" | "craft" | "influence" | "check" | "explore_path" | "open"
                 )
             })
             .filter_map(|offer| self.resident_record_for_shared_offer(actor, offer, seed))
@@ -126,6 +126,7 @@ impl RuntimeWorld {
                     (50, score)
                 }
                 "move" => (60, RESIDENT_DEFAULT_ITEM_SCORE),
+                "open" => (55, RESIDENT_DEFAULT_ITEM_SCORE),
                 "search" => (65, 0),
                 "craft"
                     if self.resident_needs_medicine(actor)

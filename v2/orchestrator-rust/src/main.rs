@@ -3015,6 +3015,8 @@ struct RankedActionOffer {
     state_revision: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     route: Option<RouteOfferBinding>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    threshold_method: Option<ThresholdMethodOfferView>,
 
     category: String,
     verb: String,
@@ -6082,6 +6084,7 @@ fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
     let canonical_kind = match kind {
         "travel" => "move",
         "explore_path" => "search",
+        "open" => "use_item",
         other => other,
     };
     let bundle = active_rules_bundle();
@@ -6143,6 +6146,7 @@ fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> 
         CW_ACTION_GIVE_ITEM => "give_item",
         CW_ACTION_TRADE_ITEM => "trade_item",
         CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
+        CW_ACTION_GATE_TRANSITION => "open",
         CW_ACTION_PROJECT_PUSH => "work",
         CW_ACTION_CRAFT => "craft",
         CW_ACTION_THEFT => "theft",
@@ -10277,6 +10281,10 @@ impl RuntimeWorld {
                 record.version < JOURNAL_RECORD_VERSION,
                 &record.worldpack_bundle_hash,
             ));
+            let committed_events = events.clone();
+            events.extend(
+                self.apply_threshold_method_resolution_projection(record, &committed_events),
+            );
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
             events.extend(self.apply_class_readiness_projection(record, &action, &events));
@@ -21406,108 +21414,6 @@ The relationship statement they are preserving is: {statement}"
         false
     }
 
-    fn resident_pending_proposed_action(&self, actor: CwActor) -> Option<CwAction> {
-        let proposal = self
-            .resident_continuities
-            .get(&actor.id)
-            .and_then(|continuity| continuity.pending_action.as_ref())?;
-        match proposal.kind.as_str() {
-            "move" => {
-                let destination_location_id = proposal.destination_location_id?;
-                let next_location_id =
-                    self.next_unlocked_step_toward(actor.location_id, destination_location_id)?;
-                (next_location_id != actor.location_id).then_some(CwAction {
-                    kind: CW_ACTION_MOVE,
-                    actor_id: actor.id,
-                    destination_location_id: next_location_id,
-                    ..CwAction::default()
-                })
-            }
-            "pick_up" => {
-                let item_id = proposal.item_id?;
-                let item = self.item_by_id(item_id)?;
-                if item.location_id == actor.location_id
-                    && item.holder_actor_id == 0
-                    && !self.actor_inventory_full(actor.id)
-                {
-                    Some(CwAction {
-                        kind: CW_ACTION_PICK_UP_ITEM,
-                        actor_id: actor.id,
-                        item_id,
-                        ..CwAction::default()
-                    })
-                } else {
-                    None
-                }
-            }
-            "drop" => {
-                let item_id = proposal.item_id?;
-                self.actor_held_items(actor.id)
-                    .into_iter()
-                    .any(|item| item.id == item_id)
-                    .then_some(CwAction {
-                        kind: CW_ACTION_DROP_ITEM,
-                        actor_id: actor.id,
-                        item_id,
-                        ..CwAction::default()
-                    })
-            }
-            "give" => {
-                let target_actor_id = proposal.target_actor_id?;
-                let item_id = proposal.item_id?;
-                let target = self.actor_by_id(target_actor_id)?;
-                if target.status == CW_ACTOR_ACTIVE
-                    && target.location_id == actor.location_id
-                    && self
-                        .actor_held_items(actor.id)
-                        .into_iter()
-                        .any(|item| item.id == item_id)
-                {
-                    Some(CwAction {
-                        kind: CW_ACTION_GIVE_ITEM,
-                        actor_id: actor.id,
-                        target_actor_id,
-                        item_id,
-                        ..CwAction::default()
-                    })
-                } else {
-                    None
-                }
-            }
-            "trade" => {
-                let target_actor_id = proposal.target_actor_id?;
-                let item_id = proposal.item_id?;
-                let target_item_id = proposal.target_item_id?;
-                Some(CwAction {
-                    kind: CW_ACTION_TRADE_ITEM,
-                    actor_id: actor.id,
-                    target_actor_id,
-                    item_id,
-                    target_item_id,
-                    ..CwAction::default()
-                })
-            }
-            "use" => {
-                let item_id = proposal.item_id?;
-                if !self
-                    .actor_held_items(actor.id)
-                    .into_iter()
-                    .any(|item| item.id == item_id)
-                {
-                    return None;
-                }
-                Some(CwAction {
-                    kind: CW_ACTION_USE_ITEM,
-                    actor_id: actor.id,
-                    target_actor_id: proposal.target_actor_id.unwrap_or(0),
-                    item_id,
-                    ..CwAction::default()
-                })
-            }
-            _ => None,
-        }
-    }
-
     fn resident_feature_use_autonomy_record(
         &self,
         actor: CwActor,
@@ -21718,6 +21624,12 @@ The relationship statement they are preserving is: {statement}"
                 record.projection_mutations.push(mutation);
                 record
             }
+            "open" => {
+                let action = self
+                    .plan_threshold_method_offer_action(actor.id, &offer)
+                    .ok()?;
+                JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None)
+            }
             "search" => {
                 let target = self.default_search_target(actor.id)?;
                 let target_matches = offer.target.as_ref().is_some_and(|offer_target| {
@@ -21913,6 +21825,10 @@ The relationship statement they are preserving is: {statement}"
                     .item_name(action.item_id)
                     .unwrap_or_else(|| format!("Item {}", action.item_id));
                 format!("{actor_name} intends to use {item}.")
+            }
+            CW_ACTION_GATE_TRANSITION => {
+                proposed_action.kind = "open".to_string();
+                format!("{actor_name} intends to use one certified threshold method.")
             }
             CW_ACTION_RULES_SEARCH => {
                 if let Some(job_intent) =
@@ -28865,6 +28781,11 @@ async fn command_inner(
                 }),
             )
             .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::OpenThreshold { action } => {
+            let Json(response) =
+                apply_and_broadcast(state.clone(), *action, payload.actor_session.as_deref()).await;
             command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Check => {
@@ -38076,6 +37997,7 @@ fn action_offer_requires_target(kind: &str) -> bool {
             | "create_bond"
             | "resolve_bond"
             | "explore_path"
+            | "open"
     )
 }
 
@@ -38209,6 +38131,7 @@ fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
 fn action_offer_rank(kind: &str) -> u16 {
     match kind {
         "give_item" => 10,
+        "open" => 18,
         "use_item" | "use_feature" => 20,
         "rest" => 25,
         "pick_up" => 30,
@@ -38237,7 +38160,7 @@ fn action_offer_rank(kind: &str) -> u16 {
 
 fn practice_category_matches_offer(category: &str, kind: &str) -> bool {
     match category {
-        "exploration" => matches!(kind, "explore_path" | "search" | "check" | "move"),
+        "exploration" => matches!(kind, "explore_path" | "search" | "check" | "open" | "move"),
         "craft" => matches!(kind, "craft" | "use_feature"),
         "delivery" => matches!(kind, "move" | "give_item" | "trade_item"),
         "stewardship" => matches!(kind, "prepare" | "work" | "help"),
@@ -38254,6 +38177,7 @@ fn action_offer_intention(kind: &str) -> &str {
         "search" => "inspect",
         "explore_path" => "scout",
         "move" => "travel",
+        "open" => "open",
         "work" | "help" => "contribute",
         _ => kind,
     }
@@ -38273,6 +38197,7 @@ fn default_action_offer_verb(kind: &str) -> &str {
         "search" => "Inspect",
         "explore_path" => "Scout",
         "move" => "Travel",
+        "open" => "Open",
         "work" => "Push",
         "help" => "Help",
         "flee" => "Flee",
@@ -38328,9 +38253,8 @@ fn action_offer_category(kind: &str) -> &'static str {
         "create_avatar" => "system",
         "move" | "flee" | "explore_path" => "travel",
         "attack" | "defend" => "danger",
-        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item" => {
-            "inventory"
-        }
+        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item"
+        | "open" => "inventory",
         "craft" => "craft",
         "chat" | "help" | "create_bond" | "resolve_bond" => "social",
         "check" | "search" => "discovery",

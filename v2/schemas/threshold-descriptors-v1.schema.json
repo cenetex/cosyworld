@@ -223,6 +223,92 @@
         }
       }
     },
+    "methodEconomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["played_time_turns"],
+      "properties": {
+        "played_time_turns": {
+          "type": "integer",
+          "const": 1
+        }
+      }
+    },
+    "methodResolution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "certain" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "rules_action", "ability", "dc"],
+          "properties": {
+            "kind": {
+              "enum": ["srd_check", "consequence_avoidance_check"]
+            },
+            "rules_action": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            },
+            "ability": {
+              "enum": [
+                "strength",
+                "dexterity",
+                "constitution",
+                "intelligence",
+                "wisdom",
+                "charisma"
+              ]
+            },
+            "dc": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32767
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "event_type"],
+          "properties": {
+            "kind": { "const": "existing_kernel_outcome" },
+            "event_type": { "const": "gate.transition.applied" }
+          }
+        }
+      ]
+    },
+    "methodOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "procedure",
+        "label",
+        "requirement",
+        "economy",
+        "resolution",
+        "effect",
+        "consequence"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "procedure": { "const": "open_v1" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 96 },
+        "requirement": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "economy": { "$ref": "#/$defs/methodEconomy" },
+        "resolution": { "$ref": "#/$defs/methodResolution" },
+        "effect": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "consequence": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
     "method": {
       "type": "object",
       "additionalProperties": false,
@@ -234,7 +320,8 @@
         "success_effects": { "$ref": "#/$defs/effects" },
         "failure_effects": { "$ref": "#/$defs/effects" },
         "recovery_ref": { "$ref": "#/$defs/canonicalId" },
-        "recovery_version": { "$ref": "#/$defs/version" }
+        "recovery_version": { "$ref": "#/$defs/version" },
+        "offer": { "$ref": "#/$defs/methodOffer" }
       }
     },
     "reset": {

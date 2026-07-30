@@ -57,6 +57,74 @@ test("the v1 catalog covers the shared threshold descriptor examples", () => {
   assert.equal(fixture.thresholds.leads[0].transitions[1].method, "build_cairn");
 });
 
+test("concrete method offers expose exact-key certainty and timeful tool risk", () => {
+  const archiveMethods = fixture.thresholds.gates.find(
+    (gate) => gate.id.endsWith("/archive-door"),
+  ).methods;
+  const exactKey = archiveMethods.find((method) => method.id === "use_retained_key");
+  const safeTools = archiveMethods.find(
+    (method) => method.id === "work_lock_with_fine_tools",
+  );
+  const fineTools = fixture.thresholds.hazards[0].methods.find(
+    (method) => method.id === "disarm_needle",
+  );
+
+  assert.equal(exactKey.offer.resolution.kind, "certain");
+  assert.match(exactKey.offer.consequence, /quiet/i);
+  assert.equal(safeTools.offer.resolution.kind, "certain");
+  assert.ok(safeTools.offer.economy.played_time_turns > 0);
+  assert.ok(fineTools.offer.economy.played_time_turns > 0);
+  assert.equal(fineTools.offer.resolution.kind, "srd_check");
+  assert.ok(fineTools.failure_effects.length > 0);
+});
+
+test("method offer contracts reject Orb costs, null checks, and randomized exact keys", () => {
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.gates[0].methods[0].offer.economy.orbs = 1;
+    }),
+    /unknown field orbs/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.gates[0].methods[0].offer.economy.played_time_turns = 0;
+    }),
+    /bounded open_v1 method contract/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      const method = value.thresholds.hazards[0].methods[0];
+      delete method.failure_effects;
+    }),
+    /checked resolution must name an SRD check and a state-changing failure/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].methods[0].offer.resolution.dc = 32_768;
+    }),
+    /checked resolution must name an SRD check and a state-changing failure/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      const method = value.thresholds.gates[0].methods[0];
+      method.offer.resolution = {
+        kind: "srd_check",
+        rules_action: "Use an Object",
+        ability: "dexterity",
+        dc: 10,
+      };
+      method.failure_effects = [
+        {
+          kind: "set_gate_state",
+          target_id: value.thresholds.gates[0].id,
+          state: "closed",
+        },
+      ];
+    }),
+    /exact-item method must be certain/,
+  );
+});
+
 test("the content-pack compiler invokes threshold descriptor validation", () => {
   const pack = JSON.parse(
     fs.readFileSync(path.resolve(scriptDir, "../content/core/pack.json"), "utf8"),

@@ -68,7 +68,7 @@ Reveal never implies Open, Take, or Travel.
 | 3 | [#588](https://github.com/cenetex/cosyworld/issues/588) | Lead, Gate, Hazard, Pressure, and Anchor descriptors. Shipped in 0.0.282. |
 | 4 | [#589](https://github.com/cenetex/cosyworld/issues/589) | Kernel-owned conditional transitions. |
 | 5 | [#590](https://github.com/cenetex/cosyworld/issues/590) | Custody, recovery, and route reachability proof. |
-| 6 | [#591](https://github.com/cenetex/cosyworld/issues/591) | Concrete methods and consequence-first offers. |
+| 6 | [#591](https://github.com/cenetex/cosyworld/issues/591) | Concrete methods and consequence-first offers. Shipped in 0.0.286. |
 | 7 | [#592](https://github.com/cenetex/cosyworld/issues/592) | Telegraphed method-aware Hazards. |
 | 8 | [#601](https://github.com/cenetex/cosyworld/issues/601) | One discovery pipeline across Notice, Search, Study, and Scout. |
 | 9 | [#593](https://github.com/cenetex/cosyworld/issues/593) | Bounded Pressure scenes and event rolls. |

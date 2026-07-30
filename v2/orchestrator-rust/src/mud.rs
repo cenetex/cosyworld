@@ -79,6 +79,9 @@ pub(crate) enum CommandDispatch {
     Flee {
         destination_location_id: u64,
     },
+    OpenThreshold {
+        action: Box<CwAction>,
+    },
     Check,
     Study,
     Chat {
@@ -273,6 +276,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "i" | "inv" | "inventory" | "deck" => "inventory",
         "who" | "where" => "who",
         "go" | "move" | "travel" => "go",
+        "open" | "unlock" | "unseal" => "open",
         "scout" | "explore" => "scout",
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
@@ -307,7 +311,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "rest" | "breathe" | "catch" => "rest",
         "shuffle" | "deal" | "more" | "redraw" => "shuffle",
         "grow" | "bank" | "review" | "advance" => "bank",
-        "bracelet" | "unlock" => "bracelet",
+        "bracelet" => "bracelet",
         "wear" | "equip" => "wear",
         "unwear" | "unequip" | "remove" => "unwear",
         "wield" | "sling" => "equip-item",
@@ -555,6 +559,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
         CommandDispatch::Scout { .. } => "That route can no longer be scouted from here.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
+        CommandDispatch::OpenThreshold { .. } => {
+            "That threshold method changed while you were choosing. Look again."
+        }
         CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
         CommandDispatch::Study => "There is no authored subject to Study here now.",
         CommandDispatch::Influence { .. } => "That bounded request is no longer available.",
@@ -1357,7 +1364,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1778,6 +1785,60 @@ impl RuntimeWorld {
                     action: Some(command_action("move", "Travel", &format!("go {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())))),
                     dispatch: CommandDispatch::Move {
                         destination_location_id: destination,
+                    },
+                })
+            }
+            "open" => {
+                let query = command_key(trim_command_filler(rest));
+                let candidates = self
+                    .legal_action_candidates(Some(actor.id), access)
+                    .1
+                    .into_iter()
+                    .filter(|offer| offer.kind == "open" && action_offer_is_reachable(offer))
+                    .collect::<Vec<_>>();
+                let offer = if query.is_empty() && candidates.len() == 1 {
+                    candidates.into_iter().next()
+                } else if query.is_empty() {
+                    None
+                } else {
+                    candidates
+                        .into_iter()
+                        .filter_map(|offer| {
+                            let method = offer
+                                .threshold_method
+                                .as_ref()
+                                .map(|method| method.method.as_str())
+                                .unwrap_or_default();
+                            let target = offer
+                                .target
+                                .as_ref()
+                                .and_then(|target| target.label.as_deref())
+                                .unwrap_or_default();
+                            let searchable =
+                                format!("{} {} {} {}", offer.label, method, target, offer.command);
+                            command_match_score(&searchable, &query)
+                                .map(|score| (score, searchable.len(), offer))
+                        })
+                        .min_by_key(|(score, length, _)| (*score, *length))
+                        .map(|(_, _, offer)| offer)
+                }
+                .ok_or_else(|| {
+                    command_error(
+                        &command,
+                        "open",
+                        404,
+                        "No enabled authored threshold method matches that command.",
+                    )
+                })?;
+                let action = self
+                    .plan_threshold_method_offer_action(actor.id, &offer)
+                    .map_err(|output| command_error(&command, "open", 409, output))?;
+                Ok(ResolvedCommand {
+                    command: offer.command.clone(),
+                    verb,
+                    action: Some(command_action("open", &offer.label, &offer.command)),
+                    dispatch: CommandDispatch::OpenThreshold {
+                        action: Box::new(action),
                     },
                 })
             }

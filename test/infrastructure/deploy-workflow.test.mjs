@@ -1,4 +1,14 @@
-import { readFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const workflow = readFileSync(
@@ -33,6 +43,31 @@ const dockerignore = readFileSync(
   new URL('../../.dockerignore', import.meta.url),
   'utf8'
 );
+const volumeGuardPath = fileURLToPath(
+  new URL('../../scripts/check-fly-volume-space.sh', import.meta.url)
+);
+
+const runVolumeGuard = (fakeFlyctl) => {
+  const directory = mkdtempSync(join(tmpdir(), 'cosyworld-volume-guard-'));
+  const flyctlPath = join(directory, 'flyctl');
+  writeFileSync(flyctlPath, `#!/usr/bin/env bash\n${fakeFlyctl}\n`);
+  chmodSync(flyctlPath, 0o755);
+  try {
+    return spawnSync(
+      volumeGuardPath,
+      ['example-world', '/data', '85'],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${directory}${delimiter}${process.env.PATH}`
+        }
+      }
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
 
 const job = (name, nextName) => {
   const start = workflow.indexOf(`\n  ${name}:`);
@@ -85,6 +120,26 @@ describe('deploy workflow', () => {
       'check-fly-volume-space.sh cosyworld-lonelyforest /data 85'
     );
     expect(80).toBeLessThan(85);
+  });
+
+  it('refuses a blind deploy while preserving the Fly SSH diagnostic', () => {
+    const result = runVolumeGuard(
+      'echo "Error: machine is stopped and cannot accept SSH" >&2\nexit 1'
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('refusing to deploy blind');
+    expect(result.stderr).toContain('machine is stopped and cannot accept SSH');
+  });
+
+  it('accepts a healthy volume report below the configured threshold', () => {
+    const result = runVolumeGuard(
+      'echo "Filesystem 1024-blocks Used Available Capacity Mounted on"\n'
+      + 'echo "/dev/vdb 100000 42000 58000 42% /data"'
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('example-world /data is 42% used');
   });
 
   it('checks production volume headroom every fifteen minutes', () => {

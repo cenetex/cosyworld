@@ -1848,6 +1848,7 @@ static cw_status set_effective_gate_state(
 static cw_status apply_gate_transition(
     cw_world *world,
     const cw_action *action,
+    uint64_t seed,
     cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
@@ -1892,6 +1893,58 @@ static cw_status apply_gate_transition(
       && (!decision.allowed || !input->method_id
           || decision.method_id != input->method_id)) {
     return reject(world, out_events, action, CW_REASON_GATE_CLOSED);
+  }
+
+  uint8_t resolution = input->reserved[0];
+  int checked_resolution =
+      resolution == CW_GATE_METHOD_RESOLUTION_SRD_CHECK
+      || resolution == CW_GATE_METHOD_RESOLUTION_CONSEQUENCE_AVOIDANCE_CHECK;
+  if (resolution > CW_GATE_METHOD_RESOLUTION_CONSEQUENCE_AVOIDANCE_CHECK
+      || (checked_resolution
+          && (!action->dc || action->dc > INT16_MAX
+              || action->ability > CW_ABILITY_CHARISMA
+              || !valid_roll_mode(action->roll_mode)))
+      || (!checked_resolution && action->dc)
+      || (resolution == CW_GATE_METHOD_RESOLUTION_SRD_CHECK
+          && world->gate_claim_count >= CW_MAX_GATE_CLAIMS)) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  if (checked_resolution) {
+    int16_t raw = roll_d20(seed, 1, action->roll_mode);
+    int16_t modifier =
+        (int16_t)(ability_modifier((int8_t)stat_value(&actor->stats, action->ability))
+            + action->modifier);
+    int16_t total = (int16_t)(raw + modifier);
+    int passed = total >= (int16_t)action->dc;
+    append_event(world, out_events, CW_EVENT_ABILITY_CHECK_ROLLED);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->success = passed ? 1 : 0;
+      event->actor_id = actor->id;
+      event->location_id = actor->location_id;
+      event->raw_roll = raw;
+      event->modifier = modifier;
+      event->total = total;
+      event->dc = (int16_t)action->dc;
+      event->ability = action->ability;
+      decorate_gate_event(event, &decision, input);
+    }
+    if (!passed && resolution == CW_GATE_METHOD_RESOLUTION_SRD_CHECK) {
+      cw_gate_claim *failed_claim =
+          &world->gate_claims[world->gate_claim_count++];
+      memset(failed_claim, 0, sizeof(*failed_claim));
+      failed_claim->id = input->claim_id;
+      failed_claim->gate_id = gate->id;
+      failed_claim->actor_id = actor->id;
+      failed_claim->item_id = action->item_id;
+      failed_claim->method_id = input->method_id;
+      failed_claim->transition = input->transition;
+      failed_claim->reserved[0] = CW_GATE_CLAIM_OUTCOME_FAILED_METHOD;
+      world->access_revision = world->access_revision == UINT64_MAX
+          ? UINT64_MAX
+          : world->access_revision + 1;
+      return CW_OK;
+    }
   }
 
   uint8_t resulting_state = gate_transition_state(input->transition);
@@ -3192,7 +3245,7 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       status = apply_reveal_item(world, action, out_events);
       break;
     case CW_ACTION_GATE_TRANSITION:
-      status = apply_gate_transition(world, action, out_events);
+      status = apply_gate_transition(world, action, seed, out_events);
       break;
     default:
       status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);

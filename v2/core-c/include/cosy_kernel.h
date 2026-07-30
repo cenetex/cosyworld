@@ -202,6 +202,18 @@ typedef enum {
 } cw_gate_transition_kind;
 
 typedef enum {
+  CW_GATE_METHOD_RESOLUTION_CERTAIN = 0,
+  CW_GATE_METHOD_RESOLUTION_SRD_CHECK = 1,
+  CW_GATE_METHOD_RESOLUTION_EXISTING_KERNEL_OUTCOME = 2,
+  CW_GATE_METHOD_RESOLUTION_CONSEQUENCE_AVOIDANCE_CHECK = 3
+} cw_gate_method_resolution_kind;
+
+typedef enum {
+  CW_GATE_CLAIM_OUTCOME_APPLIED = 0,
+  CW_GATE_CLAIM_OUTCOME_FAILED_METHOD = 1
+} cw_gate_claim_outcome_kind;
+
+typedef enum {
   CW_REST_GRADE_NONE = 0,
   CW_REST_GRADE_CAMP = 1,
   CW_REST_GRADE_LODGED = 2,

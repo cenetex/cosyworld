@@ -9,6 +9,7 @@ const RESIDENT_PLANNER_ELIGIBLE_KINDS: &[&str] = &[
     "give_item",
     "trade_item",
     "use_item",
+    "open",
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -238,6 +239,12 @@ impl RuntimeWorld {
                 candidate.kind = "use".to_string();
                 candidate.item_id = Some(item.parse().ok()?);
                 candidate.target_actor_id = Some(target.parse().ok()?);
+            }
+            ("open", ["open", _gate, _method, destination]) => {
+                candidate.kind = "open".to_string();
+                candidate.destination_location_id = Some(destination.parse().ok()?);
+                self.plan_threshold_method_offer_action(actor_id, offer)
+                    .ok()?;
             }
             _ => return None,
         }

@@ -59,6 +59,14 @@ const effectKinds = new Set([
   "set_anchor_state",
   "advance_pressure",
 ]);
+const abilities = new Set([
+  "strength",
+  "dexterity",
+  "constitution",
+  "intelligence",
+  "wisdom",
+  "charisma",
+]);
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -291,6 +299,7 @@ function validateMethod(errors, method, packId, knownIds, recoveries, label) {
       "failure_effects",
       "recovery_ref",
       "recovery_version",
+      "offer",
     ]),
     label,
   );
@@ -302,6 +311,101 @@ function validateMethod(errors, method, packId, knownIds, recoveries, label) {
   validateEffects(errors, method.success_effects, packId, knownIds, `${label} success_effects`);
   if (method.failure_effects !== undefined) {
     validateEffects(errors, method.failure_effects, packId, knownIds, `${label} failure_effects`);
+  }
+  if (method.offer !== undefined) {
+    const offer = method.offer;
+    rejectUnknown(
+      errors,
+      offer,
+      new Set([
+        "schema_version",
+        "procedure",
+        "label",
+        "requirement",
+        "economy",
+        "resolution",
+        "effect",
+        "consequence",
+      ]),
+      `${label} offer`,
+    );
+    rejectUnknown(
+      errors,
+      offer?.economy,
+      new Set(["played_time_turns"]),
+      `${label} offer economy`,
+    );
+    const turns = offer?.economy?.played_time_turns;
+    if (
+      !isObject(offer)
+      || offer.schema_version !== 1
+      || offer.procedure !== "open_v1"
+      || !nonEmpty(offer.label)
+      || offer.label.length > 96
+      || !nonEmpty(offer.requirement)
+      || offer.requirement.length > 256
+      || !nonEmpty(offer.effect)
+      || offer.effect.length > 256
+      || !nonEmpty(offer.consequence)
+      || offer.consequence.length > 256
+      || turns !== 1
+    ) {
+      errors.push(`${label} offer must be a bounded open_v1 method contract`);
+    }
+    const resolution = offer?.resolution;
+    const resolutionKind = resolution?.kind;
+    const resolutionFields = {
+      certain: ["kind"],
+      srd_check: ["kind", "rules_action", "ability", "dc"],
+      existing_kernel_outcome: ["kind", "event_type"],
+      consequence_avoidance_check: ["kind", "rules_action", "ability", "dc"],
+    }[resolutionKind];
+    if (!resolutionFields) {
+      errors.push(`${label} offer resolution kind is invalid`);
+    } else {
+      rejectUnknown(
+        errors,
+        resolution,
+        new Set(resolutionFields),
+        `${label} offer resolution`,
+      );
+      if (resolutionKind === "certain") {
+        if (method.failure_effects !== undefined) {
+          errors.push(`${label} certain resolution cannot author failure effects`);
+        }
+      } else if (resolutionKind === "existing_kernel_outcome") {
+        if (
+          resolution.event_type !== "gate.transition.applied"
+          || method.failure_effects !== undefined
+        ) {
+          errors.push(`${label} existing kernel outcome must bind gate.transition.applied`);
+        }
+      } else if (
+        !nonEmpty(resolution.rules_action)
+        || resolution.rules_action.length > 96
+        || !abilities.has(resolution.ability)
+        || !Number.isInteger(resolution.dc)
+        || resolution.dc < 1
+        || resolution.dc > 32_767
+        || method.failure_effects === undefined
+      ) {
+        errors.push(
+          `${label} checked resolution must name an SRD check and a state-changing failure`,
+        );
+      }
+    }
+    const exactItem = method.requirements?.clauses?.some(
+      (clause) => clause?.kind === "exact_item",
+    );
+    if (
+      exactItem
+      && !["certain", "existing_kernel_outcome"].includes(resolutionKind)
+    ) {
+      errors.push(`${label} exact-item method must be certain`);
+    }
+    if (exactItem && !String(offer?.consequence || "").toLowerCase().includes("quiet")) {
+      errors.push(`${label} exact-item method must explicitly be quiet`);
+    }
   }
   if ((method.recovery_ref === undefined) !== (method.recovery_version === undefined)) {
     errors.push(`${label} recovery reference must include an exact version`);

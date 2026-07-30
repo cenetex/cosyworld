@@ -20,9 +20,16 @@ if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]] || [ "$THRESHOLD" -lt 1 ] || [ "$THRESHOLD" 
   exit 2
 fi
 
-df_line="$(flyctl ssh console -a "$APP" -C "df -P $MOUNT" 2>/dev/null | awk 'NR==2 {print}')"
+if ! df_output="$(flyctl ssh console -a "$APP" -C "df -P $MOUNT" 2>&1)"; then
+  df_output="${df_output//$'\n'/ }"
+  echo "::error::could not read df for $MOUNT on app $APP — refusing to deploy blind. flyctl: $df_output" >&2
+  exit 1
+fi
+
+df_line="$(echo "$df_output" | awk 'NR==2 {print}')"
 if [ -z "$df_line" ]; then
-  echo "::error::could not read df for $MOUNT on app $APP — refusing to deploy blind" >&2
+  df_output="${df_output//$'\n'/ }"
+  echo "::error::could not read df for $MOUNT on app $APP — refusing to deploy blind. flyctl: $df_output" >&2
   exit 1
 fi
 
