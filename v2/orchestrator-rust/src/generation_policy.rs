@@ -834,6 +834,23 @@ mod tests {
             generation_policy_allows_upgrade(&undeclared_bridge, "1.0.4").is_err(),
             "undeclared bridge history must remain fail-closed"
         );
+
+        let production_core = legacy_generated_policy_binding(
+            "cosyworld.core",
+            "1.3.10",
+            "cosyworld.official",
+            "sha256:531f773526919ce1da0b8713401ebf60e900f2a906f790ba9a443c6809fed0fa",
+        );
+        assert!(
+            generation_policy_allows_upgrade(&production_core, "1.3.11").is_ok(),
+            "the exact production Core pathway tuple must migrate"
+        );
+        let mut undeclared_core = production_core;
+        undeclared_core.owner_pack_version = "1.3.9".to_string();
+        assert!(
+            generation_policy_allows_upgrade(&undeclared_core, "1.3.11").is_err(),
+            "undeclared Core pathway history must remain fail-closed"
+        );
     }
 
     #[test]
@@ -945,6 +962,65 @@ mod tests {
         let replayed = RuntimeSnapshot::from_runtime(&restored)
             .into_runtime()
             .expect("the migrated bridge checkpoint must remain idempotent");
+        assert_eq!(
+            serde_json::to_value(&replayed.generated_pathways)
+                .expect("serialize replayed generated pathways"),
+            serde_json::to_value(&restored.generated_pathways)
+                .expect("serialize restored generated pathways")
+        );
+        assert_eq!(replayed.routes, restored.routes);
+    }
+
+    #[test]
+    fn production_legacy_core_pathway_checkpoint_restores_idempotently() {
+        let mut runtime = RuntimeWorld::seeded();
+        let historical_hash =
+            "sha256:531f773526919ce1da0b8713401ebf60e900f2a906f790ba9a443c6809fed0fa";
+        let mut pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 2, 3, 2)
+            .expect("production Core route");
+        pathway.id = "pathway:2:3".to_string();
+        pathway.identity_version = 0;
+        pathway.owner_pack_version = "1.3.10".to_string();
+        let binding = legacy_generated_policy_binding(
+            "cosyworld.core",
+            "1.3.10",
+            "cosyworld.official",
+            historical_hash,
+        );
+        pathway.generation_policy = binding.clone();
+        for waypoint in &mut pathway.waypoints {
+            waypoint.generation_policy = binding.clone();
+        }
+        let source_route_id = pathway.source_route_id.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        runtime.ensure_generated_pathway_route_records(&pathway);
+
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.worldpack_bundle_hash = historical_hash.to_string();
+        snapshot
+            .routes
+            .get_mut(&source_route_id)
+            .expect("historical Core source route")
+            .owner_pack_version = "1.3.10".to_string();
+
+        let restored = snapshot
+            .into_runtime()
+            .expect("the exact production Core tuple must migrate");
+        assert_eq!(
+            restored.generated_pathways[&pathway.id].generation_policy,
+            binding
+        );
+        assert_eq!(
+            restored.routes[&source_route_id].owner_pack_version,
+            "1.3.11"
+        );
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("the migrated Core checkpoint must remain idempotent");
         assert_eq!(
             serde_json::to_value(&replayed.generated_pathways)
                 .expect("serialize replayed generated pathways"),
