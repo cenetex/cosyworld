@@ -11,6 +11,7 @@ describe('Fly OOM alert', () => {
   it('creates a bounded app-scoped query', () => {
     expect(buildOomQuery('cosyworld-lonelyforest', '2h')).toBe(
       'max(max_over_time(fly_instance_exit_oom{app="cosyworld-lonelyforest"}[2h]))'
+        + ' or (0 * max(fly_instance_up{app="cosyworld-lonelyforest"}))'
     );
     expect(() => buildOomQuery('cosyworld"} or vector(1)', '30m')).toThrow(/app must/);
     expect(() => buildOomQuery('cosyworld', '30 minutes')).toThrow(/window must/);
