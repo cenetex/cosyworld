@@ -1025,6 +1025,8 @@ enum ProjectionMutation {
         generation_profile_version: u8,
         #[serde(default)]
         generation_policy: GeneratedPolicyBinding,
+        #[serde(default)]
+        frozen_plan: Option<Box<CommunityArtPlan>>,
     },
     CompleteCommunityArtGeneration {
         subject_kind: String,
@@ -5400,6 +5402,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
     start_focused_encounter_scheduler(state.clone());
     start_actor_job_worker(state.clone());
+    resume_pending_community_art_generations(&state);
     start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
     start_hosted_access_scheduler(state.clone());
@@ -10607,6 +10610,7 @@ impl RuntimeWorld {
                     provider_attempt,
                     generation_profile_version,
                     generation_policy,
+                    frozen_plan,
                 } => {
                     let generation_policy = if generation_policy.is_empty()
                         && subject_kind == "location"
@@ -10635,6 +10639,7 @@ impl RuntimeWorld {
                         *provider_attempt,
                         *generation_profile_version,
                         &generation_policy,
+                        frozen_plan.as_deref(),
                     ) {
                         events.push(event);
                     }

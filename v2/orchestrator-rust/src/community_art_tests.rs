@@ -67,7 +67,7 @@ fn location_art_plan(
         required_orbs: 1,
         history_through_seq: 99,
         prompt: "A quiet chalk lane with no figures.".to_string(),
-        aspect_ratio,
+        aspect_ratio: aspect_ratio.to_string(),
         image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
         persisted_identity,
         persisted_visual_description,
@@ -180,6 +180,59 @@ fn test_candidate_quarantine_root(root: &Path, plan: &CommunityArtPlan) -> PathB
 }
 
 #[test]
+fn funded_generation_retries_reuse_the_journaled_frozen_plan() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        RAIN_SOFT_GARDEN_LOCATION_ID,
+        "Frozen Plan Patron",
+    );
+    let original = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("initial actor plan");
+    fund_test_community_art(&mut runtime, 5000, &original, "frozen-plan", 8801);
+    runtime
+        .apply_begin_community_art_generation_projection(
+            5000,
+            "actor",
+            5000,
+            1,
+            true,
+            original.generation_profile_version,
+            &original.generation_policy,
+            Some(&original),
+        )
+        .expect("begin generation freezes the plan");
+
+    runtime.callings.insert(
+        5000,
+        CallingState {
+            actor_id: 5000,
+            statement: "I now carry changing world details.".to_string(),
+            source_event_seq: Some(8802),
+        },
+    );
+    runtime.world.next_event_seq = runtime.world.next_event_seq.saturating_add(50);
+    let retry = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("retry plan");
+    assert_eq!(retry.prompt, original.prompt);
+    assert_eq!(retry.history_through_seq, original.history_through_seq);
+    assert_eq!(
+        community_art_media_brief(&retry).digest().unwrap(),
+        community_art_media_brief(&original).digest().unwrap()
+    );
+
+    let restored: BTreeMap<String, CommunityArtGenerationState> =
+        serde_json::from_slice(&serde_json::to_vec(&runtime.community_art_generations).unwrap())
+            .unwrap();
+    assert!(restored[&community_art_generation_key("actor", 5000, 1)]
+        .frozen_plan
+        .is_some());
+}
+
+#[test]
 fn policy_preflight_fixture_is_a_real_sized_png() {
     let encoded = POLICY_PREFLIGHT_IMAGE_URL
         .strip_prefix("data:image/png;base64,")
@@ -191,6 +244,60 @@ fn policy_preflight_fixture_is_a_real_sized_png() {
     assert_eq!(&bytes[12..16], b"IHDR");
     assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 64);
     assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 64);
+}
+
+#[test]
+fn funded_avatar_generation_is_selected_for_boot_resumption() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Restarted Art Patron",
+    );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("active patron can fund their visible avatar");
+    fund_test_community_art(
+        &mut runtime,
+        5000,
+        &plan,
+        "test-boot-community-art-resumption",
+        9001,
+    );
+    let key = community_art_generation_key("actor", 5000, plan.level);
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("funded avatar generation");
+    generation.status = "generating".to_string();
+    generation.provider_attempts = 1;
+
+    let asset_root = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-resume-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    std::fs::create_dir_all(&asset_root).expect("create temporary generated-asset root");
+    let resumptions = pending_community_art_resumption_plans(&runtime, &asset_root);
+    assert_eq!(resumptions.len(), 1);
+    assert_eq!(resumptions[0].0, 5000);
+    assert_eq!(resumptions[0].1.subject_kind, "actor");
+    assert_eq!(resumptions[0].1.subject_id, 5000);
+
+    let generation = runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("stale-brief generation");
+    generation.status = "failed".to_string();
+    generation.last_error_code = Some("community_art_storage_failed".to_string());
+    let stale_brief_resumptions = pending_community_art_resumption_plans(&runtime, &asset_root);
+    assert_eq!(
+        stale_brief_resumptions.len(),
+        1,
+        "a legacy frozen-brief failure is repaired automatically on boot"
+    );
+    let _ = std::fs::remove_dir_all(asset_root);
 }
 
 #[tokio::test]
@@ -558,7 +665,7 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
             &history,
             Some(CommunityArtImagePolicy::LocationLandscape),
         ),
-        aspect_ratio: "16:9",
+        aspect_ratio: "16:9".to_string(),
         image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
         persisted_identity: "Quiet Rise".to_string(),
         persisted_visual_description: "chalky lanes and reed beds".to_string(),
@@ -703,7 +810,7 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
             required_orbs: 1,
             history_through_seq: 0,
             prompt: String::new(),
-            aspect_ratio: "16:9",
+            aspect_ratio: "16:9".to_string(),
             image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
             persisted_identity: "test location".to_string(),
             persisted_visual_description: "test landscape".to_string(),
@@ -773,7 +880,7 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         required_orbs: 1,
         history_through_seq: 99,
         prompt: "A quiet rain-soft path with no figures.".to_string(),
-        aspect_ratio: "16:9",
+        aspect_ratio: "16:9".to_string(),
         image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
         persisted_identity: "Quiet Rise".to_string(),
         persisted_visual_description: "rain-soft path".to_string(),
@@ -891,7 +998,7 @@ fn rollback_and_incumbent_routes_quarantine_a_stored_canary_before_publication()
         required_orbs: 2,
         history_through_seq: 72,
         prompt: "incumbent prompt".to_string(),
-        aspect_ratio: "2:3",
+        aspect_ratio: "2:3".to_string(),
         image_policy: None,
         persisted_identity: "Rollback Patron".to_string(),
         persisted_visual_description: "a rust-red fox with a green scarf".to_string(),
@@ -1017,6 +1124,7 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
                 generation_policy: GeneratedPolicyBinding::default(),
+                frozen_plan: None,
             });
         record
             .projection_mutations
@@ -1169,6 +1277,7 @@ fn failed_evolution_retries_charge_no_extra_orbs_and_keep_prior_art_public() {
                 provider_attempt: true,
                 generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
                 generation_policy: GeneratedPolicyBinding::default(),
+                frozen_plan: None,
             });
         failure
             .projection_mutations
@@ -1262,6 +1371,7 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
                     .generated_pathway_for_location(subject_id)
                     .map(|pathway| pathway.generation_policy.clone())
                     .unwrap_or_default(),
+                frozen_plan: None,
             });
         record
             .projection_mutations
@@ -1309,6 +1419,7 @@ fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
                 .generated_pathway_for_location(subject_id)
                 .map(|pathway| pathway.generation_policy.clone())
                 .unwrap_or_default(),
+            frozen_plan: None,
         });
     assert_eq!(runtime.apply_journal_record(&retry).0, CW_OK);
 
