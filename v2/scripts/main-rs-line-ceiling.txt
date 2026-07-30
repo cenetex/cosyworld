@@ -91,4 +91,8 @@
 # 74647 -> 74651: persist the frozen community-art plan with the existing
 # begin-generation projection so retries survive content evolution without
 # weakening their media-verdict binding.
-74651
+# 74651 -> 74708: replace the accepted-command full-world rollback clone with
+# durable-state recovery and pin the failure path with an exact snapshot
+# regression. The recovery wiring stays at the existing persistence boundary;
+# no new gameplay system is added.
+74708

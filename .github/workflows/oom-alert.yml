@@ -1,0 +1,38 @@
+name: Fly OOM alert
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fly-oom-alert-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  oom:
+    name: ${{ matrix.app }} has no OOM exits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - cosyworld
+          - cosyworld-lonelyforest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check Fly OOM metric
+        run: node v2/scripts/check-fly-oom.mjs personal "${{ matrix.app }}" 30m
+        env:
+          FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}
