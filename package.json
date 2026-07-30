@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.240",
+  "version": "0.0.242",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -50,7 +50,7 @@
     "v2:media:evolution": "node v2/scripts/report-media-evolution.mjs",
     "v2:proof-world": "node v2/scripts/check-proof-world.mjs",
     "v2:spike:deck-gated": "node v2/scripts/spike-deck-gated-actions.mjs",
-    "v2:syntax": "node --check v2/scripts/smoke-browser.mjs && node --check v2/scripts/smoke-production-profile.mjs && node --check v2/scripts/smoke-deployed-ruby-high.mjs && node --check v2/scripts/smoke-standalone-compositions.mjs && node --check v2/scripts/smoke-core-ruby-composition.mjs && node --check v2/scripts/inspect-action-journal.mjs && node --check v2/scripts/report-media-evolution.mjs && python3 -m py_compile v2/cli/cosy_cli.py",
+    "v2:syntax": "node --check v2/scripts/smoke-browser.mjs && node --check v2/scripts/smoke-production-profile.mjs && node --check v2/scripts/smoke-deployed-ruby-high.mjs && node --check v2/scripts/smoke-standalone-compositions.mjs && node --check v2/scripts/smoke-core-ruby-composition.mjs && node --check v2/scripts/inspect-action-journal.mjs && node --check v2/scripts/report-media-evolution.mjs && node --check scripts/check-worldpack-deploy-compat.mjs && bash -n scripts/check-fly-volume-space.sh && python3 -m py_compile v2/cli/cosy_cli.py",
     "reset-setup": "node scripts/reset-setup.mjs",
     "build": "npm run clean && npm run build:js && npm run docs",
     "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",

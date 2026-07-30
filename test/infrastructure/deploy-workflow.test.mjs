@@ -50,6 +50,37 @@ describe('deploy workflow', () => {
     expect(job('github-release')).toContain('needs: [fly]');
   });
 
+  // Both apps run a single machine, so a deploy that boots badly is an outage by
+  // construction (#546, #551). Every guard must run before the swap it protects,
+  // never after, or it can only report an outage that already happened.
+  it('runs the volume and worldpack guards before each image swap', () => {
+    const fly = job('fly', 'github-release');
+    const tenants = [
+      {
+        volume: 'scripts/check-fly-volume-space.sh cosyworld /data 85',
+        worldpack: 'node scripts/check-worldpack-deploy-compat.mjs cosyworld',
+        deploy: 'flyctl deploy --remote-only --config fly.toml'
+      },
+      {
+        volume: 'scripts/check-fly-volume-space.sh cosyworld-lonelyforest /data 85',
+        worldpack: 'node scripts/check-worldpack-deploy-compat.mjs cosyworld-lonelyforest',
+        deploy: 'flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false'
+      }
+    ];
+
+    for (const tenant of tenants) {
+      for (const guard of [tenant.volume, tenant.worldpack]) {
+        expect(fly).toContain(guard);
+        expect(fly.indexOf(guard)).toBeLessThan(fly.indexOf(tenant.deploy));
+      }
+    }
+
+    // The Lonely Forest guards must not be satisfied by the primary app's run.
+    for (const guard of [tenants[1].volume, tenants[1].worldpack]) {
+      expect(fly.indexOf(guard)).toBeGreaterThan(fly.indexOf(tenants[0].deploy));
+    }
+  });
+
   it('keeps the image workshop configured on both Fly tenants', () => {
     const model = 'COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"';
     const mirquoLora = 'COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"';
