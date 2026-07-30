@@ -6,7 +6,9 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs, io,
+    ops::{Deref, DerefMut},
     path::Path,
+    sync::{Mutex, MutexGuard},
     time::Duration,
 };
 
@@ -17,6 +19,47 @@ const COMMAND_RECEIPT_COMPRESSION_THRESHOLD: usize = 4 * 1024;
 // exceeds the byte budget, so its immediate crash-retry remains recoverable.
 pub(super) const MAX_DURABLE_COMMAND_RECEIPT_ENTRIES: usize = 512;
 pub(super) const MAX_DURABLE_COMMAND_RECEIPT_BYTES: usize = 32 * 1024 * 1024;
+
+pub(super) enum EventStoreConnection<'a> {
+    Shared(MutexGuard<'a, Connection>),
+    Owned(Connection),
+}
+
+impl Deref for EventStoreConnection<'_> {
+    type Target = Connection;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Shared(connection) => connection,
+            Self::Owned(connection) => connection,
+        }
+    }
+}
+
+impl DerefMut for EventStoreConnection<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Self::Shared(connection) => connection,
+            Self::Owned(connection) => connection,
+        }
+    }
+}
+
+/// Reuse the process-lifetime WAL connection for durable commits. Besides
+/// preserving SQLite's page cache, the mutex queues in-process writers before
+/// they enter SQLite's cross-process busy loop.
+pub(super) fn event_store_writer<'a>(
+    shared: Option<&'a Mutex<Connection>>,
+    path: &Path,
+) -> io::Result<EventStoreConnection<'a>> {
+    match shared {
+        Some(connection) => connection
+            .lock()
+            .map(EventStoreConnection::Shared)
+            .map_err(|_| io::Error::other("event-store writer lock is poisoned")),
+        None => open_event_store(path).map(EventStoreConnection::Owned),
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct AuthorityLease {
