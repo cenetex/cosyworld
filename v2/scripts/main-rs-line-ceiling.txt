@@ -99,4 +99,5 @@
 # compacted event-range hydration into the existing journal_checkpoint seam.
 # 74498 -> 74462: move durable command-receipt encoding and capacity enforcement
 # into the existing canonical_journal seam.
-74462
+# 74462 -> 74460: keep the actor-job contention regression outside main.rs.
+74460
