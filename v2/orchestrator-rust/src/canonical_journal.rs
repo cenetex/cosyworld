@@ -1,3 +1,5 @@
+use crate::canonical_world::StoredCommandResponse;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior, MAIN_DB};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -9,6 +11,12 @@ use std::{
 };
 
 const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+const COMMAND_RECEIPT_ZSTD_PREFIX: &str = "zstd-base64:";
+const COMMAND_RECEIPT_COMPRESSION_THRESHOLD: usize = 4 * 1024;
+// The newest finalized receipt always survives, even if that single response
+// exceeds the byte budget, so its immediate crash-retry remains recoverable.
+pub(super) const MAX_DURABLE_COMMAND_RECEIPT_ENTRIES: usize = 512;
+pub(super) const MAX_DURABLE_COMMAND_RECEIPT_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct AuthorityLease {
@@ -1918,10 +1926,166 @@ pub(super) fn insert_canonical_commit(
     Ok(())
 }
 
+pub(super) fn encode_command_response_for_storage(response_json: &str) -> io::Result<String> {
+    if response_json.len() < COMMAND_RECEIPT_COMPRESSION_THRESHOLD {
+        return Ok(response_json.to_string());
+    }
+    let compressed = zstd::stream::encode_all(response_json.as_bytes(), 3)
+        .map_err(|error| io::Error::other(format!("compress command receipt: {error}")))?;
+    let encoded = format!(
+        "{COMMAND_RECEIPT_ZSTD_PREFIX}{}",
+        BASE64_STANDARD.encode(compressed)
+    );
+    Ok(if encoded.len() < response_json.len() {
+        encoded
+    } else {
+        response_json.to_string()
+    })
+}
+
+pub(super) fn decode_command_response_from_storage(stored: &str) -> io::Result<String> {
+    let Some(encoded) = stored.strip_prefix(COMMAND_RECEIPT_ZSTD_PREFIX) else {
+        return Ok(stored.to_string());
+    };
+    let compressed = BASE64_STANDARD.decode(encoded).map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("decode command receipt: {error}"),
+        )
+    })?;
+    let decoded = zstd::stream::decode_all(compressed.as_slice())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    String::from_utf8(decoded).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+}
+
+fn prune_finalized_command_receipts_with_limits(
+    conn: &Connection,
+    max_entries: usize,
+    max_bytes: usize,
+) -> io::Result<usize> {
+    conn.execute(
+        "WITH ranked AS (
+             SELECT world_id, intent_id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY updated_at_ms DESC, created_at_ms DESC,
+                                 world_id DESC, intent_id DESC
+                    ) AS recency_rank,
+                    SUM(LENGTH(CAST(response_json AS BLOB))) OVER (
+                        ORDER BY updated_at_ms DESC, created_at_ms DESC,
+                                 world_id DESC, intent_id DESC
+                    ) AS cumulative_bytes
+             FROM canonical_command_receipts
+             WHERE finalized = 1
+         )
+         DELETE FROM canonical_command_receipts
+         WHERE finalized = 1
+           AND EXISTS (
+               SELECT 1
+               FROM ranked
+               WHERE ranked.world_id = canonical_command_receipts.world_id
+                 AND ranked.intent_id = canonical_command_receipts.intent_id
+                 AND ranked.recency_rank > 1
+                 AND (
+                     ranked.recency_rank > ?1
+                     OR ranked.cumulative_bytes > ?2
+                 )
+           )",
+        params![as_i64(max_entries as u64)?, as_i64(max_bytes as u64)?],
+    )
+    .map_err(sqlite_error)
+}
+
+pub(super) fn prune_finalized_command_receipts_to_capacity(conn: &Connection) -> io::Result<usize> {
+    prune_finalized_command_receipts_with_limits(
+        conn,
+        MAX_DURABLE_COMMAND_RECEIPT_ENTRIES,
+        MAX_DURABLE_COMMAND_RECEIPT_BYTES,
+    )
+}
+
+pub(super) fn command_receipt_storage_report(path: &Path) -> io::Result<(usize, usize)> {
+    let conn = open_canonical_store(path)?;
+    let (entries, bytes) = conn
+        .query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(LENGTH(CAST(response_json AS BLOB))), 0)
+             FROM canonical_command_receipts
+             WHERE finalized = 1",
+            [],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .map_err(sqlite_error)?;
+    Ok((
+        usize::try_from(entries)
+            .map_err(|_| io::Error::other("command receipt count is negative"))?,
+        usize::try_from(bytes)
+            .map_err(|_| io::Error::other("command receipt byte count is negative"))?,
+    ))
+}
+
+pub(super) fn read_canonical_command_response(
+    path: &Path,
+    world_id: &str,
+    intent_id: &str,
+) -> io::Result<Option<StoredCommandResponse>> {
+    let conn = open_canonical_store(path)?;
+    let stored = conn
+        .query_row(
+            "SELECT request_hash, response_json
+             FROM canonical_command_receipts
+             WHERE world_id = ?1 AND intent_id = ?2 AND finalized = 1",
+            params![world_id, intent_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    stored
+        .map(|(request_hash, response_json)| {
+            Ok(StoredCommandResponse {
+                request_hash,
+                response_json: decode_command_response_from_storage(&response_json)?,
+            })
+        })
+        .transpose()
+}
+
+pub(super) fn write_canonical_command_response(
+    path: &Path,
+    world_id: &str,
+    intent_id: &str,
+    stored: &StoredCommandResponse,
+    retain_response: bool,
+    created_at_ms: u64,
+) -> io::Result<bool> {
+    if !retain_response {
+        return Ok(true);
+    }
+    let conn = open_canonical_store(path)?;
+    let response_json = encode_command_response_for_storage(&stored.response_json)?;
+    let inserted = conn
+        .execute(
+            "INSERT OR IGNORE INTO canonical_command_receipts
+             (world_id, intent_id, request_hash, response_json, created_at_ms,
+              finalized, updated_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, 1, ?5)",
+            params![
+                world_id,
+                intent_id,
+                stored.request_hash,
+                response_json,
+                as_i64(created_at_ms)?
+            ],
+        )
+        .map_err(sqlite_error)?;
+    prune_finalized_command_receipts_to_capacity(&conn)?;
+    Ok(inserted == 1)
+}
+
 pub(super) fn insert_atomic_command_receipt(
     conn: &Connection,
     row: &CanonicalReceiptRow<'_>,
 ) -> io::Result<()> {
+    let response_json = encode_command_response_for_storage(row.response_json)?;
     conn.execute(
         "INSERT INTO canonical_command_receipts
             (world_id, intent_id, request_hash, response_json, created_at_ms,
@@ -1932,7 +2096,7 @@ pub(super) fn insert_atomic_command_receipt(
             row.world_id,
             row.intent_id,
             row.request_hash,
-            row.response_json,
+            response_json,
             as_i64(row.created_at_ms)?,
             row.commit_id,
             as_i64(row.world_epoch)?,
@@ -1950,11 +2114,22 @@ pub(super) fn finalize_atomic_command_receipt(
     world_id: &str,
     intent_id: &str,
     request_hash: &str,
-    response_json: &str,
+    retained_response_json: Option<&str>,
     world_seq: u64,
     updated_at_ms: u64,
 ) -> io::Result<bool> {
     let conn = open_canonical_store(path)?;
+    let Some(response_json) = retained_response_json else {
+        let deleted = conn
+            .execute(
+                "DELETE FROM canonical_command_receipts
+                 WHERE world_id = ?1 AND intent_id = ?2 AND request_hash = ?3",
+                params![world_id, intent_id, request_hash],
+            )
+            .map_err(sqlite_error)?;
+        return Ok(deleted == 1);
+    };
+    let response_json = encode_command_response_for_storage(response_json)?;
     let updated = conn
         .execute(
             "UPDATE canonical_command_receipts
@@ -1970,6 +2145,7 @@ pub(super) fn finalize_atomic_command_receipt(
             ],
         )
         .map_err(sqlite_error)?;
+    prune_finalized_command_receipts_to_capacity(&conn)?;
     Ok(updated == 1)
 }
 
@@ -2033,23 +2209,39 @@ impl Default for CommandReceiptRetention {
     }
 }
 
-/// Only finalized receipts expire. A provisional row is still owned by an
-/// in-flight commit, and dropping it would strand that commit's recovery.
+/// Only finalized explicit receipts expire. An explicit provisional row is
+/// still owned by an in-flight commit, while a server-minted compatibility row
+/// cannot be presented by a client to recover a response and is always removed.
 pub(super) fn purge_expired_command_receipts_for_retention(
     path: &Path,
     retention: CommandReceiptRetention,
     now_ms: u64,
 ) -> io::Result<usize> {
-    let Some(cutoff_ms) = retention.cutoff_ms(now_ms) else {
-        return Ok(0);
-    };
     let conn = open_canonical_store(path)?;
-    conn.execute(
-        "DELETE FROM canonical_command_receipts
-         WHERE finalized = 1 AND created_at_ms < ?1",
-        params![as_i64(cutoff_ms)?],
-    )
-    .map_err(sqlite_error)
+    // A compatibility intent is minted by the server after request receipt, so
+    // the client cannot reuse it to recover a lost response. Keep its exact
+    // response only in the bounded process cache and remove crash leftovers.
+    let deleted_compatibility = conn
+        .execute(
+            "DELETE FROM canonical_command_receipts
+             WHERE intent_id GLOB 'compat:*'",
+            [],
+        )
+        .map_err(sqlite_error)?;
+    let deleted_expired = match retention.cutoff_ms(now_ms) {
+        Some(cutoff_ms) => conn
+            .execute(
+                "DELETE FROM canonical_command_receipts
+                 WHERE finalized = 1 AND created_at_ms < ?1",
+                params![as_i64(cutoff_ms)?],
+            )
+            .map_err(sqlite_error)?,
+        None => 0,
+    };
+    let deleted_over_capacity = prune_finalized_command_receipts_to_capacity(&conn)?;
+    Ok(deleted_compatibility
+        .saturating_add(deleted_expired)
+        .saturating_add(deleted_over_capacity))
 }
 
 fn ensure_column(conn: &Connection, table: &str, column: &str, alter_sql: &str) -> io::Result<()> {
@@ -2153,6 +2345,7 @@ mod tests {
         write_at("expired", now_ms - 30 * day_ms, 1);
         write_at("fresh", now_ms - 2 * day_ms, 1);
         write_at("expired-provisional", now_ms - 30 * day_ms, 0);
+        write_at("compat:crash-leftover", now_ms - 2 * day_ms, 0);
 
         assert_eq!(
             purge_expired_command_receipts_for_retention(
@@ -2161,7 +2354,7 @@ mod tests {
                 now_ms,
             )
             .unwrap(),
-            1
+            2
         );
 
         let conn = Connection::open(&path).unwrap();
@@ -2187,6 +2380,193 @@ mod tests {
             .unwrap(),
             0
         );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn command_receipt_storage_compresses_and_reads_legacy_plaintext() {
+        let response = format!(
+            r#"{{"ok":true,"state":"{}","events":[]}}"#,
+            "steady-world-state-".repeat(16_000)
+        );
+        let stored = encode_command_response_for_storage(&response).unwrap();
+        assert!(stored.starts_with(COMMAND_RECEIPT_ZSTD_PREFIX));
+        assert!(stored.len() < response.len() / 10);
+        assert_eq!(
+            decode_command_response_from_storage(&stored).unwrap(),
+            response
+        );
+        assert_eq!(
+            decode_command_response_from_storage(r#"{"ok":true}"#).unwrap(),
+            r#"{"ok":true}"#
+        );
+
+        let path = temp_db("receipt-compression");
+        initialize(&path);
+        let conn = open_canonical_store(&path).unwrap();
+        insert_atomic_command_receipt(
+            &conn,
+            &CanonicalReceiptRow {
+                world_id: "world://test",
+                intent_id: "explicit:compressed",
+                request_hash: "hash",
+                response_json: r#"{"ok":true}"#,
+                commit_id: "commit:1",
+                world_epoch: 1,
+                world_seq: 1,
+                owner_id: "owner",
+                owner_fencing_epoch: 1,
+                created_at_ms: 1,
+            },
+        )
+        .unwrap();
+        drop(conn);
+        assert!(finalize_atomic_command_receipt(
+            &path,
+            "world://test",
+            "explicit:compressed",
+            "hash",
+            Some(&response),
+            2,
+            2,
+        )
+        .unwrap());
+        let conn = open_canonical_store(&path).unwrap();
+        let raw = conn
+            .query_row(
+                "SELECT response_json FROM canonical_command_receipts",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap();
+        assert!(raw.starts_with(COMMAND_RECEIPT_ZSTD_PREFIX));
+        drop(conn);
+        assert_eq!(
+            read_canonical_command_response(&path, "world://test", "explicit:compressed")
+                .unwrap()
+                .unwrap()
+                .response_json,
+            response
+        );
+        let (entries, bytes) = command_receipt_storage_report(&path).unwrap();
+        assert_eq!(entries, 1);
+        assert!(bytes < response.len() / 10);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn compatibility_receipt_is_discarded_after_its_atomic_commit() {
+        let path = temp_db("compatibility-receipt");
+        initialize(&path);
+        let conn = open_canonical_store(&path).unwrap();
+        insert_atomic_command_receipt(
+            &conn,
+            &CanonicalReceiptRow {
+                world_id: "world://test",
+                intent_id: "compat:generated",
+                request_hash: "hash",
+                response_json: r#"{"ok":true}"#,
+                commit_id: "commit:1",
+                world_epoch: 1,
+                world_seq: 1,
+                owner_id: "owner",
+                owner_fencing_epoch: 1,
+                created_at_ms: 1,
+            },
+        )
+        .unwrap();
+        drop(conn);
+        assert!(finalize_atomic_command_receipt(
+            &path,
+            "world://test",
+            "compat:generated",
+            "hash",
+            None,
+            2,
+            2,
+        )
+        .unwrap());
+        assert!(write_canonical_command_response(
+            &path,
+            "world://test",
+            "compat:non-atomic",
+            &StoredCommandResponse {
+                request_hash: "hash".to_string(),
+                response_json: "response".repeat(20_000),
+            },
+            false,
+            3,
+        )
+        .unwrap());
+        let conn = open_canonical_store(&path).unwrap();
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_command_receipts",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn command_receipt_capacity_keeps_only_the_newest_rows_within_both_bounds() {
+        let path = temp_db("receipt-capacity");
+        initialize(&path);
+        let conn = open_canonical_store(&path).unwrap();
+        for index in 0..8 {
+            conn.execute(
+                "INSERT INTO canonical_command_receipts
+                    (world_id, intent_id, request_hash, response_json,
+                     created_at_ms, finalized, updated_at_ms)
+                 VALUES ('world://test', ?1, 'hash', ?2, ?3, 1, ?3)",
+                params![format!("intent-{index}"), "x".repeat(128), index as i64],
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            prune_finalized_command_receipts_with_limits(&conn, 3, 1_000).unwrap(),
+            5
+        );
+        let retained = conn
+            .prepare(
+                "SELECT intent_id
+                 FROM canonical_command_receipts
+                 ORDER BY updated_at_ms",
+            )
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, String>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .unwrap();
+        assert_eq!(retained, vec!["intent-5", "intent-6", "intent-7"]);
+
+        conn.execute(
+            "INSERT INTO canonical_command_receipts
+                (world_id, intent_id, request_hash, response_json,
+                 created_at_ms, finalized, updated_at_ms)
+             VALUES ('world://test', 'intent-large', 'hash', ?1, 9, 1, 9)",
+            params!["y".repeat(1_100)],
+        )
+        .unwrap();
+        assert_eq!(
+            prune_finalized_command_receipts_with_limits(&conn, 3, 1_000).unwrap(),
+            3
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT intent_id FROM canonical_command_receipts",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            "intent-large"
+        );
+        drop(conn);
         let _ = fs::remove_file(path);
     }
 

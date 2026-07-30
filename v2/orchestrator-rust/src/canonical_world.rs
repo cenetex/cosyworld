@@ -133,10 +133,12 @@ impl CommandReceiptCache {
         self.evict_to_capacity();
     }
 
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.entries.len()
     }
 
+    #[cfg(test)]
     pub(super) fn retained_bytes(&self) -> usize {
         self.retained_bytes
     }
@@ -203,11 +205,14 @@ pub(super) fn validate_intent_id(value: &str) -> Result<String, &'static str> {
     let value = value.trim();
     if value.is_empty()
         || value.len() > 160
+        || value.starts_with("compat:")
         || !value
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.'))
     {
-        return Err("intent_id must be 1-160 ASCII letters, numbers, '-', '_', ':' or '.'");
+        return Err(
+            "intent_id must be 1-160 ASCII letters, numbers, '-', '_', ':' or '.' and may not use the reserved 'compat:' prefix",
+        );
     }
     Ok(value.to_string())
 }
@@ -259,6 +264,12 @@ mod tests {
             "api_west-2"
         );
         assert!(normalize_process_id("world://other", "PROCESS").is_err());
+    }
+
+    #[test]
+    fn client_intents_cannot_claim_the_server_compatibility_namespace() {
+        assert!(validate_intent_id("player:stable-intent").is_ok());
+        assert!(validate_intent_id("compat:server-owned").is_err());
     }
 
     fn stored(index: usize, response_json: String) -> StoredCommandResponse {
