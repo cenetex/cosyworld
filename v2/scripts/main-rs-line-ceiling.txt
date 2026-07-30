@@ -64,4 +64,8 @@
 # with its SSE transcript, and the accompanying cross-surface contract pins
 # the speaker-specific pending UI. This remains in main.rs beside the existing
 # chat orchestration and its browser integration contract.
-74481
+# 74481 -> 74549: issue #360 stops reporting a default arrival calling as a
+# chosen purpose. Six lines branch the existing calling copy on the reason the
+# server already embeds; the rest is the two regressions, which need
+# `room_memory_entries` and `INDEX_HTML` and so belong beside them.
+74549

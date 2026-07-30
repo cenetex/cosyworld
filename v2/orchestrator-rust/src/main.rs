@@ -11697,7 +11697,7 @@ impl RuntimeWorld {
         let reason = initial_calling
             .and_then(normalize_calling_statement)
             .map(|_| "chosen_calling")
-            .unwrap_or("avatar_created");
+            .unwrap_or(CALLING_REASON_AVATAR_CREATED);
         let mut projection_events =
             vec![self.append_calling_event("calling.set", &calling, reason)];
         if let Some(skill_id) = initial_skill.filter(|skill_id| skill_label(skill_id).is_some()) {
@@ -31457,13 +31457,17 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
         }
         "calling.set" | "calling.revised" => {
             let content = event.content.as_deref().unwrap_or_default().trim();
-            let statement = content
+            let (statement, reason) = content
                 .rsplit_once(':')
-                .map(|(statement, _reason)| statement)
-                .unwrap_or(content)
-                .trim()
-                .trim_end_matches('.');
-            if statement.is_empty() {
+                .map(|(statement, reason)| (statement, reason.trim()))
+                .unwrap_or((content, ""));
+            let statement = statement.trim().trim_end_matches('.');
+            // An arriving avatar is given a starting statement it never picked.
+            // Calling that a choice was the lie #360 reports: the journal
+            // claimed a purpose was chosen, then Class selection replaced it.
+            if reason == CALLING_REASON_AVATAR_CREATED {
+                format!("{actor_name} arrives with a purpose still to choose")
+            } else if statement.is_empty() {
                 format!("{actor_name} chose what matters to them")
             } else {
                 format!("{actor_name} chose a purpose: {statement}")
@@ -37387,6 +37391,10 @@ const AUTHORED_CALLING_STATEMENTS: [&str; 13] = [
     "I listen for the safer road no one has named yet.",
     EXPLORER_CALLING_STATEMENT,
 ];
+
+/// Reason recorded when an arriving avatar is given a starting calling it did
+/// not pick. Player-facing copy must not report this as a chosen purpose (#360).
+pub(crate) const CALLING_REASON_AVATAR_CREATED: &str = "avatar_created";
 
 fn default_calling_statement() -> &'static str {
     AUTHORED_CALLING_STATEMENTS[0]
@@ -46842,6 +46850,66 @@ mod tests {
             assert!(!text.contains("roll"));
             assert!(!text.contains("/4"));
             assert!(!text.contains("DC"));
+        }
+    }
+
+    /// Issue #360: an arriving avatar is handed a starting calling it never
+    /// picked, and every surface reported that as "chose a purpose" — then Class
+    /// selection replaced it, so the journal carried two contradictory claims of
+    /// choice. A default arrival now reads as an arrival.
+    #[test]
+    fn a_default_arrival_calling_is_not_reported_as_a_chosen_purpose() {
+        let arrival = [EventView {
+            seq: 1,
+            type_name: "calling.set".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            content: Some(format!(
+                "I listen for odd jobs.:{CALLING_REASON_AVATAR_CREATED}"
+            )),
+            ..EventView::default()
+        }];
+        let entries = room_memory_entries(COSY_COTTAGE_LOCATION_ID, &arrival);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, "calling");
+        assert_eq!(
+            entries[0].text,
+            "Moss Lantern arrives with a purpose still to choose"
+        );
+        // The statement the avatar did not pick is not presented as its purpose.
+        assert!(
+            !entries[0].text.contains("odd jobs"),
+            "an unchosen statement must not be shown as the purpose: {}",
+            entries[0].text
+        );
+
+        // A calling the player actually chose still reads as a choice.
+        let chosen = [EventView {
+            seq: 2,
+            type_name: "calling.set".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            content: Some("I listen for odd jobs.:chosen_calling".to_string()),
+            ..EventView::default()
+        }];
+        assert_eq!(
+            room_memory_entries(COSY_COTTAGE_LOCATION_ID, &chosen)[0].text,
+            "Moss Lantern chose a purpose: I listen for odd jobs"
+        );
+    }
+
+    #[test]
+    fn the_browser_also_declines_to_call_a_default_arrival_a_choice() {
+        for contract in [
+            "function callingEventReason(event)",
+            "callingEventReason(event) === \"avatar_created\"",
+            "arrives with a purpose still to choose",
+            "/^arrives\\b/i.test(purpose)",
+        ] {
+            assert!(
+                INDEX_HTML.contains(contract),
+                "missing arrival-calling contract: {contract}"
+            );
         }
     }
 
