@@ -27898,7 +27898,7 @@ fn acquire_command_authority_leases(
             .collect());
     };
     init_event_store(path)?;
-    acquire_partition_leases_for_region(
+    prepare_partition_leases_for_region(
         path,
         OFFICIAL_WORLD_ID,
         OFFICIAL_WORLD_EPOCH,
