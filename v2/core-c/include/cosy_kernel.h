@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 /* Version 9 is reserved by #411 for project-push ABI state. */
-#define CW_KERNEL_VERSION 11u
+#define CW_KERNEL_VERSION 12u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -20,6 +20,14 @@ extern "C" {
 #define CW_MAX_EVENTS 256u
 #define CW_MAX_COMBAT_ENCOUNTERS 32u
 #define CW_MAX_COMBAT_PARTICIPANTS 16u
+#define CW_MAX_GATES 32u
+#define CW_MAX_GATE_METHODS 8u
+#define CW_MAX_GATE_PREDICATES 8u
+#define CW_MAX_GATE_METHOD_RECORDS 64u
+#define CW_MAX_GATE_PREDICATE_RECORDS 256u
+#define CW_MAX_GATE_FACTS 8u
+#define CW_MAX_GATE_ACTOR_STATES 128u
+#define CW_MAX_GATE_CLAIMS 128u
 
 #define CW_ITEM_DEFAULT_WEIGHT_TENTHS 10u
 
@@ -58,6 +66,9 @@ typedef enum {
   CW_REASON_COMBAT_ACTION_REQUIRED = 20,
   CW_REASON_CAPACITY_EXCEEDED = 21,
   CW_REASON_REST_GRADE_OVERCLAIMED = 22,
+  CW_REASON_GATE_CLOSED = 23,
+  CW_REASON_STALE_GATE_OFFER = 24,
+  CW_REASON_GATE_CLAIM_CONFLICT = 25,
   CW_REASON_COUNT
 } cw_rejection_reason;
 
@@ -135,6 +146,62 @@ typedef enum {
 } cw_item_recovery;
 
 typedef enum {
+  CW_ITEM_FLAG_NONE = 0,
+  CW_ITEM_FLAG_INERT = 1u << 0
+} cw_item_flags;
+
+typedef enum {
+  CW_GATE_TARGET_NONE = 0,
+  CW_GATE_TARGET_EXIT = 1,
+  CW_GATE_TARGET_CONTAINER = 2
+} cw_gate_target_kind;
+
+typedef enum {
+  CW_GATE_SCOPE_NONE = 0,
+  CW_GATE_SCOPE_WORLD = 1,
+  CW_GATE_SCOPE_ACTOR = 2,
+  CW_GATE_SCOPE_EXPEDITION = 3,
+  CW_GATE_SCOPE_HOLDER = 4
+} cw_gate_scope;
+
+typedef enum {
+  CW_GATE_STATE_NONE = 0,
+  CW_GATE_STATE_CLOSED = 1,
+  CW_GATE_STATE_OPEN = 2,
+  CW_GATE_STATE_BROKEN = 3,
+  CW_GATE_STATE_INERT = 4
+} cw_gate_state;
+
+typedef enum {
+  CW_GATE_COMPAT_NONE = 0,
+  /* A historical CW_EXIT_LOCKED bit remains recorded on the route. Once a
+     descriptor is bound, this gate decision supersedes that bit. */
+  CW_GATE_COMPAT_RECORDED_LOCK = 1
+} cw_gate_compatibility;
+
+typedef enum {
+  CW_GATE_PREDICATE_NONE = 0,
+  CW_GATE_PREDICATE_HELD_ITEM = 1,
+  CW_GATE_PREDICATE_HELD_ITEM_CAPABILITY = 2,
+  CW_GATE_PREDICATE_INSTALLED_ITEM = 3,
+  CW_GATE_PREDICATE_MINIMUM_CHARGES = 4,
+  CW_GATE_PREDICATE_ACTOR_FACT = 5,
+  CW_GATE_PREDICATE_WORLD_FACT = 6
+} cw_gate_predicate_kind;
+
+typedef enum {
+  CW_GATE_TRANSITION_NONE = 0,
+  CW_GATE_TRANSITION_OPEN = 1,
+  CW_GATE_TRANSITION_CLOSE = 2,
+  CW_GATE_TRANSITION_BREAK = 3,
+  CW_GATE_TRANSITION_RELOCK = 4,
+  CW_GATE_TRANSITION_INSTALL = 5,
+  CW_GATE_TRANSITION_REMOVE = 6,
+  CW_GATE_TRANSITION_EXHAUST = 7,
+  CW_GATE_TRANSITION_RENDER_INERT = 8
+} cw_gate_transition_kind;
+
+typedef enum {
   CW_REST_GRADE_NONE = 0,
   CW_REST_GRADE_CAMP = 1,
   CW_REST_GRADE_LODGED = 2,
@@ -209,7 +276,8 @@ typedef enum {
      orchestrator commits this only after bounded recovery attempts fail
      deterministically; it resolves the encounter with no winning side so a
      stuck scene releases its participants instead of retrying forever. */
-  CW_ACTION_COMBAT_ABANDON = 33
+  CW_ACTION_COMBAT_ABANDON = 33,
+  CW_ACTION_GATE_TRANSITION = 34
 } cw_action_kind;
 
 typedef enum {
@@ -256,7 +324,11 @@ typedef enum {
   CW_EVENT_ITEM_REVEALED = 40,
   CW_EVENT_PROJECT_PUSH_RESOLVED = 41,
   /* Event 41 is reserved by #411 for CW_EVENT_PROJECT_PUSH_RESOLVED. */
-  CW_EVENT_ITEM_REFRESHED = 42
+  CW_EVENT_ITEM_REFRESHED = 42,
+  CW_EVENT_GATE_TRANSITION_APPLIED = 43,
+  CW_EVENT_ITEM_INSTALLED = 44,
+  CW_EVENT_ITEM_REMOVED = 45,
+  CW_EVENT_ITEM_RENDERED_INERT = 46
 } cw_event_type;
 
 typedef enum {
@@ -359,6 +431,94 @@ _Static_assert(offsetof(cw_item, location_id) == 24, "cw_item id ABI offset drif
 #endif
 
 typedef struct {
+  cw_id subject_id;
+  cw_id fact_id;
+  uint64_t value;
+  uint64_t source_version;
+} cw_gate_fact;
+
+typedef struct {
+  uint8_t kind;
+  uint8_t amount;
+  uint16_t reserved;
+  uint32_t reserved2;
+  cw_id subject_id;
+  cw_id target_id;
+  cw_id fact_id;
+  uint64_t expected_value;
+} cw_gate_predicate;
+
+typedef struct {
+  cw_id id;
+  size_t predicate_start;
+  size_t predicate_count;
+} cw_gate_method;
+
+typedef struct {
+  cw_id id;
+  size_t predicate_count;
+  cw_gate_predicate predicates[CW_MAX_GATE_PREDICATES];
+} cw_gate_method_definition;
+
+typedef struct {
+  cw_id id;
+  uint64_t version;
+  uint32_t descriptor_version;
+  uint8_t target_kind;
+  uint8_t scope;
+  uint8_t state;
+  uint8_t compatibility;
+  cw_id from_location_id;
+  cw_id to_location_id;
+  cw_id target_item_id;
+  size_t method_start;
+  size_t method_count;
+} cw_gate;
+
+typedef struct {
+  cw_id gate_id;
+  cw_id actor_id;
+  uint64_t version;
+  uint8_t state;
+  uint8_t reserved[7];
+} cw_gate_actor_state;
+
+typedef struct {
+  cw_id id;
+  cw_id gate_id;
+  cw_id actor_id;
+  cw_id item_id;
+  cw_id method_id;
+  uint8_t transition;
+  uint8_t reserved[7];
+} cw_gate_claim;
+
+typedef struct {
+  cw_id gate_id;
+  cw_id method_id;
+  uint64_t gate_version;
+  uint64_t access_revision;
+  uint64_t evidence_digest;
+  uint32_t evidence_mask;
+  uint16_t reason;
+  uint8_t state;
+  uint8_t allowed;
+} cw_gate_decision;
+
+typedef struct {
+  cw_id gate_id;
+  cw_id method_id;
+  cw_id claim_id;
+  uint64_t expected_gate_version;
+  uint64_t expected_access_revision;
+  uint64_t expected_evidence_digest;
+  size_t fact_count;
+  cw_gate_fact facts[CW_MAX_GATE_FACTS];
+  uint8_t transition;
+  uint8_t reserved[7];
+} cw_threshold_input;
+
+typedef struct {
   uint8_t requested_grade;
   uint8_t entitled_grade;
 } cw_rest_input;
@@ -400,6 +560,7 @@ typedef struct {
   uint16_t reserved2;
   cw_project_push_input project_push;
   cw_rest_input rest;
+  cw_threshold_input threshold;
 } cw_action;
 
 typedef struct {
@@ -421,6 +582,15 @@ typedef struct {
   int16_t damage;
   int16_t current_hp;
   uint8_t ability;
+  uint8_t gate_transition;
+  uint16_t reserved;
+  uint32_t gate_evidence_mask;
+  cw_id gate_id;
+  cw_id gate_method_id;
+  cw_id gate_claim_id;
+  uint64_t gate_version;
+  uint64_t access_revision;
+  uint64_t gate_evidence_digest;
 } cw_event;
 
 typedef struct {
@@ -481,6 +651,17 @@ typedef struct {
   cw_evolution_track evolution_tracks[CW_MAX_EVOLUTION_TRACKS];
   size_t combat_encounter_count;
   cw_combat_encounter combat_encounters[CW_MAX_COMBAT_ENCOUNTERS];
+  uint64_t access_revision;
+  size_t gate_count;
+  cw_gate gates[CW_MAX_GATES];
+  size_t gate_method_count;
+  cw_gate_method gate_methods[CW_MAX_GATE_METHOD_RECORDS];
+  size_t gate_predicate_count;
+  cw_gate_predicate gate_predicates[CW_MAX_GATE_PREDICATE_RECORDS];
+  size_t gate_actor_state_count;
+  cw_gate_actor_state gate_actor_states[CW_MAX_GATE_ACTOR_STATES];
+  size_t gate_claim_count;
+  cw_gate_claim gate_claims[CW_MAX_GATE_CLAIMS];
 } cw_world;
 
 void cw_world_init(cw_world *world);
@@ -489,6 +670,9 @@ cw_status cw_world_set_item_profile(cw_world *world, cw_id item_id, uint16_t wei
 cw_status cw_world_set_item_recovery_profile(cw_world *world, cw_id item_id, uint8_t max_charges, uint8_t recovery, uint8_t ready_zone);
 cw_status cw_world_set_item_zone(cw_world *world, cw_id item_id, uint8_t zone, cw_id container_item_id);
 cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_evolution_requirement *requirements, size_t requirement_count);
+cw_status cw_world_set_gate(cw_world *world, const cw_gate *gate, const cw_gate_method_definition *methods, size_t method_count);
+void cw_world_access_changed(cw_world *world);
+cw_status cw_gate_evaluate(const cw_world *world, cw_id gate_id, cw_id actor_id, const cw_gate_fact *facts, size_t fact_count, cw_id method_id, cw_gate_decision *out_decision);
 /* Deterministic apply without clock advancement. Player-card callers own the tick. */
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events);
 cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events);

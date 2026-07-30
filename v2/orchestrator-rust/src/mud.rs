@@ -1850,7 +1850,7 @@ impl RuntimeWorld {
                     });
                 }
                 let destination = if rest.trim().is_empty() {
-                    self.first_accessible_exit(actor.location_id, access)
+                    self.first_accessible_exit(actor.id, actor.location_id, access)
                         .ok_or_else(|| command_error(&command, "flee", 404, "There is nowhere clear to flee."))?
                 } else {
                     self.resolve_exit_destination(actor, rest, access).map_err(|output| {
@@ -3314,9 +3314,9 @@ impl RuntimeWorld {
             .map(|item| self.item_view(item).name)
             .collect::<Vec<_>>();
         let exits = self
-            .exit_views(location_id, access)
+            .exit_views(Some(actor.id), location_id, access)
             .into_iter()
-            .filter(|exit| exit.accessible)
+            .filter(|exit| exit.accessible && !exit.locked)
             .map(|exit| {
                 exit.direction
                     .as_deref()
@@ -3771,9 +3771,9 @@ impl RuntimeWorld {
         access: &AccessContext,
     ) -> Result<u64, &'static str> {
         let exits = self
-            .exit_views(actor.location_id, access)
+            .exit_views(Some(actor.id), actor.location_id, access)
             .into_iter()
-            .filter(|exit| exit.accessible)
+            .filter(|exit| exit.accessible && !exit.locked)
             .collect::<Vec<_>>();
         if query.trim().is_empty() && exits.len() == 1 {
             return exits
@@ -3817,10 +3817,15 @@ impl RuntimeWorld {
             .ok_or("No accessible exit matches that command.")
     }
 
-    fn first_accessible_exit(&self, location_id: u64, access: &AccessContext) -> Option<u64> {
-        self.exit_views(location_id, access)
+    fn first_accessible_exit(
+        &self,
+        actor_id: u64,
+        location_id: u64,
+        access: &AccessContext,
+    ) -> Option<u64> {
+        self.exit_views(Some(actor_id), location_id, access)
             .into_iter()
-            .find(|exit| exit.accessible)
+            .find(|exit| exit.accessible && !exit.locked)
             .map(|exit| exit.destination_location_id)
     }
 }

@@ -29,6 +29,13 @@ static cw_exit *test_find_exit(cw_world *world, cw_id from_location_id, cw_id to
   return 0;
 }
 
+static cw_gate *test_find_gate(cw_world *world, cw_id gate_id) {
+  for (size_t i = 0; i < world->gate_count; ++i) {
+    if (world->gates[i].id == gate_id) return &world->gates[i];
+  }
+  return 0;
+}
+
 static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_ACTORS >= 512u);
   assert(CW_MAX_ITEMS >= 1024u);
@@ -36,6 +43,9 @@ static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_EXITS >= 1024u);
   assert(CW_MAX_EVENTS >= 128u);
   assert(CW_MAX_EVOLUTION_TRACKS >= 128u);
+  assert(CW_MAX_GATES >= 32u);
+  assert(CW_MAX_GATE_CLAIMS >= 128u);
+  assert(sizeof(cw_world) <= 170000u);
 }
 
 static void test_seed_and_chat(void) {
@@ -1674,6 +1684,311 @@ static void test_authoritative_world_effect_actions(void) {
   assert(cw_world_apply(&world, &reveal, 84, &events) == CW_ERR_RULE);
 }
 
+static cw_gate_decision bind_gate_action(
+    const cw_world *world,
+    cw_action *action,
+    cw_id gate_id,
+    cw_id method_id,
+    uint8_t transition,
+    cw_id claim_id) {
+  cw_gate_decision decision = {0};
+  assert(cw_gate_evaluate(
+      world,
+      gate_id,
+      action->actor_id,
+      action->threshold.facts,
+      action->threshold.fact_count,
+      method_id,
+      &decision) == CW_OK);
+  action->threshold.gate_id = gate_id;
+  action->threshold.method_id = method_id;
+  action->threshold.claim_id = claim_id;
+  action->threshold.expected_gate_version = decision.gate_version;
+  action->threshold.expected_access_revision = decision.access_revision;
+  action->threshold.expected_evidence_digest = decision.evidence_digest;
+  action->threshold.transition = transition;
+  return decision;
+}
+
+static void test_kernel_gate_authority_stale_offers_and_claims(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.actor_id = 5001;
+  create.location_id = 1;
+  assert(cw_world_apply(&world, &create, 90, &events) == CW_OK);
+
+  cw_action pickup = {0};
+  pickup.kind = CW_ACTION_PICK_UP_ITEM;
+  pickup.actor_id = 1001;
+  pickup.item_id = 2001;
+  assert(cw_world_apply(&world, &pickup, 91, &events) == CW_OK);
+
+  cw_exit *historical_exit = test_find_exit(&world, 1, 2);
+  assert(historical_exit);
+  historical_exit->flags |= CW_EXIT_LOCKED;
+  cw_gate holder_gate = {0};
+  holder_gate.id = 7001;
+  holder_gate.version = 1;
+  holder_gate.descriptor_version = 1;
+  holder_gate.target_kind = CW_GATE_TARGET_EXIT;
+  holder_gate.scope = CW_GATE_SCOPE_HOLDER;
+  holder_gate.state = CW_GATE_STATE_CLOSED;
+  holder_gate.compatibility = CW_GATE_COMPAT_RECORDED_LOCK;
+  holder_gate.from_location_id = 1;
+  holder_gate.to_location_id = 2;
+  cw_gate_method_definition holder_methods[1] = {0};
+  holder_methods[0].id = 7101;
+  holder_methods[0].predicate_count = 1;
+  holder_methods[0].predicates[0].kind = CW_GATE_PREDICATE_HELD_ITEM;
+  holder_methods[0].predicates[0].subject_id = 2001;
+  assert(cw_world_set_gate(&world, &holder_gate, holder_methods, 1) == CW_OK);
+
+  cw_action legacy_unlock = {0};
+  legacy_unlock.kind = CW_ACTION_UNLOCK_EXIT;
+  legacy_unlock.actor_id = 1001;
+  legacy_unlock.location_id = 1;
+  legacy_unlock.destination_location_id = 2;
+  assert(cw_world_apply(&world, &legacy_unlock, 91, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_STALE_GATE_OFFER);
+  assert(historical_exit->flags & CW_EXIT_LOCKED);
+
+  cw_gate_decision holder_decision = {0};
+  assert(cw_gate_evaluate(&world, 7001, 1001, 0, 0, 7101, &holder_decision) == CW_OK);
+  assert(holder_decision.allowed);
+  cw_gate_decision companion_decision = {0};
+  assert(cw_gate_evaluate(&world, 7001, 5001, 0, 0, 7101, &companion_decision) == CW_OK);
+  assert(!companion_decision.allowed);
+  assert(companion_decision.reason == CW_REASON_GATE_CLOSED);
+
+  cw_action holder_move = {0};
+  holder_move.kind = CW_ACTION_MOVE;
+  holder_move.actor_id = 1001;
+  holder_move.destination_location_id = 2;
+  bind_gate_action(&world, &holder_move, 7001, 7101, CW_GATE_TRANSITION_NONE, 0);
+  assert(cw_world_apply(&world, &holder_move, 92, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ACTOR_MOVED);
+  assert(events.events[0].gate_id == 7001);
+  assert(historical_exit->flags & CW_EXIT_LOCKED);
+
+  cw_action denied_move = {0};
+  denied_move.kind = CW_ACTION_MOVE;
+  denied_move.actor_id = 5001;
+  denied_move.destination_location_id = 2;
+  bind_gate_action(&world, &denied_move, 7001, 7101, CW_GATE_TRANSITION_NONE, 0);
+  assert(cw_world_apply(&world, &denied_move, 93, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_GATE_CLOSED);
+
+  cw_action return_move = {0};
+  return_move.kind = CW_ACTION_MOVE;
+  return_move.actor_id = 1001;
+  return_move.destination_location_id = 1;
+  assert(cw_world_apply(&world, &return_move, 94, &events) == CW_OK);
+
+  cw_action stale_holder_move = {0};
+  stale_holder_move.kind = CW_ACTION_MOVE;
+  stale_holder_move.actor_id = 1001;
+  stale_holder_move.destination_location_id = 2;
+  bind_gate_action(
+      &world,
+      &stale_holder_move,
+      7001,
+      7101,
+      CW_GATE_TRANSITION_NONE,
+      0);
+
+  cw_action give = {0};
+  give.kind = CW_ACTION_GIVE_ITEM;
+  give.actor_id = 1001;
+  give.target_actor_id = 5001;
+  give.item_id = 2001;
+  assert(cw_world_apply(&world, &give, 95, &events) == CW_OK);
+  assert(cw_world_apply(&world, &stale_holder_move, 96, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_STALE_GATE_OFFER);
+
+  cw_gate installed_gate = {0};
+  installed_gate.id = 7002;
+  installed_gate.version = 1;
+  installed_gate.descriptor_version = 1;
+  installed_gate.target_kind = CW_GATE_TARGET_EXIT;
+  installed_gate.scope = CW_GATE_SCOPE_WORLD;
+  installed_gate.state = CW_GATE_STATE_CLOSED;
+  installed_gate.from_location_id = 1;
+  installed_gate.to_location_id = 11;
+  cw_gate_method_definition installed_methods[2] = {0};
+  installed_methods[0].id = 7201;
+  installed_methods[0].predicate_count = 1;
+  installed_methods[0].predicates[0].kind = CW_GATE_PREDICATE_HELD_ITEM;
+  installed_methods[0].predicates[0].subject_id = 2001;
+  installed_methods[1].id = 7202;
+  installed_methods[1].predicate_count = 1;
+  installed_methods[1].predicates[0].kind = CW_GATE_PREDICATE_INSTALLED_ITEM;
+  installed_methods[1].predicates[0].subject_id = 2001;
+  installed_methods[1].predicates[0].target_id = 1;
+  assert(cw_world_set_gate(&world, &installed_gate, installed_methods, 2) == CW_OK);
+
+  cw_action install = {0};
+  install.kind = CW_ACTION_GATE_TRANSITION;
+  install.actor_id = 5001;
+  install.item_id = 2001;
+  bind_gate_action(
+      &world,
+      &install,
+      7002,
+      7201,
+      CW_GATE_TRANSITION_INSTALL,
+      7301);
+  assert(cw_world_apply(&world, &install, 97, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_GATE_TRANSITION_APPLIED);
+  assert(events.events[1].type == CW_EVENT_ITEM_INSTALLED);
+  assert(test_find_item(&world, 2001)->zone == CW_CARD_ZONE_INSTALLED);
+
+  cw_action installed_move = {0};
+  installed_move.kind = CW_ACTION_MOVE;
+  installed_move.actor_id = 1001;
+  installed_move.destination_location_id = 11;
+  bind_gate_action(
+      &world,
+      &installed_move,
+      7002,
+      7202,
+      CW_GATE_TRANSITION_NONE,
+      0);
+
+  cw_action remove = {0};
+  remove.kind = CW_ACTION_GATE_TRANSITION;
+  remove.actor_id = 5001;
+  remove.item_id = 2001;
+  bind_gate_action(
+      &world,
+      &remove,
+      7002,
+      7202,
+      CW_GATE_TRANSITION_REMOVE,
+      7302);
+  assert(cw_world_apply(&world, &remove, 98, &events) == CW_OK);
+  assert(test_find_actor(&world, 1001)->location_id == 1);
+  assert(test_find_item(&world, 2001)->holder_actor_id == 5001);
+  assert(cw_world_apply(&world, &installed_move, 99, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_STALE_GATE_OFFER);
+  bind_gate_action(
+      &world,
+      &installed_move,
+      7002,
+      7202,
+      CW_GATE_TRANSITION_NONE,
+      0);
+  assert(cw_world_apply(&world, &installed_move, 100, &events) == CW_ERR_RULE);
+  assert(events.events[0].reason == CW_REASON_GATE_CLOSED);
+
+  cw_action gate_state = {0};
+  gate_state.kind = CW_ACTION_GATE_TRANSITION;
+  gate_state.actor_id = 5001;
+  bind_gate_action(
+      &world,
+      &gate_state,
+      7002,
+      7201,
+      CW_GATE_TRANSITION_OPEN,
+      7401);
+  assert(cw_world_apply(&world, &gate_state, 100, &events) == CW_OK);
+  assert(test_find_gate(&world, 7002)->state == CW_GATE_STATE_OPEN);
+  bind_gate_action(
+      &world,
+      &gate_state,
+      7002,
+      0,
+      CW_GATE_TRANSITION_CLOSE,
+      7402);
+  assert(cw_world_apply(&world, &gate_state, 100, &events) == CW_OK);
+  assert(test_find_gate(&world, 7002)->state == CW_GATE_STATE_CLOSED);
+  bind_gate_action(
+      &world,
+      &gate_state,
+      7002,
+      7201,
+      CW_GATE_TRANSITION_OPEN,
+      7403);
+  assert(cw_world_apply(&world, &gate_state, 100, &events) == CW_OK);
+  bind_gate_action(
+      &world,
+      &gate_state,
+      7002,
+      0,
+      CW_GATE_TRANSITION_RELOCK,
+      7404);
+  assert(cw_world_apply(&world, &gate_state, 100, &events) == CW_OK);
+  assert(test_find_gate(&world, 7002)->state == CW_GATE_STATE_CLOSED);
+  bind_gate_action(
+      &world,
+      &gate_state,
+      7002,
+      7201,
+      CW_GATE_TRANSITION_BREAK,
+      7405);
+  assert(cw_world_apply(&world, &gate_state, 100, &events) == CW_OK);
+  assert(test_find_gate(&world, 7002)->state == CW_GATE_STATE_BROKEN);
+  bind_gate_action(
+      &world,
+      &gate_state,
+      7002,
+      0,
+      CW_GATE_TRANSITION_CLOSE,
+      7406);
+  assert(cw_world_apply(&world, &gate_state, 100, &events) == CW_OK);
+
+  cw_item *inert_item = test_find_item(&world, 2002);
+  assert(inert_item);
+  inert_item->holder_actor_id = 5001;
+  inert_item->location_id = 0;
+  inert_item->zone = CW_CARD_ZONE_CARRIED;
+  cw_action render_inert = {0};
+  render_inert.kind = CW_ACTION_GATE_TRANSITION;
+  render_inert.actor_id = 5001;
+  render_inert.item_id = 2002;
+  bind_gate_action(
+      &world,
+      &render_inert,
+      7002,
+      7201,
+      CW_GATE_TRANSITION_RENDER_INERT,
+      7501);
+  assert(cw_world_apply(&world, &render_inert, 100, &events) == CW_OK);
+  assert(events.events[1].type == CW_EVENT_ITEM_RENDERED_INERT);
+  assert(inert_item->reserved & CW_ITEM_FLAG_INERT);
+
+  cw_action exhaust = {0};
+  exhaust.kind = CW_ACTION_GATE_TRANSITION;
+  exhaust.actor_id = 5001;
+  exhaust.item_id = 2001;
+  bind_gate_action(
+      &world,
+      &exhaust,
+      7002,
+      7201,
+      CW_GATE_TRANSITION_EXHAUST,
+      7303);
+  assert(cw_world_apply(&world, &exhaust, 101, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[1].type == CW_EVENT_ITEM_EXHAUSTED);
+  assert(test_find_item(&world, 2001)->charges == 0);
+  uint64_t revision_after_exhaust = world.access_revision;
+  uint64_t sequence_after_exhaust = world.next_event_seq;
+  uint64_t tick_after_exhaust = world.tick;
+  assert(cw_world_apply_with_tick(&world, &exhaust, 102, 1, &events) == CW_OK);
+  assert(events.count == 0);
+  assert(world.access_revision == revision_after_exhaust);
+  assert(world.next_event_seq == sequence_after_exhaust);
+  assert(world.tick == tick_after_exhaust);
+  assert(world.gate_claim_count == 10);
+}
+
 static uint8_t test_combat_side(const cw_combat_encounter *encounter, cw_id actor_id) {
   for (size_t i = 0; i < encounter->participant_count; ++i) {
     if (encounter->participants[i].actor_id == actor_id) {
@@ -1888,6 +2203,7 @@ int main(void) {
   test_inventory_uses_weight_and_container_capacity();
   test_search_and_craft_create_without_consuming_inputs();
   test_authoritative_world_effect_actions();
+  test_kernel_gate_authority_stale_offers_and_claims();
   test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides();
   test_project_push_resolution_matrix_and_action_event();
   test_deterministic_replay();
