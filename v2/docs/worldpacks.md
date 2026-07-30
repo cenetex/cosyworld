@@ -746,6 +746,16 @@ currently mounted descriptor. Generated prose may explain a certified outcome,
 but `authoring_authority` is always `authored_pack` and model, provider, client,
 user, or wall-clock text cannot compile as authoritative input.
 
+Hazards may add `hazard-resolution-v1` mechanics that bind one exact Gate on
+the same typed target. Each Gate method names its sensory trigger, eligible
+Hazard states, deterministic target policy, success/failure state, and
+consequence policy. Public method offers always expose the authored tells and
+consequence; the mechanism stays hidden until an explicit Search or Study
+evidence tag exists. Accepted intents freeze the trigger, prior revision,
+ordered targets, tells, state transition, and typed clock consequences.
+Developer inspection always includes the complete mechanism, trigger table,
+and current authoritative state.
+
 The v1 fixture covers a retained-key door, installed-relic gate, consumable
 seal, holder-only threshold, key-bypass trapped chest with table-stocked
 contents, bounded ruin pressure, and a cairn-markable Lead. Anchor
