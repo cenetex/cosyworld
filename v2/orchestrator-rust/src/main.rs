@@ -1272,6 +1272,18 @@ struct AvatarIdentityState {
     qualifying_world_actions: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     class_source_event_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    class_readiness_evidence: Option<ClassReadinessEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct ClassReadinessEvidence {
+    offer_kind: String,
+    strategy_label: String,
+    target: ResolvedContributionTarget,
+    outcome: String,
+    progress: u8,
+    source_event_seq: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2848,6 +2860,10 @@ struct CharacterCreationChoiceView {
     title: String,
     description: String,
     starting_skill_id: String,
+    starting_skill_label: String,
+    starting_ability: String,
+    starting_bonus: i16,
+    campaign_use: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2858,6 +2874,14 @@ struct CharacterCreationIdentityCardView {
     title: String,
     description: String,
     visual_prompt: String,
+    campaign_rule: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterClassRecommendationView {
+    class_id: String,
+    class_label: String,
+    explanation: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2871,6 +2895,8 @@ struct CharacterIdentityView {
     class_label: Option<String>,
     class_selection_ready: bool,
     qualifying_world_actions: u8,
+    class_readiness_evidence: Option<ClassReadinessEvidence>,
+    class_recommendation: Option<CharacterClassRecommendationView>,
     level: u8,
 }
 
@@ -4057,6 +4083,14 @@ fn character_creation_views() -> Vec<CharacterCreationProfileView> {
                             title: choice.title.clone(),
                             description: choice.description.clone(),
                             starting_skill_id: choice.starting_skill_id.clone(),
+                            starting_skill_label: skill_label(&choice.starting_skill_id)
+                                .unwrap_or("Knack")
+                                .to_string(),
+                            starting_ability: skill_ability_label(&choice.starting_skill_id)
+                                .unwrap_or("Ability")
+                                .to_string(),
+                            starting_bonus: 1,
+                            campaign_use: choice.campaign_use.clone(),
                         })
                         .collect(),
                     default_species_id: profile.default_species_id.clone(),
@@ -4086,6 +4120,7 @@ fn character_creation_identity_card_view(
         title: card.title.clone(),
         description: card.description.clone(),
         visual_prompt: card.visual_prompt.clone(),
+        campaign_rule: card.campaign_rule.clone(),
     }
 }
 
@@ -11632,149 +11667,6 @@ impl RuntimeWorld {
             ));
         }
         projected
-    }
-
-    fn apply_actor_creation_rpg_projection(
-        &mut self,
-        action: &CwAction,
-        events: &[EventView],
-        initial_calling: Option<&str>,
-        initial_skill: Option<&str>,
-        initial_character_profile_id: Option<&str>,
-        initial_species_id: Option<&str>,
-        initial_origin_id: Option<&str>,
-        initial_physical_description: Option<&str>,
-    ) -> Vec<EventView> {
-        if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
-            return Vec::new();
-        }
-        let Some(actor) = self.actor_by_id(action.actor_id) else {
-            return Vec::new();
-        };
-        if !Self::actor_can_act(actor) {
-            return Vec::new();
-        }
-        if let (Some(profile_id), Some(species_id), Some(origin_id)) = (
-            initial_character_profile_id,
-            initial_species_id,
-            initial_origin_id,
-        ) {
-            self.character_identities
-                .entry(action.actor_id)
-                .or_insert_with(|| AvatarIdentityState {
-                    actor_id: action.actor_id,
-                    profile_id: profile_id.to_string(),
-                    species_id: species_id.to_string(),
-                    origin_id: origin_id.to_string(),
-                    physical_description: initial_physical_description
-                        .map(compact_whitespace)
-                        .unwrap_or_default(),
-                    class_id: None,
-                    class_selection_ready: false,
-                    qualifying_world_actions: 0,
-                    class_source_event_seq: None,
-                });
-        }
-        let source_event_seq = events
-            .iter()
-            .find(|event| event.actor_id == Some(action.actor_id))
-            .map(|event| event.seq);
-        let calling = CallingState {
-            actor_id: action.actor_id,
-            statement: initial_calling
-                .and_then(normalize_calling_statement)
-                .unwrap_or_else(|| default_calling_statement().to_string()),
-            source_event_seq,
-        };
-        self.callings.insert(action.actor_id, calling.clone());
-        let reason = initial_calling
-            .and_then(normalize_calling_statement)
-            .map(|_| "chosen_calling")
-            .unwrap_or(CALLING_REASON_AVATAR_CREATED);
-        let mut projection_events =
-            vec![self.append_calling_event("calling.set", &calling, reason)];
-        if let Some(skill_id) = initial_skill.filter(|skill_id| skill_label(skill_id).is_some()) {
-            let id = skill_state_id(action.actor_id, skill_id);
-            if !self.skills.contains_key(&id) {
-                let skill = SkillState {
-                    actor_id: action.actor_id,
-                    skill_id: skill_id.to_string(),
-                    label: skill_label(skill_id).unwrap_or("Knack").to_string(),
-                    rank: 1,
-                    updated_event_seq: Some(self.world.next_event_seq),
-                };
-                self.skills.insert(id, skill.clone());
-                projection_events.push(self.append_skill_event(
-                    "skill.stepped",
-                    &skill,
-                    "character_creation",
-                ));
-            }
-        }
-        projection_events
-    }
-
-    fn apply_class_readiness_projection(
-        &mut self,
-        record: &JournalRecord,
-        action: &CwAction,
-        committed_events: &[EventView],
-    ) -> Vec<EventView> {
-        if action.actor_id == 0
-            || action.kind == CW_ACTION_CREATE_ACTOR
-            || !matches!(
-                record.origin,
-                JournalOrigin::PlayerCard | JournalOrigin::Speech
-            )
-        {
-            return Vec::new();
-        }
-        if action.kind == CW_ACTION_NONE
-            && !record.projection_mutations.is_empty()
-            && record
-                .projection_mutations
-                .iter()
-                .all(|mutation| matches!(mutation, ProjectionMutation::ShuffleHand { .. }))
-        {
-            return Vec::new();
-        }
-        let shared_world_contribution = committed_events.iter().any(|event| {
-            event.type_name == "job.contribution.resolved"
-                && event.actor_id == Some(action.actor_id)
-                && event
-                    .content
-                    .as_deref()
-                    .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
-                    .is_some_and(|trace| trace.total_progress > 0)
-        });
-        if !shared_world_contribution {
-            return Vec::new();
-        }
-        let became_ready = {
-            let Some(identity) = self.character_identities.get_mut(&action.actor_id) else {
-                return Vec::new();
-            };
-            if identity.class_id.is_some() || identity.class_selection_ready {
-                return Vec::new();
-            }
-            identity.qualifying_world_actions = identity.qualifying_world_actions.saturating_add(1);
-            identity.class_selection_ready = identity.qualifying_world_actions >= 1;
-            identity.class_selection_ready
-        };
-        became_ready
-            .then(|| {
-                self.append_async_job_event(
-                    "class.selection_ready",
-                    action.actor_id,
-                    None,
-                    Some(
-                        "Your contribution changed the shared world. Optional campaign rules are now available."
-                            .to_string(),
-                    ),
-                )
-            })
-            .into_iter()
-            .collect()
     }
 
     fn apply_progress_contribution_ledger_projection(
@@ -37569,6 +37461,18 @@ fn skill_label(skill_id: &str) -> Option<&'static str> {
     }
 }
 
+fn skill_ability_label(skill_id: &str) -> Option<&'static str> {
+    match skill_id {
+        "lifting" => Some("Strength"),
+        "nimble_hands" => Some("Dexterity"),
+        "steadiness" => Some("Constitution"),
+        "lorecraft" => Some("Intelligence"),
+        "listening" => Some("Wisdom"),
+        "kindness" => Some("Charisma"),
+        _ => None,
+    }
+}
+
 fn skill_id_for_ability(ability: u8) -> Option<&'static str> {
     match ability {
         0 => Some("lifting"),
@@ -52588,9 +52492,43 @@ mod tests {
             assert!(identity.class_selection_ready);
             assert_eq!(identity.qualifying_world_actions, 1);
             assert_eq!(identity.class_id, None);
+            let evidence = identity
+                .class_readiness_evidence
+                .as_ref()
+                .expect("first qualifying action is retained");
+            assert_eq!(evidence.offer_kind, "work");
+            assert!(evidence.progress > 0);
+            assert_eq!(evidence.target.kind, "job");
+            let identity_view = runtime
+                .character_identity_view(actor.id)
+                .expect("identity view explains readiness");
+            assert_eq!(
+                identity_view
+                    .class_recommendation
+                    .as_ref()
+                    .map(|recommendation| recommendation.class_id.as_str()),
+                Some("lantern-warden")
+            );
         }
 
         let class_response = choose_avatar_class(
+            ConnectInfo("127.0.0.1:45110".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChooseClassRequest {
+                actor_id: actor.id,
+                actor_session: Some(actor_session.clone()),
+                character_creation_id: "the-lantern-keeper".to_string(),
+                class_id: "mothwood-guide".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(class_response.ok, "{class_response:?}");
+        assert!(class_response
+            .events
+            .iter()
+            .any(|event| event.type_name == "class.chosen"));
+        let duplicate_response = choose_avatar_class(
             ConnectInfo("127.0.0.1:45110".parse().expect("client address")),
             State(state.clone()),
             Json(ChooseClassRequest {
@@ -52602,37 +52540,38 @@ mod tests {
         )
         .await
         .0;
-        assert!(class_response.ok, "{class_response:?}");
-        assert!(class_response
-            .events
-            .iter()
-            .any(|event| event.type_name == "class.chosen"));
+        assert!(!duplicate_response.ok);
+        assert!(duplicate_response.events.is_empty());
 
         let mut runtime = state.inner.lock().await;
         let actor = runtime.actor_view(runtime.actor_by_id(actor.id).expect("classed avatar"));
         assert_eq!(actor.stats.level, 1);
-        assert_eq!(actor.title, "Lantern Warden");
+        assert_eq!(actor.title, "Mothwood Guide");
         assert_eq!(
             runtime
                 .character_identities
                 .get(&actor.id)
                 .and_then(|identity| identity.class_id.as_deref()),
-            Some("lantern-warden")
+            Some("mothwood-guide")
         );
         assert_eq!(
             runtime
                 .callings
                 .get(&actor.id)
                 .map(|calling| calling.statement.as_str()),
-            Some("I keep a light burning when others lose the road.")
+            Some("I find the path that still has living footprints on it.")
         );
         assert_eq!(
             runtime
                 .skills
-                .get(&skill_state_id(actor.id, "steadiness"))
+                .get(&skill_state_id(actor.id, "listening"))
                 .map(|skill| skill.rank),
             Some(1)
         );
+        assert_eq!(runtime.skill_bonus_for_ability(actor.id, 4), 1);
+        assert!(!runtime
+            .skills
+            .contains_key(&skill_state_id(actor.id, "steadiness")));
         let item_count = runtime.world.item_count;
         let dawn_oil = runtime
             .world
@@ -52649,7 +52588,7 @@ mod tests {
             .expect("generated avatar can build a canonical art plan");
         assert!(art_plan.prompt.contains("species: Human"));
         assert!(art_plan.prompt.contains("origin: The Old Chapel"));
-        assert!(art_plan.prompt.contains("class: Lantern Warden"));
+        assert!(art_plan.prompt.contains("class: Mothwood Guide"));
         assert!(art_plan.prompt.contains("authoritative level 1"));
         assert!(art_plan.prompt.contains("stable physical description"));
         assert!(art_plan.prompt.contains("Dawn Oil (carried)"));
@@ -52663,7 +52602,7 @@ mod tests {
             .expect("restored composed identity");
         assert_eq!(
             restored_identity.class_id.as_deref(),
-            Some("lantern-warden")
+            Some("mothwood-guide")
         );
         assert_eq!(
             restored_identity.physical_description,
@@ -52681,9 +52620,16 @@ mod tests {
         assert_eq!(
             restored
                 .skills
-                .get(&skill_state_id(actor.id, "steadiness"))
+                .get(&skill_state_id(actor.id, "listening"))
                 .map(|skill| skill.rank),
             Some(1)
+        );
+        assert_eq!(
+            restored_identity
+                .class_readiness_evidence
+                .as_ref()
+                .map(|evidence| evidence.offer_kind.as_str()),
+            Some("work")
         );
     }
 
