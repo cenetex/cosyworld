@@ -72,6 +72,41 @@ pub(super) struct CertifiedAvatarIntent {
     pub(super) planning: ResidentPlanningTrace,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct DirectedDialogueTurn {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) source_event_seq: Option<u64>,
+    pub(super) speaker_actor_id: u64,
+    pub(super) speaker_name: String,
+    pub(super) recipient_actor_id: u64,
+    pub(super) recipient_name: String,
+    pub(super) content: String,
+}
+
+impl DirectedDialogueTurn {
+    pub(super) fn new(
+        speaker_actor_id: u64,
+        speaker_name: impl Into<String>,
+        recipient_actor_id: u64,
+        recipient_name: impl Into<String>,
+        content: impl Into<String>,
+    ) -> Self {
+        Self {
+            source_event_seq: None,
+            speaker_actor_id,
+            speaker_name: speaker_name.into(),
+            recipient_actor_id,
+            recipient_name: recipient_name.into(),
+            content: content.into(),
+        }
+    }
+
+    pub(super) fn with_source_event_seq(mut self, source_event_seq: u64) -> Self {
+        self.source_event_seq = Some(source_event_seq);
+        self
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct AvatarReplyPlan {
     pub(super) speaker_actor_id: u64,
@@ -90,6 +125,8 @@ pub(super) struct AvatarReplyPlan {
     #[serde(default)]
     pub(super) recent_activity: Vec<String>,
     pub(super) user_text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) incoming_turn: Option<DirectedDialogueTurn>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) caused_by_event_seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -185,6 +222,8 @@ pub(super) struct AvatarChatPlan {
     pub(super) recent_lines: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(super) recent_speaker_shingle_hashes: Vec<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) exchange_turns: Vec<DirectedDialogueTurn>,
     pub(super) fresh_subject: Option<String>,
     pub(super) missing_need: Option<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -209,6 +248,11 @@ impl AvatarChatPlan {
 
     pub(super) fn with_reply_beat(self, stage: &str, reply: &AvatarReplyPlan) -> Self {
         self.with_publication_beat(stage, reply.caused_by_event_seq, reply.source_world_tick)
+    }
+
+    pub(super) fn with_exchange_turns(mut self, exchange_turns: Vec<DirectedDialogueTurn>) -> Self {
+        self.exchange_turns = exchange_turns;
+        self
     }
 }
 
@@ -276,20 +320,87 @@ async fn request_ai_avatar_chat(
     plan: &AvatarChatPlan,
     followup: bool,
 ) -> Result<CertifiedSpeech, VoiceRoutingError> {
+    let system = if followup {
+        "...they answered, and i am still in it. i take the freshest line and stay on exactly its subject — i do not drag back an older request, trade or item, and i do not bring in anything absent from the last two lines. one concrete thing from the room stays in play and i leave a small hook. i do not restart us. the person steering me is silent behind me: i never mention them, buttons, screens, AI, prompts, policies, tools or models. i never speak for the other one. plain words, concrete nouns, no lyric flourishes, and nothing around me feels or remembers anything. under 28 words."
+    } else {
+        "...i have decided to say something, on purpose, to someone standing right here. i take one concrete thing — this room, what was just said, or what they are carrying or needing — and i hand them an easy way to answer. the person steering me is silent behind me: i never mention them, buttons, screens, AI, prompts, policies, tools or models. i never speak for the other one. plain words, concrete nouns, no lyric flourishes, and nothing around me feels or remembers anything. under 34 words."
+    };
+
+    route_certified_voice(
+        config,
+        store_path,
+        VoiceAttemptRequest {
+            feature: if followup {
+                "dialogue_avatar_followup"
+            } else {
+                "dialogue_avatar"
+            },
+            prompt_version: if followup {
+                "dialogue-avatar-followup-v3"
+            } else {
+                "dialogue-avatar-v3"
+            },
+            system: system.to_string(),
+            user: avatar_chat_user_prompt(plan, followup),
+            temperature: 0.8,
+            max_tokens: 70,
+            referer: "http://127.0.0.1:3102",
+        },
+        avatar_chat_gate_context(plan, followup),
+    )
+    .await
+}
+
+fn format_directed_dialogue_turn(turn: &DirectedDialogueTurn) -> String {
+    let source_event = turn
+        .source_event_seq
+        .map(|seq| format!(", event_seq={seq}"))
+        .unwrap_or_default();
+    format!(
+        "speaker={speaker} (actor_id={speaker_id}{source_event}) -> recipient={recipient} \
+(actor_id={recipient_id}) | spoken line: {content}",
+        speaker = turn.speaker_name,
+        speaker_id = turn.speaker_actor_id,
+        source_event = source_event,
+        recipient = turn.recipient_name,
+        recipient_id = turn.recipient_actor_id,
+        content = turn.content
+    )
+}
+
+fn avatar_chat_dialogue_context(plan: &AvatarChatPlan, followup: bool) -> String {
+    if followup && !plan.exchange_turns.is_empty() {
+        return plan
+            .exchange_turns
+            .iter()
+            .enumerate()
+            .map(|(index, turn)| {
+                format!(
+                    "exchange turn {} | {}",
+                    index + 1,
+                    format_directed_dialogue_turn(turn)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+
     let recent_lines = if followup {
         let start = plan.recent_lines.len().saturating_sub(2);
         &plan.recent_lines[start..]
     } else {
         &plan.recent_lines[..]
     };
-    let recent = if recent_lines.is_empty() {
+    if recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
     } else {
         recent_lines.join("\n")
-    };
+    }
+}
+
+fn avatar_chat_user_prompt(plan: &AvatarChatPlan, followup: bool) -> String {
     let location_memory = format_location_memory(&plan.location_memory);
     let goals = format_goal_lines(&plan.goals);
-    let target_continuity = format_resident_continuity(&plan.target_continuity);
     let need = if followup {
         "i do not raise a need or an item that is absent from the freshest exchange.".to_string()
     } else {
@@ -308,14 +419,35 @@ async fn request_ai_avatar_chat(
         .as_deref()
         .map(|subject| format!("we are on this now: {subject}. i stay on it."))
         .unwrap_or_else(|| "i follow only the freshest line.".to_string());
-    let system = if followup {
-        "...they answered, and i am still in it. i take the freshest line and stay on exactly its subject — i do not drag back an older request, trade or item, and i do not bring in anything absent from the last two lines. one concrete thing from the room stays in play and i leave a small hook. i do not restart us. the person steering me is silent behind me: i never mention them, buttons, screens, AI, prompts, policies, tools or models. i never speak for the other one. plain words, concrete nouns, no lyric flourishes, and nothing around me feels or remembers anything. under 28 words."
-    } else {
-        "...i have decided to say something, on purpose, to someone standing right here. i take one concrete thing — this room, what was just said, or what they are carrying or needing — and i hand them an easy way to answer. the person steering me is silent behind me: i never mention them, buttons, screens, AI, prompts, policies, tools or models. i never speak for the other one. plain words, concrete nouns, no lyric flourishes, and nothing around me feels or remembers anything. under 34 words."
-    };
-    let user = format!(
-        "i am {name} — {title}\n{description}\nwhere i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwho i am speaking to: {target} — {target_title}\nwhat i know of them:\n{target_continuity}\nwhat is open between us: {target_economy}\nwho else is here: {cast}\n{need}\n{fresh_subject}\nwhat has just been said:\n{recent}\n\nso —",
+    let dialogue_context = avatar_chat_dialogue_context(plan, followup);
+    let last_completed_turn = plan
+        .exchange_turns
+        .last()
+        .map(format_directed_dialogue_turn)
+        .unwrap_or_else(|| "No directed exchange turn is recorded.".to_string());
+
+    format!(
+        "current speech owner: {name} (actor_id={actor_id})\n\
+conversation partner: {target}\n\
+last completed directed turn: {last_completed_turn}\n\
+i am {name} — {title}\n\
+{description}\n\
+where i am: {location} — {location_title}\n\
+{location_description}\n\
+how it feels in here: {location_persona}\n\
+what this place is holding:\n{location_memory}\n\
+what i am working toward:\n{goals}\n\
+who i am speaking to: {target} — {target_title}\n\
+their public profile: {target} — {target_title}\n\
+what is open between us: {target_economy}\n\
+who else is here: {cast}\n\
+{need}\n\
+{fresh_subject}\n\
+our directed exchange, oldest to newest:\n{dialogue_context}\n\n\
+so —",
         name = plan.actor_name,
+        actor_id = plan.actor_id,
+        target = plan.target_actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
         location = plan.location_name,
@@ -324,39 +456,14 @@ async fn request_ai_avatar_chat(
         location_persona = plan.location_persona,
         location_memory = location_memory,
         goals = goals,
-        target = plan.target_actor_name,
         target_title = plan.target_title,
-        target_continuity = target_continuity,
         target_economy = target_economy,
         cast = plan.cast.join(", "),
         need = need,
         fresh_subject = fresh_subject,
-        recent = recent,
-    );
-
-    route_certified_voice(
-        config,
-        store_path,
-        VoiceAttemptRequest {
-            feature: if followup {
-                "dialogue_avatar_followup"
-            } else {
-                "dialogue_avatar"
-            },
-            prompt_version: if followup {
-                "dialogue-avatar-followup-v2"
-            } else {
-                "dialogue-avatar-v2"
-            },
-            system: system.to_string(),
-            user,
-            temperature: 0.8,
-            max_tokens: 70,
-            referer: "http://127.0.0.1:3102",
-        },
-        avatar_chat_gate_context(plan, followup),
+        dialogue_context = dialogue_context,
+        last_completed_turn = last_completed_turn,
     )
-    .await
 }
 
 pub(super) async fn request_ai_avatar_intent(
@@ -383,7 +490,7 @@ pub(super) async fn request_ai_avatar_intent(
         store_path,
         VoiceAttemptRequest {
             feature: "dialogue_resident",
-            prompt_version: "dialogue-resident-voice-v2",
+            prompt_version: "dialogue-resident-voice-v3",
             system,
             user,
             temperature: 0.75,
@@ -423,8 +530,15 @@ fn resident_voice_user_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> S
     let location_memory = format_location_memory(&plan.location_memory);
     let goals = format_goal_lines(&plan.goals);
     let resident_continuity = format_resident_continuity(&plan.resident_continuity);
+    let incoming_turn = plan
+        .incoming_turn
+        .as_ref()
+        .map(format_directed_dialogue_turn)
+        .unwrap_or_else(|| "No directed incoming turn is recorded.".to_string());
     format!(
-        "where i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwhat i carry with me:\n{resident_continuity}\nwhat i can spend: {economy_note}\nwho is here with me: {cast}\nwhat has been happening, oldest to newest:\n{recent_activity}\nwhat has just been said:\n{recent}\nwhat i am answering right now:\n{line}\nwhat i am only turning over: {planning_brief}\n\ni answer the thing in front of me first. the room log and the played cards are what actually happened, newer over older, even where my memory disagrees. i hook one concrete detail out of all that — and if it is a named item or place i use the name, so we do not quietly drift onto some other subject. only i speak, and only as {name}. what i am turning over is not what i have done.\n\nso —",
+        "current speech owner: {name} (actor_id={speaker_actor_id})\nwhat reached me as a directed turn: {incoming_turn}\nwhere i am: {location} — {location_title}\n{location_description}\nhow it feels in here: {location_persona}\nwhat this place is holding:\n{location_memory}\nwhat i am working toward:\n{goals}\nwhat i carry with me:\n{resident_continuity}\nwhat i can spend: {economy_note}\nwho is here with me: {cast}\nwhat has been happening, oldest to newest:\n{recent_activity}\nwhat has just been said:\n{recent}\nwhat i am answering right now:\n{line}\nwhat i am only turning over: {planning_brief}\n\ni answer the thing in front of me first. the room log and the played cards are what actually happened, newer over older, even where my memory disagrees. i hook one concrete detail out of all that — and if it is a named item or place i use the name, so we do not quietly drift onto some other subject. only i speak, and only as {name}. what i am turning over is not what i have done.\n\nso —",
+        speaker_actor_id = plan.speaker_actor_id,
+        incoming_turn = incoming_turn,
         location = plan.location_name,
         location_title = plan.location_title,
         location_description = plan.location_description,
@@ -521,6 +635,14 @@ fn resident_voice_action_brief(action: &AvatarProposedAction) -> String {
 }
 
 fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGateContext {
+    let recent_lines = if followup && !plan.exchange_turns.is_empty() {
+        plan.exchange_turns
+            .iter()
+            .map(|turn| turn.content.clone())
+            .collect()
+    } else {
+        plan.recent_lines.clone()
+    };
     let mut anchors = vec![
         plan.location_name.clone(),
         plan.location_title.clone(),
@@ -528,7 +650,14 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
     ];
     anchors.extend(plan.location_memory.iter().cloned());
     anchors.extend(plan.goals.iter().cloned());
-    anchors.extend(plan.recent_lines.iter().cloned());
+    anchors.extend(recent_lines.iter().cloned());
+    anchors.extend(plan.exchange_turns.iter().flat_map(|turn| {
+        [
+            turn.speaker_name.clone(),
+            turn.recipient_name.clone(),
+            turn.content.clone(),
+        ]
+    }));
     anchors.extend(plan.fresh_subject.iter().cloned());
     anchors.extend(plan.missing_need.iter().cloned());
     SpeechGateContext {
@@ -547,7 +676,7 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         mode: SpeechMode::Prose,
         max_words: if followup { 28 } else { 34 },
         anchors,
-        recent_lines: plan.recent_lines.clone(),
+        recent_lines,
         recent_speaker_shingle_hashes: plan.recent_speaker_shingle_hashes.clone(),
         has_proposed_action: false,
         envelope_valid: true,
@@ -564,6 +693,13 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
     anchors.extend(plan.location_memory.iter().cloned());
     anchors.extend(plan.recent_activity.iter().cloned());
     anchors.extend(plan.recent_lines.iter().cloned());
+    anchors.extend(plan.incoming_turn.iter().flat_map(|turn| {
+        [
+            turn.speaker_name.clone(),
+            turn.recipient_name.clone(),
+            turn.content.clone(),
+        ]
+    }));
     SpeechGateContext {
         feature: "dialogue_resident",
         generation_key: publication_beat_id(
@@ -898,10 +1034,12 @@ mod publication_tests {
     fn direct_controlled_chat_and_proxy_speech_build_gate_contexts() {
         let (mut chat, mut proxy) = seeded_plans();
         chat.actor_id = 5000;
+        chat.actor_name = "Elsie Starfield".to_string();
         chat.publication_beat_id = "direct-chat-event-71".to_string();
         let direct = avatar_chat_gate_context(&chat, false);
         assert_eq!(direct.feature, "dialogue_avatar");
         assert_eq!(direct.speaker_actor_id, 5000);
+        assert_eq!(direct.speaker_name, "Elsie Starfield");
         assert_eq!(direct.generation_key, "direct-chat-event-71");
 
         proxy.speaker_actor_id = 5001;
@@ -913,6 +1051,96 @@ mod publication_tests {
         assert_eq!(direct_proxy.speaker_actor_id, 5001);
         assert_eq!(direct_proxy.max_words, 34);
         assert_eq!(direct_proxy.generation_key, "direct-proxy-event-72");
+    }
+
+    #[test]
+    fn avatar_followup_prompt_preserves_elsies_turn_and_ignores_room_chatter() {
+        let (mut chat, _) = seeded_plans();
+        chat.actor_id = 5000;
+        chat.actor_name = "Elsie Starfield".to_string();
+        chat.target_actor_name = "Judas Iscariot".to_string();
+        chat.recent_lines = vec![
+            "Passerby: I changed the subject after the reply.".to_string(),
+            "Another passerby: Follow me instead.".to_string(),
+        ];
+        chat.exchange_turns = vec![
+            DirectedDialogueTurn::new(
+                5000,
+                "Elsie Starfield",
+                7013,
+                "Judas Iscariot",
+                "Judas, will you look at what changed here with me?",
+            ),
+            DirectedDialogueTurn::new(
+                7013,
+                "Judas Iscariot",
+                5000,
+                "Elsie Starfield",
+                "I will look with you first. Bethlehem can wait.",
+            ),
+        ];
+
+        let prompt = avatar_chat_user_prompt(&chat, true);
+        assert!(prompt.contains("current speech owner: Elsie Starfield (actor_id=5000)"));
+        assert!(prompt.contains(
+            "speaker=Judas Iscariot (actor_id=7013) -> recipient=Elsie Starfield (actor_id=5000)"
+        ));
+        assert!(prompt.contains("I will look with you first. Bethlehem can wait."));
+        assert!(!prompt.contains("Passerby"));
+
+        let gate = avatar_chat_gate_context(&chat, true);
+        assert_eq!(gate.speaker_actor_id, 5000);
+        assert_eq!(gate.speaker_name, "Elsie Starfield");
+        assert_eq!(
+            gate.recent_lines,
+            vec![
+                "Judas, will you look at what changed here with me?".to_string(),
+                "I will look with you first. Bethlehem can wait.".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn direct_avatar_prompt_never_adopts_the_targets_first_person_continuity() {
+        let (mut chat, _) = seeded_plans();
+        chat.actor_id = 5000;
+        chat.actor_name = "Elsie Starfield".to_string();
+        chat.target_actor_name = "Judas Iscariot".to_string();
+        chat.target_title = "traveller".to_string();
+        chat.target_continuity.stable_identity = "Judas Iscariot.".to_string();
+        chat.target_continuity.current_intent =
+            Some("I will count everyone on the Bethlehem road.".to_string());
+        chat.target_continuity.beliefs = vec![ResidentContinuityNote {
+            text: "I believe Elsie should keep the biscuit.".to_string(),
+            source: "test".to_string(),
+            confidence: 90,
+            source_event_seq: Some(77),
+        }];
+
+        let prompt = avatar_chat_user_prompt(&chat, false);
+        assert!(prompt.contains("current speech owner: Elsie Starfield (actor_id=5000)"));
+        assert!(prompt.contains("their public profile: Judas Iscariot — traveller"));
+        assert!(!prompt.contains("I will count everyone"));
+        assert!(!prompt.contains("I believe Elsie"));
+        assert!(!prompt.contains("i am Judas"));
+        assert_eq!(prompt.matches("i am Elsie Starfield").count(), 1);
+    }
+
+    #[test]
+    fn directed_exchange_context_survives_avatar_chat_plan_serialization() {
+        let (mut chat, _) = seeded_plans();
+        chat.exchange_turns = vec![DirectedDialogueTurn::new(
+            5000,
+            "Elsie Starfield",
+            7013,
+            "Judas Iscariot",
+            "Will you look at the road with me?",
+        )];
+
+        let encoded = serde_json::to_string(&chat).expect("serialize avatar Chat plan");
+        let decoded: AvatarChatPlan =
+            serde_json::from_str(&encoded).expect("deserialize avatar Chat plan");
+        assert_eq!(decoded.exchange_turns, chat.exchange_turns);
     }
 
     #[test]
@@ -979,7 +1207,7 @@ mod publication_tests {
         });
 
         let initial = runtime
-            .resident_reply_plan_for_target_with_context(
+            .resident_reaction_plan_for_target(
                 5000,
                 5000,
                 "Lila Wayfarer just arrived in Bethlehem.",
@@ -1009,7 +1237,7 @@ mod publication_tests {
         runtime.resident_continuities.insert(5000, stale);
 
         let direct = runtime
-            .resident_reply_plan_for_target_with_context(
+            .resident_reaction_plan_for_target(
                 5000,
                 5000,
                 "Lila Wayfarer just arrived in Bethlehem.",
@@ -1055,11 +1283,7 @@ mod publication_tests {
             .actor_by_id(RATI_ACTOR_ID)
             .expect("inference resident exists");
         let npc_initial = runtime
-            .resident_reply_plan_for_target_with_context(
-                RATI_ACTOR_ID,
-                RATI_ACTOR_ID,
-                "The kettle rattled.",
-            )
+            .resident_reply_plan_for_target(RATI_ACTOR_ID, RATI_ACTOR_ID, "The kettle rattled.")
             .expect("inference resident can speak");
         let mut npc_trace = ResidentPlanningTrace::absent(&npc_initial);
         npc_trace.status = ResidentPlanningStatus::Committed;
@@ -1077,11 +1301,7 @@ mod publication_tests {
             .resident_continuities
             .insert(RATI_ACTOR_ID, npc_continuity);
         let npc = runtime
-            .resident_reply_plan_for_target_with_context(
-                RATI_ACTOR_ID,
-                RATI_ACTOR_ID,
-                "The kettle rattled.",
-            )
+            .resident_reply_plan_for_target(RATI_ACTOR_ID, RATI_ACTOR_ID, "The kettle rattled.")
             .expect("inference resident keeps full continuity");
         assert_eq!(
             npc.resident_continuity.current_intent.as_deref(),

@@ -202,6 +202,86 @@ mod tests {
     use super::*;
     use axum::{routing::post, Router};
 
+    #[test]
+    fn bounded_chat_requires_original_room_and_current_safety_consent() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Room Anchor");
+        assert!(chat_participants_can_continue(
+            &runtime,
+            5000,
+            RATI_ACTOR_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        ));
+
+        runtime
+            .actor_safety
+            .entry(5000)
+            .or_default()
+            .muted_actor_ids
+            .insert(RATI_ACTOR_ID);
+        assert!(!chat_participants_can_continue(
+            &runtime,
+            5000,
+            RATI_ACTOR_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        ));
+        runtime
+            .actor_safety
+            .get_mut(&5000)
+            .expect("safety state")
+            .muted_actor_ids
+            .clear();
+        runtime
+            .actor_safety
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .blocked_actor_ids
+            .insert(5000);
+        assert!(!chat_participants_can_continue(
+            &runtime,
+            5000,
+            RATI_ACTOR_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        ));
+        runtime
+            .actor_safety
+            .get_mut(&RATI_ACTOR_ID)
+            .expect("safety state")
+            .blocked_actor_ids
+            .clear();
+        let original_control_mode = runtime.actor_control_mode(RATI_ACTOR_ID);
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::DirectInput;
+        assert!(!chat_participants_can_continue(
+            &runtime,
+            5000,
+            RATI_ACTOR_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        ));
+        runtime
+            .actor_autonomy
+            .get_mut(&RATI_ACTOR_ID)
+            .expect("autonomy state")
+            .control_mode = original_control_mode;
+
+        for actor_id in [5000, RATI_ACTOR_ID] {
+            let actor = runtime.world.actors[..runtime.world.actor_count]
+                .iter_mut()
+                .find(|actor| actor.id == actor_id)
+                .expect("Chat participant exists");
+            actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        }
+        assert!(!chat_participants_can_continue(
+            &runtime,
+            5000,
+            RATI_ACTOR_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        ));
+    }
+
     #[tokio::test]
     async fn chat_endpoint_queues_a_bounded_exchange_without_spending_advancement() {
         let path = std::env::temp_dir().join(format!(
@@ -452,12 +532,18 @@ mod tests {
     #[tokio::test]
     async fn completed_chat_commits_exactly_two_lines_from_each_participant() {
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let requests = Arc::new(StdMutex::new(Vec::<serde_json::Value>::new()));
         let app = Router::new().route(
             "/chat/completions",
             post({
                 let calls = calls.clone();
-                move || {
+                let requests = requests.clone();
+                move |Json(request): Json<serde_json::Value>| {
                     let index = calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    requests
+                        .lock()
+                        .expect("capture Chat inference request")
+                        .push(request);
                     async move {
                         let content = [
                             "I found a quiet minute. How is the cottage treating you?",
@@ -544,6 +630,17 @@ mod tests {
             "Chat must stay bounded to two authoritative lines per participant; calls={}, events={event_diagnostic:?}",
             calls.load(std::sync::atomic::Ordering::SeqCst),
         );
+        let messages = runtime
+            .event_log
+            .iter()
+            .filter(|event| event.type_name == "message.created")
+            .collect::<Vec<_>>();
+        for pair in messages.windows(2) {
+            assert!(
+                pair[1].observed_through_seq.unwrap_or_default() >= pair[0].seq,
+                "each reply must causally observe the committed line it answers: {pair:?}"
+            );
+        }
         assert!(runtime.event_log.iter().any(|event| {
             event.type_name == "chat.completed"
                 && event.actor_id == Some(5000)
@@ -554,6 +651,24 @@ mod tests {
             .iter()
             .any(|event| event.type_name == "chat.failed"));
         drop(runtime);
+        let captured = requests.lock().expect("inspect Chat inference requests");
+        let followup_request = captured.get(2).expect("avatar follow-up request");
+        let followup_prompt = followup_request["messages"]
+            .as_array()
+            .and_then(|messages| {
+                messages.iter().rev().find_map(|message| {
+                    (message["role"].as_str() == Some("user"))
+                        .then(|| message["content"].as_str())
+                        .flatten()
+                })
+            })
+            .expect("follow-up user prompt");
+        assert!(followup_prompt.contains("current speech owner: Inference Tester (actor_id=5000)"));
+        assert!(followup_prompt.contains("speaker=Inference Tester (actor_id=5000"));
+        assert!(followup_prompt.contains("speaker=Rati (actor_id=1001"));
+        assert!(followup_prompt
+            .contains("Kindly enough, though the kettle has opinions about punctuality."));
+        assert!(!followup_prompt.contains("i am Rati"));
         server.abort();
     }
 }

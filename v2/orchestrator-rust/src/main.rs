@@ -16141,20 +16141,70 @@ impl RuntimeWorld {
                 )
         })?;
         let target_actor_id = event.target_actor_id?;
-        let subject = event
-            .content
+        let actor_name = self
+            .actor_name(observation.source_actor_id)
+            .unwrap_or_else(|| format!("Actor {}", observation.source_actor_id));
+        let target_name = self
+            .actor_name(target_actor_id)
+            .unwrap_or_else(|| format!("Actor {target_actor_id}"));
+        let item_name = event
+            .item_name
             .clone()
-            .or_else(|| event.item_name.clone())
-            .unwrap_or_else(|| "what just changed between us".to_string());
+            .unwrap_or_else(|| "an item".to_string());
+        let event_detail = event
+            .content
+            .as_deref()
+            .map(str::trim)
+            .filter(|detail| !detail.is_empty());
+        let bond_statement = self
+            .bonds
+            .get(&bond_id(observation.source_actor_id, target_actor_id))
+            .filter(|bond| bond.updated_event_seq == Some(event.seq))
+            .map(|bond| bond.statement.clone())
+            .filter(|statement| !statement.trim().is_empty());
         let user_text = match event.type_name.as_str() {
-            "item.given" => format!("I gave you {subject}."),
-            "item.traded" => format!("We made this trade: {subject}."),
-            "bond.created" => format!("I want to remember this friendship: {subject}"),
-            "bond.revised" => format!("I see our friendship differently now: {subject}"),
-            "bond.resolved" => format!("I want to keep what mattered between us: {subject}"),
+            "item.given" => event_detail
+                .map(|detail| format!("Committed gift: {detail}"))
+                .unwrap_or_else(|| format!("{actor_name} gave {item_name} to {target_name}.")),
+            "item.traded" => {
+                let received_name = event.target_item_name.as_deref().unwrap_or("another item");
+                let trade = format!(
+                    "{actor_name} traded {item_name} to {target_name} for {received_name}."
+                );
+                event_detail
+                    .map(|detail| format!("{trade} Recorded reasons: {detail}"))
+                    .unwrap_or(trade)
+            }
+            "bond.created" => bond_statement.map_or_else(
+                || format!("{actor_name} began a friendship with {target_name}."),
+                |statement| {
+                    format!(
+                        "{actor_name} began a friendship with {target_name}. \
+Their durable relationship statement is: {statement}"
+                    )
+                },
+            ),
+            "bond.revised" => bond_statement.map_or_else(
+                || format!("{actor_name} revised the friendship with {target_name}."),
+                |statement| {
+                    format!(
+                        "{actor_name} revised the friendship with {target_name}. \
+Their durable relationship statement is now: {statement}"
+                    )
+                },
+            ),
+            "bond.resolved" => bond_statement.map_or_else(
+                || format!("{actor_name} resolved the friendship with {target_name}."),
+                |statement| {
+                    format!(
+                        "{actor_name} resolved the friendship with {target_name}. \
+The relationship statement they are preserving is: {statement}"
+                    )
+                },
+            ),
             _ => return None,
         };
-        self.resident_reply_plan_for_target(
+        self.resident_reaction_plan_for_target(
             observation.source_actor_id,
             target_actor_id,
             &user_text,
@@ -16224,6 +16274,7 @@ impl RuntimeWorld {
             recent_lines: self.recent_room_lines(actor.location_id, 8),
             recent_activity: self.recent_room_activity(actor.location_id, 10),
             user_text,
+            incoming_turn: None,
             caused_by_event_seq: None,
             source_world_tick: None,
             observed_through_seq: None,
@@ -20581,6 +20632,7 @@ impl RuntimeWorld {
             cast: self.room_cast_names(actor.location_id),
             recent_lines,
             recent_speaker_shingle_hashes: self.resident_recent_voice_shingle_hashes(actor_id),
+            exchange_turns: Vec::new(),
             fresh_subject,
             missing_need,
             publication_beat_id: String::new(),
@@ -20593,7 +20645,26 @@ impl RuntimeWorld {
         target_actor_id: u64,
         text: &str,
     ) -> Option<AvatarReplyPlan> {
-        self.resident_reply_plan_for_target_with_context(speaker_actor_id, target_actor_id, text)
+        self.resident_reply_plan_for_target_with_context(
+            speaker_actor_id,
+            target_actor_id,
+            text,
+            true,
+        )
+    }
+
+    fn resident_reaction_plan_for_target(
+        &self,
+        source_actor_id: u64,
+        target_actor_id: u64,
+        text: &str,
+    ) -> Option<AvatarReplyPlan> {
+        self.resident_reply_plan_for_target_with_context(
+            source_actor_id,
+            target_actor_id,
+            text,
+            false,
+        )
     }
 
     fn conversation_subject(&self, text: &str, speaker_actor_id: u64) -> Option<String> {
@@ -20888,7 +20959,7 @@ impl RuntimeWorld {
             .and_then(|actor_id| responders.iter().position(|actor| actor.id == actor_id))
             .map(|index| responders[(index + 1) % responders.len()])
             .unwrap_or(responders[0]);
-        self.resident_reply_plan_for_target_with_context(speaker_actor_id, target.id, &action_text)
+        self.resident_reaction_plan_for_target(speaker_actor_id, target.id, &action_text)
     }
 
     fn resident_reply_plan_for_target_with_context(
@@ -20896,6 +20967,7 @@ impl RuntimeWorld {
         speaker_actor_id: u64,
         target_actor_id: u64,
         text: &str,
+        incoming_is_spoken: bool,
     ) -> Option<AvatarReplyPlan> {
         let speaker = self.actor_by_id(speaker_actor_id)?;
         let responder = self.actor_by_id(target_actor_id)?;
@@ -20907,6 +20979,12 @@ impl RuntimeWorld {
         }
         let responder_meta = self.actors.get(&target_actor_id);
         let location_meta = self.location_meta_for(responder.location_id);
+        let speaker_name = self
+            .actor_name(speaker_actor_id)
+            .unwrap_or_else(|| format!("Actor {speaker_actor_id}"));
+        let responder_name = self
+            .actor_name(target_actor_id)
+            .unwrap_or_else(|| format!("Actor {target_actor_id}"));
         let economy_note =
             if !self.actor_uses_inference(responder.id) && responder.id == speaker_actor_id {
                 DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT.to_string()
@@ -20917,13 +20995,15 @@ impl RuntimeWorld {
             };
         Some(AvatarReplyPlan {
             speaker_actor_id: target_actor_id,
-            speaker_name: self
-                .actor_name(target_actor_id)
-                .unwrap_or_else(|| format!("Actor {target_actor_id}")),
+            speaker_name: responder_name.clone(),
             speech_mode: responder_meta
                 .map(|meta| meta.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
-            resident_continuity: self.resident_continuity_for_reaction(responder),
+            resident_continuity: if incoming_is_spoken {
+                self.resident_continuity_for(responder)
+            } else {
+                self.resident_continuity_for_reaction(responder)
+            },
             economy_note,
             goals: self.narrative_goal_lines(Some(target_actor_id), responder.location_id),
             location_name: self
@@ -20937,6 +21017,15 @@ impl RuntimeWorld {
             recent_lines: self.recent_room_lines(responder.location_id, 8),
             recent_activity: self.recent_room_activity(responder.location_id, 10),
             user_text: text.to_string(),
+            incoming_turn: incoming_is_spoken.then(|| {
+                DirectedDialogueTurn::new(
+                    speaker_actor_id,
+                    speaker_name,
+                    target_actor_id,
+                    responder_name,
+                    text,
+                )
+            }),
             caused_by_event_seq: None,
             source_world_tick: None,
             observed_through_seq: None,
@@ -21083,6 +21172,7 @@ impl RuntimeWorld {
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             recent_activity: self.recent_room_activity(npc.location_id, 10),
             user_text: "The room has been quiet. Add one fresh in-character ambient beat that follows the recent room dialogue without repeating an earlier line.".to_string(),
+            incoming_turn: None,
             caused_by_event_seq: None,
             source_world_tick: None,
             observed_through_seq: None,
@@ -26514,16 +26604,7 @@ async fn complete_queued_orb_chat(
     let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
     let committed = {
         let mut runtime = state.inner.lock().await;
-        let still_together = runtime
-            .actor_by_id(actor_id)
-            .zip(runtime.actor_by_id(target_actor_id))
-            .is_some_and(|(actor, target)| {
-                actor.status == CW_ACTOR_ACTIVE
-                    && target.status == CW_ACTOR_ACTIVE
-                    && actor.location_id == plan.location_id
-                    && target.location_id == plan.location_id
-            });
-        if !still_together {
+        if !chat_participants_can_continue(&runtime, actor_id, target_actor_id, plan.location_id) {
             None
         } else {
             let content_id = runtime.next_content_id_value();
@@ -26546,12 +26627,28 @@ async fn complete_queued_orb_chat(
                 Ok((CW_OK, events)) if !events.is_empty() => {
                     let reply_plan = runtime
                         .resident_reply_plan_for_target(actor_id, target_actor_id, &content)
-                        .map(|reply_plan| {
+                        .map(|mut reply_plan| {
+                            let source_event_seq = events
+                                .iter()
+                                .find(|event| {
+                                    event.type_name == "message.created"
+                                        && event.actor_id == Some(actor_id)
+                                        && event.content.as_deref() == Some(content.as_str())
+                                })
+                                .map(|event| event.seq);
+                            if let (Some(turn), Some(source_event_seq)) =
+                                (reply_plan.incoming_turn.as_mut(), source_event_seq)
+                            {
+                                turn.source_event_seq = Some(source_event_seq);
+                            }
+                            let reply_observed_through_seq = source_event_seq
+                                .map(|seq| observed_through_seq.unwrap_or_default().max(seq))
+                                .or(observed_through_seq);
                             reply_plan.with_publication_causality(
                                 "avatar-chat-reply",
                                 queue_event_id,
                                 source_world_tick,
-                                observed_through_seq,
+                                reply_observed_through_seq,
                                 Some(plan.location_id),
                             )
                         });
@@ -26604,7 +26701,8 @@ async fn complete_queued_orb_chat(
     );
     let exchange_result = match reply_plan {
         Some(reply_plan) => {
-            complete_orb_chat_exchange(state, actor_id, target_actor_id, reply_plan).await
+            complete_orb_chat_exchange(state, actor_id, target_actor_id, plan.clone(), reply_plan)
+                .await
         }
         None => Err("the target could not answer the opening line".to_string()),
     };
@@ -29801,10 +29899,31 @@ async fn complete_avatar_reply(
     Ok(true)
 }
 
+fn chat_participants_can_continue(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    location_id: u64,
+) -> bool {
+    runtime
+        .actor_by_id(actor_id)
+        .zip(runtime.actor_by_id(target_actor_id))
+        .is_some_and(|(actor, target)| {
+            RuntimeWorld::actor_can_act(actor)
+                && RuntimeWorld::actor_can_act(target)
+                && actor.location_id == location_id
+                && target.location_id == location_id
+                && runtime.actor_uses_inference(target_actor_id)
+                && !runtime.actors_blocked(actor_id, target_actor_id)
+                && !runtime.actor_muted(actor_id, target_actor_id)
+        })
+}
+
 async fn complete_orb_chat_exchange(
     state: &AppState,
     actor_id: u64,
     target_actor_id: u64,
+    mut chat_plan: AvatarChatPlan,
     first_reply_plan: AvatarReplyPlan,
 ) -> Result<(), String> {
     announce_chat_typing(
@@ -29830,11 +29949,36 @@ async fn complete_orb_chat_exchange(
     };
     let first_reply_events = {
         let mut runtime = state.inner.lock().await;
-        commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal, None)
+        if chat_participants_can_continue(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            chat_plan.location_id,
+        ) {
+            commit_resident_reply_record(
+                state,
+                &mut runtime,
+                &first_reply_plan,
+                first_proposal,
+                None,
+            )
+        } else {
+            None
+        }
     };
     let Some(first_reply_events) = first_reply_events else {
         return Err("the target reply no longer fit the current room".to_string());
     };
+    let (first_reply_event_seq, first_reply_line) = first_reply_events
+        .iter()
+        .rev()
+        .find(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(target_actor_id)
+                && event.content.is_some()
+        })
+        .and_then(|event| event.content.clone().map(|content| (event.seq, content)))
+        .ok_or_else(|| "the target reply had no spoken line".to_string())?;
     broadcast_events(state, &first_reply_events);
     announce_chat_typing(
         state,
@@ -29842,7 +29986,12 @@ async fn complete_orb_chat_exchange(
         target_actor_id,
         first_reply_plan.caused_by_event_seq,
         first_reply_plan.source_world_tick,
-        first_reply_plan.observed_through_seq,
+        Some(
+            first_reply_plan
+                .observed_through_seq
+                .unwrap_or_default()
+                .max(first_reply_event_seq),
+        ),
         first_reply_plan.source_location_id,
     )
     .await;
@@ -29850,13 +29999,43 @@ async fn complete_orb_chat_exchange(
 
     let followup_plan = {
         let runtime = state.inner.lock().await;
-        let mut plan = runtime.avatar_chat_plan_for(actor_id, target_actor_id);
-        let anchored_subject =
-            runtime.conversation_subject(&first_reply_plan.user_text, target_actor_id);
-        if let (Some(plan), Some(subject)) = (plan.as_mut(), anchored_subject) {
-            plan.fresh_subject = Some(subject);
+        let still_together = chat_participants_can_continue(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            chat_plan.location_id,
+        );
+        if still_together {
+            let actor_name = chat_plan.actor_name.clone();
+            let target_name = chat_plan.target_actor_name.clone();
+            let opening_turn = first_reply_plan.incoming_turn.clone().unwrap_or_else(|| {
+                DirectedDialogueTurn::new(
+                    actor_id,
+                    actor_name.clone(),
+                    target_actor_id,
+                    target_name.clone(),
+                    first_reply_plan.user_text.clone(),
+                )
+            });
+            let reply_turn = DirectedDialogueTurn::new(
+                target_actor_id,
+                target_name,
+                actor_id,
+                actor_name,
+                first_reply_line.clone(),
+            )
+            .with_source_event_seq(first_reply_event_seq);
+            chat_plan.recent_lines.clear();
+            chat_plan = chat_plan.with_exchange_turns(vec![opening_turn, reply_turn]);
+            chat_plan.fresh_subject = runtime
+                .conversation_subject(&first_reply_line, target_actor_id)
+                .or_else(|| {
+                    runtime.conversation_subject(&first_reply_plan.user_text, target_actor_id)
+                });
+            Some(chat_plan.with_reply_beat("avatar-chat-followup", &first_reply_plan))
+        } else {
+            None
         }
-        plan.map(|plan| plan.with_reply_beat("avatar-chat-followup", &first_reply_plan))
     };
     let Some(followup_plan) = followup_plan else {
         return Err("the participants moved apart before the follow-up".to_string());
@@ -29876,10 +30055,12 @@ async fn complete_orb_chat_exchange(
         into_recorded_speech_parts(state, certified_followup);
     let (followup_events, closing_plan) = {
         let mut runtime = state.inner.lock().await;
-        if runtime
-            .avatar_chat_plan_for(actor_id, target_actor_id)
-            .is_none()
-        {
+        if !chat_participants_can_continue(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            followup_plan.location_id,
+        ) {
             return Err("the participants moved apart before the follow-up".to_string());
         }
         let Some(followup) = runtime.collision_safe_avatar_followup(actor_id, &proposed_followup)
@@ -29899,7 +30080,12 @@ async fn complete_orb_chat_exchange(
         );
         record.caused_by_event_seq = first_reply_plan.caused_by_event_seq;
         record.source_world_tick = first_reply_plan.source_world_tick;
-        record.observed_through_seq = first_reply_plan.observed_through_seq;
+        record.observed_through_seq = Some(
+            first_reply_plan
+                .observed_through_seq
+                .unwrap_or_default()
+                .max(first_reply_event_seq),
+        );
         record.source_location_id = first_reply_plan.source_location_id;
         record.content_upserts.insert(content_id, followup.clone());
         record.ai_publication = Some(followup_receipt);
@@ -29922,35 +30108,64 @@ async fn complete_orb_chat_exchange(
         if status != CW_OK || events.is_empty() {
             return Err("the avatar follow-up was no longer valid".to_string());
         }
+        let followup_event_seq = events
+            .iter()
+            .find(|event| {
+                event.type_name == "message.created"
+                    && event.actor_id == Some(actor_id)
+                    && event.content.as_deref() == Some(followup.as_str())
+            })
+            .map(|event| event.seq);
+        let mut directed_lines = followup_plan
+            .exchange_turns
+            .iter()
+            .map(|turn| {
+                format!(
+                    "{} -> {}: {}",
+                    turn.speaker_name, turn.recipient_name, turn.content
+                )
+            })
+            .collect::<Vec<_>>();
+        directed_lines.push(format!(
+            "{} -> {}: {}",
+            followup_plan.actor_name, followup_plan.target_actor_name, followup
+        ));
         let plan = runtime
             .resident_reply_plan_for_target(actor_id, target_actor_id, &followup)
-            .map(|plan| {
+            .map(|mut plan| {
+                plan.recent_lines = directed_lines;
+                plan.recent_activity.clear();
+                if let (Some(turn), Some(source_event_seq)) =
+                    (plan.incoming_turn.as_mut(), followup_event_seq)
+                {
+                    turn.source_event_seq = Some(source_event_seq);
+                }
                 plan.with_publication_causality(
                     "avatar-chat-closing",
                     first_reply_plan.caused_by_event_seq,
                     first_reply_plan.source_world_tick,
-                    first_reply_plan.observed_through_seq,
+                    followup_event_seq.or(Some(first_reply_event_seq)),
                     first_reply_plan.source_location_id,
                 )
             });
         (events, plan)
     };
     broadcast_events(state, &followup_events);
+    let Some(closing_plan) = closing_plan else {
+        return Err("the target could not answer the follow-up".to_string());
+    };
     announce_chat_typing(
         state,
         target_actor_id,
         actor_id,
-        first_reply_plan.caused_by_event_seq,
-        first_reply_plan.source_world_tick,
-        first_reply_plan.observed_through_seq,
-        first_reply_plan.source_location_id,
+        closing_plan.caused_by_event_seq,
+        closing_plan.source_world_tick,
+        closing_plan.observed_through_seq,
+        closing_plan.source_location_id,
     )
     .await;
     tokio::time::sleep(Duration::from_millis(260)).await;
 
-    let Some(closing_plan) = closing_plan else {
-        return Err("the target could not answer the follow-up".to_string());
-    };
     let closing_proposal = match avatar_reply_intent(state, &closing_plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
@@ -29964,7 +30179,16 @@ async fn complete_orb_chat_exchange(
     };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
-        commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal, None)
+        if chat_participants_can_continue(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            followup_plan.location_id,
+        ) {
+            commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal, None)
+        } else {
+            None
+        }
     };
     let Some(events) = closing_events else {
         return Err("the closing reply no longer fit the current room".to_string());
@@ -70503,6 +70727,7 @@ mod tests {
             recent_lines: Vec::new(),
             recent_activity: Vec::new(),
             user_text: "weather?".to_string(),
+            incoming_turn: None,
             caused_by_event_seq: None,
             source_world_tick: None,
             observed_through_seq: None,
@@ -70924,6 +71149,15 @@ mod tests {
             .contains("heard Gust near Rain-Soft Garden"));
         assert!(reply_plan.economy_note.contains("Moonwool Thread"));
         assert!(reply_plan.economy_note.contains("seeks:"));
+        let incoming_turn = reply_plan
+            .incoming_turn
+            .as_ref()
+            .expect("resident reply preserves the directed incoming turn");
+        assert_eq!(incoming_turn.speaker_actor_id, 5000);
+        assert_eq!(incoming_turn.speaker_name, "Need Witness");
+        assert_eq!(incoming_turn.recipient_actor_id, RATI_ACTOR_ID);
+        assert_eq!(incoming_turn.recipient_name, "Rati");
+        assert_eq!(incoming_turn.content, "What does the scarf need?");
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(state.branch.is_none());
@@ -70939,6 +71173,129 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "create_bond"));
+    }
+
+    #[test]
+    fn bond_reply_context_uses_names_and_the_durable_statement() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Elsie Starfield",
+        );
+        let statement = "Elsie trusts Rati to tell her when the road changes.";
+        runtime.bonds.insert(
+            bond_id(5000, RATI_ACTOR_ID),
+            BondState {
+                id: bond_id(5000, RATI_ACTOR_ID),
+                actor_id: 5000,
+                target_actor_id: RATI_ACTOR_ID,
+                statement: statement.to_string(),
+                strength: 1,
+                status: "active".to_string(),
+                source_event_seq: Some(77),
+                updated_event_seq: Some(77),
+                dialogue_status: String::new(),
+                dialogue_event_seq: None,
+            },
+        );
+        let observation = PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick: 12,
+            caused_by_event_seq: Some(77),
+            observed_through_seq: 77,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: false,
+            source_events: vec![EventView {
+                seq: 77,
+                type_name: "bond.created".to_string(),
+                success: true,
+                actor_id: Some(5000),
+                target_actor_id: Some(RATI_ACTOR_ID),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                content: Some("bond:5000:1001:1:active:internal-storage-encoding".to_string()),
+                ..EventView::default()
+            }],
+            ripple_source: None,
+            relationship_reply: None,
+        };
+
+        let plan = runtime
+            .direct_observation_reply_plan(&observation)
+            .expect("bond creation has a directed resident reply");
+        assert!(plan
+            .user_text
+            .contains("Elsie Starfield began a friendship with Rati"));
+        assert!(plan.user_text.contains(statement));
+        assert!(!plan.user_text.contains("internal-storage-encoding"));
+        assert!(
+            plan.incoming_turn.is_none(),
+            "a committed bond event is context, not a literal spoken turn"
+        );
+
+        let bond = runtime
+            .bonds
+            .get_mut(&bond_id(5000, RATI_ACTOR_ID))
+            .expect("test bond");
+        bond.statement = "A later revision must not leak into the earlier event.".to_string();
+        bond.updated_event_seq = Some(78);
+        let delayed_plan = runtime
+            .direct_observation_reply_plan(&observation)
+            .expect("the older committed event can still receive a reply");
+        assert!(delayed_plan
+            .user_text
+            .contains("Elsie Starfield began a friendship with Rati"));
+        assert!(!delayed_plan.user_text.contains("later revision"));
+        assert!(!delayed_plan.user_text.contains("internal-storage-encoding"));
+    }
+
+    #[test]
+    fn trade_reply_context_preserves_both_items_and_recorded_reasons() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Elsie Starfield",
+        );
+        let observation = PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick: 12,
+            caused_by_event_seq: Some(88),
+            observed_through_seq: 88,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: false,
+            source_events: vec![EventView {
+                seq: 88,
+                type_name: "item.traded".to_string(),
+                success: true,
+                actor_id: Some(5000),
+                target_actor_id: Some(RATI_ACTOR_ID),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                item_name: Some("Story Button".to_string()),
+                target_item_name: Some("Moonwool Thread".to_string()),
+                content: Some(
+                    "Rati wanted Story Button; Elsie wanted Moonwool Thread.".to_string(),
+                ),
+                ..EventView::default()
+            }],
+            ripple_source: None,
+            relationship_reply: None,
+        };
+
+        let plan = runtime
+            .direct_observation_reply_plan(&observation)
+            .expect("trade has a resident reaction");
+        assert!(plan.user_text.contains("Elsie Starfield"));
+        assert!(plan.user_text.contains("Rati"));
+        assert!(plan.user_text.contains("Story Button"));
+        assert!(plan.user_text.contains("Moonwool Thread"));
+        assert!(plan.user_text.contains("Recorded reasons"));
+        assert!(
+            plan.incoming_turn.is_none(),
+            "a committed trade is context, not a literal spoken turn"
+        );
     }
 
     #[test]
