@@ -319,6 +319,23 @@ pub(super) fn read_persistence_compaction_report(
     })
 }
 
+const PRUNE_COMPACTED_COMMIT_RANGES_SQL: &str = "DELETE FROM canonical_compacted_commit_ranges
+     WHERE world_id = ?1
+       AND world_epoch = ?2
+       AND last_world_seq < ?3
+       AND NOT EXISTS (
+           SELECT 1
+           FROM world_events
+           WHERE world_events.world_id =
+                     canonical_compacted_commit_ranges.world_id
+             AND world_events.world_epoch =
+                     canonical_compacted_commit_ranges.world_epoch
+             AND world_events.event_type = 'natural_feature.revealed'
+             AND world_events.seq BETWEEN
+                     canonical_compacted_commit_ranges.first_world_seq
+                 AND canonical_compacted_commit_ranges.last_world_seq
+       )";
+
 pub(super) fn compact_event_store_after_snapshot(
     path: &Path,
     checkpoint_seq: u64,
@@ -403,23 +420,19 @@ pub(super) fn compact_event_store_after_snapshot(
     } else {
         0
     };
-    let deleted_canonical_commit_range_rows = tx
-        .execute(
-            "DELETE FROM canonical_compacted_commit_ranges
-             WHERE NOT EXISTS (
-                 SELECT 1
-                 FROM world_events
-                 WHERE world_events.world_id =
-                           canonical_compacted_commit_ranges.world_id
-                   AND world_events.world_epoch =
-                           canonical_compacted_commit_ranges.world_epoch
-                   AND world_events.seq BETWEEN
-                           canonical_compacted_commit_ranges.first_world_seq
-                       AND canonical_compacted_commit_ranges.last_world_seq
-             )",
-            [],
+    let deleted_canonical_commit_range_rows = if world_event_floor_seq > 0 {
+        tx.execute(
+            PRUNE_COMPACTED_COMMIT_RANGES_SQL,
+            params![
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH as i64,
+                world_event_floor_seq as i64
+            ],
         )
-        .map_err(sqlite_error)?;
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
     let inserted_canonical_commit_range_rows = if checkpoint_seq > 0 {
         tx.execute(
             "INSERT OR IGNORE INTO canonical_compacted_commit_ranges
@@ -642,6 +655,34 @@ mod tests {
             now_seed(),
             extension
         ))
+    }
+
+    #[test]
+    fn compacted_commit_range_pruning_uses_the_event_frontier_index() {
+        let journal_path = temp_path("compacted-range-query-plan", "sqlite");
+        let _ = fs::remove_file(&journal_path);
+        init_event_store(&journal_path).expect("initialize query-plan fixture");
+        let conn = open_event_store(&journal_path).expect("open query-plan fixture");
+        let query = format!("EXPLAIN QUERY PLAN {PRUNE_COMPACTED_COMMIT_RANGES_SQL}");
+        let details = conn
+            .prepare(&query)
+            .and_then(|mut statement| {
+                statement
+                    .query_map(
+                        params![OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH as i64, 25_i64],
+                        |row| row.get::<_, String>(3),
+                    )?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("explain compacted-range pruning");
+        assert!(
+            details
+                .iter()
+                .any(|detail| detail.contains("idx_canonical_compacted_commit_ranges_world_seq")),
+            "range pruning must search the frontier index: {details:?}"
+        );
+        drop(conn);
+        let _ = fs::remove_file(journal_path);
     }
 
     #[test]
@@ -1025,6 +1066,14 @@ mod tests {
             params![OFFICIAL_WORLD_ID],
         )
         .expect("insert next canonical commit fixture");
+        conn.execute(
+            "INSERT INTO canonical_compacted_commit_ranges
+                (commit_id, world_id, world_epoch, first_world_seq,
+                 last_world_seq, action_journal_seq)
+             VALUES ('stale-compacted-commit-2', ?1, 1, 2, 2, 2)",
+            params![OFFICIAL_WORLD_ID],
+        )
+        .expect("insert stale compacted commit range fixture");
         drop(conn);
         restored
             .save_snapshot(&snapshot_path)
