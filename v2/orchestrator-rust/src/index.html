@@ -7733,6 +7733,7 @@
 
     function pushEvents(events) {
       let changed = false;
+      const pendingChatCountBefore = pendingChats.length;
       for (const event of events) {
         if (captureDefeatTransition(event)) changed = true;
         if (applyActionReceipt(event)) {
@@ -7752,6 +7753,7 @@
         changed = true;
       }
       logEvents = logEvents.slice(-90);
+      if (pendingChats.length !== pendingChatCountBefore) renderCommands();
       return changed;
     }
 
@@ -7782,6 +7784,10 @@
 
     function beginPendingChat(action) {
       if (!actorId || action?.kind !== "orb-chat") return 0;
+      const active = pendingChats[0];
+      if (active) {
+        return { id: active.id, created: false };
+      }
       const target = reactionTargetForAction(action);
       if (!target) return 0;
       const id = nextPendingChatId++;
@@ -7796,45 +7802,64 @@
       });
       window.setTimeout(() => {
         if (!pendingChats.some((chat) => chat.id === id)) return;
-        cancelPendingChat(id);
+        cancelPendingChat({ id, created: true });
+        renderCommands();
         renderLog();
       }, 60000);
-      return id;
+      return { id, created: true };
     }
 
-    function cancelPendingChat(id) {
+    function cancelPendingChat(pending) {
+      if (!pending || pending.created === false) return;
+      const id = Number(pending.id || pending || 0);
       if (!id) return;
       pendingChats = pendingChats.filter((chat) => chat.id !== id);
+    }
+
+    function pendingChatMatchesEvent(chat, event) {
+      const eventSeq = Number(event?.seq || 0);
+      if (!eventSeq || eventSeq <= Number(chat.afterSeq || 0)) return false;
+      const pairMatches = (
+        (Number(event.actor_id || 0) === Number(actorId || 0)
+          && Number(event.target_actor_id || 0) === Number(chat.targetActorId || 0))
+        || (Number(event.actor_id || 0) === Number(chat.targetActorId || 0)
+          && Number(event.target_actor_id || 0) === Number(actorId || 0))
+      );
+      if (!pairMatches) return false;
+      const queueEventSeq = Number(chat.queueEventSeq || 0);
+      const eventQueueSeq = event.type === "chat.queued"
+        ? eventSeq
+        : Number(event.caused_by_event_seq || 0);
+      return !queueEventSeq || !eventQueueSeq || queueEventSeq === eventQueueSeq;
     }
 
     function resolvePendingChat(event) {
       if (!event || !pendingChats.length) return false;
       const eventSeq = Number(event.seq || 0);
-      const matchingChatIndex = pendingChats.findIndex((chat) => (
-        eventSeq > Number(chat.afterSeq || 0)
-        && (
-          (Number(event.actor_id || 0) === Number(actorId || 0)
-            && Number(event.target_actor_id || 0) === Number(chat.targetActorId || 0))
-          || (Number(event.actor_id || 0) === Number(chat.targetActorId || 0)
-            && Number(event.target_actor_id || 0) === Number(actorId || 0))
-        )
-      ));
-      if (event.type === "chat.typing") {
+      const matchingChatIndex = pendingChats.findIndex((chat) => pendingChatMatchesEvent(chat, event));
+      if (event.type === "chat.queued" || event.type === "chat.typing") {
         if (matchingChatIndex >= 0) {
+          const matchingChat = pendingChats[matchingChatIndex];
+          pendingChats = pendingChats.filter((chat, index) => (
+            index === matchingChatIndex || !pendingChatMatchesEvent(chat, event)
+          ));
+          matchingChat.queueEventSeq = event.type === "chat.queued"
+            ? eventSeq
+            : Number(matchingChat.queueEventSeq || event.caused_by_event_seq || 0);
+          if (event.type === "chat.queued") return true;
           const speakerId = Number(event.actor_id || 0);
           const speaker = actorForId(speakerId);
-          pendingChats[matchingChatIndex] = {
-            ...pendingChats[matchingChatIndex],
-            typingActorId: speakerId,
-            typingName: String(event.actor_name || (speaker ? actorLabel(speaker) : "Someone nearby")),
-          };
+          matchingChat.typingActorId = speakerId;
+          matchingChat.typingName = String(
+            event.actor_name || (speaker ? actorLabel(speaker) : "Someone nearby"),
+          );
           return true;
         }
         return false;
       }
       if (event.type === "chat.failed" || event.type === "chat.completed") {
         if (matchingChatIndex >= 0) {
-          pendingChats.splice(matchingChatIndex, 1);
+          pendingChats = pendingChats.filter((chat) => !pendingChatMatchesEvent(chat, event));
           return true;
         }
       }
@@ -12152,6 +12177,11 @@
 
     function openActionModal(action) {
       if (!action || actionBusy) return;
+      if (action.kind === "orb-chat" && pendingChats.length) {
+        setError("Let the current conversation settle before starting another.");
+        render();
+        return;
+      }
       actionConfirmAction = action;
       const label = action.modalTitle || actionTitle(action);
       const selectedChoice = Array.isArray(action?.choices)
@@ -12193,16 +12223,20 @@
         const groupId = `all-actions-group-${groupLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
         const buttons = entries.map(({ action, actionIndex, choice, choiceIndex }) => {
           const suggested = suggestedKeys.has(actionHandKey(action));
+          const conversationBusy = action.kind === "orb-chat" && pendingChats.length > 0;
           const actionLabel = compactActionLabel(action) || action.label || action.command || "act";
-          const targetLabel = choice?.label || action.detail || action.accessibleLabel || "";
+          const targetLabel = conversationBusy
+            ? "current exchange unfolding…"
+            : choice?.label || action.detail || action.accessibleLabel || "";
           const detail = choice?.detail || (choice ? action.detail : "") || "";
           const ariaLabel = [
             actionLabel,
             targetLabel,
             detail,
             suggested ? "suggested now" : "",
+            conversationBusy ? "unavailable until the current conversation settles" : "",
           ].filter(Boolean).join(", ");
-          return `<button class="all-action${suggested ? " suggested" : ""}" type="button" data-all-action-index="${actionIndex}"${choice ? ` data-all-action-choice-index="${choiceIndex}"` : ""} aria-label="${escapeAttr(ariaLabel)}"><span class="all-action-label">${escapeHtml(actionLabel)}</span>${targetLabel ? `<span class="all-action-detail">${escapeHtml(targetLabel)}</span>` : ""}${detail && detail !== targetLabel ? `<span class="all-action-detail">${escapeHtml(detail)}</span>` : ""}${suggested ? `<span class="all-action-status">suggested now</span>` : ""}</button>`;
+          return `<button class="all-action${suggested ? " suggested" : ""}" type="button" data-all-action-index="${actionIndex}"${choice ? ` data-all-action-choice-index="${choiceIndex}"` : ""} aria-label="${escapeAttr(ariaLabel)}"${conversationBusy ? " disabled" : ""}><span class="all-action-label">${escapeHtml(actionLabel)}</span>${targetLabel ? `<span class="all-action-detail">${escapeHtml(targetLabel)}</span>` : ""}${!conversationBusy && detail && detail !== targetLabel ? `<span class="all-action-detail">${escapeHtml(detail)}</span>` : ""}${suggested ? `<span class="all-action-status">suggested now</span>` : ""}</button>`;
         }).join("");
         return `<section class="all-actions-group" aria-labelledby="${escapeAttr(groupId)}"><h3 class="all-actions-group-title" id="${escapeAttr(groupId)}">${escapeHtml(groupLabel)}</h3><div class="all-actions-list">${buttons}</div></section>`;
       }).join("");
@@ -12755,6 +12789,13 @@
         button.innerHTML = `<span class="thumb placeholder" aria-hidden="true"></span>`;
         return;
       }
+      if (action.kind === "orb-chat" && pendingChats.length) {
+        action = {
+          ...action,
+          busy: true,
+          busyDetail: "current exchange unfolding…",
+        };
+      }
       button.disabled = Boolean(action.busy);
       if (action.busy) button.setAttribute("aria-busy", "true");
       else button.removeAttribute("aria-busy");
@@ -13007,6 +13048,11 @@
 
     async function runAction(action) {
       if (actionBusy) return;
+      if (action?.kind === "orb-chat" && pendingChats.length) {
+        setError("Let the current conversation settle before starting another.");
+        render();
+        return;
+      }
       actionBusy = true;
       actionSlow = false;
       pendingAction = action;
@@ -13016,14 +13062,16 @@
         actionSlow = true;
         renderCommands();
       }, 3000);
-      const pendingChatId = beginPendingChat(action);
+      const pendingChat = beginPendingChat(action);
       renderCommands();
       renderLog();
       try {
         const result = await action.run();
-        if (result?.ok === false) cancelPendingChat(pendingChatId);
+        if (result?.ok === false) {
+          cancelPendingChat(pendingChat);
+        }
       } catch (error) {
-        cancelPendingChat(pendingChatId);
+        cancelPendingChat(pendingChat);
         setError(String(error.message || error));
       } finally {
         clearTimeout(actionSlowTimer);
