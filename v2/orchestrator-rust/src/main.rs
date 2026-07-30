@@ -2037,7 +2037,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 13;
+const JOURNAL_RECORD_VERSION: u32 = 14;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -10247,6 +10247,22 @@ impl RuntimeWorld {
 
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
+        // A hand shuffle is a presentation-only projection: it advances no
+        // clock and emits only its revisioned hand-shuffled event.
+        // Older records retain the full historical replay path so upgrading
+        // cannot reinterpret already committed projection side effects.
+        if record.version >= 14
+            && record.origin == JournalOrigin::PlayerControl
+            && action.kind == CW_ACTION_NONE
+            && record.projection_mutations.len() == 1
+        {
+            if let ProjectionMutation::ShuffleHand { reason } = &record.projection_mutations[0] {
+                let mut events = vec![self.append_hand_shuffled_event(action.actor_id, reason)];
+                self.bump_entity_versions_for_events(&events);
+                self.refresh_canonical_events(&mut events);
+                return (CW_OK, events);
+            }
+        }
         let resident_planning_lifecycle = self.resident_planning_lifecycle_snapshot(&action);
         let advances_world_tick = record.advances_world_tick();
         let authoritative_contribution_clock_ids = record

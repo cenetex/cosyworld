@@ -109,4 +109,7 @@
 # 74305 -> 74360: bounded slow-command phase telemetry at the existing
 # canonical command and journal-commit seams. This diagnoses production-only
 # SQLite latency without logging healthy commands or adding a gameplay system.
-74360
+# 74360 -> 74376: versioned fast replay for the existing presentation-only
+# hand-shuffle projection, bypassing unrelated world reconciliation while
+# preserving the historical path for already committed journal records.
+74376
