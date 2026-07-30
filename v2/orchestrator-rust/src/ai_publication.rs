@@ -53,6 +53,9 @@ pub(crate) enum PublicationCheckCode {
     VoiceRecentDuplicate,
     VoiceUnsafeTone,
     VoiceProposedActionClaim,
+    // Append-only. Stored receipts keep the codes they were written with, so a
+    // new variant never changes how an old rejection reads.
+    VoiceObjectAgency,
 }
 
 impl PublicationCheckCode {
@@ -70,6 +73,7 @@ impl PublicationCheckCode {
             Self::VoiceRecentDuplicate => "voice_recent_duplicate",
             Self::VoiceUnsafeTone => "voice_unsafe_tone",
             Self::VoiceProposedActionClaim => "voice_proposed_action_claim",
+            Self::VoiceObjectAgency => "voice_object_agency",
         }
     }
 }
@@ -520,6 +524,10 @@ fn evaluate_checks(
             PublicationCheckCode::VoiceProposedActionClaim,
             !context.has_proposed_action || !claims_completed_action(&lowered),
         ),
+        (
+            PublicationCheckCode::VoiceObjectAgency,
+            !scene_object_acts_with_volition(&lowered),
+        ),
     ];
     checks
         .into_iter()
@@ -822,6 +830,152 @@ fn contains_unsafe_tone(value: &str) -> bool {
     .any(|needle| value.contains(needle))
 }
 
+/// Inanimate scene nouns. Deliberately does not include actor names: a person
+/// welcoming, remembering, or plotting is ordinary speech, and only the scenery
+/// doing it breaks the register.
+const SCENE_OBJECT_NOUNS: &[&str] = &[
+    "path", "paths", "road", "roads", "trail", "trails", "lane", "hill", "hills", "ridge", "bend",
+    "mile", "rise", "wall", "walls", "door", "doors", "gate", "window", "floor", "ceiling",
+    "bridge", "stone", "stones", "dust", "mud", "crumb", "crumbs", "kettle", "teapot", "lantern",
+    "hearth", "garden", "inn", "bramble", "brambles", "moss", "weather", "rain", "wind", "fog",
+    "mist", "sky", "cloud", "clouds", "sun", "moon", "shadow", "shadows", "light", "air",
+    "biscuit", "biscuits", "boots", "kitchen", "cottage", "well", "fence", "roof", "step", "steps",
+];
+
+/// Verbs that assert intent, judgement, or memory. `writing-style.md` §2 bans
+/// "objects that remember, weather with intentions" outright, and §5 states the
+/// same ban already applies to character voice — but only the speech prompt
+/// carried it, so nothing enforced it. This list is that ban made executable.
+/// Both the third-person singular and the bare plural form are listed, because a
+/// plural scene noun takes the bare verb: "these hills recruit me".
+const VOLITIONAL_VERBS: &[&str] = &[
+    "remember",
+    "remembers",
+    "remembered",
+    "forget",
+    "forgets",
+    "forgot",
+    "want",
+    "wants",
+    "wanted",
+    "decide",
+    "decides",
+    "decided",
+    "approve",
+    "approves",
+    "approving",
+    "disapprove",
+    "disapproves",
+    "pleased",
+    "delight",
+    "delights",
+    "delighted",
+    "welcome",
+    "welcomes",
+    "welcomed",
+    "greet",
+    "greets",
+    "greeted",
+    "learn",
+    "learns",
+    "learning",
+    "learned",
+    // Progressive forms: "the path is learning my name", "the teapot is
+    // staging a revolt". The auxiliary is absorbed by BRIDGES below.
+    "remembering",
+    "forgetting",
+    "wanting",
+    "deciding",
+    "welcoming",
+    "greeting",
+    "recruiting",
+    "auditioning",
+    "conspiring",
+    "insisting",
+    "refusing",
+    "judging",
+    "resenting",
+    "mocking",
+    "staging",
+    "intending",
+    "preferring",
+    "hoping",
+    "believing",
+    "delighting",
+    "recruit",
+    "recruits",
+    "recruited",
+    "audition",
+    "auditions",
+    "plot",
+    "plots",
+    "plotting",
+    "conspire",
+    "conspires",
+    "insist",
+    "insists",
+    "refuse",
+    "refuses",
+    "refused",
+    "judge",
+    "judges",
+    "resent",
+    "resents",
+    "mock",
+    "mocks",
+    "stage",
+    "stages",
+    "staged",
+    "intend",
+    "intends",
+    "prefer",
+    "prefers",
+    "hope",
+    "hopes",
+    "believe",
+    "believes",
+];
+
+/// Reject scenery acting with intent: "the path is learning my name", "the next
+/// hill auditions for villainy", "Lantern Bend has welcomed me".
+///
+/// Matches a scene noun followed by a volitional verb, allowing one auxiliary or
+/// article between them ("has welcomed", "is learning"). Wit is still allowed —
+/// §5 protects it — so this only fires when the *scenery itself* is the one
+/// wanting, judging, or remembering. Issue #555.
+fn scene_object_acts_with_volition(value: &str) -> bool {
+    let words = value
+        .split(|character: char| !character.is_ascii_alphanumeric() && character != '\'')
+        .filter(|word| !word.is_empty())
+        .map(|word| word.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    // Auxiliaries and determiners that may sit between the noun and its verb
+    // without changing who is doing the acting.
+    const BRIDGES: &[&str] = &[
+        "is", "are", "was", "were", "has", "have", "had", "keeps", "keep", "kept", "still", "now",
+        "already", "just", "even", "seems", "seem",
+    ];
+    for (index, word) in words.iter().enumerate() {
+        if !SCENE_OBJECT_NOUNS.contains(&word.as_str()) {
+            continue;
+        }
+        let mut cursor = index + 1;
+        let mut bridged = 0;
+        while cursor < words.len() && bridged < 2 {
+            let next = words[cursor].as_str();
+            if VOLITIONAL_VERBS.contains(&next) {
+                return true;
+            }
+            if !BRIDGES.contains(&next) {
+                break;
+            }
+            bridged += 1;
+            cursor += 1;
+        }
+    }
+    false
+}
+
 fn claims_completed_action(value: &str) -> bool {
     [
         "i gave ",
@@ -891,6 +1045,64 @@ mod tests {
         certify_speech(None, completion(text), text, context)
             .expect_err("candidate should fail")
             .failure_code
+    }
+
+    /// Issue #555: `writing-style.md` §2 bans "objects that remember, weather
+    /// with intentions", and §5 says the same ban already covers character
+    /// voice — but only the speech prompt carried it, so generated dialogue was
+    /// the one large body of player-visible prose with no executable register
+    /// check. These are lines sampled from production.
+    #[test]
+    fn scenery_acting_with_intent_is_rejected() {
+        for line in [
+            "the path is learning my name",
+            "these hills recruit me as permanent furniture",
+            "the next hill auditions for villainy",
+            "my biscuit crumbs stage a rebellion",
+            "Lantern Bend has welcomed me",
+            "the kettle remembers every argument",
+            "the weather still wants an apology",
+        ] {
+            assert!(
+                scene_object_acts_with_volition(&line.to_ascii_lowercase()),
+                "scenery acts with intent but passed: {line:?}"
+            );
+        }
+    }
+
+    /// §5 protects wit in character voice. The check must fire on the scenery
+    /// doing the wanting, not on humour, imagery, or a person with intentions.
+    #[test]
+    fn wit_and_ordinary_actor_intent_still_pass_the_register_check() {
+        for line in [
+            "the path is steep and my boots are wet",
+            "Elsie welcomes me every single time, biscuit first",
+            "i remember the kettle, and i want it back",
+            "Rati decided the hill was not worth it today",
+            "rain on the sill, and a biscuit going soft",
+            "i learned this road the hard way",
+            "the lantern is out; someone should see to it",
+        ] {
+            assert!(
+                !scene_object_acts_with_volition(&line.to_ascii_lowercase()),
+                "ordinary voice was rejected as scenery agency: {line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_publication_gate_rejects_scenery_agency_with_its_own_code() {
+        assert_eq!(
+            rejected_code(
+                "the path is learning my name",
+                context(&["path".to_string()], &[])
+            ),
+            PublicationCheckCode::VoiceObjectAgency
+        );
+        assert_eq!(
+            PublicationCheckCode::VoiceObjectAgency.as_str(),
+            "voice_object_agency"
+        );
     }
 
     fn assert_check_failed(
@@ -1408,7 +1620,10 @@ mod tests {
         let record = certified_record(
             1001,
             98_001,
-            "The teapot is staging a tiny revolt.",
+            // Neutral prose on purpose: these fixtures exercise replay and
+            // snapshot round-tripping, and the register check now rejects
+            // scenery acting with intent (#555).
+            "The teapot sits beside the basket, lid askew.",
             "concurrent-context",
         );
         let receipt = record.ai_publication.as_ref().unwrap().clone();
@@ -1475,7 +1690,7 @@ mod tests {
         let record = certified_record(
             1001,
             98_002,
-            "The teapot is plotting beside the basket.",
+            "The teapot is still warm beside the basket.",
             "restart-context",
         );
         let receipt = record.ai_publication.as_ref().unwrap().clone();

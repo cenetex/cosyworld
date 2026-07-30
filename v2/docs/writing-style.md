@@ -89,6 +89,22 @@ The speech-prompt base already enforces the output register ("punchlines over
 poetry", banned vocabulary, no objects that remember things) — keep new NPC
 prompts consistent with it.
 
+Generated dialogue is the largest body of player-visible prose in the game, so
+one part of that register is executable rather than prompt-only. The publication
+gate rejects **scenery acting with intent** (`voice_object_agency`): an
+inanimate scene noun as the subject of a verb of intent, judgement, or memory.
+
+- No: "the path is learning my name" / "these hills recruit me" / "the kettle
+  remembers every argument" / "Lantern Bend has welcomed me".
+- Yes: "the path is steep and my boots are wet" / "Elsie welcomes me every
+  single time" / "i remember the kettle, and i want it back".
+
+The rule is narrow on purpose. A *person* who wants, judges, or remembers is
+ordinary speech, and imagery is untouched — only the scenery doing the wanting
+breaks the register, which is the same ban §2 places on environment text. Wit
+itself is not gated: how much figurative license a character gets remains a
+voice decision, not a check.
+
 ### 6. Rare system moments (the magic budget)
 
 Lyricism is spent only where the system did something rare: hidden-exit
