@@ -106,4 +106,7 @@
 # retaining one process-lifetime WAL handle between short-lived writers.
 # 74431 -> 74305: move snapshot scheduling, serialization, ordered writes,
 # checkpoint compaction, and shutdown flushing into snapshot_persistence.rs.
-74305
+# 74305 -> 74360: bounded slow-command phase telemetry at the existing
+# canonical command and journal-commit seams. This diagnoses production-only
+# SQLite latency without logging healthy commands or adding a gameplay system.
+74360

@@ -28029,6 +28029,7 @@ async fn command_with_forwarding(
     mut payload: CommandRequest,
     allow_forward: bool,
 ) -> Json<CommandResponse> {
+    let command_started_at = Instant::now();
     match sync_canonical_capacity_once(&state).await {
         Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
         Ok(_) => {}
@@ -28218,6 +28219,7 @@ async fn command_with_forwarding(
     }
 
     payload.envelope = Some(envelope.clone());
+    let lease_started_at = Instant::now();
     let (partitions, lease_result) = {
         let runtime = state.inner.lock().await;
         (
@@ -28225,6 +28227,7 @@ async fn command_with_forwarding(
             acquire_command_authority_leases(&state, &runtime, payload.actor_id),
         )
     };
+    let lease_elapsed = lease_started_at.elapsed();
     let leases = match lease_result {
         Ok(leases) => leases,
         Err(error) => {
@@ -28278,6 +28281,7 @@ async fn command_with_forwarding(
         leases,
         phase: AtomicU8::new(0),
     });
+    let commit_started_at = Instant::now();
     let Json(mut response) = CANONICAL_COMMAND_COMMIT_CONTEXT
         .scope(
             command_context.clone(),
@@ -28288,6 +28292,7 @@ async fn command_with_forwarding(
             ),
         )
         .await;
+    let commit_elapsed = commit_started_at.elapsed();
 
     if payload.offer_id.is_some() && response.error_kind.is_some() {
         return Json(response);
@@ -28426,6 +28431,17 @@ async fn command_with_forwarding(
                 error
             );
         }
+    }
+    let command_elapsed = command_started_at.elapsed();
+    if command_elapsed >= Duration::from_millis(250) {
+        warn!(
+            actor_id = payload.actor_id,
+            command = %normalize_command_text(&payload.command),
+            total_ms = command_elapsed.as_millis(),
+            lease_ms = lease_elapsed.as_millis(),
+            commit_ms = commit_elapsed.as_millis(),
+            "slow canonical command"
+        );
     }
     Json(response)
 }
@@ -38968,6 +38984,7 @@ fn commit_journal_record(
     runtime: &mut RuntimeWorld,
     mut record: JournalRecord,
 ) -> io::Result<(u32, Vec<EventView>)> {
+    let durable_started_at = Instant::now();
     bind_focused_encounter_context(runtime, &mut record);
     runtime.bind_route_precondition(&mut record);
     if !runtime.route_record_preconditions_hold(&record) {
@@ -39025,6 +39042,7 @@ fn commit_journal_record(
     let (status, events, _actor_job_inserted, committed_journal_seq) = if let Some(path) =
         state.event_store_path.as_deref()
     {
+        let writer_started_at = Instant::now();
         let mut conn = match event_store_writer(state.event_store_writer.as_deref(), path) {
             Ok(conn) => conn,
             Err(error) => {
@@ -39035,6 +39053,8 @@ fn commit_journal_record(
                 return Err(error);
             }
         };
+        let writer_elapsed = writer_started_at.elapsed();
+        let transaction_started_at = Instant::now();
         let tx = match conn
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(sqlite_error)
@@ -39048,6 +39068,9 @@ fn commit_journal_record(
                 return Err(error);
             }
         };
+        let transaction_elapsed = transaction_started_at.elapsed();
+        let mut phase_started_at = Instant::now();
+        let mut persistence_phases = Vec::new();
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool, u64)> {
             let commit_time = now_millis();
             let lease_ttl = authority_lease_ttl_ms(state);
@@ -39066,6 +39089,8 @@ fn commit_journal_record(
             for lease in authority_leases.values_mut() {
                 *lease = validate_and_renew_partition_lease(&tx, lease, commit_time, lease_ttl)?;
             }
+            persistence_phases.push(("validate_and_renew", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             insert_action_journal(&tx, &record)?;
             let action_journal_seq = u64::try_from(tx.last_insert_rowid()).map_err(|_| {
                 io::Error::new(
@@ -39084,6 +39109,8 @@ fn commit_journal_record(
                 .collect();
             record.finalize_resident_decision_outcome(status, &events, new_deed_ids);
             update_action_journal_record(&tx, action_journal_seq, &record)?;
+            persistence_phases.push(("journal_and_runtime", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             if status == CW_OK {
                 if let Some(grant) = record.hosted_access_grant.as_ref() {
                     activate_hosted_access_entry_in_transaction(
@@ -39125,6 +39152,8 @@ fn commit_journal_record(
                     );
                 }
             }
+            persistence_phases.push(("story_metrics", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             let mut required_partitions = initial_record_partitions.clone();
             required_partitions.extend(canonical_partitions_for_events(runtime, &events));
             for partition_key in required_partitions {
@@ -39141,6 +39170,8 @@ fn commit_journal_record(
                 )?;
                 authority_leases.insert(partition_key, lease);
             }
+            persistence_phases.push(("partition_expansion", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             let event_seqs = events
                 .iter()
                 .filter(|event| event.seq > 0)
@@ -39180,6 +39211,8 @@ fn commit_journal_record(
                 last_world_seq,
                 commit_time,
             )?;
+            persistence_phases.push(("sequence_versions_claims", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             let ledger_entries = orb_ledger_entries_for_record(
                 &record,
                 &events,
@@ -39193,6 +39226,8 @@ fn commit_journal_record(
                 insert_orb_ledger_entries(&tx, &ledger_entries)?;
             }
             insert_world_events_strict(&tx, &events)?;
+            persistence_phases.push(("ledger_and_events", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             let observation_job_inserted =
                 if status == CW_OK && record.origin == JournalOrigin::PlayerCard {
                     player_tick_observation(runtime, None, record.action.actor_id, status, &events)
@@ -39222,6 +39257,8 @@ fn commit_journal_record(
             } else {
                 false
             };
+            persistence_phases.push(("actor_jobs", phase_started_at.elapsed()));
+            phase_started_at = Instant::now();
             let owner_fencing_epoch = authority_leases
                 .values()
                 .map(|lease| lease.fencing_epoch)
@@ -39295,6 +39332,7 @@ fn commit_journal_record(
                 last_world_seq,
                 commit_time,
             )?;
+            persistence_phases.push(("commit_metadata", phase_started_at.elapsed()));
             Ok((
                 status,
                 events,
@@ -39319,6 +39357,7 @@ fn commit_journal_record(
                 return Err(error);
             }
         };
+        let commit_started_at = Instant::now();
         if let Err(error) = tx.commit().map_err(sqlite_error) {
             let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
             let error = journal_commit_recovery_error(error, None, restore_error);
@@ -39331,6 +39370,22 @@ fn commit_journal_record(
             );
             state.record_event_store_append_failure(&error);
             return Err(error);
+        }
+        let commit_elapsed = commit_started_at.elapsed();
+        if durable_started_at.elapsed() >= Duration::from_millis(250) {
+            warn!(
+                actor_id = record.action.actor_id,
+                action_kind = record.action.kind,
+                total_ms = durable_started_at.elapsed().as_millis(),
+                writer_ms = writer_elapsed.as_millis(),
+                transaction_ms = transaction_elapsed.as_millis(),
+                commit_ms = commit_elapsed.as_millis(),
+                phases = ?persistence_phases
+                    .iter()
+                    .map(|(phase, elapsed)| (*phase, elapsed.as_millis()))
+                    .collect::<Vec<_>>(),
+                "slow durable journal commit"
+            );
         }
         if let Some(context) = command_context.as_ref() {
             context.finish_commit();
