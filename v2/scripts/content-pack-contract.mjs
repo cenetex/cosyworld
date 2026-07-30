@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 
+import { discoveryAuthorityExtensionValidationErrors } from "./discovery-authority-schema.mjs";
 import { validateGenerationPolicyManifest } from "./world-generation-policy.mjs";
 
 export const CONTENT_PACK_CONTRACT = "cosyworld.content-pack/1";
@@ -349,6 +350,9 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
     contractError(error);
   }
   for (const error of compositionPackValidationErrors(manifest, label)) {
+    contractError(error);
+  }
+  for (const error of discoveryAuthorityExtensionValidationErrors(manifest, label)) {
     contractError(error);
   }
   validateGenerationPolicyManifest(manifest, label);

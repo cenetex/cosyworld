@@ -3,8 +3,10 @@
 **Epic**: [#586](https://github.com/cenetex/cosyworld/issues/586)
 
 **Status**: Product contract accepted in
-[ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md);
-runtime and schema implementation remains dependency-ordered below.
+[ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md).
+Discovery authority v1 is specified by
+[`discovery-authority-v1.schema.json`](../../v2/schemas/discovery-authority-v1.schema.json);
+player procedures and descriptor/runtime work remain dependency-ordered below.
 
 ## Shared model
 

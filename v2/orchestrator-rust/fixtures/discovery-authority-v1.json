@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "receipt_version": "discovery-receipt-v1",
+  "roll_algorithm": "weighted-fnv1a-v1",
+  "stocking_tables": [
+    {
+      "id": "fixture.discovery:discovery-table/chest-items",
+      "version": 1,
+      "target_kind": "item",
+      "eligible_inputs": [
+        "world_seed",
+        "worldpack_bundle_hash",
+        "slot_id",
+        "slot_version",
+        "origin_id",
+        "claim_scope_id"
+      ],
+      "rows": [
+        {
+          "id": "old_coin",
+          "weight": 1,
+          "result_ids": ["fixture.discovery:item/old-coin"],
+          "unique": true
+        },
+        {
+          "id": "blue_thread",
+          "weight": 3,
+          "result_ids": ["fixture.discovery:item/blue-thread"]
+        }
+      ],
+      "fallback_row_id": "blue_thread"
+    },
+    {
+      "id": "fixture.discovery:discovery-table/wilderness-resources",
+      "version": 1,
+      "target_kind": "resource",
+      "eligible_inputs": [
+        "world_seed",
+        "worldpack_bundle_hash",
+        "slot_id",
+        "slot_version",
+        "origin_id",
+        "region_id",
+        "claim_scope_id"
+      ],
+      "rows": [
+        {
+          "id": "rare_herbs",
+          "weight": 2,
+          "result_ids": ["fixture.discovery:resource/rare-herb-habitat"]
+        },
+        {
+          "id": "clay_bank",
+          "weight": 1,
+          "result_ids": ["fixture.discovery:resource/clay-bank"]
+        }
+      ],
+      "fallback_row_id": "clay_bank"
+    },
+    {
+      "id": "fixture.discovery:discovery-table/optional-poi",
+      "version": 1,
+      "target_kind": "location",
+      "eligible_inputs": [
+        "world_seed",
+        "worldpack_bundle_hash",
+        "slot_id",
+        "slot_version",
+        "origin_id",
+        "region_id",
+        "claim_scope_id"
+      ],
+      "rows": [
+        {
+          "id": "abandoned_garden",
+          "weight": 1,
+          "result_ids": ["fixture.discovery:location/abandoned-garden"],
+          "topology_entity_ids": ["fixture.discovery:location/abandoned-garden"]
+        }
+      ],
+      "fallback_row_id": "abandoned_garden"
+    },
+    {
+      "id": "fixture.discovery:discovery-table/required-route-sign",
+      "version": 1,
+      "target_kind": "route",
+      "eligible_inputs": [
+        "world_seed",
+        "worldpack_bundle_hash",
+        "slot_id",
+        "slot_version",
+        "origin_id",
+        "claim_scope_id"
+      ],
+      "rows": [
+        {
+          "id": "ford_route",
+          "weight": 1,
+          "result_ids": ["fixture.discovery:route/ford"],
+          "topology_entity_ids": ["fixture.discovery:route/ford"]
+        },
+        {
+          "id": "ridge_route",
+          "weight": 1,
+          "result_ids": ["fixture.discovery:route/ridge"],
+          "topology_entity_ids": ["fixture.discovery:route/ridge"]
+        }
+      ],
+      "fallback_row_id": "ridge_route"
+    }
+  ],
+  "event_tables": [
+    {
+      "id": "fixture.discovery:event-table/trail-pressure",
+      "version": 1,
+      "eligible_inputs": [
+        "world_seed",
+        "worldpack_bundle_hash",
+        "slot_id",
+        "slot_version",
+        "origin_id",
+        "claim_scope_id"
+      ],
+      "rows": [
+        {
+          "id": "rain_closes_in",
+          "weight": 1,
+          "effect_kind": "advance_pressure",
+          "target_id": "fixture.discovery:pressure/trail",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "presentation_tables": [
+    {
+      "id": "fixture.discovery:presentation-table/route-signs",
+      "version": 1,
+      "rows": [
+        {
+          "id": "bent_grass",
+          "text": "Bent grass and pale stones point away from the road."
+        }
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "id": "fixture.discovery:discovery/chest-cache",
+      "version": 1,
+      "target_kind": "item",
+      "origin_id": "fixture.discovery:feature/locked-chest",
+      "scope": "world",
+      "initial_phase": "signed",
+      "tells": [
+        {
+          "id": "loose_false_bottom",
+          "sense": "sight",
+          "text": "The chest's false bottom sits slightly proud."
+        }
+      ],
+      "reveal_methods": ["search"],
+      "claim_policy": "once_per_scope",
+      "stocking": {
+        "kind": "table",
+        "table_id": "fixture.discovery:discovery-table/chest-items",
+        "table_version": 1
+      },
+      "gate_id": "fixture.discovery:gate/chest-lock",
+      "hazard_id": "fixture.discovery:hazard/chest-needle",
+      "progression": {
+        "kind": "optional"
+      }
+    },
+    {
+      "id": "fixture.discovery:discovery/secret-door",
+      "version": 1,
+      "target_kind": "feature",
+      "origin_id": "fixture.discovery:location/archive",
+      "scope": "world",
+      "initial_phase": "signed",
+      "tells": [
+        {
+          "id": "cold_draft",
+          "sense": "touch",
+          "text": "A cold draft threads through the bookcase."
+        }
+      ],
+      "reveal_methods": ["notice", "search"],
+      "claim_policy": "once_per_scope",
+      "stocking": {
+        "kind": "fixed",
+        "result_ids": ["fixture.discovery:feature/secret-door"]
+      },
+      "gate_id": "fixture.discovery:gate/archive-door",
+      "progression": {
+        "kind": "optional"
+      }
+    },
+    {
+      "id": "fixture.discovery:discovery/wilderness-resource",
+      "version": 1,
+      "target_kind": "resource",
+      "origin_id": "fixture.discovery:region/mossy-verge",
+      "scope": "expedition",
+      "initial_phase": "signed",
+      "tells": [
+        {
+          "id": "soil_and_scent",
+          "sense": "smell",
+          "text": "Wet mineral soil carries a sharp green scent."
+        }
+      ],
+      "reveal_methods": ["notice", "search"],
+      "claim_policy": "once_per_scope",
+      "stocking": {
+        "kind": "table",
+        "table_id": "fixture.discovery:discovery-table/wilderness-resources",
+        "table_version": 1
+      },
+      "event_table_id": "fixture.discovery:event-table/trail-pressure",
+      "event_table_version": 1,
+      "progression": {
+        "kind": "optional"
+      }
+    },
+    {
+      "id": "fixture.discovery:discovery/optional-poi",
+      "version": 1,
+      "target_kind": "location",
+      "origin_id": "fixture.discovery:region/mossy-verge",
+      "scope": "expedition",
+      "initial_phase": "signed",
+      "tells": [
+        {
+          "id": "old_wall",
+          "sense": "sight",
+          "text": "An old wall line interrupts the trees."
+        }
+      ],
+      "reveal_methods": ["scout"],
+      "claim_policy": "once_per_scope",
+      "stocking": {
+        "kind": "table",
+        "table_id": "fixture.discovery:discovery-table/optional-poi",
+        "table_version": 1
+      },
+      "authorized_topology_ids": [
+        "fixture.discovery:location/abandoned-garden"
+      ],
+      "progression": {
+        "kind": "optional"
+      }
+    },
+    {
+      "id": "fixture.discovery:discovery/required-route-sign",
+      "version": 1,
+      "target_kind": "route",
+      "origin_id": "fixture.discovery:location/moonlit-trail",
+      "scope": "world",
+      "initial_phase": "signed",
+      "tells": [
+        {
+          "id": "route_sign",
+          "sense": "sight",
+          "text": "Bent grass and pale stones show that a route continues."
+        }
+      ],
+      "reveal_methods": ["notice", "scout"],
+      "claim_policy": "once_per_scope",
+      "stocking": {
+        "kind": "table",
+        "table_id": "fixture.discovery:discovery-table/required-route-sign",
+        "table_version": 1
+      },
+      "authorized_topology_ids": [
+        "fixture.discovery:route/ford",
+        "fixture.discovery:route/ridge"
+      ],
+      "presentation_table_id": "fixture.discovery:presentation-table/route-signs",
+      "presentation_table_version": 1,
+      "progression": {
+        "kind": "required",
+        "sign_budget": 3,
+        "fallback_row_id": "ridge_route"
+      }
+    }
+  ]
+}
