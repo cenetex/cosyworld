@@ -1688,6 +1688,7 @@ struct RuntimeWorld {
     room_sheets: BTreeMap<u64, RoomSheetState>,
     routes: BTreeMap<String, RouteRecordState>,
     threshold_gate_sources: BTreeMap<u64, ThresholdGateSource>,
+    threshold_hazard_states: BTreeMap<String, ThresholdHazardRuntimeState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
@@ -6453,7 +6454,8 @@ impl RuntimeSnapshot {
         for (idx, encounter) in self.world_combat_encounters.into_iter().enumerate() {
             world.combat_encounters[idx] = encounter;
         }
-        let threshold_gate_sources = self.threshold_authority.restore_into(&mut world);
+        let (threshold_gate_sources, threshold_hazard_states) =
+            self.threshold_authority.restore_into(&mut world);
 
         let max_seq = self
             .event_log
@@ -6530,6 +6532,7 @@ impl RuntimeSnapshot {
             room_sheets: self.room_sheets,
             routes: self.routes,
             threshold_gate_sources,
+            threshold_hazard_states,
             generated_pathways: self.generated_pathways,
             generated_places: self.generated_places,
             governance_decisions: self.governance_decisions,
@@ -6943,6 +6946,7 @@ impl RuntimeWorld {
             room_sheets: BTreeMap::new(),
             routes: BTreeMap::new(),
             threshold_gate_sources: BTreeMap::new(),
+            threshold_hazard_states: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
             generated_places: BTreeMap::new(),
             governance_decisions: BTreeMap::new(),
@@ -10143,6 +10147,7 @@ impl RuntimeWorld {
         if !focused_encounter_journal_context_is_supported(self, record)
             || !self.route_record_preconditions_hold(record)
             || !threshold_record_preconditions_hold(record)
+            || !self.threshold_hazard_preconditions_hold(record)
             || !self.job_contribution_record_preconditions_hold(record)
             || !self.ai_publication_preconditions_hold(record)
             || !self.proxim8_materialization_record_preconditions_hold(record)
@@ -10282,9 +10287,7 @@ impl RuntimeWorld {
                 &record.worldpack_bundle_hash,
             ));
             let committed_events = events.clone();
-            events.extend(
-                self.apply_threshold_method_resolution_projection(record, &committed_events),
-            );
+            events.extend(self.apply_threshold_projections(record, &committed_events));
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
             events.extend(self.apply_class_readiness_projection(record, &action, &events));
@@ -38686,6 +38689,9 @@ fn commit_journal_record(
     if !threshold_record_preconditions_hold(&record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
+    if !runtime.threshold_hazard_preconditions_hold(&record) {
+        return Ok((CW_ERR_RULE, Vec::new()));
+    }
     if hosted_guest_record_restricted(state, runtime, &record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
@@ -41397,18 +41403,6 @@ fn event_type_name(type_: u8) -> String {
         } else {
             CStr::from_ptr(ptr).to_string_lossy().into_owned()
         }
-    }
-}
-
-fn ability_from_string(value: &str) -> u8 {
-    match value.to_lowercase().as_str() {
-        "str" | "strength" => 0,
-        "dex" | "dexterity" => 1,
-        "con" | "constitution" => 2,
-        "int" | "intelligence" => 3,
-        "wis" | "wisdom" => 4,
-        "cha" | "charisma" => 5,
-        _ => 5,
     }
 }
 

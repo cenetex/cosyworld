@@ -29,8 +29,28 @@ const TARGET_KINDS: [&str; 12] = [
 ];
 const TRANSITIONS: [&str; 6] = ["open", "unlock", "cross", "unseal", "install", "consume"];
 const RESET_POLICIES: [&str; 4] = ["never", "manual", "scene_end", "world_tick"];
-const HAZARD_TRIGGERS: [&str; 5] = ["interact", "open", "cross", "search", "failed_method"];
+const HAZARD_TRIGGERS: [&str; 10] = [
+    "interact",
+    "open",
+    "cross",
+    "search",
+    "failed_method",
+    "turn",
+    "force",
+    "remove",
+    "make_noise",
+    "cast",
+];
 const HAZARD_SEVERITIES: [&str; 3] = ["minor", "major", "severe"];
+const HAZARD_STATES: [&str; 5] = ["armed", "disarmed", "triggered", "spent", "bypassed"];
+const HAZARD_TARGET_POLICIES: [&str; 4] = [
+    "acting_actor",
+    "holder",
+    "expedition_order",
+    "location_occupants",
+];
+const HAZARD_CONSEQUENCE_POLICIES: [&str; 4] = ["never", "success", "failure", "always"];
+const HAZARD_RESOLUTION_VERSION: &str = "hazard-resolution-v1";
 const ACCEPTED_FACTS: [&str; 5] = [
     "actor_id",
     "scope_id",
@@ -115,7 +135,7 @@ pub(super) struct ThresholdRequirements {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub(super) enum ThresholdEffect {
+pub(crate) enum ThresholdEffect {
     SetGateState {
         target_id: String,
         state: String,
@@ -292,7 +312,43 @@ pub(super) struct ThresholdHazard {
     pub(super) consequences: Vec<ThresholdEffect>,
     pub(super) reset: ThresholdReset,
     #[serde(default)]
+    pub(super) mechanics: Option<ThresholdHazardMechanics>,
+    #[serde(default)]
     pub(super) slot: Option<ThresholdSlotRef>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ThresholdHazardMechanism {
+    pub(super) text: String,
+    pub(super) reveal_methods: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThresholdHazardTriggerBinding {
+    pub(super) id: String,
+    pub(super) act: String,
+    pub(super) gate_method: String,
+    pub(super) from_states: Vec<String>,
+    pub(super) target_policy: String,
+    pub(super) maximum_targets: u8,
+    pub(super) on_success_state: String,
+    #[serde(default)]
+    pub(super) on_failure_state: Option<String>,
+    pub(super) consequence_on: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ThresholdHazardMechanics {
+    pub(super) schema_version: u8,
+    pub(super) resolution_version: String,
+    pub(super) gate_id: String,
+    pub(super) initial_state: String,
+    pub(super) states: Vec<String>,
+    pub(super) mechanism: ThresholdHazardMechanism,
+    pub(super) trigger_bindings: Vec<ThresholdHazardTriggerBinding>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -345,11 +401,42 @@ pub(crate) struct AcceptedThresholdIntent {
     pub(super) selected_method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) method_contract: Option<ThresholdMethodOfferContract>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) hazards: Vec<AcceptedThresholdHazard>,
     pub(super) target: ThresholdTargetRef,
     pub(super) accepted_turn: u64,
     pub(super) requirement_facts: BTreeMap<String, String>,
     pub(super) discovery_receipt_refs: Vec<String>,
     pub(super) materialized_entity_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AcceptedThresholdHazard {
+    pub(super) schema_version: u8,
+    pub(super) resolution_version: String,
+    pub(super) descriptor_id: String,
+    pub(super) descriptor_version: u8,
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) pack_integrity: String,
+    pub(super) scope_id: String,
+    pub(super) trigger_id: String,
+    pub(super) act: String,
+    pub(super) gate_method: String,
+    pub(super) state_before: String,
+    pub(super) expected_revision: u64,
+    pub(super) target_policy: String,
+    pub(super) target_actor_ids: Vec<u64>,
+    pub(super) on_success_state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) on_failure_state: Option<String>,
+    pub(super) consequence_on: String,
+    pub(super) tells: Vec<String>,
+    pub(super) mechanism: String,
+    #[serde(default)]
+    pub(super) mechanism_revealed: bool,
+    pub(super) consequences: Vec<ThresholdEffect>,
 }
 
 pub(super) struct ThresholdIntentRequest<'a> {
@@ -384,7 +471,60 @@ pub(crate) struct ThresholdGateSource {
     #[serde(default)]
     pub(crate) method_contracts: BTreeMap<u64, ThresholdMethodOfferContract>,
     #[serde(default)]
+    pub(crate) hazards: Vec<ThresholdHazardSource>,
+    #[serde(default)]
     pub(crate) facts: BTreeMap<u64, ThresholdFactSource>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThresholdHazardSource {
+    pub(super) descriptor_id: String,
+    pub(super) descriptor_version: u8,
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) pack_integrity: String,
+    pub(super) scope: String,
+    pub(super) tells: Vec<String>,
+    pub(super) severity: String,
+    pub(super) mechanics: ThresholdHazardMechanics,
+    pub(super) consequences: Vec<ThresholdEffect>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThresholdHazardRuntimeState {
+    pub(super) descriptor_id: String,
+    pub(super) descriptor_version: u8,
+    pub(super) scope_id: String,
+    pub(super) state: String,
+    pub(super) revision: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) last_intent_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ThresholdHazardPlayerView {
+    pub(crate) descriptor_id: String,
+    pub(crate) descriptor_version: u8,
+    pub(crate) tells: Vec<String>,
+    pub(crate) severity: String,
+    pub(crate) consequence: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) mechanism: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ThresholdHazardDeveloperView {
+    pub(crate) descriptor_id: String,
+    pub(crate) descriptor_version: u8,
+    pub(crate) state: String,
+    pub(crate) revision: u64,
+    pub(crate) tells: Vec<String>,
+    pub(crate) severity: String,
+    pub(crate) mechanism: String,
+    pub(crate) trigger_bindings: Vec<ThresholdHazardTriggerBinding>,
+    pub(crate) consequences: Vec<ThresholdEffect>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -400,6 +540,8 @@ pub(crate) struct ThresholdMethodOfferView {
     pub(crate) resolution: ThresholdMethodResolution,
     pub(crate) effect: String,
     pub(crate) consequence: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) hazards: Vec<ThresholdHazardPlayerView>,
 }
 
 #[derive(Clone, Debug)]
@@ -434,6 +576,8 @@ pub(crate) struct ThresholdKernelSnapshot {
     #[serde(default)]
     sources: BTreeMap<u64, ThresholdGateSource>,
     #[serde(default)]
+    hazard_states: BTreeMap<String, ThresholdHazardRuntimeState>,
+    #[serde(default)]
     access_revision: u64,
     #[serde(default)]
     gates: Vec<CwGate>,
@@ -451,6 +595,7 @@ impl ThresholdKernelSnapshot {
     pub(crate) fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             sources: runtime.threshold_gate_sources.clone(),
+            hazard_states: runtime.threshold_hazard_states.clone(),
             access_revision: runtime.world.access_revision,
             gates: runtime.world.gates[..runtime.world.gate_count].to_vec(),
             methods: runtime.world.gate_methods[..runtime.world.gate_method_count].to_vec(),
@@ -468,6 +613,7 @@ impl ThresholdKernelSnapshot {
             || self.predicates.len() > CW_MAX_GATE_PREDICATE_RECORDS
             || self.actor_states.len() > CW_MAX_GATE_ACTOR_STATES
             || self.claims.len() > CW_MAX_GATE_CLAIMS
+            || self.hazard_states.len() > 512
         {
             return Err("threshold authority exceeds a kernel snapshot capacity".to_string());
         }
@@ -483,10 +629,26 @@ impl ThresholdKernelSnapshot {
         }) {
             return Err("threshold authority has invalid method or predicate bounds".to_string());
         }
+        if self.hazard_states.iter().any(|(key, state)| {
+            key.trim().is_empty()
+                || state.descriptor_id.trim().is_empty()
+                || state.descriptor_version == 0
+                || state.scope_id.trim().is_empty()
+                || !HAZARD_STATES.contains(&state.state.as_str())
+                || state.revision == 0
+        }) {
+            return Err("threshold authority has an invalid Hazard state".to_string());
+        }
         Ok(())
     }
 
-    pub(crate) fn restore_into(self, world: &mut CwWorld) -> BTreeMap<u64, ThresholdGateSource> {
+    pub(crate) fn restore_into(
+        self,
+        world: &mut CwWorld,
+    ) -> (
+        BTreeMap<u64, ThresholdGateSource>,
+        BTreeMap<String, ThresholdHazardRuntimeState>,
+    ) {
         world.access_revision = self.access_revision.max(1);
         world.gate_count = self.gates.len();
         world.gate_method_count = self.methods.len();
@@ -498,7 +660,7 @@ impl ThresholdKernelSnapshot {
         world.gate_predicates[..self.predicates.len()].copy_from_slice(&self.predicates);
         world.gate_actor_states[..self.actor_states.len()].copy_from_slice(&self.actor_states);
         world.gate_claims[..self.claims.len()].copy_from_slice(&self.claims);
-        self.sources
+        (self.sources, self.hazard_states)
     }
 }
 
@@ -1065,7 +1227,8 @@ pub(super) fn validate_threshold_descriptor_catalog(
             || !(1..=8).contains(&hazard.tells.len())
             || hazard.tells.iter().any(|tell| !valid_token(tell, 512))
             || hazard.triggers.is_empty()
-            || hazard.triggers.len() > 8
+            || hazard.triggers.len() > HAZARD_TRIGGERS.len()
+            || hazard.triggers.iter().collect::<BTreeSet<_>>().len() != hazard.triggers.len()
             || hazard
                 .triggers
                 .iter()
@@ -1084,6 +1247,114 @@ pub(super) fn validate_threshold_descriptor_catalog(
         }
         for method in hazard.methods.iter().chain(&hazard.bypasses) {
             validate_method(method, pack_id, &known_ids, &recoveries, &hazard.id)?;
+        }
+        if let Some(mechanics) = &hazard.mechanics {
+            if hazard
+                .consequences
+                .iter()
+                .any(|effect| !matches!(effect, ThresholdEffect::AdvanceClock { .. }))
+            {
+                return Err(format!(
+                    "hazard {} mechanics only supports deterministic clock consequences",
+                    hazard.id
+                ));
+            }
+            let gate = catalog
+                .gates
+                .iter()
+                .find(|gate| gate.id == mechanics.gate_id)
+                .ok_or_else(|| {
+                    format!("hazard {} mechanics reference an unknown Gate", hazard.id)
+                })?;
+            if gate.target_ref != hazard.target_ref {
+                return Err(format!(
+                    "hazard {} mechanics must bind a Gate on the same target",
+                    hazard.id
+                ));
+            }
+            let gate_methods = gate
+                .methods
+                .iter()
+                .map(|method| method.id.as_str())
+                .collect::<BTreeSet<_>>();
+            if mechanics.schema_version != 1
+                || mechanics.resolution_version != HAZARD_RESOLUTION_VERSION
+                || mechanics.initial_state != "armed"
+                || !(2..=HAZARD_STATES.len()).contains(&mechanics.states.len())
+                || !mechanics.states.iter().any(|state| state == "armed")
+                || mechanics
+                    .states
+                    .iter()
+                    .any(|state| !HAZARD_STATES.contains(&state.as_str()))
+                || mechanics.states.iter().collect::<BTreeSet<_>>().len() != mechanics.states.len()
+                || !valid_token(&mechanics.mechanism.text, 512)
+                || !(1..=2).contains(&mechanics.mechanism.reveal_methods.len())
+                || mechanics
+                    .mechanism
+                    .reveal_methods
+                    .iter()
+                    .any(|method| !["search", "study"].contains(&method.as_str()))
+                || mechanics
+                    .mechanism
+                    .reveal_methods
+                    .iter()
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != mechanics.mechanism.reveal_methods.len()
+                || !(1..=16).contains(&mechanics.trigger_bindings.len())
+            {
+                return Err(format!("hazard {} mechanics are invalid", hazard.id));
+            }
+            let mut binding_ids = BTreeSet::new();
+            let mut bound_methods = BTreeSet::new();
+            for binding in &mechanics.trigger_bindings {
+                let method = gate
+                    .methods
+                    .iter()
+                    .find(|method| method.id == binding.gate_method)
+                    .ok_or_else(|| {
+                        format!(
+                            "hazard {} trigger {} references an unknown Gate method",
+                            hazard.id, binding.id
+                        )
+                    })?;
+                let checked = method.offer.as_ref().is_some_and(|offer| {
+                    matches!(
+                        offer.resolution,
+                        ThresholdMethodResolution::SrdCheck { .. }
+                            | ThresholdMethodResolution::ConsequenceAvoidanceCheck { .. }
+                    )
+                });
+                if !valid_local_id(&binding.id)
+                    || !binding_ids.insert(binding.id.as_str())
+                    || !bound_methods.insert(binding.gate_method.as_str())
+                    || !gate_methods.contains(binding.gate_method.as_str())
+                    || !HAZARD_TRIGGERS.contains(&binding.act.as_str())
+                    || !hazard.triggers.contains(&binding.act)
+                    || binding.from_states.is_empty()
+                    || binding.from_states.len() > mechanics.states.len()
+                    || binding
+                        .from_states
+                        .iter()
+                        .any(|state| !mechanics.states.contains(state))
+                    || binding.from_states.iter().collect::<BTreeSet<_>>().len()
+                        != binding.from_states.len()
+                    || !HAZARD_TARGET_POLICIES.contains(&binding.target_policy.as_str())
+                    || !(1..=16).contains(&binding.maximum_targets)
+                    || !mechanics.states.contains(&binding.on_success_state)
+                    || binding
+                        .on_failure_state
+                        .as_ref()
+                        .is_some_and(|state| !mechanics.states.contains(state))
+                    || checked != binding.on_failure_state.is_some()
+                    || !HAZARD_CONSEQUENCE_POLICIES.contains(&binding.consequence_on.as_str())
+                {
+                    return Err(format!(
+                        "hazard {} trigger binding {} is invalid",
+                        hazard.id, binding.id
+                    ));
+                }
+            }
         }
     }
 
@@ -1254,12 +1525,58 @@ fn validate_existing_intent(intent: &AcceptedThresholdIntent) -> Result<(), Stri
             .method_contract
             .as_ref()
             .is_some_and(|contract| !valid_frozen_method_contract(contract))
+        || intent.hazards.len() > 16
+        || intent.hazards.iter().any(|hazard| {
+            !valid_frozen_hazard(hazard)
+                || hazard.gate_method != intent.selected_method
+                || hazard.pack_id != intent.pack_id
+                || hazard.pack_version != intent.pack_version
+                || hazard.pack_integrity != intent.pack_integrity
+        })
     {
         return Err(
             "accepted threshold intent uses an unknown version or is incomplete".to_string(),
         );
     }
     Ok(())
+}
+
+fn valid_frozen_hazard(hazard: &AcceptedThresholdHazard) -> bool {
+    hazard.schema_version == 1
+        && hazard.resolution_version == HAZARD_RESOLUTION_VERSION
+        && valid_token(&hazard.descriptor_id, 256)
+        && hazard.descriptor_version > 0
+        && valid_token(&hazard.pack_id, 128)
+        && valid_token(&hazard.pack_version, 64)
+        && valid_token(&hazard.pack_integrity, 256)
+        && valid_token(&hazard.scope_id, 256)
+        && valid_local_id(&hazard.trigger_id)
+        && HAZARD_TRIGGERS.contains(&hazard.act.as_str())
+        && valid_local_id(&hazard.gate_method)
+        && HAZARD_STATES.contains(&hazard.state_before.as_str())
+        && hazard.expected_revision > 0
+        && HAZARD_TARGET_POLICIES.contains(&hazard.target_policy.as_str())
+        && !hazard.target_actor_ids.is_empty()
+        && hazard.target_actor_ids.len() <= 16
+        && hazard.target_actor_ids.iter().all(|actor_id| *actor_id > 0)
+        && hazard
+            .target_actor_ids
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+            == hazard.target_actor_ids.len()
+        && HAZARD_STATES.contains(&hazard.on_success_state.as_str())
+        && hazard
+            .on_failure_state
+            .as_ref()
+            .is_none_or(|state| HAZARD_STATES.contains(&state.as_str()))
+        && HAZARD_CONSEQUENCE_POLICIES.contains(&hazard.consequence_on.as_str())
+        && !hazard.tells.is_empty()
+        && hazard.tells.len() <= 8
+        && hazard.tells.iter().all(|tell| valid_token(tell, 512))
+        && valid_token(&hazard.mechanism, 512)
+        && !hazard.consequences.is_empty()
+        && hazard.consequences.len() <= 8
 }
 
 fn valid_frozen_method_contract(contract: &ThresholdMethodOfferContract) -> bool {
@@ -1513,6 +1830,7 @@ pub(super) fn accepted_intent_for_kernel_binding(
             .method_contracts
             .get(&action.threshold.method_id)
             .cloned(),
+        hazards: Vec::new(),
         target: source.target.clone(),
         accepted_turn,
         requirement_facts,
@@ -1522,6 +1840,148 @@ pub(super) fn accepted_intent_for_kernel_binding(
 }
 
 impl RuntimeWorld {
+    fn threshold_hazard_scope_id(source: &ThresholdHazardSource, actor_id: u64) -> Option<String> {
+        match source.scope.as_str() {
+            "world" => Some("world".to_string()),
+            "expedition" => Some(format!("expedition:{actor_id}")),
+            "actor" | "holder" => Some(actor_id.to_string()),
+            _ => None,
+        }
+    }
+
+    fn threshold_hazard_state_for(
+        &self,
+        source: &ThresholdHazardSource,
+        actor_id: u64,
+    ) -> Option<ThresholdHazardRuntimeState> {
+        let scope_id = Self::threshold_hazard_scope_id(source, actor_id)?;
+        let key = format!("{}:{scope_id}", source.descriptor_id);
+        Some(
+            self.threshold_hazard_states
+                .get(&key)
+                .cloned()
+                .unwrap_or_else(|| ThresholdHazardRuntimeState {
+                    descriptor_id: source.descriptor_id.clone(),
+                    descriptor_version: source.descriptor_version,
+                    scope_id,
+                    state: source.mechanics.initial_state.clone(),
+                    revision: 1,
+                    last_intent_id: None,
+                }),
+        )
+    }
+
+    fn threshold_hazard_target_actor_ids(
+        &self,
+        actor_id: u64,
+        binding: &ThresholdHazardTriggerBinding,
+    ) -> Vec<u64> {
+        if matches!(binding.target_policy.as_str(), "acting_actor" | "holder") {
+            return vec![actor_id];
+        }
+        let Some(location_id) = self.actor_by_id(actor_id).map(|actor| actor.location_id) else {
+            return Vec::new();
+        };
+        let mut actor_ids = self.world.actors[..self.world.actor_count]
+            .iter()
+            .filter(|actor| actor.location_id == location_id && actor.location_id != 0)
+            .map(|actor| actor.id)
+            .collect::<Vec<_>>();
+        actor_ids.sort_unstable();
+        actor_ids.dedup();
+        actor_ids.truncate(usize::from(binding.maximum_targets));
+        actor_ids
+    }
+
+    fn threshold_hazard_mechanism_revealed(
+        &self,
+        source: &ThresholdHazardSource,
+        actor_id: u64,
+    ) -> bool {
+        source
+            .mechanics
+            .mechanism
+            .reveal_methods
+            .iter()
+            .any(|method| {
+                let evidence_id = format!(
+                    "threshold-hazard-evidence:{}:{actor_id}:{method}",
+                    source.descriptor_id
+                );
+                self.tags.get(&evidence_id).is_some_and(|tag| tag.active)
+            })
+    }
+
+    fn accepted_hazards_for_action(
+        &self,
+        source: &ThresholdGateSource,
+        action: &CwAction,
+        selected_method: &str,
+    ) -> Vec<AcceptedThresholdHazard> {
+        source
+            .hazards
+            .iter()
+            .filter_map(|hazard| {
+                let binding = hazard
+                    .mechanics
+                    .trigger_bindings
+                    .iter()
+                    .find(|binding| binding.gate_method == selected_method)?;
+                let state = self.threshold_hazard_state_for(hazard, action.actor_id)?;
+                binding
+                    .from_states
+                    .contains(&state.state)
+                    .then_some((hazard, binding, state))
+            })
+            .filter_map(|(hazard, binding, state)| {
+                let target_actor_ids =
+                    self.threshold_hazard_target_actor_ids(action.actor_id, binding);
+                (!target_actor_ids.is_empty()).then(|| AcceptedThresholdHazard {
+                    schema_version: 1,
+                    resolution_version: HAZARD_RESOLUTION_VERSION.to_string(),
+                    descriptor_id: hazard.descriptor_id.clone(),
+                    descriptor_version: hazard.descriptor_version,
+                    pack_id: hazard.pack_id.clone(),
+                    pack_version: hazard.pack_version.clone(),
+                    pack_integrity: hazard.pack_integrity.clone(),
+                    scope_id: state.scope_id,
+                    trigger_id: binding.id.clone(),
+                    act: binding.act.clone(),
+                    gate_method: binding.gate_method.clone(),
+                    state_before: state.state,
+                    expected_revision: state.revision,
+                    target_policy: binding.target_policy.clone(),
+                    target_actor_ids,
+                    on_success_state: binding.on_success_state.clone(),
+                    on_failure_state: binding.on_failure_state.clone(),
+                    consequence_on: binding.consequence_on.clone(),
+                    tells: hazard.tells.clone(),
+                    mechanism: hazard.mechanics.mechanism.text.clone(),
+                    mechanism_revealed: self
+                        .threshold_hazard_mechanism_revealed(hazard, action.actor_id),
+                    consequences: hazard.consequences.clone(),
+                })
+            })
+            .collect()
+    }
+
+    pub(crate) fn threshold_hazard_preconditions_hold(&self, record: &JournalRecord) -> bool {
+        if threshold_record_claim_already_applied(self, record) {
+            return true;
+        }
+        let Some(intent) = record.threshold_intent.as_ref() else {
+            return record.action.threshold.gate_id == 0;
+        };
+        let Some(source) = self
+            .threshold_gate_sources
+            .get(&record.action.threshold.gate_id)
+        else {
+            return intent.hazards.is_empty();
+        };
+        intent.hazards
+            == self.accepted_hazards_for_action(source, &record.action, &intent.selected_method)
+    }
+
     pub(crate) fn bind_threshold_intent(&self, record: &mut JournalRecord) {
         if record.action.threshold.gate_id == 0 || record.threshold_intent.is_some() {
             return;
@@ -1532,7 +1992,7 @@ impl RuntimeWorld {
         else {
             return;
         };
-        let Some(intent) = accepted_intent_for_kernel_binding(
+        let Some(mut intent) = accepted_intent_for_kernel_binding(
             source,
             &record.action,
             self.world.tick,
@@ -1540,11 +2000,67 @@ impl RuntimeWorld {
         ) else {
             return;
         };
+        intent.hazards =
+            self.accepted_hazards_for_action(source, &record.action, &intent.selected_method);
         if record.action.kind == CW_ACTION_GATE_TRANSITION && record.action.threshold.claim_id == 0
         {
             record.action.threshold.claim_id = threshold_kernel_id(&intent.id);
         }
         record.threshold_intent = Some(intent);
+    }
+
+    pub(crate) fn threshold_hazard_player_views_for_method(
+        &self,
+        source: &ThresholdGateSource,
+        actor_id: u64,
+        selected_method: &str,
+        consequence: &str,
+    ) -> Vec<ThresholdHazardPlayerView> {
+        source
+            .hazards
+            .iter()
+            .filter(|hazard| {
+                hazard
+                    .mechanics
+                    .trigger_bindings
+                    .iter()
+                    .any(|binding| binding.gate_method == selected_method)
+            })
+            .map(|hazard| ThresholdHazardPlayerView {
+                descriptor_id: hazard.descriptor_id.clone(),
+                descriptor_version: hazard.descriptor_version,
+                tells: hazard.tells.clone(),
+                severity: hazard.severity.clone(),
+                consequence: consequence.to_string(),
+                mechanism: self
+                    .threshold_hazard_mechanism_revealed(hazard, actor_id)
+                    .then(|| hazard.mechanics.mechanism.text.clone()),
+            })
+            .collect()
+    }
+
+    pub(crate) fn threshold_hazard_developer_views(
+        &self,
+        actor_id: u64,
+    ) -> Vec<ThresholdHazardDeveloperView> {
+        self.threshold_gate_sources
+            .values()
+            .flat_map(|source| source.hazards.iter())
+            .filter_map(|hazard| {
+                let state = self.threshold_hazard_state_for(hazard, actor_id)?;
+                Some(ThresholdHazardDeveloperView {
+                    descriptor_id: hazard.descriptor_id.clone(),
+                    descriptor_version: hazard.descriptor_version,
+                    state: state.state,
+                    revision: state.revision,
+                    tells: hazard.tells.clone(),
+                    severity: hazard.severity.clone(),
+                    mechanism: hazard.mechanics.mechanism.text.clone(),
+                    trigger_bindings: hazard.mechanics.trigger_bindings.clone(),
+                    consequences: hazard.consequences.clone(),
+                })
+            })
+            .collect()
     }
 
     pub(crate) fn touch_threshold_access_after_projection(
@@ -1560,7 +2076,94 @@ impl RuntimeWorld {
         }
     }
 
-    pub(crate) fn apply_threshold_method_resolution_projection(
+    fn apply_threshold_hazard_evidence_projection(
+        &mut self,
+        record: &JournalRecord,
+        committed_events: &[EventView],
+    ) -> Vec<EventView> {
+        let reveal_method = match record.action.kind {
+            CW_ACTION_RULES_SEARCH | CW_ACTION_SEARCH => "search",
+            CW_ACTION_RULES_STUDY => "study",
+            _ => return Vec::new(),
+        };
+        let succeeded = committed_events.iter().any(|event| {
+            event.actor_id == Some(record.action.actor_id)
+                && event.success
+                && (event.type_name == "ability_check.rolled"
+                    || (reveal_method == "search"
+                        && matches!(
+                            event.type_name.as_str(),
+                            "location.searched" | "feature.searched"
+                        )))
+        });
+        if !succeeded {
+            return Vec::new();
+        }
+        let Some(location_id) = self
+            .actor_by_id(record.action.actor_id)
+            .map(|actor| actor.location_id)
+        else {
+            return Vec::new();
+        };
+        let descriptor_ids = self
+            .threshold_gate_sources
+            .iter()
+            .filter(|(gate_id, _)| {
+                self.world.gates[..self.world.gate_count]
+                    .iter()
+                    .find(|gate| gate.id == **gate_id)
+                    .is_some_and(|gate| {
+                        gate.from_location_id == location_id
+                            || (gate.target_kind == CW_GATE_TARGET_CONTAINER
+                                && self.world.items[..self.world.item_count]
+                                    .iter()
+                                    .find(|item| item.id == gate.target_item_id)
+                                    .is_some_and(|item| {
+                                        item.location_id == location_id
+                                            || item.holder_actor_id == record.action.actor_id
+                                    }))
+                    })
+            })
+            .flat_map(|(_, source)| source.hazards.iter())
+            .filter(|hazard| {
+                hazard
+                    .mechanics
+                    .mechanism
+                    .reveal_methods
+                    .iter()
+                    .any(|method| method == reveal_method)
+            })
+            .map(|hazard| hazard.descriptor_id.clone())
+            .collect::<BTreeSet<_>>();
+        let mut events = Vec::new();
+        for descriptor_id in descriptor_ids {
+            let evidence_id = format!(
+                "threshold-hazard-evidence:{descriptor_id}:{}:{reveal_method}",
+                record.action.actor_id
+            );
+            let tag = RpgTagState {
+                id: evidence_id,
+                scope: "actor".to_string(),
+                scope_id: record.action.actor_id,
+                label: format!("Understood {descriptor_id} through {reveal_method}"),
+                kind: "discovery".to_string(),
+                active: true,
+                source_event_seq: committed_events.last().map(|event| event.seq),
+                expires: None,
+            };
+            if let Some(event) =
+                self.set_rpg_tag(tag, record.action.actor_id, "threshold_hazard_evidence")
+            {
+                events.push(event);
+            }
+        }
+        if !events.is_empty() {
+            unsafe { cw_world_access_changed(&mut self.world) };
+        }
+        events
+    }
+
+    fn apply_threshold_method_resolution_projection(
         &mut self,
         record: &JournalRecord,
         committed_events: &[EventView],
@@ -1603,6 +2206,137 @@ impl RuntimeWorld {
             None,
             Some(content),
         )]
+    }
+
+    fn apply_threshold_hazard_resolution_projection(
+        &mut self,
+        record: &JournalRecord,
+        committed_events: &[EventView],
+    ) -> Vec<EventView> {
+        let Some(intent) = record.threshold_intent.as_ref() else {
+            return Vec::new();
+        };
+        let hazards = intent.hazards.clone();
+        if hazards.is_empty() {
+            return Vec::new();
+        }
+        let transition_applied = committed_events
+            .iter()
+            .any(|event| event.type_name == "gate.transition.applied");
+        let check_success = committed_events
+            .iter()
+            .find(|event| {
+                event.type_name == "ability_check.rolled"
+                    && event.actor_id == Some(record.action.actor_id)
+            })
+            .map(|event| event.success);
+        let method_success = match intent
+            .method_contract
+            .as_ref()
+            .map(|contract| &contract.resolution)
+        {
+            Some(
+                ThresholdMethodResolution::SrdCheck { .. }
+                | ThresholdMethodResolution::ConsequenceAvoidanceCheck { .. },
+            ) => check_success.unwrap_or(false),
+            Some(ThresholdMethodResolution::ExistingKernelOutcome { event_type }) => {
+                committed_events
+                    .iter()
+                    .any(|event| event.type_name == *event_type)
+            }
+            _ => transition_applied,
+        };
+        let intent_id = intent.id.clone();
+        let mut events = Vec::new();
+        for hazard in hazards {
+            let state_after = if method_success {
+                hazard.on_success_state.clone()
+            } else {
+                hazard
+                    .on_failure_state
+                    .clone()
+                    .unwrap_or_else(|| hazard.state_before.clone())
+            };
+            let consequence_applied = match hazard.consequence_on.as_str() {
+                "success" => method_success,
+                "failure" => !method_success,
+                "always" => true,
+                _ => false,
+            };
+            let state_key = format!("{}:{}", hazard.descriptor_id, hazard.scope_id);
+            self.threshold_hazard_states.insert(
+                state_key,
+                ThresholdHazardRuntimeState {
+                    descriptor_id: hazard.descriptor_id.clone(),
+                    descriptor_version: hazard.descriptor_version,
+                    scope_id: hazard.scope_id.clone(),
+                    state: state_after.clone(),
+                    revision: hazard.expected_revision.saturating_add(1),
+                    last_intent_id: Some(intent_id.clone()),
+                },
+            );
+            let payload = serde_json::json!({
+                "resolution_version": hazard.resolution_version,
+                "intent_id": intent_id,
+                "descriptor_id": hazard.descriptor_id,
+                "descriptor_version": hazard.descriptor_version,
+                "trigger_id": hazard.trigger_id,
+                "act": hazard.act,
+                "gate_method": hazard.gate_method,
+                "state_before": hazard.state_before,
+                "state_after": state_after,
+                "target_policy": hazard.target_policy,
+                "target_actor_ids": hazard.target_actor_ids,
+                "tells": hazard.tells,
+                "method_success": method_success,
+                "consequence_applied": consequence_applied,
+                "consequences": hazard.consequences,
+                "mechanism": hazard
+                    .mechanism_revealed
+                    .then(|| hazard.mechanism.clone()),
+            });
+            let target_actor_id = payload["target_actor_ids"]
+                .as_array()
+                .and_then(|targets| targets.first())
+                .and_then(serde_json::Value::as_u64);
+            let mut resolution_event = self.append_async_job_event(
+                "threshold.hazard.resolved",
+                record.action.actor_id,
+                target_actor_id,
+                Some(payload.to_string()),
+            );
+            resolution_event.success = method_success;
+            self.replace_projected_event(&resolution_event);
+            let cause_seq = resolution_event.seq;
+            events.push(resolution_event);
+            if consequence_applied {
+                for effect in &hazard.consequences {
+                    if let ThresholdEffect::AdvanceClock { target_id, amount } = effect {
+                        let mut consequence_events = self.advance_clock(
+                            target_id,
+                            *amount,
+                            record.action.actor_id,
+                            "threshold_hazard_consequence",
+                        );
+                        self.link_events_to_cause(&mut consequence_events, cause_seq);
+                        events.extend(consequence_events);
+                    }
+                }
+            }
+        }
+        unsafe { cw_world_access_changed(&mut self.world) };
+        events
+    }
+
+    pub(crate) fn apply_threshold_projections(
+        &mut self,
+        record: &JournalRecord,
+        committed_events: &[EventView],
+    ) -> Vec<EventView> {
+        let mut events = self.apply_threshold_hazard_evidence_projection(record, committed_events);
+        events.extend(self.apply_threshold_method_resolution_projection(record, committed_events));
+        events.extend(self.apply_threshold_hazard_resolution_projection(record, committed_events));
+        events
     }
 
     fn threshold_item_handle(&self, canonical_ref: &str) -> Option<u64> {
@@ -1839,6 +2573,25 @@ impl RuntimeWorld {
                 continue;
             };
             for authored in &catalog.gates {
+                let hazard_sources = catalog
+                    .hazards
+                    .iter()
+                    .filter_map(|hazard| {
+                        let mechanics = hazard.mechanics.as_ref()?;
+                        (mechanics.gate_id == authored.id).then_some(ThresholdHazardSource {
+                            descriptor_id: hazard.id.clone(),
+                            descriptor_version: hazard.version,
+                            pack_id: pack.id.clone(),
+                            pack_version: pack.version.clone(),
+                            pack_integrity: pack.integrity.clone(),
+                            scope: hazard.scope.clone(),
+                            tells: hazard.tells.clone(),
+                            severity: hazard.severity.clone(),
+                            mechanics: mechanics.clone(),
+                            consequences: hazard.consequences.clone(),
+                        })
+                    })
+                    .collect::<Vec<_>>();
                 let targets = match authored.target_ref.kind.as_str() {
                     "route" => {
                         let route = self
@@ -1915,6 +2668,7 @@ impl RuntimeWorld {
                             target: authored.target_ref.clone(),
                             methods: method_names,
                             method_contracts,
+                            hazards: hazard_sources.clone(),
                             facts,
                         });
                     if self.world.gates[..self.world.gate_count]
@@ -2040,6 +2794,12 @@ impl RuntimeWorld {
                 } else {
                     None
                 };
+                let hazards = self.threshold_hazard_player_views_for_method(
+                    source,
+                    actor_id,
+                    &method_name,
+                    &contract.consequence,
+                );
                 Some(ProjectedThresholdMethod {
                     binding: ThresholdOfferBinding {
                         actor_id,
@@ -2062,6 +2822,7 @@ impl RuntimeWorld {
                         resolution: contract.resolution,
                         effect: contract.effect,
                         consequence: contract.consequence,
+                        hazards,
                     },
                     allowed,
                     disabled_reason,
@@ -2346,6 +3107,7 @@ pub(super) fn freeze_threshold_intent(
         scope_id: request.scope_id.to_string(),
         selected_method: request.selected_method.to_string(),
         method_contract: None,
+        hazards: Vec::new(),
         target: target.clone(),
         accepted_turn: request.accepted_turn,
         requirement_facts: request.requirement_facts,
@@ -2470,6 +3232,7 @@ mod tests {
                 },
                 methods: BTreeMap::from([(method_id, "present_token".to_string())]),
                 method_contracts: BTreeMap::new(),
+                hazards: Vec::new(),
                 facts: BTreeMap::new(),
             },
         );
@@ -2493,6 +3256,68 @@ mod tests {
             resolution,
             effect: "The garden threshold opens.".to_string(),
             consequence: consequence.to_string(),
+        }
+    }
+
+    fn concrete_method_hazard(runtime: &RuntimeWorld) -> ThresholdHazardSource {
+        let danger_clock_id = runtime
+            .clocks
+            .iter()
+            .find(|(_, clock)| clock.filled < clock.segments)
+            .map(|(id, _)| id)
+            .expect("seed clock")
+            .clone();
+        ThresholdHazardSource {
+            descriptor_id: "test:hazard/concrete-methods".to_string(),
+            descriptor_version: 1,
+            pack_id: "test".to_string(),
+            pack_version: "1.0.0".to_string(),
+            pack_integrity: "sha256:test".to_string(),
+            scope: "actor".to_string(),
+            tells: vec!["A hair-thin wire shines beside the latch.".to_string()],
+            severity: "major".to_string(),
+            mechanics: ThresholdHazardMechanics {
+                schema_version: 1,
+                resolution_version: HAZARD_RESOLUTION_VERSION.to_string(),
+                gate_id: "test:gate/concrete-methods".to_string(),
+                initial_state: "armed".to_string(),
+                states: HAZARD_STATES
+                    .iter()
+                    .map(|state| state.to_string())
+                    .collect(),
+                mechanism: ThresholdHazardMechanism {
+                    text: "Latch pressure draws the wire across a spring needle.".to_string(),
+                    reveal_methods: vec!["search".to_string(), "study".to_string()],
+                },
+                trigger_bindings: vec![
+                    ThresholdHazardTriggerBinding {
+                        id: "key_turn".to_string(),
+                        act: "turn".to_string(),
+                        gate_method: "use_exact_key".to_string(),
+                        from_states: vec!["armed".to_string()],
+                        target_policy: "acting_actor".to_string(),
+                        maximum_targets: 1,
+                        on_success_state: "bypassed".to_string(),
+                        on_failure_state: None,
+                        consequence_on: "never".to_string(),
+                    },
+                    ThresholdHazardTriggerBinding {
+                        id: "tool_slip".to_string(),
+                        act: "interact".to_string(),
+                        gate_method: "use_fine_tools".to_string(),
+                        from_states: vec!["armed".to_string()],
+                        target_policy: "holder".to_string(),
+                        maximum_targets: 1,
+                        on_success_state: "disarmed".to_string(),
+                        on_failure_state: Some("triggered".to_string()),
+                        consequence_on: "failure".to_string(),
+                    },
+                ],
+            },
+            consequences: vec![ThresholdEffect::AdvanceClock {
+                target_id: danger_clock_id,
+                amount: 1,
+            }],
         }
     }
 
@@ -2545,6 +3370,7 @@ mod tests {
             },
             CW_OK
         );
+        let hazard = concrete_method_hazard(runtime);
         runtime.threshold_gate_sources.insert(
             gate_id,
             ThresholdGateSource {
@@ -2588,6 +3414,7 @@ mod tests {
                         ),
                     ),
                 ]),
+                hazards: vec![hazard],
                 facts: BTreeMap::new(),
             },
         );
@@ -2729,6 +3556,7 @@ mod tests {
                 },
                 methods: BTreeMap::from([(method_id, "qualify".to_string())]),
                 method_contracts: BTreeMap::new(),
+                hazards: Vec::new(),
                 facts: BTreeMap::from([
                     (
                         tag_fact_id,
@@ -2997,6 +3825,23 @@ mod tests {
                     .is_some_and(|method| method.method_id == tool_method_id)
             })
             .expect("fine-tools offer");
+        let key_hazard = &key_offer
+            .threshold_method
+            .as_ref()
+            .expect("method contract")
+            .hazards[0];
+        assert_eq!(
+            key_hazard.tells,
+            vec!["A hair-thin wire shines beside the latch."]
+        );
+        assert!(key_hazard.mechanism.is_none());
+        let developer_hazard = runtime
+            .threshold_hazard_developer_views(5_100)
+            .into_iter()
+            .find(|hazard| hazard.descriptor_id == "test:hazard/concrete-methods")
+            .expect("developer Hazard contract");
+        assert!(developer_hazard.mechanism.contains("spring needle"));
+        assert_eq!(developer_hazard.state, "armed");
         assert!(!key_offer.disabled);
         assert!(key_offer.cost.is_none());
         assert_eq!(
@@ -3090,11 +3935,12 @@ mod tests {
 
         let mut record = JournalRecord::new(planned, 71_592);
         runtime.bind_threshold_intent(&mut record);
-        assert!(record
-            .threshold_intent
-            .as_ref()
-            .and_then(|intent| intent.method_contract.as_ref())
-            .is_some());
+        let frozen_intent = record.threshold_intent.as_ref().expect("frozen intent");
+        assert!(frozen_intent.method_contract.is_some());
+        assert_eq!(frozen_intent.hazards.len(), 1);
+        assert_eq!(frozen_intent.hazards[0].trigger_id, "key_turn");
+        assert_eq!(frozen_intent.hazards[0].target_actor_ids, vec![5_100]);
+        assert!(!frozen_intent.hazards[0].mechanism_revealed);
         let mut malformed_contract = record.clone();
         malformed_contract
             .threshold_intent
@@ -3112,6 +3958,25 @@ mod tests {
         assert!(events
             .iter()
             .any(|event| event.type_name == "threshold.method.resolved"));
+        let hazard_event = events
+            .iter()
+            .find(|event| event.type_name == "threshold.hazard.resolved")
+            .expect("Hazard resolution event");
+        let hazard_payload: serde_json::Value =
+            serde_json::from_str(hazard_event.content.as_deref().expect("Hazard payload"))
+                .expect("JSON Hazard payload");
+        assert_eq!(hazard_payload["state_before"], "armed");
+        assert_eq!(hazard_payload["state_after"], "bypassed");
+        assert_eq!(hazard_payload["trigger_id"], "key_turn");
+        assert!(hazard_payload["mechanism"].is_null());
+        assert_eq!(
+            runtime
+                .threshold_hazard_states
+                .get("test:hazard/concrete-methods:5100")
+                .expect("Hazard state")
+                .state,
+            "bypassed"
+        );
         assert!(runtime
             .threshold_method_action_offers(5_100, &access)
             .is_empty());
@@ -3125,6 +3990,62 @@ mod tests {
                     && offer.target.as_ref().and_then(|target| target.id)
                         == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
             }));
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("Hazard state snapshot restores");
+        assert_eq!(
+            restored.threshold_hazard_states,
+            runtime.threshold_hazard_states
+        );
+    }
+
+    #[test]
+    fn explicit_study_evidence_reveals_the_mechanism_without_a_passive_roll() {
+        let mut runtime = Box::new(RuntimeWorld::seeded());
+        create_test_human(
+            &mut runtime,
+            5_102,
+            COSY_COTTAGE_LOCATION_ID,
+            "Hazard Student",
+        );
+        hold_seed_item(&mut runtime, 5_102, HEARTH_TONIC_ITEM_ID);
+        install_concrete_method_gate(&mut runtime);
+        runtime.mark_route_discovered_for_edge(
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            5_102,
+            1,
+            "threshold-hazard-study",
+        );
+        let access = AccessContext::default();
+        assert!(runtime
+            .threshold_method_action_offers(5_102, &access)
+            .iter()
+            .find_map(|offer| offer.threshold_method.as_ref())
+            .and_then(|method| method.hazards.first())
+            .is_some_and(|hazard| hazard.mechanism.is_none()));
+
+        let study_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_RULES_STUDY,
+                actor_id: 5_102,
+                ..CwAction::default()
+            },
+            71_590,
+        );
+        let check = runtime.append_async_job_event("ability_check.rolled", 5_102, None, None);
+        let evidence_events =
+            runtime.apply_threshold_hazard_evidence_projection(&study_record, &[check]);
+        assert!(evidence_events
+            .iter()
+            .any(|event| event.type_name == "tag.applied"));
+        assert!(runtime
+            .threshold_method_action_offers(5_102, &access)
+            .iter()
+            .find_map(|offer| offer.threshold_method.as_ref())
+            .and_then(|method| method.hazards.first())
+            .and_then(|hazard| hazard.mechanism.as_ref())
+            .is_some_and(|mechanism| mechanism.contains("spring needle")));
     }
 
     #[test]
@@ -3164,6 +4085,17 @@ mod tests {
 
         let mut record = JournalRecord::new(action, 71_593);
         runtime.bind_threshold_intent(&mut record);
+        let frozen_hazard = record
+            .threshold_intent
+            .as_ref()
+            .and_then(|intent| intent.hazards.first())
+            .expect("frozen tool Hazard")
+            .clone();
+        let danger_clock_id = match &frozen_hazard.consequences[0] {
+            ThresholdEffect::AdvanceClock { target_id, .. } => target_id.clone(),
+            _ => panic!("test Hazard consequence must advance a clock"),
+        };
+        let danger_before = runtime.clocks[&danger_clock_id].filled;
         let mut altered_roll = record.clone();
         altered_roll.action.roll_mode = CW_ROLL_ADVANTAGE;
         assert!(!threshold_record_preconditions_hold(&altered_roll));
@@ -3180,6 +4112,29 @@ mod tests {
         assert!(events
             .iter()
             .any(|event| event.type_name == "threshold.method.resolved"));
+        let hazard_event = events
+            .iter()
+            .find(|event| event.type_name == "threshold.hazard.resolved")
+            .expect("failed tool Hazard resolution");
+        assert!(!hazard_event.success);
+        let payload: serde_json::Value =
+            serde_json::from_str(hazard_event.content.as_deref().expect("Hazard payload"))
+                .expect("JSON Hazard payload");
+        assert_eq!(payload["trigger_id"], "tool_slip");
+        assert_eq!(payload["state_after"], "triggered");
+        assert_eq!(payload["target_actor_ids"], serde_json::json!([5_101]));
+        assert_eq!(
+            runtime.clocks[&danger_clock_id].filled,
+            danger_before
+                .saturating_add(1)
+                .min(runtime.clocks[&danger_clock_id].segments)
+        );
+        let hazard_state = runtime
+            .threshold_hazard_states
+            .get("test:hazard/concrete-methods:5101")
+            .expect("triggered Hazard state")
+            .clone();
+        assert_eq!(hazard_state.state, "triggered");
         assert!(runtime.world.tick > tick_before);
         assert!(runtime.world.access_revision > access_before);
         assert_eq!(runtime.world.gate_claim_count, 1);
@@ -3217,6 +4172,12 @@ mod tests {
         assert!(retry_events.is_empty());
         assert_eq!(runtime.world.tick, retry_tick);
         assert_eq!(runtime.world.access_revision, retry_revision);
+        assert_eq!(
+            runtime
+                .threshold_hazard_states
+                .get("test:hazard/concrete-methods:5101"),
+            Some(&hazard_state)
+        );
     }
 
     #[test]
@@ -3228,7 +4189,7 @@ mod tests {
             &discovery_slots(&fixture),
         )
         .expect("valid threshold catalog");
-        assert_eq!(fixture.thresholds.gates.len(), 4);
+        assert_eq!(fixture.thresholds.gates.len(), 5);
         assert_eq!(fixture.thresholds.hazards[0].bypasses.len(), 1);
         assert_eq!(fixture.thresholds.pressures[0].progress.maximum, 6);
         assert_eq!(
@@ -3241,7 +4202,7 @@ mod tests {
     fn authored_gate_methods_compile_to_bounded_kernel_predicates() {
         let runtime = RuntimeWorld::seeded();
         let fixture = fixture();
-        let mut gate = fixture.thresholds.gates[3].clone();
+        let mut gate = fixture.thresholds.gates[4].clone();
         let item_ref = content_registry()
             .content_reference("item", HEARTH_TONIC_ITEM_ID)
             .expect("seed item canonical reference")

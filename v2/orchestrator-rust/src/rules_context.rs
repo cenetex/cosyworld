@@ -3,6 +3,18 @@ use sha2::{Digest, Sha256};
 
 const SCENE_RULES_CONTEXT_SCHEMA_VERSION: u8 = 1;
 
+pub(super) fn ability_from_string(value: &str) -> u8 {
+    match value.to_lowercase().as_str() {
+        "str" | "strength" => 0,
+        "dex" | "dexterity" => 1,
+        "con" | "constitution" => 2,
+        "int" | "intelligence" => 3,
+        "wis" | "wisdom" => 4,
+        "cha" | "charisma" => 5,
+        _ => 5,
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct ActionCompositionTraceView {
     pub(super) worldpack_bundle_hash: String,

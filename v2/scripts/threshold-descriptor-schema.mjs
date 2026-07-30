@@ -35,7 +35,26 @@ const targetKinds = new Set([
 const transitions = new Set(["open", "unlock", "cross", "unseal", "install", "consume"]);
 const resetPolicies = new Set(["never", "manual", "scene_end", "world_tick"]);
 const severities = new Set(["minor", "major", "severe"]);
-const triggers = new Set(["interact", "open", "cross", "search", "failed_method"]);
+const triggers = new Set([
+  "interact",
+  "open",
+  "cross",
+  "search",
+  "failed_method",
+  "turn",
+  "force",
+  "remove",
+  "make_noise",
+  "cast",
+]);
+const hazardStates = new Set(["armed", "disarmed", "triggered", "spent", "bypassed"]);
+const hazardTargetPolicies = new Set([
+  "acting_actor",
+  "holder",
+  "expedition_order",
+  "location_occupants",
+]);
+const hazardConsequencePolicies = new Set(["never", "success", "failure", "always"]);
 const predicateKinds = new Set([
   "exact_item",
   "item_capability",
@@ -640,6 +659,130 @@ function validateDescriptors(config, packId, slots, errors) {
     }
   }
 
+  const gatesById = new Map((config.gates ?? []).map((gate) => [gate?.id, gate]));
+  const validateHazardMechanics = (hazard, label) => {
+    const mechanics = hazard?.mechanics;
+    if (mechanics === undefined) return;
+    rejectUnknown(
+      errors,
+      mechanics,
+      new Set([
+        "schema_version",
+        "resolution_version",
+        "gate_id",
+        "initial_state",
+        "states",
+        "mechanism",
+        "trigger_bindings",
+      ]),
+      `${label} mechanics`,
+    );
+    const gate = gatesById.get(mechanics?.gate_id);
+    const sameTarget = gate
+      && gate.target_ref?.kind === hazard.target_ref?.kind
+      && gate.target_ref?.id === hazard.target_ref?.id
+      && gate.target_ref?.version === hazard.target_ref?.version;
+    if (!gate || !sameTarget) {
+      errors.push(`${label} mechanics must bind a Gate on the exact same target`);
+    }
+    if (
+      !isObject(mechanics)
+      || mechanics.schema_version !== 1
+      || mechanics.resolution_version !== "hazard-resolution-v1"
+      || mechanics.initial_state !== "armed"
+      || !boundedUniqueStrings(mechanics.states, 2, 5, hazardStates)
+      || !mechanics.states.includes("armed")
+    ) {
+      errors.push(`${label} mechanics use an unsupported closed state contract`);
+    }
+    rejectUnknown(
+      errors,
+      mechanics?.mechanism,
+      new Set(["text", "reveal_methods"]),
+      `${label} mechanism`,
+    );
+    if (
+      !isObject(mechanics?.mechanism)
+      || !nonEmpty(mechanics.mechanism.text)
+      || mechanics.mechanism.text.length > 512
+      || !boundedUniqueStrings(
+        mechanics.mechanism.reveal_methods,
+        1,
+        2,
+        new Set(["search", "study"]),
+      )
+    ) {
+      errors.push(`${label} mechanism requires explicit search/study evidence`);
+    }
+    if (
+      !Array.isArray(mechanics?.trigger_bindings)
+      || mechanics.trigger_bindings.length < 1
+      || mechanics.trigger_bindings.length > 16
+    ) {
+      errors.push(`${label} mechanics require 1-16 trigger bindings`);
+      return;
+    }
+    const bindingIds = new Set();
+    const boundMethods = new Set();
+    const gateMethods = new Map((gate?.methods ?? []).map((method) => [method.id, method]));
+    for (const [index, binding] of mechanics.trigger_bindings.entries()) {
+      const bindingLabel = `${label} trigger binding ${index}`;
+      rejectUnknown(
+        errors,
+        binding,
+        new Set([
+          "id",
+          "act",
+          "gate_method",
+          "from_states",
+          "target_policy",
+          "maximum_targets",
+          "on_success_state",
+          "on_failure_state",
+          "consequence_on",
+        ]),
+        bindingLabel,
+      );
+      const method = gateMethods.get(binding?.gate_method);
+      const checked = ["srd_check", "consequence_avoidance_check"].includes(
+        method?.offer?.resolution?.kind,
+      );
+      if (
+        !isObject(binding)
+        || !localIdPattern.test(binding.id ?? "")
+        || bindingIds.has(binding.id)
+        || boundMethods.has(binding.gate_method)
+        || !method
+        || !triggers.has(binding.act)
+        || !(hazard.triggers ?? []).includes(binding.act)
+        || !boundedUniqueStrings(
+          binding.from_states,
+          1,
+          mechanics.states?.length ?? 0,
+          new Set(mechanics.states ?? []),
+        )
+        || !hazardTargetPolicies.has(binding.target_policy)
+        || !Number.isInteger(binding.maximum_targets)
+        || binding.maximum_targets < 1
+        || binding.maximum_targets > 16
+        || !hazardStates.has(binding.on_success_state)
+        || (binding.on_failure_state !== undefined
+          && !hazardStates.has(binding.on_failure_state))
+        || checked !== (binding.on_failure_state !== undefined)
+        || !hazardConsequencePolicies.has(binding.consequence_on)
+      ) {
+        errors.push(`${bindingLabel} is invalid or references an unknown Gate method`);
+      }
+      bindingIds.add(binding?.id);
+      boundMethods.add(binding?.gate_method);
+    }
+    if (
+      (hazard.consequences ?? []).some((effect) => effect?.kind !== "advance_clock")
+    ) {
+      errors.push(`${label} mechanics only supports deterministic advance_clock consequences`);
+    }
+  };
+
   const validateGateOrHazard = (entries, kind) => {
     if (!Array.isArray(entries) || entries.length > 128) {
       errors.push(`threshold ${kind}s must be a bounded array`);
@@ -659,7 +802,7 @@ function validateDescriptors(config, packId, slots, errors) {
       ];
       const specific = kind === "gate"
         ? ["transition", "persistence", "closed_requirements"]
-        : ["tells", "triggers", "bypasses", "consequences", "severity"];
+        : ["tells", "triggers", "bypasses", "consequences", "severity", "mechanics"];
       rejectUnknown(errors, entry, new Set([...common, ...specific]), label);
       if (
         !isObject(entry)
@@ -733,6 +876,7 @@ function validateDescriptors(config, packId, slots, errors) {
             );
           }
         }
+        validateHazardMechanics(entry, label);
       }
       if (!Array.isArray(entry?.methods) || entry.methods.length < 1 || entry.methods.length > 8) {
         errors.push(`${label} methods must contain 1-8 bounded methods`);

@@ -134,4 +134,6 @@
 # 73729 -> 73653: issue #591 moves resident pending-action execution into the
 # existing residents/continuity.rs seam while adding only the shared Open
 # submission and threshold resolution wiring at the root boundary.
-73653
+# 73653 -> 73647: issue #592 moves the shared ability parser into the existing
+# rules_context.rs seam while adding Hazard state and projection wiring.
+73647

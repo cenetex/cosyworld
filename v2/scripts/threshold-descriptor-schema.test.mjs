@@ -50,11 +50,75 @@ test("the v1 catalog covers the shared threshold descriptor examples", () => {
   );
   assert.deepEqual(
     fixture.thresholds.gates.map((gate) => gate.id.split("/").at(-1)),
-    ["archive-door", "relic-plinth", "wax-seal", "holder-threshold"],
+    ["archive-door", "chest-lock", "relic-plinth", "wax-seal", "holder-threshold"],
   );
   assert.equal(fixture.thresholds.hazards[0].bypasses[0].id, "use_chest_key");
   assert.equal(fixture.thresholds.pressures[0].progress.maximum, 6);
   assert.equal(fixture.thresholds.leads[0].transitions[1].method, "build_cairn");
+});
+
+test("telegraphed hazards bind five method-aware interactions without passive perception", () => {
+  const hazard = fixture.thresholds.hazards[0];
+  const chestGate = fixture.thresholds.gates.find(
+    (gate) => gate.id.endsWith("/chest-lock"),
+  );
+
+  assert.deepEqual(
+    chestGate.methods.map((method) => method.id),
+    [
+      "use_chest_key",
+      "disarm_with_fine_tools",
+      "force_lid",
+      "ward_with_magic",
+      "careless_open",
+    ],
+  );
+  assert.deepEqual(
+    hazard.mechanics.trigger_bindings.map((binding) => binding.act),
+    ["turn", "interact", "force", "cast", "open"],
+  );
+  assert.deepEqual(hazard.mechanics.mechanism.reveal_methods, ["search", "study"]);
+  assert.ok(hazard.tells.every((tell) => tell.length > 0));
+});
+
+test("Hazard mechanics reject hidden warnings, passive reveals, and loose Gate bindings", () => {
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].tells = [];
+    }),
+    /authored tells/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].mechanics.mechanism.reveal_methods = ["perception"];
+    }),
+    /explicit search\/study evidence/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].mechanics.trigger_bindings[0].gate_method = "model_choice";
+    }),
+    /unknown Gate method/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].mechanics.trigger_bindings[0].on_success_state = null;
+    }),
+    /unknown Gate method/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].mechanics.mechanism.passive_dc = 12;
+    }),
+    /unknown field passive_dc/,
+  );
+  assert.match(
+    errorsFor((value) => {
+      value.thresholds.hazards[0].target_ref.id =
+        "fixture.discovery:feature/secret-door";
+    }),
+    /exact same target/,
+  );
 });
 
 test("concrete method offers expose exact-key certainty and timeful tool risk", () => {

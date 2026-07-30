@@ -83,6 +83,9 @@
     "leadState": {
       "enum": ["latent", "signed", "followable", "lost", "marked", "mapped", "resolved"]
     },
+    "hazardState": {
+      "enum": ["armed", "disarmed", "triggered", "spent", "bypassed"]
+    },
     "targetRef": {
       "type": "object",
       "additionalProperties": false,
@@ -457,6 +460,104 @@
         "slot": { "$ref": "#/$defs/slotRef" }
       }
     },
+    "hazardMechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "reveal_methods"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "reveal_methods": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["search", "study"] }
+        }
+      }
+    },
+    "hazardTriggerBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "act",
+        "gate_method",
+        "from_states",
+        "target_policy",
+        "maximum_targets",
+        "on_success_state",
+        "consequence_on"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "act": {
+          "enum": [
+            "interact",
+            "open",
+            "cross",
+            "search",
+            "failed_method",
+            "turn",
+            "force",
+            "remove",
+            "make_noise",
+            "cast"
+          ]
+        },
+        "gate_method": { "$ref": "#/$defs/localId" },
+        "from_states": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/hazardState" }
+        },
+        "target_policy": {
+          "enum": ["acting_actor", "holder", "expedition_order", "location_occupants"]
+        },
+        "maximum_targets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "on_success_state": { "$ref": "#/$defs/hazardState" },
+        "on_failure_state": { "$ref": "#/$defs/hazardState" },
+        "consequence_on": { "enum": ["never", "success", "failure", "always"] }
+      }
+    },
+    "hazardMechanics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "resolution_version",
+        "gate_id",
+        "initial_state",
+        "states",
+        "mechanism",
+        "trigger_bindings"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "resolution_version": { "const": "hazard-resolution-v1" },
+        "gate_id": { "$ref": "#/$defs/canonicalId" },
+        "initial_state": { "const": "armed" },
+        "states": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/hazardState" }
+        },
+        "mechanism": { "$ref": "#/$defs/hazardMechanism" },
+        "trigger_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/hazardTriggerBinding" }
+        }
+      }
+    },
     "hazard": {
       "type": "object",
       "additionalProperties": false,
@@ -482,14 +583,27 @@
           "type": "array",
           "minItems": 1,
           "maxItems": 8,
-          "items": { "type": "string", "minLength": 1 }
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
         },
         "triggers": {
           "type": "array",
           "minItems": 1,
           "maxItems": 8,
           "uniqueItems": true,
-          "items": { "enum": ["interact", "open", "cross", "search", "failed_method"] }
+          "items": {
+            "enum": [
+              "interact",
+              "open",
+              "cross",
+              "search",
+              "failed_method",
+              "turn",
+              "force",
+              "remove",
+              "make_noise",
+              "cast"
+            ]
+          }
         },
         "severity": { "enum": ["minor", "major", "severe"] },
         "methods": {
@@ -505,6 +619,7 @@
         },
         "consequences": { "$ref": "#/$defs/effects" },
         "reset": { "$ref": "#/$defs/reset" },
+        "mechanics": { "$ref": "#/$defs/hazardMechanics" },
         "slot": { "$ref": "#/$defs/slotRef" }
       }
     },

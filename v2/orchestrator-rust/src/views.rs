@@ -1463,6 +1463,7 @@ pub(super) struct InspectorView {
     pub(super) jobs: Vec<JobInspectorView>,
     pub(super) fronts: Vec<FrontView>,
     pub(super) clocks: Vec<ClockInspectorView>,
+    pub(super) hazards: Vec<ThresholdHazardDeveloperView>,
     pub(super) lifecycle_hooks: Vec<LifecycleHookInspectorView>,
 }
 
@@ -3675,6 +3676,9 @@ impl RuntimeWorld {
             jobs: self.job_inspector_views(location_id, actor_id),
             fronts: self.front_views(location_id),
             clocks: self.clock_inspector_views(location_id),
+            hazards: actor_id
+                .map(|id| self.threshold_hazard_developer_views(id))
+                .unwrap_or_default(),
             lifecycle_hooks: self.lifecycle_hook_inspector_views(location_id),
         }
     }

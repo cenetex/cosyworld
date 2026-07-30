@@ -416,6 +416,186 @@
         }
       },
       {
+        "id": "fixture.discovery:gate/chest-lock",
+        "version": 1,
+        "target_ref": {
+          "kind": "feature",
+          "id": "fixture.discovery:feature/locked-chest",
+          "version": 1
+        },
+        "scope": "world",
+        "transition": "open",
+        "persistence": "persistent",
+        "closed_requirements": {
+          "mode": "all",
+          "clauses": []
+        },
+        "methods": [
+          {
+            "id": "use_chest_key",
+            "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Use the chest key",
+              "requirement": "the exact chest key",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "The key opens the chest without touching the needle.",
+              "consequence": "The exact key turns quietly with no additional consequence."
+            },
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "exact_item",
+                  "item_id": "fixture.discovery:item/chest-key"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "open"
+              }
+            ]
+          },
+          {
+            "id": "disarm_with_fine_tools",
+            "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Disarm with fine tools",
+              "requirement": "fine tools and a steady hand",
+              "economy": { "played_time_turns": 1 },
+              "resolution": {
+                "kind": "srd_check",
+                "rules_action": "srd5.2.1:search",
+                "ability": "dexterity",
+                "dc": 12
+              },
+              "effect": "The needle is disarmed before the chest opens.",
+              "consequence": "Failure triggers the needle and advances ruin danger."
+            },
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "item_capability",
+                  "capability": "fine-tools"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "open"
+              }
+            ],
+            "failure_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "closed"
+              }
+            ]
+          },
+          {
+            "id": "force_lid",
+            "action": "force",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Force the lid",
+              "requirement": "raw strength and acceptance of the risk",
+              "economy": { "played_time_turns": 1 },
+              "resolution": {
+                "kind": "consequence_avoidance_check",
+                "rules_action": "srd5.2.1:use-an-object",
+                "ability": "strength",
+                "dc": 13
+              },
+              "effect": "The lid gives way.",
+              "consequence": "A poor angle triggers the needle and advances ruin danger."
+            },
+            "requirements": {
+              "mode": "all",
+              "clauses": []
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "open"
+              }
+            ],
+            "failure_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "open"
+              }
+            ]
+          },
+          {
+            "id": "ward_with_magic",
+            "action": "cast",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Ward the needle with magic",
+              "requirement": "a deliberate protective working",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "Magic holds the needle still while the chest opens.",
+              "consequence": "The ward costs one turn but adds no danger."
+            },
+            "requirements": {
+              "mode": "all",
+              "clauses": []
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "open"
+              }
+            ]
+          },
+          {
+            "id": "careless_open",
+            "action": "open",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Open it carelessly",
+              "requirement": "no preparation",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "The chest opens.",
+              "consequence": "The visible warning is ignored; the needle triggers and ruin danger advances."
+            },
+            "requirements": {
+              "mode": "all",
+              "clauses": []
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/chest-lock",
+                "state": "open"
+              }
+            ]
+          }
+        ],
+        "reset": {
+          "policy": "never"
+        }
+      },
+      {
         "id": "fixture.discovery:gate/relic-plinth",
         "version": 1,
         "target_ref": {
@@ -607,7 +787,7 @@
         },
         "scope": "world",
         "tells": ["A pinhole marks the lock plate."],
-        "triggers": ["open", "failed_method"],
+        "triggers": ["turn", "interact", "force", "cast", "open"],
         "severity": "major",
         "methods": [
           {
@@ -696,6 +876,71 @@
         ],
         "reset": {
           "policy": "manual"
+        },
+        "mechanics": {
+          "schema_version": 1,
+          "resolution_version": "hazard-resolution-v1",
+          "gate_id": "fixture.discovery:gate/chest-lock",
+          "initial_state": "armed",
+          "states": ["armed", "disarmed", "triggered", "spent", "bypassed"],
+          "mechanism": {
+            "text": "Opening pressure drives a spring needle through the lock plate.",
+            "reveal_methods": ["search", "study"]
+          },
+          "trigger_bindings": [
+            {
+              "id": "key_turn",
+              "act": "turn",
+              "gate_method": "use_chest_key",
+              "from_states": ["armed"],
+              "target_policy": "acting_actor",
+              "maximum_targets": 1,
+              "on_success_state": "bypassed",
+              "consequence_on": "never"
+            },
+            {
+              "id": "tool_disarm",
+              "act": "interact",
+              "gate_method": "disarm_with_fine_tools",
+              "from_states": ["armed"],
+              "target_policy": "holder",
+              "maximum_targets": 1,
+              "on_success_state": "disarmed",
+              "on_failure_state": "triggered",
+              "consequence_on": "failure"
+            },
+            {
+              "id": "forced_lid",
+              "act": "force",
+              "gate_method": "force_lid",
+              "from_states": ["armed"],
+              "target_policy": "acting_actor",
+              "maximum_targets": 1,
+              "on_success_state": "bypassed",
+              "on_failure_state": "triggered",
+              "consequence_on": "failure"
+            },
+            {
+              "id": "magic_ward",
+              "act": "cast",
+              "gate_method": "ward_with_magic",
+              "from_states": ["armed"],
+              "target_policy": "location_occupants",
+              "maximum_targets": 8,
+              "on_success_state": "bypassed",
+              "consequence_on": "never"
+            },
+            {
+              "id": "careless_opening",
+              "act": "open",
+              "gate_method": "careless_open",
+              "from_states": ["armed"],
+              "target_policy": "expedition_order",
+              "maximum_targets": 4,
+              "on_success_state": "triggered",
+              "consequence_on": "success"
+            }
+          ]
         },
         "slot": {
           "source_type": "hazard",
