@@ -721,6 +721,37 @@ right to mutate shared geography.
 See [the action and collectible architecture](../../docs/systems/04-action-system.md)
 and [implementation backlog](../../docs/backlog/srd-action-card-foundation.md).
 
+## Threshold descriptors
+
+World packs may publish `x-cosyworld-threshold-descriptors` at
+`threshold-descriptor-v1`. This is the authored, closed vocabulary shared by
+Leads, Anchors, Gates, Hazards, and Pressure scenes. It records stable
+pack-owned ids and versions, typed targets, actor/expedition/world/holder
+visibility, exact methods, flat predicates, typed effects, reset and recovery
+rules, and bounded progress/danger questions and tracks.
+
+The catalog deliberately has no free-form predicate, effect, trigger, or
+transition escape hatch. Requirements are a bounded flat `all` list rather than
+a recursive expression tree. Discovery bindings name an
+`x-cosyworld-discovery-slots` id and exact version, compatible result type,
+once-per-scope claim, receipt version, finite budget, deterministic fallback,
+and already-materialized ids. Unknown or cross-version bindings fail the pack
+compiler and the Rust loader.
+
+Accepted actions use `threshold-intent-v1`. The receipt freezes the descriptor
+and pack provenance, target, actor and scope, selected method, server facts,
+Discovery receipt refs, materialized ids, and accepted turn. A known stored
+receipt replays as written after content changes; new execution must match the
+currently mounted descriptor. Generated prose may explain a certified outcome,
+but `authoring_authority` is always `authored_pack` and model, provider, client,
+user, or wall-clock text cannot compile as authoritative input.
+
+The v1 fixture covers a retained-key door, installed-relic gate, consumable
+seal, holder-only threshold, key-bypass trapped chest with table-stocked
+contents, bounded ruin pressure, and a cairn-markable Lead. Anchor
+`return_chain` identifies already-legal continuation separately from
+`branch_authorization`; a mark does not invent forward topology.
+
 ## Campaign packs
 
 `cosyworld.campaign.the-lantern-keeper` is the first short campaign pack. It

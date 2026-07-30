@@ -1,0 +1,701 @@
+{
+  "pack_id": "fixture.discovery",
+  "pack_version": "1.0.0",
+  "discovery": {
+    "schema_version": 1,
+    "receipt_version": "discovery-receipt-v1",
+    "roll_algorithm": "weighted-fnv1a-v1",
+    "stocking_tables": [
+      {
+        "id": "fixture.discovery:discovery-table/chest-items",
+        "version": 1,
+        "target_kind": "item",
+        "eligible_inputs": [
+          "world_seed",
+          "worldpack_bundle_hash",
+          "slot_id",
+          "slot_version",
+          "origin_id",
+          "claim_scope_id"
+        ],
+        "rows": [
+          {
+            "id": "old_coin",
+            "weight": 1,
+            "result_ids": ["fixture.discovery:item/old-coin"],
+            "unique": true
+          },
+          {
+            "id": "blue_thread",
+            "weight": 3,
+            "result_ids": ["fixture.discovery:item/blue-thread"]
+          }
+        ],
+        "fallback_row_id": "blue_thread"
+      },
+      {
+        "id": "fixture.discovery:discovery-table/wilderness-resources",
+        "version": 1,
+        "target_kind": "resource",
+        "eligible_inputs": [
+          "world_seed",
+          "worldpack_bundle_hash",
+          "slot_id",
+          "slot_version",
+          "origin_id",
+          "region_id",
+          "claim_scope_id"
+        ],
+        "rows": [
+          {
+            "id": "rare_herbs",
+            "weight": 2,
+            "result_ids": ["fixture.discovery:resource/rare-herb-habitat"]
+          },
+          {
+            "id": "clay_bank",
+            "weight": 1,
+            "result_ids": ["fixture.discovery:resource/clay-bank"]
+          }
+        ],
+        "fallback_row_id": "clay_bank"
+      },
+      {
+        "id": "fixture.discovery:discovery-table/required-route-sign",
+        "version": 1,
+        "target_kind": "route",
+        "eligible_inputs": [
+          "world_seed",
+          "worldpack_bundle_hash",
+          "slot_id",
+          "slot_version",
+          "origin_id",
+          "claim_scope_id"
+        ],
+        "rows": [
+          {
+            "id": "ford_route",
+            "weight": 1,
+            "result_ids": ["fixture.discovery:route/ford"],
+            "topology_entity_ids": ["fixture.discovery:route/ford"]
+          },
+          {
+            "id": "ridge_route",
+            "weight": 1,
+            "result_ids": ["fixture.discovery:route/ridge"],
+            "topology_entity_ids": ["fixture.discovery:route/ridge"]
+          }
+        ],
+        "fallback_row_id": "ridge_route"
+      }
+    ],
+    "event_tables": [],
+    "presentation_tables": [],
+    "slots": [
+      {
+        "id": "fixture.discovery:discovery/chest-cache",
+        "version": 1,
+        "target_kind": "item",
+        "origin_id": "fixture.discovery:feature/locked-chest",
+        "scope": "world",
+        "initial_phase": "signed",
+        "tells": [
+          {
+            "id": "loose_false_bottom",
+            "sense": "sight",
+            "text": "The chest's false bottom sits slightly proud."
+          }
+        ],
+        "reveal_methods": ["search"],
+        "claim_policy": "once_per_scope",
+        "stocking": {
+          "kind": "table",
+          "table_id": "fixture.discovery:discovery-table/chest-items",
+          "table_version": 1
+        },
+        "gate_id": "fixture.discovery:gate/chest-lock",
+        "hazard_id": "fixture.discovery:hazard/chest-needle",
+        "progression": {
+          "kind": "optional"
+        }
+      },
+      {
+        "id": "fixture.discovery:discovery/secret-door",
+        "version": 1,
+        "target_kind": "feature",
+        "origin_id": "fixture.discovery:location/archive",
+        "scope": "world",
+        "initial_phase": "signed",
+        "tells": [
+          {
+            "id": "cold_draft",
+            "sense": "touch",
+            "text": "A cold draft threads through the bookcase."
+          }
+        ],
+        "reveal_methods": ["notice", "search"],
+        "claim_policy": "once_per_scope",
+        "stocking": {
+          "kind": "fixed",
+          "result_ids": ["fixture.discovery:feature/secret-door"]
+        },
+        "gate_id": "fixture.discovery:gate/archive-door",
+        "progression": {
+          "kind": "optional"
+        }
+      },
+      {
+        "id": "fixture.discovery:discovery/wilderness-resource",
+        "version": 1,
+        "target_kind": "resource",
+        "origin_id": "fixture.discovery:region/mossy-verge",
+        "scope": "expedition",
+        "initial_phase": "signed",
+        "tells": [
+          {
+            "id": "soil_and_scent",
+            "sense": "smell",
+            "text": "Wet mineral soil carries a sharp green scent."
+          }
+        ],
+        "reveal_methods": ["notice", "search"],
+        "claim_policy": "once_per_scope",
+        "stocking": {
+          "kind": "table",
+          "table_id": "fixture.discovery:discovery-table/wilderness-resources",
+          "table_version": 1
+        },
+        "progression": {
+          "kind": "optional"
+        }
+      },
+      {
+        "id": "fixture.discovery:discovery/required-route-sign",
+        "version": 1,
+        "target_kind": "route",
+        "origin_id": "fixture.discovery:location/moonlit-trail",
+        "scope": "world",
+        "initial_phase": "signed",
+        "tells": [
+          {
+            "id": "route_sign",
+            "sense": "sight",
+            "text": "Bent grass and pale stones show that a route continues."
+          }
+        ],
+        "reveal_methods": ["notice", "scout"],
+        "claim_policy": "once_per_scope",
+        "stocking": {
+          "kind": "table",
+          "table_id": "fixture.discovery:discovery-table/required-route-sign",
+          "table_version": 1
+        },
+        "authorized_topology_ids": [
+          "fixture.discovery:route/ford",
+          "fixture.discovery:route/ridge"
+        ],
+        "progression": {
+          "kind": "required",
+          "sign_budget": 3,
+          "fallback_row_id": "ridge_route"
+        }
+      }
+    ]
+  },
+  "thresholds": {
+    "schema_version": 1,
+    "descriptor_version": "threshold-descriptor-v1",
+    "accepted_intent_version": "threshold-intent-v1",
+    "authoring_authority": "authored_pack",
+    "lead_state_migrations": {
+      "latent": "latent",
+      "sign": "signed",
+      "followable": "followable",
+      "lost": "lost",
+      "marked": "marked",
+      "mapped": "mapped"
+    },
+    "recoveries": [
+      {
+        "id": "fixture.discovery:recovery/chest-needle-reset",
+        "version": 1,
+        "effects": [
+          {
+            "kind": "set_hazard_state",
+            "target_id": "fixture.discovery:hazard/chest-needle",
+            "state": "armed"
+          }
+        ]
+      }
+    ],
+    "anchors": [
+      {
+        "id": "fixture.discovery:anchor/moonlit-cairn",
+        "version": 1,
+        "location_ref": {
+          "kind": "location",
+          "id": "fixture.discovery:location/moonlit-trail",
+          "version": 1
+        },
+        "state": "provisional",
+        "return_chain": [
+          {
+            "kind": "route",
+            "id": "fixture.discovery:route/ford",
+            "version": 1
+          }
+        ],
+        "branch_authorization": [
+          {
+            "kind": "route",
+            "id": "fixture.discovery:route/ridge",
+            "version": 1
+          }
+        ],
+        "durable_mark_state": "marked"
+      }
+    ],
+    "leads": [
+      {
+        "id": "fixture.discovery:lead/cairn-track",
+        "version": 1,
+        "source_ref": {
+          "kind": "feature",
+          "id": "fixture.discovery:feature/cairn",
+          "version": 1
+        },
+        "target_ref": {
+          "kind": "route",
+          "id": "fixture.discovery:route/ridge",
+          "version": 1
+        },
+        "scope": "expedition",
+        "initial_state": "signed",
+        "state_path": ["signed", "followable", "marked", "mapped", "resolved"],
+        "anchor_id": "fixture.discovery:anchor/moonlit-cairn",
+        "anchor_version": 1,
+        "slot": {
+          "source_type": "lead",
+          "allowed_result_type": "route",
+          "slot_id": "fixture.discovery:discovery/required-route-sign",
+          "slot_version": 1,
+          "table_id": "fixture.discovery:discovery-table/required-route-sign",
+          "table_version": 1,
+          "claim_policy": "once_per_scope",
+          "receipt_version": "discovery-receipt-v1",
+          "receipt_ref": "fixture.discovery:receipt/cairn-track",
+          "finite_budget": 3,
+          "fallback": "required_result",
+          "materialized_ids": ["fixture.discovery:route/ridge"]
+        },
+        "transitions": [
+          {
+            "from": "signed",
+            "to": "followable",
+            "method": "study_tracks",
+            "effects": [
+              {
+                "kind": "set_lead_state",
+                "target_id": "fixture.discovery:lead/cairn-track",
+                "state": "followable"
+              }
+            ]
+          },
+          {
+            "from": "followable",
+            "to": "marked",
+            "method": "build_cairn",
+            "effects": [
+              {
+                "kind": "set_anchor_state",
+                "target_id": "fixture.discovery:anchor/moonlit-cairn",
+                "state": "marked"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "gates": [
+      {
+        "id": "fixture.discovery:gate/archive-door",
+        "version": 1,
+        "target_ref": {
+          "kind": "feature",
+          "id": "fixture.discovery:feature/secret-door",
+          "version": 1
+        },
+        "scope": "world",
+        "transition": "unlock",
+        "persistence": "persistent",
+        "closed_requirements": {
+          "mode": "all",
+          "clauses": [
+            {
+              "kind": "exact_item",
+              "item_id": "fixture.discovery:item/archive-key"
+            }
+          ]
+        },
+        "methods": [
+          {
+            "id": "use_retained_key",
+            "action": "use_item",
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "exact_item",
+                  "item_id": "fixture.discovery:item/archive-key"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/archive-door",
+                "state": "open"
+              }
+            ]
+          }
+        ],
+        "reset": {
+          "policy": "never"
+        },
+        "slot": {
+          "source_type": "gate",
+          "allowed_result_type": "feature",
+          "slot_id": "fixture.discovery:discovery/secret-door",
+          "slot_version": 1,
+          "claim_policy": "once_per_scope",
+          "receipt_version": "discovery-receipt-v1",
+          "receipt_ref": "fixture.discovery:receipt/archive-door",
+          "finite_budget": 2,
+          "fallback": "retain_state",
+          "materialized_ids": ["fixture.discovery:feature/secret-door"]
+        }
+      },
+      {
+        "id": "fixture.discovery:gate/relic-plinth",
+        "version": 1,
+        "target_ref": {
+          "kind": "feature",
+          "id": "fixture.discovery:feature/relic-plinth",
+          "version": 1
+        },
+        "scope": "world",
+        "transition": "install",
+        "persistence": "persistent",
+        "closed_requirements": {
+          "mode": "all",
+          "clauses": [
+            {
+              "kind": "installed_item",
+              "item_id": "fixture.discovery:item/moon-relic",
+              "target_id": "fixture.discovery:feature/relic-plinth"
+            }
+          ]
+        },
+        "methods": [
+          {
+            "id": "install_relic",
+            "action": "use_item",
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "installed_item",
+                  "item_id": "fixture.discovery:item/moon-relic",
+                  "target_id": "fixture.discovery:feature/relic-plinth"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/relic-plinth",
+                "state": "open"
+              }
+            ]
+          }
+        ],
+        "reset": {
+          "policy": "never"
+        }
+      },
+      {
+        "id": "fixture.discovery:gate/wax-seal",
+        "version": 1,
+        "target_ref": {
+          "kind": "feature",
+          "id": "fixture.discovery:feature/wax-seal",
+          "version": 1
+        },
+        "scope": "actor",
+        "transition": "consume",
+        "persistence": "persistent",
+        "closed_requirements": {
+          "mode": "all",
+          "clauses": [
+            {
+              "kind": "minimum_charges",
+              "item_id": "fixture.discovery:item/seal-breaker",
+              "amount": 1
+            }
+          ]
+        },
+        "methods": [
+          {
+            "id": "break_seal",
+            "action": "use_item",
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "minimum_charges",
+                  "item_id": "fixture.discovery:item/seal-breaker",
+                  "amount": 1
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "consume_item_charge",
+                "target_id": "fixture.discovery:item/seal-breaker",
+                "amount": 1
+              },
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/wax-seal",
+                "state": "open"
+              }
+            ]
+          }
+        ],
+        "reset": {
+          "policy": "never"
+        }
+      },
+      {
+        "id": "fixture.discovery:gate/holder-threshold",
+        "version": 1,
+        "target_ref": {
+          "kind": "route",
+          "id": "fixture.discovery:route/holder-threshold",
+          "version": 1
+        },
+        "scope": "holder",
+        "transition": "cross",
+        "persistence": "resettable",
+        "closed_requirements": {
+          "mode": "all",
+          "clauses": [
+            {
+              "kind": "exact_item",
+              "item_id": "fixture.discovery:item/threshold-token"
+            }
+          ]
+        },
+        "methods": [
+          {
+            "id": "present_token",
+            "action": "use_item",
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "exact_item",
+                  "item_id": "fixture.discovery:item/threshold-token"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/holder-threshold",
+                "state": "open_for_holder"
+              }
+            ]
+          }
+        ],
+        "reset": {
+          "policy": "scene_end"
+        }
+      }
+    ],
+    "hazards": [
+      {
+        "id": "fixture.discovery:hazard/chest-needle",
+        "version": 1,
+        "target_ref": {
+          "kind": "feature",
+          "id": "fixture.discovery:feature/locked-chest",
+          "version": 1
+        },
+        "scope": "world",
+        "tells": ["A pinhole marks the lock plate."],
+        "triggers": ["open", "failed_method"],
+        "severity": "major",
+        "methods": [
+          {
+            "id": "disarm_needle",
+            "action": "use_item",
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "item_capability",
+                  "capability": "fine-tools"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_hazard_state",
+                "target_id": "fixture.discovery:hazard/chest-needle",
+                "state": "disarmed"
+              }
+            ],
+            "failure_effects": [
+              {
+                "kind": "set_hazard_state",
+                "target_id": "fixture.discovery:hazard/chest-needle",
+                "state": "triggered"
+              }
+            ],
+            "recovery_ref": "fixture.discovery:recovery/chest-needle-reset",
+            "recovery_version": 1
+          }
+        ],
+        "bypasses": [
+          {
+            "id": "use_chest_key",
+            "action": "use_item",
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "exact_item",
+                  "item_id": "fixture.discovery:item/chest-key"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_hazard_state",
+                "target_id": "fixture.discovery:hazard/chest-needle",
+                "state": "bypassed"
+              }
+            ]
+          }
+        ],
+        "consequences": [
+          {
+            "kind": "advance_clock",
+            "target_id": "fixture.discovery:clock/ruin-danger",
+            "amount": 1
+          }
+        ],
+        "reset": {
+          "policy": "manual"
+        },
+        "slot": {
+          "source_type": "hazard",
+          "allowed_result_type": "item",
+          "slot_id": "fixture.discovery:discovery/chest-cache",
+          "slot_version": 1,
+          "table_id": "fixture.discovery:discovery-table/chest-items",
+          "table_version": 1,
+          "claim_policy": "once_per_scope",
+          "receipt_version": "discovery-receipt-v1",
+          "receipt_ref": "fixture.discovery:receipt/chest-cache",
+          "finite_budget": 2,
+          "fallback": "deny",
+          "materialized_ids": ["fixture.discovery:item/blue-thread"]
+        }
+      }
+    ],
+    "pressures": [
+      {
+        "id": "fixture.discovery:pressure/bounded-ruin",
+        "version": 1,
+        "participant_refs": [
+          {
+            "kind": "actor",
+            "id": "fixture.discovery:actor/explorer",
+            "version": 1
+          },
+          {
+            "kind": "hazard",
+            "id": "fixture.discovery:hazard/chest-needle",
+            "version": 1
+          }
+        ],
+        "progress": {
+          "clock_id": "fixture.discovery:clock/ruin-progress",
+          "question": "Can the expedition find a safe way out of the ruin?",
+          "maximum": 6
+        },
+        "danger": {
+          "clock_id": "fixture.discovery:clock/ruin-danger",
+          "question": "Does the collapsing ruin overtake the expedition?",
+          "maximum": 4
+        },
+        "terminal_states": ["escaped", "overtaken"],
+        "strategies": [
+          {
+            "id": "pick_careful_path",
+            "turn_cost": 1,
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "actor_tag",
+                  "tag_id": "fixture.discovery:tag/trailwise"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "advance_pressure",
+                "target_id": "fixture.discovery:pressure/bounded-ruin",
+                "track": "progress",
+                "amount": 2
+              }
+            ],
+            "soft_consequences": [
+              {
+                "kind": "advance_pressure",
+                "target_id": "fixture.discovery:pressure/bounded-ruin",
+                "track": "danger",
+                "amount": 1
+              }
+            ],
+            "hard_consequences": [
+              {
+                "kind": "advance_pressure",
+                "target_id": "fixture.discovery:pressure/bounded-ruin",
+                "track": "danger",
+                "amount": 2
+              }
+            ]
+          }
+        ],
+        "slot": {
+          "source_type": "pressure",
+          "allowed_result_type": "resource",
+          "slot_id": "fixture.discovery:discovery/wilderness-resource",
+          "slot_version": 1,
+          "table_id": "fixture.discovery:discovery-table/wilderness-resources",
+          "table_version": 1,
+          "claim_policy": "once_per_scope",
+          "receipt_version": "discovery-receipt-v1",
+          "receipt_ref": "fixture.discovery:receipt/ruin-resource",
+          "finite_budget": 4,
+          "fallback": "retain_state",
+          "materialized_ids": ["fixture.discovery:resource/clay-bank"]
+        }
+      }
+    ]
+  }
+}

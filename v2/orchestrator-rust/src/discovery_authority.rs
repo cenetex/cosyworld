@@ -217,6 +217,40 @@ fn parse_catalog(pack: &SeedWorldpackPack) -> Result<Option<DiscoveryAuthorityCa
         .map_err(|error| format!("pack {} discovery authority: {error}", pack.id))
 }
 
+pub(super) struct DiscoverySlotContract {
+    pub(super) version: u8,
+    pub(super) target_kind: String,
+    pub(super) claim_policy: String,
+    pub(super) table_id: Option<String>,
+    pub(super) table_version: Option<u8>,
+}
+
+pub(super) type DiscoverySlotContracts = BTreeMap<String, DiscoverySlotContract>;
+
+pub(super) fn discovery_slot_contracts(
+    pack: &SeedWorldpackPack,
+) -> Result<DiscoverySlotContracts, String> {
+    let Some(catalog) = parse_catalog(pack)? else {
+        return Ok(BTreeMap::new());
+    };
+    Ok(catalog
+        .slots
+        .into_iter()
+        .map(|slot| {
+            (
+                slot.id,
+                DiscoverySlotContract {
+                    version: slot.version,
+                    target_kind: slot.target_kind,
+                    claim_policy: slot.claim_policy,
+                    table_id: slot.stocking.table_id,
+                    table_version: slot.stocking.table_version,
+                },
+            )
+        })
+        .collect())
+}
+
 fn valid_row_id(value: &str) -> bool {
     let mut chars = value.chars();
     chars.next().is_some_and(|first| first.is_ascii_lowercase())

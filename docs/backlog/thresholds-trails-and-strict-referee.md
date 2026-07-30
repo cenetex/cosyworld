@@ -6,7 +6,9 @@
 [ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md).
 Discovery authority v1 is specified by
 [`discovery-authority-v1.schema.json`](../../v2/schemas/discovery-authority-v1.schema.json);
-player procedures and descriptor/runtime work remain dependency-ordered below.
+the shared Lead/Gate/Hazard/Pressure contract is specified by
+[`threshold-descriptors-v1.schema.json`](../../v2/schemas/threshold-descriptors-v1.schema.json).
+Player procedures and runtime enforcement remain dependency-ordered below.
 
 ## Shared model
 
@@ -63,7 +65,7 @@ Reveal never implies Open, Take, or Travel.
 | --- | --- | --- |
 | 1 | [#587](https://github.com/cenetex/cosyworld/issues/587) | Product, vocabulary, compatibility, and migration law. |
 | 2 | [#600](https://github.com/cenetex/cosyworld/issues/600) | Discovery Slot and deterministic stocking receipt. |
-| 3 | [#588](https://github.com/cenetex/cosyworld/issues/588) | Lead, Gate, Hazard, Pressure, and Anchor descriptors. |
+| 3 | [#588](https://github.com/cenetex/cosyworld/issues/588) | Lead, Gate, Hazard, Pressure, and Anchor descriptors. Shipped in 0.0.282. |
 | 4 | [#589](https://github.com/cenetex/cosyworld/issues/589) | Kernel-owned conditional transitions. |
 | 5 | [#590](https://github.com/cenetex/cosyworld/issues/590) | Custody, recovery, and route reachability proof. |
 | 6 | [#591](https://github.com/cenetex/cosyworld/issues/591) | Concrete methods and consequence-first offers. |
