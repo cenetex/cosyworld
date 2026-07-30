@@ -794,7 +794,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:50205c5d58ef8e556744f5c383018ef1e2c440a7df2784ba013ecf75523d8f9f",
+    "bundle_hash": "sha256:9576956c1e4e526044e6bf67996d18ada8a52f140be77ea25d763b2f386dc790",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2269,7 +2269,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:bb4475d96fc6bd7c1b3e89a78a3927b6c5a7984da4f7a0472bbc1f46cfc43321"
+        "integrity": "sha256:0318228d0ff1b5c32340c2e712191c3e0e47fccc148179b1eaf9860e581ca141"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -17361,6 +17361,18 @@
           "prompt": "What kind of traveler reaches the last light?",
           "class_prompt": "Which Lantern Keeper campaign path will you use?",
           "default_choice_id": "lantern-warden",
+          "class_recommendations": [
+            {
+              "offer_kind": "work",
+              "class_id": "lantern-warden",
+              "explanation": "You held to a shared task until it changed, the same steady practice a Lantern Warden brings to the road."
+            },
+            {
+              "offer_kind": "help",
+              "class_id": "hedge-mender",
+              "explanation": "You helped another traveler move a shared task forward, the same practical care a Hedge Mender brings to the road."
+            }
+          ],
           "default_species_id": "human",
           "default_origin_id": "wayside-inn",
           "species": [
@@ -17370,7 +17382,8 @@
               "detail": "adaptable, familiar, and hard to surprise twice",
               "title": "Human",
               "description": "A human traveler with practical hands and a face the road has not finished writing.",
-              "visual_prompt": "human traveler, expressive face, practical layered road clothes"
+              "visual_prompt": "human traveler, expressive face, practical layered road clothes",
+              "campaign_rule": "Story and portrait only: Human does not change available actions, ability checks, or modifiers."
             },
             {
               "id": "mouse",
@@ -17378,7 +17391,8 @@
               "detail": "small, quick, and attentive to overlooked things",
               "title": "Mouse",
               "description": "A small mouse traveler with bright eyes, careful paws, and an instinct for the useful edge of a room.",
-              "visual_prompt": "anthropomorphic mouse traveler, bright eyes, careful paws, small practical satchel"
+              "visual_prompt": "anthropomorphic mouse traveler, bright eyes, careful paws, small practical satchel",
+              "campaign_rule": "Story and portrait only: Mouse does not change available actions, ability checks, or modifiers."
             },
             {
               "id": "badger",
@@ -17386,7 +17400,8 @@
               "detail": "sturdy, patient, and difficult to hurry",
               "title": "Badger",
               "description": "A broad badger traveler with weathered fur, a patient stance, and room for one more burden.",
-              "visual_prompt": "anthropomorphic badger traveler, weathered fur, broad patient posture"
+              "visual_prompt": "anthropomorphic badger traveler, weathered fur, broad patient posture",
+              "campaign_rule": "Story and portrait only: Badger does not change available actions, ability checks, or modifiers."
             }
           ],
           "origins": [
@@ -17396,7 +17411,8 @@
               "detail": "you learned people by the state of their boots",
               "title": "the Wayside Inn",
               "description": "They grew up around kettle steam, wet cloaks, and stories told once the door was barred.",
-              "visual_prompt": "warm wayside inn details, kettle steam, patched travel cloak"
+              "visual_prompt": "warm wayside inn details, kettle steam, patched travel cloak",
+              "campaign_rule": "Story and portrait only: this Origin does not change available actions, ability checks, or modifiers."
             },
             {
               "id": "open-road",
@@ -17404,7 +17420,8 @@
               "detail": "home was whichever milepost still had daylight",
               "title": "the Open Road",
               "description": "They learned to sleep lightly, mend straps in rain, and remember every honest milepost.",
-              "visual_prompt": "open road details, weathered map ribbon, rain-mended traveling gear"
+              "visual_prompt": "open road details, weathered map ribbon, rain-mended traveling gear",
+              "campaign_rule": "Story and portrait only: this Origin does not change available actions, ability checks, or modifiers."
             },
             {
               "id": "old-chapel",
@@ -17412,7 +17429,8 @@
               "detail": "you know which old customs still keep people safe",
               "title": "the Old Chapel",
               "description": "They remember soot-black rafters, small bells, and rules whose reasons were never written down.",
-              "visual_prompt": "old roadside chapel details, small brass bell, soot-marked cloth"
+              "visual_prompt": "old roadside chapel details, small brass bell, soot-marked cloth",
+              "campaign_rule": "Story and portrait only: this Origin does not change available actions, ability checks, or modifiers."
             }
           ],
           "choices": [
@@ -17423,7 +17441,8 @@
               "calling": "I keep a light burning when others lose the road.",
               "title": "Lantern Warden",
               "description": "A steady road-guard with a battered shield, a hooded lamp, and no habit of abandoning stragglers.",
-              "starting_skill_id": "steadiness"
+              "starting_skill_id": "steadiness",
+              "campaign_use": "Starts with Steadiness rank 1: +1 on Constitution checks, first useful when you endure danger or keep working under strain."
             },
             {
               "id": "mothwood-guide",
@@ -17432,7 +17451,8 @@
               "calling": "I find the path that still has living footprints on it.",
               "title": "Mothwood Guide",
               "description": "A weather-wise scout carrying chalk, twine, and a map corrected more often than it is folded.",
-              "starting_skill_id": "listening"
+              "starting_skill_id": "listening",
+              "campaign_use": "Starts with Listening rank 1: +1 on Wisdom checks, first useful when you listen, notice, or study the road ahead."
             },
             {
               "id": "hedge-mender",
@@ -17441,7 +17461,8 @@
               "calling": "I mend what the dark road tries to break.",
               "title": "Hedge Mender",
               "description": "A traveling fixer whose satchel holds bandages, wire, tea leaves, and exactly the wrong-sized screwdriver.",
-              "starting_skill_id": "kindness"
+              "starting_skill_id": "kindness",
+              "campaign_use": "Starts with Kindness rank 1: +1 on Charisma checks, first useful when you help, reassure, or win someone over."
             }
           ]
         }

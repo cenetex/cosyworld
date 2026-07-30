@@ -89,6 +89,190 @@ impl ActorRulesFacetState {
 }
 
 impl RuntimeWorld {
+    pub(super) fn apply_actor_creation_rpg_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+        initial_calling: Option<&str>,
+        initial_skill: Option<&str>,
+        initial_character_profile_id: Option<&str>,
+        initial_species_id: Option<&str>,
+        initial_origin_id: Option<&str>,
+        initial_physical_description: Option<&str>,
+    ) -> Vec<EventView> {
+        if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
+            return Vec::new();
+        }
+        let Some(actor) = self.actor_by_id(action.actor_id) else {
+            return Vec::new();
+        };
+        if !Self::actor_can_act(actor) {
+            return Vec::new();
+        }
+        if let (Some(profile_id), Some(species_id), Some(origin_id)) = (
+            initial_character_profile_id,
+            initial_species_id,
+            initial_origin_id,
+        ) {
+            self.character_identities
+                .entry(action.actor_id)
+                .or_insert_with(|| AvatarIdentityState {
+                    actor_id: action.actor_id,
+                    profile_id: profile_id.to_string(),
+                    species_id: species_id.to_string(),
+                    origin_id: origin_id.to_string(),
+                    physical_description: initial_physical_description
+                        .map(compact_whitespace)
+                        .unwrap_or_default(),
+                    class_id: None,
+                    class_selection_ready: false,
+                    qualifying_world_actions: 0,
+                    class_source_event_seq: None,
+                    class_readiness_evidence: None,
+                });
+        }
+        let source_event_seq = events
+            .iter()
+            .find(|event| event.actor_id == Some(action.actor_id))
+            .map(|event| event.seq);
+        let calling = CallingState {
+            actor_id: action.actor_id,
+            statement: initial_calling
+                .and_then(normalize_calling_statement)
+                .unwrap_or_else(|| default_calling_statement().to_string()),
+            source_event_seq,
+        };
+        self.callings.insert(action.actor_id, calling.clone());
+        let reason = initial_calling
+            .and_then(normalize_calling_statement)
+            .map(|_| "chosen_calling")
+            .unwrap_or(CALLING_REASON_AVATAR_CREATED);
+        let mut projection_events =
+            vec![self.append_calling_event("calling.set", &calling, reason)];
+        if let Some(skill_id) = initial_skill.filter(|skill_id| skill_label(skill_id).is_some()) {
+            let id = skill_state_id(action.actor_id, skill_id);
+            if !self.skills.contains_key(&id) {
+                let skill = SkillState {
+                    actor_id: action.actor_id,
+                    skill_id: skill_id.to_string(),
+                    label: skill_label(skill_id).unwrap_or("Knack").to_string(),
+                    rank: 1,
+                    updated_event_seq: Some(self.world.next_event_seq),
+                };
+                self.skills.insert(id, skill.clone());
+                projection_events.push(self.append_skill_event(
+                    "skill.stepped",
+                    &skill,
+                    "character_creation",
+                ));
+            }
+        }
+        projection_events
+    }
+
+    pub(super) fn apply_class_readiness_projection(
+        &mut self,
+        record: &JournalRecord,
+        action: &CwAction,
+        committed_events: &[EventView],
+    ) -> Vec<EventView> {
+        if action.actor_id == 0
+            || action.kind == CW_ACTION_CREATE_ACTOR
+            || !matches!(
+                record.origin,
+                JournalOrigin::PlayerCard | JournalOrigin::Speech
+            )
+        {
+            return Vec::new();
+        }
+        if action.kind == CW_ACTION_NONE
+            && !record.projection_mutations.is_empty()
+            && record
+                .projection_mutations
+                .iter()
+                .all(|mutation| matches!(mutation, ProjectionMutation::ShuffleHand { .. }))
+        {
+            return Vec::new();
+        }
+        let Some((source_event_seq, trace)) = committed_events.iter().find_map(|event| {
+            (event.type_name == "job.contribution.resolved"
+                && event.actor_id == Some(action.actor_id))
+            .then(|| {
+                event
+                    .content
+                    .as_deref()
+                    .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
+                    .filter(|trace| trace.total_progress > 0)
+                    .map(|trace| (event.seq, trace))
+            })
+            .flatten()
+        }) else {
+            return Vec::new();
+        };
+        let evidence = ClassReadinessEvidence {
+            offer_kind: trace.action_kind.clone(),
+            strategy_label: trace.strategy_label.clone(),
+            target: trace.target.clone(),
+            outcome: trace.outcome.clone(),
+            progress: trace.total_progress,
+            source_event_seq,
+        };
+        let became_ready = {
+            let Some(identity) = self.character_identities.get_mut(&action.actor_id) else {
+                return Vec::new();
+            };
+            if identity.class_id.is_some() || identity.class_selection_ready {
+                return Vec::new();
+            }
+            identity.qualifying_world_actions = identity.qualifying_world_actions.saturating_add(1);
+            identity
+                .class_readiness_evidence
+                .get_or_insert(evidence.clone());
+            identity.class_selection_ready = identity.qualifying_world_actions >= 1;
+            identity.class_selection_ready
+        };
+        if !became_ready {
+            return Vec::new();
+        }
+        let recommendation = self
+            .character_identities
+            .get(&action.actor_id)
+            .and_then(|identity| character_creation_profile(Some(&identity.profile_id)))
+            .and_then(|profile| {
+                let recommendation = profile
+                    .class_recommendations
+                    .iter()
+                    .find(|candidate| candidate.offer_kind == evidence.offer_kind)?;
+                profile
+                    .choices
+                    .iter()
+                    .find(|choice| choice.id == recommendation.class_id)
+                    .map(|choice| choice.label.clone())
+            });
+        let recommendation_copy = recommendation
+            .map(|label| {
+                format!(
+                    " {label} is recommended from that evidence; every Class remains selectable."
+                )
+            })
+            .unwrap_or_else(|| {
+                " That evidence does not point to one Class; every Class remains selectable."
+                    .to_string()
+            });
+        vec![self.append_async_job_event(
+            "class.selection_ready",
+            action.actor_id,
+            None,
+            Some(format!(
+                "{} changed {} by +{} progress. Optional campaign rules are now available.{}",
+                evidence.strategy_label,
+                evidence.target.label,
+                evidence.progress,
+                recommendation_copy
+            )),
+        )]
+    }
+
     fn actor_rules_facet_base_stats(&self, actor: CwActor) -> CwStatBlock {
         self.actor_rules_facets
             .get(&actor.id)
@@ -339,6 +523,131 @@ mod tests {
             .filter(|item| item.holder_actor_id == actor_id)
             .map(|item| (item.id, item.zone))
             .collect()
+    }
+
+    fn qualifying_contribution(actor_id: u64, action_kind: &str, seq: u64) -> EventView {
+        let trace = JobContributionTrace {
+            schema_version: 1,
+            job_id: "lantern-test".to_string(),
+            strategy_id: format!("{action_kind}-strategy"),
+            strategy_label: if action_kind == "work" {
+                "Hold the lantern line".to_string()
+            } else {
+                "Help mend the lantern".to_string()
+            },
+            narration_key: "test".to_string(),
+            action_kind: action_kind.to_string(),
+            rules_action: None,
+            operation: None,
+            target: ResolvedContributionTarget {
+                kind: "job".to_string(),
+                id: "lantern-test".to_string(),
+                label: "the last roadside lantern".to_string(),
+            },
+            resolution: "success".to_string(),
+            outcome: "progressed".to_string(),
+            baseline_progress: 1,
+            success_progress: 0,
+            prepared_bonus_progress: 0,
+            project_push_prepared: false,
+            project_evidence_count: 0,
+            project_location_count: 0,
+            total_progress: 1,
+            clock_id: "lantern-test.progress".to_string(),
+            claim_key: None,
+            requirement_source_event_seqs: Vec::new(),
+            source_event_seqs: Vec::new(),
+            rules_profile: "cosyworld.srd5/1".to_string(),
+            rules_pack_id: "cosyworld.rules-srd-5.1".to_string(),
+            rules_pack_version: "5.1".to_string(),
+            pack_id: "cosyworld.campaign.the-lantern-keeper".to_string(),
+            pack_version: "1.0.0".to_string(),
+        };
+        EventView {
+            seq,
+            type_name: "job.contribution.resolved".to_string(),
+            success: true,
+            actor_id: Some(actor_id),
+            content: Some(serde_json::to_string(&trace).expect("serialize contribution trace")),
+            ..EventView::default()
+        }
+    }
+
+    #[test]
+    fn first_positive_contribution_freezes_evidence_and_authored_class_recommendation() {
+        for (action_kind, expected_class) in [("work", "lantern-warden"), ("help", "hedge-mender")]
+        {
+            let mut runtime = RuntimeWorld::seeded();
+            runtime.character_identities.insert(
+                RATI_ACTOR_ID,
+                AvatarIdentityState {
+                    actor_id: RATI_ACTOR_ID,
+                    profile_id: "the-lantern-keeper".to_string(),
+                    species_id: "human".to_string(),
+                    origin_id: "wayside-inn".to_string(),
+                    physical_description: String::new(),
+                    class_id: None,
+                    class_selection_ready: false,
+                    qualifying_world_actions: 0,
+                    class_source_event_seq: None,
+                    class_readiness_evidence: None,
+                },
+            );
+            let action = CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: RATI_ACTOR_ID,
+                ..CwAction::default()
+            };
+            let record = JournalRecord::new(action, 1).into_player_card();
+            let readiness = runtime.apply_class_readiness_projection(
+                &record,
+                &action,
+                &[qualifying_contribution(RATI_ACTOR_ID, action_kind, 41)],
+            );
+            assert_eq!(readiness.len(), 1);
+            assert_eq!(readiness[0].type_name, "class.selection_ready");
+            let identity = runtime
+                .character_identities
+                .get(&RATI_ACTOR_ID)
+                .expect("campaign identity");
+            assert_eq!(
+                identity
+                    .class_readiness_evidence
+                    .as_ref()
+                    .map(|evidence| (evidence.offer_kind.as_str(), evidence.source_event_seq)),
+                Some((action_kind, 41))
+            );
+            let view = runtime
+                .character_identity_view(RATI_ACTOR_ID)
+                .expect("campaign identity view");
+            assert_eq!(
+                view.class_recommendation
+                    .as_ref()
+                    .map(|recommendation| recommendation.class_id.as_str()),
+                Some(expected_class)
+            );
+
+            let duplicate = runtime.apply_class_readiness_projection(
+                &record,
+                &action,
+                &[qualifying_contribution(RATI_ACTOR_ID, "help", 42)],
+            );
+            assert!(duplicate.is_empty());
+            assert_eq!(
+                runtime.character_identities[&RATI_ACTOR_ID]
+                    .class_readiness_evidence
+                    .as_ref()
+                    .map(|evidence| evidence.source_event_seq),
+                Some(41)
+            );
+            let restored = RuntimeSnapshot::from_runtime(&runtime)
+                .into_runtime()
+                .expect("evidence survives snapshot restore");
+            assert_eq!(
+                restored.character_identities[&RATI_ACTOR_ID].class_readiness_evidence,
+                runtime.character_identities[&RATI_ACTOR_ID].class_readiness_evidence
+            );
+        }
     }
 
     #[test]

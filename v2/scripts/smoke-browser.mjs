@@ -848,6 +848,7 @@ async function main() {
       try {
         const syntheticListenAction = { label: "notice", focusKey: "check", command: "listen" };
         const syntheticTakeAction = { label: "take", focusKey: "item:2001", command: "take Hearth Tonic" };
+        actorId = 5000;
         state = {
           location: { id: 1, name: "The Cosy Cottage" },
           economy: { listen_attempted_here: false },
@@ -4181,12 +4182,29 @@ async function main() {
         const trailTagHint = listenHintForLocation(3, true);
         state = { items: [] };
         const scienceFallbackHint = listenHintForLocation(10, true);
-        state = { items: [{ id: 2003, location_id: 3, holder_actor_id: 0 }] };
+        state = {
+          items: [{ id: 2003, location_id: 3, holder_actor_id: 0 }],
+          skills: [{ skill_id: "listening", label: "Listening", rank: 1, bonus: 1 }],
+          character_identity: {
+            profile_id: "the-lantern-keeper",
+            class_id: "mothwood-guide",
+          },
+          character_creation: [{
+            id: "the-lantern-keeper",
+            choices: [{
+              id: "mothwood-guide",
+              label: "Mothwood Guide",
+              starting_skill_id: "listening",
+            }],
+          }],
+        };
         const rollEvent = {
           type: "ability_check.rolled",
+          actor_id: 5000,
           actor_name: "Lantern Stitch",
           location_id: 3,
           location_name: "Moonlit Trail",
+          ability: "Wisdom",
           raw_roll: 9,
           modifier: 3,
           total: 12,
@@ -4196,6 +4214,60 @@ async function main() {
         const roll = rollMeta(rollEvent);
         const rollMarkup = rollHtml(rollEvent);
         const rollMemory = roomMemoryEntryForEvent(rollEvent);
+        const classProfile = {
+          id: "the-lantern-keeper",
+          name: "The Lantern Keeper",
+          class_prompt: "Which Lantern Keeper campaign path will you use?",
+          default_choice_id: "lantern-warden",
+          choices: [
+            {
+              id: "lantern-warden",
+              label: "Lantern Warden",
+              detail: "hold the line",
+              starting_skill_id: "steadiness",
+              campaign_use: "Starts with Steadiness rank 1: +1 on Constitution checks.",
+            },
+            {
+              id: "mothwood-guide",
+              label: "Mothwood Guide",
+              detail: "read the road",
+              starting_skill_id: "listening",
+              campaign_use: "Starts with Listening rank 1: +1 on Wisdom checks.",
+            },
+            {
+              id: "hedge-mender",
+              label: "Hedge Mender",
+              detail: "mend what breaks",
+              starting_skill_id: "kindness",
+              campaign_use: "Starts with Kindness rank 1: +1 on Charisma checks.",
+            },
+          ],
+        };
+        const classIdentity = {
+          profile_id: "the-lantern-keeper",
+          species_label: "Mouse",
+          origin_label: "The Open Road",
+          class_id: null,
+          class_selection_ready: true,
+          class_readiness_evidence: {
+            strategy_label: "Help mend the lantern",
+            target: { label: "the last roadside lantern" },
+            outcome: "progressed",
+            progress: 1,
+          },
+          class_recommendation: {
+            class_id: "hedge-mender",
+            class_label: "Hedge Mender",
+            explanation: "You helped another traveler move a shared task forward.",
+          },
+        };
+        state = { cards: { actors: {}, items: {}, locations: {} } };
+        const classAction = buildActions({
+          primary_action: { kind: "none" },
+          character_identity: classIdentity,
+          character_creation: [classProfile],
+        })[0];
+        const classRows = actionModalRows(classAction);
         const clashEvent = {
           type: "combat.attack.attempt",
           actor_name: "Lantern Stitch",
@@ -4280,6 +4352,10 @@ async function main() {
           rollResult: roll.result,
           rollMarkup,
           rollMemory,
+          classSelected: classAction.selectedChoice,
+          classChoices: classAction.choices.map((choice) => choice.value),
+          classSummary: classAction.modalSummary,
+          classRows,
           focusedListenHints,
           gardenBellHint,
           trailTagHint,
@@ -4390,7 +4466,7 @@ async function main() {
       }
     });
     assert(result.rollTitle === "Lantern Stitch checks carefully; the room answers", `Check feedback should name who found the clue: ${JSON.stringify(result)}`);
-    assert(result.rollDetail === "A small iron pawprint glints at the edge of the practice circle.", `Check feedback should offer one vivid lead instead of an inventory: ${JSON.stringify(result)}`);
+    assert(result.rollDetail === "Wisdom check · d20 9 +3 = 12 vs DC 10 · success · Class skill: Listening +1 from Mothwood Guide. A small iron pawprint glints at the edge of the practice circle.", `Check feedback should disclose the exact roll and Class skill source before one vivid lead: ${JSON.stringify(result)}`);
     assert(result.rollResult === "a clue appears", `Check feedback should end with a plain outcome: ${JSON.stringify(result)}`);
     assert(
       result.focusedListenHints.every((hint) => !/[,;]|\band\b/i.test(hint)),
@@ -4404,9 +4480,17 @@ async function main() {
       `Listen should rotate to one grounded room lead when earlier keepsakes are gone: ${JSON.stringify(result)}`,
     );
     assert(/class="roll-symbol"/.test(result.rollMarkup) && /class="roll-result"/.test(result.rollMarkup), `chance feedback should use the narrative card shape: ${JSON.stringify(result)}`);
-    assert(!/d20|modifier|total|\bdc\b|>9<|>12</i.test(result.rollMarkup), `chance feedback should not expose dice arithmetic: ${JSON.stringify(result)}`);
+    assert(/d20 9 \+3 = 12 vs DC 10/.test(result.rollMarkup) && /Listening \+1 from Mothwood Guide/.test(result.rollMarkup), `non-combat chance feedback should expose exact arithmetic and Class provenance: ${JSON.stringify(result)}`);
     assert(result.rollMemory?.label === "check" && /room answers a careful check/i.test(result.rollMemory?.text || ""), `room memory should preserve the story outcome: ${JSON.stringify(result)}`);
-    assert(!/d20|modifier|total|\bdc\b/i.test(JSON.stringify(result.rollMemory)), `room memory should not retain roll arithmetic: ${JSON.stringify(result)}`);
+    assert(/d20 9 \+3 = 12 vs DC 10/.test(JSON.stringify(result.rollMemory)), `room memory should retain legible non-combat check arithmetic: ${JSON.stringify(result)}`);
+    assert(
+      result.classSelected === "hedge-mender"
+        && result.classChoices.join(",") === "lantern-warden,mothwood-guide,hedge-mender"
+        && /Help mend the lantern changed the last roadside lantern by \+1 progress/.test(result.classSummary)
+        && /Every Class remains selectable/.test(result.classSummary)
+        && result.classRows.some(([label, detail]) => label === "Selected Class" && /Kindness rank 1: \+1 on Charisma/.test(detail)),
+      `Class revelation should explain its evidence, default to the recommendation, and preserve all choices: ${JSON.stringify(result)}`,
+    );
     assert(/Moonlit Echo slips clear/.test(result.clashMarkup) && /not this time/.test(result.clashMarkup), `combat chance feedback should read as a clash, not a calculation: ${JSON.stringify(result)}`);
     assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch's Ashwood Practice Blade (Strength).", `room memory should preserve the authoritative combat method in story language: ${JSON.stringify(result)}`);
     assert(!/d20|modifier|total|\bdc\b|>4<|>6<|>13</i.test(result.clashMarkup), `combat chance feedback should hide dice arithmetic: ${JSON.stringify(result)}`);

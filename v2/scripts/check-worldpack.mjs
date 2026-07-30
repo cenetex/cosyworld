@@ -1468,6 +1468,11 @@ for (const profile of characterCreationProfiles) {
       "default_species_id",
       "default_origin_id",
     ]);
+    for (const choice of choices) {
+      validateRequiredStrings(`staged character creation choice ${profile.id}`, choice, [
+        "campaign_use",
+      ]);
+    }
     for (const [slot, cards, defaultId] of [
       ["species", profile.species, profile.default_species_id],
       ["origin", profile.origins, profile.default_origin_id],
@@ -1487,7 +1492,33 @@ for (const profile of characterCreationProfiles) {
           "title",
           "description",
           "visual_prompt",
+          "campaign_rule",
         ]);
+      }
+    }
+    const recommendations = asArray(
+      `character creation profile ${profile.id} class_recommendations`,
+      profile.class_recommendations,
+    );
+    if (recommendations.length < 1 || recommendations.length > choices.length) {
+      fail(`character creation profile ${profile.id} must declare 1-${choices.length} class recommendations`);
+    }
+    const recommendationOffers = new Set();
+    for (const recommendation of recommendations) {
+      validateRequiredStrings(
+        `character creation recommendation ${profile.id}`,
+        recommendation,
+        ["offer_kind", "class_id", "explanation"],
+      );
+      if (!new Set(["work", "help"]).has(recommendation.offer_kind)) {
+        fail(`character creation recommendation ${profile.id} has invalid offer_kind ${recommendation.offer_kind}`);
+      }
+      if (recommendationOffers.has(recommendation.offer_kind)) {
+        fail(`character creation profile ${profile.id} repeats recommendation offer_kind ${recommendation.offer_kind}`);
+      }
+      recommendationOffers.add(recommendation.offer_kind);
+      if (!has(choiceIds, recommendation.class_id)) {
+        fail(`character creation recommendation ${profile.id} references missing class ${recommendation.class_id}`);
       }
     }
   }

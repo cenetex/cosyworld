@@ -582,6 +582,8 @@ pub(super) struct SeedCharacterCreationProfile {
     pub(super) default_choice_id: String,
     pub(super) choices: Vec<SeedCharacterCreationChoice>,
     #[serde(default)]
+    pub(super) class_recommendations: Vec<SeedCharacterClassRecommendation>,
+    #[serde(default)]
     pub(super) class_prompt: Option<String>,
     #[serde(default)]
     pub(super) default_species_id: Option<String>,
@@ -602,6 +604,15 @@ pub(super) struct SeedCharacterCreationChoice {
     pub(super) title: String,
     pub(super) description: String,
     pub(super) starting_skill_id: String,
+    #[serde(default)]
+    pub(super) campaign_use: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedCharacterClassRecommendation {
+    pub(super) offer_kind: String,
+    pub(super) class_id: String,
+    pub(super) explanation: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -612,6 +623,8 @@ pub(super) struct SeedCharacterCreationIdentityCard {
     pub(super) title: String,
     pub(super) description: String,
     pub(super) visual_prompt: String,
+    #[serde(default)]
+    pub(super) campaign_rule: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

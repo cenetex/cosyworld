@@ -2699,7 +2699,7 @@ impl RuntimeWorld {
         }
     }
 
-    fn character_identity_view(&self, actor_id: u64) -> Option<CharacterIdentityView> {
+    pub(super) fn character_identity_view(&self, actor_id: u64) -> Option<CharacterIdentityView> {
         let identity = self.character_identities.get(&actor_id)?;
         let profile = character_creation_profile(Some(&identity.profile_id))?;
         let species_label = profile
@@ -2722,6 +2722,26 @@ impl RuntimeWorld {
                 .map(|choice| choice.label.clone())
                 .unwrap_or_else(|| class_id.clone())
         });
+        let class_recommendation = identity
+            .class_readiness_evidence
+            .as_ref()
+            .and_then(|evidence| {
+                profile
+                    .class_recommendations
+                    .iter()
+                    .find(|recommendation| recommendation.offer_kind == evidence.offer_kind)
+            })
+            .and_then(|recommendation| {
+                profile
+                    .choices
+                    .iter()
+                    .find(|choice| choice.id == recommendation.class_id)
+                    .map(|choice| CharacterClassRecommendationView {
+                        class_id: recommendation.class_id.clone(),
+                        class_label: choice.label.clone(),
+                        explanation: recommendation.explanation.clone(),
+                    })
+            });
         Some(CharacterIdentityView {
             profile_id: identity.profile_id.clone(),
             species_id: identity.species_id.clone(),
@@ -2732,6 +2752,8 @@ impl RuntimeWorld {
             class_label,
             class_selection_ready: identity.class_selection_ready,
             qualifying_world_actions: identity.qualifying_world_actions,
+            class_readiness_evidence: identity.class_readiness_evidence.clone(),
+            class_recommendation,
             level: self
                 .actor_by_id(actor_id)
                 .map(|actor| actor.stats.level)

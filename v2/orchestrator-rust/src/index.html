@@ -5115,9 +5115,18 @@
         if (creationProfile?.choices?.length) {
           const choices = creationProfile.choices.map((choice) => ({
             label: choice.label,
-            detail: choice.detail,
+            detail: [choice.detail, choice.campaign_use].filter(Boolean).join(". "),
             value: choice.id,
+            classChoice: choice,
           }));
+          const evidence = characterIdentity.class_readiness_evidence || null;
+          const recommendation = characterIdentity.class_recommendation || null;
+          const evidenceSummary = evidence
+            ? `${evidence.strategy_label} changed ${evidence.target?.label || "a shared task"} by +${evidence.progress} progress.`
+            : "A shared-world contribution made campaign Class rules available.";
+          const recommendationSummary = recommendation
+            ? `${recommendation.class_label} is recommended because ${lowerInitial(recommendation.explanation)}`
+            : "That evidence does not point to one Class.";
           const action = {
             handProvider: {
               kind: "campaign",
@@ -5134,10 +5143,14 @@
             card: cardForActor(actorId),
             shape: "avatar",
             modalTitle: creationProfile.class_prompt || "which campaign path will you use?",
-            modalSummary: `${characterIdentity.species_label} from ${characterIdentity.origin_label}: campaign class; practice stays emergent.`,
+            modalSummary: `${evidenceSummary} ${recommendationSummary} Every Class remains selectable.`,
             effect: "applies this campaign's level and starting-knack rules without changing universal verb permissions",
             choices,
-            selectedChoice: creationProfile.default_choice_id || choices[0].value,
+            selectedChoice: recommendation?.class_id
+              || creationProfile.default_choice_id
+              || choices[0].value,
+            creationProfile,
+            characterIdentity,
             busyLabel: "becoming",
             busyDetail: "your first path is settling into place…",
           };
@@ -10699,43 +10712,76 @@
       if (event.content === "notice") {
         const actor = event.actor_name || "Someone";
         const target = event.target_actor_name || "the other avatar";
+        const mechanics = abilityCheckMechanics(event);
         return success
           ? {
               label: "notice",
               symbol: "✦",
               title: `${actor} reads ${target}`,
-              detail: "What they carry and seek is now known.",
+              detail: `What they carry and seek is now known. ${mechanics}.`,
               result: "noticed",
-              story: `${actor} notices what ${target} carries and seeks.`,
+              story: `${actor} notices what ${target} carries and seeks. ${mechanics}.`,
             }
           : {
               label: "notice",
               symbol: "~",
               title: `${target} stays hard to read`,
-              detail: `${actor} learns nothing certain yet.`,
+              detail: `${actor} learns nothing certain yet. ${mechanics}.`,
               result: "unclear",
-              story: `${target} remains hard to read.`,
+              story: `${target} remains hard to read. ${mechanics}.`,
             };
       }
       const hint = listenHintForLocation(event.location_id, success);
       const actor = event.actor_name || "Someone";
+      const mechanics = abilityCheckMechanics(event);
       return success
         ? {
             label: "check",
             symbol: "✦",
             title: `${actor} checks carefully; the room answers`,
-            detail: hint,
+            detail: `${mechanics}. ${hint}`,
             result: "a clue appears",
-            story: `The room answers a careful check: ${hint}`,
+            story: `The room answers a careful check. ${mechanics}. ${hint}`,
           }
         : {
             label: "check",
             symbol: "~",
             title: `${actor} checks carefully; the room stays shy`,
-            detail: hint,
+            detail: `${mechanics}. ${hint}`,
             result: "try another way",
-            story: `A careful check leaves the room's secret tucked away.`,
+            story: `A careful check leaves the room's secret tucked away. ${mechanics}.`,
           };
+    }
+
+    function abilityCheckMechanics(event) {
+      const ability = abilityLabel(event?.ability, "Ability");
+      const raw = Number(event?.raw_roll);
+      const modifier = Number(event?.modifier);
+      const total = Number(event?.total);
+      const dc = Number(event?.dc);
+      const signed = Number.isFinite(modifier) ? `${modifier >= 0 ? "+" : "−"}${Math.abs(modifier)}` : "";
+      const roll = [Number.isFinite(raw) ? `d20 ${raw}` : "", signed].filter(Boolean).join(" ");
+      const equation = [
+        roll,
+        Number.isFinite(total) ? `= ${total}` : "",
+        Number.isFinite(dc) ? `vs DC ${dc}` : "",
+      ].filter(Boolean).join(" ");
+      const outcome = event?.success === true ? "success" : "failure";
+      const choice = authoredAbilityChoice(event?.ability);
+      const ownedCheck = Number(event?.actor_id || 0) === Number(actorId || 0);
+      const skill = choice && ownedCheck
+        ? (state?.skills || []).find((candidate) => candidate.skill_id === choice.id)
+        : null;
+      const identity = state?.character_identity || null;
+      const profile = (state?.character_creation || [])
+        .find((candidate) => candidate.id === identity?.profile_id);
+      const classChoice = (profile?.choices || [])
+        .find((candidate) => candidate.id === identity?.class_id);
+      const classSource = skill
+        && classChoice?.starting_skill_id === skill.skill_id
+        ? ` · Class skill: ${skill.label} +${Math.max(0, Number(skill.bonus || 0))} from ${classChoice.label}`
+        : "";
+      return `${ability} check · ${equation} · ${outcome}${classSource}`;
     }
 
     function eventAriaLabel(event, speaker, body) {
@@ -11070,19 +11116,20 @@
     }
 
     function abilityCheckEventText(event) {
+      const mechanics = abilityCheckMechanics(event);
       if (event.content === "notice") {
         const target = event.target_actor_name || "the other avatar";
         return event.success
-          ? `notices what ${target} carries and seeks.`
-          : `${target} remains hard to read.`;
+          ? `notices what ${target} carries and seeks. ${mechanics}.`
+          : `${target} remains hard to read. ${mechanics}.`;
       }
       if (event.content === "study") {
         return event.success
-          ? "studies the signs and understands their meaning."
-          : "studies the signs, but their meaning stays unclear.";
+          ? `studies the signs and understands their meaning. ${mechanics}.`
+          : `studies the signs, but their meaning stays unclear. ${mechanics}.`;
       }
       const hint = listenHintForLocation(event.location_id, event.success);
-      return `checks carefully: ${hint}`;
+      return `checks carefully: ${hint} ${mechanics}.`;
     }
 
     function listenHintForLocation(id, success) {
@@ -12125,10 +12172,22 @@
         ];
       }
       if (String(action?.kind || "") === "choose-class") {
+        const evidence = action?.characterIdentity?.class_readiness_evidence || null;
+        const recommendation = action?.characterIdentity?.class_recommendation || null;
+        const selected = (action?.creationProfile?.choices || [])
+          .find((choice) => choice.id === action.selectedChoice)
+          || action?.creationProfile?.choices?.[0]
+          || null;
         return [
-          ["Rules", "optional mounted campaign rules"],
-          ["Choose", "a campaign Class, separate from emergent practice"],
-          ["Then", "apply this campaign's level and starting-knack rules"],
+          evidence
+            ? ["First qualifying action", `${evidence.strategy_label} changed ${evidence.target?.label || "a shared task"} by +${evidence.progress} progress (${evidence.outcome})`]
+            : ["First qualifying action", "a contribution changed a shared task"],
+          recommendation
+            ? ["Recommendation", `${recommendation.class_label}: ${recommendation.explanation}`]
+            : ["Recommendation", "the evidence does not point to one Class"],
+          selected
+            ? ["Selected Class", `${selected.label} — ${selected.campaign_use}`]
+            : ["Choose", "one of this campaign's Classes"],
           ["Ordinary verbs", "remain available to every avatar"],
         ];
       }
@@ -12266,7 +12325,7 @@
     }
 
     function renderActionModalRows(action) {
-      const showConversationDetails = ["orb-chat", "advancement-bond"]
+      const showConversationDetails = ["orb-chat", "advancement-bond", "choose-class"]
         .includes(String(action?.kind || ""));
       const rows = (showConversationDetails ? actionModalRows(action) : [])
         .filter((row) => String(row?.[0] || "").trim() && String(row?.[1] || "").trim());
@@ -12437,7 +12496,7 @@
       if (stage === "species") {
         action.choices = (profile.species || []).map((choice) => ({
           label: choice.label,
-          detail: choice.detail,
+          detail: [choice.detail, choice.campaign_rule].filter(Boolean).join(". "),
           value: choice.id,
         }));
         action.selectedChoice = action.selectedSpeciesId
@@ -12449,7 +12508,7 @@
       }
       action.choices = (profile.origins || []).map((choice) => ({
         label: choice.label,
-        detail: choice.detail,
+        detail: [choice.detail, choice.campaign_rule].filter(Boolean).join(". "),
         value: choice.id,
       }));
       action.selectedChoice = action.selectedOriginId

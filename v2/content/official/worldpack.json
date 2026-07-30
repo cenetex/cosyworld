@@ -792,7 +792,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:50205c5d58ef8e556744f5c383018ef1e2c440a7df2784ba013ecf75523d8f9f",
+  "bundle_hash": "sha256:9576956c1e4e526044e6bf67996d18ada8a52f140be77ea25d763b2f386dc790",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2267,7 +2267,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:bb4475d96fc6bd7c1b3e89a78a3927b6c5a7984da4f7a0472bbc1f46cfc43321"
+      "integrity": "sha256:0318228d0ff1b5c32340c2e712191c3e0e47fccc148179b1eaf9860e581ca141"
     },
     {
       "id": "cosyworld.the-holy-land",
