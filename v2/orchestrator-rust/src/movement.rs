@@ -467,7 +467,7 @@ impl RuntimeWorld {
             .filter(|target| target.kind == "location")
             .and_then(|target| target.id)
             .ok_or_else(|| "Travel has no exact destination.".to_string())?;
-        if let Some((action, mutation, narration)) =
+        if let Some((mut action, mutation, narration)) =
             self.plan_journey_move(actor_id, destination_location_id)?
         {
             if action.kind != CW_ACTION_MOVE {
@@ -475,18 +475,32 @@ impl RuntimeWorld {
                     "That route still needs scouting before it can be travelled.".to_string(),
                 );
             }
+            if let Some(threshold) = offer
+                .route
+                .as_ref()
+                .and_then(|route| route.threshold.as_ref())
+            {
+                bind_threshold_action(&mut action, threshold)?;
+            }
             return Ok(MovementPlan::Journey {
                 action,
                 mutation: Box::new(mutation),
                 narration,
             });
         }
-        let action = CwAction {
+        let mut action = CwAction {
             kind: CW_ACTION_MOVE,
             actor_id,
             destination_location_id,
             ..CwAction::default()
         };
+        if let Some(threshold) = offer
+            .route
+            .as_ref()
+            .and_then(|route| route.threshold.as_ref())
+        {
+            bind_threshold_action(&mut action, threshold)?;
+        }
         if !self.kernel_offer_allows_action(&action) {
             return Err("The kernel no longer offers that route.".to_string());
         }
@@ -515,7 +529,7 @@ impl RuntimeWorld {
             .journey_view(actor_id)
             .and_then(|journey| journey.next_location_id);
         let mut exits = self
-            .exit_views(actor.location_id, access)
+            .exit_views(Some(actor_id), actor.location_id, access)
             .into_iter()
             .filter(|exit| exit.accessible && !exit.locked)
             .collect::<Vec<_>>();
@@ -574,6 +588,7 @@ impl RuntimeWorld {
             route_version: exit.route_version,
             directionality: route.map(|route| route.directionality).unwrap_or_default(),
             fallback_location_id: route.and_then(|route| route.fallback_location_id),
+            threshold: exit.threshold.clone(),
         });
         if let Some(fallback_location_id) = offer
             .route
@@ -639,6 +654,23 @@ impl RuntimeWorld {
     pub(super) fn has_accessible_exit(&self, actor_id: u64, access: &AccessContext) -> bool {
         !self.accessible_movement_exits(actor_id, access).is_empty()
     }
+}
+
+fn bind_threshold_action(
+    action: &mut CwAction,
+    binding: &ThresholdOfferBinding,
+) -> Result<(), String> {
+    if binding.facts.len() > CW_MAX_GATE_FACTS {
+        return Err("That threshold offer contains too much predicate evidence.".to_string());
+    }
+    action.threshold.gate_id = binding.gate_id;
+    action.threshold.method_id = binding.method_id;
+    action.threshold.expected_gate_version = binding.gate_version;
+    action.threshold.expected_access_revision = binding.access_revision;
+    action.threshold.expected_evidence_digest = binding.evidence_digest;
+    action.threshold.fact_count = binding.facts.len();
+    action.threshold.facts[..binding.facts.len()].copy_from_slice(&binding.facts);
+    Ok(())
 }
 
 fn first_tale_destination_claim_key(actor_id: u64) -> Option<String> {

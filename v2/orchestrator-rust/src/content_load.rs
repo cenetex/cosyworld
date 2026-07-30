@@ -4,6 +4,11 @@ use super::*;
 mod discovery_authority;
 #[path = "threshold_descriptors.rs"]
 mod threshold_descriptors;
+pub(super) use threshold_descriptors::{
+    threshold_kernel_id, threshold_record_claim_already_applied,
+    threshold_record_preconditions_hold, AcceptedThresholdIntent, ThresholdFactSource,
+    ThresholdGateSource, ThresholdKernelSnapshot,
+};
 
 const LANTERN_KEEPER_PACK_ID: &str = "cosyworld.campaign.the-lantern-keeper";
 const LANTERN_KEEPER_JOB_ID: &str = "lantern-keeper:rekindle-the-beacon";

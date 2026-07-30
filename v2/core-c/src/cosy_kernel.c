@@ -132,6 +132,173 @@ static const cw_item *find_item_const(const cw_world *world, cw_id item_id) {
   return 0;
 }
 
+static cw_gate *find_gate(cw_world *world, cw_id gate_id) {
+  for (size_t i = 0; i < world->gate_count; ++i) {
+    if (world->gates[i].id == gate_id) return &world->gates[i];
+  }
+  return 0;
+}
+
+static const cw_gate *find_gate_const(const cw_world *world, cw_id gate_id) {
+  for (size_t i = 0; i < world->gate_count; ++i) {
+    if (world->gates[i].id == gate_id) return &world->gates[i];
+  }
+  return 0;
+}
+
+static const cw_gate *find_exit_gate_const(
+    const cw_world *world,
+    cw_id from_location_id,
+    cw_id to_location_id) {
+  for (size_t i = 0; i < world->gate_count; ++i) {
+    const cw_gate *gate = &world->gates[i];
+    if (gate->target_kind == CW_GATE_TARGET_EXIT
+        && gate->from_location_id == from_location_id
+        && gate->to_location_id == to_location_id) {
+      return gate;
+    }
+  }
+  return 0;
+}
+
+static cw_gate_actor_state *find_gate_actor_state(
+    cw_world *world,
+    cw_id gate_id,
+    cw_id actor_id) {
+  for (size_t i = 0; i < world->gate_actor_state_count; ++i) {
+    cw_gate_actor_state *state = &world->gate_actor_states[i];
+    if (state->gate_id == gate_id && state->actor_id == actor_id) return state;
+  }
+  return 0;
+}
+
+static const cw_gate_actor_state *find_gate_actor_state_const(
+    const cw_world *world,
+    cw_id gate_id,
+    cw_id actor_id) {
+  for (size_t i = 0; i < world->gate_actor_state_count; ++i) {
+    const cw_gate_actor_state *state = &world->gate_actor_states[i];
+    if (state->gate_id == gate_id && state->actor_id == actor_id) return state;
+  }
+  return 0;
+}
+
+static const cw_gate_claim *find_gate_claim_const(const cw_world *world, cw_id claim_id) {
+  for (size_t i = 0; i < world->gate_claim_count; ++i) {
+    if (world->gate_claims[i].id == claim_id) return &world->gate_claims[i];
+  }
+  return 0;
+}
+
+static uint64_t gate_digest_mix(uint64_t digest, uint64_t value) {
+  digest ^= value;
+  digest *= 1099511628211ull;
+  return digest;
+}
+
+static const cw_gate_fact *find_gate_fact(
+    const cw_gate_fact *facts,
+    size_t fact_count,
+    cw_id subject_id,
+    cw_id fact_id) {
+  for (size_t i = 0; i < fact_count; ++i) {
+    if (facts[i].subject_id == subject_id && facts[i].fact_id == fact_id) return &facts[i];
+  }
+  return 0;
+}
+
+static uint8_t effective_gate_state(
+    const cw_world *world,
+    const cw_gate *gate,
+    cw_id actor_id) {
+  if (gate->scope == CW_GATE_SCOPE_ACTOR || gate->scope == CW_GATE_SCOPE_HOLDER) {
+    const cw_gate_actor_state *state =
+        find_gate_actor_state_const(world, gate->id, actor_id);
+    if (state) return state->state;
+  }
+  return gate->state;
+}
+
+static int gate_predicate_holds(
+    const cw_world *world,
+    const cw_gate_predicate *predicate,
+    cw_id actor_id,
+    const cw_gate_fact *facts,
+    size_t fact_count,
+    uint64_t *digest) {
+  int holds = 0;
+  uint64_t observed = 0;
+  const cw_item *item = 0;
+  const cw_gate_fact *fact = 0;
+  switch (predicate->kind) {
+    case CW_GATE_PREDICATE_HELD_ITEM:
+      item = find_item_const(world, predicate->subject_id);
+      holds = item && item->holder_actor_id == actor_id
+          && !(item->reserved & CW_ITEM_FLAG_INERT);
+      observed = item ? item->holder_actor_id : 0;
+      break;
+    case CW_GATE_PREDICATE_HELD_ITEM_CAPABILITY:
+      for (size_t i = 0; i < world->item_count; ++i) {
+        const cw_item *candidate = &world->items[i];
+        if (candidate->holder_actor_id != actor_id
+            || (candidate->reserved & CW_ITEM_FLAG_INERT)) continue;
+        fact = find_gate_fact(
+            facts,
+            fact_count,
+            candidate->id,
+            predicate->fact_id);
+        if (fact && fact->value == predicate->expected_value) {
+          holds = 1;
+          observed = gate_digest_mix(candidate->id, fact->source_version);
+          break;
+        }
+      }
+      break;
+    case CW_GATE_PREDICATE_INSTALLED_ITEM:
+      item = find_item_const(world, predicate->subject_id);
+      holds = item && item->holder_actor_id == 0
+          && item->zone == CW_CARD_ZONE_INSTALLED
+          && item->location_id == predicate->target_id
+          && !(item->reserved & CW_ITEM_FLAG_INERT);
+      observed = item
+          ? gate_digest_mix(item->location_id, gate_digest_mix(item->zone, item->reserved))
+          : 0;
+      break;
+    case CW_GATE_PREDICATE_MINIMUM_CHARGES:
+      item = find_item_const(world, predicate->subject_id);
+      holds = item && item->charges >= predicate->amount
+          && !(item->reserved & CW_ITEM_FLAG_INERT);
+      observed = item ? item->charges : 0;
+      break;
+    case CW_GATE_PREDICATE_ACTOR_FACT:
+      fact = find_gate_fact(facts, fact_count, actor_id, predicate->fact_id);
+      holds = fact && fact->value == predicate->expected_value;
+      observed = fact
+          ? gate_digest_mix(fact->value, fact->source_version)
+          : 0;
+      break;
+    case CW_GATE_PREDICATE_WORLD_FACT:
+      fact = find_gate_fact(facts, fact_count, predicate->subject_id, predicate->fact_id);
+      holds = fact && fact->value == predicate->expected_value;
+      observed = fact
+          ? gate_digest_mix(fact->value, fact->source_version)
+          : 0;
+      break;
+    default:
+      holds = 0;
+      observed = UINT64_MAX;
+      break;
+  }
+  *digest = gate_digest_mix(*digest, predicate->kind);
+  *digest = gate_digest_mix(*digest, predicate->subject_id);
+  *digest = gate_digest_mix(*digest, predicate->target_id);
+  *digest = gate_digest_mix(*digest, predicate->fact_id);
+  *digest = gate_digest_mix(*digest, predicate->expected_value);
+  *digest = gate_digest_mix(*digest, observed);
+  *digest = gate_digest_mix(*digest, (uint64_t)holds);
+  return holds;
+}
+
 static cw_evolution_track *find_evolution_track(cw_world *world, cw_id actor_id) {
   for (size_t i = 0; i < world->evolution_track_count; ++i) {
     if (world->evolution_tracks[i].actor_id == actor_id) return &world->evolution_tracks[i];
@@ -185,6 +352,23 @@ static int append_event(cw_world *world, cw_event_buffer *buffer, uint8_t type) 
   return 1;
 }
 
+static void decorate_gate_event(
+    cw_event *event,
+    const cw_gate_decision *decision,
+    const cw_threshold_input *input) {
+  if (!event || !decision) return;
+  event->gate_id = decision->gate_id;
+  event->gate_method_id = decision->method_id;
+  event->gate_version = decision->gate_version;
+  event->access_revision = decision->access_revision;
+  event->gate_evidence_digest = decision->evidence_digest;
+  event->gate_evidence_mask = decision->evidence_mask;
+  if (input) {
+    event->gate_claim_id = input->claim_id;
+    event->gate_transition = input->transition;
+  }
+}
+
 static cw_status reject(cw_world *world, cw_event_buffer *buffer, const cw_action *action, uint16_t reason) {
   append_event(world, buffer, CW_EVENT_RULE_REJECTED);
   if (buffer && buffer->count > 0) {
@@ -198,6 +382,13 @@ static cw_status reject(cw_world *world, cw_event_buffer *buffer, const cw_actio
       event->destination_location_id = action->destination_location_id;
       event->content_id = action->content_id;
       event->item_id = action->item_id;
+      event->gate_id = action->threshold.gate_id;
+      event->gate_method_id = action->threshold.method_id;
+      event->gate_claim_id = action->threshold.claim_id;
+      event->gate_version = action->threshold.expected_gate_version;
+      event->access_revision = action->threshold.expected_access_revision;
+      event->gate_evidence_digest = action->threshold.expected_evidence_digest;
+      event->gate_transition = action->threshold.transition;
     }
   }
   return CW_ERR_RULE;
@@ -371,6 +562,201 @@ void cw_world_init(cw_world *world) {
   world->version = CW_KERNEL_VERSION;
   world->tick = 1;
   world->next_event_seq = 1;
+  world->access_revision = 1;
+}
+
+void cw_world_access_changed(cw_world *world) {
+  if (!world) return;
+  world->access_revision = world->access_revision == UINT64_MAX
+      ? UINT64_MAX
+      : world->access_revision + 1;
+}
+
+cw_status cw_world_set_gate(
+    cw_world *world,
+    const cw_gate *gate,
+    const cw_gate_method_definition *methods,
+    size_t method_count) {
+  if (!world || !gate || !gate->id || !gate->descriptor_version
+      || gate->version == 0
+      || gate->target_kind < CW_GATE_TARGET_EXIT
+      || gate->target_kind > CW_GATE_TARGET_CONTAINER
+      || gate->scope < CW_GATE_SCOPE_WORLD
+      || gate->scope > CW_GATE_SCOPE_HOLDER
+      || gate->state < CW_GATE_STATE_CLOSED
+      || gate->state > CW_GATE_STATE_INERT
+      || gate->compatibility > CW_GATE_COMPAT_RECORDED_LOCK
+      || !methods || method_count == 0
+      || method_count > CW_MAX_GATE_METHODS) {
+    return CW_ERR_INVALID;
+  }
+  if (gate->target_kind == CW_GATE_TARGET_EXIT) {
+    const cw_exit *exit =
+        find_exit_const(world, gate->from_location_id, gate->to_location_id);
+    if (!exit || gate->target_item_id) return CW_ERR_NOT_FOUND;
+    if (gate->compatibility == CW_GATE_COMPAT_RECORDED_LOCK
+        && !(exit->flags & CW_EXIT_LOCKED)) {
+      return CW_ERR_RULE;
+    }
+  } else {
+    if (!gate->target_item_id || !find_item_const(world, gate->target_item_id)
+        || gate->from_location_id || gate->to_location_id
+        || gate->compatibility != CW_GATE_COMPAT_NONE) {
+      return CW_ERR_NOT_FOUND;
+    }
+  }
+  size_t predicate_count = 0;
+  for (size_t method_index = 0; method_index < method_count; ++method_index) {
+    const cw_gate_method_definition *method = &methods[method_index];
+    if (!method->id || method->predicate_count > CW_MAX_GATE_PREDICATES) {
+      return CW_ERR_INVALID;
+    }
+    predicate_count += method->predicate_count;
+    for (size_t predicate_index = 0;
+         predicate_index < method->predicate_count;
+         ++predicate_index) {
+      const cw_gate_predicate *predicate = &method->predicates[predicate_index];
+      if (predicate->kind < CW_GATE_PREDICATE_HELD_ITEM
+          || predicate->kind > CW_GATE_PREDICATE_WORLD_FACT
+          || ((predicate->kind == CW_GATE_PREDICATE_HELD_ITEM
+                  || predicate->kind == CW_GATE_PREDICATE_INSTALLED_ITEM
+                  || predicate->kind == CW_GATE_PREDICATE_MINIMUM_CHARGES)
+              && !predicate->subject_id)
+          || (predicate->kind == CW_GATE_PREDICATE_MINIMUM_CHARGES
+              && !predicate->amount)
+          || ((predicate->kind == CW_GATE_PREDICATE_HELD_ITEM_CAPABILITY
+                  || predicate->kind == CW_GATE_PREDICATE_ACTOR_FACT
+                  || predicate->kind == CW_GATE_PREDICATE_WORLD_FACT)
+              && !predicate->fact_id)) {
+        return CW_ERR_INVALID;
+      }
+    }
+  }
+  if (world->gate_method_count + method_count > CW_MAX_GATE_METHOD_RECORDS
+      || world->gate_predicate_count + predicate_count > CW_MAX_GATE_PREDICATE_RECORDS) {
+    return CW_ERR_FULL;
+  }
+  cw_gate *target = find_gate(world, gate->id);
+  if (!target) {
+    if (world->gate_count >= CW_MAX_GATES) return CW_ERR_FULL;
+    target = &world->gates[world->gate_count++];
+  } else if (target->version > gate->version) {
+    return CW_ERR_RULE;
+  }
+  *target = *gate;
+  target->method_start = world->gate_method_count;
+  target->method_count = method_count;
+  for (size_t method_index = 0; method_index < method_count; ++method_index) {
+    const cw_gate_method_definition *definition = &methods[method_index];
+    cw_gate_method *method = &world->gate_methods[world->gate_method_count++];
+    memset(method, 0, sizeof(*method));
+    method->id = definition->id;
+    method->predicate_start = world->gate_predicate_count;
+    method->predicate_count = definition->predicate_count;
+    for (size_t predicate_index = 0;
+         predicate_index < definition->predicate_count;
+         ++predicate_index) {
+      world->gate_predicates[world->gate_predicate_count++] =
+          definition->predicates[predicate_index];
+    }
+  }
+  world->access_revision = world->access_revision == UINT64_MAX
+      ? UINT64_MAX
+      : world->access_revision + 1;
+  return CW_OK;
+}
+
+cw_status cw_gate_evaluate(
+    const cw_world *world,
+    cw_id gate_id,
+    cw_id actor_id,
+    const cw_gate_fact *facts,
+    size_t fact_count,
+    cw_id method_id,
+    cw_gate_decision *out_decision) {
+  if (!world || !gate_id || !actor_id || !out_decision
+      || fact_count > CW_MAX_GATE_FACTS || (fact_count && !facts)) {
+    return CW_ERR_INVALID;
+  }
+  memset(out_decision, 0, sizeof(*out_decision));
+  const cw_gate *gate = find_gate_const(world, gate_id);
+  if (!gate) return CW_ERR_NOT_FOUND;
+  if (gate->method_start > world->gate_method_count
+      || gate->method_count > world->gate_method_count - gate->method_start) {
+    return CW_ERR_INVALID;
+  }
+  const cw_actor *actor = find_actor_const(world, actor_id);
+  if (!actor) return CW_ERR_NOT_FOUND;
+
+  uint8_t state = effective_gate_state(world, gate, actor_id);
+  uint64_t digest = 1469598103934665603ull;
+  digest = gate_digest_mix(digest, gate->id);
+  digest = gate_digest_mix(digest, gate->version);
+  digest = gate_digest_mix(digest, gate->descriptor_version);
+  digest = gate_digest_mix(digest, world->access_revision);
+  digest = gate_digest_mix(digest, actor_id);
+  digest = gate_digest_mix(digest, actor->location_id);
+  digest = gate_digest_mix(digest, state);
+
+  out_decision->gate_id = gate->id;
+  out_decision->gate_version = gate->version;
+  out_decision->access_revision = world->access_revision;
+  out_decision->state = state;
+  if (state == CW_GATE_STATE_OPEN || state == CW_GATE_STATE_BROKEN) {
+    out_decision->allowed = 1;
+    out_decision->evidence_digest = gate_digest_mix(digest, 1);
+    return CW_OK;
+  }
+  if (state == CW_GATE_STATE_INERT || !actor_is_active(actor)) {
+    out_decision->reason = CW_REASON_GATE_CLOSED;
+    out_decision->evidence_digest = gate_digest_mix(digest, 0);
+    return CW_OK;
+  }
+
+  for (size_t method_index = 0; method_index < gate->method_count; ++method_index) {
+    const cw_gate_method *method =
+        &world->gate_methods[gate->method_start + method_index];
+    if (method->predicate_start > world->gate_predicate_count
+        || method->predicate_count
+            > world->gate_predicate_count - method->predicate_start) {
+      return CW_ERR_INVALID;
+    }
+    if (method_id && method->id != method_id) continue;
+    uint64_t method_digest = gate_digest_mix(digest, method->id);
+    uint32_t evidence_mask = 0;
+    int allowed = 1;
+    for (size_t predicate_index = 0;
+         predicate_index < method->predicate_count;
+         ++predicate_index) {
+      int holds = gate_predicate_holds(
+          world,
+          &world->gate_predicates[method->predicate_start + predicate_index],
+          actor_id,
+          facts,
+          fact_count,
+          &method_digest);
+      if (holds) evidence_mask |= (uint32_t)1u << predicate_index;
+      else allowed = 0;
+    }
+    if (allowed) {
+      out_decision->method_id = method->id;
+      out_decision->evidence_mask = evidence_mask;
+      out_decision->allowed = 1;
+      out_decision->evidence_digest = gate_digest_mix(method_digest, 1);
+      return CW_OK;
+    }
+    if (method_id) {
+      out_decision->method_id = method->id;
+      out_decision->evidence_mask = evidence_mask;
+      out_decision->evidence_digest = gate_digest_mix(method_digest, 0);
+      out_decision->reason = CW_REASON_GATE_CLOSED;
+      return CW_OK;
+    }
+    digest = gate_digest_mix(digest, method_digest);
+  }
+  out_decision->reason = CW_REASON_GATE_CLOSED;
+  out_decision->evidence_digest = gate_digest_mix(digest, 0);
+  return CW_OK;
 }
 
 cw_status cw_world_set_item_profile(
@@ -754,7 +1140,52 @@ static cw_status apply_move(cw_world *world, const cw_action *action, cw_event_b
     return CW_ERR_RULE;
   }
 
-  if (exit->flags & CW_EXIT_LOCKED) {
+  cw_gate_decision gate_decision = {0};
+  const cw_gate *gate =
+      find_exit_gate_const(world, actor->location_id, destination_id);
+  if (gate) {
+    if (action->threshold.gate_id != gate->id
+        || cw_gate_evaluate(
+               world,
+               gate->id,
+               actor->id,
+               action->threshold.facts,
+               action->threshold.fact_count,
+               action->threshold.method_id,
+               &gate_decision) != CW_OK
+        || action->threshold.expected_gate_version != gate_decision.gate_version
+        || action->threshold.expected_access_revision != gate_decision.access_revision
+        || action->threshold.expected_evidence_digest != gate_decision.evidence_digest) {
+      append_event(world, out_events, CW_EVENT_MOVE_BLOCKED);
+      if (out_events && out_events->count > 0) {
+        cw_event *event = &out_events->events[out_events->count - 1];
+        event->success = 0;
+        event->reason = CW_REASON_STALE_GATE_OFFER;
+        event->actor_id = actor->id;
+        event->location_id = actor->location_id;
+        event->destination_location_id = destination_id;
+        decorate_gate_event(event, &gate_decision, &action->threshold);
+      }
+      return CW_ERR_RULE;
+    }
+    if (!gate_decision.allowed
+        || ((exit->flags & CW_EXIT_LOCKED)
+            && gate->compatibility != CW_GATE_COMPAT_RECORDED_LOCK)) {
+      append_event(world, out_events, CW_EVENT_MOVE_BLOCKED);
+      if (out_events && out_events->count > 0) {
+        cw_event *event = &out_events->events[out_events->count - 1];
+        event->success = 0;
+        event->reason = gate_decision.allowed
+            ? CW_REASON_EXIT_LOCKED
+            : CW_REASON_GATE_CLOSED;
+        event->actor_id = actor->id;
+        event->location_id = actor->location_id;
+        event->destination_location_id = destination_id;
+        decorate_gate_event(event, &gate_decision, &action->threshold);
+      }
+      return CW_ERR_RULE;
+    }
+  } else if (exit->flags & CW_EXIT_LOCKED) {
     append_event(world, out_events, CW_EVENT_MOVE_BLOCKED);
     if (out_events && out_events->count > 0) {
       cw_event *event = &out_events->events[out_events->count - 1];
@@ -777,6 +1208,7 @@ static cw_status apply_move(cw_world *world, const cw_action *action, cw_event_b
     event->actor_id = actor->id;
     event->location_id = from_location_id;
     event->destination_location_id = destination_id;
+    decorate_gate_event(event, gate ? &gate_decision : 0, &action->threshold);
   }
   return CW_OK;
 }
@@ -1344,6 +1776,12 @@ static cw_status apply_unlock_exit(cw_world *world, const cw_action *action, cw_
   }
   cw_exit *exit = find_exit(world, action->location_id, action->destination_location_id);
   if (!exit) return reject(world, out_events, action, CW_REASON_NO_EXIT);
+  if (find_exit_gate_const(
+          world,
+          action->location_id,
+          action->destination_location_id)) {
+    return reject(world, out_events, action, CW_REASON_STALE_GATE_OFFER);
+  }
   if (!(exit->flags & CW_EXIT_LOCKED)) {
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
@@ -1357,6 +1795,228 @@ static cw_status apply_unlock_exit(cw_world *world, const cw_action *action, cw_
     event->location_id = action->location_id;
     event->destination_location_id = action->destination_location_id;
   }
+  return CW_OK;
+}
+
+static int gate_transition_requires_method(uint8_t transition) {
+  return transition == CW_GATE_TRANSITION_OPEN
+      || transition == CW_GATE_TRANSITION_BREAK
+      || transition == CW_GATE_TRANSITION_INSTALL
+      || transition == CW_GATE_TRANSITION_EXHAUST
+      || transition == CW_GATE_TRANSITION_RENDER_INERT;
+}
+
+static uint8_t gate_transition_state(uint8_t transition) {
+  switch (transition) {
+    case CW_GATE_TRANSITION_OPEN: return CW_GATE_STATE_OPEN;
+    case CW_GATE_TRANSITION_CLOSE:
+    case CW_GATE_TRANSITION_RELOCK: return CW_GATE_STATE_CLOSED;
+    case CW_GATE_TRANSITION_BREAK: return CW_GATE_STATE_BROKEN;
+    default: return CW_GATE_STATE_NONE;
+  }
+}
+
+static cw_status set_effective_gate_state(
+    cw_world *world,
+    cw_gate *gate,
+    cw_id actor_id,
+    uint8_t state) {
+  if (!state) return CW_OK;
+  if (gate->scope == CW_GATE_SCOPE_ACTOR || gate->scope == CW_GATE_SCOPE_HOLDER) {
+    cw_gate_actor_state *actor_state =
+        find_gate_actor_state(world, gate->id, actor_id);
+    if (!actor_state) {
+      if (world->gate_actor_state_count >= CW_MAX_GATE_ACTOR_STATES) return CW_ERR_FULL;
+      actor_state = &world->gate_actor_states[world->gate_actor_state_count++];
+      memset(actor_state, 0, sizeof(*actor_state));
+      actor_state->gate_id = gate->id;
+      actor_state->actor_id = actor_id;
+      actor_state->version = 1;
+    } else {
+      actor_state->version = actor_state->version == UINT64_MAX
+          ? UINT64_MAX
+          : actor_state->version + 1;
+    }
+    actor_state->state = state;
+  } else {
+    gate->state = state;
+  }
+  gate->version = gate->version == UINT64_MAX ? UINT64_MAX : gate->version + 1;
+  return CW_OK;
+}
+
+static cw_status apply_gate_transition(
+    cw_world *world,
+    const cw_action *action,
+    cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  const cw_threshold_input *input = &action->threshold;
+  if (!input->gate_id || !input->claim_id
+      || input->transition < CW_GATE_TRANSITION_OPEN
+      || input->transition > CW_GATE_TRANSITION_RENDER_INERT
+      || input->fact_count > CW_MAX_GATE_FACTS) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  cw_gate *gate = find_gate(world, input->gate_id);
+  if (!gate) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+
+  const cw_gate_claim *existing = find_gate_claim_const(world, input->claim_id);
+  if (existing) {
+    if (existing->gate_id == gate->id
+        && existing->actor_id == actor->id
+        && existing->item_id == action->item_id
+        && existing->method_id == input->method_id
+        && existing->transition == input->transition) {
+      return CW_OK;
+    }
+    return reject(world, out_events, action, CW_REASON_GATE_CLAIM_CONFLICT);
+  }
+
+  cw_gate_decision decision = {0};
+  if (cw_gate_evaluate(
+          world,
+          gate->id,
+          actor->id,
+          input->facts,
+          input->fact_count,
+          input->method_id,
+          &decision) != CW_OK
+      || input->expected_gate_version != decision.gate_version
+      || input->expected_access_revision != decision.access_revision
+      || input->expected_evidence_digest != decision.evidence_digest) {
+    return reject(world, out_events, action, CW_REASON_STALE_GATE_OFFER);
+  }
+  if (gate_transition_requires_method(input->transition)
+      && (!decision.allowed || !input->method_id
+          || decision.method_id != input->method_id)) {
+    return reject(world, out_events, action, CW_REASON_GATE_CLOSED);
+  }
+
+  uint8_t resulting_state = gate_transition_state(input->transition);
+  uint8_t current_state = effective_gate_state(world, gate, actor->id);
+  if (resulting_state && current_state == resulting_state) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  cw_item *item = action->item_id ? find_item(world, action->item_id) : 0;
+  switch (input->transition) {
+    case CW_GATE_TRANSITION_INSTALL:
+      if (!item || item->holder_actor_id != actor->id
+          || (item->reserved & CW_ITEM_FLAG_INERT)) {
+        return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+      }
+      break;
+    case CW_GATE_TRANSITION_REMOVE:
+      if (!item || item->holder_actor_id != 0
+          || item->zone != CW_CARD_ZONE_INSTALLED
+          || item->location_id != actor->location_id
+          || !actor_can_exchange(world, actor, 0, item)) {
+        return reject(
+            world,
+            out_events,
+            action,
+            item && item->location_id == actor->location_id
+                ? CW_REASON_CAPACITY_EXCEEDED
+                : CW_REASON_ITEM_NOT_AVAILABLE);
+      }
+      break;
+    case CW_GATE_TRANSITION_EXHAUST:
+    case CW_GATE_TRANSITION_RENDER_INERT:
+      if (!item || item->charges == 0
+          || (item->holder_actor_id != actor->id
+              && !(item->holder_actor_id == 0
+                  && item->location_id == actor->location_id
+                  && item->zone == CW_CARD_ZONE_INSTALLED))) {
+        return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+      }
+      break;
+    default:
+      if (action->item_id) {
+        return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+      }
+      break;
+  }
+  if (world->gate_claim_count >= CW_MAX_GATE_CLAIMS
+      || ((gate->scope == CW_GATE_SCOPE_ACTOR || gate->scope == CW_GATE_SCOPE_HOLDER)
+          && resulting_state
+          && !find_gate_actor_state(world, gate->id, actor->id)
+          && world->gate_actor_state_count >= CW_MAX_GATE_ACTOR_STATES)) {
+    return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
+  }
+
+  cw_gate_claim *claim = &world->gate_claims[world->gate_claim_count++];
+  memset(claim, 0, sizeof(*claim));
+  claim->id = input->claim_id;
+  claim->gate_id = gate->id;
+  claim->actor_id = actor->id;
+  claim->item_id = action->item_id;
+  claim->method_id = input->method_id;
+  claim->transition = input->transition;
+
+  status = set_effective_gate_state(
+      world,
+      gate,
+      actor->id,
+      resulting_state);
+  if (status != CW_OK) return status;
+
+  uint8_t item_event_type = CW_EVENT_NONE;
+  switch (input->transition) {
+    case CW_GATE_TRANSITION_INSTALL:
+      item->holder_actor_id = 0;
+      item->location_id = actor->location_id;
+      item->held_since_tick = 0;
+      item->zone = CW_CARD_ZONE_INSTALLED;
+      item->container_item_id = 0;
+      item_event_type = CW_EVENT_ITEM_INSTALLED;
+      break;
+    case CW_GATE_TRANSITION_REMOVE:
+      item->holder_actor_id = actor->id;
+      item->location_id = 0;
+      item->held_since_tick = world->tick;
+      item->zone = CW_CARD_ZONE_CARRIED;
+      item->container_item_id = 0;
+      item_event_type = CW_EVENT_ITEM_REMOVED;
+      break;
+    case CW_GATE_TRANSITION_EXHAUST:
+      item->charges = 0;
+      exhaust_item(item);
+      item_event_type = CW_EVENT_ITEM_EXHAUSTED;
+      break;
+    case CW_GATE_TRANSITION_RENDER_INERT:
+      item->charges = 0;
+      item->reserved |= CW_ITEM_FLAG_INERT;
+      item_event_type = CW_EVENT_ITEM_RENDERED_INERT;
+      break;
+    default:
+      break;
+  }
+
+  append_event(world, out_events, CW_EVENT_GATE_TRANSITION_APPLIED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+    event->destination_location_id = gate->to_location_id;
+    event->item_id = action->item_id;
+    decorate_gate_event(event, &decision, input);
+  }
+  if (item_event_type != CW_EVENT_NONE) {
+    append_event(world, out_events, item_event_type);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->success = 1;
+      event->actor_id = actor->id;
+      event->location_id = actor->location_id;
+      event->item_id = action->item_id;
+      decorate_gate_event(event, &decision, input);
+    }
+  }
+  world->access_revision = world->access_revision == UINT64_MAX
+      ? UINT64_MAX
+      : world->access_revision + 1;
   return CW_OK;
 }
 
@@ -1792,7 +2452,32 @@ static cw_status apply_flee(cw_world *world, const cw_action *action, cw_event_b
   if (!exit) {
     return reject(world, out_events, action, CW_REASON_NO_EXIT);
   }
-  if (exit->flags & CW_EXIT_LOCKED) {
+  cw_gate_decision gate_decision = {0};
+  const cw_gate *gate =
+      find_exit_gate_const(world, actor->location_id, destination_id);
+  if (gate) {
+    if (action->threshold.gate_id != gate->id
+        || cw_gate_evaluate(
+               world,
+               gate->id,
+               actor->id,
+               action->threshold.facts,
+               action->threshold.fact_count,
+               action->threshold.method_id,
+               &gate_decision) != CW_OK
+        || action->threshold.expected_gate_version != gate_decision.gate_version
+        || action->threshold.expected_access_revision != gate_decision.access_revision
+        || action->threshold.expected_evidence_digest != gate_decision.evidence_digest) {
+      return reject(world, out_events, action, CW_REASON_STALE_GATE_OFFER);
+    }
+    if (!gate_decision.allowed) {
+      return reject(world, out_events, action, CW_REASON_GATE_CLOSED);
+    }
+    if ((exit->flags & CW_EXIT_LOCKED)
+        && gate->compatibility != CW_GATE_COMPAT_RECORDED_LOCK) {
+      return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
+    }
+  } else if (exit->flags & CW_EXIT_LOCKED) {
     return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
   }
 
@@ -1807,6 +2492,7 @@ static cw_status apply_flee(cw_world *world, const cw_action *action, cw_event_b
     event->actor_id = actor->id;
     event->location_id = from_location_id;
     event->destination_location_id = destination_id;
+    decorate_gate_event(event, gate ? &gate_decision : 0, &action->threshold);
   }
   return CW_OK;
 }
@@ -2315,7 +3001,34 @@ static cw_status apply_combat_escape(cw_world *world, const cw_action *action, c
   }
   const cw_exit *exit = find_exit_const(world, actor->location_id, destination_id);
   if (!exit) return reject(world, out_events, action, CW_REASON_NO_EXIT);
-  if (exit->flags & CW_EXIT_LOCKED) return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
+  cw_gate_decision gate_decision = {0};
+  const cw_gate *gate =
+      find_exit_gate_const(world, actor->location_id, destination_id);
+  if (gate) {
+    if (action->threshold.gate_id != gate->id
+        || cw_gate_evaluate(
+               world,
+               gate->id,
+               actor->id,
+               action->threshold.facts,
+               action->threshold.fact_count,
+               action->threshold.method_id,
+               &gate_decision) != CW_OK
+        || action->threshold.expected_gate_version != gate_decision.gate_version
+        || action->threshold.expected_access_revision != gate_decision.access_revision
+        || action->threshold.expected_evidence_digest != gate_decision.evidence_digest) {
+      return reject(world, out_events, action, CW_REASON_STALE_GATE_OFFER);
+    }
+    if (!gate_decision.allowed) {
+      return reject(world, out_events, action, CW_REASON_GATE_CLOSED);
+    }
+    if ((exit->flags & CW_EXIT_LOCKED)
+        && gate->compatibility != CW_GATE_COMPAT_RECORDED_LOCK) {
+      return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
+    }
+  } else if (exit->flags & CW_EXIT_LOCKED) {
+    return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
+  }
 
   cw_id from_location_id = actor->location_id;
   actor->location_id = destination_id;
@@ -2330,6 +3043,7 @@ static cw_status apply_combat_escape(cw_world *world, const cw_action *action, c
     event->location_id = from_location_id;
     event->destination_location_id = destination_id;
     event->content_id = encounter->id;
+    decorate_gate_event(event, gate ? &gate_decision : 0, &action->threshold);
   }
   finish_or_advance_combat_turn(world, encounter, action, out_events);
   return CW_OK;
@@ -2338,6 +3052,25 @@ static cw_status apply_combat_escape(cw_world *world, const cw_action *action, c
 cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events) {
   if (!world || !action) return CW_ERR_INVALID;
   if (out_events) memset(out_events, 0, sizeof(*out_events));
+  if (action->kind == CW_ACTION_GATE_TRANSITION
+      && action->threshold.claim_id) {
+    const cw_gate_claim *existing =
+        find_gate_claim_const(world, action->threshold.claim_id);
+    if (existing) {
+      if (existing->gate_id == action->threshold.gate_id
+          && existing->actor_id == action->actor_id
+          && existing->item_id == action->item_id
+          && existing->method_id == action->threshold.method_id
+          && existing->transition == action->threshold.transition) {
+        return CW_OK;
+      }
+      return reject(
+          world,
+          out_events,
+          action,
+          CW_REASON_GATE_CLAIM_CONFLICT);
+    }
+  }
   cw_combat_encounter *active_encounter = find_active_combat_encounter_for_actor(world, action->actor_id);
   if (active_encounter
       && action->kind != CW_ACTION_SAY
@@ -2458,16 +3191,47 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
     case CW_ACTION_REVEAL_ITEM:
       status = apply_reveal_item(world, action, out_events);
       break;
+    case CW_ACTION_GATE_TRANSITION:
+      status = apply_gate_transition(world, action, out_events);
+      break;
     default:
       status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);
       break;
   }
   if (status != CW_OK && advance_tick) world->tick = previous_tick;
+  if (status == CW_OK && action->kind != CW_ACTION_GATE_TRANSITION) {
+    world->access_revision = world->access_revision == UINT64_MAX
+        ? UINT64_MAX
+        : world->access_revision + 1;
+  }
   return status;
 }
 
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
   return cw_world_apply_with_tick(world, action, seed, 0, out_events);
+}
+
+static int actor_can_cross_exit_without_external_facts(
+    const cw_world *world,
+    const cw_actor *actor,
+    const cw_exit *exit) {
+  const cw_gate *gate =
+      find_exit_gate_const(world, exit->from_location_id, exit->to_location_id);
+  if (!gate) return !(exit->flags & CW_EXIT_LOCKED);
+  if ((exit->flags & CW_EXIT_LOCKED)
+      && gate->compatibility != CW_GATE_COMPAT_RECORDED_LOCK) {
+    return 0;
+  }
+  cw_gate_decision decision = {0};
+  return cw_gate_evaluate(
+             world,
+             gate->id,
+             actor->id,
+             0,
+             0,
+             0,
+             &decision) == CW_OK
+      && decision.allowed;
 }
 
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers) {
@@ -2486,7 +3250,8 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
       out_offers->option_flags = CW_OFFER_ATTACK | CW_OFFER_DEFEND;
       for (size_t exit_index = 0; exit_index < world->exit_count; ++exit_index) {
         const cw_exit *exit = &world->exits[exit_index];
-        if (exit->from_location_id == actor->location_id && !(exit->flags & CW_EXIT_LOCKED)) {
+        if (exit->from_location_id == actor->location_id
+            && actor_can_cross_exit_without_external_facts(world, actor, exit)) {
           out_offers->option_flags |= CW_OFFER_FLEE;
           break;
         }
@@ -2511,7 +3276,8 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
       out_offers->option_flags |= CW_OFFER_ATTACK | CW_OFFER_DEFEND;
       for (size_t i = 0; i < world->exit_count; ++i) {
         const cw_exit *exit = &world->exits[i];
-        if (exit->from_location_id == actor->location_id && !(exit->flags & CW_EXIT_LOCKED)) {
+        if (exit->from_location_id == actor->location_id
+            && actor_can_cross_exit_without_external_facts(world, actor, exit)) {
           out_offers->option_flags |= CW_OFFER_FLEE;
           break;
         }
@@ -2521,7 +3287,8 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
 
   for (size_t i = 0; i < world->exit_count; ++i) {
     const cw_exit *exit = &world->exits[i];
-    if (exit->from_location_id == actor->location_id && !(exit->flags & CW_EXIT_LOCKED)) {
+    if (exit->from_location_id == actor->location_id
+        && actor_can_cross_exit_without_external_facts(world, actor, exit)) {
       out_offers->option_flags |= CW_OFFER_MOVE;
       break;
     }
@@ -2630,6 +3397,10 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_REVEALED: return "item.revealed";
     case CW_EVENT_PROJECT_PUSH_RESOLVED: return "project.push.resolved";
     case CW_EVENT_ITEM_REFRESHED: return "item.refreshed";
+    case CW_EVENT_GATE_TRANSITION_APPLIED: return "gate.transition.applied";
+    case CW_EVENT_ITEM_INSTALLED: return "item.installed";
+    case CW_EVENT_ITEM_REMOVED: return "item.removed";
+    case CW_EVENT_ITEM_RENDERED_INERT: return "item.rendered_inert";
     default: return "unknown";
   }
 }

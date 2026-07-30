@@ -1,5 +1,108 @@
 use super::*;
 
+impl Default for EventView {
+    fn default() -> Self {
+        Self {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
+            seq: 0,
+            type_name: String::new(),
+            success: false,
+            reason: 0,
+            actor_id: None,
+            actor_name: None,
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id: None,
+            location_name: None,
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: None,
+            item_id: None,
+            item_name: None,
+            target_item_id: None,
+            target_item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            combat_method: None,
+            ability: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
+            content_context: ContentReferenceContext::default(),
+        }
+    }
+}
+
+impl EventView {
+    pub(crate) fn apply_async_causality(&mut self, record: &JournalRecord) {
+        self.caused_by_event_seq = record.caused_by_event_seq;
+        self.source_world_tick = record.source_world_tick;
+        self.observed_through_seq = record.observed_through_seq;
+        self.source_location_id = record.source_location_id;
+    }
+
+    pub(crate) fn refresh_content_context(&mut self) {
+        let mut handles = Vec::new();
+        for (kind, handle) in [
+            ("actor", self.actor_id),
+            ("actor", self.target_actor_id),
+            ("location", self.location_id),
+            ("location", self.destination_location_id),
+            ("location", self.source_location_id),
+            ("item", self.item_id),
+            ("item", self.target_item_id),
+        ] {
+            if let Some(handle) = handle {
+                handles.push((kind, handle));
+            }
+        }
+        let mut refreshed = content_registry().content_reference_context(handles);
+        if self.content_context.mapping_version != 0
+            && self.content_context.mapping_version != refreshed.mapping_version
+        {
+            return;
+        }
+        let mut references = self
+            .content_context
+            .references
+            .iter()
+            .cloned()
+            .map(|reference| (reference.canonical_ref.clone(), reference))
+            .collect::<BTreeMap<_, _>>();
+        references.extend(
+            refreshed
+                .references
+                .drain(..)
+                .map(|reference| (reference.canonical_ref.clone(), reference)),
+        );
+        refreshed.references = references.into_values().collect();
+        if !self.content_context.active_rulesets.is_empty() {
+            refreshed.active_rulesets = self.content_context.active_rulesets.clone();
+        }
+        self.content_context = refreshed;
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct JourneyView {
     pub(super) destination_location_id: u64,
@@ -892,6 +995,8 @@ pub(super) struct ExitView {
     pub(super) required_grant_id: Option<String>,
     pub(super) required_card_id: Option<String>,
     pub(super) access_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) threshold: Option<ThresholdOfferBinding>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -2342,7 +2447,12 @@ impl RuntimeWorld {
         })
     }
 
-    pub(super) fn exit_views(&self, location_id: u64, access: &AccessContext) -> Vec<ExitView> {
+    pub(super) fn exit_views(
+        &self,
+        actor_id: Option<u64>,
+        location_id: u64,
+        access: &AccessContext,
+    ) -> Vec<ExitView> {
         self.world.exits[..self.world.exit_count]
             .iter()
             .copied()
@@ -2350,9 +2460,20 @@ impl RuntimeWorld {
             .filter(|exit| {
                 self.exit_discovered_for_projection(exit.from_location_id, exit.to_location_id)
             })
-            .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
             .filter_map(|exit| {
                 let route = self.route_for_edge(exit.from_location_id, exit.to_location_id)?;
+                let threshold = actor_id.and_then(|actor_id| {
+                    self.threshold_offer_binding_for_exit_with_access(
+                        actor_id,
+                        exit.from_location_id,
+                        exit.to_location_id,
+                        access,
+                    )
+                });
+                let locked = threshold
+                    .as_ref()
+                    .map(|(_, allowed)| !allowed)
+                    .unwrap_or(exit.flags & CW_EXIT_LOCKED != 0);
                 let access_rule = location_access_rule(exit.to_location_id);
                 let accessible = location_access_allowed(exit.to_location_id, access);
                 Some(ExitView {
@@ -2366,7 +2487,7 @@ impl RuntimeWorld {
                         .route_label_for_edge(exit.from_location_id, exit.to_location_id),
                     direction: self.exit_direction(exit.from_location_id, exit.to_location_id),
                     distance: self.pathway_distance(exit.from_location_id, exit.to_location_id),
-                    locked: false,
+                    locked,
                     accessible,
                     required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
@@ -2375,6 +2496,7 @@ impl RuntimeWorld {
                     } else {
                         access_rule.reason.map(ToString::to_string)
                     },
+                    threshold: threshold.map(|(binding, _)| binding),
                 })
             })
             .collect()
@@ -2428,7 +2550,7 @@ impl RuntimeWorld {
             .map(|item| self.item_view(item))
             .collect();
 
-        let exits = self.exit_views(location_id, access);
+        let exits = self.exit_views(client_actor_id, location_id, access);
         let cards =
             self.card_registry_for(&location, &actors, &items, &exits, access, client_actor_id);
         let card_transactions =
@@ -3972,7 +4094,7 @@ impl RuntimeWorld {
                     })
                     .unwrap_or_default();
                 let exits = accessible
-                    .then(|| self.exit_views(location.id, access))
+                    .then(|| self.exit_views(client_actor_id, location.id, access))
                     .unwrap_or_default();
                 let card = location_cards
                     .get(&location.id)

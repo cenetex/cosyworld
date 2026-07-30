@@ -1164,7 +1164,7 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return Vec::new();
         };
-        let exits = self.exit_views(actor.location_id, access);
+        let exits = self.exit_views(Some(actor_id), actor.location_id, access);
         if let Some(journey) = self.journey_at_actor_location(actor_id) {
             let next_step = journey.current_step + 1;
             let next_location_id = journey.path.get(next_step).copied();
@@ -1538,7 +1538,7 @@ impl RuntimeWorld {
                             .and_then(|journey| journey.next_location_id)
                     })
                     .flatten();
-                self.exit_views(actor.location_id, access)
+                self.exit_views(Some(actor_id), actor.location_id, access)
                     .into_iter()
                     .filter(|exit| exit.accessible && !exit.locked)
                     .min_by_key(|exit| {

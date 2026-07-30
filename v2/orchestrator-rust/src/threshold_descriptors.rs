@@ -288,7 +288,7 @@ pub(super) struct ThresholdPressure {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct AcceptedThresholdIntent {
+pub(crate) struct AcceptedThresholdIntent {
     pub(super) schema_version: u8,
     pub(super) intent_version: String,
     pub(super) id: String,
@@ -323,6 +323,112 @@ pub(super) struct ThresholdIntentRequest<'a> {
     pub(super) requirement_facts: BTreeMap<String, String>,
     pub(super) discovery_receipt_refs: Vec<String>,
     pub(super) materialized_entity_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThresholdGateSource {
+    pub(super) descriptor_id: String,
+    pub(super) descriptor_version: u8,
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) pack_integrity: String,
+    pub(super) scope: String,
+    pub(super) target: ThresholdTargetRef,
+    pub(super) methods: BTreeMap<u64, String>,
+    #[serde(default)]
+    pub(crate) facts: BTreeMap<u64, ThresholdFactSource>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(crate) enum ThresholdFactSource {
+    ItemCapability { capability: String },
+    ActorTag { tag_id: String },
+    ClockStatus { clock_id: String, status: String },
+    JobStatus { job_id: String, status: String },
+    BondState { target_actor_id: u64, state: String },
+    AccessGrant { grant_id: String },
+    PerActorClaim { claim_id: String },
+}
+
+type CompiledThresholdMethods = (
+    Vec<CwGateMethodDefinition>,
+    BTreeMap<u64, String>,
+    BTreeMap<u64, ThresholdFactSource>,
+);
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct ThresholdKernelSnapshot {
+    #[serde(default)]
+    sources: BTreeMap<u64, ThresholdGateSource>,
+    #[serde(default)]
+    access_revision: u64,
+    #[serde(default)]
+    gates: Vec<CwGate>,
+    #[serde(default)]
+    methods: Vec<CwGateMethod>,
+    #[serde(default)]
+    predicates: Vec<CwGatePredicate>,
+    #[serde(default)]
+    actor_states: Vec<CwGateActorState>,
+    #[serde(default)]
+    claims: Vec<CwGateClaim>,
+}
+
+impl ThresholdKernelSnapshot {
+    pub(crate) fn from_runtime(runtime: &RuntimeWorld) -> Self {
+        Self {
+            sources: runtime.threshold_gate_sources.clone(),
+            access_revision: runtime.world.access_revision,
+            gates: runtime.world.gates[..runtime.world.gate_count].to_vec(),
+            methods: runtime.world.gate_methods[..runtime.world.gate_method_count].to_vec(),
+            predicates: runtime.world.gate_predicates[..runtime.world.gate_predicate_count]
+                .to_vec(),
+            actor_states: runtime.world.gate_actor_states[..runtime.world.gate_actor_state_count]
+                .to_vec(),
+            claims: runtime.world.gate_claims[..runtime.world.gate_claim_count].to_vec(),
+        }
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if self.gates.len() > CW_MAX_GATES
+            || self.methods.len() > CW_MAX_GATE_METHOD_RECORDS
+            || self.predicates.len() > CW_MAX_GATE_PREDICATE_RECORDS
+            || self.actor_states.len() > CW_MAX_GATE_ACTOR_STATES
+            || self.claims.len() > CW_MAX_GATE_CLAIMS
+        {
+            return Err("threshold authority exceeds a kernel snapshot capacity".to_string());
+        }
+        if self.gates.iter().any(|gate| {
+            gate.id == 0
+                || gate.version == 0
+                || gate.method_start > self.methods.len()
+                || gate.method_count > self.methods.len() - gate.method_start
+        }) || self.methods.iter().any(|method| {
+            method.id == 0
+                || method.predicate_start > self.predicates.len()
+                || method.predicate_count > self.predicates.len() - method.predicate_start
+        }) {
+            return Err("threshold authority has invalid method or predicate bounds".to_string());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn restore_into(self, world: &mut CwWorld) -> BTreeMap<u64, ThresholdGateSource> {
+        world.access_revision = self.access_revision.max(1);
+        world.gate_count = self.gates.len();
+        world.gate_method_count = self.methods.len();
+        world.gate_predicate_count = self.predicates.len();
+        world.gate_actor_state_count = self.actor_states.len();
+        world.gate_claim_count = self.claims.len();
+        world.gates[..self.gates.len()].copy_from_slice(&self.gates);
+        world.gate_methods[..self.methods.len()].copy_from_slice(&self.methods);
+        world.gate_predicates[..self.predicates.len()].copy_from_slice(&self.predicates);
+        world.gate_actor_states[..self.actor_states.len()].copy_from_slice(&self.actor_states);
+        world.gate_claims[..self.claims.len()].copy_from_slice(&self.claims);
+        self.sources
+    }
 }
 
 fn parse_catalog(pack: &SeedWorldpackPack) -> Result<Option<ThresholdDescriptorCatalog>, String> {
@@ -1002,6 +1108,562 @@ fn validate_existing_intent(intent: &AcceptedThresholdIntent) -> Result<(), Stri
     Ok(())
 }
 
+pub(crate) fn threshold_kernel_id(value: &str) -> u64 {
+    let mut digest = 14_695_981_039_346_656_037u64;
+    for byte in value.as_bytes() {
+        digest ^= u64::from(*byte);
+        digest = digest.wrapping_mul(1_099_511_628_211);
+    }
+    digest.max(1)
+}
+
+fn threshold_intent_matches_kernel_action(
+    intent: &AcceptedThresholdIntent,
+    action: &CwAction,
+    rules_profile: &str,
+    worldpack_bundle_hash: &str,
+) -> bool {
+    validate_existing_intent(intent).is_ok()
+        && !rules_profile.trim().is_empty()
+        && intent
+            .requirement_facts
+            .get("worldpack_bundle_hash")
+            .is_none_or(|hash| hash == worldpack_bundle_hash)
+        && intent.actor_id == action.actor_id
+        && intent
+            .requirement_facts
+            .get("target_id")
+            .and_then(|value| value.parse::<u64>().ok())
+            == Some(action.threshold.gate_id)
+        && intent
+            .requirement_facts
+            .get("method_id")
+            .and_then(|value| value.parse::<u64>().ok())
+            == Some(action.threshold.method_id)
+        && (action.kind != CW_ACTION_GATE_TRANSITION
+            || threshold_kernel_id(&intent.id) == action.threshold.claim_id)
+}
+
+pub(crate) fn threshold_record_preconditions_hold(record: &JournalRecord) -> bool {
+    let action = &record.action;
+    if action.threshold.gate_id == 0 {
+        return record.threshold_intent.is_none()
+            && action.threshold == CwThresholdInput::default();
+    }
+    let Some(intent) = record.threshold_intent.as_ref() else {
+        return false;
+    };
+    if action.threshold.fact_count > CW_MAX_GATE_FACTS
+        || !threshold_intent_matches_kernel_action(
+            intent,
+            action,
+            &record.rules_profile,
+            &record.worldpack_bundle_hash,
+        )
+    {
+        return false;
+    }
+    let action_shape_is_valid = match action.kind {
+        CW_ACTION_MOVE | CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => {
+            action.threshold.transition == CW_GATE_TRANSITION_NONE && action.threshold.claim_id == 0
+        }
+        CW_ACTION_GATE_TRANSITION => {
+            action.threshold.transition != CW_GATE_TRANSITION_NONE && action.threshold.claim_id != 0
+        }
+        _ => false,
+    };
+    action_shape_is_valid
+        && record
+            .route_binding
+            .as_ref()
+            .and_then(|route| route.threshold.as_ref())
+            .is_none_or(|binding| {
+                binding.actor_id == action.actor_id
+                    && binding.gate_id == action.threshold.gate_id
+                    && binding.method_id == action.threshold.method_id
+                    && binding.gate_version == action.threshold.expected_gate_version
+                    && binding.access_revision == action.threshold.expected_access_revision
+                    && binding.evidence_digest == action.threshold.expected_evidence_digest
+                    && binding.facts.as_slice()
+                        == &action.threshold.facts[..action.threshold.fact_count]
+            })
+}
+
+pub(crate) fn threshold_record_claim_already_applied(
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> bool {
+    let threshold = &record.action.threshold;
+    record.action.kind == CW_ACTION_GATE_TRANSITION
+        && threshold.claim_id != 0
+        && runtime.world.gate_claims[..runtime.world.gate_claim_count]
+            .iter()
+            .any(|claim| {
+                claim.id == threshold.claim_id
+                    && claim.gate_id == threshold.gate_id
+                    && claim.actor_id == record.action.actor_id
+                    && claim.item_id == record.action.item_id
+                    && claim.method_id == threshold.method_id
+                    && claim.transition == threshold.transition
+            })
+}
+
+pub(super) fn accepted_intent_for_kernel_binding(
+    source: &ThresholdGateSource,
+    action: &CwAction,
+    accepted_turn: u64,
+    worldpack_bundle_hash: &str,
+) -> Option<AcceptedThresholdIntent> {
+    let selected_method = if action.threshold.method_id == 0 {
+        "gate_state"
+    } else {
+        source.methods.get(&action.threshold.method_id)?.as_str()
+    };
+    let scope_id = match source.scope.as_str() {
+        "world" => "world".to_string(),
+        "expedition" => format!("expedition:{}", action.actor_id),
+        "actor" | "holder" => action.actor_id.to_string(),
+        _ => return None,
+    };
+    let mut requirement_facts = BTreeMap::from([
+        ("actor_id".to_string(), action.actor_id.to_string()),
+        ("scope_id".to_string(), scope_id.clone()),
+        (
+            "target_id".to_string(),
+            action.threshold.gate_id.to_string(),
+        ),
+        (
+            "method_id".to_string(),
+            action.threshold.method_id.to_string(),
+        ),
+        (
+            "worldpack_bundle_hash".to_string(),
+            worldpack_bundle_hash.to_string(),
+        ),
+    ]);
+    requirement_facts.retain(|key, _| ACCEPTED_FACTS.contains(&key.as_str()));
+    let id = format!(
+        "threshold-intent:{}@{}:{}:{}:{}:{}:{}:{}",
+        source.descriptor_id,
+        source.descriptor_version,
+        action.actor_id,
+        accepted_turn,
+        action.threshold.gate_id,
+        action.threshold.method_id,
+        action.threshold.transition,
+        action.item_id
+    );
+    Some(AcceptedThresholdIntent {
+        schema_version: THRESHOLD_SCHEMA_VERSION,
+        intent_version: THRESHOLD_INTENT_VERSION.to_string(),
+        id,
+        descriptor_kind: "gate".to_string(),
+        descriptor_id: source.descriptor_id.clone(),
+        descriptor_version: source.descriptor_version,
+        pack_id: source.pack_id.clone(),
+        pack_version: source.pack_version.clone(),
+        pack_integrity: source.pack_integrity.clone(),
+        actor_id: action.actor_id,
+        scope: source.scope.clone(),
+        scope_id,
+        selected_method: selected_method.to_string(),
+        target: source.target.clone(),
+        accepted_turn,
+        requirement_facts,
+        discovery_receipt_refs: Vec::new(),
+        materialized_entity_ids: Vec::new(),
+    })
+}
+
+impl RuntimeWorld {
+    pub(crate) fn bind_threshold_intent(&self, record: &mut JournalRecord) {
+        if record.action.threshold.gate_id == 0 || record.threshold_intent.is_some() {
+            return;
+        }
+        let Some(source) = self
+            .threshold_gate_sources
+            .get(&record.action.threshold.gate_id)
+        else {
+            return;
+        };
+        let Some(intent) = accepted_intent_for_kernel_binding(
+            source,
+            &record.action,
+            self.world.tick,
+            &record.worldpack_bundle_hash,
+        ) else {
+            return;
+        };
+        if record.action.kind == CW_ACTION_GATE_TRANSITION && record.action.threshold.claim_id == 0
+        {
+            record.action.threshold.claim_id = threshold_kernel_id(&intent.id);
+        }
+        record.threshold_intent = Some(intent);
+    }
+
+    pub(crate) fn touch_threshold_access_after_projection(
+        &mut self,
+        record: &JournalRecord,
+        status: u32,
+    ) {
+        if status == CW_OK
+            && record.action.kind == CW_ACTION_NONE
+            && !record.projection_mutations.is_empty()
+        {
+            unsafe { cw_world_access_changed(&mut self.world) };
+        }
+    }
+
+    fn threshold_item_handle(&self, canonical_ref: &str) -> Option<u64> {
+        self.runtime_handle_for_canonical_ref("item", canonical_ref)
+            .or_else(|| {
+                active_content().items.iter().find_map(|item| {
+                    content_registry()
+                        .content_reference("item", item.id)
+                        .is_some_and(|entry| entry.canonical_ref == canonical_ref)
+                        .then_some(item.id)
+                })
+            })
+    }
+
+    fn threshold_actor_handle(&self, canonical_ref: &str) -> Option<u64> {
+        self.runtime_handle_for_canonical_ref("actor", canonical_ref)
+            .or_else(|| {
+                active_content().actors.iter().find_map(|actor| {
+                    content_registry()
+                        .content_reference("actor", actor.id)
+                        .is_some_and(|entry| entry.canonical_ref == canonical_ref)
+                        .then_some(actor.id)
+                })
+            })
+    }
+
+    fn compile_threshold_predicate(
+        &self,
+        predicate: &ThresholdPredicate,
+        default_location_id: u64,
+    ) -> Result<(CwGatePredicate, Option<(u64, ThresholdFactSource)>), String> {
+        let compiled = match predicate {
+            ThresholdPredicate::ExactItem { item_id } => CwGatePredicate {
+                kind: CW_GATE_PREDICATE_HELD_ITEM,
+                subject_id: self
+                    .threshold_item_handle(item_id)
+                    .ok_or_else(|| format!("threshold item {item_id} is not materialized"))?,
+                ..CwGatePredicate::default()
+            },
+            ThresholdPredicate::ItemCapability { capability } => {
+                let fact_id = threshold_kernel_id(&format!("item-capability:{capability}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_HELD_ITEM_CAPABILITY,
+                        fact_id,
+                        expected_value: 1,
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::ItemCapability {
+                            capability: capability.clone(),
+                        },
+                    )),
+                ));
+            }
+            ThresholdPredicate::InstalledItem { item_id, target_id } => {
+                let target_location_id = self
+                    .runtime_handle_for_canonical_ref("location", target_id)
+                    .unwrap_or(default_location_id);
+                CwGatePredicate {
+                    kind: CW_GATE_PREDICATE_INSTALLED_ITEM,
+                    subject_id: self
+                        .threshold_item_handle(item_id)
+                        .ok_or_else(|| format!("threshold item {item_id} is not materialized"))?,
+                    target_id: target_location_id,
+                    ..CwGatePredicate::default()
+                }
+            }
+            ThresholdPredicate::MinimumCharges { item_id, amount } => CwGatePredicate {
+                kind: CW_GATE_PREDICATE_MINIMUM_CHARGES,
+                amount: *amount,
+                subject_id: self
+                    .threshold_item_handle(item_id)
+                    .ok_or_else(|| format!("threshold item {item_id} is not materialized"))?,
+                ..CwGatePredicate::default()
+            },
+            ThresholdPredicate::ActorTag { tag_id } => {
+                let fact_id = threshold_kernel_id(&format!("actor-tag:{tag_id}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_ACTOR_FACT,
+                        fact_id,
+                        expected_value: 1,
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::ActorTag {
+                            tag_id: tag_id.clone(),
+                        },
+                    )),
+                ));
+            }
+            ThresholdPredicate::ClockStatus { clock_id, status } => {
+                let fact_id = threshold_kernel_id(&format!("clock-status:{clock_id}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_WORLD_FACT,
+                        subject_id: threshold_kernel_id(clock_id),
+                        fact_id,
+                        expected_value: threshold_kernel_id(status),
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::ClockStatus {
+                            clock_id: clock_id.clone(),
+                            status: status.clone(),
+                        },
+                    )),
+                ));
+            }
+            ThresholdPredicate::JobStatus { job_id, status } => {
+                let fact_id = threshold_kernel_id(&format!("job-status:{job_id}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_WORLD_FACT,
+                        subject_id: threshold_kernel_id(job_id),
+                        fact_id,
+                        expected_value: threshold_kernel_id(status),
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::JobStatus {
+                            job_id: job_id.clone(),
+                            status: status.clone(),
+                        },
+                    )),
+                ));
+            }
+            ThresholdPredicate::MinimumStanding { faction_id, .. } => {
+                return Err(format!(
+                    "threshold standing {faction_id} has no authoritative runtime projection"
+                ))
+            }
+            ThresholdPredicate::BondState { actor_id, state } => {
+                let target_actor_id = self
+                    .threshold_actor_handle(actor_id)
+                    .ok_or_else(|| format!("threshold actor {actor_id} is not materialized"))?;
+                let fact_id = threshold_kernel_id(&format!("bond-state:{actor_id}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_ACTOR_FACT,
+                        fact_id,
+                        expected_value: threshold_kernel_id(state),
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::BondState {
+                            target_actor_id,
+                            state: state.clone(),
+                        },
+                    )),
+                ));
+            }
+            ThresholdPredicate::AccessGrant { grant_id } => {
+                let fact_id = threshold_kernel_id(&format!("access-grant:{grant_id}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_ACTOR_FACT,
+                        fact_id,
+                        expected_value: 1,
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::AccessGrant {
+                            grant_id: grant_id.clone(),
+                        },
+                    )),
+                ));
+            }
+            ThresholdPredicate::PerActorClaim { claim_id } => {
+                let fact_id = threshold_kernel_id(&format!("actor-claim:{claim_id}"));
+                return Ok((
+                    CwGatePredicate {
+                        kind: CW_GATE_PREDICATE_ACTOR_FACT,
+                        fact_id,
+                        expected_value: 1,
+                        ..CwGatePredicate::default()
+                    },
+                    Some((
+                        fact_id,
+                        ThresholdFactSource::PerActorClaim {
+                            claim_id: claim_id.clone(),
+                        },
+                    )),
+                ));
+            }
+        };
+        Ok((compiled, None))
+    }
+
+    fn compile_threshold_methods(
+        &self,
+        gate: &ThresholdGate,
+        default_location_id: u64,
+    ) -> Result<CompiledThresholdMethods, String> {
+        let mut compiled = Vec::with_capacity(gate.methods.len());
+        let mut names = BTreeMap::new();
+        let mut facts = BTreeMap::new();
+        for method in &gate.methods {
+            let method_id = threshold_kernel_id(&format!("{}:{}", gate.id, method.id));
+            let mut definition = CwGateMethodDefinition {
+                id: method_id,
+                ..CwGateMethodDefinition::default()
+            };
+            for predicate in &method.requirements.clauses {
+                let (predicate, fact) =
+                    self.compile_threshold_predicate(predicate, default_location_id)?;
+                definition.predicates[definition.predicate_count] = predicate;
+                definition.predicate_count += 1;
+                if let Some((fact_id, source)) = fact {
+                    facts.insert(fact_id, source);
+                }
+            }
+            names.insert(method_id, method.id.clone());
+            compiled.push(definition);
+        }
+        Ok((compiled, names, facts))
+    }
+
+    pub(crate) fn ensure_seed_threshold_gates(&mut self) {
+        for pack in &active_content().manifest.packs {
+            let Some(catalog) = parse_catalog(pack).unwrap_or_else(|error| panic!("{error}"))
+            else {
+                continue;
+            };
+            for authored in &catalog.gates {
+                let targets = match authored.target_ref.kind.as_str() {
+                    "route" => {
+                        let route = self
+                            .routes
+                            .values()
+                            .find(|route| {
+                                route.id == authored.target_ref.id
+                                    || route.canonical_id == authored.target_ref.id
+                            })
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "threshold route {} is not materialized",
+                                    authored.target_ref.id
+                                )
+                            });
+                        route
+                            .edges
+                            .iter()
+                            .filter(|edge| {
+                                self.world.exits[..self.world.exit_count]
+                                    .iter()
+                                    .any(|exit| {
+                                        exit.from_location_id == edge.from_location_id
+                                            && exit.to_location_id == edge.to_location_id
+                                    })
+                            })
+                            .map(|edge| {
+                                (
+                                    CW_GATE_TARGET_EXIT,
+                                    edge.from_location_id,
+                                    edge.to_location_id,
+                                    0,
+                                    edge.flags,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    }
+                    "item" => {
+                        let item_id = self
+                            .threshold_item_handle(&authored.target_ref.id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "threshold item {} is not materialized",
+                                    authored.target_ref.id
+                                )
+                            });
+                        vec![(CW_GATE_TARGET_CONTAINER, 0, 0, item_id, 0)]
+                    }
+                    target_kind => panic!(
+                        "threshold gate {} targets unsupported {target_kind}",
+                        authored.id
+                    ),
+                };
+                for (target_kind, from_location_id, to_location_id, target_item_id, flags) in
+                    targets
+                {
+                    let gate_id = threshold_kernel_id(&format!(
+                        "{}:{from_location_id}:{to_location_id}:{target_item_id}",
+                        authored.id
+                    ));
+                    let (methods, method_names, facts) = self
+                        .compile_threshold_methods(authored, from_location_id)
+                        .unwrap_or_else(|error| panic!("threshold gate {}: {error}", authored.id));
+                    self.threshold_gate_sources
+                        .entry(gate_id)
+                        .or_insert_with(|| ThresholdGateSource {
+                            descriptor_id: authored.id.clone(),
+                            descriptor_version: authored.version,
+                            pack_id: pack.id.clone(),
+                            pack_version: pack.version.clone(),
+                            pack_integrity: pack.integrity.clone(),
+                            scope: authored.scope.clone(),
+                            target: authored.target_ref.clone(),
+                            methods: method_names,
+                            facts,
+                        });
+                    if self.world.gates[..self.world.gate_count]
+                        .iter()
+                        .any(|gate| gate.id == gate_id)
+                    {
+                        continue;
+                    }
+                    let scope = match authored.scope.as_str() {
+                        "world" => CW_GATE_SCOPE_WORLD,
+                        "actor" => CW_GATE_SCOPE_ACTOR,
+                        "expedition" => CW_GATE_SCOPE_EXPEDITION,
+                        "holder" => CW_GATE_SCOPE_HOLDER,
+                        _ => unreachable!("validated threshold scope"),
+                    };
+                    let gate = CwGate {
+                        id: gate_id,
+                        version: u64::from(authored.version),
+                        descriptor_version: u32::from(THRESHOLD_SCHEMA_VERSION),
+                        target_kind,
+                        scope,
+                        state: CW_GATE_STATE_CLOSED,
+                        compatibility: if flags & CW_EXIT_LOCKED != 0 {
+                            CW_GATE_COMPAT_RECORDED_LOCK
+                        } else {
+                            CW_GATE_COMPAT_NONE
+                        },
+                        from_location_id,
+                        to_location_id,
+                        target_item_id,
+                        ..CwGate::default()
+                    };
+                    let status = unsafe {
+                        cw_world_set_gate(&mut self.world, &gate, methods.as_ptr(), methods.len())
+                    };
+                    assert_eq!(
+                        status, CW_OK,
+                        "threshold gate {} did not compile into the kernel",
+                        authored.id
+                    );
+                }
+            }
+        }
+    }
+}
+
 pub(super) fn freeze_threshold_intent(
     catalog: &ThresholdDescriptorCatalog,
     request: ThresholdIntentRequest<'_>,
@@ -1141,6 +1803,385 @@ mod tests {
         }
     }
 
+    fn install_holder_gate(runtime: &mut RuntimeWorld) -> (u64, u64) {
+        let gate_id = threshold_kernel_id("test:gate/holder-threshold");
+        let method_id = threshold_kernel_id("test:gate/holder-threshold:present-token");
+        let gate = CwGate {
+            id: gate_id,
+            version: 1,
+            descriptor_version: 1,
+            target_kind: CW_GATE_TARGET_EXIT,
+            scope: CW_GATE_SCOPE_HOLDER,
+            state: CW_GATE_STATE_CLOSED,
+            from_location_id: COSY_COTTAGE_LOCATION_ID,
+            to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+            ..CwGate::default()
+        };
+        let mut method = CwGateMethodDefinition {
+            id: method_id,
+            predicate_count: 1,
+            ..CwGateMethodDefinition::default()
+        };
+        method.predicates[0] = CwGatePredicate {
+            kind: CW_GATE_PREDICATE_HELD_ITEM,
+            subject_id: HEARTH_TONIC_ITEM_ID,
+            ..CwGatePredicate::default()
+        };
+        assert_eq!(
+            unsafe { cw_world_set_gate(&mut runtime.world, &gate, &method, 1) },
+            CW_OK
+        );
+        runtime.threshold_gate_sources.insert(
+            gate_id,
+            ThresholdGateSource {
+                descriptor_id: "test:gate/holder-threshold".to_string(),
+                descriptor_version: 1,
+                pack_id: "test".to_string(),
+                pack_version: "1.0.0".to_string(),
+                pack_integrity: "sha256:test".to_string(),
+                scope: "holder".to_string(),
+                target: ThresholdTargetRef {
+                    kind: "route".to_string(),
+                    id: "test:route/cottage-garden".to_string(),
+                    version: 1,
+                },
+                methods: BTreeMap::from([(method_id, "present_token".to_string())]),
+                facts: BTreeMap::new(),
+            },
+        );
+        (gate_id, method_id)
+    }
+
+    fn bind_threshold(
+        action: &mut CwAction,
+        runtime: &RuntimeWorld,
+        gate_id: u64,
+        method_id: u64,
+        transition: u8,
+    ) {
+        let mut decision = CwGateDecision::default();
+        assert_eq!(
+            unsafe {
+                cw_gate_evaluate(
+                    &runtime.world,
+                    gate_id,
+                    action.actor_id,
+                    std::ptr::null(),
+                    0,
+                    method_id,
+                    &mut decision,
+                )
+            },
+            CW_OK
+        );
+        assert_eq!(decision.allowed, 1);
+        action.threshold = CwThresholdInput {
+            gate_id,
+            method_id,
+            expected_gate_version: decision.gate_version,
+            expected_access_revision: decision.access_revision,
+            expected_evidence_digest: decision.evidence_digest,
+            transition,
+            ..CwThresholdInput::default()
+        };
+    }
+
+    fn install_projection_fact_gate(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+    ) -> (u64, String, String, String) {
+        let from_location_id = COSY_COTTAGE_LOCATION_ID;
+        let to_location_id = 11;
+        assert!(runtime.world.exits[..runtime.world.exit_count]
+            .iter()
+            .any(|exit| {
+                exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
+            }));
+        let job = runtime.jobs.values().next().expect("seed threshold job");
+        let job_id = job.id.clone();
+        let job_status = job.status.clone();
+        let tag_id = "test:tag/threshold-ready".to_string();
+        let grant_id = "test:grant/threshold-pass".to_string();
+        runtime.tags.insert(
+            tag_id.clone(),
+            RpgTagState {
+                id: tag_id.clone(),
+                scope: "actor".to_string(),
+                scope_id: actor_id,
+                label: "Threshold ready".to_string(),
+                kind: "state".to_string(),
+                active: true,
+                source_event_seq: Some(77),
+                expires: None,
+            },
+        );
+
+        let gate_id = threshold_kernel_id("test:gate/projection-facts");
+        let method_id = threshold_kernel_id("test:gate/projection-facts:qualify");
+        let tag_fact_id = threshold_kernel_id(&format!("actor-tag:{tag_id}"));
+        let job_fact_id = threshold_kernel_id(&format!("job-status:{job_id}"));
+        let grant_fact_id = threshold_kernel_id(&format!("access-grant:{grant_id}"));
+        let gate = CwGate {
+            id: gate_id,
+            version: 1,
+            descriptor_version: 1,
+            target_kind: CW_GATE_TARGET_EXIT,
+            scope: CW_GATE_SCOPE_ACTOR,
+            state: CW_GATE_STATE_CLOSED,
+            from_location_id,
+            to_location_id,
+            ..CwGate::default()
+        };
+        let mut method = CwGateMethodDefinition {
+            id: method_id,
+            predicate_count: 3,
+            ..CwGateMethodDefinition::default()
+        };
+        method.predicates[0] = CwGatePredicate {
+            kind: CW_GATE_PREDICATE_ACTOR_FACT,
+            fact_id: tag_fact_id,
+            expected_value: 1,
+            ..CwGatePredicate::default()
+        };
+        method.predicates[1] = CwGatePredicate {
+            kind: CW_GATE_PREDICATE_WORLD_FACT,
+            subject_id: threshold_kernel_id(&job_id),
+            fact_id: job_fact_id,
+            expected_value: threshold_kernel_id(&job_status),
+            ..CwGatePredicate::default()
+        };
+        method.predicates[2] = CwGatePredicate {
+            kind: CW_GATE_PREDICATE_ACTOR_FACT,
+            fact_id: grant_fact_id,
+            expected_value: 1,
+            ..CwGatePredicate::default()
+        };
+        assert_eq!(
+            unsafe { cw_world_set_gate(&mut runtime.world, &gate, &method, 1) },
+            CW_OK
+        );
+        runtime.threshold_gate_sources.insert(
+            gate_id,
+            ThresholdGateSource {
+                descriptor_id: "test:gate/projection-facts".to_string(),
+                descriptor_version: 1,
+                pack_id: "test".to_string(),
+                pack_version: "1.0.0".to_string(),
+                pack_integrity: "sha256:test".to_string(),
+                scope: "actor".to_string(),
+                target: ThresholdTargetRef {
+                    kind: "route".to_string(),
+                    id: "test:route/projection-facts".to_string(),
+                    version: 1,
+                },
+                methods: BTreeMap::from([(method_id, "qualify".to_string())]),
+                facts: BTreeMap::from([
+                    (
+                        tag_fact_id,
+                        ThresholdFactSource::ActorTag {
+                            tag_id: tag_id.clone(),
+                        },
+                    ),
+                    (
+                        job_fact_id,
+                        ThresholdFactSource::JobStatus {
+                            job_id: job_id.clone(),
+                            status: job_status.clone(),
+                        },
+                    ),
+                    (
+                        grant_fact_id,
+                        ThresholdFactSource::AccessGrant {
+                            grant_id: grant_id.clone(),
+                        },
+                    ),
+                ]),
+            },
+        );
+        (gate_id, tag_id, job_id, grant_id)
+    }
+
+    #[test]
+    fn kernel_threshold_receipts_snapshot_and_claim_retries_are_exact() {
+        let mut runtime = Box::new(RuntimeWorld::seeded());
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Token Holder");
+        create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "Companion");
+        let item_index = runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .position(|item| item.id == HEARTH_TONIC_ITEM_ID)
+            .expect("seed threshold item");
+        runtime.world.items[item_index].holder_actor_id = 5000;
+        runtime.world.items[item_index].location_id = 0;
+        runtime.world.items[item_index].zone = CW_CARD_ZONE_CARRIED;
+        let (gate_id, method_id) = install_holder_gate(&mut runtime);
+
+        let (holder_offer, holder_allowed) = runtime
+            .threshold_offer_binding_for_exit(
+                5000,
+                COSY_COTTAGE_LOCATION_ID,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+            )
+            .expect("holder threshold offer");
+        let (_, companion_allowed) = runtime
+            .threshold_offer_binding_for_exit(
+                5001,
+                COSY_COTTAGE_LOCATION_ID,
+                RAIN_SOFT_GARDEN_LOCATION_ID,
+            )
+            .expect("companion threshold offer");
+        assert!(holder_allowed);
+        assert!(!companion_allowed);
+
+        let mut route_binding = runtime
+            .route_offer_binding(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("route binding");
+        route_binding.threshold = Some(holder_offer);
+        assert!(runtime.route_binding_is_current(&route_binding));
+        runtime.world.items[item_index].holder_actor_id = 5001;
+        assert!(!runtime.route_binding_is_current(&route_binding));
+        runtime.world.items[item_index].holder_actor_id = 5000;
+
+        let (_, tag_id, job_id, grant_id) = install_projection_fact_gate(&mut runtime, 5000);
+        let access = AccessContext {
+            granted_entitlement_ids: BTreeSet::from([grant_id]),
+            ..AccessContext::default()
+        };
+        let (projection_offer, projection_allowed) = runtime
+            .threshold_offer_binding_for_exit_with_access(
+                5000,
+                COSY_COTTAGE_LOCATION_ID,
+                11,
+                &access,
+            )
+            .expect("projection threshold offer");
+        assert!(projection_allowed);
+        let mut projected_move = CwAction {
+            kind: CW_ACTION_MOVE,
+            actor_id: 5000,
+            destination_location_id: 11,
+            ..CwAction::default()
+        };
+        projected_move.threshold = CwThresholdInput {
+            gate_id: projection_offer.gate_id,
+            method_id: projection_offer.method_id,
+            expected_gate_version: projection_offer.gate_version,
+            expected_access_revision: projection_offer.access_revision,
+            expected_evidence_digest: projection_offer.evidence_digest,
+            fact_count: projection_offer.facts.len(),
+            ..CwThresholdInput::default()
+        };
+        projected_move.threshold.facts[..projection_offer.facts.len()]
+            .copy_from_slice(&projection_offer.facts);
+        assert!(runtime.threshold_action_is_current_and_allowed(&projected_move));
+        let mut projection_route = runtime
+            .route_offer_binding(COSY_COTTAGE_LOCATION_ID, 11)
+            .expect("projection route binding");
+        projection_route.threshold = Some(projection_offer);
+        runtime.tags.get_mut(&tag_id).expect("threshold tag").active = false;
+        unsafe { cw_world_access_changed(&mut runtime.world) };
+        assert!(!runtime.route_binding_is_current(&projection_route));
+        assert!(!runtime.threshold_action_is_current_and_allowed(&projected_move));
+        assert!(
+            !runtime
+                .threshold_offer_binding_for_exit_with_access(
+                    5000,
+                    COSY_COTTAGE_LOCATION_ID,
+                    11,
+                    &access
+                )
+                .expect("closed tag threshold")
+                .1
+        );
+        runtime.tags.get_mut(&tag_id).expect("threshold tag").active = true;
+        runtime.jobs.get_mut(&job_id).expect("threshold job").status = "changed".to_string();
+        unsafe { cw_world_access_changed(&mut runtime.world) };
+        assert!(
+            !runtime
+                .threshold_offer_binding_for_exit_with_access(
+                    5000,
+                    COSY_COTTAGE_LOCATION_ID,
+                    11,
+                    &access
+                )
+                .expect("closed job threshold")
+                .1
+        );
+
+        let mut exhaust = CwAction {
+            kind: CW_ACTION_GATE_TRANSITION,
+            actor_id: 5000,
+            item_id: HEARTH_TONIC_ITEM_ID,
+            ..CwAction::default()
+        };
+        bind_threshold(
+            &mut exhaust,
+            &runtime,
+            gate_id,
+            method_id,
+            CW_GATE_TRANSITION_EXHAUST,
+        );
+        let mut record = JournalRecord::new(exhaust, 70_589);
+        runtime.bind_threshold_intent(&mut record);
+        record.orb_deltas.push(OrbDelta {
+            actor_id: 5000,
+            delta: 2,
+            reason: "threshold-test-reward".to_string(),
+        });
+        assert!(threshold_record_preconditions_hold(&record));
+        assert_eq!(
+            serde_json::to_value(&record)
+                .expect("serialize threshold journal")
+                .pointer("/threshold_intent/intent_version")
+                .and_then(serde_json::Value::as_str),
+            Some(THRESHOLD_INTENT_VERSION)
+        );
+
+        let balance_before = runtime.orb_balance(5000);
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "gate.transition.applied"));
+        assert_eq!(runtime.orb_balance(5000), balance_before + 2);
+        assert_eq!(runtime.world.gate_claim_count, 1);
+        let tick_after_first_apply = runtime.world.tick;
+        let sequence_after_first_apply = runtime.world.next_event_seq;
+
+        let (retry_status, retry_events) = runtime.apply_journal_record(&record);
+        assert_eq!(retry_status, CW_OK);
+        assert!(retry_events.is_empty());
+        assert_eq!(runtime.orb_balance(5000), balance_before + 2);
+        assert_eq!(runtime.world.tick, tick_after_first_apply);
+        assert_eq!(runtime.world.next_event_seq, sequence_after_first_apply);
+
+        let restored = Box::new(
+            RuntimeSnapshot::from_runtime(&runtime)
+                .into_runtime()
+                .expect("threshold authority restores"),
+        );
+        assert_eq!(
+            &restored.world.gates[..restored.world.gate_count],
+            &runtime.world.gates[..runtime.world.gate_count]
+        );
+        assert_eq!(
+            &restored.world.gate_methods[..restored.world.gate_method_count],
+            &runtime.world.gate_methods[..runtime.world.gate_method_count]
+        );
+        assert_eq!(
+            &restored.world.gate_predicates[..restored.world.gate_predicate_count],
+            &runtime.world.gate_predicates[..runtime.world.gate_predicate_count]
+        );
+        assert_eq!(
+            &restored.world.gate_claims[..restored.world.gate_claim_count],
+            &runtime.world.gate_claims[..runtime.world.gate_claim_count]
+        );
+        assert_eq!(
+            restored.threshold_gate_sources,
+            runtime.threshold_gate_sources
+        );
+        assert_eq!(restored.orb_balance(5000), balance_before + 2);
+    }
+
     #[test]
     fn fixture_covers_shared_threshold_primitives_and_examples() {
         let fixture = fixture();
@@ -1157,6 +2198,42 @@ mod tests {
             fixture.thresholds.leads[0].transitions[1].method,
             "build_cairn"
         );
+    }
+
+    #[test]
+    fn authored_gate_methods_compile_to_bounded_kernel_predicates() {
+        let runtime = RuntimeWorld::seeded();
+        let fixture = fixture();
+        let mut gate = fixture.thresholds.gates[3].clone();
+        let item_ref = content_registry()
+            .content_reference("item", HEARTH_TONIC_ITEM_ID)
+            .expect("seed item canonical reference")
+            .canonical_ref
+            .clone();
+        gate.methods[0].requirements.clauses = vec![
+            ThresholdPredicate::ExactItem { item_id: item_ref },
+            ThresholdPredicate::ActorTag {
+                tag_id: "test:tag/ready".to_string(),
+            },
+            ThresholdPredicate::JobStatus {
+                job_id: "test:job/threshold".to_string(),
+                status: "active".to_string(),
+            },
+            ThresholdPredicate::AccessGrant {
+                grant_id: "test:grant/pass".to_string(),
+            },
+        ];
+        let (methods, names, facts) = runtime
+            .compile_threshold_methods(&gate, COSY_COTTAGE_LOCATION_ID)
+            .expect("authored methods compile");
+        assert_eq!(methods.len(), 1);
+        assert_eq!(methods[0].predicate_count, 4);
+        assert_eq!(methods[0].predicates[0].kind, CW_GATE_PREDICATE_HELD_ITEM);
+        assert_eq!(methods[0].predicates[1].kind, CW_GATE_PREDICATE_ACTOR_FACT);
+        assert_eq!(methods[0].predicates[2].kind, CW_GATE_PREDICATE_WORLD_FACT);
+        assert_eq!(methods[0].predicates[3].kind, CW_GATE_PREDICATE_ACTOR_FACT);
+        assert_eq!(names.len(), 1);
+        assert_eq!(facts.len(), 3);
     }
 
     #[test]

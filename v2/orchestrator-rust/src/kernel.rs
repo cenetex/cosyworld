@@ -18,10 +18,18 @@ pub const CW_MAX_EVOLUTION_TRACKS: usize = 128;
 pub const CW_MAX_EVOLUTION_REQUIREMENTS: usize = 4;
 pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
+pub const CW_MAX_GATES: usize = 32;
+pub const CW_MAX_GATE_METHODS: usize = 8;
+pub const CW_MAX_GATE_PREDICATES: usize = 8;
+pub const CW_MAX_GATE_METHOD_RECORDS: usize = 64;
+pub const CW_MAX_GATE_PREDICATE_RECORDS: usize = 256;
+pub const CW_MAX_GATE_FACTS: usize = 8;
+pub const CW_MAX_GATE_ACTOR_STATES: usize = 128;
+pub const CW_MAX_GATE_CLAIMS: usize = 128;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
 // Kernel version 9 is reserved by #411 for project-push ABI state.
-pub const CW_KERNEL_VERSION: u32 = 11;
+pub const CW_KERNEL_VERSION: u32 = 12;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_INVALID: u32 = 1;
@@ -47,6 +55,41 @@ pub const CW_CONDITION_DODGING: u32 = 1 << 3;
 pub const CW_LOCATION_ALLOW_COMBAT: u32 = 1 << 0;
 
 pub const CW_EXIT_LOCKED: u32 = 1 << 0;
+
+pub const CW_ITEM_FLAG_INERT: u8 = 1 << 0;
+
+pub const CW_GATE_TARGET_EXIT: u8 = 1;
+pub const CW_GATE_TARGET_CONTAINER: u8 = 2;
+
+pub const CW_GATE_SCOPE_WORLD: u8 = 1;
+pub const CW_GATE_SCOPE_ACTOR: u8 = 2;
+pub const CW_GATE_SCOPE_EXPEDITION: u8 = 3;
+pub const CW_GATE_SCOPE_HOLDER: u8 = 4;
+
+pub const CW_GATE_STATE_CLOSED: u8 = 1;
+pub const CW_GATE_STATE_OPEN: u8 = 2;
+pub const CW_GATE_STATE_BROKEN: u8 = 3;
+pub const CW_GATE_STATE_INERT: u8 = 4;
+
+pub const CW_GATE_COMPAT_NONE: u8 = 0;
+pub const CW_GATE_COMPAT_RECORDED_LOCK: u8 = 1;
+
+pub const CW_GATE_PREDICATE_HELD_ITEM: u8 = 1;
+pub const CW_GATE_PREDICATE_HELD_ITEM_CAPABILITY: u8 = 2;
+pub const CW_GATE_PREDICATE_INSTALLED_ITEM: u8 = 3;
+pub const CW_GATE_PREDICATE_MINIMUM_CHARGES: u8 = 4;
+pub const CW_GATE_PREDICATE_ACTOR_FACT: u8 = 5;
+pub const CW_GATE_PREDICATE_WORLD_FACT: u8 = 6;
+
+pub const CW_GATE_TRANSITION_NONE: u8 = 0;
+pub const CW_GATE_TRANSITION_OPEN: u8 = 1;
+pub const CW_GATE_TRANSITION_CLOSE: u8 = 2;
+pub const CW_GATE_TRANSITION_BREAK: u8 = 3;
+pub const CW_GATE_TRANSITION_RELOCK: u8 = 4;
+pub const CW_GATE_TRANSITION_INSTALL: u8 = 5;
+pub const CW_GATE_TRANSITION_REMOVE: u8 = 6;
+pub const CW_GATE_TRANSITION_EXHAUST: u8 = 7;
+pub const CW_GATE_TRANSITION_RENDER_INERT: u8 = 8;
 
 pub const CW_PLACEMENT_ACTOR_HAND: u8 = 1;
 pub const CW_PLACEMENT_LOCATION_FLOOR: u8 = 2;
@@ -136,6 +179,7 @@ pub const CW_ACTION_REST: u8 = 32;
 // only by the focused-encounter scheduler after bounded deterministic recovery
 // failures; see `combat::start_focused_encounter_scheduler`.
 pub const CW_ACTION_COMBAT_ABANDON: u8 = 33;
+pub const CW_ACTION_GATE_TRANSITION: u8 = 34;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ABILITY_CHECK_ROLLED: u8 = 6;
@@ -174,6 +218,10 @@ pub const CW_EVENT_ITEM_REVEALED: u8 = 40;
 pub const CW_EVENT_PROJECT_PUSH_RESOLVED: u8 = 41;
 // Event 41 is reserved by #411 for CW_EVENT_PROJECT_PUSH_RESOLVED.
 pub const CW_EVENT_ITEM_REFRESHED: u8 = 42;
+pub const CW_EVENT_GATE_TRANSITION_APPLIED: u8 = 43;
+pub const CW_EVENT_ITEM_INSTALLED: u8 = 44;
+pub const CW_EVENT_ITEM_REMOVED: u8 = 45;
+pub const CW_EVENT_ITEM_RENDERED_INERT: u8 = 46;
 
 // These append-only values mirror the authoritative `CW_REASON_*` enum in
 // core-c. The numeric value remains the replay contract; player-facing copy is
@@ -200,7 +248,10 @@ pub const CW_REASON_ENCOUNTER_ACTIVE: u16 = 19;
 pub const CW_REASON_COMBAT_ACTION_REQUIRED: u16 = 20;
 pub const CW_REASON_CAPACITY_EXCEEDED: u16 = 21;
 pub const CW_REASON_REST_GRADE_OVERCLAIMED: u16 = 22;
-pub const CW_REASON_MAX_KNOWN: u16 = CW_REASON_REST_GRADE_OVERCLAIMED;
+pub const CW_REASON_GATE_CLOSED: u16 = 23;
+pub const CW_REASON_STALE_GATE_OFFER: u16 = 24;
+pub const CW_REASON_GATE_CLAIM_CONFLICT: u16 = 25;
+pub const CW_REASON_MAX_KNOWN: u16 = CW_REASON_GATE_CLAIM_CONFLICT;
 
 pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
 pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
@@ -311,6 +362,135 @@ fn is_zero_u8(value: &u8) -> bool {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGateFact {
+    pub subject_id: u64,
+    pub fact_id: u64,
+    pub value: u64,
+    pub source_version: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGatePredicate {
+    pub kind: u8,
+    pub amount: u8,
+    pub reserved: u16,
+    pub reserved2: u32,
+    pub subject_id: u64,
+    pub target_id: u64,
+    pub fact_id: u64,
+    pub expected_value: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGateMethod {
+    pub id: u64,
+    pub predicate_start: usize,
+    pub predicate_count: usize,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGateMethodDefinition {
+    pub id: u64,
+    pub predicate_count: usize,
+    pub predicates: [CwGatePredicate; CW_MAX_GATE_PREDICATES],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGate {
+    pub id: u64,
+    pub version: u64,
+    pub descriptor_version: u32,
+    pub target_kind: u8,
+    pub scope: u8,
+    pub state: u8,
+    pub compatibility: u8,
+    pub from_location_id: u64,
+    pub to_location_id: u64,
+    pub target_item_id: u64,
+    pub method_start: usize,
+    pub method_count: usize,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGateActorState {
+    pub gate_id: u64,
+    pub actor_id: u64,
+    pub version: u64,
+    pub state: u8,
+    pub reserved: [u8; 7],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGateClaim {
+    pub id: u64,
+    pub gate_id: u64,
+    pub actor_id: u64,
+    pub item_id: u64,
+    pub method_id: u64,
+    pub transition: u8,
+    pub reserved: [u8; 7],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwGateDecision {
+    pub gate_id: u64,
+    pub method_id: u64,
+    pub gate_version: u64,
+    pub access_revision: u64,
+    pub evidence_digest: u64,
+    pub evidence_mask: u32,
+    pub reason: u16,
+    pub state: u8,
+    pub allowed: u8,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CwThresholdInput {
+    pub gate_id: u64,
+    pub method_id: u64,
+    pub claim_id: u64,
+    pub expected_gate_version: u64,
+    pub expected_access_revision: u64,
+    pub expected_evidence_digest: u64,
+    pub fact_count: usize,
+    pub facts: [CwGateFact; CW_MAX_GATE_FACTS],
+    pub transition: u8,
+    pub reserved: [u8; 7],
+}
+
+impl Default for CwThresholdInput {
+    fn default() -> Self {
+        Self {
+            gate_id: 0,
+            method_id: 0,
+            claim_id: 0,
+            expected_gate_version: 0,
+            expected_access_revision: 0,
+            expected_evidence_digest: 0,
+            fact_count: 0,
+            facts: [CwGateFact::default(); CW_MAX_GATE_FACTS],
+            transition: 0,
+            reserved: [0; 7],
+        }
+    }
+}
+
+impl CwThresholdInput {
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CwRestInput {
     pub requested_grade: u8,
     pub entitled_grade: u8,
@@ -415,6 +595,8 @@ pub struct CwAction {
     pub project_push: CwProjectPushInput,
     #[serde(default, skip_serializing_if = "CwRestInput::is_empty")]
     pub rest: CwRestInput,
+    #[serde(default, skip_serializing_if = "CwThresholdInput::is_empty")]
+    pub threshold: CwThresholdInput,
 }
 
 #[repr(C)]
@@ -438,6 +620,15 @@ pub struct CwEvent {
     pub damage: i16,
     pub current_hp: i16,
     pub ability: u8,
+    pub gate_transition: u8,
+    pub reserved: u16,
+    pub gate_evidence_mask: u32,
+    pub gate_id: u64,
+    pub gate_method_id: u64,
+    pub gate_claim_id: u64,
+    pub gate_version: u64,
+    pub access_revision: u64,
+    pub gate_evidence_digest: u64,
 }
 
 #[repr(C)]
@@ -521,6 +712,17 @@ pub struct CwWorld {
     pub evolution_tracks: [CwEvolutionTrack; CW_MAX_EVOLUTION_TRACKS],
     pub combat_encounter_count: usize,
     pub combat_encounters: [CwCombatEncounter; CW_MAX_COMBAT_ENCOUNTERS],
+    pub access_revision: u64,
+    pub gate_count: usize,
+    pub gates: [CwGate; CW_MAX_GATES],
+    pub gate_method_count: usize,
+    pub gate_methods: [CwGateMethod; CW_MAX_GATE_METHOD_RECORDS],
+    pub gate_predicate_count: usize,
+    pub gate_predicates: [CwGatePredicate; CW_MAX_GATE_PREDICATE_RECORDS],
+    pub gate_actor_state_count: usize,
+    pub gate_actor_states: [CwGateActorState; CW_MAX_GATE_ACTOR_STATES],
+    pub gate_claim_count: usize,
+    pub gate_claims: [CwGateClaim; CW_MAX_GATE_CLAIMS],
 }
 
 impl Default for CwWorld {
@@ -541,6 +743,17 @@ impl Default for CwWorld {
             evolution_tracks: [CwEvolutionTrack::default(); CW_MAX_EVOLUTION_TRACKS],
             combat_encounter_count: 0,
             combat_encounters: [CwCombatEncounter::default(); CW_MAX_COMBAT_ENCOUNTERS],
+            access_revision: 0,
+            gate_count: 0,
+            gates: [CwGate::default(); CW_MAX_GATES],
+            gate_method_count: 0,
+            gate_methods: [CwGateMethod::default(); CW_MAX_GATE_METHOD_RECORDS],
+            gate_predicate_count: 0,
+            gate_predicates: [CwGatePredicate::default(); CW_MAX_GATE_PREDICATE_RECORDS],
+            gate_actor_state_count: 0,
+            gate_actor_states: [CwGateActorState::default(); CW_MAX_GATE_ACTOR_STATES],
+            gate_claim_count: 0,
+            gate_claims: [CwGateClaim::default(); CW_MAX_GATE_CLAIMS],
         }
     }
 }
@@ -574,6 +787,22 @@ extern "C" {
         actor_id: u64,
         requirements: *const CwEvolutionRequirement,
         requirement_count: usize,
+    ) -> u32;
+    pub fn cw_world_set_gate(
+        world: *mut CwWorld,
+        gate: *const CwGate,
+        methods: *const CwGateMethodDefinition,
+        method_count: usize,
+    ) -> u32;
+    pub fn cw_world_access_changed(world: *mut CwWorld);
+    pub fn cw_gate_evaluate(
+        world: *const CwWorld,
+        gate_id: u64,
+        actor_id: u64,
+        facts: *const CwGateFact,
+        fact_count: usize,
+        method_id: u64,
+        out_decision: *mut CwGateDecision,
     ) -> u32;
     pub fn cw_world_apply(
         world: *mut CwWorld,

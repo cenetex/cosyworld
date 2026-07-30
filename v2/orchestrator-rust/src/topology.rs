@@ -75,6 +75,20 @@ pub(super) struct RouteOfferBinding {
     pub(super) directionality: RouteDirectionality,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) fallback_location_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) threshold: Option<ThresholdOfferBinding>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct ThresholdOfferBinding {
+    pub(super) actor_id: u64,
+    pub(super) gate_id: u64,
+    pub(super) method_id: u64,
+    pub(super) gate_version: u64,
+    pub(super) access_revision: u64,
+    pub(super) evidence_digest: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) facts: Vec<CwGateFact>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1832,7 +1846,244 @@ impl RuntimeWorld {
             route_version: route.entity_version,
             directionality: route.directionality,
             fallback_location_id: route.fallback_location_id,
+            threshold: None,
         }
+    }
+
+    pub(super) fn threshold_offer_binding_for_exit(
+        &self,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> Option<(ThresholdOfferBinding, bool)> {
+        self.threshold_offer_binding_for_exit_with_access(
+            actor_id,
+            from_location_id,
+            to_location_id,
+            &AccessContext::default(),
+        )
+    }
+
+    fn threshold_facts_for_method(
+        &self,
+        gate: &CwGate,
+        method: &CwGateMethod,
+        actor_id: u64,
+        access: &AccessContext,
+    ) -> Vec<CwGateFact> {
+        let Some(source) = self.threshold_gate_sources.get(&gate.id) else {
+            return Vec::new();
+        };
+        let mut facts = Vec::new();
+        for predicate in &self.world.gate_predicates
+            [method.predicate_start..method.predicate_start + method.predicate_count]
+        {
+            let Some(fact_source) = source.facts.get(&predicate.fact_id) else {
+                continue;
+            };
+            let mut push_fact = |subject_id, value, source_version| {
+                if facts.len() < CW_MAX_GATE_FACTS
+                    && !facts.iter().any(|fact: &CwGateFact| {
+                        fact.subject_id == subject_id && fact.fact_id == predicate.fact_id
+                    })
+                {
+                    facts.push(CwGateFact {
+                        subject_id,
+                        fact_id: predicate.fact_id,
+                        value,
+                        source_version,
+                    });
+                }
+            };
+            match fact_source {
+                ThresholdFactSource::ItemCapability { capability } => {
+                    for item in self.world.items[..self.world.item_count]
+                        .iter()
+                        .filter(|item| item.holder_actor_id == actor_id)
+                        .filter(|item| {
+                            self.seed_item_contract_for_instance(item.id)
+                                .is_some_and(|seed| seed.capabilities.contains(capability))
+                        })
+                    {
+                        push_fact(
+                            item.id,
+                            1,
+                            threshold_kernel_id(&format!("{capability}:{}", item.id)),
+                        );
+                    }
+                }
+                ThresholdFactSource::ActorTag { tag_id } => {
+                    let tag = self.tags.values().find(|tag| {
+                        tag.id == *tag_id
+                            && (tag.scope == "world"
+                                || tag.scope_id == 0
+                                || tag.scope_id == actor_id)
+                    });
+                    push_fact(
+                        actor_id,
+                        u64::from(tag.is_some_and(|tag| tag.active)),
+                        tag.and_then(|tag| tag.source_event_seq).unwrap_or(0),
+                    );
+                }
+                ThresholdFactSource::ClockStatus { clock_id, .. } => {
+                    let clock = self.clocks.get(clock_id);
+                    push_fact(
+                        predicate.subject_id,
+                        clock
+                            .map(|clock| threshold_kernel_id(&clock.status))
+                            .unwrap_or(0),
+                        clock.and_then(|clock| clock.updated_event_seq).unwrap_or(0),
+                    );
+                }
+                ThresholdFactSource::JobStatus { job_id, .. } => {
+                    let job = self.jobs.get(job_id);
+                    push_fact(
+                        predicate.subject_id,
+                        job.map(|job| threshold_kernel_id(&job.status)).unwrap_or(0),
+                        job.map(|job| threshold_kernel_id(&job.status)).unwrap_or(0),
+                    );
+                }
+                ThresholdFactSource::BondState {
+                    target_actor_id, ..
+                } => {
+                    let bond = self.bonds.values().find(|bond| {
+                        (bond.actor_id == actor_id && bond.target_actor_id == *target_actor_id)
+                            || (bond.target_actor_id == actor_id
+                                && bond.actor_id == *target_actor_id)
+                    });
+                    push_fact(
+                        actor_id,
+                        bond.map(|bond| threshold_kernel_id(&bond.status))
+                            .unwrap_or(0),
+                        bond.and_then(|bond| bond.updated_event_seq.or(bond.source_event_seq))
+                            .unwrap_or(0),
+                    );
+                }
+                ThresholdFactSource::AccessGrant { grant_id } => {
+                    let allowed = access.granted_entitlement_ids.contains(grant_id)
+                        || access.owned_card_ids.contains(grant_id);
+                    let source_version = threshold_kernel_id(
+                        &access
+                            .granted_entitlement_ids
+                            .iter()
+                            .chain(&access.owned_card_ids)
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join("\u{1f}"),
+                    );
+                    push_fact(actor_id, u64::from(allowed), source_version);
+                }
+                ThresholdFactSource::PerActorClaim { claim_id } => {
+                    let key = format!("{claim_id}:{actor_id}");
+                    push_fact(
+                        actor_id,
+                        u64::from(
+                            self.rpg_claims.contains(claim_id) || self.rpg_claims.contains(&key),
+                        ),
+                        self.world.access_revision,
+                    );
+                }
+            }
+        }
+        facts
+    }
+
+    pub(super) fn threshold_offer_binding_for_exit_with_access(
+        &self,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+        access: &AccessContext,
+    ) -> Option<(ThresholdOfferBinding, bool)> {
+        let gate = self.world.gates[..self.world.gate_count]
+            .iter()
+            .find(|gate| {
+                gate.target_kind == CW_GATE_TARGET_EXIT
+                    && gate.from_location_id == from_location_id
+                    && gate.to_location_id == to_location_id
+            })?;
+        let mut open_decision = CwGateDecision::default();
+        if unsafe {
+            cw_gate_evaluate(
+                &self.world,
+                gate.id,
+                actor_id,
+                std::ptr::null(),
+                0,
+                0,
+                &mut open_decision,
+            )
+        } != CW_OK
+        {
+            return None;
+        }
+        let (decision, facts) = if open_decision.allowed != 0 && open_decision.method_id == 0 {
+            (open_decision, Vec::new())
+        } else {
+            let mut selected = None;
+            for method in
+                &self.world.gate_methods[gate.method_start..gate.method_start + gate.method_count]
+            {
+                let facts = self.threshold_facts_for_method(gate, method, actor_id, access);
+                let mut decision = CwGateDecision::default();
+                if unsafe {
+                    cw_gate_evaluate(
+                        &self.world,
+                        gate.id,
+                        actor_id,
+                        facts.as_ptr(),
+                        facts.len(),
+                        method.id,
+                        &mut decision,
+                    )
+                } != CW_OK
+                {
+                    continue;
+                }
+                let allowed = decision.allowed != 0;
+                if allowed {
+                    selected = Some((decision, facts));
+                    break;
+                } else if selected.is_none() {
+                    selected = Some((decision, facts));
+                }
+            }
+            selected.unwrap_or((open_decision, Vec::new()))
+        };
+        let legacy_lock_allows = self.world.exits[..self.world.exit_count]
+            .iter()
+            .find(|exit| {
+                exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
+            })
+            .is_some_and(|exit| {
+                exit.flags & CW_EXIT_LOCKED == 0
+                    || gate.compatibility == CW_GATE_COMPAT_RECORDED_LOCK
+            });
+        Some((
+            ThresholdOfferBinding {
+                actor_id,
+                gate_id: decision.gate_id,
+                method_id: decision.method_id,
+                gate_version: decision.gate_version,
+                access_revision: decision.access_revision,
+                evidence_digest: decision.evidence_digest,
+                facts,
+            },
+            decision.allowed != 0 && legacy_lock_allows,
+        ))
+    }
+
+    pub(super) fn route_offer_binding_for_actor(
+        &self,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> Option<RouteOfferBinding> {
+        let mut binding = self.route_offer_binding(from_location_id, to_location_id)?;
+        binding.threshold = self
+            .threshold_offer_binding_for_exit(actor_id, from_location_id, to_location_id)
+            .map(|(threshold, _)| threshold);
+        Some(binding)
     }
 
     pub(super) fn route_offer_binding(
@@ -1862,8 +2113,59 @@ impl RuntimeWorld {
     }
 
     pub(super) fn route_binding_is_current(&self, binding: &RouteOfferBinding) -> bool {
-        self.route_for_persisted_id(&binding.route_id)
-            .is_some_and(|route| route.entity_version == binding.route_version)
+        if self
+            .route_for_persisted_id(&binding.route_id)
+            .is_none_or(|route| route.entity_version != binding.route_version)
+        {
+            return false;
+        }
+        let Some(threshold) = binding.threshold.as_ref() else {
+            return true;
+        };
+        if threshold.facts.len() > CW_MAX_GATE_FACTS {
+            return false;
+        }
+        let mut decision = CwGateDecision::default();
+        let status = unsafe {
+            cw_gate_evaluate(
+                &self.world,
+                threshold.gate_id,
+                threshold.actor_id,
+                threshold.facts.as_ptr(),
+                threshold.facts.len(),
+                threshold.method_id,
+                &mut decision,
+            )
+        };
+        status == CW_OK
+            && decision.allowed != 0
+            && decision.gate_version == threshold.gate_version
+            && decision.access_revision == threshold.access_revision
+            && decision.evidence_digest == threshold.evidence_digest
+    }
+
+    pub(super) fn threshold_action_is_current_and_allowed(&self, action: &CwAction) -> bool {
+        let threshold = &action.threshold;
+        if threshold.gate_id == 0 || threshold.fact_count > CW_MAX_GATE_FACTS {
+            return false;
+        }
+        let mut decision = CwGateDecision::default();
+        (unsafe {
+            cw_gate_evaluate(
+                &self.world,
+                threshold.gate_id,
+                action.actor_id,
+                threshold.facts.as_ptr(),
+                threshold.fact_count,
+                threshold.method_id,
+                &mut decision,
+            )
+        }) == CW_OK
+            && decision.allowed != 0
+            && decision.method_id == threshold.method_id
+            && decision.gate_version == threshold.expected_gate_version
+            && decision.access_revision == threshold.expected_access_revision
+            && decision.evidence_digest == threshold.expected_evidence_digest
     }
 
     pub(super) fn transition_route(
@@ -2100,8 +2402,31 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(record.action.actor_id) else {
             return;
         };
-        record.route_binding =
-            self.route_offer_binding(actor.location_id, record.action.destination_location_id);
+        if record.action.threshold.gate_id != 0
+            && record.action.threshold.fact_count <= CW_MAX_GATE_FACTS
+        {
+            record.route_binding = self
+                .route_offer_binding(actor.location_id, record.action.destination_location_id)
+                .map(|mut binding| {
+                    binding.threshold = Some(ThresholdOfferBinding {
+                        actor_id: record.action.actor_id,
+                        gate_id: record.action.threshold.gate_id,
+                        method_id: record.action.threshold.method_id,
+                        gate_version: record.action.threshold.expected_gate_version,
+                        access_revision: record.action.threshold.expected_access_revision,
+                        evidence_digest: record.action.threshold.expected_evidence_digest,
+                        facts: record.action.threshold.facts[..record.action.threshold.fact_count]
+                            .to_vec(),
+                    });
+                    binding
+                });
+        } else {
+            record.route_binding = self.route_offer_binding_for_actor(
+                record.action.actor_id,
+                actor.location_id,
+                record.action.destination_location_id,
+            );
+        }
     }
 }
 
@@ -3405,6 +3730,7 @@ mod tests {
             route_version: 9,
             directionality: RouteDirectionality::Reciprocal,
             fallback_location_id: None,
+            threshold: None,
         };
         assert!(replayed.route_binding_is_current(&legacy_binding));
     }

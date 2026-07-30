@@ -128,4 +128,7 @@
 # than moved, so the suite ran each twice, and six superseded
 # `merged_inline_resident_*` helpers were left behind dead. Deleting both leaves
 # one copy of each test in the module that owns the code.
-73806
+#
+# 73806 -> 73729: issue #589 adds threshold journal and snapshot wiring while
+# moving EventView's default and context projection into its owning views.rs seam.
+73729

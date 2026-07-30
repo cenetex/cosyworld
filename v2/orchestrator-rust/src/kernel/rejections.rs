@@ -61,6 +61,15 @@ pub(crate) fn kernel_rejection_message(reason: u16) -> &'static str {
         CW_REASON_REST_GRADE_OVERCLAIMED => {
             "That rest is not available here. Choose a rest option this shelter supports."
         }
+        CW_REASON_GATE_CLOSED => {
+            "That threshold is still closed to you. Meet one of its shown requirements or choose another way."
+        }
+        CW_REASON_STALE_GATE_OFFER => {
+            "That threshold changed after this choice was offered. Refresh the room and choose again."
+        }
+        CW_REASON_GATE_CLAIM_CONFLICT => {
+            "That threshold transition was already claimed by another result. Refresh the room before trying again."
+        }
         _ => UNKNOWN_KERNEL_REJECTION_MESSAGE,
     }
 }
@@ -87,8 +96,8 @@ mod tests {
             .map(kernel_rejection_message)
             .collect::<Vec<_>>();
 
-        assert_eq!(messages.len(), 22);
-        assert_eq!(messages.iter().copied().collect::<HashSet<_>>().len(), 22);
+        assert_eq!(messages.len(), 25);
+        assert_eq!(messages.iter().copied().collect::<HashSet<_>>().len(), 25);
         assert!(messages
             .iter()
             .all(|message| *message != UNKNOWN_KERNEL_REJECTION_MESSAGE));

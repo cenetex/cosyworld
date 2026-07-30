@@ -1687,6 +1687,7 @@ struct RuntimeWorld {
     jobs: BTreeMap<String, JobState>,
     room_sheets: BTreeMap<u64, RoomSheetState>,
     routes: BTreeMap<String, RouteRecordState>,
+    threshold_gate_sources: BTreeMap<u64, ThresholdGateSource>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
@@ -1772,6 +1773,8 @@ struct RuntimeSnapshot {
     world_exits: Vec<CwExit>,
     #[serde(default)]
     routes: BTreeMap<String, RouteRecordState>,
+    #[serde(default)]
+    threshold_authority: ThresholdKernelSnapshot,
     #[serde(default)]
     world_evolution_tracks: Vec<CwEvolutionTrack>,
     #[serde(default)]
@@ -2004,6 +2007,8 @@ struct JournalRecord {
     action: CwAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     route_binding: Option<RouteOfferBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    threshold_intent: Option<AcceptedThresholdIntent>,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ripple_source: Option<RippleSource>,
@@ -2037,7 +2042,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 14;
+const JOURNAL_RECORD_VERSION: u32 = 15;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -2081,6 +2086,7 @@ impl JournalRecord {
             focused_policy_version: 1,
             action,
             route_binding: None,
+            threshold_intent: None,
             seed,
             ripple_source: None,
             queued_actor_job: None,
@@ -3171,109 +3177,6 @@ struct EventView {
     source_location_id: Option<u64>,
     #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
     content_context: ContentReferenceContext,
-}
-
-impl Default for EventView {
-    fn default() -> Self {
-        Self {
-            world_id: official_world_id(),
-            world_epoch: official_world_epoch(),
-            seq: 0,
-            type_name: String::new(),
-            success: false,
-            reason: 0,
-            actor_id: None,
-            actor_name: None,
-            target_actor_id: None,
-            target_actor_name: None,
-            location_id: None,
-            location_name: None,
-            destination_location_id: None,
-            destination_location_name: None,
-            content_id: None,
-            content: None,
-            item_id: None,
-            item_name: None,
-            target_item_id: None,
-            target_item_name: None,
-            raw_roll: None,
-            modifier: None,
-            total: None,
-            dc: None,
-            damage: None,
-            current_hp: None,
-            combat_method: None,
-            ability: None,
-            clock_id: None,
-            clock_scope: None,
-            clock_scope_id: None,
-            clock_kind: None,
-            clock_label: None,
-            clock_filled: None,
-            clock_segments: None,
-            clock_delta: None,
-            tag_id: None,
-            tag_scope: None,
-            tag_scope_id: None,
-            tag_kind: None,
-            tag_label: None,
-            caused_by_event_seq: None,
-            source_world_tick: None,
-            observed_through_seq: None,
-            source_location_id: None,
-            content_context: ContentReferenceContext::default(),
-        }
-    }
-}
-
-impl EventView {
-    fn apply_async_causality(&mut self, record: &JournalRecord) {
-        self.caused_by_event_seq = record.caused_by_event_seq;
-        self.source_world_tick = record.source_world_tick;
-        self.observed_through_seq = record.observed_through_seq;
-        self.source_location_id = record.source_location_id;
-    }
-
-    fn refresh_content_context(&mut self) {
-        let mut handles = Vec::new();
-        for (kind, handle) in [
-            ("actor", self.actor_id),
-            ("actor", self.target_actor_id),
-            ("location", self.location_id),
-            ("location", self.destination_location_id),
-            ("location", self.source_location_id),
-            ("item", self.item_id),
-            ("item", self.target_item_id),
-        ] {
-            if let Some(handle) = handle {
-                handles.push((kind, handle));
-            }
-        }
-        let mut refreshed = content_registry().content_reference_context(handles);
-        if self.content_context.mapping_version != 0
-            && self.content_context.mapping_version != refreshed.mapping_version
-        {
-            return;
-        }
-        let mut references = self
-            .content_context
-            .references
-            .iter()
-            .cloned()
-            .map(|reference| (reference.canonical_ref.clone(), reference))
-            .collect::<BTreeMap<_, _>>();
-        references.extend(
-            refreshed
-                .references
-                .drain(..)
-                .map(|reference| (reference.canonical_ref.clone(), reference)),
-        );
-        refreshed.references = references.into_values().collect();
-        if !self.content_context.active_rulesets.is_empty() {
-            refreshed.active_rulesets = self.content_context.active_rulesets.clone();
-        }
-        self.content_context = refreshed;
-    }
 }
 
 fn content_reference_context_is_empty(context: &ContentReferenceContext) -> bool {
@@ -6322,7 +6225,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 14,
+            version: 15,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6342,6 +6245,7 @@ impl RuntimeSnapshot {
             world_locations: runtime.world.locations[..runtime.world.location_count].to_vec(),
             world_exits: runtime.world.exits[..runtime.world.exit_count].to_vec(),
             routes: runtime.routes.clone(),
+            threshold_authority: ThresholdKernelSnapshot::from_runtime(runtime),
             world_evolution_tracks: runtime.world.evolution_tracks
                 [..runtime.world.evolution_track_count]
                 .to_vec(),
@@ -6465,6 +6369,9 @@ impl RuntimeSnapshot {
         if self.world_combat_encounters.len() > CW_MAX_COMBAT_ENCOUNTERS {
             return Err(snapshot_error("too many combat encounters in snapshot"));
         }
+        self.threshold_authority
+            .validate()
+            .map_err(snapshot_error)?;
         for encounter in &self.world_combat_encounters {
             if encounter.id == 0 || encounter.location_id == 0 {
                 return Err(snapshot_error("combat encounter has no id or location"));
@@ -6542,6 +6449,7 @@ impl RuntimeSnapshot {
         for (idx, encounter) in self.world_combat_encounters.into_iter().enumerate() {
             world.combat_encounters[idx] = encounter;
         }
+        let threshold_gate_sources = self.threshold_authority.restore_into(&mut world);
 
         let max_seq = self
             .event_log
@@ -6617,6 +6525,7 @@ impl RuntimeSnapshot {
             jobs: self.jobs,
             room_sheets: self.room_sheets,
             routes: self.routes,
+            threshold_gate_sources,
             generated_pathways: self.generated_pathways,
             generated_places: self.generated_places,
             governance_decisions: self.governance_decisions,
@@ -7029,6 +6938,7 @@ impl RuntimeWorld {
             jobs: BTreeMap::new(),
             room_sheets: BTreeMap::new(),
             routes: BTreeMap::new(),
+            threshold_gate_sources: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
             generated_places: BTreeMap::new(),
             governance_decisions: BTreeMap::new(),
@@ -7113,6 +7023,7 @@ impl RuntimeWorld {
         self.ensure_seed_items();
         self.normalize_card_zones();
         self.ensure_seed_evolution_tracks();
+        self.ensure_seed_threshold_gates();
     }
 
     fn update_item_provenance(&mut self, events: &[EventView]) -> Vec<DeliveryEvidence> {
@@ -10227,11 +10138,15 @@ impl RuntimeWorld {
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
         if !focused_encounter_journal_context_is_supported(self, record)
             || !self.route_record_preconditions_hold(record)
+            || !threshold_record_preconditions_hold(record)
             || !self.job_contribution_record_preconditions_hold(record)
             || !self.ai_publication_preconditions_hold(record)
             || !self.proxim8_materialization_record_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
+        }
+        if threshold_record_claim_already_applied(self, record) {
+            return (CW_OK, Vec::new());
         }
         let enforce_active_contribution_contract =
             record.worldpack_bundle_hash == active_content().manifest.bundle_hash;
@@ -10471,6 +10386,7 @@ impl RuntimeWorld {
             self.ensure_active_actor_rules_facets();
             self.bump_entity_versions_for_events(&events);
         }
+        self.touch_threshold_access_after_projection(record, status);
         self.refresh_canonical_events(&mut events);
         (status, events)
     }
@@ -16441,6 +16357,9 @@ The relationship statement they are preserving is: {statement}"
     }
 
     fn kernel_offer_allows_action(&self, action: &CwAction) -> bool {
+        if action.threshold.gate_id != 0 {
+            return self.threshold_action_is_current_and_allowed(action);
+        }
         if action.kind == CW_ACTION_CRAFT
             && self
                 .recipe_by_id(action.content_id)
@@ -38836,7 +38755,11 @@ fn commit_journal_record(
     let durable_started_at = Instant::now();
     bind_focused_encounter_context(runtime, &mut record);
     runtime.bind_route_precondition(&mut record);
+    runtime.bind_threshold_intent(&mut record);
     if !runtime.route_record_preconditions_hold(&record) {
+        return Ok((CW_ERR_RULE, Vec::new()));
+    }
+    if !threshold_record_preconditions_hold(&record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
     if hosted_guest_record_restricted(state, runtime, &record) {
