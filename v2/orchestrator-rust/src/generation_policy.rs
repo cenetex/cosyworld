@@ -1355,6 +1355,7 @@ mod tests {
                 provider_attempt: true,
                 generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
                 generation_policy: binding.clone(),
+                frozen_plan: None,
             }],
             ..JournalRecord::new(
                 CwAction {

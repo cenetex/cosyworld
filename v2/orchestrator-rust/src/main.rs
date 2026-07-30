@@ -1025,6 +1025,8 @@ enum ProjectionMutation {
         generation_profile_version: u8,
         #[serde(default)]
         generation_policy: GeneratedPolicyBinding,
+        #[serde(default)]
+        frozen_plan: Option<Box<CommunityArtPlan>>,
     },
     CompleteCommunityArtGeneration {
         subject_kind: String,
@@ -10608,6 +10610,7 @@ impl RuntimeWorld {
                     provider_attempt,
                     generation_profile_version,
                     generation_policy,
+                    frozen_plan,
                 } => {
                     let generation_policy = if generation_policy.is_empty()
                         && subject_kind == "location"
@@ -10636,6 +10639,7 @@ impl RuntimeWorld {
                         *provider_attempt,
                         *generation_profile_version,
                         &generation_policy,
+                        frozen_plan.as_deref(),
                     ) {
                         events.push(event);
                     }

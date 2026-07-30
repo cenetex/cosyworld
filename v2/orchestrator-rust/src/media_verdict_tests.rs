@@ -338,6 +338,55 @@ fn approved_verdict_survives_restart_and_is_bound_to_brief_candidate_and_referen
 }
 
 #[test]
+fn rejected_candidate_can_be_replaced_under_a_new_frozen_brief_with_audit_retained() {
+    let root = root("rejected-brief-replacement");
+    let original = brief("rejected-brief-job");
+    let rejected = image(patterned_png(16, 9, 31), "image/png", "watermarked");
+    assert_eq!(
+        prepare(&root, original.clone(), &rejected, None, None),
+        MediaVerdictDisposition::ReviewPending
+    );
+    let rejected_digest = sha256_hex(&rejected.bytes);
+    let verdict = make_visual_verdict(
+        &original,
+        rejected_digest,
+        "fixture-reviewer",
+        "fixture-reviewer/1",
+        false,
+        vec![MediaViolation::Watermark],
+        "Visible watermark.",
+        1,
+        5,
+        1,
+    )
+    .unwrap();
+    record_media_visual_verdict(&root, "rejected-brief-job", verdict).unwrap();
+
+    let mut replacement_brief = original.clone();
+    replacement_brief.crop = "full room, subject centered".to_string();
+    assert!(
+        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap(),
+        "an explicitly rejected active candidate may move to a newly frozen retry brief"
+    );
+    let retired = root
+        .join("media-verdicts/v1")
+        .join(sha256_hex(b"rejected-brief-job"))
+        .join("retired")
+        .join(format!("{}.json", original.digest().unwrap()));
+    assert!(
+        retired.is_file(),
+        "the rejected immutable record is retained"
+    );
+
+    let replacement = image(patterned_png(16, 9, 32), "image/png", "replacement");
+    assert_eq!(
+        prepare(&root, replacement_brief, &replacement, None, None),
+        MediaVerdictDisposition::ReviewPending,
+        "the replacement candidate is reviewed against the new frozen brief"
+    );
+}
+
+#[test]
 fn reviewer_outage_reuses_one_candidate_and_provider_failures_enter_cooldown() {
     let root = root("outage");
     let frozen = brief("outage-job");

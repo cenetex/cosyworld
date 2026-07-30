@@ -88,4 +88,7 @@
 # 74646 -> 74647: boot wiring resumes durable, fully funded community-art jobs
 # interrupted by a process restart; selection and tests remain in the focused
 # community_art seam.
-74647
+# 74647 -> 74651: persist the frozen community-art plan with the existing
+# begin-generation projection so retries survive content evolution without
+# weakening their media-verdict binding.
+74651

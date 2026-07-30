@@ -411,6 +411,59 @@ pub(crate) fn prepare_media_candidate(
     Ok(disposition)
 }
 
+/// Retires a rejected candidate's immutable review record when a legacy retry
+/// must adopt a newly frozen brief. Approved or still-pending work remains
+/// fail-closed: only an explicitly rejected active candidate may be replaced.
+///
+/// The retired record is preserved beside the live record for audit. Returning
+/// `true` tells the community-art pipeline to remove its staged candidate before
+/// spending another capped provider attempt.
+pub(crate) fn prepare_rejected_media_candidate_replacement(
+    root: &Path,
+    brief: FrozenMediaBrief,
+) -> Result<bool, String> {
+    brief.validate()?;
+    let brief_digest = brief.digest()?;
+    let _guard = media_verdict_lock()?;
+    let record = match load_record_by_job(root, &brief.job_key) {
+        Ok(record) => record,
+        Err(error) if error.contains("not found") => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    let active_rejected = record
+        .active_candidate_digest
+        .as_deref()
+        .and_then(|digest| {
+            record
+                .candidates
+                .iter()
+                .find(|candidate| candidate.provenance.digest == digest)
+        })
+        .is_some_and(|candidate| {
+            matches!(
+                candidate.disposition,
+                MediaVerdictDisposition::Rejected | MediaVerdictDisposition::ReplaceRequested
+            )
+        });
+    if !active_rejected || record.disabled {
+        return Ok(false);
+    }
+    if record.brief_digest == brief_digest && record.brief == brief {
+        return Ok(true);
+    }
+    if record.candidates.iter().any(|candidate| {
+        matches!(
+            candidate.disposition,
+            MediaVerdictDisposition::Approved | MediaVerdictDisposition::ReviewPending
+        )
+    }) {
+        return Err("generated-image frozen brief changed for an existing job".to_string());
+    }
+    retire_record(root, &record)?;
+    store_record(root, &new_record(brief, &brief_digest))?;
+    Ok(true)
+}
+
 pub(crate) fn record_media_visual_verdict(
     root: &Path,
     job_key: &str,
@@ -958,21 +1011,39 @@ fn load_or_create_record(
             }
             Ok(record)
         }
-        Err(error) if error.contains("not found") => Ok(PersistedMediaVerdict {
-            schema_version: MEDIA_VERDICT_SCHEMA_VERSION,
-            record_id,
-            brief,
-            brief_digest: brief_digest.to_string(),
-            active_candidate_digest: None,
-            candidates: Vec::new(),
-            provider_failures: 0,
-            provider_cooldown_until_ms: None,
-            provider_route: "primary".to_string(),
-            disabled: false,
-            updated_at_ms: crate::now_millis(),
-        }),
+        Err(error) if error.contains("not found") => Ok(new_record(brief, brief_digest)),
         Err(error) => Err(error),
     }
+}
+
+fn new_record(brief: FrozenMediaBrief, brief_digest: &str) -> PersistedMediaVerdict {
+    PersistedMediaVerdict {
+        schema_version: MEDIA_VERDICT_SCHEMA_VERSION,
+        record_id: sha256_hex(brief.job_key.as_bytes()),
+        brief,
+        brief_digest: brief_digest.to_string(),
+        active_candidate_digest: None,
+        candidates: Vec::new(),
+        provider_failures: 0,
+        provider_cooldown_until_ms: None,
+        provider_route: "primary".to_string(),
+        disabled: false,
+        updated_at_ms: crate::now_millis(),
+    }
+}
+
+fn retire_record(root: &Path, record: &PersistedMediaVerdict) -> Result<(), String> {
+    let retired = record_dir(root, &record.record_id)
+        .join("retired")
+        .join(format!("{}.json", record.brief_digest));
+    let parent = retired
+        .parent()
+        .ok_or_else(|| "retired media verdict path has no parent".to_string())?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    atomic_write(
+        &retired,
+        &serde_json::to_vec(record).map_err(|error| error.to_string())?,
+    )
 }
 
 fn load_record_by_job(root: &Path, job_key: &str) -> Result<PersistedMediaVerdict, String> {
