@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 980" role="img" aria-labelledby="title desc">
+  <title id="title">The CosyWorld play loop</title>
+  <desc id="desc">Five large vertical stages form a loop: hearth, need or sign, chosen venture, discovery or help, and return changed.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#41645c"/>
+    </marker>
+  </defs>
+  <rect width="800" height="980" rx="28" fill="#f4efe3"/>
+  <g font-family="Arial, sans-serif" fill="#211c15">
+    <text x="400" y="52" text-anchor="middle" font-size="30" font-weight="700">THE COSYWORLD PLAY LOOP</text>
+
+    <g fill="none" stroke="#41645c" stroke-width="7" marker-end="url(#arrow)">
+      <path d="M400 210 V238"/>
+      <path d="M400 370 V398"/>
+      <path d="M400 530 V558"/>
+      <path d="M400 690 V718"/>
+      <path d="M650 790 C750 790 750 150 662 150"/>
+    </g>
+
+    <g>
+      <rect x="150" y="90" width="500" height="120" rx="22" fill="#dec28d" stroke="#73511e" stroke-width="5"/>
+      <circle cx="225" cy="150" r="42" fill="#fffaf0" stroke="#73511e" stroke-width="4"/>
+      <path d="M198 165 H252 V130 L225 110 L198 130 Z" fill="none" stroke="#211c15" stroke-width="6"/>
+      <path d="M216 165 V143 H234 V165" fill="none" stroke="#211c15" stroke-width="6"/>
+      <text x="300" y="143" font-size="34" font-weight="700">HEARTH</text>
+      <text x="300" y="176" font-size="24">safe belonging and preparation</text>
+    </g>
+
+    <g>
+      <rect x="150" y="250" width="500" height="120" rx="22" fill="#dbe7db" stroke="#41645c" stroke-width="5"/>
+      <circle cx="225" cy="310" r="42" fill="#fffaf0" stroke="#41645c" stroke-width="4"/>
+      <circle cx="225" cy="310" r="17" fill="none" stroke="#211c15" stroke-width="6"/>
+      <path d="M225 287 V270 M225 350 V333 M202 310 H185 M265 310 H248" stroke="#211c15" stroke-width="6"/>
+      <text x="300" y="303" font-size="34" font-weight="700">NEED OR SIGN</text>
+      <text x="300" y="336" font-size="24">a reason to care and choose</text>
+    </g>
+
+    <g>
+      <rect x="150" y="410" width="500" height="120" rx="22" fill="#d8dfeb" stroke="#5c5164" stroke-width="5"/>
+      <circle cx="225" cy="470" r="42" fill="#fffaf0" stroke="#5c5164" stroke-width="4"/>
+      <path d="M199 486 C212 474 212 449 225 438 C238 449 238 474 251 486" fill="none" stroke="#211c15" stroke-width="6"/>
+      <path d="M207 493 H243" stroke="#211c15" stroke-width="6"/>
+      <text x="300" y="463" font-size="34" font-weight="700">CHOSEN VENTURE</text>
+      <text x="300" y="496" font-size="24">cross the threshold knowingly</text>
+    </g>
+
+    <g>
+      <rect x="150" y="570" width="500" height="120" rx="22" fill="#e6d8c7" stroke="#795533" stroke-width="5"/>
+      <circle cx="225" cy="630" r="42" fill="#fffaf0" stroke="#795533" stroke-width="4"/>
+      <path d="M200 650 L225 605 L250 650 Z" fill="none" stroke="#211c15" stroke-width="6"/>
+      <circle cx="225" cy="636" r="6" fill="#211c15"/>
+      <text x="300" y="623" font-size="34" font-weight="700">DISCOVER OR HELP</text>
+      <text x="300" y="656" font-size="24">change a place, truth, or bond</text>
+    </g>
+
+    <g>
+      <rect x="150" y="730" width="500" height="120" rx="22" fill="#dec28d" stroke="#73511e" stroke-width="5"/>
+      <circle cx="225" cy="790" r="42" fill="#fffaf0" stroke="#73511e" stroke-width="4"/>
+      <path d="M199 811 C207 782 219 764 225 757 C231 764 243 782 251 811" fill="none" stroke="#211c15" stroke-width="6"/>
+      <path d="M207 797 H243" stroke="#211c15" stroke-width="6"/>
+      <text x="300" y="783" font-size="34" font-weight="700">RETURN CHANGED</text>
+      <text x="300" y="816" font-size="24">the world remembers what mattered</text>
+    </g>
+
+    <text x="400" y="925" text-anchor="middle" font-size="24" fill="#795533">The return creates the next beginning.</text>
+  </g>
+</svg>

@@ -1,0 +1,110 @@
+body {
+  color: #211c15;
+  font-family: sans-serif;
+  line-height: 1.5;
+  margin: 5%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: serif;
+  line-height: 1.2;
+}
+
+h1 {
+  border-bottom: 0.12em solid #73511e;
+  padding-bottom: 0.2em;
+}
+
+h2 {
+  color: #41645c;
+}
+
+h3 {
+  color: #795533;
+}
+
+a,
+code {
+  overflow-wrap: anywhere;
+}
+
+img {
+  height: auto;
+  max-width: 100%;
+}
+
+figure {
+  margin: 1.5em auto;
+  page-break-inside: avoid;
+  text-align: center;
+}
+
+figcaption {
+  color: #4b4033;
+  font-size: 0.85em;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 0.82em;
+  width: 100%;
+}
+
+pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+th,
+td {
+  border: 1px solid #c8bda8;
+  overflow-wrap: anywhere;
+  padding: 0.35em;
+  text-align: left;
+  vertical-align: top;
+}
+
+blockquote {
+  border-left: 0.25em solid #73511e;
+  margin-left: 0;
+  padding-left: 1em;
+}
+
+.cover-page {
+  display: none;
+}
+
+.rule,
+.target,
+.playtest,
+.referee,
+.example,
+.warning {
+  border: 1px solid #c8bda8;
+  border-left-width: 0.4em;
+  margin: 1em 0;
+  padding: 0.65em 0.8em;
+}
+
+.rule {
+  border-left-color: #41645c;
+}
+
+.target {
+  border-left-color: #5c5164;
+}
+
+.playtest {
+  border-left-color: #795533;
+}
+
+.referee {
+  border-left-color: #73511e;
+}
+
+.procedure {
+  padding-left: 1.5em;
+}

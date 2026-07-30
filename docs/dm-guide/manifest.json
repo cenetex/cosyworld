@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "chapters": [
+    "chapters/00-frontmatter.md",
+    "chapters/01-world-and-referee.md",
+    "chapters/02-people-home-memory.md",
+    "chapters/03-running-a-scene.md",
+    "chapters/04-notice-and-discovery.md",
+    "chapters/05-frontier-expeditions.md",
+    "chapters/06-obstacles-and-pressure.md",
+    "chapters/07-places-and-tables.md",
+    "chapters/08-ai-referee.md",
+    "chapters/09-preparing-adventures.md",
+    "chapters/90-appendices.md",
+    "chapters/99-credits.md"
+  ]
+}

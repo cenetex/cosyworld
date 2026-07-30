@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Three classes of procedural table</title>
+  <desc id="desc">A stocking table selects bounded hidden truth once. An event table applies pressure after a committed trigger. A presentation table varies only words or images. Only committed authoritative results enter the Journal.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#41645c"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="520" rx="28" fill="#f4efe3"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#211c15" text-anchor="middle">
+    <text x="600" y="55" font-size="32" font-weight="700">THREE TABLES; THREE DIFFERENT JOBS</text>
+    <g>
+      <rect x="55" y="105" width="300" height="220" rx="20" fill="#e6d8c7" stroke="#795533" stroke-width="5"/>
+      <text x="205" y="150" font-size="27" font-weight="700">STOCKING</text>
+      <text x="205" y="192" font-size="22">What hidden truth exists?</text>
+      <text x="205" y="232" font-size="22">Select once. Freeze receipt.</text>
+      <text x="205" y="272" font-size="22" font-weight="700">NEVER REROLL</text>
+      <rect x="450" y="105" width="300" height="220" rx="20" fill="#d8dfeb" stroke="#5c5164" stroke-width="5"/>
+      <text x="600" y="150" font-size="27" font-weight="700">EVENT</text>
+      <text x="600" y="192" font-size="22">What pressure follows play?</text>
+      <text x="600" y="232" font-size="22">Trigger after commitment.</text>
+      <text x="600" y="272" font-size="22" font-weight="700">CHANGE THE SITUATION</text>
+      <rect x="845" y="105" width="300" height="220" rx="20" fill="#dbe7db" stroke="#41645c" stroke-width="5"/>
+      <text x="995" y="150" font-size="27" font-weight="700">PRESENTATION</text>
+      <text x="995" y="192" font-size="22">How do fixed facts sound?</text>
+      <text x="995" y="232" font-size="22">Words and images only.</text>
+      <text x="995" y="272" font-size="22" font-weight="700">NO RULES AUTHORITY</text>
+    </g>
+    <g fill="none" stroke="#41645c" stroke-width="6" marker-end="url(#arrow)">
+      <path d="M205 330 V390"/>
+      <path d="M600 330 V390"/>
+      <path d="M995 330 V390"/>
+    </g>
+    <rect x="285" y="390" width="630" height="80" rx="18" fill="#fffaf0" stroke="#73511e" stroke-width="4"/>
+    <text x="600" y="423" font-size="25" font-weight="700">CERTIFIED RESULT AND JOURNAL</text>
+    <text x="600" y="454" font-size="21">Only bounded, committed truth changes the shared world.</text>
+  </g>
+</svg>

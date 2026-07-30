@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.287",
+  "version": "0.0.288",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -56,6 +56,8 @@
     "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",
     "build:js": "npx webpack --mode production --progress --stats=errors-only",
     "docs": "node scripts/build-docs.mjs",
+    "docs:dm-guide": "node scripts/build-dm-guide.mjs",
+    "docs:dm-guide:check": "npm run docs:dm-guide && node scripts/check-dm-guide.mjs",
     "docs:api": "jsdoc -c jsdoc.config.json",
     "docs:api:watch": "nodemon --watch src --exec 'npm run docs:api'",
     "docs:validate": "eslint src/**/*.mjs --no-eslintrc --parser-options=ecmaVersion:2023,sourceType:module --rule 'valid-jsdoc: [error, {requireReturn: false}]'",
