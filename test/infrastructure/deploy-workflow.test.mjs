@@ -134,7 +134,8 @@ describe('deploy workflow', () => {
 
   it('accepts a healthy volume report below the configured threshold', () => {
     const result = runVolumeGuard(
-      'echo "Filesystem 1024-blocks Used Available Capacity Mounted on"\n'
+      'echo "Connecting to fdaa:73:809:a7b:8c:51:4894:2..." >&2\n'
+      + 'echo "Filesystem 1024-blocks Used Available Capacity Mounted on"\n'
       + 'echo "/dev/vdb 100000 42000 58000 42% /data"'
     );
 
