@@ -90,7 +90,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:dd4a3fd5d6cb32774ee084f49dff8d47633ce57f9759205edd27576460c6f654",
+      "integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
