@@ -2,7 +2,8 @@ use super::*;
 
 pub(super) const QUEST_LOOT_SCHEMA_VERSION: u8 = 1;
 const LOOT_CATALOG_EXTENSION: &str = "x-cosyworld-loot-tables";
-const LOOT_REPLAY_VERSION: &str = "weighted-fnv1a-v1";
+pub(super) const WEIGHTED_FNV1A_V1: &str = "weighted-fnv1a-v1";
+const LOOT_REPLAY_VERSION: &str = WEIGHTED_FNV1A_V1;
 const LOOT_ITEM_ID_BASE: u64 = 9_000_000_000;
 const LOOT_ITEM_ID_RANGE: u64 = 1_000_000_000;
 const MAX_LOOT_ITEMS_PER_COMPLETION: usize = 4;
@@ -481,21 +482,31 @@ fn weighted_loot_entry<'a>(
     seed: u64,
     index: usize,
 ) -> Option<&'a LootTableEntryDefinition> {
-    let total = table
+    let weights = table
         .entries
         .iter()
-        .map(|entry| u64::from(entry.weight))
-        .sum::<u64>();
+        .map(|entry| entry.weight)
+        .collect::<Vec<_>>();
+    weighted_fnv1a_index("quest-loot-entry", seed, index, &weights)
+        .and_then(|selected| table.entries.get(selected))
+}
+
+pub(super) fn weighted_fnv1a_index(
+    domain: &str,
+    seed: u64,
+    nonce: usize,
+    weights: &[u16],
+) -> Option<usize> {
+    let total = weights.iter().map(|weight| u64::from(*weight)).sum::<u64>();
     if total == 0 {
         return None;
     }
-    let mut cursor =
-        stable_hash_u64(&["quest-loot-entry", &seed.to_string(), &index.to_string()]) % total;
-    table.entries.iter().find(|entry| {
-        if cursor < u64::from(entry.weight) {
+    let mut cursor = stable_hash_u64(&[domain, &seed.to_string(), &nonce.to_string()]) % total;
+    weights.iter().position(|weight| {
+        if cursor < u64::from(*weight) {
             true
         } else {
-            cursor -= u64::from(entry.weight);
+            cursor -= u64::from(*weight);
             false
         }
     })

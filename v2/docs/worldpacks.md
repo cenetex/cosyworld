@@ -392,6 +392,67 @@ truth uses a versioned bounded Discovery Slot. A stocking table freezes truth
 once, an event table applies Pressure only after relevant committed play, and a
 presentation table changes wording only.
 
+#### Discovery authority v1
+
+A pack may declare `extensions.x-cosyworld-discovery-slots`. Its machine shape
+is [discovery-authority-v1.schema.json](../schemas/discovery-authority-v1.schema.json);
+the five-kind authoring fixture is
+[discovery-authority-v1.json](../orchestrator-rust/fixtures/discovery-authority-v1.json).
+The compiler and runtime both validate the extension before any content can be
+mounted.
+
+The extension header is fixed:
+
+```json
+{
+  "schema_version": 1,
+  "receipt_version": "discovery-receipt-v1",
+  "roll_algorithm": "weighted-fnv1a-v1",
+  "stocking_tables": [],
+  "event_tables": [],
+  "presentation_tables": [],
+  "slots": []
+}
+```
+
+The three table arrays have deliberately different authority:
+
+| Table | May select | May not select |
+| --- | --- | --- |
+| `stocking_tables` | Bounded hidden item, feature, actor, route, location, resource, or lore truth. | Truth outside the referring Slot; topology outside `authorized_topology_ids`. |
+| `event_tables` | A typed Pressure/Lead/position/resource/Hazard/method effect after relevant committed play. | Permanent topology, unique loot, required keys, or rewards. |
+| `presentation_tables` | Authored text for facts already selected. | Claims, quantities, targets, mechanics, access, or consequences. |
+
+A Slot owns a pack-scoped stable ID and version, target kind, origin, claim
+scope, initial `latent|signed` phase, one or more sensory tells, exact reveal
+methods, a fixed result or stocking table, optional Gate/Hazard and event/copy
+bindings, and required-progression law. Route and location rows must name
+pre-authorized topology IDs. Required Slots must declare a finite
+`sign_budget` and the exact fallback row from their stocking table. Optional
+Slots cannot masquerade as required progression by declaring a fallback.
+
+Stocking tables declare only server-owned `eligible_inputs`. The supported v1
+facts are `world_seed`, `worldpack_bundle_hash`, `slot_id`, `slot_version`,
+`origin_id`, `region_id`, `rules_profile`, and `claim_scope_id`; every table
+must bind the Slot identity and version. User text, client state, wall clock,
+provider output, model output, and controller identity are invalid inputs.
+
+The server freezes a self-contained `DiscoveryRollReceipt` before reveal. It
+records:
+
+- receipt, Slot, table, pack, and weighted-FNV-1a versions;
+- the claim key and actor/expedition/world scope identity;
+- the canonical sorted eligible input facts, seed input, and roll seed;
+- selected row, stable materialized entity IDs, and fallback decision.
+
+An existing known-version receipt always wins over recomputation. Reconnect,
+replay, repeat Search, controller handoff, content generation failure, and a
+later caller supplying different inputs therefore cannot reroll the claim.
+Unknown receipt/schema/algorithm versions fail new execution; the receipt
+remains self-contained for inspection. Materialization and player-facing
+Notice/Search/Study/Scout transitions are separate later contracts and cannot
+be inferred merely because a receipt exists.
+
 Scout pursues one exact geographic Lead from a legal Anchor or active foray and
 reveals the authorized next segment or target without moving. Travel is the
 separate movement commit. A cairn or worldpack-specific Signal Anchor can make
