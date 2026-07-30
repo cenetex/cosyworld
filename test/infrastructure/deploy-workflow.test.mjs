@@ -5,6 +5,13 @@ const workflow = readFileSync(
   new URL('../../.github/workflows/deploy.yml', import.meta.url),
   'utf8'
 );
+const ciWorkflow = readFileSync(
+  new URL('../../.github/workflows/ci.yml', import.meta.url),
+  'utf8'
+);
+const packageScripts = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+).scripts;
 const volumeHeadroomWorkflow = readFileSync(
   new URL('../../.github/workflows/volume-headroom.yml', import.meta.url),
   'utf8'
@@ -34,6 +41,13 @@ const job = (name, nextName) => {
 };
 
 describe('deploy workflow', () => {
+  it('only invokes package scripts that exist', () => {
+    const invokedScripts = [...ciWorkflow.matchAll(/\bnpm run ([\w:-]+)/g)].map(
+      ([, script]) => script
+    );
+    expect(invokedScripts.filter((script) => !packageScripts[script])).toEqual([]);
+  });
+
   it('serializes deployments across branch and tag refs', () => {
     expect(workflow).toContain('group: deploy-${{ github.repository }}');
     expect(workflow).toContain('cancel-in-progress: false');
