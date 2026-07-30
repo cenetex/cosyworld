@@ -9,6 +9,10 @@ const volumeHeadroomWorkflow = readFileSync(
   new URL('../../.github/workflows/volume-headroom.yml', import.meta.url),
   'utf8'
 );
+const oomAlertWorkflow = readFileSync(
+  new URL('../../.github/workflows/oom-alert.yml', import.meta.url),
+  'utf8'
+);
 const primaryFlyConfig = readFileSync(
   new URL('../../fly.toml', import.meta.url),
   'utf8'
@@ -82,6 +86,18 @@ describe('deploy workflow', () => {
     );
     expect(volumeHeadroomWorkflow).toContain(
       'FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}'
+    );
+  });
+
+  it('alerts on OOM exits for both Fly apps every fifteen minutes', () => {
+    expect(oomAlertWorkflow).toContain('cron: "*/15 * * * *"');
+    expect(oomAlertWorkflow).toContain('- cosyworld');
+    expect(oomAlertWorkflow).toContain('- cosyworld-lonelyforest');
+    expect(oomAlertWorkflow).toContain(
+      'node v2/scripts/check-fly-oom.mjs personal "${{ matrix.app }}" 30m'
+    );
+    expect(oomAlertWorkflow).toContain(
+      'FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}'
     );
   });
 
