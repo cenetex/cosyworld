@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(30);
 const COMMAND_RECEIPT_ZSTD_PREFIX: &str = "zstd-base64:";
 const COMMAND_RECEIPT_COMPRESSION_THRESHOLD: usize = 4 * 1024;
 // The newest finalized receipt always survives, even if that single response

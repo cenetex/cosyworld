@@ -5675,6 +5675,19 @@ async function main() {
           pendingCount: pendingChats.length,
           events: logEvents.map((event) => ({ seq: event.seq, content: event.content })),
         };
+        const compactReceiptApplied = applyActionReceipt({
+          type: "action.receipt",
+          content: JSON.stringify({
+            world_tick: 13,
+            state_revision: 35,
+          }),
+        });
+        const afterCompactReceipt = {
+          applied: compactReceiptApplied,
+          worldTick: state.world_tick,
+          stateRevision: state.state_revision,
+          locationId: state.location?.id,
+        };
         return {
           collapsed,
           collapsedHtml,
@@ -5692,6 +5705,7 @@ async function main() {
           detectsServerTimelineRewind,
           acceptsForwardTimeline,
           afterTravelReceipt,
+          afterCompactReceipt,
         };
       } finally {
         logEvents = previousLogEvents;
@@ -5720,6 +5734,7 @@ async function main() {
     assert(result.afterReplayReset.length === 1 && result.afterReplayReset[0]?.content === "fresh firelight", `rebuilding replay should keep only unique chat after the latest world reset: ${JSON.stringify(result)}`);
     assert(result.detectsServerTimelineRewind && result.acceptsForwardTimeline, `a reconnect should replace rewound server history without mistaking a forward timeline for a reset: ${JSON.stringify(result)}`);
     assert(result.afterTravelReceipt?.applied && result.afterTravelReceipt.pendingCount === 0 && result.afterTravelReceipt.events.length === 1 && result.afterTravelReceipt.events[0]?.content === "new room history", `a live travel receipt should clear pending chat and replace the old room transcript: ${JSON.stringify(result)}`);
+    assert(result.afterCompactReceipt?.applied && result.afterCompactReceipt.worldTick === 13 && result.afterCompactReceipt.stateRevision === 35 && result.afterCompactReceipt.locationId === 2, `a compact action receipt should advance revision metadata without replacing the current state projection: ${JSON.stringify(result)}`);
   }
 
   async function assertCombatStaysInSharedRoomTranscript() {
