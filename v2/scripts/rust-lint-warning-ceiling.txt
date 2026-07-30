@@ -1,3 +1,6 @@
 # Lines beginning with "warning:" from cargo clippy --all-targets on the
 # deployed main baseline. Existing debt is allowed; new warnings are not.
-273
+#
+# 273 -> 269: deleting the six dead `merged_inline_resident_*` helpers left
+# behind by the #322 move removed their never-used warnings.
+269

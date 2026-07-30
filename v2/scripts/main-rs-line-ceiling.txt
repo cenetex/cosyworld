@@ -64,4 +64,9 @@
 # with its SSE transcript, and the accompanying cross-surface contract pins
 # the speaker-specific pending UI. This remains in main.rs beside the existing
 # chat orchestration and its browser integration contract.
-74481
+# 74481 -> 73798: finish the #322 slice. The production move to
+# residents/needs.rs had already happened, but six tests were *copied* rather
+# than moved, so the suite ran each twice, and six superseded
+# `merged_inline_resident_*` helpers were left behind dead. Deleting both leaves
+# one copy of each test in the module that owns the code.
+73798
