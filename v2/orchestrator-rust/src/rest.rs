@@ -1098,10 +1098,12 @@ mod tests {
     #[test]
     fn listen_and_rest_move_public_clocks_and_tags() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: MOONLIT_TRAIL_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 7084);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -1132,11 +1134,13 @@ mod tests {
             actor.stats.wisdom = 32;
         }
 
-        let mut listen = CwAction::default();
-        listen.kind = CW_ACTION_ABILITY_CHECK;
-        listen.actor_id = 5000;
-        listen.ability = LISTEN_ABILITY;
-        listen.dc = LISTEN_DC;
+        let listen = CwAction {
+            kind: CW_ACTION_ABILITY_CHECK,
+            actor_id: 5000,
+            ability: LISTEN_ABILITY,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        };
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(listen, 7085));
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
@@ -1214,9 +1218,11 @@ mod tests {
             .iter()
             .any(|option| option.kind == "rest"));
 
-        let mut rest_action = CwAction::default();
-        rest_action.kind = CW_ACTION_NONE;
-        rest_action.actor_id = 5000;
+        let rest_action = CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        };
         let mut rest_record = JournalRecord::new(rest_action, 7087);
         rest_record
             .projection_mutations

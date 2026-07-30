@@ -1,3 +1,9 @@
 # Lines beginning with "warning:" from cargo clippy --all-targets on the
 # deployed main baseline. Existing debt is allowed; new warnings are not.
-273
+#
+# 273 -> 258: rewrote every `field_reassign_with_default` outside main.rs as a
+# struct literal (combat.rs, project_push_tests.rs, residents/needs.rs,
+# rest.rs). The remaining 160 instances of that lint all live in main.rs and are
+# deliberately left alone while several branches are in flight there; fixing
+# them is mechanical and safe once main.rs is quieter.
+258

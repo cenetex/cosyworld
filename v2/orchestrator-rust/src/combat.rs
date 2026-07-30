@@ -1297,10 +1297,12 @@ mod tests {
     #[test]
     fn completed_combat_project_clears_combat_actions() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: MOONLIT_TRAIL_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 7180);
         create_record.actor_meta_upserts.insert(
             5000,
