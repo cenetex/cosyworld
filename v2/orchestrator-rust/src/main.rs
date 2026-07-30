@@ -49186,7 +49186,7 @@ mod tests {
         assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
         assert!(INDEX_HTML.contains("function setJournalOpen"));
         assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
-        assert!(INDEX_HTML.contains("function journalRowHtml"));
+        assert!(INDEX_HTML.contains("function journalProseRowHtml"));
         assert!(INDEX_HTML.contains("white-space: nowrap;"));
         assert!(!INDEX_HTML.contains("Why this matters"));
         assert!(INDEX_HTML.contains("eventIsStatusUpdate"));
@@ -49219,20 +49219,18 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
         assert!(INDEX_HTML.contains("data-export-journal"));
         assert!(INDEX_HTML
-            .contains("id=\"shared-questions\" aria-label=\"Current story and shared questions in this place\""));
+            .contains("id=\"shared-questions\" aria-label=\"Unresolved matters in this place\""));
         assert!(INDEX_HTML.contains("function renderSharedQuestions"));
         assert!(INDEX_HTML.contains("role=\"progressbar\""));
-        assert!(INDEX_HTML.contains("question.strategies"));
-        assert!(INDEX_HTML.contains("strategy.target_label"));
+        assert!(INDEX_HTML.contains("id=\"journal-current-place\""));
+        assert!(INDEX_HTML.contains("id=\"journal-story-history\""));
         assert!(INDEX_HTML.contains("/story/clock-presentations"));
         assert!(INDEX_HTML.contains("explanation_opened"));
         assert!(INDEX_HTML.contains("return_change_seen"));
-        assert!(INDEX_HTML.contains("comprehension_confirmed"));
-        assert!(INDEX_HTML.contains("data-question-comprehension"));
-        assert!(
-            INDEX_HTML.contains("finishing could ${lowerInitial(journalClause(question.outcome))}")
-        );
-        assert!(INDEX_HTML.contains("help by ${helpers.join(\", \")}"));
+        assert!(INDEX_HTML.contains("id=\"journal-open-threads\""));
+        assert!(INDEX_HTML.contains("function syncJournalRegions"));
+        assert!(INDEX_HTML.contains("function syncJournalRowOverflow"));
+        assert!(INDEX_HTML.contains("document.fonts?.addEventListener"));
         assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
         assert!(INDEX_HTML.contains("function jobContributionDescendants"));
         assert!(
@@ -49369,7 +49367,7 @@ mod tests {
         assert!(INDEX_HTML.contains("local tale"));
         assert!(!INDEX_HTML.contains(": \"nothing yet\""));
         assert!(!INDEX_HTML.contains(": \"no one yet\""));
-        assert!(INDEX_HTML.contains("Your first tale is yours"));
+        assert!(INDEX_HTML.contains("Your first tale continues when you"));
         assert!(INDEX_HTML.contains("firstTaleCelebration"));
         assert!(INDEX_HTML.contains("function dealtStoryGuide"));
         assert!(!INDEX_HTML.contains("storyGuideActionKeys"));

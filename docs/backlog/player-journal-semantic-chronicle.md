@@ -124,18 +124,16 @@ language.
 
 ## Disclosure contract
 
-A collapsed row answers **what happened**. An expanded row must add at least
-one distinct fact:
+Every row contains one semantic category tag and one complete prose string.
+Collapsed prose is clamped to one visual line. An expansion affordance appears
+only when that prose actually overflows at the current rendered width.
+Expanding the row unclamps and wraps the same prose node in place; it does not
+reveal a duplicate headline or separate detail block.
 
-- the durable state change;
-- how or where the outcome happened;
-- a lasting consequence; or
-- what remains unresolved.
-
-If no additive detail exists, render a non-disclosure row with no plus marker.
-Do not repeat the headline with punctuation added. Do not place raw source
-events in the production disclosure. Journal disclosures explain state; they
-do not become a second action menu.
+Non-overflowing rows have no marker and are not keyboard-focusable
+disclosures. Overflow must be re-evaluated after viewport, text-size, and font
+changes. Expanded prose never exposes raw source events or becomes a second
+action menu.
 
 ## Screenshot chain rewritten as beats
 
@@ -143,10 +141,8 @@ The reported Rain-Soft Garden sequence should project approximately as:
 
 | Source events or state | Region | Player-facing result |
 | --- | --- | --- |
-| `location.searched` + pathway tag/mutation + `pathway.discovered` | Story so far | **Discovery — Elsie discovered a path to the Old Oak Tree.** |
-| Discovery detail | Expanded detail | She found it while searching Rain-Soft Garden. The route is now available for travel. |
-| `actor.moved` + `journey.paused` | Story so far | **Travel — Elsie left Rain-Soft Garden for the Cosy Cottage.** |
-| Paused journey state | Expanded detail | The journey to the Old Oak Tree is paused and can be resumed later. |
+| `location.searched` + pathway tag/mutation + `pathway.discovered` | Story so far | **Discovery — Elsie discovered a path to the Old Oak Tree while searching Rain-Soft Garden; the route is now available for travel.** |
+| `actor.moved` + `journey.paused` | Story so far | **Travel — Elsie left Rain-Soft Garden for the Cosy Cottage; the journey to the Old Oak Tree is paused and can be resumed later.** |
 | Banked growth or available advancement | Open threads, only if actionable | **Growth — A growth choice is ready for Elsie.** |
 
 The search, tag, raw pathway event, move mutation, and pause event do not each
@@ -230,8 +226,8 @@ earn their own top-level row.
 - Project movement plus journey start/progress/pause/complete as one travel
   beat unless two independently meaningful outcomes occurred.
 - Name origin, destination, and resumable paused destination when available.
-- Do not hide a meaningful consequence merely to reach one row; place it in
-  additive detail.
+- Do not hide a meaningful consequence merely to reach one row; include it in
+  the row's complete prose string.
 
 ### Acceptance
 
@@ -260,8 +256,9 @@ earn their own top-level row.
   the unresolved matter.
 - Keep chronological history ordered consistently and cap it without changing
   canonical storage.
-- Replace unconditional `<details>` rows with a row that is interactive only
-  when additive detail exists.
+- Replace unconditional disclosures with rows that are interactive only when
+  their complete prose actually overflows one visual line.
+- Re-evaluate overflow after resize and text-size or font changes.
 - Preserve keyboard navigation, region labels, and useful focus states.
 - Keep actions in the action hand. A thread may describe availability but does
   not submit an action from the Journal.
@@ -270,10 +267,9 @@ earn their own top-level row.
 
 - A player can distinguish current state, unresolved matters, and completed
   history without interpreting labels or chronology.
-- Rows with no additive detail have no plus marker and are not focusable
-  disclosures.
-- Expanding every interactive row reveals information not present in its
-  headline.
+- Non-overflowing rows have no plus marker and are not focusable disclosures.
+- Expanding every interactive row wraps the complete same prose without a
+  duplicate detail block.
 - Current-place copy does not reappear as the newest story beat.
 
 ---
@@ -322,7 +318,7 @@ earn their own top-level row.
   clock progress, and an unknown event.
 - Assert causal grouping and source-sequence coverage in Rust tests.
 - Replace the browser assertion that the first row is always expandable with a
-  truthful-disclosure contract.
+  truthful overflow-disclosure contract.
 - Assert that the ticker text exactly matches the latest visible beat headline.
 - Add a production-copy lint for dotted event keys, `> event`, `> tag`, `->`,
   `"Something changed"`, and subjectless `is now`/`shakes off` fragments.
@@ -333,7 +329,7 @@ earn their own top-level row.
 
 - The screenshot regression is represented by a deterministic fixture.
 - CI fails when a newly admitted event lacks an explicit projection policy.
-- CI fails when a disclosure repeats its headline without adding a fact.
+- CI fails when a disclosure duplicates its prose in a separate detail block.
 - CI proves that non-disclosure rows do not expose an expansion affordance.
 - Presentation tests validate useful semantics as well as layout mechanics.
 
