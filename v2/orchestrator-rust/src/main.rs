@@ -2,6 +2,8 @@ mod account_auth;
 mod activation;
 #[cfg(test)]
 mod actor_autonomy_tests;
+#[cfg(test)]
+mod actor_job_contention_tests;
 mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
@@ -40357,10 +40359,9 @@ fn claim_next_actor_job_filtered(
     claimed_kind: Option<&str>,
 ) -> io::Result<Option<ActorJob>> {
     init_event_store(path)?;
-    let mut conn = open_event_store(path)?;
-    let tx = conn.transaction().map_err(sqlite_error)?;
+    let conn = open_event_store(path)?;
     let now = now_millis() as i64;
-    let row = tx
+    let row = conn
         .query_row(
             "SELECT id, kind, actor_id, attempts, context_json
              FROM actor_jobs
@@ -40391,26 +40392,23 @@ fn claim_next_actor_job_filtered(
         .optional()
         .map_err(sqlite_error)?;
     let Some((id, kind, actor_id, attempts, context_json)) = row else {
-        tx.commit().map_err(sqlite_error)?;
         return Ok(None);
     };
     let next_attempt = attempts.max(0).saturating_add(1);
     let lease_until = now.saturating_add(ACTOR_JOB_LEASE_MS as i64);
-    let claimed = tx
+    let claimed = conn
         .execute(
             "UPDATE actor_jobs
              SET status = 'running', attempts = ?2, lease_until_ms = ?3, updated_at_ms = ?4
              WHERE id = ?1
                AND ((status = 'pending' AND available_at_ms <= ?4)
-                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?4))",
-            params![id, next_attempt, lease_until, now],
+                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?4)) AND attempts = ?5",
+            params![id, next_attempt, lease_until, now, attempts],
         )
         .map_err(sqlite_error)?;
     if claimed == 0 {
-        tx.commit().map_err(sqlite_error)?;
         return Ok(None);
     }
-    tx.commit().map_err(sqlite_error)?;
     let payload = serde_json::from_str(&context_json)
         .or_else(|primary_error| {
             if kind == ACTOR_JOB_KIND_PLAYER_TICK {

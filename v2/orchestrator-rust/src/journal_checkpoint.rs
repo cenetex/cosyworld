@@ -336,7 +336,46 @@ const PRUNE_COMPACTED_COMMIT_RANGES_SQL: &str = "DELETE FROM canonical_compacted
                  AND canonical_compacted_commit_ranges.last_world_seq
        )";
 
+// Snapshots stay frequent for recovery, while pruning is batched so the
+// single SQLite writer is not churned for every tiny suffix. The row bound
+// makes a high-traffic burst compact before the time interval elapses.
+const PERSISTENCE_COMPACTION_MIN_INTERVAL_MS: u64 = 5 * 60 * 1_000;
+const PERSISTENCE_COMPACTION_MAX_JOURNAL_DELTA: u64 = 512;
+
+fn persistence_compaction_due(
+    report: &PersistenceCompactionReport,
+    checkpoint_seq: u64,
+    now_ms: u64,
+) -> bool {
+    let journal_delta = checkpoint_seq.saturating_sub(report.action_journal_floor_seq);
+    journal_delta >= PERSISTENCE_COMPACTION_MAX_JOURNAL_DELTA
+        || report
+            .last_compacted_at_ms
+            .is_none_or(|last_compacted_at_ms| {
+                now_ms.saturating_sub(last_compacted_at_ms)
+                    >= PERSISTENCE_COMPACTION_MIN_INTERVAL_MS
+            })
+}
+
 pub(super) fn compact_event_store_after_snapshot(
+    path: &Path,
+    checkpoint_seq: u64,
+    through_event_seq: u64,
+    retained_world_events: usize,
+) -> io::Result<PersistenceCompactionReport> {
+    let report = read_persistence_compaction_report(path)?;
+    if !persistence_compaction_due(&report, checkpoint_seq, now_millis()) {
+        return Ok(PersistenceCompactionReport::default());
+    }
+    compact_event_store_after_snapshot_now(
+        path,
+        checkpoint_seq,
+        through_event_seq,
+        retained_world_events,
+    )
+}
+
+fn compact_event_store_after_snapshot_now(
     path: &Path,
     checkpoint_seq: u64,
     through_event_seq: u64,
@@ -344,7 +383,9 @@ pub(super) fn compact_event_store_after_snapshot(
 ) -> io::Result<PersistenceCompactionReport> {
     init_event_store(path)?;
     let mut conn = open_event_store(path)?;
-    let tx = conn.transaction().map_err(sqlite_error)?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
     let journal_head = tx
         .query_row(
             "SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal",
@@ -686,6 +727,31 @@ mod tests {
     }
 
     #[test]
+    fn persistence_compaction_batches_by_time_or_journal_delta() {
+        let recent = PersistenceCompactionReport {
+            action_journal_floor_seq: 1_000,
+            last_compacted_at_ms: Some(10_000),
+            ..PersistenceCompactionReport::default()
+        };
+        assert!(!persistence_compaction_due(&recent, 1_001, 10_001));
+        assert!(persistence_compaction_due(
+            &recent,
+            1_000 + PERSISTENCE_COMPACTION_MAX_JOURNAL_DELTA,
+            10_001
+        ));
+        assert!(persistence_compaction_due(
+            &recent,
+            1_001,
+            10_000 + PERSISTENCE_COMPACTION_MIN_INTERVAL_MS
+        ));
+        assert!(persistence_compaction_due(
+            &PersistenceCompactionReport::default(),
+            0,
+            0
+        ));
+    }
+
+    #[test]
     fn snapshot_checkpoint_preserves_migration_state_and_replays_only_the_suffix() {
         std::thread::Builder::new()
             .name("journal-checkpoint-replay".to_string())
@@ -968,7 +1034,7 @@ mod tests {
         append_event_store(&journal_path, &events).expect("append world-event fixtures");
 
         let compacted =
-            compact_event_store_after_snapshot(&journal_path, 3, 1_003, MAX_EVENT_STORE_SCAN)
+            compact_event_store_after_snapshot_now(&journal_path, 3, 1_003, MAX_EVENT_STORE_SCAN)
                 .expect("compact checkpointed store");
         assert_eq!(compacted.action_journal_floor_seq, 3);
         assert_eq!(compacted.canonical_commit_floor_journal_seq, 3);
@@ -1080,7 +1146,7 @@ mod tests {
             .expect("save next compactable checkpoint");
 
         let next_compaction =
-            compact_event_store_after_snapshot(&journal_path, 4, 1_003, MAX_EVENT_STORE_SCAN)
+            compact_event_store_after_snapshot_now(&journal_path, 4, 1_003, MAX_EVENT_STORE_SCAN)
                 .expect("compact next checkpointed store");
         assert_eq!(next_compaction.action_journal_floor_seq, 4);
         assert_eq!(next_compaction.canonical_commit_floor_journal_seq, 4);
