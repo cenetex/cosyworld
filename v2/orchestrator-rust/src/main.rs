@@ -67,6 +67,7 @@ mod rpg;
 mod rules_context;
 mod semantic_receipts;
 mod settlement_buildings;
+mod snapshot_persistence;
 mod story_metrics;
 #[cfg(test)]
 mod test_support;
@@ -114,7 +115,7 @@ use generated_places::*;
 use generation_policy::*;
 use hosted_access::*;
 use jobs::*;
-use journal_checkpoint::{compact_event_store_after_snapshot, read_persistence_compaction_report};
+use journal_checkpoint::read_persistence_compaction_report;
 use kernel::*;
 use legacy_import::*;
 use local_leads::*;
@@ -141,6 +142,7 @@ use rules_context::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use settlement_buildings::*;
+use snapshot_persistence::*;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -180,10 +182,10 @@ struct AppState {
     tx: broadcast::Sender<EventView>,
     deployment: DeploymentConfig,
     snapshot_path: Option<Arc<PathBuf>>,
-    /// Wall-clock millis of the last snapshot write, used to coalesce them.
-    /// Zero means never written, so the first call always persists.
+    /// Wall-clock millis of the last scheduled snapshot. Zero means never.
     last_snapshot_at_ms: Arc<AtomicU64>,
     resident_continuity_path: Option<Arc<PathBuf>>,
+    snapshot_writer: Option<Arc<SnapshotWriter>>,
     event_store_path: Option<Arc<PathBuf>>,
     event_store_writer: Option<Arc<StdMutex<Connection>>>,
     event_store_health: Arc<StdMutex<EventStoreHealth>>,
@@ -5847,6 +5849,11 @@ impl AppState {
             .as_deref()
             .map(|path| open_event_store_keepalive(path))
             .transpose()?;
+        let snapshot_writer = if snapshot_path.is_some() || resident_continuity_path.is_some() {
+            Some(Arc::new(SnapshotWriter::spawn()?))
+        } else {
+            None
+        };
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
@@ -5855,6 +5862,7 @@ impl AppState {
             snapshot_path,
             last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path,
+            snapshot_writer,
             event_store_path,
             event_store_writer: event_store_writer
                 .map(|connection| Arc::new(StdMutex::new(connection))),
@@ -39475,141 +39483,6 @@ async fn shutdown_signal() {
     tokio::select! {
         _ = signal::ctrl_c() => {}
         _ = terminate_signal() => {}
-    }
-}
-
-const SNAPSHOT_MIN_INTERVAL_MS_DEFAULT: u64 = 5_000;
-
-fn snapshot_temp_path(path: &Path) -> PathBuf {
-    path.with_extension("json.tmp")
-}
-
-fn remove_stale_snapshot_temp(path: &Path) -> io::Result<bool> {
-    let temp = snapshot_temp_path(path);
-    match fs::remove_file(&temp) {
-        Ok(()) => {
-            info!(
-                "removed stale CosyWorld snapshot temporary file {}",
-                temp.display()
-            );
-            Ok(true)
-        }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error),
-    }
-}
-
-fn snapshot_min_interval_ms() -> u64 {
-    std::env::var("COSYWORLD_V2_SNAPSHOT_MIN_INTERVAL_MS")
-        .ok()
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .unwrap_or(SNAPSHOT_MIN_INTERVAL_MS_DEFAULT)
-}
-
-fn persistence_compaction_enabled() -> bool {
-    std::env::var("COSYWORLD_V2_PERSISTENCE_COMPACTION")
-        .map(|value| {
-            !matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "0" | "false" | "no" | "off" | "disabled"
-            )
-        })
-        .unwrap_or(true)
-}
-
-fn retained_world_event_limit() -> usize {
-    std::env::var("COSYWORLD_V2_RETAINED_WORLD_EVENTS")
-        .ok()
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .filter(|value| *value >= MAX_EVENT_STORE_SCAN)
-        .unwrap_or(DEFAULT_RETAINED_WORLD_EVENTS)
-}
-
-fn persist_runtime(state: &AppState, runtime: &RuntimeWorld) {
-    persist_runtime_with_policy(state, runtime, false);
-}
-
-/// Write regardless of the coalescing interval. Used where the process may not
-/// get another chance, such as shutdown.
-fn persist_runtime_now(state: &AppState, runtime: &RuntimeWorld) {
-    persist_runtime_with_policy(state, runtime, true);
-}
-
-fn persist_runtime_with_policy(state: &AppState, runtime: &RuntimeWorld, force: bool) {
-    let now = now_millis();
-    let due = force || {
-        let interval = snapshot_min_interval_ms();
-        let last = state.last_snapshot_at_ms.load(AtomicOrdering::Relaxed);
-        last == 0 || now.saturating_sub(last) >= interval
-    };
-    if !due {
-        return;
-    }
-    // Claim the slot before writing so concurrent callers do not queue behind
-    // each other on the same interval.
-    state
-        .last_snapshot_at_ms
-        .store(now, AtomicOrdering::Relaxed);
-    let snapshot_saved = if let Some(path) = state.snapshot_path.as_deref() {
-        match runtime.save_snapshot(path) {
-            Ok(()) => true,
-            Err(error) => {
-                warn!(
-                    "failed to persist CosyWorld v2 snapshot {}: {}",
-                    path.display(),
-                    error
-                );
-                false
-            }
-        }
-    } else {
-        false
-    };
-    if snapshot_saved
-        && persistence_compaction_enabled()
-        && !state.canonical_routing.enabled()
-        && state.canonical_recovery.is_none()
-    {
-        if let Some(path) = state.event_store_path.as_deref() {
-            let through_seq = runtime.world.next_event_seq.saturating_sub(1);
-            match compact_event_store_after_snapshot(
-                path,
-                runtime.action_journal_seq,
-                through_seq,
-                retained_world_event_limit(),
-            ) {
-                Ok(report)
-                    if report.deleted_action_journal_rows > 0
-                        || report.deleted_canonical_commit_rows > 0
-                        || report.deleted_world_event_rows > 0 =>
-                {
-                    info!(
-                        "compacted CosyWorld persistence through journal {}, canonical commit {}, and event {}; deleted {} journal row(s), {} canonical commit row(s), and {} event row(s)",
-                        report.action_journal_floor_seq,
-                        report.canonical_commit_floor_journal_seq,
-                        report.world_event_floor_seq,
-                        report.deleted_action_journal_rows,
-                        report.deleted_canonical_commit_rows,
-                        report.deleted_world_event_rows
-                    );
-                }
-                Ok(_) => {}
-                Err(error) => warn!(
-                    "failed to compact CosyWorld event store {} after snapshot: {}",
-                    path.display(),
-                    error
-                ),
-            }
-        }
-    }
-    if let Some(path) = state.resident_continuity_path.as_deref() {
-        if let Err(error) = runtime.save_resident_continuity_snapshot(path) {
-            warn!(
-                "failed to persist CosyWorld resident continuity artifact {}: {}",
-                path.display(),
-                error
-            );
-        }
     }
 }
 
@@ -73732,6 +73605,7 @@ mod tests {
             snapshot_path: None,
             last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path: None,
+            snapshot_writer: None,
             event_store_path: None,
             event_store_writer: None,
             event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
