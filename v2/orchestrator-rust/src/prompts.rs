@@ -525,6 +525,11 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
     anchors.extend(plan.recent_lines.iter().cloned());
     anchors.extend(plan.fresh_subject.iter().cloned());
     anchors.extend(plan.missing_need.iter().cloned());
+    // Whoever is actually in the room grounds a line as well as the room's own
+    // name does. Without this the place name is the only anchor guaranteed to be
+    // present, which made announcing it the cheapest way to pass the gate. See
+    // issue #553.
+    anchors.extend(plan.cast.iter().cloned());
     SpeechGateContext {
         feature: if followup {
             "dialogue_avatar_followup"
@@ -557,6 +562,11 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
     anchors.extend(plan.location_memory.iter().cloned());
     anchors.extend(plan.recent_activity.iter().cloned());
     anchors.extend(plan.recent_lines.iter().cloned());
+    // As in avatar chat: the present cast and the speaker's own goals ground a
+    // line as well as the room's name, so naming the room stops being the only
+    // guaranteed way through the gate. See issue #553.
+    anchors.extend(plan.cast.iter().cloned());
+    anchors.extend(plan.goals.iter().cloned());
     SpeechGateContext {
         feature: "dialogue_resident",
         generation_key: publication_beat_id(
@@ -884,6 +894,74 @@ mod publication_tests {
             "the voice prompt still instructs a machine instead of being a mind:\n{system}"
         );
         assert!(system.contains("i have no catchphrase"));
+    }
+
+    fn gate_completion(text: &str) -> AiCompletion {
+        AiCompletion {
+            text: text.to_string(),
+            attempts: 1,
+            latency: std::time::Duration::from_millis(9),
+            model_attribution: None,
+            finish_reason: "stop".to_string(),
+            usage: AiTokenUsage {
+                prompt_tokens: Some(10),
+                completion_tokens: Some(6),
+                total_tokens: Some(16),
+            },
+            context_hash: "context".to_string(),
+            prompt_version: "test-v1".to_string(),
+        }
+    }
+
+    /// Issue #553: the anchor gate rejected any line without a deterministic
+    /// anchor, and the room name was the only anchor guaranteed to be present.
+    /// The cheapest way for a model to pass was therefore to front-load the
+    /// place name, which it did on nearly every line ("Mossbell Inn, I've
+    /// arrived—"). Whoever is actually in the room grounds a line just as well,
+    /// so the cast now counts and naming the room stops being the cheap default.
+    #[test]
+    fn a_line_grounded_on_the_present_cast_passes_without_naming_the_room() {
+        let (chat, _) = seeded_plans();
+        let context = avatar_chat_gate_context(&chat, false);
+        let companion = chat
+            .cast
+            .iter()
+            .find(|name| **name != chat.actor_name)
+            .cloned()
+            .expect("the seeded cottage has another present actor");
+        assert!(
+            context.anchors.contains(&companion),
+            "the present cast must be able to ground a line: {:?}",
+            context.anchors
+        );
+
+        // A line that speaks to the person in front of it and never announces
+        // where it is standing.
+        let text = format!("{companion}, your hands are cold. Come sit nearer the kettle.");
+        assert!(
+            !text.contains(&chat.location_name),
+            "the fixture line must not name the room: {text}"
+        );
+        certify_speech(
+            None,
+            gate_completion(&text),
+            &text,
+            avatar_chat_gate_context(&chat, false),
+        )
+        .expect("a cast-grounded line certifies without naming the room");
+    }
+
+    #[test]
+    fn resident_speech_is_grounded_by_the_cast_and_its_own_goals() {
+        let (_, reply) = seeded_plans();
+        let context = resident_gate_context(&reply, false);
+        for anchor in reply.cast.iter().chain(reply.goals.iter()) {
+            assert!(
+                context.anchors.contains(anchor),
+                "{anchor:?} must ground resident speech: {:?}",
+                context.anchors
+            );
+        }
     }
 
     #[test]
