@@ -13819,6 +13819,12 @@ impl RuntimeWorld {
                 | CW_EVENT_COMBAT_ATTACK_MISS
                 | CW_EVENT_COMBAT_KNOCKOUT
         );
+        // An ordinary check rolls against an ability just as an attack does, and
+        // the kernel records which one on the event. Only combat used to project
+        // it, so a check could not name the attribute it was resolved against
+        // without the client guessing. See issue #464.
+        let resolves_against_ability =
+            is_combat_attack || event.type_ == CW_EVENT_ABILITY_CHECK_ROLLED;
         EventView {
             world_id: official_world_id(),
             world_epoch: official_world_epoch(),
@@ -13850,7 +13856,7 @@ impl RuntimeWorld {
                 self.item_name(event.item_id)
                     .unwrap_or_else(|| "Unarmed strike".to_string())
             }),
-            ability: is_combat_attack
+            ability: resolves_against_ability
                 .then(|| combat::combat_ability_name(event.ability).to_string()),
             clock_id: None,
             clock_scope: None,
@@ -42975,6 +42981,45 @@ mod tests {
                 "missing browser contract: {contract}"
             );
         }
+    }
+
+    /// Issue #464: the projection only sent `ability` for combat attacks, so an
+    /// ordinary check could not name the attribute the kernel resolved it
+    /// against and any client showing one would have been guessing.
+    #[test]
+    fn an_ordinary_check_projects_the_attribute_it_resolved_against() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Careful Listener",
+        );
+        let record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_ABILITY_CHECK,
+                actor_id: 5000,
+                ability: CW_ABILITY_WISDOM,
+                dc: 10,
+                ..CwAction::default()
+            },
+            7_460,
+        );
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        let rolled = events
+            .iter()
+            .find(|event| event.type_name == "ability_check.rolled")
+            .expect("the check is projected");
+        assert_eq!(
+            rolled.ability.as_deref(),
+            Some(combat::combat_ability_name(CW_ABILITY_WISDOM)),
+            "an ordinary check must name its attribute"
+        );
+        // The arithmetic the shared formatter needs is all present.
+        assert!(rolled.raw_roll.is_some(), "natural roll is projected");
+        assert!(rolled.total.is_some(), "committed total is projected");
+        assert_eq!(rolled.dc, Some(10));
     }
 
     #[test]

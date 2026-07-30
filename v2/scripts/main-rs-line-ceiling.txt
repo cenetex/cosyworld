@@ -64,4 +64,10 @@
 # with its SSE transcript, and the accompanying cross-surface contract pins
 # the speaker-specific pending UI. This remains in main.rs beside the existing
 # chat orchestration and its browser integration contract.
-74481
+# 74481 -> 74526: issue #464 projects the ability an ordinary check resolved
+# against -- the `resolves_against_ability` condition and its use -- plus the
+# regression that pins it, which needs `event_view` and so belongs here. The
+# fate-tag UI the issue also asks for is deliberately not here: the browser
+# smoke gate forbids exposing dice arithmetic (smoke-browser.mjs:4402), so that
+# half needs a product decision first.
+74526

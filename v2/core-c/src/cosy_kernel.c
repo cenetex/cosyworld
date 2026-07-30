@@ -803,6 +803,11 @@ static cw_status apply_ability_check(cw_world *world, const cw_action *action, u
     event->modifier = modifier;
     event->total = total;
     event->dc = dc;
+    /* Record which ability the check resolved against. The field already
+       existed but was left at zero, so every projected check looked like a
+       Strength check. Reporting it is what lets a client name the attribute
+       without guessing. See issue #464. */
+    event->ability = action->ability;
   }
   return CW_OK;
 }
