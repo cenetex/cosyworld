@@ -39029,7 +39029,6 @@ fn commit_journal_record(
                 return Err(error);
             }
         };
-        let runtime_before_commit = runtime.clone();
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool, u64)> {
             let commit_time = now_millis();
             let lease_ttl = authority_lease_ttl_ms(state);
@@ -39288,12 +39287,7 @@ fn commit_journal_record(
             Ok(committed) => committed,
             Err(error) => {
                 let rollback_error = tx.rollback().map_err(sqlite_error).err();
-                let restore_error = if rollback_error.is_none() {
-                    *runtime = runtime_before_commit;
-                    None
-                } else {
-                    restore_runtime_from_durable_state(state, runtime, path).err()
-                };
+                let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
                 let error = journal_commit_recovery_error(error, rollback_error, restore_error);
                 if let Some(context) = command_context.as_ref() {
                     context.abort_commit();
@@ -39353,11 +39347,44 @@ fn commit_journal_record(
     Ok((status, events))
 }
 
+#[cfg(test)]
+thread_local! {
+    static DURABLE_COMMIT_RECOVERY_CALLS: std::cell::Cell<u64> =
+        const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn durable_commit_recovery_calls() -> u64 {
+    DURABLE_COMMIT_RECOVERY_CALLS.with(std::cell::Cell::get)
+}
+
 fn restore_runtime_from_durable_state(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     event_store_path: &Path,
 ) -> io::Result<()> {
+    #[cfg(test)]
+    DURABLE_COMMIT_RECOVERY_CALLS.with(|calls| calls.set(calls.get().saturating_add(1)));
+    let restored = std::thread::scope(|scope| {
+        let recovery = std::thread::Builder::new()
+            .name("cosyworld-durable-recovery".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn_scoped(scope, || {
+                rebuild_runtime_from_durable_state(state, event_store_path)
+            })
+            .map_err(|error| io::Error::other(format!("spawn durable recovery: {error}")))?;
+        recovery
+            .join()
+            .map_err(|_| io::Error::other("durable recovery thread panicked"))?
+    })?;
+    *runtime = *restored;
+    Ok(())
+}
+
+fn rebuild_runtime_from_durable_state(
+    state: &AppState,
+    event_store_path: &Path,
+) -> io::Result<Box<RuntimeWorld>> {
     let mut restored = journal_checkpoint::replay_journal_continuity!(
         event_store_path,
         state.snapshot_path.as_deref().map(PathBuf::as_path),
@@ -39375,8 +39402,7 @@ fn restore_runtime_from_durable_state(
         let placement_rotation = placement_rotation_index_for_runtime(&restored);
         restored.apply_wallet_overlap_placements(&ownership, placement_rotation);
     }
-    *runtime = restored;
-    Ok(())
+    Ok(Box::new(restored))
 }
 
 fn journal_commit_recovery_error(
@@ -52443,7 +52469,18 @@ mod tests {
     }
 
     #[test]
-    fn actor_outbox_failure_rolls_back_the_entire_player_card_commit() {
+    fn actor_outbox_failure_restores_the_identical_durable_runtime() {
+        let commit_source = include_str!("main.rs")
+            .split_once("fn commit_journal_record(")
+            .expect("commit function exists")
+            .1
+            .split_once("fn restore_runtime_from_durable_state(")
+            .expect("recovery function follows commit")
+            .0;
+        assert!(
+            !commit_source.contains("runtime.clone()"),
+            "the accepted-command path must not clone the full runtime"
+        );
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-actor-outbox-rollback-{}-{}.sqlite",
             std::process::id(),
@@ -52478,6 +52515,8 @@ mod tests {
                     .0,
                 CW_OK
             );
+            restore_runtime_from_durable_state(&state, &mut runtime, &path)
+                .expect("normalize the baseline from durable state");
         }
         let conn = open_event_store(&path).expect("open actor outbox");
         conn.execute_batch(
@@ -52490,12 +52529,6 @@ mod tests {
             [],
         )
         .expect("finish the baseline heartbeat before failure injection");
-        conn.execute(
-            "UPDATE action_journal SET record_json = '{broken replay'
-             WHERE journal_seq = (SELECT MIN(journal_seq) FROM action_journal)",
-            [],
-        )
-        .expect("make full replay unavailable after rollback");
         drop(conn);
         let baseline_counts = {
             let conn = open_event_store(&path).expect("count rollback baseline rows");
@@ -52512,6 +52545,9 @@ mod tests {
                 .collect::<BTreeMap<_, _>>()
         };
         let mut runtime = state.inner.blocking_lock();
+        let before_runtime =
+            serde_json::to_string(&RuntimeSnapshot::from_runtime(&runtime)).unwrap();
+        let recoveries_before = durable_commit_recovery_calls();
         let before_tick = runtime.world.tick;
         let before_next_event_seq = runtime.world.next_event_seq;
         let mut record = JournalRecord::new(
@@ -52542,10 +52578,31 @@ mod tests {
         let error = commit_journal_record(&state, &mut runtime, record)
             .expect_err("injected actor outbox failure");
         assert!(error.to_string().contains("injected actor outbox failure"));
-        assert!(!error.to_string().contains("runtime restore failed"));
+        assert!(!error
+            .to_string()
+            .contains("runtime journal recovery failed"));
+        assert_eq!(
+            durable_commit_recovery_calls(),
+            recoveries_before.saturating_add(1),
+            "the failed accepted command must rebuild from durable state"
+        );
         assert_eq!(runtime.world.tick, before_tick);
         assert_eq!(runtime.world.next_event_seq, before_next_event_seq);
         assert!(!runtime.tags.contains_key("test:outbox:rollback"));
+        let after_runtime =
+            serde_json::to_string(&RuntimeSnapshot::from_runtime(&runtime)).unwrap();
+        if after_runtime != before_runtime {
+            let before = serde_json::from_str::<serde_json::Value>(&before_runtime).unwrap();
+            let after = serde_json::from_str::<serde_json::Value>(&after_runtime).unwrap();
+            let differing_fields = before
+                .as_object()
+                .unwrap()
+                .keys()
+                .filter(|field| before.get(*field) != after.get(*field))
+                .cloned()
+                .collect::<Vec<_>>();
+            panic!("forced commit failure changed durable runtime fields: {differing_fields:?}");
+        }
         drop(runtime);
         let conn = open_event_store(&path).expect("inspect rolled back outbox");
         for table in ["action_journal", "world_events", "actor_jobs"] {
