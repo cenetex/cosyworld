@@ -3,4 +3,10 @@
 #
 # 273 -> 269: deleting the six dead `merged_inline_resident_*` helpers left
 # behind by the #322 move removed their never-used warnings.
-269
+#
+# 269 -> 254: rewrote every `field_reassign_with_default` outside main.rs as a
+# struct literal (combat.rs, project_push_tests.rs, residents/needs.rs,
+# rest.rs). The remaining 160 instances of that lint all live in main.rs and are
+# deliberately left alone while several branches are in flight there; fixing
+# them is mechanical and safe once main.rs is quieter.
+254

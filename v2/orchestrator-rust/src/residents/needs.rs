@@ -475,10 +475,12 @@ mod tests {
     #[test]
     fn resident_refuses_to_trade_attached_items() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         assert_eq!(
             runtime
                 .apply_journal_record(&JournalRecord::new(create, 7834))
@@ -541,10 +543,12 @@ mod tests {
     #[test]
     fn requested_attachment_can_be_given_back_even_when_not_evolution_item() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 78343);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -629,10 +633,12 @@ mod tests {
     #[test]
     fn resident_economy_projects_desires_and_trade_willingness() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 7833);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -835,10 +841,12 @@ mod tests {
     fn content_authored_personal_desires_drive_requests_and_reasons() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = 40;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: 40,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 78332);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -907,10 +915,12 @@ mod tests {
     #[test]
     fn resident_economy_requests_player_held_healing_item() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 78335);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -967,10 +977,12 @@ mod tests {
     #[test]
     fn resident_economy_requests_medicine_for_hurt_companion() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 78337);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -1024,10 +1036,12 @@ mod tests {
     #[test]
     fn resident_economy_values_items_useful_to_the_current_room() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 78336);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -1082,10 +1096,12 @@ mod tests {
     #[test]
     fn content_authored_attachments_explain_trade_refusals() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: COSY_COTTAGE_LOCATION_ID,
+            ..CwAction::default()
+        };
         let mut create_record = JournalRecord::new(create, 78341);
         create_record.actor_meta_upserts.insert(
             5000,

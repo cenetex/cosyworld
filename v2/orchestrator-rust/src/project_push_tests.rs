@@ -3,10 +3,12 @@ use super::*;
 #[test]
 fn defend_sets_up_active_room_project() {
     let mut runtime = RuntimeWorld::seeded();
-    let mut create = CwAction::default();
-    create.kind = CW_ACTION_CREATE_ACTOR;
-    create.actor_id = 5000;
-    create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+    let create = CwAction {
+        kind: CW_ACTION_CREATE_ACTOR,
+        actor_id: 5000,
+        location_id: MOONLIT_TRAIL_LOCATION_ID,
+        ..CwAction::default()
+    };
     let mut create_record = JournalRecord::new(create, 7160);
     create_record.actor_meta_upserts.insert(
         5000,
@@ -55,9 +57,11 @@ fn defend_sets_up_active_room_project() {
         1
     );
 
-    let mut defend_action = CwAction::default();
-    defend_action.kind = CW_ACTION_DEFEND;
-    defend_action.actor_id = 5000;
+    let defend_action = CwAction {
+        kind: CW_ACTION_DEFEND,
+        actor_id: 5000,
+        ..CwAction::default()
+    };
     let (status, events) = runtime.apply_journal_record(&JournalRecord::new(defend_action, 7161));
     assert_eq!(status, CW_OK);
     assert!(events.iter().any(|event| {
@@ -113,10 +117,12 @@ fn multi_room_project_makes_partial_evidence_useful_and_complete_evidence_best()
         .get_mut("solar-abyss.drowned-bell")
         .expect("solar project clock")
         .segments = 6;
-    let mut create = CwAction::default();
-    create.kind = CW_ACTION_CREATE_ACTOR;
-    create.actor_id = 5000;
-    create.location_id = 36;
+    let create = CwAction {
+        kind: CW_ACTION_CREATE_ACTOR,
+        actor_id: 5000,
+        location_id: 36,
+        ..CwAction::default()
+    };
     let mut create_record = JournalRecord::new(create, 7143);
     create_record.actor_meta_upserts.insert(
         5000,
