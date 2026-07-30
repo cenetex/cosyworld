@@ -1,6 +1,7 @@
-// THR-1 publishes strict authored descriptors and replay receipts before the
-// THR-2 kernel enforcement layer consumes them. Keep this staged API compiled
-// without spending the repository's production warning budget.
+// THR-1 publishes strict authored descriptors and replay receipts, THR-2
+// compiles their access predicates into the kernel, and THR-4 projects exact
+// player methods from that same authority. Keep the remaining staged API
+// compiled without spending the repository's production warning budget.
 #![cfg_attr(not(test), allow(dead_code))]
 
 use super::*;
@@ -62,10 +63,10 @@ pub(super) struct ThresholdDescriptorCatalog {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ThresholdTargetRef {
-    pub(super) kind: String,
-    pub(super) id: String,
-    pub(super) version: u8,
+pub(crate) struct ThresholdTargetRef {
+    pub(crate) kind: String,
+    pub(crate) id: String,
+    pub(crate) version: u8,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -88,7 +89,7 @@ pub(super) struct ThresholdSlotRef {
     pub(super) materialized_ids: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum ThresholdPredicate {
     ExactItem { item_id: String },
@@ -104,7 +105,7 @@ pub(super) enum ThresholdPredicate {
     PerActorClaim { claim_id: String },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ThresholdRequirements {
     pub(super) mode: String,
@@ -112,7 +113,7 @@ pub(super) struct ThresholdRequirements {
     pub(super) clauses: Vec<ThresholdPredicate>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum ThresholdEffect {
     SetGateState {
@@ -149,7 +150,45 @@ pub(super) enum ThresholdEffect {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThresholdMethodEconomy {
+    pub(crate) played_time_turns: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum ThresholdMethodResolution {
+    Certain,
+    SrdCheck {
+        rules_action: String,
+        ability: String,
+        dc: u16,
+    },
+    ExistingKernelOutcome {
+        event_type: String,
+    },
+    ConsequenceAvoidanceCheck {
+        rules_action: String,
+        ability: String,
+        dc: u16,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThresholdMethodOfferContract {
+    pub(crate) schema_version: u8,
+    pub(crate) procedure: String,
+    pub(crate) label: String,
+    pub(crate) requirement: String,
+    pub(crate) economy: ThresholdMethodEconomy,
+    pub(crate) resolution: ThresholdMethodResolution,
+    pub(crate) effect: String,
+    pub(crate) consequence: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ThresholdMethod {
     pub(super) id: String,
@@ -162,6 +201,8 @@ pub(super) struct ThresholdMethod {
     pub(super) recovery_ref: Option<String>,
     #[serde(default)]
     pub(super) recovery_version: Option<u8>,
+    #[serde(default)]
+    pub(super) offer: Option<ThresholdMethodOfferContract>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -302,6 +343,8 @@ pub(crate) struct AcceptedThresholdIntent {
     pub(super) scope: String,
     pub(super) scope_id: String,
     pub(super) selected_method: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) method_contract: Option<ThresholdMethodOfferContract>,
     pub(super) target: ThresholdTargetRef,
     pub(super) accepted_turn: u64,
     pub(super) requirement_facts: BTreeMap<String, String>,
@@ -334,10 +377,37 @@ pub(crate) struct ThresholdGateSource {
     pub(super) pack_version: String,
     pub(super) pack_integrity: String,
     pub(super) scope: String,
+    #[serde(default)]
+    pub(super) transition: String,
     pub(super) target: ThresholdTargetRef,
     pub(super) methods: BTreeMap<u64, String>,
     #[serde(default)]
+    pub(crate) method_contracts: BTreeMap<u64, ThresholdMethodOfferContract>,
+    #[serde(default)]
     pub(crate) facts: BTreeMap<u64, ThresholdFactSource>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ThresholdMethodOfferView {
+    pub(crate) component: String,
+    pub(crate) descriptor_id: String,
+    pub(crate) descriptor_version: u8,
+    pub(crate) method: String,
+    pub(crate) method_id: u64,
+    pub(crate) target: ThresholdTargetRef,
+    pub(crate) requirement: String,
+    pub(crate) economy: ThresholdMethodEconomy,
+    pub(crate) resolution: ThresholdMethodResolution,
+    pub(crate) effect: String,
+    pub(crate) consequence: String,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ProjectedThresholdMethod {
+    pub(crate) binding: ThresholdOfferBinding,
+    pub(crate) offer: ThresholdMethodOfferView,
+    pub(crate) allowed: bool,
+    pub(crate) disabled_reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -355,6 +425,7 @@ pub(crate) enum ThresholdFactSource {
 type CompiledThresholdMethods = (
     Vec<CwGateMethodDefinition>,
     BTreeMap<u64, String>,
+    BTreeMap<u64, ThresholdMethodOfferContract>,
     BTreeMap<u64, ThresholdFactSource>,
 );
 
@@ -632,6 +703,82 @@ fn validate_effects(
     Ok(())
 }
 
+fn validate_method_offer(
+    method: &ThresholdMethod,
+    offer: &ThresholdMethodOfferContract,
+    label: &str,
+) -> Result<(), String> {
+    if offer.schema_version != 1
+        || offer.procedure != "open_v1"
+        || !valid_token(&offer.label, 96)
+        || !valid_token(&offer.requirement, 256)
+        || !valid_token(&offer.effect, 256)
+        || !valid_token(&offer.consequence, 256)
+        || offer.economy.played_time_turns != 1
+    {
+        return Err(format!(
+            "{label} has an invalid concrete method offer contract"
+        ));
+    }
+    let valid_check = |rules_action: &str, ability: &str, dc: u16| {
+        valid_token(rules_action, 96)
+            && matches!(
+                ability,
+                "strength" | "dexterity" | "constitution" | "intelligence" | "wisdom" | "charisma"
+            )
+            && dc > 0
+            && dc <= i16::MAX as u16
+    };
+    match &offer.resolution {
+        ThresholdMethodResolution::Certain => {
+            if !method.failure_effects.is_empty() {
+                return Err(format!(
+                    "{label} certain resolution cannot author failure effects"
+                ));
+            }
+        }
+        ThresholdMethodResolution::SrdCheck {
+            rules_action,
+            ability,
+            dc,
+        }
+        | ThresholdMethodResolution::ConsequenceAvoidanceCheck {
+            rules_action,
+            ability,
+            dc,
+        } => {
+            if !valid_check(rules_action, ability, *dc) || method.failure_effects.is_empty() {
+                return Err(format!(
+                    "{label} checked resolution must name an SRD check and a state-changing failure"
+                ));
+            }
+        }
+        ThresholdMethodResolution::ExistingKernelOutcome { event_type } => {
+            if event_type != "gate.transition.applied" || !method.failure_effects.is_empty() {
+                return Err(format!(
+                    "{label} existing kernel outcome must bind gate.transition.applied"
+                ));
+            }
+        }
+    }
+    if method
+        .requirements
+        .clauses
+        .iter()
+        .any(|predicate| matches!(predicate, ThresholdPredicate::ExactItem { .. }))
+        && (!matches!(
+            &offer.resolution,
+            ThresholdMethodResolution::Certain
+                | ThresholdMethodResolution::ExistingKernelOutcome { .. }
+        ) || !offer.consequence.to_ascii_lowercase().contains("quiet"))
+    {
+        return Err(format!(
+            "{label} exact-item methods must be certain and explicitly quiet"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_slot(
     slot: &ThresholdSlotRef,
     owner_kind: &str,
@@ -690,6 +837,9 @@ fn validate_method(
     validate_effects(&method.success_effects, pack_id, known_ids, label)?;
     if !method.failure_effects.is_empty() {
         validate_effects(&method.failure_effects, pack_id, known_ids, label)?;
+    }
+    if let Some(offer) = &method.offer {
+        validate_method_offer(method, offer, label)?;
     }
     match (&method.recovery_ref, method.recovery_version) {
         (None, None) => {}
@@ -1100,12 +1250,57 @@ fn validate_existing_intent(intent: &AcceptedThresholdIntent) -> Result<(), Stri
             .requirement_facts
             .keys()
             .any(|key| !ACCEPTED_FACTS.contains(&key.as_str()))
+        || intent
+            .method_contract
+            .as_ref()
+            .is_some_and(|contract| !valid_frozen_method_contract(contract))
     {
         return Err(
             "accepted threshold intent uses an unknown version or is incomplete".to_string(),
         );
     }
     Ok(())
+}
+
+fn valid_frozen_method_contract(contract: &ThresholdMethodOfferContract) -> bool {
+    if contract.schema_version != 1
+        || contract.procedure != "open_v1"
+        || !valid_token(&contract.label, 96)
+        || !valid_token(&contract.requirement, 256)
+        || contract.economy.played_time_turns != 1
+        || !valid_token(&contract.effect, 256)
+        || !valid_token(&contract.consequence, 256)
+    {
+        return false;
+    }
+    match &contract.resolution {
+        ThresholdMethodResolution::Certain => true,
+        ThresholdMethodResolution::SrdCheck {
+            rules_action,
+            ability,
+            dc,
+        }
+        | ThresholdMethodResolution::ConsequenceAvoidanceCheck {
+            rules_action,
+            ability,
+            dc,
+        } => {
+            valid_token(rules_action, 96)
+                && matches!(
+                    ability.as_str(),
+                    "strength"
+                        | "dexterity"
+                        | "constitution"
+                        | "intelligence"
+                        | "wisdom"
+                        | "charisma"
+                )
+                && (1..=i16::MAX as u16).contains(dc)
+        }
+        ThresholdMethodResolution::ExistingKernelOutcome { event_type } => {
+            event_type == "gate.transition.applied"
+        }
+    }
 }
 
 pub(crate) fn threshold_kernel_id(value: &str) -> u64 {
@@ -1144,6 +1339,52 @@ fn threshold_intent_matches_kernel_action(
             || threshold_kernel_id(&intent.id) == action.threshold.claim_id)
 }
 
+fn threshold_method_contract_matches_action(
+    intent: &AcceptedThresholdIntent,
+    action: &CwAction,
+) -> bool {
+    if action.threshold.reserved[1..]
+        .iter()
+        .any(|value| *value != 0)
+    {
+        return false;
+    }
+    let Some(contract) = intent.method_contract.as_ref() else {
+        return action.threshold.reserved[0] == CW_GATE_METHOD_RESOLUTION_CERTAIN
+            && action.dc == 0
+            && action.modifier == 0
+            && action.roll_mode == CW_ROLL_NORMAL;
+    };
+    match &contract.resolution {
+        ThresholdMethodResolution::Certain => {
+            action.threshold.reserved[0] == CW_GATE_METHOD_RESOLUTION_CERTAIN
+                && action.dc == 0
+                && action.modifier == 0
+                && action.roll_mode == CW_ROLL_NORMAL
+        }
+        ThresholdMethodResolution::ExistingKernelOutcome { .. } => {
+            action.threshold.reserved[0] == CW_GATE_METHOD_RESOLUTION_EXISTING_KERNEL_OUTCOME
+                && action.dc == 0
+                && action.modifier == 0
+                && action.roll_mode == CW_ROLL_NORMAL
+        }
+        ThresholdMethodResolution::SrdCheck { ability, dc, .. } => {
+            action.threshold.reserved[0] == CW_GATE_METHOD_RESOLUTION_SRD_CHECK
+                && action.ability == ability_from_string(ability)
+                && action.dc == *dc
+                && action.modifier == 0
+                && action.roll_mode == CW_ROLL_NORMAL
+        }
+        ThresholdMethodResolution::ConsequenceAvoidanceCheck { ability, dc, .. } => {
+            action.threshold.reserved[0] == CW_GATE_METHOD_RESOLUTION_CONSEQUENCE_AVOIDANCE_CHECK
+                && action.ability == ability_from_string(ability)
+                && action.dc == *dc
+                && action.modifier == 0
+                && action.roll_mode == CW_ROLL_NORMAL
+        }
+    }
+}
+
 pub(crate) fn threshold_record_preconditions_hold(record: &JournalRecord) -> bool {
     let action = &record.action;
     if action.threshold.gate_id == 0 {
@@ -1160,6 +1401,7 @@ pub(crate) fn threshold_record_preconditions_hold(record: &JournalRecord) -> boo
             &record.rules_profile,
             &record.worldpack_bundle_hash,
         )
+        || !threshold_method_contract_matches_action(intent, action)
     {
         return false;
     }
@@ -1267,6 +1509,10 @@ pub(super) fn accepted_intent_for_kernel_binding(
         scope: source.scope.clone(),
         scope_id,
         selected_method: selected_method.to_string(),
+        method_contract: source
+            .method_contracts
+            .get(&action.threshold.method_id)
+            .cloned(),
         target: source.target.clone(),
         accepted_turn,
         requirement_facts,
@@ -1312,6 +1558,51 @@ impl RuntimeWorld {
         {
             unsafe { cw_world_access_changed(&mut self.world) };
         }
+    }
+
+    pub(crate) fn apply_threshold_method_resolution_projection(
+        &mut self,
+        record: &JournalRecord,
+        committed_events: &[EventView],
+    ) -> Vec<EventView> {
+        if record.action.kind != CW_ACTION_GATE_TRANSITION {
+            return Vec::new();
+        }
+        let Some(contract) = record
+            .threshold_intent
+            .as_ref()
+            .and_then(|intent| intent.method_contract.as_ref())
+        else {
+            return Vec::new();
+        };
+        let check = committed_events.iter().find(|event| {
+            event.type_name == "ability_check.rolled"
+                && event.actor_id == Some(record.action.actor_id)
+        });
+        let avoided_consequence = check.is_none_or(|event| event.success);
+        let transition_applied = committed_events
+            .iter()
+            .any(|event| event.type_name == "gate.transition.applied");
+        let content = match (
+            &contract.resolution,
+            avoided_consequence,
+            transition_applied,
+        ) {
+            (ThresholdMethodResolution::ConsequenceAvoidanceCheck { .. }, false, true) => format!(
+                "{} Consequence: {}",
+                contract.effect.trim_end_matches(['.', '!', '?']),
+                contract.consequence
+            ),
+            (_, false, false) => contract.consequence.clone(),
+            (_, _, true) => contract.effect.clone(),
+            _ => return Vec::new(),
+        };
+        vec![self.append_async_job_event(
+            "threshold.method.resolved",
+            record.action.actor_id,
+            None,
+            Some(content),
+        )]
     }
 
     fn threshold_item_handle(&self, canonical_ref: &str) -> Option<u64> {
@@ -1515,6 +1806,7 @@ impl RuntimeWorld {
     ) -> Result<CompiledThresholdMethods, String> {
         let mut compiled = Vec::with_capacity(gate.methods.len());
         let mut names = BTreeMap::new();
+        let mut contracts = BTreeMap::new();
         let mut facts = BTreeMap::new();
         for method in &gate.methods {
             let method_id = threshold_kernel_id(&format!("{}:{}", gate.id, method.id));
@@ -1532,9 +1824,12 @@ impl RuntimeWorld {
                 }
             }
             names.insert(method_id, method.id.clone());
+            if let Some(contract) = &method.offer {
+                contracts.insert(method_id, contract.clone());
+            }
             compiled.push(definition);
         }
-        Ok((compiled, names, facts))
+        Ok((compiled, names, contracts, facts))
     }
 
     pub(crate) fn ensure_seed_threshold_gates(&mut self) {
@@ -1604,7 +1899,7 @@ impl RuntimeWorld {
                         "{}:{from_location_id}:{to_location_id}:{target_item_id}",
                         authored.id
                     ));
-                    let (methods, method_names, facts) = self
+                    let (methods, method_names, method_contracts, facts) = self
                         .compile_threshold_methods(authored, from_location_id)
                         .unwrap_or_else(|error| panic!("threshold gate {}: {error}", authored.id));
                     self.threshold_gate_sources
@@ -1616,8 +1911,10 @@ impl RuntimeWorld {
                             pack_version: pack.version.clone(),
                             pack_integrity: pack.integrity.clone(),
                             scope: authored.scope.clone(),
+                            transition: authored.transition.clone(),
                             target: authored.target_ref.clone(),
                             methods: method_names,
+                            method_contracts,
                             facts,
                         });
                     if self.world.gates[..self.world.gate_count]
@@ -1661,6 +1958,330 @@ impl RuntimeWorld {
                 }
             }
         }
+    }
+
+    pub(crate) fn threshold_method_offers_for_exit_with_access(
+        &self,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+        access: &AccessContext,
+    ) -> Vec<ProjectedThresholdMethod> {
+        let Some(gate) = self.world.gates[..self.world.gate_count]
+            .iter()
+            .find(|gate| {
+                gate.target_kind == CW_GATE_TARGET_EXIT
+                    && gate.from_location_id == from_location_id
+                    && gate.to_location_id == to_location_id
+            })
+        else {
+            return Vec::new();
+        };
+        let mut gate_state = CwGateDecision::default();
+        if unsafe {
+            cw_gate_evaluate(
+                &self.world,
+                gate.id,
+                actor_id,
+                std::ptr::null(),
+                0,
+                0,
+                &mut gate_state,
+            )
+        } != CW_OK
+            || (gate_state.allowed != 0 && gate_state.method_id == 0)
+        {
+            return Vec::new();
+        }
+        let Some(source) = self.threshold_gate_sources.get(&gate.id) else {
+            return Vec::new();
+        };
+        self.world.gate_methods[gate.method_start..gate.method_start + gate.method_count]
+            .iter()
+            .filter_map(|method| {
+                let contract = source.method_contracts.get(&method.id)?.clone();
+                let method_name = source.methods.get(&method.id)?.clone();
+                let facts = self.threshold_facts_for_method(gate, method, actor_id, access);
+                let mut decision = CwGateDecision::default();
+                if unsafe {
+                    cw_gate_evaluate(
+                        &self.world,
+                        gate.id,
+                        actor_id,
+                        facts.as_ptr(),
+                        facts.len(),
+                        method.id,
+                        &mut decision,
+                    )
+                } != CW_OK
+                {
+                    return None;
+                }
+                let already_resolved = self.world.gate_claims
+                    [..self.world.gate_claim_count]
+                    .iter()
+                    .any(|claim| {
+                        claim.gate_id == gate.id
+                            && claim.actor_id == actor_id
+                            && claim.method_id == method.id
+                            && claim.reserved[0] == CW_GATE_CLAIM_OUTCOME_FAILED_METHOD
+                    });
+                let allowed = decision.allowed != 0 && !already_resolved;
+                let disabled_reason = if already_resolved {
+                    Some(
+                        "This method already resolved against the current threshold; choose another method."
+                            .to_string(),
+                    )
+                } else if decision.allowed == 0 {
+                    Some(format!(
+                        "Requires {}.",
+                        contract.requirement.trim_end_matches(['.', '!', '?'])
+                    ))
+                } else {
+                    None
+                };
+                Some(ProjectedThresholdMethod {
+                    binding: ThresholdOfferBinding {
+                        actor_id,
+                        gate_id: decision.gate_id,
+                        method_id: decision.method_id,
+                        gate_version: decision.gate_version,
+                        access_revision: decision.access_revision,
+                        evidence_digest: decision.evidence_digest,
+                        facts,
+                    },
+                    offer: ThresholdMethodOfferView {
+                        component: "gate".to_string(),
+                        descriptor_id: source.descriptor_id.clone(),
+                        descriptor_version: source.descriptor_version,
+                        method: method_name,
+                        method_id: method.id,
+                        target: source.target.clone(),
+                        requirement: contract.requirement,
+                        economy: contract.economy,
+                        resolution: contract.resolution,
+                        effect: contract.effect,
+                        consequence: contract.consequence,
+                    },
+                    allowed,
+                    disabled_reason,
+                })
+            })
+            .collect()
+    }
+
+    pub(crate) fn threshold_method_action_offers(
+        &self,
+        actor_id: u64,
+        access: &AccessContext,
+    ) -> Vec<RankedActionOffer> {
+        let Some(actor) = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_can_act(*actor))
+        else {
+            return Vec::new();
+        };
+        let state_revision = self.current_state_revision();
+        let mut offers = Vec::new();
+        for exit in self
+            .exit_views(Some(actor_id), actor.location_id, access)
+            .into_iter()
+            .filter(|exit| exit.distance <= 1 && exit.threshold.is_some())
+        {
+            for projected in self.threshold_method_offers_for_exit_with_access(
+                actor_id,
+                actor.location_id,
+                exit.destination_location_id,
+                access,
+            ) {
+                let source = self
+                    .threshold_gate_sources
+                    .get(&projected.binding.gate_id)
+                    .expect("projected threshold method has source authority");
+                let method_label = source
+                    .method_contracts
+                    .get(&projected.binding.method_id)
+                    .map(|contract| contract.label.as_str())
+                    .unwrap_or(projected.offer.method.as_str());
+                let target = ActionTargetView {
+                    kind: "location".to_string(),
+                    id: Some(exit.destination_location_id),
+                    label: Some(exit.route_label.clone()),
+                };
+                let command = normalize_command_text(&format!(
+                    "open {} with {}",
+                    exit.route_label, method_label
+                ));
+                let mut disabled_reason = projected.disabled_reason.clone();
+                if !exit.accessible {
+                    disabled_reason = exit
+                        .access_reason
+                        .clone()
+                        .or_else(|| Some("The destination is not accessible.".to_string()));
+                }
+                let disabled = !projected.allowed || !exit.accessible;
+                let mut offer = self.ranked_offer_from_parts(
+                    "open",
+                    method_label,
+                    &command,
+                    action_offer_rank("open"),
+                    disabled,
+                    disabled_reason,
+                    Some(target.clone()),
+                    None,
+                    Some(projected.offer.consequence.clone()),
+                    Some(projected.offer.effect.clone()),
+                    None,
+                    "authored threshold method projected from current kernel evidence",
+                );
+                let local_id = format!(
+                    "open:{}:{}:{}",
+                    projected.binding.gate_id,
+                    projected.binding.method_id,
+                    exit.destination_location_id
+                );
+                offer.id = local_id.clone();
+                offer.offer_id = format!(
+                    "{}:{}:{}",
+                    active_content().manifest.rules_profile,
+                    state_revision,
+                    local_id
+                );
+                offer.intention = "open".to_string();
+                offer.category = "interaction".to_string();
+                offer.verb = "Open".to_string();
+                offer.label = method_label.to_string();
+                offer.accessible_label = format!("Open {} with {}", exit.route_label, method_label);
+                offer.source = "threshold_descriptor+kernel_evidence".to_string();
+                offer.provider = action_provider(
+                    "worldpack",
+                    format!(
+                        "threshold:{}@{}",
+                        source.descriptor_id, source.descriptor_version
+                    ),
+                    "Authored threshold",
+                    format!(
+                        "Method authored by {} {}",
+                        source.pack_id, source.pack_version
+                    ),
+                    20,
+                );
+                offer.route = Some(RouteOfferBinding {
+                    route_id: exit.route_id.clone(),
+                    route_version: exit.route_version,
+                    directionality: self
+                        .routes
+                        .get(&exit.route_id)
+                        .map(|route| route.directionality)
+                        .unwrap_or_default(),
+                    fallback_location_id: self
+                        .routes
+                        .get(&exit.route_id)
+                        .and_then(|route| route.fallback_location_id),
+                    threshold: Some(projected.binding),
+                });
+                offer.threshold_method = Some(projected.offer);
+                offer.composition_trace.target = Some(target);
+                offer.ranked_hand_eligible = true;
+                offers.push(offer);
+            }
+        }
+        offers
+    }
+
+    pub(crate) fn plan_threshold_method_offer_action(
+        &self,
+        actor_id: u64,
+        offer: &RankedActionOffer,
+    ) -> Result<CwAction, String> {
+        if offer.kind != "open" || !action_offer_is_reachable(offer) {
+            return Err("Open needs a current enabled threshold method offer.".to_string());
+        }
+        let method = offer
+            .threshold_method
+            .as_ref()
+            .ok_or_else(|| "Open is missing its authored method contract.".to_string())?;
+        let binding = offer
+            .route
+            .as_ref()
+            .and_then(|route| route.threshold.as_ref())
+            .ok_or_else(|| "Open is missing its exact kernel binding.".to_string())?;
+        if binding.actor_id != actor_id || binding.method_id != method.method_id {
+            return Err("Open method binding no longer matches this actor.".to_string());
+        }
+        let source = self
+            .threshold_gate_sources
+            .get(&binding.gate_id)
+            .ok_or_else(|| "Open method authority is no longer mounted.".to_string())?;
+        let transition = match source.transition.as_str() {
+            "open" | "unlock" | "cross" | "unseal" => CW_GATE_TRANSITION_OPEN,
+            "install" => CW_GATE_TRANSITION_INSTALL,
+            "consume" => CW_GATE_TRANSITION_EXHAUST,
+            _ => return Err("Open method has an unsupported transition.".to_string()),
+        };
+        let gate = self.world.gates[..self.world.gate_count]
+            .iter()
+            .find(|gate| gate.id == binding.gate_id)
+            .ok_or_else(|| "Open target is no longer present.".to_string())?;
+        let kernel_method = self.world.gate_methods
+            [gate.method_start..gate.method_start + gate.method_count]
+            .iter()
+            .find(|candidate| candidate.id == binding.method_id)
+            .ok_or_else(|| "Open method is no longer present.".to_string())?;
+        let item_id = if matches!(
+            transition,
+            CW_GATE_TRANSITION_INSTALL | CW_GATE_TRANSITION_EXHAUST
+        ) {
+            self.world.gate_predicates[kernel_method.predicate_start
+                ..kernel_method.predicate_start + kernel_method.predicate_count]
+                .iter()
+                .find(|predicate| {
+                    matches!(
+                        predicate.kind,
+                        CW_GATE_PREDICATE_HELD_ITEM
+                            | CW_GATE_PREDICATE_INSTALLED_ITEM
+                            | CW_GATE_PREDICATE_MINIMUM_CHARGES
+                    )
+                })
+                .map(|predicate| predicate.subject_id)
+                .filter(|item_id| *item_id != 0)
+                .ok_or_else(|| {
+                    "Open transition requires one exact authored item binding.".to_string()
+                })?
+        } else {
+            0
+        };
+        let mut action = CwAction {
+            kind: CW_ACTION_GATE_TRANSITION,
+            actor_id,
+            item_id,
+            ..CwAction::default()
+        };
+        bind_threshold_action(&mut action, binding)?;
+        action.threshold.transition = transition;
+        match &method.resolution {
+            ThresholdMethodResolution::Certain => {
+                action.threshold.reserved[0] = CW_GATE_METHOD_RESOLUTION_CERTAIN;
+            }
+            ThresholdMethodResolution::ExistingKernelOutcome { .. } => {
+                action.threshold.reserved[0] = CW_GATE_METHOD_RESOLUTION_EXISTING_KERNEL_OUTCOME;
+            }
+            ThresholdMethodResolution::SrdCheck { ability, dc, .. } => {
+                action.threshold.reserved[0] = CW_GATE_METHOD_RESOLUTION_SRD_CHECK;
+                action.ability = ability_from_string(ability.as_str());
+                action.dc = dc.to_owned();
+            }
+            ThresholdMethodResolution::ConsequenceAvoidanceCheck { ability, dc, .. } => {
+                action.threshold.reserved[0] =
+                    CW_GATE_METHOD_RESOLUTION_CONSEQUENCE_AVOIDANCE_CHECK;
+                action.ability = ability_from_string(ability.as_str());
+                action.dc = dc.to_owned();
+            }
+        }
+        if !self.threshold_action_is_current_and_allowed(&action) {
+            return Err("Open method evidence is no longer current.".to_string());
+        }
+        Ok(action)
     }
 }
 
@@ -1724,6 +2345,7 @@ pub(super) fn freeze_threshold_intent(
         scope: scope.to_string(),
         scope_id: request.scope_id.to_string(),
         selected_method: request.selected_method.to_string(),
+        method_contract: None,
         target: target.clone(),
         accepted_turn: request.accepted_turn,
         requirement_facts: request.requirement_facts,
@@ -1840,16 +2462,146 @@ mod tests {
                 pack_version: "1.0.0".to_string(),
                 pack_integrity: "sha256:test".to_string(),
                 scope: "holder".to_string(),
+                transition: "cross".to_string(),
                 target: ThresholdTargetRef {
                     kind: "route".to_string(),
                     id: "test:route/cottage-garden".to_string(),
                     version: 1,
                 },
                 methods: BTreeMap::from([(method_id, "present_token".to_string())]),
+                method_contracts: BTreeMap::new(),
                 facts: BTreeMap::new(),
             },
         );
         (gate_id, method_id)
+    }
+
+    fn method_offer_contract(
+        label: &str,
+        requirement: &str,
+        resolution: ThresholdMethodResolution,
+        consequence: &str,
+    ) -> ThresholdMethodOfferContract {
+        ThresholdMethodOfferContract {
+            schema_version: 1,
+            procedure: "open_v1".to_string(),
+            label: label.to_string(),
+            requirement: requirement.to_string(),
+            economy: ThresholdMethodEconomy {
+                played_time_turns: 1,
+            },
+            resolution,
+            effect: "The garden threshold opens.".to_string(),
+            consequence: consequence.to_string(),
+        }
+    }
+
+    fn install_concrete_method_gate(runtime: &mut RuntimeWorld) -> (u64, u64, u64) {
+        let destination_location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        assert!(runtime.world.exits[..runtime.world.exit_count]
+            .iter()
+            .any(|exit| {
+                exit.from_location_id == COSY_COTTAGE_LOCATION_ID
+                    && exit.to_location_id == destination_location_id
+            }));
+        let gate_id = threshold_kernel_id("test:gate/concrete-methods");
+        let key_method_id = threshold_kernel_id("test:gate/concrete-methods:exact-key");
+        let tool_method_id = threshold_kernel_id("test:gate/concrete-methods:fine-tools");
+        let gate = CwGate {
+            id: gate_id,
+            version: 1,
+            descriptor_version: 1,
+            target_kind: CW_GATE_TARGET_EXIT,
+            scope: CW_GATE_SCOPE_HOLDER,
+            state: CW_GATE_STATE_CLOSED,
+            from_location_id: COSY_COTTAGE_LOCATION_ID,
+            to_location_id: destination_location_id,
+            ..CwGate::default()
+        };
+        let mut key_method = CwGateMethodDefinition {
+            id: key_method_id,
+            predicate_count: 1,
+            ..CwGateMethodDefinition::default()
+        };
+        key_method.predicates[0] = CwGatePredicate {
+            kind: CW_GATE_PREDICATE_HELD_ITEM,
+            subject_id: HEARTH_TONIC_ITEM_ID,
+            ..CwGatePredicate::default()
+        };
+        let mut tool_method = CwGateMethodDefinition {
+            id: tool_method_id,
+            predicate_count: 1,
+            ..CwGateMethodDefinition::default()
+        };
+        tool_method.predicates[0] = CwGatePredicate {
+            kind: CW_GATE_PREDICATE_HELD_ITEM,
+            subject_id: DEWBRIGHT_BUTTON_ITEM_ID,
+            ..CwGatePredicate::default()
+        };
+        let methods = [key_method, tool_method];
+        assert_eq!(
+            unsafe {
+                cw_world_set_gate(&mut runtime.world, &gate, methods.as_ptr(), methods.len())
+            },
+            CW_OK
+        );
+        runtime.threshold_gate_sources.insert(
+            gate_id,
+            ThresholdGateSource {
+                descriptor_id: "test:gate/concrete-methods".to_string(),
+                descriptor_version: 1,
+                pack_id: "test".to_string(),
+                pack_version: "1.0.0".to_string(),
+                pack_integrity: "sha256:test".to_string(),
+                scope: "holder".to_string(),
+                transition: "open".to_string(),
+                target: ThresholdTargetRef {
+                    kind: "route".to_string(),
+                    id: "test:route/cottage-visible-edge".to_string(),
+                    version: 1,
+                },
+                methods: BTreeMap::from([
+                    (key_method_id, "use_exact_key".to_string()),
+                    (tool_method_id, "use_fine_tools".to_string()),
+                ]),
+                method_contracts: BTreeMap::from([
+                    (
+                        key_method_id,
+                        method_offer_contract(
+                            "Use the exact key",
+                            "Carry the exact key.",
+                            ThresholdMethodResolution::Certain,
+                            "The exact key turns quietly with no additional consequence.",
+                        ),
+                    ),
+                    (
+                        tool_method_id,
+                        method_offer_contract(
+                            "Work with fine tools",
+                            "Carry a set of fine tools.",
+                            ThresholdMethodResolution::SrdCheck {
+                                rules_action: "Use an Object".to_string(),
+                                ability: "dexterity".to_string(),
+                                dc: i16::MAX as u16,
+                            },
+                            "The tools slip, consume time, and cannot be tried again immediately.",
+                        ),
+                    ),
+                ]),
+                facts: BTreeMap::new(),
+            },
+        );
+        (gate_id, key_method_id, tool_method_id)
+    }
+
+    fn hold_seed_item(runtime: &mut RuntimeWorld, actor_id: u64, item_id: u64) {
+        let item = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == item_id)
+            .expect("seed threshold item");
+        item.holder_actor_id = actor_id;
+        item.location_id = 0;
+        item.zone = CW_CARD_ZONE_CARRIED;
     }
 
     fn bind_threshold(
@@ -1969,12 +2721,14 @@ mod tests {
                 pack_version: "1.0.0".to_string(),
                 pack_integrity: "sha256:test".to_string(),
                 scope: "actor".to_string(),
+                transition: "cross".to_string(),
                 target: ThresholdTargetRef {
                     kind: "route".to_string(),
                     id: "test:route/projection-facts".to_string(),
                     version: 1,
                 },
                 methods: BTreeMap::from([(method_id, "qualify".to_string())]),
+                method_contracts: BTreeMap::new(),
                 facts: BTreeMap::from([
                     (
                         tag_fact_id,
@@ -2183,6 +2937,289 @@ mod tests {
     }
 
     #[test]
+    fn concrete_methods_have_one_certified_offer_and_surface_parity() {
+        let mut runtime = Box::new(RuntimeWorld::seeded());
+        create_test_human(
+            &mut runtime,
+            5_100,
+            COSY_COTTAGE_LOCATION_ID,
+            "Method Tester",
+        );
+        hold_seed_item(&mut runtime, 5_100, HEARTH_TONIC_ITEM_ID);
+        let (_, key_method_id, tool_method_id) = install_concrete_method_gate(&mut runtime);
+        runtime.mark_route_discovered_for_edge(
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            5_100,
+            1,
+            "threshold-method-test",
+        );
+        let access = AccessContext::default();
+
+        let projected = runtime.threshold_method_offers_for_exit_with_access(
+            5_100,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            &access,
+        );
+        assert_eq!(
+            projected.len(),
+            2,
+            "kernel methods must project independently"
+        );
+        let exit = runtime
+            .exit_views(Some(5_100), COSY_COTTAGE_LOCATION_ID, &access)
+            .into_iter()
+            .find(|exit| exit.destination_location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("visible fixture edge");
+        assert!(exit.threshold.is_some());
+        assert!(
+            exit.distance <= 1,
+            "threshold methods require an adjacent edge"
+        );
+        let offers = runtime.threshold_method_action_offers(5_100, &access);
+        assert_eq!(offers.len(), 2);
+        let key_offer = offers
+            .iter()
+            .find(|offer| {
+                offer
+                    .threshold_method
+                    .as_ref()
+                    .is_some_and(|method| method.method_id == key_method_id)
+            })
+            .expect("exact-key offer");
+        let tool_offer = offers
+            .iter()
+            .find(|offer| {
+                offer
+                    .threshold_method
+                    .as_ref()
+                    .is_some_and(|method| method.method_id == tool_method_id)
+            })
+            .expect("fine-tools offer");
+        assert!(!key_offer.disabled);
+        assert!(key_offer.cost.is_none());
+        assert_eq!(
+            key_offer
+                .threshold_method
+                .as_ref()
+                .expect("method contract")
+                .resolution,
+            ThresholdMethodResolution::Certain
+        );
+        assert!(key_offer
+            .threshold_method
+            .as_ref()
+            .expect("method contract")
+            .consequence
+            .contains("quietly"));
+        assert!(tool_offer.disabled);
+        assert!(tool_offer.disabled_reason.is_some());
+
+        let planned = runtime
+            .plan_threshold_method_offer_action(5_100, key_offer)
+            .expect("exact-key action");
+        assert_eq!(planned.kind, CW_ACTION_GATE_TRANSITION);
+        assert_eq!(
+            planned.threshold.reserved[0],
+            CW_GATE_METHOD_RESOLUTION_CERTAIN
+        );
+
+        let terminal = runtime
+            .resolve_command(
+                &CommandRequest {
+                    actor_id: 5_100,
+                    actor_session: None,
+                    command: "open".to_string(),
+                    offer_id: None,
+                    wallet_address: None,
+                    wallet: None,
+                    wallet_session: None,
+                    owned_card_ids: None,
+                    cards: None,
+                    envelope: None,
+                },
+                &access,
+            )
+            .expect("terminal open");
+        let CommandDispatch::OpenThreshold {
+            action: terminal_action,
+        } = terminal.dispatch
+        else {
+            panic!("terminal must dispatch the exact threshold action");
+        };
+        assert_eq!(
+            serde_json::to_value(*terminal_action).expect("terminal action"),
+            serde_json::to_value(planned).expect("planned action")
+        );
+
+        let api = runtime
+            .resolve_command_submission(
+                &CommandRequest {
+                    actor_id: 5_100,
+                    actor_session: None,
+                    command: String::new(),
+                    offer_id: Some(key_offer.offer_id.clone()),
+                    wallet_address: None,
+                    wallet: None,
+                    wallet_session: None,
+                    owned_card_ids: None,
+                    cards: None,
+                    envelope: None,
+                },
+                &access,
+                None,
+            )
+            .expect("API offer submission");
+        let CommandDispatch::OpenThreshold { action: api_action } = api.dispatch else {
+            panic!("API must dispatch the exact threshold action");
+        };
+        assert_eq!(
+            serde_json::to_value(*api_action).expect("API action"),
+            serde_json::to_value(planned).expect("planned action")
+        );
+
+        let actor = runtime.actor_by_id(5_100).expect("method actor");
+        let resident_record = runtime
+            .resident_record_for_shared_offer(actor, key_offer, 71_591)
+            .expect("resident inference uses the shared offer");
+        assert_eq!(
+            serde_json::to_value(resident_record.action).expect("resident action"),
+            serde_json::to_value(planned).expect("planned action")
+        );
+
+        let mut record = JournalRecord::new(planned, 71_592);
+        runtime.bind_threshold_intent(&mut record);
+        assert!(record
+            .threshold_intent
+            .as_ref()
+            .and_then(|intent| intent.method_contract.as_ref())
+            .is_some());
+        let mut malformed_contract = record.clone();
+        malformed_contract
+            .threshold_intent
+            .as_mut()
+            .and_then(|intent| intent.method_contract.as_mut())
+            .expect("frozen contract")
+            .label
+            .clear();
+        assert!(!threshold_record_preconditions_hold(&malformed_contract));
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "gate.transition.applied"));
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "threshold.method.resolved"));
+        assert!(runtime
+            .threshold_method_action_offers(5_100, &access)
+            .is_empty());
+        assert!(runtime
+            .legal_action_candidates(Some(5_100), &access)
+            .1
+            .iter()
+            .any(|offer| {
+                offer.kind == "move"
+                    && action_offer_is_reachable(offer)
+                    && offer.target.as_ref().and_then(|target| target.id)
+                        == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+            }));
+    }
+
+    #[test]
+    fn failed_checked_method_consumes_time_and_disables_identical_retry() {
+        let mut runtime = Box::new(RuntimeWorld::seeded());
+        create_test_human(&mut runtime, 5_101, COSY_COTTAGE_LOCATION_ID, "Tool Tester");
+        hold_seed_item(&mut runtime, 5_101, HEARTH_TONIC_ITEM_ID);
+        hold_seed_item(&mut runtime, 5_101, DEWBRIGHT_BUTTON_ITEM_ID);
+        let (gate_id, _, tool_method_id) = install_concrete_method_gate(&mut runtime);
+        runtime.mark_route_discovered_for_edge(
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            5_101,
+            1,
+            "threshold-method-test",
+        );
+        let access = AccessContext::default();
+        let tool_offer = runtime
+            .threshold_method_action_offers(5_101, &access)
+            .into_iter()
+            .find(|offer| {
+                offer
+                    .threshold_method
+                    .as_ref()
+                    .is_some_and(|method| method.method_id == tool_method_id)
+            })
+            .expect("enabled fine-tools offer");
+        assert!(!tool_offer.disabled);
+        let action = runtime
+            .plan_threshold_method_offer_action(5_101, &tool_offer)
+            .expect("fine-tools action");
+        assert_eq!(
+            action.threshold.reserved[0],
+            CW_GATE_METHOD_RESOLUTION_SRD_CHECK
+        );
+        assert_eq!(action.dc, i16::MAX as u16);
+
+        let mut record = JournalRecord::new(action, 71_593);
+        runtime.bind_threshold_intent(&mut record);
+        let mut altered_roll = record.clone();
+        altered_roll.action.roll_mode = CW_ROLL_ADVANTAGE;
+        assert!(!threshold_record_preconditions_hold(&altered_roll));
+        let tick_before = runtime.world.tick;
+        let access_before = runtime.world.access_revision;
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| { event.type_name == "ability_check.rolled" && !event.success }));
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "gate.transition.applied"));
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "threshold.method.resolved"));
+        assert!(runtime.world.tick > tick_before);
+        assert!(runtime.world.access_revision > access_before);
+        assert_eq!(runtime.world.gate_claim_count, 1);
+        assert_eq!(
+            runtime.world.gate_claims[0].reserved[0],
+            CW_GATE_CLAIM_OUTCOME_FAILED_METHOD
+        );
+        assert_eq!(
+            runtime.world.gates[..runtime.world.gate_count]
+                .iter()
+                .find(|gate| gate.id == gate_id)
+                .expect("concrete gate")
+                .state,
+            CW_GATE_STATE_CLOSED
+        );
+        let retried_offer = runtime
+            .threshold_method_action_offers(5_101, &access)
+            .into_iter()
+            .find(|offer| {
+                offer
+                    .threshold_method
+                    .as_ref()
+                    .is_some_and(|method| method.method_id == tool_method_id)
+            })
+            .expect("failed method remains explainable");
+        assert!(retried_offer.disabled);
+        assert!(runtime
+            .plan_threshold_method_offer_action(5_101, &retried_offer)
+            .is_err());
+
+        let retry_tick = runtime.world.tick;
+        let retry_revision = runtime.world.access_revision;
+        let (retry_status, retry_events) = runtime.apply_journal_record(&record);
+        assert_eq!(retry_status, CW_OK);
+        assert!(retry_events.is_empty());
+        assert_eq!(runtime.world.tick, retry_tick);
+        assert_eq!(runtime.world.access_revision, retry_revision);
+    }
+
+    #[test]
     fn fixture_covers_shared_threshold_primitives_and_examples() {
         let fixture = fixture();
         validate_threshold_descriptor_catalog(
@@ -2223,7 +3260,7 @@ mod tests {
                 grant_id: "test:grant/pass".to_string(),
             },
         ];
-        let (methods, names, facts) = runtime
+        let (methods, names, contracts, facts) = runtime
             .compile_threshold_methods(&gate, COSY_COTTAGE_LOCATION_ID)
             .expect("authored methods compile");
         assert_eq!(methods.len(), 1);
@@ -2233,6 +3270,7 @@ mod tests {
         assert_eq!(methods[0].predicates[2].kind, CW_GATE_PREDICATE_WORLD_FACT);
         assert_eq!(methods[0].predicates[3].kind, CW_GATE_PREDICATE_ACTOR_FACT);
         assert_eq!(names.len(), 1);
+        assert_eq!(contracts.len(), 1);
         assert_eq!(facts.len(), 3);
     }
 

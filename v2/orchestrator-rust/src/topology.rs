@@ -1864,7 +1864,7 @@ impl RuntimeWorld {
         )
     }
 
-    fn threshold_facts_for_method(
+    pub(super) fn threshold_facts_for_method(
         &self,
         gate: &CwGate,
         method: &CwGateMethod,
@@ -2059,6 +2059,11 @@ impl RuntimeWorld {
                 exit.flags & CW_EXIT_LOCKED == 0
                     || gate.compatibility == CW_GATE_COMPAT_RECORDED_LOCK
             });
+        let concrete_method_must_commit = decision.method_id != 0
+            && self
+                .threshold_gate_sources
+                .get(&gate.id)
+                .is_some_and(|source| source.method_contracts.contains_key(&decision.method_id));
         Some((
             ThresholdOfferBinding {
                 actor_id,
@@ -2069,7 +2074,7 @@ impl RuntimeWorld {
                 evidence_digest: decision.evidence_digest,
                 facts,
             },
-            decision.allowed != 0 && legacy_lock_allows,
+            decision.allowed != 0 && legacy_lock_allows && !concrete_method_must_commit,
         ))
     }
 

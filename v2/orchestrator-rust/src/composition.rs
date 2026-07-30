@@ -509,6 +509,7 @@ impl RuntimeWorld {
                     composition_id: String::new(),
                     state_revision,
                     route: None,
+                    threshold_method: None,
                     category: action_offer_category(&option.kind).to_string(),
                     intention,
                     kind: option.kind,
@@ -542,6 +543,7 @@ impl RuntimeWorld {
         offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
+        offers.extend(self.threshold_method_action_offers(actor_id, access));
         if let Some(reason) = self.rest_offer_unavailable_reason(actor_id) {
             let mut unavailable = self.ranked_offer_from_parts(
                 "rest",
@@ -629,6 +631,7 @@ impl RuntimeWorld {
                 composition_id: String::new(),
                 state_revision,
                 route,
+                threshold_method: None,
                 category: action_offer_category(kind).to_string(),
                 verb,
                 label,
@@ -778,6 +781,7 @@ impl RuntimeWorld {
             composition_id: String::new(),
             state_revision,
             route: None,
+            threshold_method: None,
             kind: kind.to_string(),
             intention: action_offer_intention(kind).to_string(),
             category: action_offer_category(kind).to_string(),

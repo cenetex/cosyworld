@@ -7,7 +7,7 @@ mod threshold_descriptors;
 pub(super) use threshold_descriptors::{
     threshold_kernel_id, threshold_record_claim_already_applied,
     threshold_record_preconditions_hold, AcceptedThresholdIntent, ThresholdFactSource,
-    ThresholdGateSource, ThresholdKernelSnapshot,
+    ThresholdGateSource, ThresholdKernelSnapshot, ThresholdMethodOfferView,
 };
 
 const LANTERN_KEEPER_PACK_ID: &str = "cosyworld.campaign.the-lantern-keeper";

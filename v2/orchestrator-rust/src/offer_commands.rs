@@ -145,6 +145,12 @@ fn dispatch_for_offer(
         "flee" => Ok(CommandDispatch::Flee {
             destination_location_id: required_target_id(offer, "location")?,
         }),
+        "open" => runtime
+            .plan_threshold_method_offer_action(actor_id, offer)
+            .map(|action| CommandDispatch::OpenThreshold {
+                action: Box::new(action),
+            })
+            .map_err(|_| invalid()),
         "check" => Ok(CommandDispatch::Check),
         "study" => Ok(CommandDispatch::Study),
         "influence" => Ok(CommandDispatch::Influence {

@@ -703,6 +703,124 @@ fn default_resident_continuity_path(snapshot_path: Option<&PathBuf>) -> PathBuf 
     snapshot_path.with_file_name(format!("{base}-resident-continuity.json"))
 }
 
+impl RuntimeWorld {
+    pub(crate) fn resident_pending_proposed_action(&self, actor: CwActor) -> Option<CwAction> {
+        let proposal = self
+            .resident_continuities
+            .get(&actor.id)
+            .and_then(|continuity| continuity.pending_action.as_ref())?;
+        match proposal.kind.as_str() {
+            "move" => {
+                let destination_location_id = proposal.destination_location_id?;
+                let next_location_id =
+                    self.next_unlocked_step_toward(actor.location_id, destination_location_id)?;
+                (next_location_id != actor.location_id).then_some(CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id: actor.id,
+                    destination_location_id: next_location_id,
+                    ..CwAction::default()
+                })
+            }
+            "pick_up" => {
+                let item_id = proposal.item_id?;
+                let item = self.item_by_id(item_id)?;
+                if item.location_id == actor.location_id
+                    && item.holder_actor_id == 0
+                    && !self.actor_inventory_full(actor.id)
+                {
+                    Some(CwAction {
+                        kind: CW_ACTION_PICK_UP_ITEM,
+                        actor_id: actor.id,
+                        item_id,
+                        ..CwAction::default()
+                    })
+                } else {
+                    None
+                }
+            }
+            "drop" => {
+                let item_id = proposal.item_id?;
+                self.actor_held_items(actor.id)
+                    .into_iter()
+                    .any(|item| item.id == item_id)
+                    .then_some(CwAction {
+                        kind: CW_ACTION_DROP_ITEM,
+                        actor_id: actor.id,
+                        item_id,
+                        ..CwAction::default()
+                    })
+            }
+            "give" => {
+                let target_actor_id = proposal.target_actor_id?;
+                let item_id = proposal.item_id?;
+                let target = self.actor_by_id(target_actor_id)?;
+                if target.status == CW_ACTOR_ACTIVE
+                    && target.location_id == actor.location_id
+                    && self
+                        .actor_held_items(actor.id)
+                        .into_iter()
+                        .any(|item| item.id == item_id)
+                {
+                    Some(CwAction {
+                        kind: CW_ACTION_GIVE_ITEM,
+                        actor_id: actor.id,
+                        target_actor_id,
+                        item_id,
+                        ..CwAction::default()
+                    })
+                } else {
+                    None
+                }
+            }
+            "trade" => {
+                let target_actor_id = proposal.target_actor_id?;
+                let item_id = proposal.item_id?;
+                let target_item_id = proposal.target_item_id?;
+                Some(CwAction {
+                    kind: CW_ACTION_TRADE_ITEM,
+                    actor_id: actor.id,
+                    target_actor_id,
+                    item_id,
+                    target_item_id,
+                    ..CwAction::default()
+                })
+            }
+            "use" => {
+                let item_id = proposal.item_id?;
+                if !self
+                    .actor_held_items(actor.id)
+                    .into_iter()
+                    .any(|item| item.id == item_id)
+                {
+                    return None;
+                }
+                Some(CwAction {
+                    kind: CW_ACTION_USE_ITEM,
+                    actor_id: actor.id,
+                    target_actor_id: proposal.target_actor_id.unwrap_or(0),
+                    item_id,
+                    ..CwAction::default()
+                })
+            }
+            "open" => {
+                let candidate_id = proposal.candidate_id.as_deref()?;
+                let offer = self
+                    .legal_action_candidates(Some(actor.id), &AccessContext::default())
+                    .1
+                    .into_iter()
+                    .find(|offer| {
+                        offer.kind == "open"
+                            && offer.offer_id == candidate_id
+                            && action_offer_is_reachable(offer)
+                    })?;
+                self.plan_threshold_method_offer_action(actor.id, &offer)
+                    .ok()
+            }
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

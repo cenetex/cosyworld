@@ -341,12 +341,52 @@
           {
             "id": "use_retained_key",
             "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Use the archive key",
+              "requirement": "the retained archive key",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "The archive door unlocks.",
+              "consequence": "The exact key turns quietly with no additional consequence."
+            },
             "requirements": {
               "mode": "all",
               "clauses": [
                 {
                   "kind": "exact_item",
                   "item_id": "fixture.discovery:item/archive-key"
+                }
+              ]
+            },
+            "success_effects": [
+              {
+                "kind": "set_gate_state",
+                "target_id": "fixture.discovery:gate/archive-door",
+                "state": "open"
+              }
+            ]
+          },
+          {
+            "id": "work_lock_with_fine_tools",
+            "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Work the lock with fine tools",
+              "requirement": "fine tools and enough played time",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "Careful tool work unlocks the archive door.",
+              "consequence": "The quiet work costs one turn; no danger or roll is involved."
+            },
+            "requirements": {
+              "mode": "all",
+              "clauses": [
+                {
+                  "kind": "item_capability",
+                  "capability": "fine-tools"
                 }
               ]
             },
@@ -400,6 +440,16 @@
           {
             "id": "install_relic",
             "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Seat the moon relic",
+              "requirement": "the moon relic aligned with the plinth",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "The relic seats and the plinth opens.",
+              "consequence": "The careful installation costs one turn and creates no danger."
+            },
             "requirements": {
               "mode": "all",
               "clauses": [
@@ -448,6 +498,19 @@
           {
             "id": "break_seal",
             "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Break the wax seal",
+              "requirement": "one charge from the seal breaker",
+              "economy": { "played_time_turns": 1 },
+              "resolution": {
+                "kind": "existing_kernel_outcome",
+                "event_type": "gate.transition.applied"
+              },
+              "effect": "The seal breaks and the tool charge is exhausted.",
+              "consequence": "The committed charge is spent; no roll or retry is involved."
+            },
             "requirements": {
               "mode": "all",
               "clauses": [
@@ -500,6 +563,16 @@
           {
             "id": "present_token",
             "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Present the threshold token",
+              "requirement": "the threshold token in hand",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "The holder may cross the threshold.",
+              "consequence": "The exact token is presented quietly with no additional consequence."
+            },
             "requirements": {
               "mode": "all",
               "clauses": [
@@ -540,6 +613,21 @@
           {
             "id": "disarm_needle",
             "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Disarm with fine tools",
+              "requirement": "fine tools and a steady hand",
+              "economy": { "played_time_turns": 1 },
+              "resolution": {
+                "kind": "srd_check",
+                "rules_action": "srd5.2.1:search",
+                "ability": "dexterity",
+                "dc": 12
+              },
+              "effect": "The needle mechanism is disarmed.",
+              "consequence": "Failure triggers the needle and removes this identical attempt."
+            },
             "requirements": {
               "mode": "all",
               "clauses": [
@@ -571,6 +659,16 @@
           {
             "id": "use_chest_key",
             "action": "use_item",
+            "offer": {
+              "schema_version": 1,
+              "procedure": "open_v1",
+              "label": "Use the chest key",
+              "requirement": "the exact chest key",
+              "economy": { "played_time_turns": 1 },
+              "resolution": { "kind": "certain" },
+              "effect": "The chest mechanism is bypassed.",
+              "consequence": "The exact key turns quietly with no additional consequence."
+            },
             "requirements": {
               "mode": "all",
               "clauses": [

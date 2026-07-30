@@ -131,4 +131,7 @@
 #
 # 73806 -> 73729: issue #589 adds threshold journal and snapshot wiring while
 # moving EventView's default and context projection into its owning views.rs seam.
-73729
+# 73729 -> 73653: issue #591 moves resident pending-action execution into the
+# existing residents/continuity.rs seam while adding only the shared Open
+# submission and threshold resolution wiring at the root boundary.
+73653

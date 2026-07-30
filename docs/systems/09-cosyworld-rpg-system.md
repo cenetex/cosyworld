@@ -367,7 +367,7 @@ bindings until those procedures land.
 | Scout | current `scout_v1` projection; target `scout_v2` | Pursue one exact geographic Lead from an Anchor or active foray and reveal one authorized segment or target without moving. |
 | Travel | kernel Move | Move through a revealed route whose Gate permits this actor or expedition. Travel never reveals the way. |
 | Mark | target `mark_v1` procedure | Leave a temporary expedition return cue on a traversed leg. It creates no topology, forward reveal, independent branch, or Anchor. |
-| Open | current kernel unlock where applicable; target `open_v1` Gate procedure | Apply one certified method to a door, seal, or container. Open does not reveal hidden contents or transfer them. |
+| Open | current append-only `open_v1` Gate transition | Apply one certified authored method to a door, seal, or container. Every offer freezes its exact Gate evidence, requirement, played-time economy, resolution policy, effect, consequence, and disabled reason. Exact keys resolve certainly and quietly; safe tool work resolves certainly but costs a turn; checked danger consumes the turn and disables the identical method after failure. Browser, terminal, API, and resident inference all submit the same action and accepted intent. Open never spends Orbs, reveals hidden contents, or transfers them. |
 | Take | kernel Pick Up Item | Transfer one revealed, accessible item after custody and capacity checks; never implicitly reveal, Open, equip, install, or use it. |
 | Give | kernel Give Item | Resident evolution, bonds, job delivery, covenant contribution. |
 | Use | kernel Use Item | Consumables, tools, relics, room effects. |

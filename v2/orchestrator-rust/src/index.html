@@ -6013,6 +6013,47 @@
           }
         }
       }
+      const thresholdOffers = (view.action_offers || []).filter((offer) => (
+        offer.kind === "open" && offer?.threshold_method
+      ));
+      for (const offer of thresholdOffers) {
+        const method = offer.threshold_method;
+        const targetLabel = String(offer?.target?.label || "the threshold").trim();
+        const turns = Number(method?.economy?.played_time_turns || 0);
+        built.push({
+          ...semanticAction(
+            offer,
+            "open",
+            `Open ${targetLabel} with ${String(offer.label || method.method || "the method")}`,
+          ),
+          label: String(offer.label || "open").toLowerCase(),
+          detail: [
+            String(method.requirement || "").trim(),
+            turns ? `${turns} played turn${turns === 1 ? "" : "s"}` : "free",
+          ].filter(Boolean).join(" · "),
+          command: offer.command,
+          focusKey: `threshold:${method.descriptor_id}:${method.method_id}`,
+          card: cardForLocation(Number(offer?.target?.id || view.location?.id)),
+          shape: "location",
+          priority: Number(offer.rank || 18),
+          disabled: Boolean(offer.disabled),
+          disabledReason: offer.disabled_reason,
+          modalTitle: String(offer.label || "open").toLowerCase(),
+          modalSummary: [
+            `Requires ${String(method.requirement || "the authored method").replace(/[.!?]+$/, "")}.`,
+            turns ? `Costs ${turns} played turn${turns === 1 ? "" : "s"}.` : "Costs no played time.",
+            `Result: ${method.effect}`,
+            `Risk: ${method.consequence}`,
+          ].join(" "),
+          effect: method.effect,
+          risk: method.consequence,
+          run: () => action("/actions/open", {
+            actor_id: actorId,
+            destination_location_id: Number(offer?.target?.id || 0),
+            threshold_method_id: Number(method.method_id || 0),
+          }),
+        });
+      }
       const routeExits = (view.exits || []).filter((exit) => (
         !exitUnavailable(exit, view)
         && !(journey
@@ -7208,6 +7249,7 @@
         "/actions/move": ["move"],
         "/actions/explore-path": ["explore_path"],
         "/actions/flee": ["flee"],
+        "/actions/open": ["open"],
         "/actions/check": ["check"],
         "/actions/study": ["study"],
         "/actions/influence": ["influence"],
@@ -7244,6 +7286,9 @@
           && targetKind === "location") {
         return Number(payload.destination_location_id || 0);
       }
+      if (path === "/actions/open" && targetKind === "location") {
+        return Number(payload.destination_location_id || 0);
+      }
       if (path === "/actions/craft" && targetKind === "recipe") return Number(payload.recipe_id || 0);
       if ((path === "/actions/pick-up" || path === "/actions/drop") && targetKind === "item") {
         return Number(payload.item_id || 0);
@@ -7267,6 +7312,9 @@
         const contributionMatches = path !== "/actions/contribute"
           || (String(offer?.project?.id || "") === String(payload.job_id || "")
             && String(offer?.project?.strategy_id || "") === String(payload.strategy_id || ""));
+        const thresholdMethodMatches = path !== "/actions/open"
+          || Number(offer?.threshold_method?.method_id || 0)
+            === Number(payload.threshold_method_id || 0);
         const submittedTarget = offerPayloadTarget(path, offer, payload);
         const targetMatches = !submittedTarget
           || !offer?.target?.id
@@ -7280,7 +7328,11 @@
           ) && String(offer.id || "").slice(
             `use_feature:${Number(payload.item_id || 0)}:${Number(payload.location_id || 0)}:`.length
           ) === String(payload.feature_key || "");
-        return contributionMatches && targetMatches && providerMatches && featureMatches;
+        return contributionMatches
+          && thresholdMethodMatches
+          && targetMatches
+          && providerMatches
+          && featureMatches;
       }) || null;
     }
 

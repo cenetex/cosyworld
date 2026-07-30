@@ -656,7 +656,7 @@ impl RuntimeWorld {
     }
 }
 
-fn bind_threshold_action(
+pub(super) fn bind_threshold_action(
     action: &mut CwAction,
     binding: &ThresholdOfferBinding,
 ) -> Result<(), String> {

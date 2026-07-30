@@ -471,7 +471,8 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         | CW_ACTION_GIVE_ITEM
         | CW_ACTION_TRADE_ITEM
         | CW_ACTION_CRAFT
-        | CW_ACTION_THEFT => ConcurrencyPolicy::TargetSerialized,
+        | CW_ACTION_THEFT
+        | CW_ACTION_GATE_TRANSITION => ConcurrencyPolicy::TargetSerialized,
         _ => ConcurrencyPolicy::Concurrent,
     }
 }
@@ -487,6 +488,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
             ConcurrencyPolicy::TargetSerialized
         }
         CommandDispatch::PickUp { .. }
+        | CommandDispatch::OpenThreshold { .. }
         | CommandDispatch::Drop { .. }
         | CommandDispatch::UseItem { .. }
         | CommandDispatch::UseFeature { .. }
@@ -1307,6 +1309,7 @@ pub(super) fn command_actor_turn_rejection(
         CommandDispatch::Attack { .. } => "attack",
         CommandDispatch::Defend => "defend",
         CommandDispatch::Flee { .. } => "flee",
+        CommandDispatch::OpenThreshold { .. } => "open",
         CommandDispatch::Check => "check",
         CommandDispatch::Study => "study",
         CommandDispatch::Prepare => "prepare",
