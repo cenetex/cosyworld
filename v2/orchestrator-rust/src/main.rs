@@ -185,7 +185,7 @@ struct AppState {
     last_snapshot_at_ms: Arc<AtomicU64>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     event_store_path: Option<Arc<PathBuf>>,
-    _event_store_keepalive: Option<Arc<StdMutex<Connection>>>,
+    event_store_writer: Option<Arc<StdMutex<Connection>>>,
     event_store_health: Arc<StdMutex<EventStoreHealth>>,
     account_auth: Arc<AccountAuth>,
     ownership_index: Arc<RwLock<OwnershipIndex>>,
@@ -5843,7 +5843,7 @@ impl AppState {
                 now,
             )?;
         }
-        let event_store_keepalive = event_store_path
+        let event_store_writer = event_store_path
             .as_deref()
             .map(|path| open_event_store_keepalive(path))
             .transpose()?;
@@ -5856,7 +5856,7 @@ impl AppState {
             last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path,
             event_store_path,
-            _event_store_keepalive: event_store_keepalive
+            event_store_writer: event_store_writer
                 .map(|connection| Arc::new(StdMutex::new(connection))),
             event_store_health: Arc::new(StdMutex::new(event_store_health)),
             account_auth,
@@ -39017,7 +39017,7 @@ fn commit_journal_record(
     let (status, events, _actor_job_inserted, committed_journal_seq) = if let Some(path) =
         state.event_store_path.as_deref()
     {
-        let mut conn = match open_event_store(path) {
+        let mut conn = match event_store_writer(state.event_store_writer.as_deref(), path) {
             Ok(conn) => conn,
             Err(error) => {
                 if let Some(context) = command_context.as_ref() {
@@ -73733,7 +73733,7 @@ mod tests {
             last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
             resident_continuity_path: None,
             event_store_path: None,
-            _event_store_keepalive: None,
+            event_store_writer: None,
             event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
             account_auth: AccountAuth::for_test(None),
             ownership_index: Arc::new(RwLock::new(initial)),
