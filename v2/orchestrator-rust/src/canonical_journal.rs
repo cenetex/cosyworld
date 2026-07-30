@@ -200,6 +200,18 @@ pub(super) fn init_canonical_journal(
             ON canonical_commits(world_id, world_epoch, last_world_seq);
         CREATE INDEX IF NOT EXISTS idx_canonical_commits_intent
             ON canonical_commits(world_id, intent_id);
+        CREATE TABLE IF NOT EXISTS canonical_compacted_commit_ranges (
+            commit_id TEXT PRIMARY KEY,
+            world_id TEXT NOT NULL,
+            world_epoch INTEGER NOT NULL,
+            first_world_seq INTEGER NOT NULL,
+            last_world_seq INTEGER NOT NULL,
+            action_journal_seq INTEGER NOT NULL UNIQUE
+        );
+        CREATE INDEX IF NOT EXISTS idx_canonical_compacted_commit_ranges_world_seq
+            ON canonical_compacted_commit_ranges(
+                world_id, world_epoch, last_world_seq
+            );
         CREATE TABLE IF NOT EXISTS canonical_process_routes (
             world_id TEXT NOT NULL,
             owner_id TEXT NOT NULL,

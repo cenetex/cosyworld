@@ -112,6 +112,7 @@ use generated_places::*;
 use generation_policy::*;
 use hosted_access::*;
 use jobs::*;
+use journal_checkpoint::{compact_event_store_after_snapshot, read_persistence_compaction_report};
 use kernel::*;
 use legacy_import::*;
 use local_leads::*;
@@ -2462,9 +2463,11 @@ struct MetaPersistence {
     compaction_enabled: bool,
     retained_world_event_limit: usize,
     action_journal_floor_seq: u64,
+    canonical_commit_floor_journal_seq: u64,
     world_event_floor_seq: u64,
     last_compacted_at_ms: Option<u64>,
     deleted_action_journal_rows: u64,
+    deleted_canonical_commit_rows: u64,
     deleted_world_event_rows: u64,
     event_store_bytes: Option<u64>,
     event_store_live_bytes: Option<u64>,
@@ -2495,9 +2498,11 @@ struct MetaEventStoreHealth {
 #[derive(Clone, Copy, Debug, Default)]
 struct PersistenceCompactionReport {
     action_journal_floor_seq: u64,
+    canonical_commit_floor_journal_seq: u64,
     world_event_floor_seq: u64,
     last_compacted_at_ms: Option<u64>,
     deleted_action_journal_rows: u64,
+    deleted_canonical_commit_rows: u64,
     deleted_world_event_rows: u64,
 }
 
@@ -23726,9 +23731,12 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             compaction_enabled: persistence_compaction_enabled(),
             retained_world_event_limit: retained_world_event_limit(),
             action_journal_floor_seq: compaction_report.action_journal_floor_seq,
+            canonical_commit_floor_journal_seq: compaction_report
+                .canonical_commit_floor_journal_seq,
             world_event_floor_seq: compaction_report.world_event_floor_seq,
             last_compacted_at_ms: compaction_report.last_compacted_at_ms,
             deleted_action_journal_rows: compaction_report.deleted_action_journal_rows,
+            deleted_canonical_commit_rows: compaction_report.deleted_canonical_commit_rows,
             deleted_world_event_rows: compaction_report.deleted_world_event_rows,
             event_store_bytes: storage_report.event_store_bytes,
             event_store_live_bytes: storage_report.event_store_live_bytes,
@@ -39569,13 +39577,16 @@ fn persist_runtime_with_policy(state: &AppState, runtime: &RuntimeWorld, force: 
             ) {
                 Ok(report)
                     if report.deleted_action_journal_rows > 0
+                        || report.deleted_canonical_commit_rows > 0
                         || report.deleted_world_event_rows > 0 =>
                 {
                     info!(
-                        "compacted CosyWorld persistence through journal {} and event {}; deleted {} journal row(s) and {} event row(s)",
+                        "compacted CosyWorld persistence through journal {}, canonical commit {}, and event {}; deleted {} journal row(s), {} canonical commit row(s), and {} event row(s)",
                         report.action_journal_floor_seq,
+                        report.canonical_commit_floor_journal_seq,
                         report.world_event_floor_seq,
                         report.deleted_action_journal_rows,
+                        report.deleted_canonical_commit_rows,
                         report.deleted_world_event_rows
                     );
                 }
@@ -39713,7 +39724,7 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
 /// Schema version stamped into `PRAGMA user_version` once the event-store
 /// DDL has run. Bump it when the DDL batch below gains a table so existing
 /// stores self-heal exactly once on the next initialize.
-const EVENT_STORE_SCHEMA_VERSION: i64 = 1;
+const EVENT_STORE_SCHEMA_VERSION: i64 = 2;
 
 /// Ensures the event-store schema exists. The DDL batch is idempotent but
 /// takes the write lock, so steady-state command commits skip it: a store
@@ -39783,9 +39794,11 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
         CREATE TABLE IF NOT EXISTS persistence_compaction (
             singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
             action_journal_floor_seq INTEGER NOT NULL DEFAULT 0,
+            canonical_commit_floor_journal_seq INTEGER NOT NULL DEFAULT 0,
             world_event_floor_seq INTEGER NOT NULL DEFAULT 0,
             last_compacted_at_ms INTEGER,
             deleted_action_journal_rows INTEGER NOT NULL DEFAULT 0,
+            deleted_canonical_commit_rows INTEGER NOT NULL DEFAULT 0,
             deleted_world_event_rows INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS canonical_command_receipts (
@@ -39935,6 +39948,20 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
     ai_voice_routing::init_ai_voice_routing_store(&conn)?;
     ensure_sqlite_column(
         &conn,
+        "persistence_compaction",
+        "canonical_commit_floor_journal_seq",
+        "ALTER TABLE persistence_compaction
+         ADD COLUMN canonical_commit_floor_journal_seq INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "persistence_compaction",
+        "deleted_canonical_commit_rows",
+        "ALTER TABLE persistence_compaction
+         ADD COLUMN deleted_canonical_commit_rows INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_sqlite_column(
+        &conn,
         "world_events",
         "world_id",
         "ALTER TABLE world_events ADD COLUMN world_id TEXT NOT NULL DEFAULT 'world://cosyworld/official'",
@@ -40078,194 +40105,6 @@ fn latest_action_journal_seq(path: &Path) -> io::Result<u64> {
         )
         .map_err(sqlite_error)?;
     u64::try_from(value).map_err(|_| snapshot_error("action journal returned a negative sequence"))
-}
-
-fn read_persistence_compaction_report(path: &Path) -> io::Result<PersistenceCompactionReport> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    let stored = conn
-        .query_row(
-            "SELECT action_journal_floor_seq, world_event_floor_seq,
-                    last_compacted_at_ms, deleted_action_journal_rows,
-                    deleted_world_event_rows
-             FROM persistence_compaction
-             WHERE singleton = 1",
-            [],
-            |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, Option<i64>>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, i64>(4)?,
-                ))
-            },
-        )
-        .optional()
-        .map_err(sqlite_error)?;
-    let Some((
-        action_journal_floor_seq,
-        world_event_floor_seq,
-        last_compacted_at_ms,
-        deleted_action_journal_rows,
-        deleted_world_event_rows,
-    )) = stored
-    else {
-        return Ok(PersistenceCompactionReport::default());
-    };
-    Ok(PersistenceCompactionReport {
-        action_journal_floor_seq: u64::try_from(action_journal_floor_seq)
-            .map_err(|_| snapshot_error("action-journal compaction floor is negative"))?,
-        world_event_floor_seq: u64::try_from(world_event_floor_seq)
-            .map_err(|_| snapshot_error("world-event compaction floor is negative"))?,
-        last_compacted_at_ms: last_compacted_at_ms
-            .map(u64::try_from)
-            .transpose()
-            .map_err(|_| snapshot_error("persistence compaction timestamp is negative"))?,
-        deleted_action_journal_rows: u64::try_from(deleted_action_journal_rows)
-            .map_err(|_| snapshot_error("deleted action-journal row count is negative"))?,
-        deleted_world_event_rows: u64::try_from(deleted_world_event_rows)
-            .map_err(|_| snapshot_error("deleted world-event row count is negative"))?,
-    })
-}
-
-fn compact_event_store_after_snapshot(
-    path: &Path,
-    checkpoint_seq: u64,
-    through_event_seq: u64,
-    retained_world_events: usize,
-) -> io::Result<PersistenceCompactionReport> {
-    init_event_store(path)?;
-    let mut conn = open_event_store(path)?;
-    let tx = conn.transaction().map_err(sqlite_error)?;
-    let journal_head = tx
-        .query_row(
-            "SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal",
-            [],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(sqlite_error)?;
-    let journal_head = u64::try_from(journal_head)
-        .map_err(|_| snapshot_error("action journal returned a negative sequence"))?;
-    if checkpoint_seq != journal_head {
-        return Err(snapshot_error(format!(
-            "snapshot checkpoint {checkpoint_seq} does not match action-journal head {journal_head}"
-        )));
-    }
-    if checkpoint_seq > 0 {
-        let checkpoint_present = tx
-            .query_row(
-                "SELECT EXISTS(
-                    SELECT 1 FROM action_journal WHERE journal_seq = ?1
-                 )",
-                params![checkpoint_seq as i64],
-                |row| row.get::<_, i64>(0),
-            )
-            .map_err(sqlite_error)?
-            != 0;
-        if !checkpoint_present {
-            return Err(snapshot_error(format!(
-                "snapshot checkpoint {checkpoint_seq} is absent from the action journal"
-            )));
-        }
-    }
-
-    let deleted_action_journal_rows = if checkpoint_seq > 0 {
-        tx.execute(
-            "DELETE FROM action_journal WHERE journal_seq < ?1",
-            params![checkpoint_seq as i64],
-        )
-        .map_err(sqlite_error)?
-    } else {
-        0
-    };
-
-    let retained_world_events = retained_world_events.max(MAX_EVENT_STORE_SCAN);
-    let world_event_floor_seq = tx
-        .query_row(
-            "SELECT seq
-             FROM world_events
-             WHERE seq <= ?1
-             ORDER BY seq DESC
-             LIMIT 1 OFFSET ?2",
-            params![
-                through_event_seq as i64,
-                retained_world_events.saturating_sub(1) as i64
-            ],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()
-        .map_err(sqlite_error)?
-        .map(u64::try_from)
-        .transpose()
-        .map_err(|_| snapshot_error("world-event compaction floor is negative"))?
-        .unwrap_or_default();
-    let deleted_world_event_rows = if world_event_floor_seq > 0 {
-        // Natural-feature reveals remain canonical evidence during hydration.
-        // Their count is bounded by the location cap, so retaining them does
-        // not reintroduce unbounded event-store growth.
-        tx.execute(
-            "DELETE FROM world_events
-             WHERE seq < ?1
-               AND event_type <> 'natural_feature.revealed'",
-            params![world_event_floor_seq as i64],
-        )
-        .map_err(sqlite_error)?
-    } else {
-        0
-    };
-
-    if deleted_action_journal_rows == 0 && deleted_world_event_rows == 0 {
-        tx.commit().map_err(sqlite_error)?;
-        return Ok(PersistenceCompactionReport::default());
-    }
-
-    let compacted_at_ms = now_millis();
-    let action_journal_floor_seq = if deleted_action_journal_rows > 0 {
-        checkpoint_seq
-    } else {
-        0
-    };
-    let world_event_floor_seq = if deleted_world_event_rows > 0 {
-        world_event_floor_seq
-    } else {
-        0
-    };
-    tx.execute(
-        "INSERT INTO persistence_compaction
-            (singleton, action_journal_floor_seq, world_event_floor_seq,
-             last_compacted_at_ms, deleted_action_journal_rows,
-             deleted_world_event_rows)
-         VALUES (1, ?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT(singleton) DO UPDATE SET
-            action_journal_floor_seq =
-                MAX(action_journal_floor_seq, excluded.action_journal_floor_seq),
-            world_event_floor_seq =
-                MAX(world_event_floor_seq, excluded.world_event_floor_seq),
-            last_compacted_at_ms = excluded.last_compacted_at_ms,
-            deleted_action_journal_rows =
-                deleted_action_journal_rows + excluded.deleted_action_journal_rows,
-            deleted_world_event_rows =
-                deleted_world_event_rows + excluded.deleted_world_event_rows",
-        params![
-            action_journal_floor_seq as i64,
-            world_event_floor_seq as i64,
-            compacted_at_ms as i64,
-            deleted_action_journal_rows as i64,
-            deleted_world_event_rows as i64,
-        ],
-    )
-    .map_err(sqlite_error)?;
-    tx.commit().map_err(sqlite_error)?;
-    conn.execute_batch("PRAGMA incremental_vacuum(1024);")
-        .map_err(sqlite_error)?;
-    Ok(PersistenceCompactionReport {
-        action_journal_floor_seq,
-        world_event_floor_seq,
-        last_compacted_at_ms: Some(compacted_at_ms),
-        deleted_action_journal_rows: deleted_action_journal_rows as u64,
-        deleted_world_event_rows: deleted_world_event_rows as u64,
-    })
 }
 
 fn persistence_storage_report(
@@ -40655,101 +40494,6 @@ fn read_action_journal_after_seq(
         records.push((journal_seq, record));
     }
     Ok(records)
-}
-
-fn read_canonical_natural_feature_reveals_after_journal_seq(
-    path: &Path,
-    after_seq: u64,
-) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
-    read_canonical_events_after_journal_seq(
-        path,
-        "natural_feature.revealed",
-        CW_MAX_LOCATIONS as i64,
-        after_seq,
-    )
-}
-
-fn read_canonical_quest_loot_allocations_after_journal_seq(
-    path: &Path,
-    after_seq: u64,
-) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
-    read_canonical_events_after_journal_seq(
-        path,
-        "quest.loot_allocated",
-        CW_MAX_ITEMS as i64,
-        after_seq,
-    )
-}
-
-fn read_canonical_events_after_journal_seq(
-    path: &Path,
-    event_type: &str,
-    limit: i64,
-    after_seq: u64,
-) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT (
-                 SELECT commits.action_journal_seq
-                 FROM canonical_commits AS commits
-                 WHERE commits.world_id = events.world_id
-                   AND commits.world_epoch = events.world_epoch
-                   AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
-                 ORDER BY (commits.last_world_seq - commits.first_world_seq) ASC,
-                          commits.action_journal_seq ASC
-                 LIMIT 1
-             ), events.payload_json
-             FROM world_events AS events
-             WHERE events.world_id = ?1
-               AND events.world_epoch = ?2
-               AND events.event_type = ?3
-               AND COALESCE((
-                   SELECT commits.action_journal_seq
-                   FROM canonical_commits AS commits
-                   WHERE commits.world_id = events.world_id
-                     AND commits.world_epoch = events.world_epoch
-                     AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
-                   ORDER BY (commits.last_world_seq - commits.first_world_seq) ASC,
-                            commits.action_journal_seq ASC
-                   LIMIT 1
-               ), 9223372036854775807) > ?4
-             ORDER BY events.seq ASC
-             LIMIT ?5",
-        )
-        .map_err(sqlite_error)?;
-    let rows = stmt
-        .query_map(
-            params![
-                OFFICIAL_WORLD_ID,
-                OFFICIAL_WORLD_EPOCH as i64,
-                event_type,
-                after_seq as i64,
-                limit
-            ],
-            |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, String>(1)?)),
-        )
-        .map_err(sqlite_error)?;
-    let mut events_by_journal_seq = BTreeMap::<u64, Vec<EventView>>::new();
-    for row in rows {
-        let (journal_seq, payload) = row.map_err(sqlite_error)?;
-        let journal_seq = journal_seq
-            .map(u64::try_from)
-            .transpose()
-            .map_err(|_| snapshot_error("canonical commit returned a negative journal sequence"))?
-            .unwrap_or(u64::MAX);
-        let mut event: EventView = serde_json::from_str(&payload)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        if content_reference_context_is_empty(&event.content_context) {
-            event.refresh_content_context();
-        }
-        events_by_journal_seq
-            .entry(journal_seq)
-            .or_default()
-            .push(event);
-    }
-    Ok(events_by_journal_seq)
 }
 
 fn load_actor_sessions(path: &Path) -> io::Result<ActorSessions> {
@@ -41414,6 +41158,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     conn.execute_batch(
         "DELETE FROM world_events;
          DELETE FROM canonical_commits;
+         DELETE FROM canonical_compacted_commit_ranges;
          DELETE FROM canonical_claims;
          DELETE FROM canonical_entity_versions;
          DELETE FROM canonical_partition_leases;
@@ -49849,6 +49594,7 @@ mod tests {
             "canonical_entity_versions",
             "canonical_claims",
             "canonical_commits",
+            "canonical_compacted_commit_ranges",
         ] {
             let exists = conn
                 .query_row(
@@ -50276,6 +50022,50 @@ mod tests {
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].seq, 2);
         assert_eq!(loaded[0].type_name, "world.reset");
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn event_store_migrates_canonical_commit_compaction_telemetry() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-compaction-schema-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&path);
+        let conn = Connection::open(&path).expect("create version-one event store");
+        conn.execute_batch(
+            "CREATE TABLE persistence_compaction (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                action_journal_floor_seq INTEGER NOT NULL DEFAULT 0,
+                world_event_floor_seq INTEGER NOT NULL DEFAULT 0,
+                last_compacted_at_ms INTEGER,
+                deleted_action_journal_rows INTEGER NOT NULL DEFAULT 0,
+                deleted_world_event_rows INTEGER NOT NULL DEFAULT 0
+            );
+            PRAGMA user_version = 1;",
+        )
+        .expect("create version-one compaction schema");
+        drop(conn);
+
+        init_event_store(&path).expect("migrate compaction telemetry");
+        let conn = open_event_store(&path).expect("open migrated event store");
+        let columns = conn
+            .prepare("PRAGMA table_info(persistence_compaction)")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, String>(1))?
+                    .collect::<Result<BTreeSet<_>, _>>()
+            })
+            .expect("read migrated compaction columns");
+        assert!(columns.contains("canonical_commit_floor_journal_seq"));
+        assert!(columns.contains("deleted_canonical_commit_rows"));
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("read migrated user_version");
+        assert_eq!(version, EVENT_STORE_SCHEMA_VERSION);
+        drop(conn);
 
         let _ = fs::remove_file(path);
     }

@@ -257,6 +257,380 @@ impl RuntimeWorld {
     }
 }
 
+pub(super) fn read_persistence_compaction_report(
+    path: &Path,
+) -> io::Result<PersistenceCompactionReport> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let stored = conn
+        .query_row(
+            "SELECT action_journal_floor_seq,
+                    canonical_commit_floor_journal_seq,
+                    world_event_floor_seq, last_compacted_at_ms,
+                    deleted_action_journal_rows,
+                    deleted_canonical_commit_rows,
+                    deleted_world_event_rows
+             FROM persistence_compaction
+             WHERE singleton = 1",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, i64>(6)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    let Some((
+        action_journal_floor_seq,
+        canonical_commit_floor_journal_seq,
+        world_event_floor_seq,
+        last_compacted_at_ms,
+        deleted_action_journal_rows,
+        deleted_canonical_commit_rows,
+        deleted_world_event_rows,
+    )) = stored
+    else {
+        return Ok(PersistenceCompactionReport::default());
+    };
+    Ok(PersistenceCompactionReport {
+        action_journal_floor_seq: u64::try_from(action_journal_floor_seq)
+            .map_err(|_| snapshot_error("action-journal compaction floor is negative"))?,
+        canonical_commit_floor_journal_seq: u64::try_from(canonical_commit_floor_journal_seq)
+            .map_err(|_| snapshot_error("canonical-commit compaction floor is negative"))?,
+        world_event_floor_seq: u64::try_from(world_event_floor_seq)
+            .map_err(|_| snapshot_error("world-event compaction floor is negative"))?,
+        last_compacted_at_ms: last_compacted_at_ms
+            .map(u64::try_from)
+            .transpose()
+            .map_err(|_| snapshot_error("persistence compaction timestamp is negative"))?,
+        deleted_action_journal_rows: u64::try_from(deleted_action_journal_rows)
+            .map_err(|_| snapshot_error("deleted action-journal row count is negative"))?,
+        deleted_canonical_commit_rows: u64::try_from(deleted_canonical_commit_rows)
+            .map_err(|_| snapshot_error("deleted canonical-commit row count is negative"))?,
+        deleted_world_event_rows: u64::try_from(deleted_world_event_rows)
+            .map_err(|_| snapshot_error("deleted world-event row count is negative"))?,
+    })
+}
+
+pub(super) fn compact_event_store_after_snapshot(
+    path: &Path,
+    checkpoint_seq: u64,
+    through_event_seq: u64,
+    retained_world_events: usize,
+) -> io::Result<PersistenceCompactionReport> {
+    init_event_store(path)?;
+    let mut conn = open_event_store(path)?;
+    let tx = conn.transaction().map_err(sqlite_error)?;
+    let journal_head = tx
+        .query_row(
+            "SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    let journal_head = u64::try_from(journal_head)
+        .map_err(|_| snapshot_error("action journal returned a negative sequence"))?;
+    if checkpoint_seq != journal_head {
+        return Err(snapshot_error(format!(
+            "snapshot checkpoint {checkpoint_seq} does not match action-journal head {journal_head}"
+        )));
+    }
+    if checkpoint_seq > 0 {
+        let checkpoint_present = tx
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM action_journal WHERE journal_seq = ?1
+                 )",
+                params![checkpoint_seq as i64],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(sqlite_error)?
+            != 0;
+        if !checkpoint_present {
+            return Err(snapshot_error(format!(
+                "snapshot checkpoint {checkpoint_seq} is absent from the action journal"
+            )));
+        }
+    }
+
+    let deleted_action_journal_rows = if checkpoint_seq > 0 {
+        tx.execute(
+            "DELETE FROM action_journal WHERE journal_seq < ?1",
+            params![checkpoint_seq as i64],
+        )
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
+    let retained_world_events = retained_world_events.max(MAX_EVENT_STORE_SCAN);
+    let world_event_floor_seq = tx
+        .query_row(
+            "SELECT seq
+             FROM world_events
+             WHERE seq <= ?1
+             ORDER BY seq DESC
+             LIMIT 1 OFFSET ?2",
+            params![
+                through_event_seq as i64,
+                retained_world_events.saturating_sub(1) as i64
+            ],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(sqlite_error)?
+        .map(u64::try_from)
+        .transpose()
+        .map_err(|_| snapshot_error("world-event compaction floor is negative"))?
+        .unwrap_or_default();
+    let deleted_world_event_rows = if world_event_floor_seq > 0 {
+        // Natural-feature reveals remain canonical evidence during hydration.
+        // Their count is bounded by the location cap, so retaining them does
+        // not reintroduce unbounded event-store growth.
+        tx.execute(
+            "DELETE FROM world_events
+             WHERE seq < ?1
+               AND event_type <> 'natural_feature.revealed'",
+            params![world_event_floor_seq as i64],
+        )
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
+    let deleted_canonical_commit_range_rows = tx
+        .execute(
+            "DELETE FROM canonical_compacted_commit_ranges
+             WHERE NOT EXISTS (
+                 SELECT 1
+                 FROM world_events
+                 WHERE world_events.world_id =
+                           canonical_compacted_commit_ranges.world_id
+                   AND world_events.world_epoch =
+                           canonical_compacted_commit_ranges.world_epoch
+                   AND world_events.seq BETWEEN
+                           canonical_compacted_commit_ranges.first_world_seq
+                       AND canonical_compacted_commit_ranges.last_world_seq
+             )",
+            [],
+        )
+        .map_err(sqlite_error)?;
+    let inserted_canonical_commit_range_rows = if checkpoint_seq > 0 {
+        tx.execute(
+            "INSERT OR IGNORE INTO canonical_compacted_commit_ranges
+                (commit_id, world_id, world_epoch, first_world_seq,
+                 last_world_seq, action_journal_seq)
+             SELECT commits.commit_id, commits.world_id, commits.world_epoch,
+                    commits.first_world_seq, commits.last_world_seq,
+                    commits.action_journal_seq
+             FROM canonical_commits AS commits
+             WHERE commits.action_journal_seq < ?1
+               AND EXISTS (
+                   SELECT 1
+                   FROM world_events AS events
+                   WHERE events.world_id = commits.world_id
+                     AND events.world_epoch = commits.world_epoch
+                     AND events.seq BETWEEN commits.first_world_seq
+                                        AND commits.last_world_seq
+               )",
+            params![checkpoint_seq as i64],
+        )
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
+    let deleted_canonical_commit_rows = if checkpoint_seq > 0 {
+        tx.execute(
+            "DELETE FROM canonical_commits WHERE action_journal_seq < ?1",
+            params![checkpoint_seq as i64],
+        )
+        .map_err(sqlite_error)?
+    } else {
+        0
+    };
+
+    if deleted_action_journal_rows == 0
+        && deleted_canonical_commit_rows == 0
+        && deleted_world_event_rows == 0
+        && deleted_canonical_commit_range_rows == 0
+        && inserted_canonical_commit_range_rows == 0
+    {
+        tx.commit().map_err(sqlite_error)?;
+        return Ok(PersistenceCompactionReport::default());
+    }
+
+    let compacted_at_ms = now_millis();
+    let action_journal_floor_seq = if deleted_action_journal_rows > 0 {
+        checkpoint_seq
+    } else {
+        0
+    };
+    let canonical_commit_floor_journal_seq = if deleted_canonical_commit_rows > 0 {
+        checkpoint_seq
+    } else {
+        0
+    };
+    let world_event_floor_seq = if deleted_world_event_rows > 0 {
+        world_event_floor_seq
+    } else {
+        0
+    };
+    tx.execute(
+        "INSERT INTO persistence_compaction
+            (singleton, action_journal_floor_seq,
+             canonical_commit_floor_journal_seq, world_event_floor_seq,
+             last_compacted_at_ms, deleted_action_journal_rows,
+             deleted_canonical_commit_rows, deleted_world_event_rows)
+         VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         ON CONFLICT(singleton) DO UPDATE SET
+            action_journal_floor_seq =
+                MAX(action_journal_floor_seq, excluded.action_journal_floor_seq),
+            canonical_commit_floor_journal_seq =
+                MAX(canonical_commit_floor_journal_seq,
+                    excluded.canonical_commit_floor_journal_seq),
+            world_event_floor_seq =
+                MAX(world_event_floor_seq, excluded.world_event_floor_seq),
+            last_compacted_at_ms = excluded.last_compacted_at_ms,
+            deleted_action_journal_rows =
+                deleted_action_journal_rows + excluded.deleted_action_journal_rows,
+            deleted_canonical_commit_rows =
+                deleted_canonical_commit_rows + excluded.deleted_canonical_commit_rows,
+            deleted_world_event_rows =
+                deleted_world_event_rows + excluded.deleted_world_event_rows",
+        params![
+            action_journal_floor_seq as i64,
+            canonical_commit_floor_journal_seq as i64,
+            world_event_floor_seq as i64,
+            compacted_at_ms as i64,
+            deleted_action_journal_rows as i64,
+            deleted_canonical_commit_rows as i64,
+            deleted_world_event_rows as i64,
+        ],
+    )
+    .map_err(sqlite_error)?;
+    tx.commit().map_err(sqlite_error)?;
+    conn.execute_batch("PRAGMA incremental_vacuum(1024);")
+        .map_err(sqlite_error)?;
+    Ok(PersistenceCompactionReport {
+        action_journal_floor_seq,
+        canonical_commit_floor_journal_seq,
+        world_event_floor_seq,
+        last_compacted_at_ms: Some(compacted_at_ms),
+        deleted_action_journal_rows: deleted_action_journal_rows as u64,
+        deleted_canonical_commit_rows: deleted_canonical_commit_rows as u64,
+        deleted_world_event_rows: deleted_world_event_rows as u64,
+    })
+}
+
+pub(super) fn read_canonical_natural_feature_reveals_after_journal_seq(
+    path: &Path,
+    after_seq: u64,
+) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
+    read_canonical_events_after_journal_seq(
+        path,
+        "natural_feature.revealed",
+        CW_MAX_LOCATIONS as i64,
+        after_seq,
+    )
+}
+
+pub(super) fn read_canonical_quest_loot_allocations_after_journal_seq(
+    path: &Path,
+    after_seq: u64,
+) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
+    read_canonical_events_after_journal_seq(
+        path,
+        "quest.loot_allocated",
+        CW_MAX_ITEMS as i64,
+        after_seq,
+    )
+}
+
+fn read_canonical_events_after_journal_seq(
+    path: &Path,
+    event_type: &str,
+    limit: i64,
+    after_seq: u64,
+) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let mut stmt = conn
+        .prepare(
+            "WITH canonical_commit_ranges AS (
+                 SELECT world_id, world_epoch, first_world_seq,
+                        last_world_seq, action_journal_seq
+                 FROM canonical_commits
+                 UNION ALL
+                 SELECT world_id, world_epoch, first_world_seq,
+                        last_world_seq, action_journal_seq
+                 FROM canonical_compacted_commit_ranges
+             )
+             SELECT (
+                 SELECT commits.action_journal_seq
+                 FROM canonical_commit_ranges AS commits
+                 WHERE commits.world_id = events.world_id
+                   AND commits.world_epoch = events.world_epoch
+                   AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
+                 ORDER BY (commits.last_world_seq - commits.first_world_seq) ASC,
+                          commits.action_journal_seq ASC
+                 LIMIT 1
+             ), events.payload_json
+             FROM world_events AS events
+             WHERE events.world_id = ?1
+               AND events.world_epoch = ?2
+               AND events.event_type = ?3
+               AND COALESCE((
+                   SELECT commits.action_journal_seq
+                   FROM canonical_commit_ranges AS commits
+                   WHERE commits.world_id = events.world_id
+                     AND commits.world_epoch = events.world_epoch
+                     AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
+                   ORDER BY (commits.last_world_seq - commits.first_world_seq) ASC,
+                            commits.action_journal_seq ASC
+                   LIMIT 1
+               ), 9223372036854775807) > ?4
+             ORDER BY events.seq ASC
+             LIMIT ?5",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH as i64,
+                event_type,
+                after_seq as i64,
+                limit
+            ],
+            |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, String>(1)?)),
+        )
+        .map_err(sqlite_error)?;
+    let mut events_by_journal_seq = BTreeMap::<u64, Vec<EventView>>::new();
+    for row in rows {
+        let (journal_seq, payload) = row.map_err(sqlite_error)?;
+        let journal_seq = journal_seq
+            .map(u64::try_from)
+            .transpose()
+            .map_err(|_| snapshot_error("canonical commit returned a negative journal sequence"))?
+            .unwrap_or(u64::MAX);
+        let mut event: EventView = serde_json::from_str(&payload)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&event.content_context) {
+            event.refresh_content_context();
+        }
+        events_by_journal_seq
+            .entry(journal_seq)
+            .or_default()
+            .push(event);
+    }
+    Ok(events_by_journal_seq)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -504,6 +878,26 @@ mod tests {
             )
             .expect("append journal fixture");
         }
+        let conn = open_event_store(&journal_path).expect("open canonical commit fixture");
+        for journal_seq in 1_i64..=3 {
+            conn.execute(
+                "INSERT INTO canonical_commits
+                    (commit_id, world_id, world_epoch, first_world_seq,
+                     last_world_seq, intent_id, request_hash, owner_id,
+                     owner_fencing_epoch, partitions_json,
+                     entity_versions_json, claims_json, action_journal_seq,
+                     created_at_ms)
+                 VALUES (?1, ?2, 1, ?3, ?3, NULL, NULL, 'test-owner',
+                         1, '[]', '{}', '[]', ?3, ?3)",
+                params![
+                    format!("test-commit-{journal_seq}"),
+                    OFFICIAL_WORLD_ID,
+                    journal_seq
+                ],
+            )
+            .expect("insert canonical commit fixture");
+        }
+        drop(conn);
         let mut checkpoint = RuntimeWorld::seeded();
         checkpoint.action_journal_seq = 3;
         checkpoint.world.next_event_seq = 1_004;
@@ -536,8 +930,10 @@ mod tests {
             compact_event_store_after_snapshot(&journal_path, 3, 1_003, MAX_EVENT_STORE_SCAN)
                 .expect("compact checkpointed store");
         assert_eq!(compacted.action_journal_floor_seq, 3);
+        assert_eq!(compacted.canonical_commit_floor_journal_seq, 3);
         assert_eq!(compacted.world_event_floor_seq, 4);
         assert_eq!(compacted.deleted_action_journal_rows, 2);
+        assert_eq!(compacted.deleted_canonical_commit_rows, 2);
         assert_eq!(compacted.deleted_world_event_rows, 2);
 
         let conn = open_event_store(&journal_path).expect("open compacted store");
@@ -550,6 +946,28 @@ mod tests {
             })
             .expect("read retained journal suffix");
         assert_eq!(journal_seqs, vec![3]);
+        let canonical_commit_seqs = conn
+            .prepare("SELECT action_journal_seq FROM canonical_commits ORDER BY action_journal_seq")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, u64>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("read retained canonical commit");
+        assert_eq!(canonical_commit_seqs, vec![3]);
+        let compacted_commit_seqs = conn
+            .prepare(
+                "SELECT action_journal_seq
+                 FROM canonical_compacted_commit_ranges
+                 ORDER BY action_journal_seq",
+            )
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, u64>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("read retained compacted commit range");
+        assert_eq!(compacted_commit_seqs, vec![1]);
         assert!(read_event_store_event(&journal_path, 1)
             .expect("read retained canonical evidence")
             .is_some());
@@ -560,17 +978,11 @@ mod tests {
             .expect("read retained replay floor")
             .is_some());
         drop(conn);
-        // The preservation assertion above intentionally uses the canonical
-        // event type. This compact fixture has no canonical commit binding or
-        // typed natural-feature payload, so remove it from hydration before
-        // exercising the otherwise independent journal-suffix restore.
-        open_event_store(&journal_path)
-            .expect("open retained evidence fixture")
-            .execute(
-                "UPDATE world_events SET event_type = 'message.created' WHERE seq = 1",
-                [],
-            )
-            .expect("exclude untyped fixture from canonical hydration");
+        assert!(
+            read_canonical_natural_feature_reveals_after_journal_seq(&journal_path, 3)
+                .expect("read compacted canonical evidence")
+                .is_empty()
+        );
 
         let full_replay_error =
             RuntimeWorld::from_action_journal(&journal_path).expect_err("snapshot is required");
@@ -594,8 +1006,70 @@ mod tests {
         let report =
             read_persistence_compaction_report(&journal_path).expect("read compaction telemetry");
         assert_eq!(report.action_journal_floor_seq, 3);
+        assert_eq!(report.canonical_commit_floor_journal_seq, 3);
         assert_eq!(report.world_event_floor_seq, 4);
         assert_eq!(report.deleted_action_journal_rows, 2);
+        assert_eq!(report.deleted_canonical_commit_rows, 2);
+        assert_eq!(report.deleted_world_event_rows, 2);
+
+        let conn = open_event_store(&journal_path).expect("open next canonical commit fixture");
+        conn.execute(
+            "INSERT INTO canonical_commits
+                (commit_id, world_id, world_epoch, first_world_seq,
+                 last_world_seq, intent_id, request_hash, owner_id,
+                 owner_fencing_epoch, partitions_json,
+                 entity_versions_json, claims_json, action_journal_seq,
+                 created_at_ms)
+             VALUES ('test-commit-4', ?1, 1, 4, 4, NULL, NULL,
+                     'test-owner', 1, '[]', '{}', '[]', 4, 4)",
+            params![OFFICIAL_WORLD_ID],
+        )
+        .expect("insert next canonical commit fixture");
+        drop(conn);
+        restored
+            .save_snapshot(&snapshot_path)
+            .expect("save next compactable checkpoint");
+
+        let next_compaction =
+            compact_event_store_after_snapshot(&journal_path, 4, 1_003, MAX_EVENT_STORE_SCAN)
+                .expect("compact next checkpointed store");
+        assert_eq!(next_compaction.action_journal_floor_seq, 4);
+        assert_eq!(next_compaction.canonical_commit_floor_journal_seq, 4);
+        assert_eq!(next_compaction.deleted_action_journal_rows, 1);
+        assert_eq!(next_compaction.deleted_canonical_commit_rows, 1);
+        assert_eq!(next_compaction.deleted_world_event_rows, 0);
+
+        let conn = open_event_store(&journal_path).expect("open repeatedly compacted store");
+        let retained_commit_seqs = conn
+            .prepare("SELECT action_journal_seq FROM canonical_commits ORDER BY action_journal_seq")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, u64>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("read repeatedly retained canonical commit");
+        assert_eq!(retained_commit_seqs, vec![4]);
+        let retained_compacted_commit_seqs = conn
+            .prepare(
+                "SELECT action_journal_seq
+                 FROM canonical_compacted_commit_ranges
+                 ORDER BY action_journal_seq",
+            )
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, u64>(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("read retained compacted commit ranges");
+        assert_eq!(retained_compacted_commit_seqs, vec![1]);
+        drop(conn);
+
+        let report =
+            read_persistence_compaction_report(&journal_path).expect("read cumulative telemetry");
+        assert_eq!(report.action_journal_floor_seq, 4);
+        assert_eq!(report.canonical_commit_floor_journal_seq, 4);
+        assert_eq!(report.deleted_action_journal_rows, 3);
+        assert_eq!(report.deleted_canonical_commit_rows, 3);
         assert_eq!(report.deleted_world_event_rows, 2);
 
         let _ = fs::remove_file(journal_path);

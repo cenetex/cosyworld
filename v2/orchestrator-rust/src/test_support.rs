@@ -9,6 +9,7 @@ pub(super) fn initialize_test_event_store(path: &Path) {
         "actor_jobs",
         "canonical_store_identity",
         "canonical_commits",
+        "canonical_compacted_commit_ranges",
     ] {
         let exists: bool = conn
             .query_row(
