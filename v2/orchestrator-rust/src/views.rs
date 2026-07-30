@@ -40,6 +40,86 @@ pub(super) enum JournalBeatCategory {
     Consequence,
 }
 
+const JOURNAL_BEAT_POLICIES: &[(&str, JournalBeatCategory)] = &[
+    ("actor.created", JournalBeatCategory::Story),
+    ("actor.entered_location", JournalBeatCategory::Story),
+    ("first_tale.public_trace", JournalBeatCategory::Story),
+    ("governance.selected", JournalBeatCategory::Story),
+    ("actor.moved", JournalBeatCategory::Travel),
+    ("combat.flee.success", JournalBeatCategory::Travel),
+    ("journey.started", JournalBeatCategory::Travel),
+    ("journey.progressed", JournalBeatCategory::Travel),
+    ("journey.narrated", JournalBeatCategory::Travel),
+    ("journey.completed", JournalBeatCategory::Travel),
+    ("journey.backtracked", JournalBeatCategory::Travel),
+    ("journey.paused", JournalBeatCategory::Travel),
+    ("exit.discovered", JournalBeatCategory::Discovery),
+    ("avatar.discovered", JournalBeatCategory::Discovery),
+    ("exit.unlocked", JournalBeatCategory::Discovery),
+    ("pathway.discovered", JournalBeatCategory::Discovery),
+    ("pathway.familiarized", JournalBeatCategory::Discovery),
+    ("natural_feature.revealed", JournalBeatCategory::Discovery),
+    ("feature.searched", JournalBeatCategory::Search),
+    ("location.searched", JournalBeatCategory::Search),
+    ("ability_check.rolled", JournalBeatCategory::Search),
+    ("bond.deepened", JournalBeatCategory::Relationship),
+    ("bond.created", JournalBeatCategory::Relationship),
+    ("bond.revised", JournalBeatCategory::Relationship),
+    ("bond.resolved", JournalBeatCategory::Relationship),
+    ("ledger.marked", JournalBeatCategory::Growth),
+    ("ledger.banked", JournalBeatCategory::Growth),
+    ("advancement.spent", JournalBeatCategory::Growth),
+    ("skill.stepped", JournalBeatCategory::Growth),
+    ("calling.set", JournalBeatCategory::Growth),
+    ("calling.revised", JournalBeatCategory::Growth),
+    ("avatar.evolved", JournalBeatCategory::Growth),
+    ("job.contribution.resolved", JournalBeatCategory::Work),
+    ("job.updated", JournalBeatCategory::Work),
+    ("building.construction_opened", JournalBeatCategory::Work),
+    ("building.completed", JournalBeatCategory::Work),
+    ("building.upgraded", JournalBeatCategory::Work),
+    ("world.trade.flowed", JournalBeatCategory::Work),
+    ("world.trade.disrupted", JournalBeatCategory::Work),
+    ("world.delivery.needed", JournalBeatCategory::Work),
+    ("world.logistics.completed", JournalBeatCategory::Work),
+    ("quest.loot_allocated", JournalBeatCategory::Item),
+    ("item.picked_up", JournalBeatCategory::Item),
+    ("item.dropped", JournalBeatCategory::Item),
+    ("item.used", JournalBeatCategory::Item),
+    ("item.given", JournalBeatCategory::Item),
+    ("item.traded", JournalBeatCategory::Item),
+    ("item.found", JournalBeatCategory::Item),
+    ("item.revealed", JournalBeatCategory::Item),
+    ("item.crafted", JournalBeatCategory::Item),
+    ("item.created", JournalBeatCategory::Item),
+    ("item.transformed", JournalBeatCategory::Item),
+    ("move.blocked", JournalBeatCategory::Consequence),
+    ("clock.updated", JournalBeatCategory::Consequence),
+    ("combat.attack.attempt", JournalBeatCategory::Consequence),
+    ("combat.encounter.started", JournalBeatCategory::Consequence),
+    ("combat.dodge", JournalBeatCategory::Consequence),
+    (
+        "combat.encounter.resolved",
+        JournalBeatCategory::Consequence,
+    ),
+    ("world.weather.shifted", JournalBeatCategory::Consequence),
+    ("world.weather.held", JournalBeatCategory::Consequence),
+    (
+        "world.faction.influence_shifted",
+        JournalBeatCategory::Consequence,
+    ),
+    (
+        "world.conflict.pressure_grew",
+        JournalBeatCategory::Consequence,
+    ),
+    (
+        "world.conflict.pressure_eased",
+        JournalBeatCategory::Consequence,
+    ),
+    ("world.conflict.escalated", JournalBeatCategory::Consequence),
+    ("magic.spell_cast", JournalBeatCategory::Consequence),
+];
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(super) struct JournalBeatView {
     pub(super) id: String,
@@ -149,70 +229,11 @@ fn journal_beat_category(event: &EventView) -> Option<JournalBeatCategory> {
         return semantic_receipts::semantic_story_receipt(event)
             .map(|receipt| semantic_receipt_journal_category(&receipt.narration_key));
     }
-    let category = match event.type_name.as_str() {
-        "actor.created"
-        | "actor.entered_location"
-        | "first_tale.public_trace"
-        | "governance.selected" => JournalBeatCategory::Story,
-        "actor.moved"
-        | "combat.flee.success"
-        | "journey.started"
-        | "journey.progressed"
-        | "journey.narrated"
-        | "journey.completed"
-        | "journey.backtracked"
-        | "journey.paused" => JournalBeatCategory::Travel,
-        "exit.discovered"
-        | "avatar.discovered"
-        | "exit.unlocked"
-        | "pathway.discovered"
-        | "pathway.familiarized"
-        | "natural_feature.revealed" => JournalBeatCategory::Discovery,
-        "feature.searched" | "location.searched" | "ability_check.rolled" => {
-            JournalBeatCategory::Search
-        }
-        "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => {
-            JournalBeatCategory::Relationship
-        }
-        "ledger.marked" | "ledger.banked" | "advancement.spent" | "skill.stepped"
-        | "calling.set" | "calling.revised" | "avatar.evolved" => JournalBeatCategory::Growth,
-        "job.contribution.resolved"
-        | "job.updated"
-        | "building.construction_opened"
-        | "building.completed"
-        | "building.upgraded"
-        | "world.trade.flowed"
-        | "world.trade.disrupted"
-        | "world.delivery.needed"
-        | "world.logistics.completed" => JournalBeatCategory::Work,
-        "quest.loot_allocated"
-        | "item.picked_up"
-        | "item.dropped"
-        | "item.used"
-        | "item.given"
-        | "item.traded"
-        | "item.found"
-        | "item.revealed"
-        | "item.crafted"
-        | "item.created"
-        | "item.transformed" => JournalBeatCategory::Item,
-        "move.blocked"
-        | "clock.updated"
-        | "combat.attack.attempt"
-        | "combat.encounter.started"
-        | "combat.dodge"
-        | "combat.encounter.resolved"
-        | "world.weather.shifted"
-        | "world.weather.held"
-        | "world.faction.influence_shifted"
-        | "world.conflict.pressure_grew"
-        | "world.conflict.pressure_eased"
-        | "world.conflict.escalated"
-        | "magic.spell_cast" => JournalBeatCategory::Consequence,
-        type_name if type_name.starts_with("combat.") => JournalBeatCategory::Consequence,
-        _ => return None,
-    };
-    Some(category)
+    JOURNAL_BEAT_POLICIES
+        .iter()
+        .find_map(|(type_name, category)| {
+            (*type_name == event.type_name.as_str()).then_some(*category)
+        })
 }
 
 fn complete_journal_headline(value: &str) -> Option<String> {
@@ -4029,6 +4050,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn journal_admission_uses_unique_explicit_projection_policies() {
+        let mut admitted = BTreeSet::new();
+        for (type_name, category) in JOURNAL_BEAT_POLICIES {
+            assert!(
+                admitted.insert(*type_name),
+                "duplicate Journal projection policy for {type_name}"
+            );
+            let event = EventView {
+                type_name: (*type_name).to_string(),
+                ..EventView::default()
+            };
+            assert_eq!(
+                journal_beat_category(&event),
+                Some(*category),
+                "admitted Journal source {type_name} must keep an explicit policy"
+            );
+        }
+
+        for internal_type in [
+            "combat.action.required",
+            "combat.initiative.rolled",
+            "combat.participant.joined",
+            "combat.turn.started",
+            "combat.turn.ended",
+            "tag.applied",
+            "tag.cleared",
+            "future.internal.telemetry",
+        ] {
+            let event = EventView {
+                type_name: internal_type.to_string(),
+                ..EventView::default()
+            };
+            assert_eq!(
+                journal_beat_category(&event),
+                None,
+                "internal source {internal_type} must not enter the player Journal through a wildcard"
+            );
+        }
+    }
+
+    #[test]
     fn front_presentation_names_active_persisted_resolved_and_escalated_truths() {
         let impending = "Every road lamp accepts the shadow as keeper.";
         assert_eq!(
@@ -4349,6 +4411,102 @@ mod tests {
                     )
                 }))
         );
+    }
+
+    #[test]
+    fn journal_projection_golden_fixtures_cover_travel_relationship_and_clock_progress() {
+        let ordinary_travel = EventView {
+            seq: 300,
+            type_name: "actor.moved".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            destination_location_id: Some(8),
+            destination_location_name: Some("the Cosy Cottage".to_string()),
+            ..EventView::default()
+        };
+        let completed_step = EventView {
+            seq: 310,
+            type_name: "actor.moved".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            destination_location_id: Some(8),
+            destination_location_name: Some("the Cosy Cottage".to_string()),
+            ..EventView::default()
+        };
+        let completed_journey = EventView {
+            seq: 314,
+            type_name: "journey.completed".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(8),
+            location_name: Some("the Cosy Cottage".to_string()),
+            destination_location_id: Some(9),
+            destination_location_name: Some("the Old Oak Tree".to_string()),
+            caused_by_event_seq: Some(310),
+            ..EventView::default()
+        };
+        let relationship = EventView {
+            seq: 320,
+            type_name: "bond.deepened".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            target_actor_id: Some(5001),
+            target_actor_name: Some("Pip Marrow".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            ..EventView::default()
+        };
+        let clock = EventView {
+            seq: 330,
+            type_name: "clock.updated".to_string(),
+            actor_id: Some(5000),
+            actor_name: Some("Elsie".to_string()),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            clock_label: Some("The washed path".to_string()),
+            clock_filled: Some(2),
+            clock_segments: Some(4),
+            clock_delta: Some(1),
+            ..EventView::default()
+        };
+
+        let ordinary = journal_beat_views(&[ordinary_travel], 7);
+        assert_eq!(ordinary.len(), 1);
+        assert_eq!(ordinary[0].category, JournalBeatCategory::Travel);
+        assert_eq!(ordinary[0].headline, "Elsie left for the Cosy Cottage.");
+        assert_eq!(ordinary[0].source_event_seqs, vec![300]);
+
+        let completed = journal_beat_views(&[completed_journey, completed_step], 7);
+        assert_eq!(completed.len(), 1);
+        assert_eq!(completed[0].category, JournalBeatCategory::Travel);
+        assert_eq!(
+            completed[0].headline,
+            "Elsie traveled from Rain-Soft Garden to the Cosy Cottage and completed the journey to the Old Oak Tree."
+        );
+        assert_eq!(completed[0].source_event_seqs, vec![310, 314]);
+
+        let semantic = journal_beat_views(&[clock, relationship], 7);
+        assert_eq!(semantic.len(), 2);
+        assert_eq!(semantic[0].category, JournalBeatCategory::Relationship);
+        assert_eq!(semantic[0].headline, "Elsie grew closer to Pip Marrow.");
+        assert_eq!(semantic[0].source_event_seqs, vec![320]);
+        assert_eq!(semantic[1].category, JournalBeatCategory::Consequence);
+        assert_eq!(semantic[1].headline, "The washed path draws closer.");
+        assert_eq!(semantic[1].source_event_seqs, vec![330]);
+
+        for beat in ordinary.iter().chain(&completed).chain(&semantic) {
+            let copy = beat.headline.as_str();
+            assert!(copy.ends_with(['.', '!', '?', '…']));
+            assert!(!copy.contains("->"));
+            assert!(!copy.contains("Something changed"));
+            assert!(!copy.contains("journey."));
+            assert!(!copy.starts_with("is now "));
+            assert!(!copy.starts_with("shakes off "));
+        }
     }
 
     #[test]

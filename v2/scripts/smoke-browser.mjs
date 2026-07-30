@@ -992,7 +992,12 @@ async function main() {
     );
     assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
-    assert(!guide.completionBeat?.visible, `completed first-tale memory should leave the unresolved Open threads region: ${JSON.stringify(guide)}`);
+    assert(
+      guide.completionBeat?.visible
+        && guide.completionBeat.text === "growthA growth choice is ready for Your avatar."
+        && guide.completionBeat.aria === "growth. A growth choice is ready for Your avatar.",
+      `completed first-tale memory should retire while an unrelated banked growth choice remains open: ${JSON.stringify(guide)}`,
+    );
     assert(guide.completionText === "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.", `the first-tale ending should be server-authored consequence memory: ${JSON.stringify(guide)}`);
     assert(guide.completionRepeats === false, `completed first-tale memory should not reappear as an open thread after rerender: ${JSON.stringify(guide)}`);
     assert(guide.travelThread?.text === "A path to Rain-Soft Garden is waiting." && guide.travelThread?.actionKey === "exit:2", `an open route should become a grounded clickable room thread: ${JSON.stringify(guide)}`);
@@ -1001,9 +1006,9 @@ async function main() {
     assert(guide.searchThread?.text === "Something in The Cosy Cottage is still waiting to be found.", `a searchable room should offer a gentle discovery thread: ${JSON.stringify(guide)}`);
     assert(guide.roomHookThread?.text === "The hearth notices unfinished promises.", `an authored room hook should remain as the non-mechanical fallback thread: ${JSON.stringify(guide)}`);
     assert(
-      guide.roomThreadSurfaceAfterCompletion?.visible === false
+      guide.roomThreadSurfaceAfterCompletion?.visible === true
         && guide.roomThreadSurfaceAfterCompletion.storyThread === false,
-      `completed first-tale state should not restore a redundant open-thread strip: ${JSON.stringify(guide)}`,
+      `completed first-tale state should not restore a redundant story thread beside the valid growth thread: ${JSON.stringify(guide)}`,
     );
     assert(
       guide.roomThreadHand?.labels?.join(",") === "chat,travel"
@@ -7890,11 +7895,22 @@ async function main() {
         rendered: !node.hidden,
         roomClean: document.querySelector("#journal-view")?.hidden === true,
         text: node.textContent.trim().replace(/\s+/g, " "),
+        growthReady: Number(state?.ledger?.advancement_points || 0) > 0,
+        growthActorName: String(actorForId(actorId)?.name || "Your avatar").trim(),
+        growthCategory: node.querySelector(".growth-thread .journal-row-label")?.textContent?.trim() || "",
+        growthProse: node.querySelector(".growth-thread .journal-row-summary")?.textContent?.trim() || "",
         memory: firstTaleCompletionText(state),
       }));
       assert(
-        !completion.rendered && completion.roomClean && completion.text === "",
-        `the completed opening should leave Open threads without occupying chat: ${JSON.stringify(completion)}`,
+        completion.roomClean
+          && (
+            completion.growthReady
+              ? completion.rendered
+                && completion.growthCategory === "growth"
+                && completion.growthProse === `A growth choice is ready for ${completion.growthActorName}.`
+              : !completion.rendered && completion.text === ""
+          ),
+        `the completed opening should retire while any independent growth choice remains in Open threads without occupying chat: ${JSON.stringify(completion)}`,
       );
       assert(
         /uncovered line toward the riverside/i.test(completion.memory),
@@ -9751,6 +9767,15 @@ async function main() {
         rowCount: rows.length,
         allCollapsed: rows.every((row) => !row.open),
         rowsCompact: rows.every((row) => row.getBoundingClientRect().height <= 42),
+        semanticRows: rows.map((row) => {
+          const category = row.querySelector(".journal-row-label")?.textContent?.trim() || "";
+          const prose = row.querySelector(".journal-row-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
+          return {
+            category,
+            prose,
+            aria: row.getAttribute("aria-label")?.trim().replace(/\s+/g, " ") || "",
+          };
+        }),
         summariesOneLine: summaries.every((node) => {
           const style = getComputedStyle(node);
           return style.whiteSpace === "nowrap"
@@ -9800,6 +9825,17 @@ async function main() {
         && journal.summariesOneLine
         && journal.oneProseNodePerRow,
       `${label}: Journal rows should begin as one semantic tag beside one prose line: ${JSON.stringify(journal)}`,
+    );
+    assert(
+      journal.semanticRows.every(({ category, prose, aria }) => (
+        ["story", "discovery", "travel", "search", "relationship", "growth", "work", "item", "consequence"].includes(category)
+        && !["event", "tag"].includes(category)
+        && prose.length > 0
+        && /[.!?…]["')\]]*$/.test(prose)
+        && aria === `${category}. ${prose}`
+        && !/->|Something changed|\b(?:journey|pathway)\.[a-z_]+|^(?:is now|shakes off)\b/i.test(prose)
+      )),
+      `${label}: every visible Journal row needs one closed-vocabulary tag, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
     );
     assert(
       journal.heading === "journal://"
@@ -9865,6 +9901,166 @@ async function main() {
       `${label}: only an overflowing beat should unclip the same complete prose node: ${JSON.stringify(beatDisclosure)}`,
     );
 
+    const disclosureViewport = page.viewportSize();
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const wideDisclosure = await page.evaluate(() => {
+      const row = document.querySelector("#journal-log .journal-beat");
+      const summary = row?.querySelector(":scope > summary");
+      const headline = summary?.querySelector(".journal-row-summary");
+      if (!row || !summary || !headline) return { exists: false };
+      let chosen = "Elsie found the path.";
+      for (let index = 1; index <= 8; index += 1) {
+        const candidate = `Elsie found the path.${" It led toward the Old Oak Tree.".repeat(index)}`;
+        headline.textContent = candidate;
+        syncJournalRowOverflow();
+        if (row.classList.contains("is-overflowing")) break;
+        chosen = candidate;
+      }
+      headline.textContent = chosen;
+      syncJournalRowOverflow();
+      return {
+        exists: true,
+        prose: chosen,
+        overflowing: row.classList.contains("is-overflowing"),
+        tabIndex: summary.tabIndex,
+      };
+    });
+    assert(
+      wideDisclosure.exists
+        && wideDisclosure.prose.length > 40
+        && !wideDisclosure.overflowing
+        && wideDisclosure.tabIndex === -1,
+      `${label}: the responsive disclosure fixture should fit at a wide viewport: ${JSON.stringify(wideDisclosure)}`,
+    );
+    await page.setViewportSize({ width: 320, height: 760 });
+    await page.waitForFunction(() => (
+      document.querySelector("#journal-log .journal-beat")?.classList.contains("is-overflowing")
+    ));
+    const narrowDisclosure = await page.evaluate((prose) => {
+      const row = document.querySelector("#journal-log .journal-beat");
+      const summary = row?.querySelector(":scope > summary");
+      const headline = summary?.querySelector(".journal-row-summary");
+      const marker = row?.querySelector(".journal-row-marker");
+      const collapsed = {
+        sameProse: headline?.textContent === prose,
+        overflowing: row?.classList.contains("is-overflowing") || false,
+        markerVisible: marker ? getComputedStyle(marker).display !== "none" : false,
+        tabIndex: summary?.tabIndex,
+        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
+      };
+      summary?.click();
+      const expanded = {
+        open: row?.open || false,
+        sameProse: headline?.textContent === prose,
+        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
+        proseNodes: row?.querySelectorAll(".journal-row-summary").length || 0,
+      };
+      summary?.click();
+      const recollapsed = {
+        open: row?.open || false,
+        sameProse: headline?.textContent === prose,
+        whiteSpace: headline ? getComputedStyle(headline).whiteSpace : "",
+      };
+      return { collapsed, expanded, recollapsed };
+    }, wideDisclosure.prose);
+    assert(
+      narrowDisclosure.collapsed.sameProse
+        && narrowDisclosure.collapsed.overflowing
+        && narrowDisclosure.collapsed.markerVisible
+        && narrowDisclosure.collapsed.tabIndex === 0
+        && narrowDisclosure.collapsed.whiteSpace === "nowrap"
+        && narrowDisclosure.expanded.open
+        && narrowDisclosure.expanded.sameProse
+        && narrowDisclosure.expanded.whiteSpace === "normal"
+        && narrowDisclosure.expanded.proseNodes === 1
+        && !narrowDisclosure.recollapsed.open
+        && narrowDisclosure.recollapsed.sameProse
+        && narrowDisclosure.recollapsed.whiteSpace === "nowrap",
+      `${label}: viewport resize should reveal a truthful affordance, expand the same prose, and collapse it back to one line: ${JSON.stringify(narrowDisclosure)}`,
+    );
+    if (disclosureViewport) await page.setViewportSize(disclosureViewport);
+    await page.evaluate(() => renderJournalLog());
+
+    const textSizeFixture = await page.evaluate(() => {
+      const row = document.querySelector("#journal-log .journal-beat");
+      const summary = row?.querySelector(":scope > summary");
+      const headline = summary?.querySelector(".journal-row-summary");
+      if (!row || !summary || !headline) return { exists: false };
+      const previousPreference = localStorage.getItem("cosyworld.ui.largeText");
+      localStorage.setItem("cosyworld.ui.largeText", "false");
+      applyUiPreferences();
+      row.style.width = "700px";
+      headline.textContent = "Elsie discovered the rain-bright path home.";
+      const ruler = headline.cloneNode(true);
+      const headlineStyle = getComputedStyle(headline);
+      ruler.style.cssText = [
+        "position:fixed",
+        "left:-10000px",
+        "top:0",
+        "width:max-content",
+        "visibility:hidden",
+        "white-space:nowrap",
+        `font:${headlineStyle.font}`,
+      ].join(";");
+      document.body.append(ruler);
+      const normalTextWidth = ruler.getBoundingClientRect().width;
+      ruler.remove();
+      headline.style.width = `${Math.ceil(normalTextWidth + 3)}px`;
+      syncJournalRowOverflow();
+      window.__cosyJournalTextSizeFixture = { previousPreference };
+      return {
+        exists: true,
+        prose: headline.textContent,
+        normalOverflowing: row.classList.contains("is-overflowing"),
+        normalTabIndex: summary.tabIndex,
+      };
+    });
+    assert(
+      textSizeFixture.exists
+        && !textSizeFixture.normalOverflowing
+        && textSizeFixture.normalTabIndex === -1,
+      `${label}: the text-size fixture should begin as a non-overflowing row: ${JSON.stringify(textSizeFixture)}`,
+    );
+    await page.evaluate(() => {
+      localStorage.setItem("cosyworld.ui.largeText", "true");
+      applyUiPreferences();
+    });
+    await page.waitForFunction(() => (
+      document.body.classList.contains("large-text")
+      && document.querySelector("#journal-log .journal-beat")?.classList.contains("is-overflowing")
+    ));
+    const largeTextDisclosure = await page.evaluate((prose) => {
+      const row = document.querySelector("#journal-log .journal-beat");
+      const summary = row?.querySelector(":scope > summary");
+      const headline = summary?.querySelector(".journal-row-summary");
+      const marker = row?.querySelector(".journal-row-marker");
+      const result = {
+        sameProse: headline?.textContent === prose,
+        overflowing: row?.classList.contains("is-overflowing") || false,
+        markerVisible: marker ? getComputedStyle(marker).display !== "none" : false,
+        tabIndex: summary?.tabIndex,
+      };
+      const previousPreference = window.__cosyJournalTextSizeFixture?.previousPreference;
+      if (previousPreference === null) {
+        localStorage.removeItem("cosyworld.ui.largeText");
+      } else {
+        localStorage.setItem("cosyworld.ui.largeText", previousPreference);
+      }
+      delete window.__cosyJournalTextSizeFixture;
+      row?.style.removeProperty("width");
+      headline?.style.removeProperty("width");
+      applyUiPreferences();
+      renderJournalLog();
+      return result;
+    }, textSizeFixture.prose);
+    assert(
+      largeTextDisclosure.sameProse
+        && largeTextDisclosure.overflowing
+        && largeTextDisclosure.markerVisible
+        && largeTextDisclosure.tabIndex === 0,
+      `${label}: larger-text preference should recalculate and expose the disclosure affordance without changing prose: ${JSON.stringify(largeTextDisclosure)}`,
+    );
+
     const rowContract = await page.evaluate(() => ({
       rows: document.querySelectorAll("#journal-view .journal-prose-row").length,
       proseNodes: document.querySelectorAll("#journal-view .journal-row-summary").length,
@@ -9876,6 +10072,47 @@ async function main() {
         && rowContract.duplicateDetails === 0
         && rowContract.actionControls === 0,
       `${label}: every Journal row should contain one prose string and no duplicate detail or action surface: ${JSON.stringify(rowContract)}`,
+    );
+
+    const growthThread = await page.evaluate(() => {
+      const previousState = state;
+      try {
+        const current = actorForId(actorId);
+        const actorName = String(current?.name || "Your avatar").trim();
+        state = {
+          ...state,
+          first_tale: state?.first_tale ? { ...state.first_tale, phase: "complete" } : null,
+          ledger: {
+            ...(state?.ledger || {}),
+            advancement_points: 1,
+          },
+        };
+        renderStatusUpdates();
+        syncJournalRegions();
+        const row = document.querySelector("#updates .growth-thread");
+        return {
+          actorName,
+          category: row?.querySelector(".journal-row-label")?.textContent?.trim() || "",
+          prose: row?.querySelector(".journal-row-summary")?.textContent?.trim() || "",
+          proseNodes: row?.querySelectorAll(".journal-row-summary").length || 0,
+          detailBlocks: row?.querySelectorAll(".journal-row-detail").length || 0,
+          actionControls: row?.querySelectorAll("button").length || 0,
+          openThreadsVisible: document.querySelector("#journal-open-threads")?.hidden === false,
+        };
+      } finally {
+        state = previousState;
+        renderStatusUpdates();
+        syncJournalRegions();
+      }
+    });
+    assert(
+      growthThread.category === "growth"
+        && growthThread.prose === `A growth choice is ready for ${growthThread.actorName}.`
+        && growthThread.proseNodes === 1
+        && growthThread.detailBlocks === 0
+        && growthThread.actionControls === 0
+        && growthThread.openThreadsVisible,
+      `${label}: banked growth should project as a concrete Open thread without duplicating an action: ${JSON.stringify(growthThread)}`,
     );
 
     await page.locator("#room-log-toggle").click();

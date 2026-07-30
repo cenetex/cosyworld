@@ -8637,15 +8637,27 @@
       }
       firstTaleCelebration = Boolean(currentActorId && state?.first_tale?.phase === "complete");
       firstTaleCompletionSeen = firstTaleCelebration;
-      updates.hidden = !firstThread;
-      const html = firstThread
-        ? journalProseRowHtml({
-            category: "story",
-            prose: `Your first tale continues when you ${lowerInitial(firstThread.text)}`,
-            kind: "first-thread",
-          })
-        : "";
-      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || ""}`;
+      const growthReady = currentActorId && Number(state?.ledger?.advancement_points || 0) > 0;
+      const growthActorName = String(actorForId(currentActorId)?.name || "Your avatar").trim();
+      const rows = [
+        firstThread
+          ? journalProseRowHtml({
+              category: "story",
+              prose: `Your first tale continues when you ${lowerInitial(firstThread.text)}`,
+              kind: "first-thread",
+            })
+          : "",
+        growthReady
+          ? journalProseRowHtml({
+              category: "growth",
+              prose: `A growth choice is ready for ${growthActorName}.`,
+              kind: "growth-thread",
+            })
+          : "",
+      ].filter(Boolean);
+      updates.hidden = rows.length === 0;
+      const html = rows.join("");
+      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || ""}:${Number(state?.ledger?.advancement_points || 0)}`;
       if (signature !== firstTaleRenderSignature) {
         updates.innerHTML = html;
         firstTaleRenderSignature = signature;
