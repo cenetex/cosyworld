@@ -66,6 +66,12 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
     } else {
         format!("test-memory:{}", random_hex(8))
     };
+    let event_store_keepalive = event_store_path
+        .as_deref()
+        .map(open_event_store_keepalive)
+        .transpose()
+        .expect("open test WAL keepalive")
+        .map(|connection| Arc::new(StdMutex::new(connection)));
     AppState {
         inner: Arc::new(Mutex::new(runtime)),
         tx,
@@ -74,6 +80,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
         resident_continuity_path: None,
         event_store_path: event_store_path.clone().map(Arc::new),
+        _event_store_keepalive: event_store_keepalive,
         event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
         account_auth: AccountAuth::for_test(event_store_path.clone().map(Arc::new)),
         ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
