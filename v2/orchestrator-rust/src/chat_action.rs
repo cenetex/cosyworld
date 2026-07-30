@@ -17,7 +17,7 @@ pub(super) async fn chat(
         return action_rate_limited_response();
     }
 
-    let chat_lock = chat_action_lock(&state, payload.actor_id, payload.target_actor_id);
+    let chat_lock = chat_action_lock(&state, payload.actor_id);
     let _chat_guard = chat_lock.lock().await;
     {
         let runtime = state.inner.lock().await;
@@ -31,15 +31,33 @@ pub(super) async fn chat(
         }
     }
     if let Some(path) = state.event_store_path.as_deref() {
-        match active_orb_chat_job(path, payload.actor_id, payload.target_actor_id) {
-            Ok(true) => {
+        match active_orb_chat_target(path, payload.actor_id) {
+            Ok(Some(active_target_actor_id))
+                if active_target_actor_id == payload.target_actor_id =>
+            {
                 return Json(ActionResponse {
                     ok: true,
                     status: CW_OK,
                     events: Vec::new(),
                 });
             }
-            Ok(false) => {}
+            Ok(Some(_)) => {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 409,
+                    events: vec![EventView {
+                        type_name: "chat.failed".to_string(),
+                        actor_id: Some(payload.actor_id),
+                        target_actor_id: Some(payload.target_actor_id),
+                        content: Some(
+                            "Let the current conversation settle before starting another."
+                                .to_string(),
+                        ),
+                        ..EventView::default()
+                    }],
+                });
+            }
+            Ok(None) => {}
             Err(error) => {
                 warn!("could not inspect the durable Chat queue: {error}");
                 return Json(ActionResponse {
@@ -153,11 +171,8 @@ pub(super) async fn chat(
     })
 }
 
-fn chat_action_lock(state: &AppState, actor_id: u64, target_actor_id: u64) -> Arc<Mutex<()>> {
-    let key = format!(
-        "{:p}:{actor_id}:{target_actor_id}",
-        Arc::as_ptr(&state.inner)
-    );
+fn chat_action_lock(state: &AppState, actor_id: u64) -> Arc<Mutex<()>> {
+    let key = format!("{:p}:{actor_id}", Arc::as_ptr(&state.inner));
     let mut locks = CHAT_ACTION_LOCKS
         .get_or_init(|| StdMutex::new(BTreeMap::new()))
         .lock()
@@ -171,7 +186,7 @@ fn chat_action_lock(state: &AppState, actor_id: u64, target_actor_id: u64) -> Ar
     lock
 }
 
-fn active_orb_chat_job(path: &Path, actor_id: u64, target_actor_id: u64) -> io::Result<bool> {
+fn active_orb_chat_target(path: &Path, actor_id: u64) -> io::Result<Option<u64>> {
     let conn = open_event_store(path)?;
     let mut stmt = conn
         .prepare(
@@ -190,11 +205,9 @@ fn active_orb_chat_job(path: &Path, actor_id: u64, target_actor_id: u64) -> io::
         else {
             continue;
         };
-        if job.target_actor_id == target_actor_id {
-            return Ok(true);
-        }
+        return Ok(Some(job.target_actor_id));
     }
-    Ok(false)
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -340,6 +353,28 @@ mod tests {
             !unauthorized_retry.ok,
             "an active Chat job must not bypass actor authorization"
         );
+        let overlapping_target = chat(
+            ConnectInfo("127.0.0.1:44001".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+                target_actor_id: WHISKERWIND_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(!overlapping_target.ok);
+        assert_eq!(overlapping_target.status, 409);
+        assert!(overlapping_target.events.iter().any(|event| {
+            event.type_name == "chat.failed"
+                && event.actor_id == Some(5000)
+                && event.target_actor_id == Some(WHISKERWIND_ACTOR_ID)
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("current conversation"))
+        }));
         let retry = chat(
             ConnectInfo("127.0.0.1:44001".parse().expect("client address")),
             State(state.clone()),

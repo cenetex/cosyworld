@@ -49339,7 +49339,7 @@ mod tests {
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
         assert!(INDEX_HTML.contains("state.state_revision"));
-        assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingChat"));
+        assert!(INDEX_HTML.contains("if (result?.ok === false) {"));
         assert!(INDEX_HTML.contains("state?.first_tale?.phase"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));

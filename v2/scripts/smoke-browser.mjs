@@ -10739,6 +10739,22 @@ async function main() {
     assert(targetActorId, "chat smoke needs a focused resident target");
     if (!chatPendingChecked) {
       await clickPrimaryAndAssertPending(label);
+      const optimisticRetry = await page.evaluate(() => {
+        const chatAction = actions.find((action) => action.kind === "orb-chat");
+        const retry = beginPendingChat(chatAction);
+        renderLog();
+        return {
+          created: retry?.created,
+          pendingCount: pendingChats.length,
+          renderedCount: document.querySelectorAll("#log .line.chat.pending").length,
+        };
+      });
+      assert(
+        optimisticRetry.created === false
+          && optimisticRetry.pendingCount === 1
+          && optimisticRetry.renderedCount === 1,
+        `a repeated Chat activation should reuse one optimistic lifecycle: ${JSON.stringify(optimisticRetry)}`,
+      );
       const duplicate = await page.evaluate(async (targetActorId) => {
         const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
         const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
@@ -10836,6 +10852,12 @@ async function main() {
       () => !document.querySelector("#primary")?.disabled,
       null,
       { timeout: 75_000 },
+    );
+    await page.waitForFunction(() => pendingChats.length === 0);
+    const pendingAfterCompletion = await page.locator("#log .line.chat.pending").count();
+    assert(
+      pendingAfterCompletion === 0,
+      `completed Chat should clear every optimistic typing row: ${pendingAfterCompletion}`,
     );
     await assertActionBarCapped("chat action bar");
     assert(!(await page.locator("#primary").isDisabled()), "chat button should re-enable after the server-authored line lands");
