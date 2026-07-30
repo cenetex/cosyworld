@@ -10,6 +10,10 @@ const RESIDENT_PLANNER_ELIGIBLE_KINDS: &[&str] = &[
     "trade_item",
     "use_item",
     "open",
+    FOCUSED_NOTICE_OFFER_KIND,
+    DISCOVERY_SEARCH_OFFER_KIND,
+    DISCOVERY_STUDY_OFFER_KIND,
+    DISCOVERY_SCOUT_OFFER_KIND,
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -245,6 +249,16 @@ impl RuntimeWorld {
                 candidate.destination_location_id = Some(destination.parse().ok()?);
                 self.plan_threshold_method_offer_action(actor_id, offer)
                     .ok()?;
+            }
+            (
+                kind @ (FOCUSED_NOTICE_OFFER_KIND
+                | DISCOVERY_SEARCH_OFFER_KIND
+                | DISCOVERY_STUDY_OFFER_KIND
+                | DISCOVERY_SCOUT_OFFER_KIND),
+                _,
+            ) => {
+                self.discovery_record_for_offer(actor_id, offer, 0).ok()?;
+                candidate.kind = kind.to_string();
             }
             _ => return None,
         }
@@ -840,6 +854,40 @@ mod tests {
                 .map(|kind| (*kind).to_string())
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn planner_and_autonomy_consume_the_exact_frozen_discovery_offer() {
+        let mut runtime = RuntimeWorld::seeded();
+        let catalog: DiscoveryAuthorityCatalog =
+            serde_json::from_str(include_str!("../fixtures/discovery-authority-v1.json"))
+                .expect("discovery fixture");
+        runtime.install_discovery_catalog_for_test(
+            catalog,
+            "fixture.discovery",
+            "1.0.0",
+            COSY_COTTAGE_LOCATION_ID,
+            Some("fixture.discovery:region/mossy-verge"),
+        );
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let offer = runtime
+            .discovery_action_offers(actor.id)
+            .into_iter()
+            .find(|offer| offer.kind == FOCUSED_NOTICE_OFFER_KIND)
+            .expect("focused discovery offer");
+        let candidate = runtime
+            .resident_planner_candidate_from_offer(actor.id, &offer)
+            .expect("planner accepts the exact offer");
+        assert_eq!(candidate.candidate_id, offer.offer_id);
+        assert_eq!(candidate.composition_id, offer.composition_id);
+        let record = runtime
+            .resident_record_for_shared_offer(actor, &offer, 92_001)
+            .expect("autonomy consumes the same offer");
+        assert!(runtime.resident_offer_matches_record(&offer, &record));
+        assert!(record.projection_mutations.iter().any(|mutation| {
+            matches!(mutation, ProjectionMutation::ResolveDiscovery { intent }
+                if intent.receipt.id == offer.discovery.as_ref().unwrap().receipt_id)
+        }));
     }
 
     #[test]

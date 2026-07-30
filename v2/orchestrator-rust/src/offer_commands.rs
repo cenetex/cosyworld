@@ -153,6 +153,17 @@ fn dispatch_for_offer(
             .map_err(|_| invalid()),
         "check" => Ok(CommandDispatch::Check),
         "study" => Ok(CommandDispatch::Study),
+        FOCUSED_NOTICE_OFFER_KIND
+        | DISCOVERY_SEARCH_OFFER_KIND
+        | DISCOVERY_STUDY_OFFER_KIND
+        | DISCOVERY_SCOUT_OFFER_KIND => {
+            let binding = offer.discovery.as_ref().ok_or_else(invalid)?;
+            Ok(CommandDispatch::Discover {
+                procedure: binding.procedure.clone(),
+                slot_id: binding.slot_id.clone(),
+                receipt_id: binding.receipt_id.clone(),
+            })
+        }
         "influence" => Ok(CommandDispatch::Influence {
             target_actor_id: required_target_id(offer, "actor")?,
         }),

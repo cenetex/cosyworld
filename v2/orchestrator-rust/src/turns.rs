@@ -1312,6 +1312,13 @@ pub(super) fn command_actor_turn_rejection(
         CommandDispatch::OpenThreshold { .. } => "open",
         CommandDispatch::Check => "check",
         CommandDispatch::Study => "study",
+        CommandDispatch::Discover { procedure, .. } => match procedure.as_str() {
+            "notice" => FOCUSED_NOTICE_OFFER_KIND,
+            "search" => DISCOVERY_SEARCH_OFFER_KIND,
+            "study" => DISCOVERY_STUDY_OFFER_KIND,
+            "scout" => DISCOVERY_SCOUT_OFFER_KIND,
+            _ => "",
+        },
         CommandDispatch::Prepare => "prepare",
         CommandDispatch::Contribute { action_kind, .. } => action_kind.as_str(),
         CommandDispatch::Work => "work",

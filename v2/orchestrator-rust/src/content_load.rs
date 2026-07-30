@@ -4,6 +4,11 @@ use super::*;
 mod discovery_authority;
 #[path = "threshold_descriptors.rs"]
 mod threshold_descriptors;
+pub(super) use discovery_authority::{
+    discovery_authority_catalog, freeze_discovery_receipt, DiscoveryAuthorityCatalog,
+    DiscoveryEventTable, DiscoveryReceiptRequest, DiscoveryRollReceipt, DiscoverySelectionMode,
+    DiscoverySlotDefinition, DiscoveryStockingTable, DiscoveryTell,
+};
 pub(super) use threshold_descriptors::{
     threshold_kernel_id, threshold_record_claim_already_applied,
     threshold_record_preconditions_hold, AcceptedThresholdIntent, ThresholdFactSource,

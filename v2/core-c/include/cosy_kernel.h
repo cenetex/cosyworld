@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 /* Version 9 is reserved by #411 for project-push ABI state. */
-#define CW_KERNEL_VERSION 12u
+#define CW_KERNEL_VERSION 13u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -289,7 +289,13 @@ typedef enum {
      deterministically; it resolves the encounter with no winning side so a
      stuck scene releases its participants instead of retrying forever. */
   CW_ACTION_COMBAT_ABANDON = 33,
-  CW_ACTION_GATE_TRANSITION = 34
+  CW_ACTION_GATE_TRANSITION = 34,
+  /* Append-only discovery procedures. These commit procedure use only; the
+     orchestrator-owned frozen claim decides what truth becomes revealed. */
+  CW_ACTION_FOCUSED_NOTICE_V2 = 35,
+  CW_ACTION_SEARCH_V2 = 36,
+  CW_ACTION_STUDY_V2 = 37,
+  CW_ACTION_SCOUT_V2 = 38
 } cw_action_kind;
 
 typedef enum {
@@ -340,7 +346,11 @@ typedef enum {
   CW_EVENT_GATE_TRANSITION_APPLIED = 43,
   CW_EVENT_ITEM_INSTALLED = 44,
   CW_EVENT_ITEM_REMOVED = 45,
-  CW_EVENT_ITEM_RENDERED_INERT = 46
+  CW_EVENT_ITEM_RENDERED_INERT = 46,
+  CW_EVENT_FOCUSED_NOTICE_COMMITTED = 47,
+  CW_EVENT_SEARCH_COMMITTED = 48,
+  CW_EVENT_STUDY_COMMITTED = 49,
+  CW_EVENT_SCOUT_COMMITTED = 50
 } cw_event_type;
 
 typedef enum {

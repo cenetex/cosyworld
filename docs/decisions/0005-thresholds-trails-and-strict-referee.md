@@ -96,6 +96,18 @@ the honest no-movement result but adds an exact Lead, Anchor/active-foray
 evidence, descriptor versions, and no-null-commit law. New code must use a new
 append-only action or procedure version rather than reinterpret `scout_v1`.
 
+The `discovery-procedure-v2` runtime implements `focused_notice_v2`,
+`search_v2`, `study_v2`, and `scout_v2` as one slot-bound pipeline. A pack
+catalog freezes the receipt, claim scope, stocked result, and any pressure
+consequence before an offer is projected. Browser, terminal, API, and
+inference controllers select that same offer and receipt. A safe Search
+commits without an ability roll; under Pressure the roll only avoids the
+already-frozen consequence. The discovery projection records a Lead or Reveal
+and cannot Open, Travel, Take, equip, materialize, or award the result.
+Snapshots and journal records preserve the frozen claim, and exact retries or
+replay cannot roll or publish it twice. Legacy Search, Study, and `scout_v1`
+records retain their original meanings.
+
 ### Shared discovery progression
 
 The common vocabulary is:

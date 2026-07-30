@@ -2124,6 +2124,41 @@ static void test_project_push_resolution_matrix_and_action_event(void) {
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
 
+static void test_discovery_procedures_reveal_regardless_of_pressure_check(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action search = {0};
+  search.kind = CW_ACTION_SEARCH_V2;
+  search.actor_id = 1001;
+  search.location_id = 1;
+  assert(cw_world_apply(&world, &search, 601, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_SEARCH_COMMITTED);
+  assert(strcmp(cw_event_type_name(events.events[0].type), "discovery.search.committed") == 0);
+
+  cw_action study = {0};
+  study.kind = CW_ACTION_STUDY_V2;
+  study.actor_id = 1001;
+  study.location_id = 1;
+  study.ability = CW_ABILITY_INTELLIGENCE;
+  study.dc = 30;
+  assert(cw_world_apply(&world, &study, 602, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ABILITY_CHECK_ROLLED);
+  assert(events.events[0].success == 0);
+  assert(events.events[1].type == CW_EVENT_STUDY_COMMITTED);
+  assert(events.events[1].success == 1);
+
+  search.location_id = 2;
+  assert(cw_world_apply(&world, &search, 603, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(events.events[0].reason == CW_REASON_NOT_SAME_LOCATION);
+}
+
 static void apply_replay_sequence(cw_world *world, cw_event *events, size_t *event_count) {
   cw_event_buffer buffer;
   *event_count = 0;
@@ -2206,6 +2241,7 @@ int main(void) {
   test_kernel_gate_authority_stale_offers_and_claims();
   test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides();
   test_project_push_resolution_matrix_and_action_event();
+  test_discovery_procedures_reveal_regardless_of_pressure_check();
   test_deterministic_replay();
   puts("cosy kernel tests passed");
   return 0;

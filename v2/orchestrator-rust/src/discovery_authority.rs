@@ -37,175 +37,175 @@ const EVENT_EFFECTS: [&str; 6] = [
     "change_method",
 ];
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryAuthorityCatalog {
-    pub(super) schema_version: u8,
-    pub(super) receipt_version: String,
-    pub(super) roll_algorithm: String,
-    pub(super) stocking_tables: Vec<DiscoveryStockingTable>,
+pub(crate) struct DiscoveryAuthorityCatalog {
+    pub(crate) schema_version: u8,
+    pub(crate) receipt_version: String,
+    pub(crate) roll_algorithm: String,
+    pub(crate) stocking_tables: Vec<DiscoveryStockingTable>,
     #[serde(default)]
-    pub(super) event_tables: Vec<DiscoveryEventTable>,
+    pub(crate) event_tables: Vec<DiscoveryEventTable>,
     #[serde(default)]
-    pub(super) presentation_tables: Vec<DiscoveryPresentationTable>,
-    pub(super) slots: Vec<DiscoverySlotDefinition>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryStockingTable {
-    pub(super) id: String,
-    pub(super) version: u8,
-    pub(super) target_kind: String,
-    pub(super) eligible_inputs: Vec<String>,
-    pub(super) rows: Vec<DiscoveryStockingRow>,
-    pub(super) fallback_row_id: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryStockingRow {
-    pub(super) id: String,
-    pub(super) weight: u16,
-    pub(super) result_ids: Vec<String>,
-    #[serde(default)]
-    pub(super) unique: bool,
-    #[serde(default)]
-    pub(super) topology_entity_ids: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryEventTable {
-    pub(super) id: String,
-    pub(super) version: u8,
-    pub(super) eligible_inputs: Vec<String>,
-    pub(super) rows: Vec<DiscoveryEventRow>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryEventRow {
-    pub(super) id: String,
-    pub(super) weight: u16,
-    pub(super) effect_kind: String,
-    pub(super) target_id: String,
-    pub(super) amount: u8,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryPresentationTable {
-    pub(super) id: String,
-    pub(super) version: u8,
-    pub(super) rows: Vec<DiscoveryPresentationRow>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryPresentationRow {
-    pub(super) id: String,
-    pub(super) text: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoverySlotDefinition {
-    pub(super) id: String,
-    pub(super) version: u8,
-    pub(super) target_kind: String,
-    pub(super) origin_id: String,
-    pub(super) scope: String,
-    pub(super) initial_phase: String,
-    pub(super) tells: Vec<DiscoveryTell>,
-    pub(super) reveal_methods: Vec<String>,
-    pub(super) claim_policy: String,
-    pub(super) stocking: DiscoveryStockingBinding,
-    #[serde(default)]
-    pub(super) authorized_topology_ids: Vec<String>,
-    #[serde(default)]
-    pub(super) gate_id: Option<String>,
-    #[serde(default)]
-    pub(super) hazard_id: Option<String>,
-    #[serde(default)]
-    pub(super) event_table_id: Option<String>,
-    #[serde(default)]
-    pub(super) event_table_version: Option<u8>,
-    #[serde(default)]
-    pub(super) presentation_table_id: Option<String>,
-    #[serde(default)]
-    pub(super) presentation_table_version: Option<u8>,
-    pub(super) progression: DiscoveryProgression,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryTell {
-    pub(super) id: String,
-    pub(super) sense: String,
-    pub(super) text: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryStockingBinding {
-    pub(super) kind: String,
-    #[serde(default)]
-    pub(super) table_id: Option<String>,
-    #[serde(default)]
-    pub(super) table_version: Option<u8>,
-    #[serde(default)]
-    pub(super) result_ids: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryProgression {
-    pub(super) kind: String,
-    #[serde(default)]
-    pub(super) sign_budget: Option<u8>,
-    #[serde(default)]
-    pub(super) fallback_row_id: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum DiscoverySelectionMode {
-    Weighted,
-    RequiredFallback,
-}
-
-pub(super) struct DiscoveryReceiptRequest<'a> {
-    pub(super) pack_id: &'a str,
-    pub(super) pack_version: &'a str,
-    pub(super) slot_id: &'a str,
-    pub(super) scope_id: &'a str,
-    pub(super) server_facts: BTreeMap<String, String>,
-    pub(super) mode: DiscoverySelectionMode,
+    pub(crate) presentation_tables: Vec<DiscoveryPresentationTable>,
+    pub(crate) slots: Vec<DiscoverySlotDefinition>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct DiscoveryRollReceipt {
-    pub(super) schema_version: u8,
-    pub(super) receipt_version: String,
-    pub(super) id: String,
-    pub(super) claim_key: String,
-    pub(super) slot_id: String,
-    pub(super) slot_version: u8,
-    pub(super) target_kind: String,
-    pub(super) scope: String,
-    pub(super) scope_id: String,
-    pub(super) pack_id: String,
-    pub(super) pack_version: String,
-    pub(super) table_id: Option<String>,
-    pub(super) table_version: Option<u8>,
-    pub(super) roll_algorithm: String,
-    pub(super) eligible_input_facts: BTreeMap<String, String>,
-    pub(super) seed_input: String,
-    pub(super) roll_seed: u64,
-    pub(super) selected_row_id: String,
-    pub(super) materialized_entity_ids: Vec<String>,
-    pub(super) fallback_decision: String,
+pub(crate) struct DiscoveryStockingTable {
+    pub(crate) id: String,
+    pub(crate) version: u8,
+    pub(crate) target_kind: String,
+    pub(crate) eligible_inputs: Vec<String>,
+    pub(crate) rows: Vec<DiscoveryStockingRow>,
+    pub(crate) fallback_row_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryStockingRow {
+    pub(crate) id: String,
+    pub(crate) weight: u16,
+    pub(crate) result_ids: Vec<String>,
+    #[serde(default)]
+    pub(crate) unique: bool,
+    #[serde(default)]
+    pub(crate) topology_entity_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryEventTable {
+    pub(crate) id: String,
+    pub(crate) version: u8,
+    pub(crate) eligible_inputs: Vec<String>,
+    pub(crate) rows: Vec<DiscoveryEventRow>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryEventRow {
+    pub(crate) id: String,
+    pub(crate) weight: u16,
+    pub(crate) effect_kind: String,
+    pub(crate) target_id: String,
+    pub(crate) amount: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryPresentationTable {
+    pub(crate) id: String,
+    pub(crate) version: u8,
+    pub(crate) rows: Vec<DiscoveryPresentationRow>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryPresentationRow {
+    pub(crate) id: String,
+    pub(crate) text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoverySlotDefinition {
+    pub(crate) id: String,
+    pub(crate) version: u8,
+    pub(crate) target_kind: String,
+    pub(crate) origin_id: String,
+    pub(crate) scope: String,
+    pub(crate) initial_phase: String,
+    pub(crate) tells: Vec<DiscoveryTell>,
+    pub(crate) reveal_methods: Vec<String>,
+    pub(crate) claim_policy: String,
+    pub(crate) stocking: DiscoveryStockingBinding,
+    #[serde(default)]
+    pub(crate) authorized_topology_ids: Vec<String>,
+    #[serde(default)]
+    pub(crate) gate_id: Option<String>,
+    #[serde(default)]
+    pub(crate) hazard_id: Option<String>,
+    #[serde(default)]
+    pub(crate) event_table_id: Option<String>,
+    #[serde(default)]
+    pub(crate) event_table_version: Option<u8>,
+    #[serde(default)]
+    pub(crate) presentation_table_id: Option<String>,
+    #[serde(default)]
+    pub(crate) presentation_table_version: Option<u8>,
+    pub(crate) progression: DiscoveryProgression,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryTell {
+    pub(crate) id: String,
+    pub(crate) sense: String,
+    pub(crate) text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryStockingBinding {
+    pub(crate) kind: String,
+    #[serde(default)]
+    pub(crate) table_id: Option<String>,
+    #[serde(default)]
+    pub(crate) table_version: Option<u8>,
+    #[serde(default)]
+    pub(crate) result_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryProgression {
+    pub(crate) kind: String,
+    #[serde(default)]
+    pub(crate) sign_budget: Option<u8>,
+    #[serde(default)]
+    pub(crate) fallback_row_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum DiscoverySelectionMode {
+    Weighted,
+    RequiredFallback,
+}
+
+pub(crate) struct DiscoveryReceiptRequest<'a> {
+    pub(crate) pack_id: &'a str,
+    pub(crate) pack_version: &'a str,
+    pub(crate) slot_id: &'a str,
+    pub(crate) scope_id: &'a str,
+    pub(crate) server_facts: BTreeMap<String, String>,
+    pub(crate) mode: DiscoverySelectionMode,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DiscoveryRollReceipt {
+    pub(crate) schema_version: u8,
+    pub(crate) receipt_version: String,
+    pub(crate) id: String,
+    pub(crate) claim_key: String,
+    pub(crate) slot_id: String,
+    pub(crate) slot_version: u8,
+    pub(crate) target_kind: String,
+    pub(crate) scope: String,
+    pub(crate) scope_id: String,
+    pub(crate) pack_id: String,
+    pub(crate) pack_version: String,
+    pub(crate) table_id: Option<String>,
+    pub(crate) table_version: Option<u8>,
+    pub(crate) roll_algorithm: String,
+    pub(crate) eligible_input_facts: BTreeMap<String, String>,
+    pub(crate) seed_input: String,
+    pub(crate) roll_seed: u64,
+    pub(crate) selected_row_id: String,
+    pub(crate) materialized_entity_ids: Vec<String>,
+    pub(crate) fallback_decision: String,
 }
 
 fn parse_catalog(pack: &SeedWorldpackPack) -> Result<Option<DiscoveryAuthorityCatalog>, String> {
@@ -215,6 +215,12 @@ fn parse_catalog(pack: &SeedWorldpackPack) -> Result<Option<DiscoveryAuthorityCa
     serde_json::from_value(value)
         .map(Some)
         .map_err(|error| format!("pack {} discovery authority: {error}", pack.id))
+}
+
+pub(crate) fn discovery_authority_catalog(
+    pack: &SeedWorldpackPack,
+) -> Result<Option<DiscoveryAuthorityCatalog>, String> {
+    parse_catalog(pack)
 }
 
 pub(super) struct DiscoverySlotContract {
@@ -628,7 +634,7 @@ fn validate_existing_receipt(receipt: &DiscoveryRollReceipt) -> Result<(), Strin
     Ok(())
 }
 
-pub(super) fn freeze_discovery_receipt(
+pub(crate) fn freeze_discovery_receipt(
     catalog: &DiscoveryAuthorityCatalog,
     request: DiscoveryReceiptRequest<'_>,
     existing: Option<&DiscoveryRollReceipt>,

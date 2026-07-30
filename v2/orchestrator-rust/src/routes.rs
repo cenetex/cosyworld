@@ -167,6 +167,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/report", post(report_actor))
         .route("/actions/move", post(move_actor))
         .route("/actions/explore-path", post(explore_pathway))
+        .route("/actions/discover", post(discover))
         .route("/actions/check", post(ability_check))
         .route("/actions/study", post(study))
         .route("/actions/influence", post(influence))

@@ -32,6 +32,7 @@ mod content_policy;
 mod content_registry;
 mod contributions;
 mod crafting;
+mod discovery_pipeline;
 mod first_tale;
 mod generated_places;
 mod generation_policy;
@@ -103,12 +104,14 @@ use chat_action::*;
 use combat::*;
 use communal_governance::*;
 use community_art::*;
+use composition::*;
 use content_load::*;
 use content_packs::*;
 use content_policy::*;
 use content_registry::*;
 use contributions::*;
 use crafting::*;
+use discovery_pipeline::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use first_tale::*;
 use generated_places::*;
@@ -1070,6 +1073,9 @@ enum ProjectionMutation {
         narration: String,
         event_type: String,
     },
+    ResolveDiscovery {
+        intent: AcceptedDiscoveryIntent,
+    },
     UpgradePathwayIfReady {
         pathway_id: String,
         progress_clock_id: String,
@@ -1689,6 +1695,8 @@ struct RuntimeWorld {
     routes: BTreeMap<String, RouteRecordState>,
     threshold_gate_sources: BTreeMap<u64, ThresholdGateSource>,
     threshold_hazard_states: BTreeMap<String, ThresholdHazardRuntimeState>,
+    discovery_sources: BTreeMap<String, DiscoveryRuntimeSource>,
+    discovery_claims: BTreeMap<String, DiscoveryClaimState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
@@ -1776,6 +1784,10 @@ struct RuntimeSnapshot {
     routes: BTreeMap<String, RouteRecordState>,
     #[serde(default)]
     threshold_authority: ThresholdKernelSnapshot,
+    #[serde(default)]
+    discovery_sources: BTreeMap<String, DiscoveryRuntimeSource>,
+    #[serde(default)]
+    discovery_claims: BTreeMap<String, DiscoveryClaimState>,
     #[serde(default)]
     world_evolution_tracks: Vec<CwEvolutionTrack>,
     #[serde(default)]
@@ -2043,7 +2055,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 15;
+const JOURNAL_RECORD_VERSION: u32 = 16;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -3018,6 +3030,8 @@ struct RankedActionOffer {
     route: Option<RouteOfferBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     threshold_method: Option<ThresholdMethodOfferView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    discovery: Option<DiscoveryOfferView>,
 
     category: String,
     verb: String,
@@ -6084,7 +6098,9 @@ fn active_rules_bundle() -> &'static SeedRuleBundle {
 fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
     let canonical_kind = match kind {
         "travel" => "move",
-        "explore_path" => "search",
+        "explore_path" | DISCOVERY_SCOUT_OFFER_KIND | DISCOVERY_SEARCH_OFFER_KIND => "search",
+        FOCUSED_NOTICE_OFFER_KIND => "check",
+        DISCOVERY_STUDY_OFFER_KIND => "study",
         "open" => "use_item",
         other => other,
     };
@@ -6148,6 +6164,10 @@ fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> 
         CW_ACTION_TRADE_ITEM => "trade_item",
         CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
         CW_ACTION_GATE_TRANSITION => "open",
+        CW_ACTION_FOCUSED_NOTICE_V2 => FOCUSED_NOTICE_OFFER_KIND,
+        CW_ACTION_SEARCH_V2 => DISCOVERY_SEARCH_OFFER_KIND,
+        CW_ACTION_STUDY_V2 => DISCOVERY_STUDY_OFFER_KIND,
+        CW_ACTION_SCOUT_V2 => DISCOVERY_SCOUT_OFFER_KIND,
         CW_ACTION_PROJECT_PUSH => "work",
         CW_ACTION_CRAFT => "craft",
         CW_ACTION_THEFT => "theft",
@@ -6230,7 +6250,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 15,
+            version: 16,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6251,6 +6271,8 @@ impl RuntimeSnapshot {
             world_exits: runtime.world.exits[..runtime.world.exit_count].to_vec(),
             routes: runtime.routes.clone(),
             threshold_authority: ThresholdKernelSnapshot::from_runtime(runtime),
+            discovery_sources: runtime.discovery_sources.clone(),
+            discovery_claims: runtime.discovery_claims.clone(),
             world_evolution_tracks: runtime.world.evolution_tracks
                 [..runtime.world.evolution_track_count]
                 .to_vec(),
@@ -6533,6 +6555,8 @@ impl RuntimeSnapshot {
             routes: self.routes,
             threshold_gate_sources,
             threshold_hazard_states,
+            discovery_sources: self.discovery_sources,
+            discovery_claims: self.discovery_claims,
             generated_pathways: self.generated_pathways,
             generated_places: self.generated_places,
             governance_decisions: self.governance_decisions,
@@ -6947,6 +6971,8 @@ impl RuntimeWorld {
             routes: BTreeMap::new(),
             threshold_gate_sources: BTreeMap::new(),
             threshold_hazard_states: BTreeMap::new(),
+            discovery_sources: BTreeMap::new(),
+            discovery_claims: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
             generated_places: BTreeMap::new(),
             governance_decisions: BTreeMap::new(),
@@ -6998,6 +7024,7 @@ impl RuntimeWorld {
         runtime.ensure_seed_topology();
         runtime.ensure_active_actor_rules_facets();
         runtime.ensure_canonical_identities(0);
+        runtime.ensure_seed_discovery_sources();
         runtime.append_world_bootstrapped_event();
         runtime.ensure_seed_rpg_projection();
         runtime.refresh_all_canonical_events();
@@ -10151,10 +10178,13 @@ impl RuntimeWorld {
             || !self.job_contribution_record_preconditions_hold(record)
             || !self.ai_publication_preconditions_hold(record)
             || !self.proxim8_materialization_record_preconditions_hold(record)
+            || !discovery_record_preconditions_hold(self, record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
-        if threshold_record_claim_already_applied(self, record) {
+        if threshold_record_claim_already_applied(self, record)
+            || discovery_record_claim_already_applied(self, record)
+        {
             return (CW_OK, Vec::new());
         }
         let enforce_active_contribution_contract =
@@ -10833,6 +10863,9 @@ impl RuntimeWorld {
                         event.seq,
                     );
                     events.push(event);
+                }
+                ProjectionMutation::ResolveDiscovery { intent } => {
+                    events.extend(self.apply_discovery_projection(intent, committed_events));
                 }
                 ProjectionMutation::UpgradePathwayIfReady {
                     pathway_id,
@@ -21594,6 +21627,13 @@ The relationship statement they are preserving is: {statement}"
                 record.projection_mutations.extend(mutations);
                 record
             }
+            FOCUSED_NOTICE_OFFER_KIND
+            | DISCOVERY_SEARCH_OFFER_KIND
+            | DISCOVERY_STUDY_OFFER_KIND
+            | DISCOVERY_SCOUT_OFFER_KIND => self
+                .discovery_record_for_offer(actor.id, &offer, seed)
+                .ok()?
+                .into_actor_consequence(self.world.tick, None),
             "influence" => {
                 let target_actor_id = offer
                     .target
@@ -22063,6 +22103,21 @@ The relationship statement they are preserving is: {statement}"
         let action = &record.action;
         if offer.kind != Self::resident_record_offer_kind(record) {
             return false;
+        }
+        if let Some(intent) = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ResolveDiscovery { intent } => Some(intent),
+                _ => None,
+            })
+        {
+            return offer.discovery.as_ref().is_some_and(|binding| {
+                binding.procedure == intent.procedure
+                    && binding.slot_id == intent.slot_id
+                    && binding.receipt_id == intent.receipt.id
+                    && binding.claim_key == intent.claim_key
+            });
         }
         if let Some(destination_location_id) =
             record
@@ -25469,6 +25524,13 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/chat" => kind == "chat",
         "/actions/move" => kind == "move",
         "/actions/explore-path" => kind == "explore_path",
+        "/actions/discover" => matches!(
+            kind,
+            FOCUSED_NOTICE_OFFER_KIND
+                | DISCOVERY_SEARCH_OFFER_KIND
+                | DISCOVERY_STUDY_OFFER_KIND
+                | DISCOVERY_SCOUT_OFFER_KIND
+        ),
         "/actions/flee" => kind == "flee",
         "/actions/check" => kind == "check",
         "/actions/study" => kind == "study",
@@ -25589,6 +25651,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(ScoutRequest)),
+            )
+            .await
+        }
+        "/actions/discover" => {
+            discover(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(DiscoveryProcedureRequest)),
             )
             .await
         }
@@ -27726,8 +27796,7 @@ async fn command_with_forwarding(
             warn!("failed to refresh canonical actor session: {}", error);
         }
     }
-    // The local lock serializes validation for commands that route to this
-    // process. Cross-process serialization and idempotency live in SQLite.
+    // Local validation is serialized here; cross-process idempotency lives in SQLite.
     let _command_guard = state.canonical_command_lock.lock().await;
     let compatibility_envelope = payload.envelope.is_none();
     let envelope = {
@@ -28817,6 +28886,25 @@ async fn command_inner(
                     dc: Some(LISTEN_DC),
                     job_id: None,
                     strategy_id: None,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Discover {
+            procedure,
+            slot_id,
+            receipt_id,
+        } => {
+            let Json(response) = discover(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(DiscoveryProcedureRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    procedure,
+                    slot_id,
+                    receipt_id: Some(receipt_id),
                 }),
             )
             .await;
@@ -37953,321 +38041,6 @@ fn action_is_discovery_check(action: &CwAction) -> bool {
             && action.dc == LISTEN_DC)
 }
 
-fn action_provider(
-    kind: impl Into<String>,
-    id: impl Into<String>,
-    label: impl Into<String>,
-    reason: impl Into<String>,
-    priority: u8,
-) -> ActionProviderView {
-    ActionProviderView {
-        kind: kind.into(),
-        id: id.into(),
-        label: label.into(),
-        reason: reason.into(),
-        priority,
-    }
-}
-
-fn calling_matches_inspect(statement: &str) -> bool {
-    let statement = statement.to_ascii_lowercase();
-    [
-        "clue", "lost", "stuck", "shy room", "strange", "warning", "errand",
-    ]
-    .iter()
-    .any(|needle| statement.contains(needle))
-}
-
-fn action_offer_requires_target(kind: &str) -> bool {
-    matches!(
-        kind,
-        "chat"
-            | "influence"
-            | "attack"
-            | "defend"
-            | "flee"
-            | "pick_up"
-            | "use_item"
-            | "use_feature"
-            | "give_item"
-            | "trade_item"
-            | "search"
-            | "study"
-            | "work"
-            | "help"
-            | "craft"
-            | "move"
-            | "create_bond"
-            | "resolve_bond"
-            | "explore_path"
-            | "open"
-    )
-}
-
-fn action_offer_is_reachable(offer: &RankedActionOffer) -> bool {
-    if offer.disabled {
-        return false;
-    }
-    if action_offer_requires_target(&offer.kind) && offer.target.is_none() {
-        return false;
-    }
-    if matches!(offer.kind.as_str(), "prepare" | "work" | "help" | "study")
-        && offer.project.is_none()
-    {
-        return false;
-    }
-    true
-}
-
-fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
-    if offer.intention == "contribute" {
-        return offer
-            .project
-            .as_ref()
-            .map(|project| format!("contribute:{}", project.progress_clock_id))
-            .unwrap_or_else(|| "contribute".to_string());
-    }
-    if matches!(offer.kind.as_str(), "give_item" | "trade_item") {
-        return offer.kind.clone();
-    }
-    if matches!(offer.kind.as_str(), "use_item" | "use_feature") {
-        return "use".to_string();
-    }
-    offer.id.clone()
-}
-
-fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> bool {
-    matches!(
-        offer.kind.as_str(),
-        "check" | "search" | "move" | "chat" | "rest"
-    )
-}
-
-fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
-    const CAPACITY: usize = 2;
-    let mut candidates: Vec<_> = offers
-        .iter()
-        .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
-        .collect();
-    candidates.sort_by(|left, right| {
-        left.provider
-            .priority
-            .cmp(&right.provider.priority)
-            .then_with(|| left.rank.cmp(&right.rank))
-            .then_with(|| left.id.cmp(&right.id))
-    });
-
-    let mut grouped = Vec::new();
-    let mut seen_groups = BTreeSet::new();
-    for offer in candidates {
-        if seen_groups.insert(action_offer_hand_group(offer)) {
-            grouped.push(offer);
-        }
-    }
-
-    let mut selected = Vec::new();
-    let mut provider_counts = BTreeMap::<String, u8>::new();
-    for offer in &grouped {
-        let provider_key = format!("{}:{}", offer.provider.kind, offer.provider.id);
-        let count = provider_counts.entry(provider_key).or_default();
-        if *count < 2 {
-            selected.push(*offer);
-            *count += 1;
-        }
-        if selected.len() == CAPACITY {
-            break;
-        }
-    }
-    if selected.len() < CAPACITY {
-        for offer in &grouped {
-            if selected.iter().any(|selected| selected.id == offer.id) {
-                continue;
-            }
-            selected.push(*offer);
-            if selected.len() == CAPACITY {
-                break;
-            }
-        }
-    }
-
-    if !selected
-        .iter()
-        .any(|offer| action_offer_is_generally_useful(offer))
-    {
-        if let Some(general) = grouped
-            .iter()
-            .copied()
-            .find(|offer| action_offer_is_generally_useful(offer))
-        {
-            if selected.len() < CAPACITY {
-                selected.push(general);
-            } else if let Some(last) = selected.last_mut() {
-                *last = general;
-            }
-        }
-    }
-
-    selected.sort_by(|left, right| {
-        left.provider
-            .priority
-            .cmp(&right.provider.priority)
-            .then_with(|| left.rank.cmp(&right.rank))
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    selected.dedup_by(|left, right| left.id == right.id);
-
-    ActionHandView {
-        schema_version: 1,
-        capacity: CAPACITY as u8,
-        entries: selected
-            .into_iter()
-            .map(|offer| ActionHandEntryView {
-                offer_id: offer.offer_id.clone(),
-                kind: offer.kind.clone(),
-                intention: offer.intention.clone(),
-                provider: offer.provider.clone(),
-            })
-            .collect(),
-    }
-}
-
-fn action_offer_rank(kind: &str) -> u16 {
-    match kind {
-        "give_item" => 10,
-        "open" => 18,
-        "use_item" | "use_feature" => 20,
-        "rest" => 25,
-        "pick_up" => 30,
-        "drop_item" => 30,
-        "craft" => 31,
-        "prepare" => 32,
-        "attack" => 40,
-        "defend" => 45,
-        "work" => 48,
-        "help" => 49,
-        "flee" => 50,
-        "explore_path" => 55,
-        "search" => 58,
-        "check" => 60,
-        "study" => 61,
-        "cast_spell" => 22,
-        "chat" => 70,
-        "trade_item" => 74,
-        "train_skill" => 76,
-        "create_bond" => 77,
-        "resolve_bond" => 79,
-        "move" => 80,
-        _ => 500,
-    }
-}
-
-fn practice_category_matches_offer(category: &str, kind: &str) -> bool {
-    match category {
-        "exploration" => matches!(kind, "explore_path" | "search" | "check" | "open" | "move"),
-        "craft" => matches!(kind, "craft" | "use_feature"),
-        "delivery" => matches!(kind, "move" | "give_item" | "trade_item"),
-        "stewardship" => matches!(kind, "prepare" | "work" | "help"),
-        "care" => matches!(kind, "defend" | "use_item" | "rest"),
-        "mediation" => matches!(kind, "influence" | "chat" | "create_bond" | "resolve_bond"),
-        "lore" => matches!(kind, "study" | "search" | "check"),
-        _ => false,
-    }
-}
-
-fn action_offer_intention(kind: &str) -> &str {
-    match kind {
-        "check" => "notice",
-        "search" => "inspect",
-        "explore_path" => "scout",
-        "move" => "travel",
-        "open" => "open",
-        "work" | "help" => "contribute",
-        _ => kind,
-    }
-}
-
-fn contribution_resolution_label(policy: &ContributionResolutionPolicy) -> &'static str {
-    match policy {
-        ContributionResolutionPolicy::Certain => "certain",
-        ContributionResolutionPolicy::SrdCheck { .. } => "srd_check",
-        ContributionResolutionPolicy::ExistingKernelOutcome { .. } => "existing_kernel_outcome",
-    }
-}
-
-fn default_action_offer_verb(kind: &str) -> &str {
-    match kind {
-        "check" => "Notice",
-        "search" => "Inspect",
-        "explore_path" => "Scout",
-        "move" => "Travel",
-        "open" => "Open",
-        "work" => "Push",
-        "help" => "Help",
-        "flee" => "Flee",
-        "prepare" => "Prepare",
-        "pick_up" => "Take",
-        "drop_item" => "Drop",
-        _ => "Act",
-    }
-}
-
-fn non_empty_text(value: &str) -> Option<&str> {
-    let value = value.trim();
-    (!value.is_empty()).then_some(value)
-}
-
-fn action_target_phrase(verb: &str, preposition: &str, target: Option<&str>) -> String {
-    let Some(target) = target.and_then(non_empty_text) else {
-        return verb.to_string();
-    };
-    if preposition.is_empty()
-        || verb
-            .to_ascii_lowercase()
-            .ends_with(&format!(" {preposition}"))
-    {
-        format!("{verb} {target}")
-    } else {
-        format!("{verb} {preposition} {target}")
-    }
-}
-
-fn fallback_job_action_label(job_id: &str) -> String {
-    let words = job_id
-        .rsplit_once(':')
-        .map(|(_, suffix)| suffix)
-        .unwrap_or(job_id)
-        .split(['-', '_'])
-        .filter(|word| !word.is_empty())
-        .collect::<Vec<_>>();
-    let fallback = if words.is_empty() {
-        "Contribute".to_string()
-    } else {
-        words.join(" ")
-    };
-    let mut characters = fallback.chars();
-    characters
-        .next()
-        .map(|first| first.to_uppercase().collect::<String>() + characters.as_str())
-        .unwrap_or_else(|| "Contribute".to_string())
-}
-
-fn action_offer_category(kind: &str) -> &'static str {
-    match kind {
-        "create_avatar" => "system",
-        "move" | "flee" | "explore_path" => "travel",
-        "attack" | "defend" => "danger",
-        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item"
-        | "open" => "inventory",
-        "craft" => "craft",
-        "chat" | "help" | "create_bond" | "resolve_bond" => "social",
-        "check" | "search" => "discovery",
-        "prepare" | "work" => "project",
-        "rest" => "recovery",
-        "train_skill" | "revise_calling" | "revise_bond" => "growth",
-        _ => "other",
-    }
-}
-
 fn committed_orb_deltas(
     record: &JournalRecord,
     events: &[EventView],
@@ -38690,6 +38463,9 @@ fn commit_journal_record(
         return Ok((CW_ERR_RULE, Vec::new()));
     }
     if !runtime.threshold_hazard_preconditions_hold(&record) {
+        return Ok((CW_ERR_RULE, Vec::new()));
+    }
+    if !discovery_record_preconditions_hold(runtime, &record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
     if hosted_guest_record_restricted(state, runtime, &record) {
