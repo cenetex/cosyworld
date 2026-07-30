@@ -112,4 +112,8 @@
 # 74360 -> 74376: versioned fast replay for the existing presentation-only
 # hand-shuffle projection, bypassing unrelated world reconciliation while
 # preserving the historical path for already committed journal records.
-74376
+# 74376 -> 74444: issue #360 stops reporting a default arrival calling as a
+# chosen purpose. Six lines branch the existing calling copy on the reason the
+# server already embeds; the rest is the two regressions, which need
+# `room_memory_entries` and `INDEX_HTML` and so belong beside them.
+74444

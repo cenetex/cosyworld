@@ -9290,6 +9290,9 @@
       }
       if (kind === "calling") {
         const purpose = text.replace(/^what draws you in:\s*/i, "");
+        if (/^arrives\b/i.test(purpose)) {
+          return finishSentence(actor ? `${actor} ${purpose}` : purpose);
+        }
         return finishSentence(actor ? `${actor} chose a purpose: ${purpose}` : purpose);
       }
       if (kind === "bank") return finishSentence(actor ? `${actor} grew from what happened` : text);
@@ -9350,6 +9353,9 @@
         return { kind: "bond", label: "dialogue unavailable", text: "The promised resident reply could not run. No substitute speech was created." };
       }
       if (event.type === "calling.set") {
+        if (callingEventReason(event) === "avatar_created") {
+          return { kind: "calling", label: "purpose", text: "arrives with a purpose still to choose" };
+        }
         if (event.actor_id === actorId) {
           return { kind: "calling", label: "purpose", text: `What draws you in: ${cleanStatusText(callingEventLabel(event))}` };
         }
@@ -10797,6 +10803,15 @@
       const content = String(event.content || "").trim();
       const reasonIndex = content.lastIndexOf(":");
       return reasonIndex > 0 ? content.slice(0, reasonIndex) : content || "a small truth";
+    }
+
+    // The server embeds why a calling was recorded. An arriving avatar is handed
+    // a starting statement it never picked, so that case must not be reported as
+    // a chosen purpose (#360).
+    function callingEventReason(event) {
+      const content = String(event.content || "").trim();
+      const reasonIndex = content.lastIndexOf(":");
+      return reasonIndex > 0 ? content.slice(reasonIndex + 1).trim() : "";
     }
 
     function ledgerEventLabel(event) {
