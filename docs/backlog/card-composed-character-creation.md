@@ -1,7 +1,8 @@
 # Card-Composed Character Creation
 
 Status: staged-creation vertical slice implemented, broader account collection
-proposed, 2026-07-22.
+proposed (2026-07-22), with the Avatar/Home/Keepsake world-allocation follow-on
+groomed locally (2026-07-30).
 
 ## Decision
 
@@ -80,6 +81,12 @@ revised.
 The compiler accepts references to validated rules profiles, traits, hooks,
 items, and charms. It does not accept arbitrary stat blocks or prose-defined
 effects.
+
+The selected Origin and the avatar's unique runtime Home are separate facts.
+Origin is a reusable account card and can name a culture, remembered place, or
+tradition. Home is one canonical location allocated for this particular
+avatar. Creating Home must not move the campaign entry room, bypass a Gate, or
+make the selected Origin a private instance.
 
 ### Suggested Lantern Keeper starter set
 
@@ -383,6 +390,268 @@ The compiler must reject:
 - species or class text that promises unsupported mechanics; and
 - a campaign with no fully deterministic creation path.
 
+## Follow-On Epic: Avatar, Home, And Signature Keepsake
+
+Every new tale should add a small authored triptych to the canonical world:
+
+1. one **Avatar**;
+2. one unique **Home** location; and
+3. one physical **Signature Keepsake** allocated somewhere in the world.
+
+The three identities are allocated together, but they need not all be loaded
+into the active simulation or have generated media before the avatar can play.
+“Authored” means the location and item have stable canonical identity,
+validated mechanical facts, provenance, and presentation inputs. It does not
+mean AI controls their rules, topology, placement, or access.
+
+This is a follow-on to staged card creation, not a blocker for the existing
+Species/Origin/Class slice.
+
+**Current capacity note (reviewed 2026-07-30)**:
+`v2/core-c/include/cosy_kernel.h` currently bounds one loaded `cw_world` at
+512 actors, 512 locations, 1,024 items, and 1,024 directed exits. A reciprocal
+Home ingress normally consumes two exit rows. One permanent Home and item per
+avatar therefore cannot scale to the actor ceiling while all authored and
+historical entities remain loaded. AVH-4 deliberately proves the game below
+those bounds; AVH-5 is required before removing the cohort ceiling.
+
+| Ticket | Queue | Depends on |
+| --- | --- | --- |
+| AVH-0 — record the Avatar/Home/Keepsake contract | P1 / proposed | staged creation contract, THR-0 |
+| AVH-1 — allocate the triptych atomically | P1 / proposed | AVH-0, THR-D0 |
+| AVH-2 — place homes through bounded route slots | P1 / proposed | AVH-1, THR-7, THR-7G |
+| AVH-3 — decorate the triptych asynchronously | P1 / proposed | AVH-1 |
+| AVH-4 — prove a bounded living-world cohort | P1 / proposed | AVH-1 through AVH-3 |
+| AVH-5 — hydrate cold canonical homes by partition | P1 / later / proposed | AVH-4, ADR 0003 |
+| AVH-6 — remove the bounded-cohort production gate | P1 / later / blocked | AVH-5 |
+
+The AVH rows are issue-ready local proposals and are not yet filed.
+
+### AVH-0 — Record The Avatar/Home/Keepsake Contract
+
+**Scope**: identity, ownership, privacy, lifecycle, access, and compatibility
+
+#### What to decide
+
+- Allocate stable identities for the actor, Home, Signature Keepsake,
+  discovery placement, and initial Home ingress in one versioned bundle.
+- Home is unique to the avatar but remains part of the one canonical shared
+  world. It is not a private shard, campaign copy, or client-owned room.
+- Origin remains a reusable creation card. It may influence Home presentation
+  inputs but does not select topology, grant access, or substitute for Home.
+- The campaign profile remains authoritative for the avatar's initial room.
+  Creation grants the owner truthful private knowledge of Home and one
+  geographically contextual way to seek it; it does not teleport the actor
+  there or globally map the route.
+- The Keepsake is a physical world item, not the identity card and not a
+  guaranteed starting possession. Its frozen discovery placement may be at
+  Home or in another eligible bounded Slot, but retry cannot move or duplicate
+  it.
+- Define what retirement, release, archive, account unlinking, pack upgrade,
+  and owner absence do. Recommended: Home and Keepsake remain canonical world
+  history; access and stewardship may change through authored rules, but the
+  bundle is not silently deleted.
+- Define the minimum mechanical fallback for all three subjects so creation
+  succeeds and remains understandable while AI services are unavailable.
+
+#### Acceptance
+
+- One contract distinguishes Origin, Home, Signature Keepsake, identity card,
+  starter equipment, campaign entry, ownership, stewardship, and access.
+- No lifecycle state implicitly deletes a canonical Home or item.
+- The owner can truthfully know Home without every actor learning it or every
+  route to it.
+- AI and wallet availability are outside the authoritative creation
+  preconditions.
+
+### AVH-1 — Allocate The Triptych Atomically
+
+**Scope**: allocator receipt, idempotency, bounded materialization, and replay
+
+#### What to do
+
+- Keep the allocator as the live authoritative procedure. On creation it
+  selects and reserves, from validated bounded candidates:
+  - actor, Home, and Signature Keepsake IDs;
+  - a typed Home location template and rules profile;
+  - one eligible Home ingress/route Slot;
+  - one eligible item Discovery Slot;
+  - allocation seed, table versions, inputs, and pack hashes.
+- Commit one idempotent allocation receipt before exposing success. A retry
+  returns the same bundle and cannot consume another route or discovery Slot.
+- Validate all kernel and projection capacity needed for the bounded slice
+  before commit. Reject cleanly if the bundle cannot fit; never create the
+  actor while dropping Home, item, or route reservation.
+- Allow Home and Keepsake to remain cold canonical allocations until revealed
+  or approached. Their IDs and receipts exist even if their active kernel
+  rows, prose, or media do not.
+- Extend `actor.created` provenance with the bundle identity without placing
+  private Home coordinates or item truth in the public room transcript.
+
+#### Acceptance
+
+- Repeating the same creation request produces one actor, one Home, one
+  Signature Keepsake, one ingress reservation, and one item placement.
+- A crash after the receipt but before presentation reconstructs the same
+  bundle.
+- An allocation failure creates none of the three canonical subjects and
+  consumes no capacity.
+- Replay with AI disabled reconstructs the same rules, identities, placement,
+  and private knowledge.
+
+### AVH-2 — Place Homes Through Bounded Route Slots
+
+**Scope**: route eligibility, connection capacity, private Home Leads, gossip,
+and access
+
+#### What to do
+
+- Replace “choose a random location with fewer than five exits” with authored
+  typed `home_route_slots`. An eligible source declares region/biome,
+  directionality, Home kinds, privacy/access policy, and an available
+  connection-capacity slot.
+- Count unique neighbor connections, not two reciprocal exit rows. Reserve one
+  slot at Home and one at its selected source before the private Lead is
+  offered.
+- Allocate exactly one initial hidden ingress. Additional approaches are
+  earned later through scouting and infrastructure if both endpoints have
+  capacity; creation does not randomly make a Home a hub.
+- Grant the owner Home knowledge and an actionable Lead tied to the selected
+  source Anchor. Other avatars learn the place by visiting, receiving gossip,
+  or discovering a compatible bounded Sign.
+- Separate knowledge, route legibility, and entry access. Knowing a cottage
+  exists or reaching its doorstep does not bypass its hospitality, lock,
+  invitation, or stewardship rules.
+- Use THR-7's Scout/cairn development ladder for the approach. Do not add a
+  Home-only navigation system.
+
+#### Acceptance
+
+- A Home can only be allocated where both endpoints have compatible free
+  capacity.
+- Two simultaneous creations cannot claim the same single-capacity route Slot.
+- A Home has exactly one initial ingress and stable placement after retry.
+- The owner can Scout toward Home from the frozen source context; another
+  avatar without knowledge receives no omniscient Home offer.
+- Gossip can teach the Home's existence without opening its route or door.
+
+### AVH-3 — Decorate The Triptych Asynchronously
+
+**Scope**: AI workshop jobs, deterministic fallback, subject consistency, and
+media replacement
+
+#### What to do
+
+- After the authoritative bundle commits, enqueue linked Avatar, Home, and
+  Signature Keepsake presentation jobs.
+- Give the workshop only certified mechanical facts, pack style, identity-card
+  fragments, safe relationship context, and allocated subject IDs.
+- Generate names, descriptions, composition text, and media as replaceable
+  presentation. Do not allow generated output to add exits, capabilities,
+  item effects, access, rarity, occupants, loot, or history.
+- Require an authored deterministic fallback card and image treatment for all
+  three subjects. The avatar can enter play immediately using those fallbacks.
+- Keep the three subjects visually and narratively related without forcing the
+  Keepsake to spawn at Home or making Origin and Home identical.
+- Bind every job and result to the stable subject identity and allocation
+  receipt so retry or model change cannot create a fourth subject.
+
+#### Acceptance
+
+- Creation completes and is playable when the model, image workshop, or job
+  queue is offline.
+- Late media replaces fallback presentation without changing rules, topology,
+  placement, or knowledge.
+- Retried jobs update the same three subjects and never allocate new ones.
+- The player can recognize a coherent Avatar/Home/Keepsake relationship
+  without generated prose promising unsupported mechanics.
+
+### AVH-4 — Prove A Bounded Living-World Cohort
+
+**Scope**: small-cohort gameplay proof before partitioned scaling
+
+#### What to do
+
+- Set an explicit test cohort, recommended at 16 first and 32 as the stretch
+  gate, within the current fixed-capacity kernel.
+- Create the cohort under deterministic seeds and prove:
+  - unique triptych identities and receipts;
+  - collision-free Home route reservations;
+  - exactly one initial ingress per Home;
+  - owner-only initial knowledge;
+  - scouting, loss, cairn marking, gossip, and access at one Home;
+  - discovery and recovery of one Signature Keepsake;
+  - restart, snapshot, replay, AI-offline, and pack-upgrade behavior.
+- Report remaining actor, location, item, and unique-connection headroom. The
+  test must count reciprocal exit rows correctly in the kernel capacity
+  budget.
+
+#### Acceptance
+
+- The full cohort creates without duplicate subjects, half-committed bundles,
+  capacity overrun, or route collision.
+- Every bundle replays byte-for-byte in authoritative identity and placement.
+- At least one other avatar learns of and reaches a Home through gossip and
+  Scout without receiving owner access automatically.
+- This proof does not require a new database product or partition loader.
+
+### AVH-5 — Hydrate Cold Canonical Homes By Partition
+
+**Scope**: durable canonical registry, active-world hydration, ownership
+fencing, and capacity release
+
+**Depends on**: [ADR 0003](../decisions/0003-one-canonical-world.md)
+
+#### What to do
+
+- Preserve the allocator/runtime boundary:
+  - the allocator commits the authoritative bundle and immutable receipt;
+  - durable storage retains cold canonical identity, placement, and history;
+  - the C kernel hydrates only active partitions and their bounded neighbors;
+  - approaching a cold Home loads the same place rather than allocating it.
+- Begin with the existing journal/snapshot/SQLite persistence where practical.
+  This ticket requires a canonical storage and hydration contract, not a
+  premature database-product migration.
+- Define partition contents for a Home, its occupants/floor state, local
+  fixtures, items, discovery Slots, and adjacent route stubs.
+- Use ADR 0003 lease epochs and fenced single-writer commits for movement and
+  other actions that cross partitions.
+- Prove eviction and rehydration preserve IDs, receipts, knowledge, access,
+  route state, items, and generated presentation.
+
+#### Acceptance
+
+- A dormant Home and Keepsake remain canonical without occupying permanent
+  rows in every live `cw_world`.
+- Loading, evicting, and reloading a Home cannot duplicate it or change its
+  topology.
+- Cross-partition arrival commits once under the canonical event history.
+- The bounded AVH-4 gameplay remains unchanged when the storage boundary is
+  introduced.
+
+### AVH-6 — Remove The Bounded-Cohort Production Gate
+
+**Scope**: rollout limits, capacity telemetry, failure behavior, and migration
+
+#### What to do
+
+- Keep public creation capped at the proven bounded cohort until AVH-5 passes.
+  Increasing C array constants alone is not the production scaling design.
+- Add capacity and hydration telemetry for actors, hot/cold locations, items,
+  route Slots, partition loads, allocation failures, and orphan checks.
+- Migrate already allocated bounded-cohort bundles into the cold canonical
+  registry without changing IDs or receipts.
+- Fail creation before commit when canonical storage or route allocation is
+  unavailable. Never create an actor without the promised Home and Keepsake.
+
+#### Acceptance
+
+- Public creation no longer depends on all historical avatars, Homes, items,
+  and exits fitting simultaneously in one fixed-capacity kernel instance.
+- Capacity exhaustion is observable, bounded, and mutation-free.
+- Migration preserves every AVH-4 identity, placement, knowledge, and replay
+  result.
+
 ## Persistence and events
 
 Suggested durable records:
@@ -414,6 +683,11 @@ idempotent transaction that:
 5. links the account to the new active actor;
 6. writes the arrival events; and
 7. returns the same result on retry.
+
+When the AVH follow-on is enabled, AVH-1 extends this transaction with one
+precommitted triptych allocation receipt. The actor commit must not succeed
+without its promised Home, Signature Keepsake, ingress, and placement
+reservations; asynchronous AVH-3 presentation remains outside the transaction.
 
 The first qualifying player card or speech event records
 `class.selection_ready`. Class selection is then a separate replay-safe system

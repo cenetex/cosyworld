@@ -6,6 +6,12 @@ do not define V2 behavior.
 
 ## Product and design
 
+- **[The CosyWorld Pact](cosyworld-pact.md)** — the promises CosyWorld makes
+  about shared truth, sanctuary, honest choices, discovery, return, AI
+  authority, progression, and player boundaries.
+- **[A Traveler's Guide To CosyWorld](travelers-guide.md)** — the concise
+  player guide to the action hand, Callings, Friends, discovery, scouting,
+  thresholds, rest, the six-function tale rhythm, and what is still direction.
 - **[How to Design a Worldpack](worldpacks/how-to-design-a-worldpack.md)** —
   tentative design method for authored boundaries, world graphs, characters,
   factions, economies, special items, dynamic evolution, and validation.
@@ -89,10 +95,45 @@ do not define V2 behavior.
   direct-avatar continuity boundaries found in the first end-to-end journey.
 - **[Thresholds, Trails, and the Strict Referee](backlog/thresholds-trails-and-strict-referee.md)** —
   dependency-ordered Discovery Slot, Lead, Gate, Hazard, Pressure, trail, and
-  recovery work following ADR 0005.
+  recovery work following ADR 0005, with per-slice scope and acceptance for
+  everything that has not shipped.
+- **[Rest, Travel, and Weariness](backlog/rest-travel-and-weariness.md)** —
+  graded recovery, expedition Fatigue, short-rest cadence and the Spent
+  survival hand, prepared frontier camps, and recovery reachability.
+- **[Quest Grammar and Return](backlog/quest-grammar-and-return.md)** —
+  the code-to-vision diagnosis and dependency-ordered foundation for Hearth,
+  Sign, Venture, Challenge, Discover, and Return across avatars, items, and
+  locations.
+- **[World Topology and Composition Joins](backlog/world-topology-and-composition-joins.md)** —
+  the cross-pack `routes` primitive, pack gateways, open/gated/earned access,
+  reachability and sink gates, pack-native generated descendants, the Holy Land
+  regional mesh, and the playtest evidence that motivated them.
+- **[Avatar Lifecycle and the Rescue Run](backlog/avatar-lifecycle-and-rescue.md)** —
+  controller-neutral lifecycle from presence through Death or Return, the birth
+  draught, the two-body cascade, carrying downed bodies, and Fading paused in
+  sanctuary.
+- **[Combat, Encounters, and Range](backlog/combat-encounters-and-range.md)** —
+  chat-first combat, the avatar-rail encounter tracker, the unresolved fate-tag
+  decision, and the three-band range protocol.
+- **[Community Art Evolution](backlog/community-art-evolution.md)** — pooled
+  Orb funding, immutable reference assets, bounded scene composition, the
+  per-generation publication gate, and the unexplored art lifecycle.
 
-GitHub Issues are the live execution backlog. These local backlogs carry the
-long-form contracts and acceptance gates that do not fit cleanly in an issue.
+## How design and execution are split
+
+**Design lives in markdown. GitHub Issues are only what we are actively
+doing.**
+
+- A contract, a rule, an invariant, an acceptance gate, or a shape we have
+  argued ourselves into belongs in one of the documents above — where it can be
+  read whole, revised in a diff, and linked to.
+- An issue is a unit of work someone could pick up this week. It carries a
+  milestone or it does not exist.
+- `state:parked` and `horizon:later` are not a filing system for design. If work
+  is not being done, its thinking belongs in a backlog document and the issue
+  should close with a pointer to that section.
+- Closing an issue into a document is not cancellation. The design survives; the
+  queue stops pretending it is scheduled.
 
 ## Legacy service archive
 
