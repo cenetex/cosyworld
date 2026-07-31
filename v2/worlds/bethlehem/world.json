@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.bethlehem",
+  "name": "Bethlehem",
+  "version": 1,
+  "description": "A Bethlehem-first composition of the CosyWorld core and Holy Land worldpacks.",
+  "entry_location": "cosyworld.core:location/1",
+  "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
+  "rules_profile": "cosyworld.srd5/1",
+  "pack_lifecycle": {
+    "schema_version": 1,
+    "unmount": [
+      {
+        "pack_id": "cosyworld.the-holy-land",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "cosyworld.core:location/1"
+        }
+      }
+    ]
+  },
+  "packs": [
+    "cosyworld.core",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5",
+    "cosyworld.the-holy-land",
+    "cosyworld.composition.core-holy-land"
+  ]
+}

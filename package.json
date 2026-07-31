@@ -22,6 +22,7 @@
     "v2:smoke": "./v2/mvp.sh smoke",
     "v2:browser:check": "./v2/mvp.sh browser-check",
     "v2:smoke:ruby-high-deploy": "node v2/scripts/smoke-deployed-ruby-high.mjs",
+    "v2:lonelyforest:contract": "node --test v2/scripts/lonelyforest-multitenant-contract.test.mjs",
     "v2:check": "./v2/mvp.sh check",
     "v2:stop": "./v2/mvp.sh stop",
     "v2:worldpack": "npm run v2:worldpack:official && npm run v2:worldpack:compositions && npm run v2:proof-world -- --strict",

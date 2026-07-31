@@ -1,22 +1,16 @@
 app = "cosyworld-lonelyforest"
 primary_region = "sjc"
 
-# Lonely Forest is an installation boundary, not a request-host tenant inside
-# the CosyWorld process. It deliberately runs the same immutable image as the
-# primary Fly app while keeping its journal and generated assets on a separate
-# volume.
+# One Fly Machine owns the Lonely Forest volume. Nginx routes an allowlist of
+# hostnames to isolated one-world CosyWorld processes bound to loopback ports;
+# request hosts never select a registry or filesystem path inside a process.
 
 [env]
   COSYWORLD_DEPLOY_PROFILE = "production"
-  COSYWORLD_V2_ADDR = "0.0.0.0:3000"
-  COSYWORLD_PROCESS_ID = "lonelyforest-1"
-  COSYWORLD_V2_SHARD_ID = "lonelyforest-1"
-  COSYWORLD_V2_SNAPSHOT_PATH = "/data/cosyworld-v2-snapshot.json"
-  COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"
-  COSYWORLD_GENERATED_ASSET_DIR = "/data/generated"
-  COSYWORLD_WEBAUTHN_RP_ID = "lonelyforest.com"
-  COSYWORLD_WEBAUTHN_ORIGIN = "https://lonelyforest.com"
-  COSYWORLD_WEBAUTHN_EXTRA_ORIGINS = "https://www.lonelyforest.com"
+  COSYWORLD_MULTITENANT_DATA_ROOT = "/data/worldpacks"
+  # One volume can attach to only one Machine, so a five-second stale-owner
+  # fence is sufficient and bounds write unavailability after process restart.
+  COSYWORLD_CANONICAL_LEASE_TTL_MS = "5000"
   COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
   COSYWORLD_HOSTED_PARTY_MAX_GUESTS = "4"
   COSYWORLD_HOSTED_PARTY_MAX_ACTIVE_PER_GUEST = "4"
@@ -41,19 +35,27 @@ primary_region = "sjc"
 # Required production secrets are provisioned independently for this app.
 # See docs/deployment/lonelyforest-fly.md.
 
+[processes]
+  app = "/app/deploy/lonelyforest/run-multitenant.sh"
+
 [[mounts]]
   source = "lonelyforest_data"
   destination = "/data"
-  # Keep the installation writable through a growth spike without allowing
-  # unbounded storage spend.
+  # The root journal stays at its established path. Worldpack journals use
+  # /data/worldpacks/<tenant>/ and never open the same SQLite file.
   auto_extend_size_threshold = 80
   auto_extend_size_increment = "1GB"
   auto_extend_size_limit = "5GB"
 
-# Deploy strategy stays `rolling`: bluegreen/canary would boot a second
-# machine beside this one, and the /data volume is single-writer — two
-# machines on one SQLite volume corrupts the journal. The deploy workflow
-# therefore guards volume free space before swapping (issue #546).
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 4
+  memory = "2gb"
+  processes = ["app"]
+
+# Deploy strategy stays `rolling`: a second Machine cannot mount this volume.
+# Each world is still one process with one journal; the shared boundary is the
+# Machine and physical volume, not a SQLite database.
 [http_service]
   internal_port = 3000
   force_https = true

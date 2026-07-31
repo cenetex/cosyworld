@@ -89,22 +89,28 @@ describe('deploy workflow', () => {
     expect(workflow).not.toContain('group: deploy-${{ github.ref }}');
   });
 
-  it('builds the same revision with app-scoped tokens before publishing a release', () => {
-    const fly = job('fly', 'github-release');
+  it('uses separate app-scoped release jobs before publishing a release', () => {
+    const primaryFly = job('primary-fly', 'lonelyforest-fly');
+    const lonelyForestFly = job('lonelyforest-fly', 'github-release');
     const primaryDeploy = 'flyctl deploy --remote-only --config fly.toml';
     const lonelyForestDeploy =
       'flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false';
-    expect(fly).toContain(primaryDeploy);
-    expect(fly).toContain(lonelyForestDeploy);
-    expect(fly.indexOf(primaryDeploy)).toBeLessThan(fly.indexOf(lonelyForestDeploy));
-    expect(fly).toContain('FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}');
-    expect(fly).toContain(
+    expect(primaryFly).toContain(primaryDeploy);
+    expect(primaryFly).toContain('FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}');
+    expect(primaryFly).not.toContain('FLY_LONELYFOREST_API_TOKEN');
+    expect(lonelyForestFly).toContain(lonelyForestDeploy);
+    expect(lonelyForestFly).toContain(
       'FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}'
     );
-    expect(fly).not.toContain('flyctl image show');
-    expect(fly).not.toContain('--image');
+    expect(lonelyForestFly).toContain("startsWith(github.ref, 'refs/tags/v')");
+    expect(lonelyForestFly).toContain("github.event_name == 'workflow_dispatch'");
+    expect(lonelyForestFly).not.toContain("github.ref == 'refs/heads/main'");
+    expect(workflow).not.toContain('flyctl image show');
+    expect(workflow).not.toContain('--image');
     expect(workflow).not.toContain('\n  aws:');
-    expect(job('github-release')).toContain('needs: [fly]');
+    expect(job('github-release')).toContain(
+      'needs: [primary-fly, lonelyforest-fly]'
+    );
   });
 
   it('auto-extends both data volumes before the deploy guard, with bounded spend', () => {
@@ -114,9 +120,10 @@ describe('deploy workflow', () => {
       expect(config).toContain('auto_extend_size_limit = "5GB"');
     }
 
-    const fly = job('fly', 'github-release');
-    expect(fly).toContain('check-fly-volume-space.sh cosyworld /data 85');
-    expect(fly).toContain(
+    const primaryFly = job('primary-fly', 'lonelyforest-fly');
+    const lonelyForestFly = job('lonelyforest-fly', 'github-release');
+    expect(primaryFly).toContain('check-fly-volume-space.sh cosyworld /data 85');
+    expect(lonelyForestFly).toContain(
       'check-fly-volume-space.sh cosyworld-lonelyforest /data 85'
     );
     expect(80).toBeLessThan(85);

@@ -123,6 +123,7 @@ struct CompiledContentRegistry {
 #[derive(Debug)]
 pub(super) struct ContentRegistry {
     content: SeedContent,
+    runtime_entry_location_id: Option<u64>,
     packs_by_id: BTreeMap<String, usize>,
     capability_providers: BTreeMap<String, String>,
     content_reference_mapping_version: u32,
@@ -263,6 +264,7 @@ impl ContentRegistry {
             }
         }
         let registry = Self {
+            runtime_entry_location_id: manifest_entry_location_id(&content),
             content,
             packs_by_id,
             capability_providers,
@@ -447,19 +449,23 @@ impl ContentRegistry {
     }
 
     pub(super) fn entry_location_id(&self) -> Option<u64> {
-        let location_id = self
+        self.runtime_entry_location_id
+    }
+
+    fn with_runtime_entry_location_id(mut self, location_id: u64) -> Result<Self, String> {
+        let Some(location) = self
             .content
-            .manifest
-            .entry_location
-            .rsplit('/')
-            .next()?
-            .parse::<u64>()
-            .ok()?;
-        self.content
             .locations
             .iter()
-            .any(|location| location.id == location_id)
-            .then_some(location_id)
+            .find(|location| location.id == location_id)
+        else {
+            return Err(format!(
+                "COSYWORLD_ENTRY_LOCATION_ID references missing location {location_id} in worldpack {}",
+                self.content.manifest.id
+            ));
+        };
+        self.runtime_entry_location_id = Some(location.id);
+        Ok(self)
     }
 
     pub(super) fn content_reference_mapping_version(&self) -> u32 {
@@ -570,6 +576,21 @@ fn valid_pack_id(value: &str) -> bool {
                 || byte.is_ascii_digit()
                 || (index > 0 && matches!(byte, b'.' | b'-'))
         })
+}
+
+fn manifest_entry_location_id(content: &SeedContent) -> Option<u64> {
+    let location_id = content
+        .manifest
+        .entry_location
+        .rsplit('/')
+        .next()?
+        .parse::<u64>()
+        .ok()?;
+    content
+        .locations
+        .iter()
+        .any(|location| location.id == location_id)
+        .then_some(location_id)
 }
 
 fn valid_content_kind(value: &str) -> bool {
@@ -781,8 +802,22 @@ fn load_configured_registry() -> Result<ContentRegistry, String> {
         .unwrap_or_else(|_| configured_content_root().join("official/registry.json"));
     let value = fs::read_to_string(&path)
         .map_err(|error| format!("content registry {}: {error}", path.display()))?;
-    ContentRegistry::from_json(&value, env!("CARGO_PKG_VERSION"))
-        .map_err(|error| format!("content registry {}: {error}", path.display()))
+    let registry = ContentRegistry::from_json(&value, env!("CARGO_PKG_VERSION"))
+        .map_err(|error| format!("content registry {}: {error}", path.display()))?;
+    let Some(configured_entry) = std::env::var("COSYWORLD_ENTRY_LOCATION_ID")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(registry);
+    };
+    let location_id = configured_entry.parse::<u64>().map_err(|_| {
+        format!("COSYWORLD_ENTRY_LOCATION_ID must be a positive integer; got {configured_entry:?}")
+    })?;
+    if location_id == 0 {
+        return Err("COSYWORLD_ENTRY_LOCATION_ID must be greater than zero".to_string());
+    }
+    registry.with_runtime_entry_location_id(location_id)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1646,6 +1681,32 @@ mod tests {
         assert_eq!(services.entry_location_id(), None);
         assert!(services.content().locations.is_empty());
         assert!(services.content().actors.is_empty());
+    }
+
+    #[test]
+    fn deployment_entry_override_must_resolve_inside_the_selected_worldpack() {
+        let path = configured_content_root().join("official/registry.json");
+        let registry = ContentRegistry::from_json(
+            &fs::read_to_string(path).expect("official registry reads"),
+            env!("CARGO_PKG_VERSION"),
+        )
+        .expect("official registry mounts");
+
+        let bethlehem = registry
+            .with_runtime_entry_location_id(700)
+            .expect("Bethlehem is mounted");
+        assert_eq!(bethlehem.entry_location_id(), Some(700));
+        assert_eq!(
+            bethlehem.content().manifest.entry_location,
+            "cosyworld.core:location/1",
+            "a deployment entry must not rewrite signed worldpack metadata"
+        );
+
+        let error = bethlehem
+            .with_runtime_entry_location_id(u64::MAX)
+            .expect_err("an unmounted entry is rejected");
+        assert!(error.contains("missing location"), "{error}");
+        assert!(error.contains("cosyworld.official"), "{error}");
     }
 
     #[test]
