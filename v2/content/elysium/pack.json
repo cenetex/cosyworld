@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.elysium",
+  "name": "Elysium",
+  "version": "0.1.0",
+  "kind": "world",
+  "description": "A sparse chain of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
+  "license": "MIT",
+  "license_url": "https://opensource.org/license/mit/",
+  "engine": ">=0.0.20 <0.1.0",
+  "capabilities": [
+    {
+      "id": "cosyworld.elysium/world",
+      "kind": "world",
+      "version": "0.1.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
+    }
+  ],
+  "default_ruleset": "cosyworld.rules-profile-srd5/rules",
+  "rules_compatibility": {
+    "profiles": [
+      "cosyworld.srd5/1"
+    ]
+  },
+  "entry_points": [
+    {
+      "kind": "location",
+      "id": "location/652000"
+    }
+  ],
+  "provenance": {
+    "author": "Cenetex",
+    "source_name": "Elysium OpenRouter model worldpack",
+    "source_url": "https://github.com/cenetex/cosyworld",
+    "modification_notice": "Model identifiers and public catalog metadata are transformed into a deterministic resident cast; model availability remains governed by OpenRouter."
+  },
+  "resources": {
+    "actors": "actors.json",
+    "actor_model_bindings": "actor_model_bindings.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "room_sheets": "room_sheets.json"
+  },
+  "extensions": {
+    "x-cosyworld-ai-cast": {
+      "schema_version": 1,
+      "provider": "openrouter",
+      "catalog_snapshot_version": "openrouter-2026-07-31.1",
+      "speech_mode": "raw",
+      "complete_actor_binding": true,
+      "runtime_refresh": false
+    }
+  }
+}

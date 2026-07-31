@@ -123,6 +123,7 @@ pub(crate) struct VoiceAttemptRequest {
     pub(crate) temperature: f64,
     pub(crate) max_tokens: u32,
     pub(crate) referer: &'static str,
+    pub(crate) model_binding: Option<crate::content_load::SeedActorModelBinding>,
 }
 
 #[derive(Clone, Debug)]
@@ -295,9 +296,14 @@ async fn route_certified_voice_with(
         }
     }
 
-    let candidates = config
-        .pin_models(ModelCapability::Voice)
-        .map_err(|_| routing_error("voice_no_eligible_candidates", Vec::new()))?;
+    let candidates = match request.model_binding.as_ref() {
+        Some(binding) => vec![config
+            .pin_actor_model(binding)
+            .map_err(|_| routing_error("voice_no_eligible_candidates", Vec::new()))?],
+        None => config
+            .pin_models(ModelCapability::Voice)
+            .map_err(|_| routing_error("voice_no_eligible_candidates", Vec::new()))?,
+    };
     let (planned, decisions) = build_voice_plan(
         store_path,
         &generation_id,
@@ -1424,6 +1430,7 @@ mod tests {
             temperature: 0.7,
             max_tokens: 70,
             referer: "http://127.0.0.1:3102",
+            model_binding: None,
         }
     }
 

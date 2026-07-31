@@ -1,0 +1,306 @@
+{
+  "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "id": "cosyworld.elysium",
+  "name": "Elysium",
+  "version": 1,
+  "description": "The standalone Elysium AI zone.",
+  "entry_location": "cosyworld.elysium:location/652000",
+  "rules_profile": "cosyworld.srd5/1",
+  "active_rules_variants": [],
+  "active_rules_extensions": [],
+  "bundle_hash": "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf",
+  "packs": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.1",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.2.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "srd5.2.1"
+        }
+      ],
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "actor_model_bindings": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.2.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:949901b6dfd936d60b668c16c7aba9f36b23dd9b89211964df1e1322e44ba00a"
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "name": "CosyWorld SRD 5.2.1 Action Profile",
+      "description": "The bounded SRD 5.2.1 action, skill, equipment, and playable-item profile used by CosyWorld.",
+      "version": "1.0.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-profile-srd5/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.2.1/reference"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "cosyworld.srd5"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "actor_model_bindings": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 112,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/2",
+      "rules_namespace": "cosyworld.srd5",
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-profile-srd5"
+      },
+      "integrity": "sha256:8ed9de1a2a5c3d49389c2a43c948ee45ccce3363ff901ad0996d8b122c64e068"
+    },
+    {
+      "id": "cosyworld.elysium",
+      "name": "Elysium",
+      "description": "A sparse chain of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
+      "version": "0.1.0",
+      "kind": "world",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.elysium/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "default_ruleset": "cosyworld.rules-profile-srd5/rules",
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/652000"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Elysium OpenRouter model worldpack",
+        "source_url": "https://github.com/cenetex/cosyworld",
+        "modification_notice": "Model identifiers and public catalog metadata are transformed into a deterministic resident cast; model availability remains governed by OpenRouter."
+      },
+      "resource_counts": {
+        "actors": 485,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 485,
+        "locations": 485,
+        "exits": 968,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 485,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "actor_model_bindings": 485,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-ai-cast": {
+          "schema_version": 1,
+          "provider": "openrouter",
+          "catalog_snapshot_version": "openrouter-2026-07-31.1",
+          "speech_mode": "raw",
+          "complete_actor_binding": true,
+          "runtime_refresh": false
+        }
+      },
+      "rules_compatibility": {
+        "profiles": [
+          "cosyworld.srd5/1"
+        ]
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/elysium"
+      },
+      "integrity": "sha256:fceb4488fa7f6e1bbcf0d5de81ff82495132b7f6f17070d84a63d3b1ead01935"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "actor_facets": "actor_facets.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "card_bindings": "card_bindings.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json",
+    "sentences": "sentences.json",
+    "actor_model_bindings": "actor_model_bindings.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "contributions": "contributions.json",
+  "attributions": "attributions.json",
+  "licenses": "licenses.json",
+  "modified_material": "modified-material.json",
+  "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
+  "registry": "registry.json"
+}
