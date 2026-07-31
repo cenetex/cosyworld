@@ -4888,7 +4888,8 @@ async function main() {
           subject: button?.getAttribute("data-fund-community-image") || "",
           label: button?.textContent?.trim() || "",
           disabled: button?.disabled ?? true,
-          copy: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+          copy: document.querySelector("#card-modal-art-workshop")?.textContent?.replace(/\s+/g, " ").trim() || "",
+          live: document.querySelector("#card-modal-art-workshop")?.getAttribute("aria-live") || "",
         };
       } finally {
         closeCardModal();
@@ -4899,6 +4900,7 @@ async function main() {
       pathwayContract.subject === "location:990001"
         && pathwayContract.label === "add one Orb · 0/1"
         && pathwayContract.disabled === false
+        && pathwayContract.live === "polite"
         && pathwayContract.copy.includes("1 Orb still needed from the community"),
       `a revealed generated pathway keepsake should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
@@ -4931,9 +4933,21 @@ async function main() {
         const host = document.createElement("div");
         host.innerHTML = communityArtPanelHtml(card);
         const button = host.querySelector("[data-fund-community-image]");
+        const statuses = [...host.querySelectorAll(".card-art-status")].map((status) => {
+          const label = status.querySelector("span")?.textContent?.trim() || "";
+          const value = status.querySelector("strong")?.textContent?.trim() || "";
+          return {
+            label,
+            value,
+            text: status.textContent.replace(/\s+/g, " ").trim(),
+          };
+        });
         return {
           copy: host.textContent.replace(/\s+/g, " ").trim(),
           button: button?.textContent?.trim() || "",
+          statuses,
+          formatted: statuses.length > 0
+            && statuses.every(({ label, value, text }) => label && value && text === `${label} ${value}`),
         };
       };
       try {
@@ -4953,6 +4967,22 @@ async function main() {
             remaining_orbs: 1,
             viewer_contributed: true,
             status: "funding",
+          }, 4),
+          generating: renderPanel({
+            level: 2,
+            required_orbs: 2,
+            funded_orbs: 2,
+            remaining_orbs: 0,
+            viewer_contributed: true,
+            status: "generating",
+          }, 4),
+          ready: renderPanel({
+            level: 2,
+            required_orbs: 2,
+            funded_orbs: 2,
+            remaining_orbs: 0,
+            viewer_contributed: true,
+            status: "ready",
           }, 4),
           failed: renderPanel({
             level: 2,
@@ -4977,7 +5007,7 @@ async function main() {
     );
     assert(
       communityArtStates.contributedPending.button === ""
-        && communityArtStates.contributedPending.copy.includes("your Orb is already helping")
+        && communityArtStates.contributedPending.copy.toLowerCase().includes("your orb is already helping")
         && communityArtStates.contributedPending.copy.includes("still needed from other players"),
       `a player who already contributed should see pending state instead of another invitation: ${JSON.stringify(communityArtStates)}`,
     );
@@ -4986,6 +5016,10 @@ async function main() {
         && communityArtStates.failed.copy.includes("no more provider credits will be used")
         && !/buy|purchase/i.test(JSON.stringify(communityArtStates)),
       `a terminal generation failure should be explicit and purchase-free: ${JSON.stringify(communityArtStates)}`,
+    );
+    assert(
+      Object.values(communityArtStates).every((entry) => entry.formatted),
+      `community portrait labels and values should remain separated in text alternatives: ${JSON.stringify(communityArtStates)}`,
     );
 
     const communityArtRetryLifecycle = await page.evaluate(async () => {
@@ -5039,8 +5073,13 @@ async function main() {
       };
       const panelSnapshot = () => ({
         hidden: document.querySelector("#card-modal")?.hidden ?? true,
-        copy: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+        copy: document.querySelector("#card-modal-art-workshop")?.textContent?.replace(/\s+/g, " ").trim() || "",
         buttons: document.querySelectorAll("#card-modal [data-fund-community-image]").length,
+        formatted: [...document.querySelectorAll("#card-modal .card-art-status")].every((status) => {
+          const label = status.querySelector("span")?.textContent?.trim() || "";
+          const value = status.querySelector("strong")?.textContent?.trim() || "";
+          return Boolean(label && value && status.textContent.replace(/\s+/g, " ").trim() === `${label} ${value}`);
+        }),
       });
       try {
         const lifecycleEvents = [
@@ -5148,12 +5187,14 @@ async function main() {
       communityArtRetryLifecycle.actionCalls === 1
         && communityArtRetryLifecycle.starting.hidden === false
         && communityArtRetryLifecycle.starting.buttons === 0
-        && communityArtRetryLifecycle.starting.copy.includes("image workshop starting"),
+        && communityArtRetryLifecycle.starting.formatted
+        && communityArtRetryLifecycle.starting.copy.toLowerCase().includes("image workshop starting"),
       `a rapid repeated retry should coalesce and expose immediate starting state: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
     assert(
       communityArtRetryLifecycle.generating.hidden === false
         && communityArtRetryLifecycle.generating.buttons === 0
+        && communityArtRetryLifecycle.generating.formatted
         && communityArtRetryLifecycle.generating.copy.includes("saved job is still in progress"),
       `authoritative generation state should replace the starting latch without closing the modal: ${JSON.stringify(communityArtRetryLifecycle)}`,
     );
@@ -5217,7 +5258,7 @@ async function main() {
         missing: image?.dataset.artMissing || "",
         placeholder: image?.dataset.artPlaceholder || "",
         overlay: getComputedStyle(document.querySelector("#card-modal .card-art"), "::after").content,
-        panel: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+        panel: document.querySelector("#card-modal-art-workshop")?.textContent?.replace(/\s+/g, " ").trim() || "",
       };
     });
     assert(
@@ -5225,7 +5266,7 @@ async function main() {
         && brokenArtFallback.missing === "true"
         && brokenArtFallback.placeholder === "community image pending"
         && brokenArtFallback.overlay.includes("community image pending")
-        && brokenArtFallback.panel.includes("your Orb is already helping"),
+        && brokenArtFallback.panel.toLowerCase().includes("your orb is already helping"),
       `an unresolvable generated-art URL should render the authored, state-aware placeholder: ${JSON.stringify(brokenArtFallback)}`,
     );
     await page.evaluate(() => {
@@ -5255,8 +5296,12 @@ async function main() {
     const residentTargets = page.locator(".room-avatar-pfp[data-card-key^='resident:']");
     const residentTargetCount = await residentTargets.count();
     if (residentTargetCount > 0) {
+      await residentTargets.first().evaluate((trigger) => {
+        trigger.dataset.cardModalFocusReturnSmoke = "true";
+      });
       await residentTargets.first().click();
       await page.waitForSelector("#card-modal:not([hidden])");
+      await page.waitForFunction(() => document.activeElement?.matches?.("#card-modal [data-card-close]"));
       const residentCard = await page.evaluate(() => {
         const dialog = document.querySelector("#card-modal .card-dialog");
         const art = document.querySelector("#card-modal .card-art");
@@ -5273,6 +5318,10 @@ async function main() {
           copy: rect(copy),
           economyRect: rect(economy),
           copyFits: !copy || copy.scrollHeight <= copy.clientHeight + 1,
+          backgroundInert: document.querySelector(".shell")?.hasAttribute("inert") || false,
+          closeFocused: document.activeElement?.matches?.("#card-modal [data-card-close]") || false,
+          labelledBy: dialog?.getAttribute("aria-labelledby") || "",
+          describedBy: document.querySelector("#card-modal-image")?.getAttribute("aria-describedby") || "",
         };
       });
       assert(!/\blv\s*\d+/i.test(residentCard.meta), `resident cards should not expose level shorthand: ${JSON.stringify(residentCard)}`);
@@ -5280,34 +5329,206 @@ async function main() {
       assert(!/\bslots?\b/i.test(residentCard.economy), `resident cards should describe their hands without inventory slots: ${JSON.stringify(residentCard)}`);
       assert(!/\bwhy\b/i.test(residentCard.economy), `resident cards should not repeat their default wants as a why-row: ${JSON.stringify(residentCard)}`);
       assert(residentCard.portrait, `resident cards should opt into the portrait layout: ${JSON.stringify(residentCard)}`);
+      assert(
+        residentCard.backgroundInert
+          && residentCard.closeFocused
+          && residentCard.labelledBy === "card-modal-name"
+          && residentCard.describedBy === "card-modal-art-workshop",
+        `character cards should isolate, label, and focus the modal while associating portrait status: ${JSON.stringify(residentCard)}`,
+      );
       if (residentCard.viewportWidth > 700) {
         assert(residentCard.art?.right <= residentCard.copy?.left, `desktop portrait cards should place art beside character information: ${JSON.stringify(residentCard)}`);
         assert(residentCard.copyFits, `desktop portrait cards should keep their useful information above the fold: ${JSON.stringify(residentCard)}`);
       }
-      await closeCardModal();
+      await page.evaluate(() => {
+        const focusable = [...document.querySelectorAll("#card-modal button:not([disabled]), #card-modal summary, #card-modal [href], #card-modal input:not([disabled]), #card-modal select:not([disabled]), #card-modal textarea:not([disabled]), #card-modal [tabindex]:not([tabindex='-1'])")]
+          .filter((node) => !node.hidden && node.getAttribute("aria-hidden") !== "true" && node.getClientRects().length > 0);
+        focusable.at(-1)?.focus();
+      });
+      await page.keyboard.press("Tab");
+      assert(
+        await page.evaluate(() => document.activeElement?.matches?.("#card-modal [data-card-close]")),
+        "character card Tab should wrap from its last control to the persistent close control",
+      );
+      await page.keyboard.press("Shift+Tab");
+      assert(
+        await page.evaluate(() => document.activeElement?.matches?.("#card-modal summary, #card-modal button:not([data-card-close])")),
+        "character card Shift+Tab should wrap from close to its last disclosed control",
+      );
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => (
+        document.querySelector("#card-modal")?.hidden === true
+        && !document.querySelector(".shell")?.hasAttribute("inert")
+        && document.activeElement?.dataset?.cardModalFocusReturnSmoke === "true"
+      ));
 
       const desktopViewport = page.viewportSize();
-      await page.setViewportSize({ width: 430, height: 860 });
+      for (const viewport of [{ width: 430, height: 860 }, { width: 375, height: 667 }]) {
+        await page.setViewportSize(viewport);
+        await residentTargets.first().click();
+        await page.waitForSelector("#card-modal:not([hidden])");
+        const mobileCard = await page.evaluate(() => {
+          const dialog = document.querySelector("#card-modal .card-dialog");
+          const scroller = document.querySelector("#card-modal .card-dialog-scroll");
+          const art = document.querySelector("#card-modal .card-art");
+          const name = document.querySelector("#card-modal-name");
+          const current = document.querySelector("#card-modal .card-current");
+          const actions = document.querySelector("#card-modal .avatar-action-strip");
+          const title = document.querySelector("#card-modal-title");
+          const close = document.querySelector("#card-modal [data-card-close]");
+          const modal = document.querySelector("#card-modal");
+          const rect = (node) => node?.getBoundingClientRect().toJSON() || null;
+          const dialogRect = rect(dialog);
+          const artRect = rect(art);
+          const nameRect = rect(name);
+          const titleRect = rect(title);
+          const currentRect = rect(current);
+          const actionsRect = rect(actions);
+          const initialCloseRect = rect(close);
+          const modalStyle = getComputedStyle(modal);
+          const normalEconomyFontSize = parseFloat(getComputedStyle(current).fontSize);
+          const usefulBottom = Math.max(
+            nameRect?.bottom || 0,
+            titleRect?.bottom || 0,
+            currentRect?.bottom || 0,
+            actionsRect?.bottom || 0,
+          );
+          document.querySelectorAll("#card-modal details").forEach((details) => {
+            details.open = true;
+          });
+          const longCardProbe = document.createElement("div");
+          longCardProbe.dataset.longCardScrollProbe = "true";
+          longCardProbe.setAttribute("aria-hidden", "true");
+          longCardProbe.style.minHeight = "100dvh";
+          scroller?.append(longCardProbe);
+          if (scroller) scroller.scrollTop = scroller.scrollHeight;
+          const scrolledDialogRect = rect(dialog);
+          const scrolledCloseRect = rect(close);
+          const scrollTop = scroller?.scrollTop || 0;
+          const scrollRange = Math.max(0, (scroller?.scrollHeight || 0) - (scroller?.clientHeight || 0));
+          if (scroller) scroller.scrollTop = 0;
+          document.body.classList.add("large-text");
+          const largeTextDialogRect = rect(dialog);
+          const largeTextCloseRect = rect(close);
+          const largeTextCurrentRect = rect(current);
+          const largeTextActionsRect = rect(actions);
+          const largeTextUsefulBottom = Math.max(
+            rect(name)?.bottom || 0,
+            rect(title)?.bottom || 0,
+            largeTextCurrentRect?.bottom || 0,
+            largeTextActionsRect?.bottom || 0,
+          );
+          const largeTextEconomyFontSize = parseFloat(getComputedStyle(current).fontSize);
+          const largeTextDocumentWidth = document.documentElement.scrollWidth;
+          longCardProbe.remove();
+          document.body.classList.remove("large-text");
+          return {
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            modal: rect(modal),
+            modalPadding: {
+              top: parseFloat(modalStyle.paddingTop),
+              right: parseFloat(modalStyle.paddingRight),
+              bottom: parseFloat(modalStyle.paddingBottom),
+              left: parseFloat(modalStyle.paddingLeft),
+            },
+            dialog: dialogRect,
+            art: artRect,
+            name: nameRect,
+            title: titleRect,
+            current: currentRect,
+            actions: actionsRect,
+            initialClose: initialCloseRect,
+            scrolledDialog: scrolledDialogRect,
+            scrolledClose: scrolledCloseRect,
+            scrollTop,
+            scrollRange,
+            largeTextDialog: largeTextDialogRect,
+            largeTextClose: largeTextCloseRect,
+            largeTextCurrent: largeTextCurrentRect,
+            largeTextActions: largeTextActionsRect,
+            largeTextUsefulBottom,
+            normalEconomyFontSize,
+            largeTextEconomyFontSize,
+            largeTextDocumentWidth,
+            usefulBottom,
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        });
+        assert(
+          mobileCard.dialog?.left >= 0
+            && mobileCard.dialog?.right <= viewport.width
+            && mobileCard.dialog?.top >= 0
+            && mobileCard.dialog?.bottom <= viewport.height,
+          `mobile cards should stay inside the visual viewport: ${JSON.stringify(mobileCard)}`,
+        );
+        assert(
+          mobileCard.dialog.left >= mobileCard.modal.left + mobileCard.modalPadding.left - 1
+            && mobileCard.dialog.right <= mobileCard.modal.right - mobileCard.modalPadding.right + 1
+            && mobileCard.dialog.top >= mobileCard.modal.top + mobileCard.modalPadding.top - 1
+            && mobileCard.dialog.bottom <= mobileCard.modal.bottom - mobileCard.modalPadding.bottom + 1,
+          `mobile cards should remain inside safe-area padding: ${JSON.stringify(mobileCard)}`,
+        );
+        assert(
+          mobileCard.art?.right <= mobileCard.name?.left + 1,
+          `mobile portrait cards should pair compact art with identity instead of leading with a poster: ${JSON.stringify(mobileCard)}`,
+        );
+        assert(
+          mobileCard.name
+            && mobileCard.title
+            && mobileCard.current
+            && mobileCard.usefulBottom <= mobileCard.dialog.bottom + 1,
+          `mobile character identity, title, current state, and available actions should be useful above the fold: ${JSON.stringify(mobileCard)}`,
+        );
+        assert(
+          mobileCard.scrollRange > 0 && mobileCard.scrollTop >= mobileCard.scrollRange - 1,
+          `mobile card regression should exercise a genuinely long, bottom-scrolled card: ${JSON.stringify(mobileCard)}`,
+        );
+        for (const [stateLabel, closeRect, stateDialog] of [
+          ["initial", mobileCard.initialClose, mobileCard.dialog],
+          ["scrolled", mobileCard.scrolledClose, mobileCard.scrolledDialog],
+          ["large text", mobileCard.largeTextClose, mobileCard.largeTextDialog],
+        ]) {
+          assert(
+            closeRect?.width >= 44
+              && closeRect?.height >= 44
+              && closeRect?.top >= stateDialog.top
+              && closeRect?.right <= stateDialog.right + 1,
+            `${stateLabel} mobile card close control should remain visible and tappable: ${JSON.stringify(mobileCard)}`,
+          );
+        }
+        assert(
+          mobileCard.largeTextDialog?.right <= viewport.width
+            && mobileCard.largeTextDialog?.bottom <= viewport.height
+            && mobileCard.largeTextEconomyFontSize > mobileCard.normalEconomyFontSize
+            && mobileCard.largeTextUsefulBottom <= mobileCard.largeTextDialog.bottom + 1
+            && mobileCard.largeTextDocumentWidth <= viewport.width
+            && mobileCard.documentWidth <= viewport.width,
+          `mobile cards should not introduce horizontal scrolling with larger text: ${JSON.stringify(mobileCard)}`,
+        );
+        await closeCardModal();
+      }
+      await page.setViewportSize({ width: 1280, height: 800 });
       await residentTargets.first().click();
       await page.waitForSelector("#card-modal:not([hidden])");
-      const mobileCard = await page.evaluate(() => {
+      const desktopCard = await page.evaluate(() => {
         const dialog = document.querySelector("#card-modal .card-dialog");
         const art = document.querySelector("#card-modal .card-art");
         const copy = document.querySelector("#card-modal .card-copy");
-        const dialogRect = dialog?.getBoundingClientRect();
-        const artRect = art?.getBoundingClientRect();
-        const copyRect = copy?.getBoundingClientRect();
+        const rect = (node) => node?.getBoundingClientRect().toJSON() || null;
         return {
-          dialogWidth: dialogRect?.width || 0,
-          artBottom: artRect?.bottom || 0,
-          copyTop: copyRect?.top || 0,
-          viewportWidth: window.innerWidth,
-          documentWidth: document.documentElement.scrollWidth,
+          dialog: rect(dialog),
+          art: rect(art),
+          copy: rect(copy),
+          copyScrollable: Boolean(copy && copy.scrollHeight > copy.clientHeight + 1),
+          closeVisible: document.querySelector("#card-modal [data-card-close]")?.getClientRects().length > 0,
         };
       });
-      assert(mobileCard.dialogWidth <= mobileCard.viewportWidth, `mobile cards should stay within the viewport: ${JSON.stringify(mobileCard)}`);
-      assert(mobileCard.artBottom <= mobileCard.copyTop + 1, `mobile portrait cards should stack copy beneath the art: ${JSON.stringify(mobileCard)}`);
-      assert(mobileCard.documentWidth <= mobileCard.viewportWidth, `mobile cards should not introduce horizontal scrolling: ${JSON.stringify(mobileCard)}`);
+      assert(
+        desktopCard.dialog?.right <= 1280
+          && desktopCard.art?.right <= desktopCard.copy?.left
+          && desktopCard.closeVisible,
+        `desktop character cards should preserve the portrait split and close control: ${JSON.stringify(desktopCard)}`,
+      );
       await closeCardModal();
       if (desktopViewport) await page.setViewportSize(desktopViewport);
     }
@@ -5336,6 +5557,70 @@ async function main() {
     });
     assert(!economyCopy.repeated.includes(">today<") && !economyCopy.repeated.includes("Skull seeks"), `default motives should not repeat the wants rows: ${JSON.stringify(economyCopy)}`);
     assert(economyCopy.remembered.includes(">today<") && economyCopy.remembered.includes("remembers Watch Bell near Old Oak Tree"), `meaningful resident context should remain visible: ${JSON.stringify(economyCopy)}`);
+
+    const practiceCopy = await page.evaluate(() => {
+      const previousState = state;
+      try {
+        state = {
+          ...previousState,
+          cards: {
+            ...(previousState?.cards || {}),
+            locations: {
+              ...(previousState?.cards?.locations || {}),
+              1: {
+                card_id: "cosy-cottage",
+                display_name: "The Cosy Cottage",
+                role: "location",
+              },
+            },
+          },
+        };
+        const html = actorPracticePanelHtml({
+          practice: {
+            primary: "exploration",
+            epithet: "Explorer",
+            known_for: "finding and opening hidden ways",
+            evidence: [
+              {
+                category: "exploration",
+                target_kind: "location",
+                target_id: "1",
+                description: "Made the discovery at location 1 part of the shared world.",
+              },
+              {
+                category: "exploration",
+                target_kind: "location",
+                target_id: "712",
+                description: "Made the discovery at location 712 part of the shared world.",
+              },
+              {
+                category: "lore",
+                target_kind: "location",
+                target_id: "404",
+                description: "Recovered lore at location 404.",
+              },
+            ],
+          },
+        });
+        const host = document.createElement("div");
+        host.innerHTML = html;
+        return {
+          html,
+          text: host.textContent.replace(/\s+/g, " ").trim(),
+        };
+      } finally {
+        state = previousState;
+      }
+    });
+    assert(
+      practiceCopy.text.includes("Discovered The Cosy Cottage.")
+        && practiceCopy.text.includes("Discovered a hidden place.")
+        && practiceCopy.text.includes("Recovered knowledge connected to a hidden place.")
+        && !/\blocation\s+\d+\b/i.test(practiceCopy.text)
+        && !/>because</i.test(practiceCopy.html)
+        && !/>and</i.test(practiceCopy.html),
+      `practice history should use complete narrative evidence without database IDs: ${JSON.stringify(practiceCopy)}`,
+    );
   }
 
   async function assertRoomSummaryStaysFlatAndMechanical() {
