@@ -1,0 +1,8714 @@
+[
+  {
+    "from_location_id": 652000,
+    "to_location_id": 652001,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652001,
+    "to_location_id": 652000,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652001,
+    "to_location_id": 652002,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652002,
+    "to_location_id": 652001,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652002,
+    "to_location_id": 652003,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652003,
+    "to_location_id": 652002,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652003,
+    "to_location_id": 652004,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652004,
+    "to_location_id": 652003,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652004,
+    "to_location_id": 652005,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652005,
+    "to_location_id": 652004,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652005,
+    "to_location_id": 652006,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652006,
+    "to_location_id": 652005,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652006,
+    "to_location_id": 652007,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652007,
+    "to_location_id": 652006,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652007,
+    "to_location_id": 652008,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652008,
+    "to_location_id": 652007,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652008,
+    "to_location_id": 652009,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652009,
+    "to_location_id": 652008,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652009,
+    "to_location_id": 652010,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652010,
+    "to_location_id": 652009,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652010,
+    "to_location_id": 652011,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652011,
+    "to_location_id": 652010,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652011,
+    "to_location_id": 652012,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652012,
+    "to_location_id": 652011,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652012,
+    "to_location_id": 652013,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652013,
+    "to_location_id": 652012,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652013,
+    "to_location_id": 652014,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652014,
+    "to_location_id": 652013,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652014,
+    "to_location_id": 652015,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652015,
+    "to_location_id": 652014,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652015,
+    "to_location_id": 652016,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652016,
+    "to_location_id": 652015,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652016,
+    "to_location_id": 652017,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652017,
+    "to_location_id": 652016,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652017,
+    "to_location_id": 652018,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652018,
+    "to_location_id": 652017,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652018,
+    "to_location_id": 652019,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652019,
+    "to_location_id": 652018,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652019,
+    "to_location_id": 652020,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652020,
+    "to_location_id": 652019,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652020,
+    "to_location_id": 652021,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652021,
+    "to_location_id": 652020,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652021,
+    "to_location_id": 652022,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652022,
+    "to_location_id": 652021,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652022,
+    "to_location_id": 652023,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652023,
+    "to_location_id": 652022,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652023,
+    "to_location_id": 652024,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652024,
+    "to_location_id": 652023,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652024,
+    "to_location_id": 652025,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652025,
+    "to_location_id": 652024,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652025,
+    "to_location_id": 652026,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652026,
+    "to_location_id": 652025,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652026,
+    "to_location_id": 652027,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652027,
+    "to_location_id": 652026,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652027,
+    "to_location_id": 652028,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652028,
+    "to_location_id": 652027,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652028,
+    "to_location_id": 652029,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652029,
+    "to_location_id": 652028,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652029,
+    "to_location_id": 652030,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652030,
+    "to_location_id": 652029,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652030,
+    "to_location_id": 652031,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652031,
+    "to_location_id": 652030,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652031,
+    "to_location_id": 652032,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652032,
+    "to_location_id": 652031,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652032,
+    "to_location_id": 652033,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652033,
+    "to_location_id": 652032,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652033,
+    "to_location_id": 652034,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652034,
+    "to_location_id": 652033,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652034,
+    "to_location_id": 652035,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652035,
+    "to_location_id": 652034,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652035,
+    "to_location_id": 652036,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652036,
+    "to_location_id": 652035,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652036,
+    "to_location_id": 652037,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652037,
+    "to_location_id": 652036,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652037,
+    "to_location_id": 652038,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652038,
+    "to_location_id": 652037,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652038,
+    "to_location_id": 652039,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652039,
+    "to_location_id": 652038,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652039,
+    "to_location_id": 652040,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652040,
+    "to_location_id": 652039,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652040,
+    "to_location_id": 652041,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652041,
+    "to_location_id": 652040,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652041,
+    "to_location_id": 652042,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652042,
+    "to_location_id": 652041,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652042,
+    "to_location_id": 652043,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652043,
+    "to_location_id": 652042,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652043,
+    "to_location_id": 652044,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652044,
+    "to_location_id": 652043,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652044,
+    "to_location_id": 652045,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652045,
+    "to_location_id": 652044,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652045,
+    "to_location_id": 652046,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652046,
+    "to_location_id": 652045,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652046,
+    "to_location_id": 652047,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652047,
+    "to_location_id": 652046,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652047,
+    "to_location_id": 652048,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652048,
+    "to_location_id": 652047,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652048,
+    "to_location_id": 652049,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652049,
+    "to_location_id": 652048,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652049,
+    "to_location_id": 652050,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652050,
+    "to_location_id": 652049,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652050,
+    "to_location_id": 652051,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652051,
+    "to_location_id": 652050,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652051,
+    "to_location_id": 652052,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652052,
+    "to_location_id": 652051,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652052,
+    "to_location_id": 652053,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652053,
+    "to_location_id": 652052,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652053,
+    "to_location_id": 652054,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652054,
+    "to_location_id": 652053,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652054,
+    "to_location_id": 652055,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652055,
+    "to_location_id": 652054,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652055,
+    "to_location_id": 652056,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652056,
+    "to_location_id": 652055,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652056,
+    "to_location_id": 652057,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652057,
+    "to_location_id": 652056,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652057,
+    "to_location_id": 652058,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652058,
+    "to_location_id": 652057,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652058,
+    "to_location_id": 652059,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652059,
+    "to_location_id": 652058,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652059,
+    "to_location_id": 652060,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652060,
+    "to_location_id": 652059,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652060,
+    "to_location_id": 652061,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652061,
+    "to_location_id": 652060,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652061,
+    "to_location_id": 652062,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652062,
+    "to_location_id": 652061,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652062,
+    "to_location_id": 652063,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652063,
+    "to_location_id": 652062,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652063,
+    "to_location_id": 652064,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652064,
+    "to_location_id": 652063,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652064,
+    "to_location_id": 652065,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652065,
+    "to_location_id": 652064,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652065,
+    "to_location_id": 652066,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652066,
+    "to_location_id": 652065,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652066,
+    "to_location_id": 652067,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652067,
+    "to_location_id": 652066,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652067,
+    "to_location_id": 652068,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652068,
+    "to_location_id": 652067,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652068,
+    "to_location_id": 652069,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652069,
+    "to_location_id": 652068,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652069,
+    "to_location_id": 652070,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652070,
+    "to_location_id": 652069,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652070,
+    "to_location_id": 652071,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652071,
+    "to_location_id": 652070,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652071,
+    "to_location_id": 652072,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652072,
+    "to_location_id": 652071,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652072,
+    "to_location_id": 652073,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652073,
+    "to_location_id": 652072,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652073,
+    "to_location_id": 652074,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652074,
+    "to_location_id": 652073,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652074,
+    "to_location_id": 652075,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652075,
+    "to_location_id": 652074,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652075,
+    "to_location_id": 652076,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652076,
+    "to_location_id": 652075,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652076,
+    "to_location_id": 652077,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652077,
+    "to_location_id": 652076,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652077,
+    "to_location_id": 652078,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652078,
+    "to_location_id": 652077,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652078,
+    "to_location_id": 652079,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652079,
+    "to_location_id": 652078,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652079,
+    "to_location_id": 652080,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652080,
+    "to_location_id": 652079,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652080,
+    "to_location_id": 652081,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652081,
+    "to_location_id": 652080,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652081,
+    "to_location_id": 652082,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652082,
+    "to_location_id": 652081,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652082,
+    "to_location_id": 652083,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652083,
+    "to_location_id": 652082,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652083,
+    "to_location_id": 652084,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652084,
+    "to_location_id": 652083,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652084,
+    "to_location_id": 652085,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652085,
+    "to_location_id": 652084,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652085,
+    "to_location_id": 652086,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652086,
+    "to_location_id": 652085,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652086,
+    "to_location_id": 652087,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652087,
+    "to_location_id": 652086,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652087,
+    "to_location_id": 652088,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652088,
+    "to_location_id": 652087,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652088,
+    "to_location_id": 652089,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652089,
+    "to_location_id": 652088,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652089,
+    "to_location_id": 652090,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652090,
+    "to_location_id": 652089,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652090,
+    "to_location_id": 652091,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652091,
+    "to_location_id": 652090,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652091,
+    "to_location_id": 652092,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652092,
+    "to_location_id": 652091,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652092,
+    "to_location_id": 652093,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652093,
+    "to_location_id": 652092,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652093,
+    "to_location_id": 652094,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652094,
+    "to_location_id": 652093,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652094,
+    "to_location_id": 652095,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652095,
+    "to_location_id": 652094,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652095,
+    "to_location_id": 652096,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652096,
+    "to_location_id": 652095,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652096,
+    "to_location_id": 652097,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652097,
+    "to_location_id": 652096,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652097,
+    "to_location_id": 652098,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652098,
+    "to_location_id": 652097,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652098,
+    "to_location_id": 652099,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652099,
+    "to_location_id": 652098,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652099,
+    "to_location_id": 652100,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652100,
+    "to_location_id": 652099,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652100,
+    "to_location_id": 652101,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652101,
+    "to_location_id": 652100,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652101,
+    "to_location_id": 652102,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652102,
+    "to_location_id": 652101,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652102,
+    "to_location_id": 652103,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652103,
+    "to_location_id": 652102,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652103,
+    "to_location_id": 652104,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652104,
+    "to_location_id": 652103,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652104,
+    "to_location_id": 652105,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652105,
+    "to_location_id": 652104,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652105,
+    "to_location_id": 652106,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652106,
+    "to_location_id": 652105,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652106,
+    "to_location_id": 652107,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652107,
+    "to_location_id": 652106,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652107,
+    "to_location_id": 652108,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652108,
+    "to_location_id": 652107,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652108,
+    "to_location_id": 652109,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652109,
+    "to_location_id": 652108,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652109,
+    "to_location_id": 652110,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652110,
+    "to_location_id": 652109,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652110,
+    "to_location_id": 652111,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652111,
+    "to_location_id": 652110,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652111,
+    "to_location_id": 652112,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652112,
+    "to_location_id": 652111,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652112,
+    "to_location_id": 652113,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652113,
+    "to_location_id": 652112,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652113,
+    "to_location_id": 652114,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652114,
+    "to_location_id": 652113,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652114,
+    "to_location_id": 652115,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652115,
+    "to_location_id": 652114,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652115,
+    "to_location_id": 652116,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652116,
+    "to_location_id": 652115,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652116,
+    "to_location_id": 652117,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652117,
+    "to_location_id": 652116,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652117,
+    "to_location_id": 652118,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652118,
+    "to_location_id": 652117,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652118,
+    "to_location_id": 652119,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652119,
+    "to_location_id": 652118,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652119,
+    "to_location_id": 652120,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652120,
+    "to_location_id": 652119,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652120,
+    "to_location_id": 652121,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652121,
+    "to_location_id": 652120,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652121,
+    "to_location_id": 652122,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652122,
+    "to_location_id": 652121,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652122,
+    "to_location_id": 652123,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652123,
+    "to_location_id": 652122,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652123,
+    "to_location_id": 652124,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652124,
+    "to_location_id": 652123,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652124,
+    "to_location_id": 652125,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652125,
+    "to_location_id": 652124,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652125,
+    "to_location_id": 652126,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652126,
+    "to_location_id": 652125,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652126,
+    "to_location_id": 652127,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652127,
+    "to_location_id": 652126,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652127,
+    "to_location_id": 652128,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652128,
+    "to_location_id": 652127,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652128,
+    "to_location_id": 652129,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652129,
+    "to_location_id": 652128,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652129,
+    "to_location_id": 652130,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652130,
+    "to_location_id": 652129,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652130,
+    "to_location_id": 652131,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652131,
+    "to_location_id": 652130,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652131,
+    "to_location_id": 652132,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652132,
+    "to_location_id": 652131,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652132,
+    "to_location_id": 652133,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652133,
+    "to_location_id": 652132,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652133,
+    "to_location_id": 652134,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652134,
+    "to_location_id": 652133,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652134,
+    "to_location_id": 652135,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652135,
+    "to_location_id": 652134,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652135,
+    "to_location_id": 652136,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652136,
+    "to_location_id": 652135,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652136,
+    "to_location_id": 652137,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652137,
+    "to_location_id": 652136,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652137,
+    "to_location_id": 652138,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652138,
+    "to_location_id": 652137,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652138,
+    "to_location_id": 652139,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652139,
+    "to_location_id": 652138,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652139,
+    "to_location_id": 652140,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652140,
+    "to_location_id": 652139,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652140,
+    "to_location_id": 652141,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652141,
+    "to_location_id": 652140,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652141,
+    "to_location_id": 652142,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652142,
+    "to_location_id": 652141,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652142,
+    "to_location_id": 652143,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652143,
+    "to_location_id": 652142,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652143,
+    "to_location_id": 652144,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652144,
+    "to_location_id": 652143,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652144,
+    "to_location_id": 652145,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652145,
+    "to_location_id": 652144,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652145,
+    "to_location_id": 652146,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652146,
+    "to_location_id": 652145,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652146,
+    "to_location_id": 652147,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652147,
+    "to_location_id": 652146,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652147,
+    "to_location_id": 652148,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652148,
+    "to_location_id": 652147,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652148,
+    "to_location_id": 652149,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652149,
+    "to_location_id": 652148,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652149,
+    "to_location_id": 652150,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652150,
+    "to_location_id": 652149,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652150,
+    "to_location_id": 652151,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652151,
+    "to_location_id": 652150,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652151,
+    "to_location_id": 652152,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652152,
+    "to_location_id": 652151,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652152,
+    "to_location_id": 652153,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652153,
+    "to_location_id": 652152,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652153,
+    "to_location_id": 652154,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652154,
+    "to_location_id": 652153,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652154,
+    "to_location_id": 652155,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652155,
+    "to_location_id": 652154,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652155,
+    "to_location_id": 652156,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652156,
+    "to_location_id": 652155,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652156,
+    "to_location_id": 652157,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652157,
+    "to_location_id": 652156,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652157,
+    "to_location_id": 652158,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652158,
+    "to_location_id": 652157,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652158,
+    "to_location_id": 652159,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652159,
+    "to_location_id": 652158,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652159,
+    "to_location_id": 652160,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652160,
+    "to_location_id": 652159,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652160,
+    "to_location_id": 652161,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652161,
+    "to_location_id": 652160,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652161,
+    "to_location_id": 652162,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652162,
+    "to_location_id": 652161,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652162,
+    "to_location_id": 652163,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652163,
+    "to_location_id": 652162,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652163,
+    "to_location_id": 652164,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652164,
+    "to_location_id": 652163,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652164,
+    "to_location_id": 652165,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652165,
+    "to_location_id": 652164,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652165,
+    "to_location_id": 652166,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652166,
+    "to_location_id": 652165,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652166,
+    "to_location_id": 652167,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652167,
+    "to_location_id": 652166,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652167,
+    "to_location_id": 652168,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652168,
+    "to_location_id": 652167,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652168,
+    "to_location_id": 652169,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652169,
+    "to_location_id": 652168,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652169,
+    "to_location_id": 652170,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652170,
+    "to_location_id": 652169,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652170,
+    "to_location_id": 652171,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652171,
+    "to_location_id": 652170,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652171,
+    "to_location_id": 652172,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652172,
+    "to_location_id": 652171,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652172,
+    "to_location_id": 652173,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652173,
+    "to_location_id": 652172,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652173,
+    "to_location_id": 652174,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652174,
+    "to_location_id": 652173,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652174,
+    "to_location_id": 652175,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652175,
+    "to_location_id": 652174,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652175,
+    "to_location_id": 652176,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652176,
+    "to_location_id": 652175,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652176,
+    "to_location_id": 652177,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652177,
+    "to_location_id": 652176,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652177,
+    "to_location_id": 652178,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652178,
+    "to_location_id": 652177,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652178,
+    "to_location_id": 652179,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652179,
+    "to_location_id": 652178,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652179,
+    "to_location_id": 652180,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652180,
+    "to_location_id": 652179,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652180,
+    "to_location_id": 652181,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652181,
+    "to_location_id": 652180,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652181,
+    "to_location_id": 652182,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652182,
+    "to_location_id": 652181,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652182,
+    "to_location_id": 652183,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652183,
+    "to_location_id": 652182,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652183,
+    "to_location_id": 652184,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652184,
+    "to_location_id": 652183,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652184,
+    "to_location_id": 652185,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652185,
+    "to_location_id": 652184,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652185,
+    "to_location_id": 652186,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652186,
+    "to_location_id": 652185,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652186,
+    "to_location_id": 652187,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652187,
+    "to_location_id": 652186,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652187,
+    "to_location_id": 652188,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652188,
+    "to_location_id": 652187,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652188,
+    "to_location_id": 652189,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652189,
+    "to_location_id": 652188,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652189,
+    "to_location_id": 652190,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652190,
+    "to_location_id": 652189,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652190,
+    "to_location_id": 652191,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652191,
+    "to_location_id": 652190,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652191,
+    "to_location_id": 652192,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652192,
+    "to_location_id": 652191,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652192,
+    "to_location_id": 652193,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652193,
+    "to_location_id": 652192,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652193,
+    "to_location_id": 652194,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652194,
+    "to_location_id": 652193,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652194,
+    "to_location_id": 652195,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652195,
+    "to_location_id": 652194,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652195,
+    "to_location_id": 652196,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652196,
+    "to_location_id": 652195,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652196,
+    "to_location_id": 652197,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652197,
+    "to_location_id": 652196,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652197,
+    "to_location_id": 652198,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652198,
+    "to_location_id": 652197,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652198,
+    "to_location_id": 652199,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652199,
+    "to_location_id": 652198,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652199,
+    "to_location_id": 652200,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652200,
+    "to_location_id": 652199,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652200,
+    "to_location_id": 652201,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652201,
+    "to_location_id": 652200,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652201,
+    "to_location_id": 652202,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652202,
+    "to_location_id": 652201,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652202,
+    "to_location_id": 652203,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652203,
+    "to_location_id": 652202,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652203,
+    "to_location_id": 652204,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652204,
+    "to_location_id": 652203,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652204,
+    "to_location_id": 652205,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652205,
+    "to_location_id": 652204,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652205,
+    "to_location_id": 652206,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652206,
+    "to_location_id": 652205,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652206,
+    "to_location_id": 652207,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652207,
+    "to_location_id": 652206,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652207,
+    "to_location_id": 652208,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652208,
+    "to_location_id": 652207,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652208,
+    "to_location_id": 652209,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652209,
+    "to_location_id": 652208,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652209,
+    "to_location_id": 652210,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652210,
+    "to_location_id": 652209,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652210,
+    "to_location_id": 652211,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652211,
+    "to_location_id": 652210,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652211,
+    "to_location_id": 652212,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652212,
+    "to_location_id": 652211,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652212,
+    "to_location_id": 652213,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652213,
+    "to_location_id": 652212,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652213,
+    "to_location_id": 652214,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652214,
+    "to_location_id": 652213,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652214,
+    "to_location_id": 652215,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652215,
+    "to_location_id": 652214,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652215,
+    "to_location_id": 652216,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652216,
+    "to_location_id": 652215,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652216,
+    "to_location_id": 652217,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652217,
+    "to_location_id": 652216,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652217,
+    "to_location_id": 652218,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652218,
+    "to_location_id": 652217,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652218,
+    "to_location_id": 652219,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652219,
+    "to_location_id": 652218,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652219,
+    "to_location_id": 652220,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652220,
+    "to_location_id": 652219,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652220,
+    "to_location_id": 652221,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652221,
+    "to_location_id": 652220,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652221,
+    "to_location_id": 652222,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652222,
+    "to_location_id": 652221,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652222,
+    "to_location_id": 652223,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652223,
+    "to_location_id": 652222,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652223,
+    "to_location_id": 652224,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652224,
+    "to_location_id": 652223,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652224,
+    "to_location_id": 652225,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652225,
+    "to_location_id": 652224,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652225,
+    "to_location_id": 652226,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652226,
+    "to_location_id": 652225,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652226,
+    "to_location_id": 652227,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652227,
+    "to_location_id": 652226,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652227,
+    "to_location_id": 652228,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652228,
+    "to_location_id": 652227,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652228,
+    "to_location_id": 652229,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652229,
+    "to_location_id": 652228,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652229,
+    "to_location_id": 652230,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652230,
+    "to_location_id": 652229,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652230,
+    "to_location_id": 652231,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652231,
+    "to_location_id": 652230,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652231,
+    "to_location_id": 652232,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652232,
+    "to_location_id": 652231,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652232,
+    "to_location_id": 652233,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652233,
+    "to_location_id": 652232,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652233,
+    "to_location_id": 652234,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652234,
+    "to_location_id": 652233,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652234,
+    "to_location_id": 652235,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652235,
+    "to_location_id": 652234,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652235,
+    "to_location_id": 652236,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652236,
+    "to_location_id": 652235,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652236,
+    "to_location_id": 652237,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652237,
+    "to_location_id": 652236,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652237,
+    "to_location_id": 652238,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652238,
+    "to_location_id": 652237,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652238,
+    "to_location_id": 652239,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652239,
+    "to_location_id": 652238,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652239,
+    "to_location_id": 652240,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652240,
+    "to_location_id": 652239,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652240,
+    "to_location_id": 652241,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652241,
+    "to_location_id": 652240,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652241,
+    "to_location_id": 652242,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652242,
+    "to_location_id": 652241,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652242,
+    "to_location_id": 652243,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652243,
+    "to_location_id": 652242,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652243,
+    "to_location_id": 652244,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652244,
+    "to_location_id": 652243,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652244,
+    "to_location_id": 652245,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652245,
+    "to_location_id": 652244,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652245,
+    "to_location_id": 652246,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652246,
+    "to_location_id": 652245,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652246,
+    "to_location_id": 652247,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652247,
+    "to_location_id": 652246,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652247,
+    "to_location_id": 652248,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652248,
+    "to_location_id": 652247,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652248,
+    "to_location_id": 652249,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652249,
+    "to_location_id": 652248,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652249,
+    "to_location_id": 652250,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652250,
+    "to_location_id": 652249,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652250,
+    "to_location_id": 652251,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652251,
+    "to_location_id": 652250,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652251,
+    "to_location_id": 652252,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652252,
+    "to_location_id": 652251,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652252,
+    "to_location_id": 652253,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652253,
+    "to_location_id": 652252,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652253,
+    "to_location_id": 652254,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652254,
+    "to_location_id": 652253,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652254,
+    "to_location_id": 652255,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652255,
+    "to_location_id": 652254,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652255,
+    "to_location_id": 652256,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652256,
+    "to_location_id": 652255,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652256,
+    "to_location_id": 652257,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652257,
+    "to_location_id": 652256,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652257,
+    "to_location_id": 652258,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652258,
+    "to_location_id": 652257,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652258,
+    "to_location_id": 652259,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652259,
+    "to_location_id": 652258,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652259,
+    "to_location_id": 652260,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652260,
+    "to_location_id": 652259,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652260,
+    "to_location_id": 652261,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652261,
+    "to_location_id": 652260,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652261,
+    "to_location_id": 652262,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652262,
+    "to_location_id": 652261,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652262,
+    "to_location_id": 652263,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652263,
+    "to_location_id": 652262,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652263,
+    "to_location_id": 652264,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652264,
+    "to_location_id": 652263,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652264,
+    "to_location_id": 652265,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652265,
+    "to_location_id": 652264,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652265,
+    "to_location_id": 652266,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652266,
+    "to_location_id": 652265,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652266,
+    "to_location_id": 652267,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652267,
+    "to_location_id": 652266,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652267,
+    "to_location_id": 652268,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652268,
+    "to_location_id": 652267,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652268,
+    "to_location_id": 652269,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652269,
+    "to_location_id": 652268,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652269,
+    "to_location_id": 652270,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652270,
+    "to_location_id": 652269,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652270,
+    "to_location_id": 652271,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652271,
+    "to_location_id": 652270,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652271,
+    "to_location_id": 652272,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652272,
+    "to_location_id": 652271,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652272,
+    "to_location_id": 652273,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652273,
+    "to_location_id": 652272,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652273,
+    "to_location_id": 652274,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652274,
+    "to_location_id": 652273,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652274,
+    "to_location_id": 652275,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652275,
+    "to_location_id": 652274,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652275,
+    "to_location_id": 652276,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652276,
+    "to_location_id": 652275,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652276,
+    "to_location_id": 652277,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652277,
+    "to_location_id": 652276,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652277,
+    "to_location_id": 652278,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652278,
+    "to_location_id": 652277,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652278,
+    "to_location_id": 652279,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652279,
+    "to_location_id": 652278,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652279,
+    "to_location_id": 652280,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652280,
+    "to_location_id": 652279,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652280,
+    "to_location_id": 652281,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652281,
+    "to_location_id": 652280,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652281,
+    "to_location_id": 652282,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652282,
+    "to_location_id": 652281,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652282,
+    "to_location_id": 652283,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652283,
+    "to_location_id": 652282,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652283,
+    "to_location_id": 652284,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652284,
+    "to_location_id": 652283,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652284,
+    "to_location_id": 652285,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652285,
+    "to_location_id": 652284,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652285,
+    "to_location_id": 652286,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652286,
+    "to_location_id": 652285,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652286,
+    "to_location_id": 652287,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652287,
+    "to_location_id": 652286,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652287,
+    "to_location_id": 652288,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652288,
+    "to_location_id": 652287,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652288,
+    "to_location_id": 652289,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652289,
+    "to_location_id": 652288,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652289,
+    "to_location_id": 652290,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652290,
+    "to_location_id": 652289,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652290,
+    "to_location_id": 652291,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652291,
+    "to_location_id": 652290,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652291,
+    "to_location_id": 652292,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652292,
+    "to_location_id": 652291,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652292,
+    "to_location_id": 652293,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652293,
+    "to_location_id": 652292,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652293,
+    "to_location_id": 652294,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652294,
+    "to_location_id": 652293,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652294,
+    "to_location_id": 652295,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652295,
+    "to_location_id": 652294,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652295,
+    "to_location_id": 652296,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652296,
+    "to_location_id": 652295,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652296,
+    "to_location_id": 652297,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652297,
+    "to_location_id": 652296,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652297,
+    "to_location_id": 652298,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652298,
+    "to_location_id": 652297,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652298,
+    "to_location_id": 652299,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652299,
+    "to_location_id": 652298,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652299,
+    "to_location_id": 652300,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652300,
+    "to_location_id": 652299,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652300,
+    "to_location_id": 652301,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652301,
+    "to_location_id": 652300,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652301,
+    "to_location_id": 652302,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652302,
+    "to_location_id": 652301,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652302,
+    "to_location_id": 652303,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652303,
+    "to_location_id": 652302,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652303,
+    "to_location_id": 652304,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652304,
+    "to_location_id": 652303,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652304,
+    "to_location_id": 652305,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652305,
+    "to_location_id": 652304,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652305,
+    "to_location_id": 652306,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652306,
+    "to_location_id": 652305,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652306,
+    "to_location_id": 652307,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652307,
+    "to_location_id": 652306,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652307,
+    "to_location_id": 652308,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652308,
+    "to_location_id": 652307,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652308,
+    "to_location_id": 652309,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652309,
+    "to_location_id": 652308,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652309,
+    "to_location_id": 652310,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652310,
+    "to_location_id": 652309,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652310,
+    "to_location_id": 652311,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652311,
+    "to_location_id": 652310,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652311,
+    "to_location_id": 652312,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652312,
+    "to_location_id": 652311,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652312,
+    "to_location_id": 652313,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652313,
+    "to_location_id": 652312,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652313,
+    "to_location_id": 652314,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652314,
+    "to_location_id": 652313,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652314,
+    "to_location_id": 652315,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652315,
+    "to_location_id": 652314,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652315,
+    "to_location_id": 652316,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652316,
+    "to_location_id": 652315,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652316,
+    "to_location_id": 652317,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652317,
+    "to_location_id": 652316,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652317,
+    "to_location_id": 652318,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652318,
+    "to_location_id": 652317,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652318,
+    "to_location_id": 652319,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652319,
+    "to_location_id": 652318,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652319,
+    "to_location_id": 652320,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652320,
+    "to_location_id": 652319,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652320,
+    "to_location_id": 652321,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652321,
+    "to_location_id": 652320,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652321,
+    "to_location_id": 652322,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652322,
+    "to_location_id": 652321,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652322,
+    "to_location_id": 652323,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652323,
+    "to_location_id": 652322,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652323,
+    "to_location_id": 652324,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652324,
+    "to_location_id": 652323,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652324,
+    "to_location_id": 652325,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652325,
+    "to_location_id": 652324,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652325,
+    "to_location_id": 652326,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652326,
+    "to_location_id": 652325,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652326,
+    "to_location_id": 652327,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652327,
+    "to_location_id": 652326,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652327,
+    "to_location_id": 652328,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652328,
+    "to_location_id": 652327,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652328,
+    "to_location_id": 652329,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652329,
+    "to_location_id": 652328,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652329,
+    "to_location_id": 652330,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652330,
+    "to_location_id": 652329,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652330,
+    "to_location_id": 652331,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652331,
+    "to_location_id": 652330,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652331,
+    "to_location_id": 652332,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652332,
+    "to_location_id": 652331,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652332,
+    "to_location_id": 652333,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652333,
+    "to_location_id": 652332,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652333,
+    "to_location_id": 652334,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652334,
+    "to_location_id": 652333,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652334,
+    "to_location_id": 652335,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652335,
+    "to_location_id": 652334,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652335,
+    "to_location_id": 652336,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652336,
+    "to_location_id": 652335,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652336,
+    "to_location_id": 652337,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652337,
+    "to_location_id": 652336,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652337,
+    "to_location_id": 652338,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652338,
+    "to_location_id": 652337,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652338,
+    "to_location_id": 652339,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652339,
+    "to_location_id": 652338,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652339,
+    "to_location_id": 652340,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652340,
+    "to_location_id": 652339,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652340,
+    "to_location_id": 652341,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652341,
+    "to_location_id": 652340,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652341,
+    "to_location_id": 652342,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652342,
+    "to_location_id": 652341,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652342,
+    "to_location_id": 652343,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652343,
+    "to_location_id": 652342,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652343,
+    "to_location_id": 652344,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652344,
+    "to_location_id": 652343,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652344,
+    "to_location_id": 652345,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652345,
+    "to_location_id": 652344,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652345,
+    "to_location_id": 652346,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652346,
+    "to_location_id": 652345,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652346,
+    "to_location_id": 652347,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652347,
+    "to_location_id": 652346,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652347,
+    "to_location_id": 652348,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652348,
+    "to_location_id": 652347,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652348,
+    "to_location_id": 652349,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652349,
+    "to_location_id": 652348,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652349,
+    "to_location_id": 652350,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652350,
+    "to_location_id": 652349,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652350,
+    "to_location_id": 652351,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652351,
+    "to_location_id": 652350,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652351,
+    "to_location_id": 652352,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652352,
+    "to_location_id": 652351,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652352,
+    "to_location_id": 652353,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652353,
+    "to_location_id": 652352,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652353,
+    "to_location_id": 652354,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652354,
+    "to_location_id": 652353,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652354,
+    "to_location_id": 652355,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652355,
+    "to_location_id": 652354,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652355,
+    "to_location_id": 652356,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652356,
+    "to_location_id": 652355,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652356,
+    "to_location_id": 652357,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652357,
+    "to_location_id": 652356,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652357,
+    "to_location_id": 652358,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652358,
+    "to_location_id": 652357,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652358,
+    "to_location_id": 652359,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652359,
+    "to_location_id": 652358,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652359,
+    "to_location_id": 652360,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652360,
+    "to_location_id": 652359,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652360,
+    "to_location_id": 652361,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652361,
+    "to_location_id": 652360,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652361,
+    "to_location_id": 652362,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652362,
+    "to_location_id": 652361,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652362,
+    "to_location_id": 652363,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652363,
+    "to_location_id": 652362,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652363,
+    "to_location_id": 652364,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652364,
+    "to_location_id": 652363,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652364,
+    "to_location_id": 652365,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652365,
+    "to_location_id": 652364,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652365,
+    "to_location_id": 652366,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652366,
+    "to_location_id": 652365,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652366,
+    "to_location_id": 652367,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652367,
+    "to_location_id": 652366,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652367,
+    "to_location_id": 652368,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652368,
+    "to_location_id": 652367,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652368,
+    "to_location_id": 652369,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652369,
+    "to_location_id": 652368,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652369,
+    "to_location_id": 652370,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652370,
+    "to_location_id": 652369,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652370,
+    "to_location_id": 652371,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652371,
+    "to_location_id": 652370,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652371,
+    "to_location_id": 652372,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652372,
+    "to_location_id": 652371,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652372,
+    "to_location_id": 652373,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652373,
+    "to_location_id": 652372,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652373,
+    "to_location_id": 652374,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652374,
+    "to_location_id": 652373,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652374,
+    "to_location_id": 652375,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652375,
+    "to_location_id": 652374,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652375,
+    "to_location_id": 652376,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652376,
+    "to_location_id": 652375,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652376,
+    "to_location_id": 652377,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652377,
+    "to_location_id": 652376,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652377,
+    "to_location_id": 652378,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652378,
+    "to_location_id": 652377,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652378,
+    "to_location_id": 652379,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652379,
+    "to_location_id": 652378,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652379,
+    "to_location_id": 652380,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652380,
+    "to_location_id": 652379,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652380,
+    "to_location_id": 652381,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652381,
+    "to_location_id": 652380,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652381,
+    "to_location_id": 652382,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652382,
+    "to_location_id": 652381,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652382,
+    "to_location_id": 652383,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652383,
+    "to_location_id": 652382,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652383,
+    "to_location_id": 652384,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652384,
+    "to_location_id": 652383,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652384,
+    "to_location_id": 652385,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652385,
+    "to_location_id": 652384,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652385,
+    "to_location_id": 652386,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652386,
+    "to_location_id": 652385,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652386,
+    "to_location_id": 652387,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652387,
+    "to_location_id": 652386,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652387,
+    "to_location_id": 652388,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652388,
+    "to_location_id": 652387,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652388,
+    "to_location_id": 652389,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652389,
+    "to_location_id": 652388,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652389,
+    "to_location_id": 652390,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652390,
+    "to_location_id": 652389,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652390,
+    "to_location_id": 652391,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652391,
+    "to_location_id": 652390,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652391,
+    "to_location_id": 652392,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652392,
+    "to_location_id": 652391,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652392,
+    "to_location_id": 652393,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652393,
+    "to_location_id": 652392,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652393,
+    "to_location_id": 652394,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652394,
+    "to_location_id": 652393,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652394,
+    "to_location_id": 652395,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652395,
+    "to_location_id": 652394,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652395,
+    "to_location_id": 652396,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652396,
+    "to_location_id": 652395,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652396,
+    "to_location_id": 652397,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652397,
+    "to_location_id": 652396,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652397,
+    "to_location_id": 652398,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652398,
+    "to_location_id": 652397,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652398,
+    "to_location_id": 652399,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652399,
+    "to_location_id": 652398,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652399,
+    "to_location_id": 652400,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652400,
+    "to_location_id": 652399,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652400,
+    "to_location_id": 652401,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652401,
+    "to_location_id": 652400,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652401,
+    "to_location_id": 652402,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652402,
+    "to_location_id": 652401,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652402,
+    "to_location_id": 652403,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652403,
+    "to_location_id": 652402,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652403,
+    "to_location_id": 652404,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652404,
+    "to_location_id": 652403,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652404,
+    "to_location_id": 652405,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652405,
+    "to_location_id": 652404,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652405,
+    "to_location_id": 652406,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652406,
+    "to_location_id": 652405,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652406,
+    "to_location_id": 652407,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652407,
+    "to_location_id": 652406,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652407,
+    "to_location_id": 652408,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652408,
+    "to_location_id": 652407,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652408,
+    "to_location_id": 652409,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652409,
+    "to_location_id": 652408,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652409,
+    "to_location_id": 652410,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652410,
+    "to_location_id": 652409,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652410,
+    "to_location_id": 652411,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652411,
+    "to_location_id": 652410,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652411,
+    "to_location_id": 652412,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652412,
+    "to_location_id": 652411,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652412,
+    "to_location_id": 652413,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652413,
+    "to_location_id": 652412,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652413,
+    "to_location_id": 652414,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652414,
+    "to_location_id": 652413,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652414,
+    "to_location_id": 652415,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652415,
+    "to_location_id": 652414,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652415,
+    "to_location_id": 652416,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652416,
+    "to_location_id": 652415,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652416,
+    "to_location_id": 652417,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652417,
+    "to_location_id": 652416,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652417,
+    "to_location_id": 652418,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652418,
+    "to_location_id": 652417,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652418,
+    "to_location_id": 652419,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652419,
+    "to_location_id": 652418,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652419,
+    "to_location_id": 652420,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652420,
+    "to_location_id": 652419,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652420,
+    "to_location_id": 652421,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652421,
+    "to_location_id": 652420,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652421,
+    "to_location_id": 652422,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652422,
+    "to_location_id": 652421,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652422,
+    "to_location_id": 652423,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652423,
+    "to_location_id": 652422,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652423,
+    "to_location_id": 652424,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652424,
+    "to_location_id": 652423,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652424,
+    "to_location_id": 652425,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652425,
+    "to_location_id": 652424,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652425,
+    "to_location_id": 652426,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652426,
+    "to_location_id": 652425,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652426,
+    "to_location_id": 652427,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652427,
+    "to_location_id": 652426,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652427,
+    "to_location_id": 652428,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652428,
+    "to_location_id": 652427,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652428,
+    "to_location_id": 652429,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652429,
+    "to_location_id": 652428,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652429,
+    "to_location_id": 652430,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652430,
+    "to_location_id": 652429,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652430,
+    "to_location_id": 652431,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652431,
+    "to_location_id": 652430,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652431,
+    "to_location_id": 652432,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652432,
+    "to_location_id": 652431,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652432,
+    "to_location_id": 652433,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652433,
+    "to_location_id": 652432,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652433,
+    "to_location_id": 652434,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652434,
+    "to_location_id": 652433,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652434,
+    "to_location_id": 652435,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652435,
+    "to_location_id": 652434,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652435,
+    "to_location_id": 652436,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652436,
+    "to_location_id": 652435,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652436,
+    "to_location_id": 652437,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652437,
+    "to_location_id": 652436,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652437,
+    "to_location_id": 652438,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652438,
+    "to_location_id": 652437,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652438,
+    "to_location_id": 652439,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652439,
+    "to_location_id": 652438,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652439,
+    "to_location_id": 652440,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652440,
+    "to_location_id": 652439,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652440,
+    "to_location_id": 652441,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652441,
+    "to_location_id": 652440,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652441,
+    "to_location_id": 652442,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652442,
+    "to_location_id": 652441,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652442,
+    "to_location_id": 652443,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652443,
+    "to_location_id": 652442,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652443,
+    "to_location_id": 652444,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652444,
+    "to_location_id": 652443,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652444,
+    "to_location_id": 652445,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652445,
+    "to_location_id": 652444,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652445,
+    "to_location_id": 652446,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652446,
+    "to_location_id": 652445,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652446,
+    "to_location_id": 652447,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652447,
+    "to_location_id": 652446,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652447,
+    "to_location_id": 652448,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652448,
+    "to_location_id": 652447,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652448,
+    "to_location_id": 652449,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652449,
+    "to_location_id": 652448,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652449,
+    "to_location_id": 652450,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652450,
+    "to_location_id": 652449,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652450,
+    "to_location_id": 652451,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652451,
+    "to_location_id": 652450,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652451,
+    "to_location_id": 652452,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652452,
+    "to_location_id": 652451,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652452,
+    "to_location_id": 652453,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652453,
+    "to_location_id": 652452,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652453,
+    "to_location_id": 652454,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652454,
+    "to_location_id": 652453,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652454,
+    "to_location_id": 652455,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652455,
+    "to_location_id": 652454,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652455,
+    "to_location_id": 652456,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652456,
+    "to_location_id": 652455,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652456,
+    "to_location_id": 652457,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652457,
+    "to_location_id": 652456,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652457,
+    "to_location_id": 652458,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652458,
+    "to_location_id": 652457,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652458,
+    "to_location_id": 652459,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652459,
+    "to_location_id": 652458,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652459,
+    "to_location_id": 652460,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652460,
+    "to_location_id": 652459,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652460,
+    "to_location_id": 652461,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652461,
+    "to_location_id": 652460,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652461,
+    "to_location_id": 652462,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652462,
+    "to_location_id": 652461,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652462,
+    "to_location_id": 652463,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652463,
+    "to_location_id": 652462,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652463,
+    "to_location_id": 652464,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652464,
+    "to_location_id": 652463,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652464,
+    "to_location_id": 652465,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652465,
+    "to_location_id": 652464,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652465,
+    "to_location_id": 652466,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652466,
+    "to_location_id": 652465,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652466,
+    "to_location_id": 652467,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652467,
+    "to_location_id": 652466,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652467,
+    "to_location_id": 652468,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652468,
+    "to_location_id": 652467,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652468,
+    "to_location_id": 652469,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652469,
+    "to_location_id": 652468,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652469,
+    "to_location_id": 652470,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652470,
+    "to_location_id": 652469,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652470,
+    "to_location_id": 652471,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652471,
+    "to_location_id": 652470,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652471,
+    "to_location_id": 652472,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652472,
+    "to_location_id": 652471,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652472,
+    "to_location_id": 652473,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652473,
+    "to_location_id": 652472,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652473,
+    "to_location_id": 652474,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652474,
+    "to_location_id": 652473,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652474,
+    "to_location_id": 652475,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652475,
+    "to_location_id": 652474,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652475,
+    "to_location_id": 652476,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652476,
+    "to_location_id": 652475,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652476,
+    "to_location_id": 652477,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652477,
+    "to_location_id": 652476,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652477,
+    "to_location_id": 652478,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652478,
+    "to_location_id": 652477,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652478,
+    "to_location_id": 652479,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652479,
+    "to_location_id": 652478,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652479,
+    "to_location_id": 652480,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652480,
+    "to_location_id": 652479,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652480,
+    "to_location_id": 652481,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652481,
+    "to_location_id": 652480,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652481,
+    "to_location_id": 652482,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652482,
+    "to_location_id": 652481,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652482,
+    "to_location_id": 652483,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652483,
+    "to_location_id": 652482,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652483,
+    "to_location_id": 652484,
+    "flags": 0,
+    "distance": 1,
+    "direction": "east",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "from_location_id": 652484,
+    "to_location_id": 652483,
+    "flags": 0,
+    "distance": 1,
+    "direction": "west",
+    "discovery": "scout",
+    "pack_id": "cosyworld.elysium"
+  }
+]

@@ -17,6 +17,7 @@ import {
   parseCanonicalContentReference,
 } from "./content-references.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
+import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { lanternClockEffectValidationErrors } from "./lantern-clock-contract.mjs";
@@ -375,6 +376,9 @@ function placementTargetKind(kind) {
 }
 
 const manifest = readJson("worldpack.json");
+if (manifest?.files?.actor_model_bindings === "actor_model_bindings.json") {
+  expectedFiles.actor_model_bindings = "actor_model_bindings.json";
+}
 if (!isObject(manifest)) {
   throw new Error("worldpack.json could not be parsed");
 }
@@ -1242,6 +1246,16 @@ for (const pack of packs.filter((candidate) => candidate.kind === "campaign")) {
 }
 
 const actors = content.actors;
+const actorModelBindings = content.actor_model_bindings ?? [];
+for (const pack of packs) {
+  for (const error of actorModelBindingValidationErrors(
+    pack,
+    actors,
+    actorModelBindings.filter((row) => row.pack_id === pack.id),
+  )) {
+    fail(error);
+  }
+}
 const actorFacets = content.actor_facets;
 const accessGates = content.access_gates;
 const factions = content.factions;

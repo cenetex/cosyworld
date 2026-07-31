@@ -162,6 +162,41 @@ into projected action state or promoted to world truth. Matching execution
 durably records committed or rejected disposition; a newer accepted generation
 supersedes the prior one, while a rejected new attempt does not mutate it.
 
+## Pack-bound exact models and raw speech
+
+AI cast worldpacks may bind a resident directly to one OpenRouter model through
+the compiled `actor_model_bindings` resource. This is separate from the
+operator registry pools: when that resident answers, the voice router creates
+one immutable selection from the checked-in binding and never substitutes a
+different configured candidate. Provider-side resolution remains visible in
+the normal self-contained attribution receipt. A non-text binding fails
+unavailable instead of borrowing the global Voice model.
+
+Raw speech deliberately removes CosyWorld's character prompt and resident
+planner. The request contains the bounded incoming user line as its sole
+message; it omits system text, configured reasoning effort, sampling defaults,
+tools, and response formats. OpenRouter requests set
+`provider.data_collection: "deny"` and add `provider.zdr: true` for bindings
+whose catalog snapshot confirms a zero-data-retention endpoint.
+
+Publication remains mandatory but uses a thin raw gate: envelope integrity,
+non-empty and bounded output, terminal provider finish, repetition/duplicate
+protection, and public safety still apply. Character voice, grounding,
+single-speaker, prompt-language, proposed-action, and scenery-agency checks do
+not. Raw replies can therefore identify their model or discuss prompts without
+becoming world authority. The deterministic C kernel and journal still own all
+state mutation.
+
+Raw mode does not remove the ordinary spatial observation model; it only keeps
+that state out of the provider prompt. Elysium gives every exact-model avatar
+one private void and one local void token, so the normal room boundary limits
+belief observation and exchange without a provider-specific engine shortcut.
+
+Production preserves the ordinary privacy boundary. A pack-bound model without
+snapshot-confirmed zero-data-retention eligibility is rejected before network
+I/O; development may exercise it while still requesting data-collection
+denial.
+
 ## Privacy and attribution
 
 In `COSYWORLD_DEPLOY_PROFILE=production`, a text candidate is eligible only

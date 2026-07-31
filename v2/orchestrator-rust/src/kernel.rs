@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 mod rejections;
 pub(crate) use rejections::*;
 
-pub const CW_MAX_ACTORS: usize = 512;
+pub const CW_MAX_ACTORS: usize = 1024;
 pub const CW_MAX_ITEMS: usize = 1024;
 pub const CW_MAX_LOCATIONS: usize = 512;
 pub const CW_MAX_EXITS: usize = 1024;

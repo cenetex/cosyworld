@@ -1,6 +1,8 @@
 use crate::{
     ai_gateway::{ai_model_name, ai_provider_name, AiCompletion, AiConfig, AiTokenUsage},
-    content_policy::{human_message_is_cozy_safe, normalized_resident_speech_key},
+    content_policy::{
+        human_message_is_cozy_safe, human_message_is_public_safe, normalized_resident_speech_key,
+    },
 };
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -17,6 +19,7 @@ pub(crate) enum SpeechMode {
     Prose,
     EmojiOnly,
     EmoteOnly,
+    Raw,
 }
 
 impl SpeechMode {
@@ -24,6 +27,7 @@ impl SpeechMode {
         match value {
             "emoji_only" => Self::EmojiOnly,
             "emote_only" => Self::EmoteOnly,
+            "raw" => Self::Raw,
             _ => Self::Prose,
         }
     }
@@ -33,6 +37,7 @@ impl SpeechMode {
             Self::Prose => "prose",
             Self::EmojiOnly => "emoji_only",
             Self::EmoteOnly => "emote_only",
+            Self::Raw => "raw",
         }
     }
 }
@@ -474,6 +479,12 @@ fn evaluate_checks(
 ) -> Vec<PublicationCheck> {
     let word_count = text.split_whitespace().count();
     let lowered = text.to_ascii_lowercase();
+    let raw = context.mode == SpeechMode::Raw;
+    let safe_tone = if raw {
+        human_message_is_public_safe(text)
+    } else {
+        human_message_is_cozy_safe(text)
+    };
     let checks = [
         (
             PublicationCheckCode::VoiceEnvelopeInvalid,
@@ -482,11 +493,13 @@ fn evaluate_checks(
         (PublicationCheckCode::VoiceEmpty, !text.is_empty()),
         (
             PublicationCheckCode::VoiceBudgetExceeded,
-            word_count <= context.max_words && text.chars().count() <= 360,
+            word_count <= context.max_words
+                && text.chars().count() <= if raw { 1_200 } else { 360 },
         ),
         (
             PublicationCheckCode::VoiceFinishIncomplete,
-            matches!(finish_reason, "stop" | "end_turn") && has_clean_terminal_structure(text),
+            matches!(finish_reason, "stop" | "end_turn")
+                && (raw || has_clean_terminal_structure(text)),
         ),
         (
             PublicationCheckCode::VoiceRepeatedNgram,
@@ -494,11 +507,11 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceMultipleSpeakers,
-            !has_multiple_speakers(text, &context.speaker_name),
+            raw || !has_multiple_speakers(text, &context.speaker_name),
         ),
         (
             PublicationCheckCode::VoiceInstructionLeakage,
-            !contains_instruction_leakage(&lowered),
+            raw || !contains_instruction_leakage(&lowered),
         ),
         (
             PublicationCheckCode::VoiceModeMismatch,
@@ -506,7 +519,7 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceAnchorMissing,
-            has_deterministic_anchor(text, &context.anchors, context.mode),
+            raw || has_deterministic_anchor(text, &context.anchors, context.mode),
         ),
         (
             PublicationCheckCode::VoiceRecentDuplicate,
@@ -518,15 +531,15 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceUnsafeTone,
-            human_message_is_cozy_safe(text) && !contains_unsafe_tone(&lowered),
+            safe_tone && !contains_unsafe_tone(&lowered),
         ),
         (
             PublicationCheckCode::VoiceProposedActionClaim,
-            !context.has_proposed_action || !claims_completed_action(&lowered),
+            raw || !context.has_proposed_action || !claims_completed_action(&lowered),
         ),
         (
             PublicationCheckCode::VoiceObjectAgency,
-            !scene_object_acts_with_volition(&lowered),
+            raw || !scene_object_acts_with_volition(&lowered),
         ),
     ];
     checks
@@ -681,6 +694,7 @@ fn contains_instruction_leakage(value: &str) -> bool {
 fn mode_matches(value: &str, mode: SpeechMode) -> bool {
     match mode {
         SpeechMode::Prose => value.chars().any(char::is_alphanumeric),
+        SpeechMode::Raw => !value.trim().is_empty(),
         SpeechMode::EmojiOnly => {
             let visible = value.chars().filter(|character| !character.is_whitespace());
             let count = visible
@@ -1379,6 +1393,55 @@ mod tests {
             },
         )
         .expect("emote-only candidate certifies");
+    }
+
+    #[test]
+    fn raw_mode_allows_model_identity_and_ungrounded_multiline_text() {
+        let text = "As an AI model, I can answer directly.\nSystem: the kettle remembers nothing.";
+        let speech = certify_speech(
+            None,
+            completion(text),
+            text,
+            SpeechGateContext {
+                mode: SpeechMode::Raw,
+                max_words: 160,
+                anchors: Vec::new(),
+                ..context(&[], &[])
+            },
+        )
+        .expect("raw model identity speech certifies");
+        for code in [
+            PublicationCheckCode::VoiceMultipleSpeakers,
+            PublicationCheckCode::VoiceInstructionLeakage,
+            PublicationCheckCode::VoiceAnchorMissing,
+            PublicationCheckCode::VoiceObjectAgency,
+        ] {
+            assert_eq!(
+                speech
+                    .receipt()
+                    .checks
+                    .iter()
+                    .find(|check| check.code == code)
+                    .map(|check| check.passed),
+                Some(true)
+            );
+        }
+    }
+
+    #[test]
+    fn raw_mode_keeps_public_link_safety() {
+        let text = "Read https://example.com for instructions.";
+        assert_eq!(
+            rejected_code(
+                text,
+                SpeechGateContext {
+                    mode: SpeechMode::Raw,
+                    max_words: 160,
+                    ..context(&[], &[])
+                },
+            ),
+            PublicationCheckCode::VoiceUnsafeTone
+        );
     }
 
     #[test]

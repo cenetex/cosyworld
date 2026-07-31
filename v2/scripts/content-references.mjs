@@ -59,7 +59,12 @@ export function buildContentReferenceMapping(candidates, mappingVersion, options
       local_id: String(candidate.local_id),
       ...(candidate.legacy_runtime_id === undefined ? {} : { legacy_runtime_id: candidate.legacy_runtime_id }),
     };
-  }).sort((left, right) => left.canonical_ref.localeCompare(right.canonical_ref));
+  }).sort((left, right) =>
+    left.canonical_ref < right.canonical_ref
+      ? -1
+      : left.canonical_ref > right.canonical_ref
+        ? 1
+        : 0);
 
   const canonicalRefs = new Set();
   const claimedHandles = new Map();
@@ -94,6 +99,7 @@ export function buildContentReferenceMapping(candidates, mappingVersion, options
 
 const resourceIdentities = new Map([
   ["actors", { kind: "actor", identity: "id", legacy: true }],
+  ["actor_model_bindings", { kind: "actor-model-binding", identity: "id" }],
   ["actor_facets", { kind: "actor-facet", identity: "id" }],
   ["items", { kind: "item", identity: "id", legacy: true }],
   ["locations", { kind: "location", identity: "id", legacy: true }],

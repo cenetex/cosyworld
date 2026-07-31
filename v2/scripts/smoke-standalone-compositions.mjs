@@ -74,10 +74,37 @@ const worldCases = [
     firstTaleQuestionIncludes: "convergence protocol",
     marker: "project89 journal loop",
   },
+  {
+    label: "Elysium",
+    registryPath: resolve(contentRoot, "elysium-only/registry.json"),
+    worldpackId: "cosyworld.elysium",
+    packIds: [
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "cosyworld.elysium",
+    ],
+    location: "Void 001",
+    locationPack: "cosyworld.elysium",
+    selectedBy: "cosyworld.elysium",
+    capability: "cosyworld.rules-profile-srd5/rules",
+    offerVerb: "Scout",
+    firstTaleAbsent: true,
+    marker: "elysium journal loop",
+    seedActorCount: 485,
+    seedItemCount: 485,
+    seedLocationCount: 485,
+    localSeedActorCount: 1,
+    localItemCount: 1,
+    scoutDestination: "Void 002",
+  },
 ];
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function routeDiscoveryEvent(event) {
+  return event.type === "exit.discovered" || event.type === "pathway.discovered";
 }
 
 async function listen(server) {
@@ -98,22 +125,22 @@ async function freePort() {
   return port;
 }
 
-async function fetchJson(url, init) {
+async function fetchJson(url, init, timeoutMs = 5_000) {
   const response = await fetch(url, {
     ...init,
-    signal: AbortSignal.timeout(5_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const body = await response.text();
   assert(response.ok, `${url} returned HTTP ${response.status}: ${body.slice(0, 400)}`);
   return JSON.parse(body);
 }
 
-async function postJson(url, body) {
+async function postJson(url, body, timeoutMs) {
   return fetchJson(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
 }
 
 async function waitForMeta(baseUrl, proc, output) {
@@ -220,12 +247,31 @@ async function command(baseUrl, actorId, actorSession, value) {
   return result;
 }
 
-function assertMountedComposition(meta, spec) {
+function assertMountedComposition(meta, spec, addedActorCount = 0) {
   assert(meta.worldpack?.id === spec.worldpackId, JSON.stringify(meta.worldpack));
   assert(
     meta.worldpack?.packs?.map((pack) => pack.id).join(",") === spec.packIds.join(","),
     `${spec.label} mounted the wrong packs: ${JSON.stringify(meta.worldpack?.packs)}`,
   );
+  if (spec.seedActorCount !== undefined) {
+    const expectedActorCount = spec.seedActorCount + addedActorCount;
+    assert(
+      meta.world?.actor_count === expectedActorCount,
+      `${spec.label} mounted ${meta.world?.actor_count} actors instead of ${expectedActorCount}`,
+    );
+  }
+  if (spec.seedItemCount !== undefined) {
+    assert(
+      meta.world?.item_count === spec.seedItemCount,
+      `${spec.label} mounted ${meta.world?.item_count} items instead of ${spec.seedItemCount}`,
+    );
+  }
+  if (spec.seedLocationCount !== undefined) {
+    assert(
+      meta.world?.location_count === spec.seedLocationCount,
+      `${spec.label} mounted ${meta.world?.location_count} locations instead of ${spec.seedLocationCount}`,
+    );
+  }
 }
 
 function assertScene(state, spec, { requireOffer = true } = {}) {
@@ -282,15 +328,76 @@ async function runWorldLoop(spec) {
   try {
     first = await startServer(tempDir, spec.registryPath);
     assertMountedComposition(first.meta, spec);
-    const created = await postJson(`${first.baseUrl}/avatar`, {
-      name: `${spec.label} Walker`,
-      wallet_address: walletAddress,
-    });
+    let created;
+    try {
+      created = await postJson(
+        `${first.baseUrl}/avatar`,
+        {
+          name: `${spec.label} Walker`,
+          wallet_address: walletAddress,
+        },
+        spec.seedActorCount ? 10_000 : undefined,
+      );
+    } catch (error) {
+      throw new Error(
+        `${spec.label} avatar creation failed: ${error.message}\n${first.output.slice(-80).join("")}`,
+      );
+    }
     assert(created.ok && created.actor?.id && created.actor_session, JSON.stringify(created));
     const actorId = created.actor.id;
     const actorSession = created.actor_session;
     const initial = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
     assertScene(initial, spec);
+    if (spec.localSeedActorCount !== undefined) {
+      const localSeedActorCount =
+        initial.actors?.filter((actor) => actor.id !== actorId).length ?? 0;
+      assert(
+        localSeedActorCount === spec.localSeedActorCount,
+        `${spec.label} exposed ${localSeedActorCount} local seed actors instead of ${spec.localSeedActorCount}`,
+      );
+    }
+    if (spec.localItemCount !== undefined) {
+      assert(
+        initial.items?.length === spec.localItemCount,
+        `${spec.label} exposed ${initial.items?.length} local items instead of ${spec.localItemCount}`,
+      );
+    }
+
+    let discovered = initial;
+    let discoveryEventCount = 0;
+    if (spec.scoutDestination) {
+      for (let attempt = 0; attempt < 24; attempt += 1) {
+        const scouted = await command(
+          first.baseUrl,
+          actorId,
+          actorSession,
+          `scout ${spec.scoutDestination}`,
+        );
+        discoveryEventCount += scouted.events?.filter(routeDiscoveryEvent).length ?? 0;
+        discovered = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+        if (!discovered.action_offers?.some((offer) => offer.kind === "explore_path")) break;
+      }
+      assert(
+        discoveryEventCount === 1
+          && !discovered.action_offers?.some((offer) => offer.kind === "explore_path")
+          && discovered.action_offers?.some((offer) =>
+            offer.kind === "move" && offer.target?.label === spec.scoutDestination),
+        `${spec.label} did not reveal its route exactly once: ${JSON.stringify({
+          discoveryEventCount,
+          offers: discovered.action_offers?.map(({ kind, target }) => ({ kind, target })),
+        })}`,
+      );
+      const repeated = await postJson(`${first.baseUrl}/commands`, {
+        actor_id: actorId,
+        actor_session: actorSession,
+        wallet_address: walletAddress,
+        command: `scout ${spec.scoutDestination}`,
+      });
+      assert(
+        repeated.ok === false,
+        `${spec.label} allowed its already-discovered route to be scouted again`,
+      );
+    }
 
     const listened = await command(first.baseUrl, actorId, actorSession, "listen");
     assert(
@@ -326,7 +433,7 @@ async function runWorldLoop(spec) {
     );
 
     restarted = await startServer(tempDir, spec.registryPath);
-    assertMountedComposition(restarted.meta, spec);
+    assertMountedComposition(restarted.meta, spec, 1);
     assert(
       restarted.output.some((line) => line.includes("loaded journal checkpoint")),
       `${spec.label} restart did not use its journal checkpoint: ${
@@ -335,6 +442,14 @@ async function runWorldLoop(spec) {
     );
     const replayed = await fetchJson(stateUrl(restarted.baseUrl, actorId, actorSession));
     assertScene(replayed, spec, { requireOffer: false });
+    if (spec.scoutDestination) {
+      assert(
+        !replayed.action_offers?.some((offer) => offer.kind === "explore_path")
+          && replayed.action_offers?.some((offer) =>
+            offer.kind === "move" && offer.target?.label === spec.scoutDestination),
+        `${spec.label} restart lost its discovered route`,
+      );
+    }
     assert(
       replayed.world_seq >= committed.world_seq,
       `${spec.label} restart regressed ${committed.world_seq} to ${replayed.world_seq}`,
@@ -351,6 +466,12 @@ async function runWorldLoop(spec) {
         event.type === "message.created" && event.content === spec.marker),
       `${spec.label} restart lost ${spec.marker}`,
     );
+    if (spec.scoutDestination) {
+      assert(
+        events.events?.filter(routeDiscoveryEvent).length === 1,
+        `${spec.label} replay did not retain exactly one route discovery`,
+      );
+    }
     return {
       entry: spec.label,
       worldpack: spec.worldpackId,
@@ -458,12 +579,20 @@ async function main() {
   await access(binaryPath, constants.X_OK).catch(() => {
     throw new Error(`Missing orchestrator binary at ${binaryPath}. Build it before this smoke.`);
   });
-  for (const spec of worldCases) await access(spec.registryPath, constants.R_OK);
+  const requestedCase = process.env.COSYWORLD_COMPOSITION_SMOKE_CASE?.trim().toLowerCase();
+  const selectedCases = requestedCase
+    ? worldCases.filter((spec) => spec.label.toLowerCase() === requestedCase)
+    : worldCases;
+  assert(
+    selectedCases.length > 0,
+    `Unknown standalone composition smoke case: ${requestedCase}`,
+  );
+  for (const spec of selectedCases) await access(spec.registryPath, constants.R_OK);
   await access(resolve(contentRoot, "services-only/registry.json"), constants.R_OK);
 
   const matrix = [];
-  for (const spec of worldCases) matrix.push(await runWorldLoop(spec));
-  matrix.push(await runServicesLoop());
+  for (const spec of selectedCases) matrix.push(await runWorldLoop(spec));
+  if (!requestedCase) matrix.push(await runServicesLoop());
   console.log(JSON.stringify({ ok: true, matrix }, null, 2));
 }
 

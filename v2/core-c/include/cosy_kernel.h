@@ -11,7 +11,7 @@ extern "C" {
 /* Version 9 is reserved by #411 for project-push ABI state. */
 #define CW_KERNEL_VERSION 13u
 
-#define CW_MAX_ACTORS 512u
+#define CW_MAX_ACTORS 1024u
 #define CW_MAX_ITEMS 1024u
 #define CW_MAX_LOCATIONS 512u
 #define CW_MAX_EXITS 1024u

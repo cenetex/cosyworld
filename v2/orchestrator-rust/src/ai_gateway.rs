@@ -285,6 +285,21 @@ impl AiConfig {
         )?
         .pin_all(capability, self.data_policy_mode)
     }
+
+    pub(crate) fn pin_actor_model(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let configured_provider = ai_provider_name(Some(self));
+        if configured_provider != "openrouter" {
+            return Err(RegistryError::ProviderMismatch {
+                model: binding.requested_model_id.clone(),
+                declared: "openrouter".to_string(),
+                discovered: configured_provider.to_string(),
+            });
+        }
+        PinnedModelSelection::from_actor_binding(binding, self.data_policy_mode)
+    }
 }
 
 fn enabled_ai_api_key(api_key: Option<String>, base_url: &str) -> Option<String> {
@@ -580,20 +595,27 @@ pub(crate) async fn request_chat_completion(
     let selection = config
         .pin_model(request.capability)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let raw_mode = selection.uses_raw_prompt_adapter();
     request_completion(
         config,
         request.feature,
         request.prompt_version,
         request.system,
         Value::String(request.user.to_string()),
-        Some(request.temperature),
+        (!raw_mode).then_some(request.temperature),
         request.max_tokens,
         request.timeout,
         request.max_attempts,
         request.referer,
         request.response_format,
         selection.requested_model_id(),
-        config.reasoning_effort.as_deref(),
+        if raw_mode {
+            None
+        } else {
+            config.reasoning_effort.as_deref()
+        },
+        raw_mode,
+        selection.enforces_zero_data_retention(),
         Some(&selection),
     )
     .await
@@ -604,20 +626,27 @@ pub(crate) async fn request_chat_completion_with_selection(
     request: ChatCompletionRequest<'_>,
     selection: &PinnedModelSelection,
 ) -> Result<AiCompletion, AiGatewayError> {
+    let raw_mode = selection.uses_raw_prompt_adapter();
     request_completion(
         config,
         request.feature,
         request.prompt_version,
         request.system,
         Value::String(request.user.to_string()),
-        Some(request.temperature),
+        (!raw_mode).then_some(request.temperature),
         request.max_tokens,
         request.timeout,
         request.max_attempts,
         request.referer,
         request.response_format,
         selection.requested_model_id(),
-        config.reasoning_effort.as_deref(),
+        if raw_mode {
+            None
+        } else {
+            config.reasoning_effort.as_deref()
+        },
+        raw_mode,
+        selection.enforces_zero_data_retention(),
         Some(selection),
     )
     .await
@@ -695,6 +724,8 @@ pub(crate) async fn request_image_policy_decision(
         Some(&response_format),
         &config.vision_model,
         config.vision_reasoning_effort.as_deref(),
+        false,
+        false,
         None,
     )
     .await?;
@@ -769,6 +800,8 @@ async fn request_completion(
     response_format: Option<&Value>,
     model: &str,
     reasoning_effort: Option<&str>,
+    raw_mode: bool,
+    enforce_zero_data_retention: bool,
     selection: Option<&PinnedModelSelection>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
@@ -832,12 +865,17 @@ async fn request_completion(
             })
             .unwrap_or(u32::MAX);
         let max_tokens = max_tokens.min(candidate_output_cap);
-        let mut payload = json!({
-            "model": model,
-            "messages": [
+        let messages = if raw_mode && system.trim().is_empty() {
+            json!([{ "role": "user", "content": user_content }])
+        } else {
+            json!([
                 { "role": "system", "content": system },
                 { "role": "user", "content": user_content }
-            ],
+            ])
+        };
+        let mut payload = json!({
+            "model": model,
+            "messages": messages,
             "max_tokens": max_tokens
         });
         let temperature = selection
@@ -856,6 +894,18 @@ async fn request_completion(
         }
         if let Some(reasoning_effort) = reasoning_effort {
             payload["reasoning"] = json!({ "effort": reasoning_effort });
+        }
+        if raw_mode {
+            let mut provider = payload
+                .get("provider")
+                .and_then(Value::as_object)
+                .cloned()
+                .unwrap_or_default();
+            provider.insert("data_collection".to_string(), json!("deny"));
+            if enforce_zero_data_retention {
+                provider.insert("zdr".to_string(), json!(true));
+            }
+            payload["provider"] = Value::Object(provider);
         }
         if let Some(selection) = selection {
             let candidate = selection.candidate();
@@ -1484,6 +1534,32 @@ mod tests {
     };
     use tokio::net::TcpListener;
 
+    fn raw_actor_model_binding(
+        zero_data_retention: bool,
+    ) -> crate::content_load::SeedActorModelBinding {
+        crate::content_load::SeedActorModelBinding {
+            pack_id: "cosyworld.elysium".to_string(),
+            id: "~anthropic/claude-fable-latest".to_string(),
+            actor_id: 652_001,
+            actor_ref: "pack://cosyworld.elysium/actor/652001".to_string(),
+            provider: "openrouter".to_string(),
+            requested_model_id: "~anthropic/claude-fable-latest".to_string(),
+            canonical_slug: "anthropic/claude-fable-20260731".to_string(),
+            display_name: "Anthropic: Claude Fable".to_string(),
+            catalog_snapshot_version: "openrouter-2026-07-31.1".to_string(),
+            created: 1_785_456_000,
+            input_modalities: vec!["text".to_string()],
+            output_modalities: vec!["text".to_string()],
+            context_length: Some(128_000),
+            max_completion_tokens: Some(16_384),
+            supported_parameters: vec!["max_tokens".to_string(), "temperature".to_string()],
+            input_cost_per_million: Some(1.0),
+            output_cost_per_million: Some(5.0),
+            zero_data_retention,
+            speech_mode: "raw".to_string(),
+        }
+    }
+
     #[test]
     fn pathway_prompt_carries_route_direction_ecology_and_authored_context() {
         let runtime = RuntimeWorld::seeded();
@@ -1550,6 +1626,17 @@ mod tests {
             "openai_compatible"
         );
         assert_eq!(ai_provider_name(None), "unconfigured");
+    }
+
+    #[test]
+    fn raw_actor_binding_requires_zdr_in_production() {
+        let binding = raw_actor_model_binding(false);
+        assert!(matches!(
+            PinnedModelSelection::from_actor_binding(&binding, DataPolicyMode::Production),
+            Err(RegistryError::PrivacyRejected { .. })
+        ));
+        PinnedModelSelection::from_actor_binding(&binding, DataPolicyMode::Development)
+            .expect("development may exercise a catalog model without ZDR");
     }
 
     #[test]
@@ -1950,6 +2037,111 @@ mod tests {
         );
         assert_eq!(attribution.catalog_snapshot_version, "gateway-alias-1");
         assert_eq!(attribution.prompt_adapter_version, "3");
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn raw_actor_request_is_one_exact_unadapted_zdr_message() {
+        let request_body = Arc::new(std::sync::Mutex::new(None::<Value>));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_body = request_body.clone();
+                move |Json(body): Json<Value>| {
+                    let request_body = request_body.clone();
+                    async move {
+                        *request_body.lock().expect("capture raw request") = Some(body);
+                        Json(json!({
+                            "model": "anthropic/claude-fable-20260731",
+                            "choices": [{
+                                "finish_reason": "stop",
+                                "message": { "content": "I am the selected model." }
+                            }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind raw actor gateway test server");
+        let addr = listener
+            .local_addr()
+            .expect("raw actor gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "global/model-must-not-run".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            reasoning_effort: Some("high".to_string()),
+            ..AiConfig::default()
+        };
+        let binding = raw_actor_model_binding(true);
+        let selection =
+            PinnedModelSelection::from_actor_binding(&binding, DataPolicyMode::Production)
+                .expect("ZDR actor model pins");
+
+        let completion = request_chat_completion_with_selection(
+            &config,
+            ChatCompletionRequest {
+                feature: "dialogue_resident_raw",
+                prompt_version: "dialogue-resident-raw-v1",
+                capability: ModelCapability::Voice,
+                system: "",
+                user: "Which model are you?",
+                temperature: 0.9,
+                max_tokens: 160,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+            },
+            &selection,
+        )
+        .await
+        .expect("raw actor request");
+        let body = request_body
+            .lock()
+            .expect("read raw request")
+            .clone()
+            .expect("raw request was captured");
+        assert_eq!(
+            body.get("model").and_then(Value::as_str),
+            Some("~anthropic/claude-fable-latest")
+        );
+        assert_eq!(body["messages"].as_array().map(Vec::len), Some(1));
+        assert_eq!(
+            body.pointer("/messages/0/role").and_then(Value::as_str),
+            Some("user")
+        );
+        assert_eq!(
+            body.pointer("/messages/0/content").and_then(Value::as_str),
+            Some("Which model are you?")
+        );
+        assert!(body.get("temperature").is_none());
+        assert!(body.get("reasoning").is_none());
+        assert!(body.get("response_format").is_none());
+        assert_eq!(
+            body.pointer("/provider/data_collection")
+                .and_then(Value::as_str),
+            Some("deny")
+        );
+        assert_eq!(
+            body.pointer("/provider/zdr").and_then(Value::as_bool),
+            Some(true)
+        );
+        let attribution = completion.model_attribution.expect("raw attribution");
+        assert_eq!(
+            attribution.requested_model_id,
+            "~anthropic/claude-fable-latest"
+        );
+        assert_eq!(
+            attribution.resolved_model_id,
+            "anthropic/claude-fable-20260731"
+        );
         server.abort();
     }
 

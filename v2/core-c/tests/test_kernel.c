@@ -37,7 +37,7 @@ static cw_gate *test_find_gate(cw_world *world, cw_id gate_id) {
 }
 
 static void test_kernel_capacities_are_runtime_sized(void) {
-  assert(CW_MAX_ACTORS >= 512u);
+  assert(CW_MAX_ACTORS >= 1024u);
   assert(CW_MAX_ITEMS >= 1024u);
   assert(CW_MAX_LOCATIONS >= 256u);
   assert(CW_MAX_EXITS >= 1024u);
@@ -45,7 +45,7 @@ static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_EVOLUTION_TRACKS >= 128u);
   assert(CW_MAX_GATES >= 32u);
   assert(CW_MAX_GATE_CLAIMS >= 128u);
-  assert(sizeof(cw_world) <= 170000u);
+  assert(sizeof(cw_world) <= 190000u);
 }
 
 static void test_seed_and_chat(void) {

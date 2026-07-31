@@ -3152,7 +3152,7 @@ impl RuntimeWorld {
                 })
             }
             "say" => {
-                let Some(content) = normalize_human_message(rest) else {
+                let Some(content) = normalize_active_human_message(rest) else {
                     return Ok(ResolvedCommand {
                         command,
                         verb,
