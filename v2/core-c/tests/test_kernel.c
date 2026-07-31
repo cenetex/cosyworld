@@ -2159,6 +2159,108 @@ static void test_discovery_procedures_reveal_regardless_of_pressure_check(void) 
   assert(events.events[0].reason == CW_REASON_NOT_SAME_LOCATION);
 }
 
+/*
+ * Deterministic replay compares semantic state, never raw struct bytes.
+ *
+ * `memcmp` over these structs also compares padding, which is not part of the
+ * C semantic value and is not guaranteed by structure assignment. That made
+ * the replay gate fail intermittently depending on what the stack happened to
+ * hold (observed under Debian GCC 12.2), which is worse than no gate: a flaky
+ * determinism check trains everyone to re-run it.
+ *
+ * The size assertions below exist so that adding a field forces this file to
+ * be updated. Without them a new field would silently stop being compared and
+ * the gate would quietly narrow.
+ */
+_Static_assert(sizeof(cw_event) == 144, "cw_event changed; update assert_event_equal");
+_Static_assert(sizeof(cw_actor) == 40, "cw_actor changed; update assert_actor_equal");
+_Static_assert(sizeof(cw_item) == 64, "cw_item changed; update assert_item_equal");
+_Static_assert(sizeof(cw_location) == 16, "cw_location changed; update assert_location_equal");
+
+/* Fill the stack with a known pattern so two replays cannot accidentally
+ * inherit identical padding bytes from a previous frame. */
+static void perturb_stack(uint8_t pattern) {
+  volatile uint8_t bytes[4096];
+  for (size_t i = 0; i < sizeof(bytes); ++i) {
+    bytes[i] = (uint8_t)(pattern + i);
+  }
+  assert(bytes[sizeof(bytes) - 1] == (uint8_t)(pattern + sizeof(bytes) - 1));
+}
+
+static void assert_event_equal(const cw_event *left, const cw_event *right) {
+  assert(left->seq == right->seq);
+  assert(left->type == right->type);
+  assert(left->success == right->success);
+  assert(left->reason == right->reason);
+  assert(left->actor_id == right->actor_id);
+  assert(left->target_actor_id == right->target_actor_id);
+  assert(left->location_id == right->location_id);
+  assert(left->destination_location_id == right->destination_location_id);
+  assert(left->content_id == right->content_id);
+  assert(left->item_id == right->item_id);
+  assert(left->target_item_id == right->target_item_id);
+  assert(left->raw_roll == right->raw_roll);
+  assert(left->modifier == right->modifier);
+  assert(left->total == right->total);
+  assert(left->dc == right->dc);
+  assert(left->damage == right->damage);
+  assert(left->current_hp == right->current_hp);
+  assert(left->ability == right->ability);
+  assert(left->gate_transition == right->gate_transition);
+  assert(left->reserved == right->reserved);
+  assert(left->gate_evidence_mask == right->gate_evidence_mask);
+  assert(left->gate_id == right->gate_id);
+  assert(left->gate_method_id == right->gate_method_id);
+  assert(left->gate_claim_id == right->gate_claim_id);
+  assert(left->gate_version == right->gate_version);
+  assert(left->access_revision == right->access_revision);
+  assert(left->gate_evidence_digest == right->gate_evidence_digest);
+}
+
+static void assert_actor_equal(const cw_actor *left, const cw_actor *right) {
+  assert(left->id == right->id);
+  assert(left->kind == right->kind);
+  assert(left->status == right->status);
+  assert(left->reserved == right->reserved);
+  assert(left->location_id == right->location_id);
+  assert(left->stats.strength == right->stats.strength);
+  assert(left->stats.dexterity == right->stats.dexterity);
+  assert(left->stats.constitution == right->stats.constitution);
+  assert(left->stats.intelligence == right->stats.intelligence);
+  assert(left->stats.wisdom == right->stats.wisdom);
+  assert(left->stats.charisma == right->stats.charisma);
+  assert(left->stats.hp_base == right->stats.hp_base);
+  assert(left->stats.level == right->stats.level);
+  assert(left->damage == right->damage);
+  assert(left->conditions == right->conditions);
+}
+
+static void assert_item_equal(const cw_item *left, const cw_item *right) {
+  assert(left->id == right->id);
+  assert(left->kind == right->kind);
+  assert(left->charges == right->charges);
+  assert(left->weight_tenths == right->weight_tenths);
+  assert(left->container_capacity_tenths == right->container_capacity_tenths);
+  assert(left->size_class == right->size_class);
+  assert(left->role == right->role);
+  assert(left->zone == right->zone);
+  assert(left->reserved == right->reserved);
+  assert(left->max_charges == right->max_charges);
+  assert(left->recovery == right->recovery);
+  assert(left->recovery_zone == right->recovery_zone);
+  assert(left->reserved2 == right->reserved2);
+  assert(left->location_id == right->location_id);
+  assert(left->holder_actor_id == right->holder_actor_id);
+  assert(left->container_item_id == right->container_item_id);
+  assert(left->held_since_tick == right->held_since_tick);
+  assert(left->recharge_at_tick == right->recharge_at_tick);
+}
+
+static void assert_location_equal(const cw_location *left, const cw_location *right) {
+  assert(left->id == right->id);
+  assert(left->flags == right->flags);
+}
+
 static void apply_replay_sequence(cw_world *world, cw_event *events, size_t *event_count) {
   cw_event_buffer buffer;
   *event_count = 0;
@@ -2197,21 +2299,29 @@ static void test_deterministic_replay(void) {
   size_t left_count = 0;
   size_t right_count = 0;
 
+  perturb_stack(0xa5);
   apply_replay_sequence(&left, left_events, &left_count);
+  perturb_stack(0x5a);
   apply_replay_sequence(&right, right_events, &right_count);
 
   assert(left_count == right_count);
   for (size_t i = 0; i < left_count; ++i) {
-    assert(memcmp(&left_events[i], &right_events[i], sizeof(cw_event)) == 0);
+    assert_event_equal(&left_events[i], &right_events[i]);
   }
 
   assert(left.actor_count == right.actor_count);
   assert(left.item_count == right.item_count);
   assert(left.location_count == right.location_count);
   assert(left.next_event_seq == right.next_event_seq);
-  assert(memcmp(left.actors, right.actors, left.actor_count * sizeof(cw_actor)) == 0);
-  assert(memcmp(left.items, right.items, left.item_count * sizeof(cw_item)) == 0);
-  assert(memcmp(left.locations, right.locations, left.location_count * sizeof(cw_location)) == 0);
+  for (size_t i = 0; i < left.actor_count; ++i) {
+    assert_actor_equal(&left.actors[i], &right.actors[i]);
+  }
+  for (size_t i = 0; i < left.item_count; ++i) {
+    assert_item_equal(&left.items[i], &right.items[i]);
+  }
+  for (size_t i = 0; i < left.location_count; ++i) {
+    assert_location_equal(&left.locations[i], &right.locations[i]);
+  }
 }
 
 int main(void) {
