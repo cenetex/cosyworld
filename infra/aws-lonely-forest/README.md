@@ -13,6 +13,9 @@ stack. The live V2 orchestrator runs in the `cosyworld-lonelyforest` Fly app.
 - ACM certificate for `lonelyforest.com`, `www.lonelyforest.com`,
   `lonelyforestlibrary.com`, and `www.lonelyforestlibrary.com`.
 - Route 53 alias records for both domains.
+- Route 53 CNAME records that send the `0`, `7`, `89`, and `lantern`
+  worldpack hosts to the shared `cosyworld-lonelyforest` Fly app, plus optional
+  delegated Fly certificate validation.
 - S3 private bucket plus CloudFront distribution for the archive site in
   `sites/lonelyforestlibrary`.
 
@@ -47,6 +50,9 @@ source region is hard-fenced and the copied prefix hash is recorded externally.
   hosted zones managed by this module.
 - `fly_app_ipv4` and `fly_app_ipv6` select Fly for the application records when
   both are populated; leaving both empty retains the ALB records for rollback.
+- `worldpack_fly_hosts` maps each worldpack subdomain to the shared
+  `cosyworld-lonelyforest.fly.dev` application and its optional certificate
+  validation ID.
 - `desired_count = 0` keeps the AWS writer stopped after the cutover. It may be
   `1` only during an explicit rollback after the Fly writer is fenced.
 

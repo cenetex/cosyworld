@@ -1229,6 +1229,7 @@ impl RuntimeWorld {
                         terrain,
                         environment,
                         natural_potentials,
+                        interior_view: None,
                         image_url: Some(format!("/assets/generated/pathways/{id}.svg")),
                         art_prompt: Some(art_prompt),
                     },

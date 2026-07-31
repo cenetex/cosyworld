@@ -562,6 +562,8 @@
       filter: saturate(0.94) contrast(1.02);
     }
     .room-hero-card {
+      position: relative;
+      z-index: 0;
       width: 100%;
       height: 100%;
       display: block;
@@ -578,17 +580,72 @@
       content: "";
       position: absolute;
       inset: 0;
+      z-index: 2;
       pointer-events: none;
       background:
         linear-gradient(180deg, rgba(5, 8, 6, 0.08), rgba(5, 8, 6, 0.18) 43%, rgba(5, 8, 6, 0.78)),
         radial-gradient(circle at 18% 84%, rgba(101, 230, 138, 0.2), transparent 32%);
+    }
+    .interior-view {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      isolation: isolate;
+    }
+    .interior-view[hidden] {
+      display: none;
+    }
+    .interior-view svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.24));
+    }
+    .interior-surface {
+      stroke: rgba(255, 239, 185, 0.46);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+    .interior-seam {
+      fill: none;
+      stroke: rgba(255, 245, 208, 0.3);
+      stroke-width: 1.25;
+      vector-effect: non-scaling-stroke;
+    }
+    .interior-view[data-mode="hex"] .pane-a { fill: rgba(190, 86, 68, 0.58); }
+    .interior-view[data-mode="hex"] .pane-b { fill: rgba(212, 149, 70, 0.58); }
+    .interior-view[data-mode="hex"] .pane-c { fill: rgba(71, 135, 128, 0.62); }
+    .interior-view[data-mode="hex"] .pane-d { fill: rgba(69, 92, 139, 0.64); }
+    .interior-view[data-mode="close"] .ceiling { fill: rgba(55, 80, 99, 0.48); }
+    .interior-view[data-mode="close"] .left-wall { fill: rgba(62, 100, 105, 0.66); }
+    .interior-view[data-mode="close"] .front-wall { fill: rgba(123, 116, 77, 0.62); }
+    .interior-view[data-mode="close"] .right-wall { fill: rgba(84, 72, 103, 0.66); }
+    .interior-view[data-mode="close"] .floor { fill: rgba(83, 69, 53, 0.66); }
+    .interior-exit .door-frame {
+      fill: rgba(232, 196, 113, 0.9);
+      stroke: rgba(255, 246, 206, 0.92);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+    .interior-exit .door-opening {
+      fill: rgba(5, 8, 12, 0.9);
+      stroke: rgba(5, 8, 12, 0.7);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+    .interior-exit .door-mark {
+      fill: none;
+      stroke: rgba(255, 224, 139, 0.88);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
     }
     .room-avatar-rail {
       position: absolute;
       left: 14px;
       right: 14px;
       bottom: 10px;
-      z-index: 1;
+      z-index: 3;
       display: flex;
       align-items: center;
       gap: 7px;
@@ -1750,6 +1807,10 @@
     .prompt.choice-mode.has-draw {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .prompt.single-action .cmd.primary,
+    #chat-progress {
+      grid-column: 1 / -1;
+    }
     .prompt[hidden] { display: none; }
     .cmd {
       --cmd-accent: var(--type-utility);
@@ -2086,6 +2147,27 @@
       border-radius: inherit;
       background: var(--cmd-accent);
       animation: action-progress-sweep 1.1s ease-in-out infinite alternate;
+    }
+    .cmd.chat-progress-card .cmd-copy {
+      padding-bottom: 8px;
+    }
+    .chat-turn-progress {
+      position: absolute;
+      right: 10px;
+      bottom: 7px;
+      left: 10px;
+      display: grid;
+      grid-template-columns: repeat(var(--chat-turn-count), minmax(0, 1fr));
+      gap: 3px;
+      height: 4px;
+    }
+    .chat-turn-progress span {
+      border-radius: 999px;
+      background: rgba(var(--cmd-accent-rgb), 0.2);
+    }
+    .chat-turn-progress span.filled {
+      background: var(--cmd-accent);
+      box-shadow: 0 0 8px rgba(var(--cmd-accent-rgb), 0.42);
     }
     @keyframes action-progress-sweep {
       from { transform: translateX(-12%); }
@@ -3224,6 +3306,11 @@
       .prompt.choice-mode {
         display: flex;
       }
+      .prompt.single-action .cmd.primary,
+      #chat-progress {
+        flex: 1 1 100%;
+        width: 100%;
+      }
       .cmd {
         flex: 1 1 0;
         min-height: 62px;
@@ -4262,6 +4349,7 @@
           <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open">
             <img id="room-hero-image" alt="" />
           </button>
+          <div class="interior-view" id="interior-view" aria-hidden="true" hidden></div>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
         </div>
         <div class="room-title">
@@ -4301,6 +4389,7 @@
         <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
+      <button class="cmd chat-progress" id="chat-progress" type="button" disabled></button>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="action-menu" data-analytics-event="action.all_open" aria-label="Open all actions">
@@ -4491,6 +4580,7 @@
     let pendingAction = null;
     let pendingChats = [];
     let nextPendingChatId = 1;
+    const chatExchangeTurnCount = 4;
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
     let accountPanelPinned = false;
@@ -5244,6 +5334,143 @@
         return "Wallet signing prompt is not available in this browser. Open the QR page inside Phantom or Solflare and try again.";
       }
       return message ? `${fallback}: ${message}` : fallback;
+    }
+
+    function interiorViewMode(location = state?.location) {
+      const mode = String(location?.interior_view || "").trim().toLowerCase();
+      return mode === "hex" || mode === "close" ? mode : null;
+    }
+
+    function exitDirectionCode(direction) {
+      const normalized = String(direction || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, "");
+      return ({
+        n: "N",
+        north: "N",
+        ne: "NE",
+        northeast: "NE",
+        e: "E",
+        east: "E",
+        se: "SE",
+        southeast: "SE",
+        s: "S",
+        south: "S",
+        sw: "SW",
+        southwest: "SW",
+        w: "W",
+        west: "W",
+        nw: "NW",
+        northwest: "NW",
+        u: "U",
+        up: "U",
+        d: "D",
+        down: "D",
+        in: "IN",
+        inside: "IN",
+        out: "OUT",
+        outside: "OUT",
+      })[normalized] || "";
+    }
+
+    const interiorExitSlots = {
+      hex: {
+        NW: [52, 90, 92, 118],
+        N: [346, 91, 92, 118],
+        NE: [642, 74, 92, 118],
+        E: [942, 90, 92, 118],
+        SE: [1040, 191, 92, 112],
+        S: [742, 197, 92, 112],
+        SW: [442, 197, 92, 112],
+        W: [144, 191, 92, 112],
+        U: [552, 14, 96, 52, "hatch"],
+        D: [552, 292, 96, 52, "hatch"],
+        IN: [10, 224, 104, 58, "hatch"],
+        OUT: [1086, 224, 104, 58, "hatch"],
+      },
+      close: {
+        NW: [386, 135, 88, 88],
+        N: [532, 120, 136, 118],
+        NE: [726, 135, 88, 88],
+        E: [987, 120, 112, 118],
+        SE: [867, 194, 92, 88],
+        S: [552, 284, 96, 58, "hatch"],
+        SW: [241, 194, 92, 88],
+        W: [101, 120, 112, 118],
+        U: [552, 20, 96, 52, "hatch"],
+        D: [420, 284, 96, 58, "hatch"],
+        IN: [16, 286, 104, 54, "hatch"],
+        OUT: [1080, 286, 104, 54, "hatch"],
+      },
+    };
+
+    function interiorExitSocket(exit, slot, fallbackIndex = 0) {
+      const code = exitDirectionCode(exit?.direction) || "?";
+      const fallbackSlot = [20 + (fallbackIndex * 116), 18, 104, 58, "hatch"];
+      const [x, y, width, height, kind = "door"] = slot || fallbackSlot;
+      const inset = kind === "hatch" ? 6 : 7;
+      const destination = String(exit?.destination_location_name || "Unknown destination");
+      const title = `${code}: ${destination}`;
+      return `
+        <g class="interior-exit ${kind}" data-direction="${escapeAttr(code)}" data-destination-id="${escapeAttr(exit?.destination_location_id || "")}">
+          <title>${escapeHtml(title)}</title>
+          <rect class="door-frame" x="${x}" y="${y}" width="${width}" height="${height}" rx="${kind === "hatch" ? 10 : 5}"></rect>
+          <rect class="door-opening" x="${x + inset}" y="${y + inset}" width="${width - (inset * 2)}" height="${height - (inset * 2)}" rx="${kind === "hatch" ? 7 : 3}"></rect>
+          <path class="door-mark" d="${kind === "hatch"
+            ? `M ${x + 15} ${y + (height / 2)} H ${x + width - 15}`
+            : `M ${x + (width / 2)} ${y + 12} V ${y + height - 18}`}"></path>
+        </g>`;
+    }
+
+    function interiorSvgSurfaces(mode) {
+      if (mode === "hex") {
+        return `
+          <polygon class="interior-surface pane-a" data-pane="0" points="0,35 300,80 300,300 0,340"></polygon>
+          <polygon class="interior-surface pane-b" data-pane="1" points="300,80 600,45 600,315 300,300"></polygon>
+          <polygon class="interior-surface pane-c" data-pane="2" points="600,45 900,80 900,300 600,315"></polygon>
+          <polygon class="interior-surface pane-d" data-pane="3" points="900,80 1200,35 1200,340 900,300"></polygon>
+          <path class="interior-seam" d="M0 35 L600 45 L1200 35 M0 340 L600 315 L1200 340"></path>`;
+      }
+      return `
+        <polygon class="interior-surface ceiling" data-pane="ceiling" points="0,0 1200,0 850,105 350,105"></polygon>
+        <polygon class="interior-surface left-wall" data-pane="left" points="0,0 350,105 350,255 0,360"></polygon>
+        <polygon class="interior-surface front-wall" data-pane="front" points="350,105 850,105 850,255 350,255"></polygon>
+        <polygon class="interior-surface right-wall" data-pane="right" points="850,105 1200,0 1200,360 850,255"></polygon>
+        <polygon class="interior-surface floor" data-pane="floor" points="0,360 350,255 850,255 1200,360"></polygon>
+        <path class="interior-seam" d="M350 105 H850 M350 255 H850"></path>`;
+    }
+
+    function interiorSvgHtml(mode, exits) {
+      const slots = interiorExitSlots[mode] || {};
+      const visibleExits = (Array.isArray(exits) ? exits : [])
+        .filter((exit) => !exitUnavailable(exit, state));
+      const sockets = visibleExits
+        .map((exit, index) => interiorExitSocket(
+          exit,
+          slots[exitDirectionCode(exit.direction)],
+          index,
+        ))
+        .join("");
+      return `
+        <svg class="interior-svg" viewBox="0 0 1200 360" preserveAspectRatio="none" focusable="false">
+          ${interiorSvgSurfaces(mode)}
+          ${sockets}
+        </svg>`;
+    }
+
+    function renderInteriorView(location = state?.location, exits = state?.exits) {
+      const node = $("interior-view");
+      if (!node) return;
+      const mode = interiorViewMode(location);
+      node.hidden = !mode;
+      if (!mode) {
+        node.removeAttribute("data-mode");
+        node.replaceChildren();
+        return;
+      }
+      node.dataset.mode = mode;
+      node.innerHTML = interiorSvgHtml(mode, exits);
     }
 
     function buildActions(view) {
@@ -6374,14 +6601,20 @@
           const onePath = groupedExits.length === 1;
           const searchingPathway = false;
           const fleeing = routeGroup.mode === "flee";
+          const interiorMoving = Boolean(interiorViewMode(view.location) && !searchingPathway && !fleeing);
           const routeOffer = offerFor(fleeing ? "flee" : "move");
           const routeIntention = searchingPathway ? "scout" : (fleeing ? "flee" : "travel");
-          const routeVerb = offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
+          const routeVerb = interiorMoving
+            ? "Move"
+            : offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
           const routeVerbLower = routeVerb.toLowerCase();
           const routeTargetPrefix = searchingPathway
             ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
-          const routeAccessibleLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
+          const firstDirection = exitDirectionCode(firstExit.direction);
+          const routeAccessibleLabel = interiorMoving
+            ? `Move${firstDirection ? ` ${firstDirection}` : ""} to ${firstExit.destination_location_name}`
+            : targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeLabel = String(firstExit.route_label || "").trim();
           const routeGuidance = onePath
             && !searchingPathway
@@ -6392,12 +6625,17 @@
             : "";
           const routeAction = {
             ...semanticAction(routeOffer, routeIntention, routeAccessibleLabel),
+            ...(interiorMoving ? { intention: "move" } : {}),
             label: routeVerb.toLowerCase(),
             detail: onePath
-              ? (searchingPathway
+              ? (interiorMoving
+                ? `${firstDirection || "EXIT"} · ${firstExit.destination_location_name}`
+                : searchingPathway
                 ? `${routeTargetPrefix}${firstExit.destination_location_name}`
                 : (fleeing ? firstExit.destination_location_name : `${routeTargetPrefix}${firstExit.destination_location_name}${routeGuidance}`))
-              : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path")),
+              : (interiorMoving
+                ? "choose an exit"
+                : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path"))),
             command: onePath
               ? `${fleeing ? "flee" : (searchingPathway ? "search pathway to" : "go")} ${firstExit.destination_location_name}`
               : (fleeing ? "flee" : (searchingPathway ? "search pathway" : "go")),
@@ -6412,18 +6650,22 @@
             priority: Number(routeOffer?.rank || (searchingPathway ? 55 : (fleeing ? 50 : 80))),
             modalTitle: onePath
               ? undefined
-              : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel")),
+              : (interiorMoving
+                ? "choose an exit"
+                : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel"))),
             modalSummary: onePath
               ? (fleeing
                 ? `Leave the danger behind and hurry toward ${firstExit.destination_location_name}.`
                 : (searchingPathway
                   ? `Reveal the first adjacent stretch toward ${firstExit.destination_location_name} without moving.`
-                  : `Travel to ${firstExit.destination_location_name}.`))
+                  : (interiorMoving
+                    ? `Move${firstDirection ? ` ${firstDirection}` : ""} into ${firstExit.destination_location_name}.`
+                    : `Travel to ${firstExit.destination_location_name}.`)))
               : (fleeing
                 ? "Choose a way out."
                 : (searchingPathway
                   ? "Choose a destination and reveal its next adjacent route segment without moving."
-                  : "Choose where to travel.")),
+                  : (interiorMoving ? "Choose an exit." : "Choose where to travel."))),
             effect: onePath
               ? (searchingPathway
                 ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
@@ -6431,10 +6673,14 @@
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
               choices: groupedExits.map((exit) => ({
-                label: exit.route_label || exit.destination_location_name,
+                label: interiorMoving
+                  ? `${exitDirectionCode(exit.direction) || "EXIT"} · ${exit.destination_location_name}`
+                  : (exit.route_label || exit.destination_location_name),
                 detail: searchingPathway
                   ? `${Number(exit.distance || 1)} stretches toward ${exit.destination_location_name}`
-                  : `${exit.destination_location_name}${exit.direction ? ` · ${exit.direction}` : ""}`,
+                  : (interiorMoving
+                    ? (exit.route_label || "open way")
+                    : `${exit.destination_location_name}${exit.direction ? ` · ${exit.direction}` : ""}`),
                 previewAlt: exit.destination_location_name,
                 value: String(exit.destination_location_id),
                 card: cardForLocation(exit.destination_location_id),
@@ -6445,11 +6691,17 @@
           const selectedRouteExit = () => groupedExits.find((exit) => (
             String(exit.destination_location_id) === String(routeAction.selectedChoice || firstExit.destination_location_id)
           )) || firstExit;
-          routeAction.busyLabel = fleeing ? "getting away" : (searchingPathway ? "searching" : "travelling");
+          routeAction.busyLabel = fleeing
+            ? "getting away"
+            : (searchingPathway ? "searching" : (interiorMoving ? "moving" : "travelling"));
           routeAction.busyDetail = () => {
             const selectedExit = selectedRouteExit();
             if (fleeing) return `hurrying toward ${selectedExit.destination_location_name}…`;
             if (searchingPathway) return `finding the path toward ${selectedExit.destination_location_name}…`;
+            if (interiorMoving) {
+              const direction = exitDirectionCode(selectedExit.direction);
+              return `moving${direction ? ` ${direction}` : ""} to ${selectedExit.destination_location_name}…`;
+            }
             return `following the path to ${selectedExit.destination_location_name}…`;
           };
           routeAction.selectedPayload = () => {
@@ -7094,18 +7346,37 @@
       return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${grace > 0 ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
     }
 
-    // Ordered-combat timing is scene status, not a dealt action. Pass and Need
+    // Ordered-combat timing is scene status, not a dealt action. Draw and Need
     // time live here as bounded controls so the card row stays reserved for
-    // legal combat actions. See issue #461.
+    // legal combat actions. Drawing is an authoritative pass that rotates one
+    // suggestion; it never narrows the set of legal actions. See issue #461.
+    function orderedSceneDrawAvailable(turn = state?.turn) {
+      return Boolean(
+        turn?.enabled
+          && turn?.policy === "scene-turn"
+          && turn?.is_current_actor
+          && turn?.can_pass
+      );
+    }
+
+    async function drawAndPassOrderedSceneTurn() {
+      const result = await action("/actions/pass", { actor_id: actorId });
+      if (result?.ok) {
+        drawNextHandCard();
+        renderCommands();
+      }
+      return result;
+    }
+
     function turnBannerControlSpecs(turn = state?.turn) {
       if (!turn?.enabled || turn?.policy !== "scene-turn" || !turn?.is_current_actor) return [];
       const specs = [];
       if (turn.can_pass) {
         specs.push({
-          key: "pass",
-          label: "pass",
-          title: "Yield this combat turn. The next participant acts; passing does not make you dodge.",
-          run: () => action("/actions/pass", { actor_id: actorId }),
+          key: "draw",
+          label: "draw",
+          title: "Set this suggestion aside, draw the next one, and yield the combat turn. The next participant acts; drawing does not make you dodge.",
+          run: drawAndPassOrderedSceneTurn,
         });
       }
       if (turn.can_need_time) {
@@ -8110,6 +8381,7 @@
     function pushEvents(events) {
       let changed = false;
       const pendingChatCountBefore = pendingChats.length;
+      let chatProgressChanged = false;
       for (const event of events) {
         if (captureDefeatTransition(event)) changed = true;
         if (applyActionReceipt(event)) {
@@ -8123,13 +8395,16 @@
         }
         if (!event || eventIsMuted(event) || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
-        if (resolvePendingChat(event)) changed = true;
+        if (resolvePendingChat(event)) {
+          changed = true;
+          chatProgressChanged = true;
+        }
         if (eventIsHiddenContext(event)) continue;
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
       }
       logEvents = logEvents.slice(-90);
-      if (pendingChats.length !== pendingChatCountBefore) renderCommands();
+      if (pendingChats.length !== pendingChatCountBefore || chatProgressChanged) renderCommands();
       return changed;
     }
 
@@ -8175,6 +8450,8 @@
         typingActorId: Number(actorId),
         typingName: self ? actorLabel(self) : "Your avatar",
         afterSeq: latestSeenSeq(),
+        turnsCompleted: 0,
+        turnCount: chatExchangeTurnCount,
       });
       window.setTimeout(() => {
         if (!pendingChats.some((chat) => chat.id === id)) return;
@@ -8209,6 +8486,41 @@
       return !queueEventSeq || !eventQueueSeq || queueEventSeq === eventQueueSeq;
     }
 
+    function chatProgressForAction(action) {
+      const pendingChatId = Number(action?.pendingChatId || 0);
+      if (!pendingChatId) return null;
+      return pendingChats.find((chat) => chat.id === pendingChatId) || null;
+    }
+
+    function chatTurnProgressHtml(chat) {
+      const turnCount = Math.max(1, Number(chat?.turnCount || chatExchangeTurnCount));
+      const turnsCompleted = Math.max(0, Math.min(turnCount, Number(chat?.turnsCompleted || 0)));
+      const segments = Array.from({ length: turnCount }, (_, index) => (
+        `<span${index < turnsCompleted ? ' class="filled"' : ""}></span>`
+      )).join("");
+      return `<span class="chat-turn-progress" style="--chat-turn-count:${turnCount}" role="progressbar" aria-label="Chat exchange progress" aria-valuemin="0" aria-valuemax="${turnCount}" aria-valuenow="${turnsCompleted}" aria-valuetext="${turnsCompleted} of ${turnCount} chat turns complete">${segments}</span>`;
+    }
+
+    function chatProgressAction(chat) {
+      const turnCount = Math.max(1, Number(chat?.turnCount || chatExchangeTurnCount));
+      const turnsCompleted = Math.max(0, Math.min(turnCount, Number(chat?.turnsCompleted || 0)));
+      const speaker = String(chat?.typingName || chat?.targetName || "Someone nearby");
+      const detail = turnsCompleted >= turnCount
+        ? "the conversation settles"
+        : `${speaker} is speaking — turn ${turnsCompleted + 1} of ${turnCount}`;
+      return {
+        kind: "orb-chat",
+        label: "chat",
+        detail,
+        busy: true,
+        busyDetail: detail,
+        target_actor_id: Number(chat?.targetActorId || 0),
+        target_actor_name: String(chat?.targetName || ""),
+        chatProgress: chat,
+        accessibleLabel: `Chat exchange, ${turnsCompleted} of ${turnCount} turns complete`,
+      };
+    }
+
     function resolvePendingChat(event) {
       if (!event || !pendingChats.length) return false;
       const eventSeq = Number(event.seq || 0);
@@ -8233,9 +8545,42 @@
         }
         return false;
       }
+      if (event.type === "message.created") {
+        const messageChatIndex = pendingChats.findIndex((chat) => (
+          eventSeq > Number(chat.afterSeq || 0)
+          && Number(event.actor_id || 0) === Number(chat.typingActorId || 0)
+        ));
+        if (messageChatIndex >= 0) {
+          const chat = pendingChats[messageChatIndex];
+          pendingChats[messageChatIndex] = {
+            ...chat,
+            afterSeq: eventSeq,
+            turnsCompleted: Math.min(
+              Number(chat.turnCount || chatExchangeTurnCount),
+              Number(chat.turnsCompleted || 0) + 1,
+            ),
+          };
+          return true;
+        }
+        return false;
+      }
       if (event.type === "chat.failed" || event.type === "chat.completed") {
         if (matchingChatIndex >= 0) {
-          pendingChats = pendingChats.filter((chat) => !pendingChatMatchesEvent(chat, event));
+          if (event.type === "chat.failed") {
+            pendingChats.splice(matchingChatIndex, 1);
+            return true;
+          }
+          const chat = pendingChats[matchingChatIndex];
+          pendingChats[matchingChatIndex] = {
+            ...chat,
+            turnsCompleted: Number(chat.turnCount || chatExchangeTurnCount),
+            typingName: "the conversation settles",
+          };
+          window.setTimeout(() => {
+            cancelPendingChat(chat.id);
+            renderCommands();
+            renderLog();
+          }, 500);
           return true;
         }
       }
@@ -8788,6 +9133,7 @@
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
       roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} keepsake`);
       setCardTarget(roomHeroCard, locationCard);
+      renderInteriorView(location, state.exits);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       $("subtitle").textContent = location.name || "Unknown";
       const brand = $("brand");
@@ -12782,7 +13128,9 @@
         }).join("");
         return `<section class="all-actions-group" aria-labelledby="${escapeAttr(groupId)}"><h3 class="all-actions-group-title" id="${escapeAttr(groupId)}">${escapeHtml(groupLabel)}</h3><div class="all-actions-list">${buttons}</div></section>`;
       }).join("");
-      $("all-actions-draw").disabled = handShuffleBusy;
+      const drawIsOrderedPass = orderedSceneDrawAvailable();
+      $("all-actions-draw").hidden = drawIsOrderedPass;
+      $("all-actions-draw").disabled = handShuffleBusy || drawIsOrderedPass;
     }
 
     function openAllActionsModal() {
@@ -13326,6 +13674,7 @@
         button.classList.remove("dealt");
         button.classList.remove("keepsake-guided");
         button.classList.remove("story-guided");
+        button.classList.remove("chat-progress-card");
         button.setAttribute("aria-label", "wait");
         button.classList.remove("has-copy");
         button.innerHTML = `<span class="thumb placeholder" aria-hidden="true"></span>`;
@@ -13345,6 +13694,7 @@
       else button.removeAttribute("data-command");
       button.classList.remove(...actionCardAccentClasses);
       const { cardType, rarity, className } = actionCardAccentClass(action);
+      const chatProgress = action.chatProgress || chatProgressForAction(action);
       const keepsakeGuide = action.keepsakeGuide || keepsakeGuideForAction(action);
       const keepsakeName = keepsakeGuide?.display_name || keepsakeGuide?.card_id || "";
       const storyGuide = action.storyGuide === true;
@@ -13357,6 +13707,7 @@
       button.classList.add(className);
       button.classList.toggle("keepsake-guided", Boolean(keepsakeGuide));
       button.classList.toggle("story-guided", storyGuide);
+      button.classList.toggle("chat-progress-card", Boolean(chatProgress));
       if (keepsakeName) button.dataset.keepsakeGuide = keepsakeName;
       else button.removeAttribute("data-keepsake-guide");
       if (storyGuide) button.dataset.storyGuide = storyGuideLabel;
@@ -13426,7 +13777,9 @@
         ? `<span class="provider-call">↳ ${escapeHtml(providerReason)}</span>`
         : "";
       const busyHtml = action.busy
-        ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
+        ? (chatProgress
+            ? chatTurnProgressHtml(chatProgress)
+            : `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`)
         : "";
       button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
     }
@@ -13491,7 +13844,26 @@
       reconcileHand();
     }
 
+    function drawNextHandCard() {
+      playerPromotedHandKey = "";
+      const currentKey = handKeys[0];
+      if (!currentKey) return false;
+      discardHandKey(currentKey, false);
+      const validKeys = validActionHandKeySet();
+      const hasUndrawnCard = [...validKeys].some((key) => (
+        !discardedHandKeys.includes(key)
+      ));
+      if (!hasUndrawnCard) {
+        discardedHandKeys = [];
+      }
+      reconcileHand();
+      return true;
+    }
+
     async function shuffleHand() {
+      if (orderedSceneDrawAvailable()) {
+        return drawAndPassOrderedSceneTurn();
+      }
       if (handShuffleBusy
         || !actorId
         || !actorSession
@@ -13531,11 +13903,15 @@
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary"];
       const drawButton = $("shuffle");
+      const chatProgressButton = $("chat-progress");
       renderTurnPingPill();
+      prompt.classList.toggle("single-action", actionBusy);
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
         prompt.classList.remove("has-draw");
         drawButton.style.display = "none";
+        renderButton("chat-progress", null);
+        chatProgressButton.style.display = "none";
         const busyDetail = typeof pendingAction?.busyDetail === "function"
           ? pendingAction.busyDetail()
           : pendingAction?.busyDetail;
@@ -13564,6 +13940,9 @@
       prompt.classList.toggle("has-draw", canDraw);
       drawButton.style.display = canDraw ? "flex" : "none";
       drawButton.disabled = handShuffleBusy;
+      const chatProgress = pendingChats[0] || null;
+      renderButton("chat-progress", chatProgress ? chatProgressAction(chatProgress) : null);
+      chatProgressButton.style.display = chatProgress ? "flex" : "none";
       const visibleActions = actionBarActions().slice(0, handCapacity());
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
@@ -13606,6 +13985,7 @@
         renderCommands();
       }, 3000);
       const pendingChat = beginPendingChat(action);
+      if (pendingChat?.id) action.pendingChatId = pendingChat.id;
       renderCommands();
       renderLog();
       try {

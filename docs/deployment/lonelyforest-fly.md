@@ -4,18 +4,40 @@ The Lonely Forest domains run in one Fly application and one Machine, with one
 mounted volume. Nginx maps an exact hostname allowlist to isolated CosyWorld
 processes; each worldpack has its own SQLite journal directory on that volume.
 
-| Domain | Worldpack | Journal |
-| --- | --- | --- |
-| `lonelyforest.com` | Official | `/data/cosyworld-v2-events.sqlite` |
-| `0.lonelyforest.com` | Elysium | `/data/worldpacks/0/events.sqlite` |
-| `7.lonelyforest.com` | Bethlehem | `/data/worldpacks/7/events.sqlite` |
-| `89.lonelyforest.com` | Project 89 | `/data/worldpacks/89/events.sqlite` |
-| `lantern.lonelyforest.com` | Lantern Keeper | `/data/worldpacks/lantern/events.sqlite` |
+| Domain | Registry and entry | Process | Journal |
+| --- | --- | --- | --- |
+| `lonelyforest.com` | Official manifest entry | Root, `3100` | `/data/cosyworld-v2-events.sqlite` |
+| `0.lonelyforest.com` | Elysium, Void 001 (`652000`) | Elysium, `3101` | `/data/worldpacks/0/events.sqlite` |
+| `7.lonelyforest.com` | Bethlehem (`700`) | Bethlehem, `3107` | `/data/worldpacks/7/events.sqlite` |
+| `89.lonelyforest.com` | Project 89, Threshold Interface (`8900`) | Project 89, `3189` | `/data/worldpacks/89/events.sqlite` |
+| `lantern.lonelyforest.com` | Lantern Keeper, Wayside Lantern Inn (`800`) | Lantern Keeper, `3180` | `/data/worldpacks/lantern/events.sqlite` |
 
 The orchestrator remains one authoritative world per process and is not allowed
 to select a journal from an untrusted `Host` or `X-Forwarded-Host` header.
 Adding a tenant requires an explicit process, data directory, and nginx hostname
 mapping in the committed release.
+
+Accounts, avatars, sessions, world events, snapshots, and generated assets stay
+isolated between processes even though all passkeys use the parent RP ID
+`lonelyforest.com`. `COSYWORLD_ENTRY_LOCATION_ID` is a deployment-only starting
+threshold: startup rejects an entry outside the selected registry and never
+rewrites the compiled manifest or bundle identity.
+
+## Runtime layout
+
+- `fly.lonelyforest.toml` defines the single Machine, process group, and volume.
+- `deploy/lonelyforest/run-multitenant.sh` assigns fixed registries, ports, and
+  data directories, and restarts a failed world without changing another
+  world's journal.
+- `deploy/lonelyforest/nginx.conf` maps only the committed hostname allowlist;
+  unknown public hosts return HTTP `421`.
+- `deploy/lonelyforest/proxy-headers.conf` preserves streaming HTTP and SSE
+  behavior without letting forwarded host values select runtime state.
+
+Nginx is the only public listener, on port `3000`; every CosyWorld process binds
+to loopback. The Machine has four shared CPUs and 2 GB of memory. It remains one
+failure and deploy boundary, while the short canonical lease TTL bounds write
+fencing when an individual process restarts.
 
 ## Continuous deployment
 
@@ -69,14 +91,16 @@ output.
    tagged or manually dispatched GitHub workflow.
 4. Restore the selected Lonely Forest SQLite journal and generated assets to
    the new volume before making the app writable to public traffic.
-5. Add Fly certificates for `lonelyforest.com` and
-   `www.lonelyforest.com`, then populate `fly_dns_validation_id` so Terraform
-   can issue both certificates before traffic moves.
+5. Add Fly certificates for `lonelyforest.com`, `www.lonelyforest.com`, `0`,
+   `7`, `89`, and `lantern`. Populate `fly_dns_validation_id` and
+   `worldpack_fly_hosts` with any delegated validation IDs before traffic
+   moves.
 6. Put the Fly IPv4 and IPv6 addresses in
    `infra/aws-lonely-forest/deployment.auto.tfvars`, run `terraform plan`, and
    apply the Route 53 change.
-7. Verify `/health`, `/meta`, `/world`, passkey registration, generated assets,
-   and SSE reconnect through both hostnames.
+7. Run `npm run v2:lonelyforest:smoke`, then verify `/health`, `/meta`, `/world`,
+   the expected entry location, passkey registration, generated assets, and SSE
+   reconnect through every hostname.
 8. Set the rollback ECS service's `desired_count` to `0` only after the Fly
    world cursor and store identity match the selected migration source.
 

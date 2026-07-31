@@ -146,4 +146,8 @@
 # availability label, the art-workshop describedby target, and the focus-trap
 # selector. The behaviour lives in index.html; main.rs only owns the
 # cross-surface INDEX_HTML contract beside it.
-73372
+# 73372 -> 73431: expose the presentation-only hex/close interior view hint at
+# the existing location metadata/view seams, retain the authored defaults, and
+# pin the SVG interior, bounded chat-progress, and ordered draw/pass browser
+# contracts beside the existing INDEX_HTML assertions.
+73431

@@ -546,7 +546,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:not(#shuffle):visible").evaluateAll((nodes) => (
+    return page.locator("footer.prompt button:not(#shuffle):not(#chat-progress):visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -1042,8 +1042,78 @@ async function main() {
     );
     assert(
       guide.currentTurnBanner?.copy === "ordered combat — your turn"
-        && guide.currentTurnBanner?.controls?.join(",") === "pass,need time",
-      `the acting combat participant should reach pass and need time from the banner, not the card row: ${JSON.stringify(guide.currentTurnBanner)}`,
+        && guide.currentTurnBanner?.controls?.join(",") === "draw,need time",
+      `the acting combat participant should reach draw-and-pass and need time from the banner, not the card row: ${JSON.stringify(guide.currentTurnBanner)}`,
+    );
+  }
+
+  async function assertOrderedDrawPassesAndRotatesOneCard() {
+    const result = await page.evaluate(async () => {
+      const previousState = state;
+      const previousActions = actions;
+      const previousHandKeys = handKeys;
+      const previousDiscardedHandKeys = discardedHandKeys;
+      const previousFocusIndex = focusIndex;
+      const previousFocusedKey = focusedKey;
+      const previousAuthoritativeHandIdentity = authoritativeHandIdentity;
+      const previousPlayerPromotedHandKey = playerPromotedHandKey;
+      const previousAction = action;
+      const calls = [];
+      try {
+        state = {
+          turn: {
+            enabled: true,
+            policy: "scene-turn",
+            is_current_actor: true,
+            can_pass: true,
+          },
+          primary_action: { kind: "check" },
+        };
+        actions = [
+          { label: "notice", focusKey: "notice", command: "notice", handProvider: { priority: 1 } },
+          { label: "guard", focusKey: "guard", command: "guard", handProvider: { priority: 2 } },
+          { label: "step", focusKey: "step", command: "step", handProvider: { priority: 3 } },
+        ];
+        handKeys = ["notice", "guard"];
+        discardedHandKeys = [];
+        focusIndex = 0;
+        focusedKey = "notice";
+        playerPromotedHandKey = "";
+        authoritativeHandIdentity = JSON.stringify(
+          orderedActionIndexesForHand().map((index) => actionHandKey(actions[index])),
+        );
+        action = async (path, payload) => {
+          calls.push({ path, payload });
+          return { ok: true };
+        };
+        const response = await drawAndPassOrderedSceneTurn();
+        return {
+          ok: response?.ok === true,
+          calls,
+          handKeys: [...handKeys],
+          discardedHandKeys: [...discardedHandKeys],
+        };
+      } finally {
+        action = previousAction;
+        state = previousState;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        discardedHandKeys = previousDiscardedHandKeys;
+        focusIndex = previousFocusIndex;
+        focusedKey = previousFocusedKey;
+        authoritativeHandIdentity = previousAuthoritativeHandIdentity;
+        playerPromotedHandKey = previousPlayerPromotedHandKey;
+        renderCommands();
+      }
+    });
+    assert(
+      result.ok
+        && result.calls.length === 1
+        && result.calls[0]?.path === "/actions/pass"
+        && result.handKeys.join(",") === "guard,step"
+        && result.discardedHandKeys.join(",") === "notice",
+      "Drawing in an ordered scene must pass initiative and rotate only one suggestion: "
+        + JSON.stringify(result),
     );
   }
 
@@ -2603,6 +2673,114 @@ async function main() {
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 
+  async function assertChatExchangeProgressOwnsFullRow() {
+    const previousViewport = page.viewportSize();
+    await page.setViewportSize({ width: 430, height: 860 });
+    try {
+      const result = await page.evaluate(() => {
+        const previous = {
+          state,
+          actorId,
+          actions,
+          actionBusy,
+          actionSlow,
+          pendingAction,
+          pendingChats,
+        };
+        state = {
+          ...state,
+          branch: { id: "chat-progress-fixture" },
+          turn: null,
+        };
+        actorId = 77;
+        actions = [
+          { kind: "move", label: "travel", detail: "to Rain-Soft Garden", command: "go Rain-Soft Garden" },
+          { kind: "listen", label: "listen", detail: "to the room", command: "listen" },
+        ];
+        actionBusy = false;
+        actionSlow = false;
+        pendingAction = null;
+        pendingChats = [{
+          id: 901,
+          targetActorId: 78,
+          targetName: "Moss Stitch",
+          typingActorId: 77,
+          typingName: "You",
+          afterSeq: 100,
+          turnsCompleted: 1,
+          turnCount: 4,
+        }];
+        try {
+          renderCommands();
+          const prompt = document.querySelector("footer.prompt");
+          const status = document.querySelector("#chat-progress");
+          const primary = document.querySelector("#primary");
+          const promptWidth = prompt.getBoundingClientRect().width;
+          const statusSnapshot = {
+            width: status.getBoundingClientRect().width,
+            display: getComputedStyle(status).display,
+            segments: status.querySelectorAll(".chat-turn-progress span").length,
+            filled: status.querySelectorAll(".chat-turn-progress span.filled").length,
+            ariaValueText: status.querySelector(".chat-turn-progress")?.getAttribute("aria-valuetext") || "",
+            normalWidth: primary.getBoundingClientRect().width,
+          };
+
+          resolvePendingChat({ type: "message.created", seq: 101, actor_id: 77 });
+          renderCommands();
+          const progressedFilled = status.querySelectorAll(".chat-turn-progress span.filled").length;
+
+          actionBusy = true;
+          pendingAction = {
+            kind: "orb-chat",
+            label: "chat",
+            detail: "with Moss Stitch",
+            pendingChatId: 901,
+          };
+          renderCommands();
+          const busySnapshot = {
+            width: primary.getBoundingClientRect().width,
+            visible: getComputedStyle(primary).display,
+            statusVisible: getComputedStyle(status).display,
+            segments: primary.querySelectorAll(".chat-turn-progress span").length,
+            filled: primary.querySelectorAll(".chat-turn-progress span.filled").length,
+          };
+          return { promptWidth, statusSnapshot, progressedFilled, busySnapshot };
+        } finally {
+          state = previous.state;
+          actorId = previous.actorId;
+          actions = previous.actions;
+          actionBusy = previous.actionBusy;
+          actionSlow = previous.actionSlow;
+          pendingAction = previous.pendingAction;
+          pendingChats = previous.pendingChats;
+          renderCommands();
+        }
+      });
+      assert(
+        result.statusSnapshot.display !== "none"
+          && result.statusSnapshot.width > result.promptWidth * 0.9
+          && result.statusSnapshot.segments === 4
+          && result.statusSnapshot.filled === 1
+          && result.statusSnapshot.ariaValueText === "1 of 4 chat turns complete",
+        `a running chat should use a full-width card with four progress segments: ${JSON.stringify(result)}`,
+      );
+      assert(
+        result.progressedFilled === 2,
+        `each completed chat message should fill exactly one more segment: ${JSON.stringify(result)}`,
+      );
+      assert(
+        result.busySnapshot.visible !== "none"
+          && result.busySnapshot.statusVisible === "none"
+          && result.busySnapshot.width > result.promptWidth * 0.9
+          && result.busySnapshot.segments === 4
+          && result.busySnapshot.filled === 2,
+        `the initial chat action should also stay full-width while it submits: ${JSON.stringify(result)}`,
+      );
+    } finally {
+      if (previousViewport) await page.setViewportSize(previousViewport);
+    }
+  }
+
   async function assertKeepsakeLoadoutShapesSceneDeal() {
     const result = await page.evaluate(() => {
       const previous = {
@@ -3481,7 +3659,7 @@ async function main() {
       try {
         pill.innerHTML = '<span class="turn-ping-copy">ordered combat — your turn</span><span class="turn-ping-time">45s</span>';
         controls.innerHTML = [
-          '<button type="button" class="turn-banner-control">pass</button>',
+          '<button type="button" class="turn-banner-control">draw</button>',
           '<button type="button" class="turn-banner-control">need time</button>',
         ].join("");
         banner.hidden = false;
@@ -7422,10 +7600,10 @@ async function main() {
       `an unrevealed adjacent segment should offer Scout without moving: ${JSON.stringify(result)}`,
     );
     assert(
-      result.travelling.label === "travel"
+      result.travelling.label === "move"
         && result.travelling.command === "go Foxglove Turn"
         && result.travellingActionCount > 1,
-      `a revealed adjacent segment should offer ordinary Travel without replacing the hand: ${JSON.stringify(result)}`,
+      `a revealed adjacent interior segment should offer directional Move without replacing the hand: ${JSON.stringify(result)}`,
     );
     assert(
       result.scoutAfterFound === false,
@@ -7441,9 +7619,9 @@ async function main() {
       `the final destination edge should be found by Scout without moving: ${JSON.stringify(result)}`,
     );
     assert(
-      result.finalTravel.label === "travel"
+      result.finalTravel.label === "move"
         && /arrive in Moonlit Trail/i.test(result.finalTravel.effect),
-      `the final adjacent Travel should arrive at the destination: ${JSON.stringify(result)}`,
+      `the final adjacent Move should arrive at the destination: ${JSON.stringify(result)}`,
     );
     assert(
       result.inspect.count === 1
@@ -7619,7 +7797,7 @@ async function main() {
       const index = actions.findIndex((action) => {
         const intention = String(action?.intention || "").toLowerCase();
         const label = String(action?.label || "").toLowerCase();
-        if (!["travel", "scout", "flee"].includes(intention) && label !== "flee") return false;
+        if (!["move", "travel", "scout", "flee"].includes(intention) && label !== "flee") return false;
         const choiceText = (action.choices || []).map((choice) => `${choice.label || ""} ${choice.detail || ""}`);
         const matchesDestination = [action.detail, action.command, action.card?.display_name, action.card?.title, ...choiceText]
           .filter(Boolean)
@@ -7647,7 +7825,7 @@ async function main() {
             disabled: Boolean(action?.disabled),
           })),
           routes: actions
-            .filter((action) => ["travel", "scout", "flee"].includes(String(action?.intention || "").toLowerCase()) || String(action?.label || "").toLowerCase() === "flee")
+            .filter((action) => ["move", "travel", "scout", "flee"].includes(String(action?.intention || "").toLowerCase()) || String(action?.label || "").toLowerCase() === "flee")
             .map((action) => `${action.label} ${action.detail || action.command || ""} ${(action.choices || []).map((choice) => choice.label).join(" ")}`),
         };
       }
@@ -7674,7 +7852,7 @@ async function main() {
     for (let attempt = 1; attempt <= 4; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
-      const routeVisible = ["travel", "scout", "flee"].includes(result?.intention)
+      const routeVisible = ["move", "travel", "scout", "flee"].includes(result?.intention)
         || primary.toLowerCase().includes("travel")
         || primary.toLowerCase().includes("go")
         || primary.toLowerCase().includes("head to")
@@ -7711,7 +7889,7 @@ async function main() {
       const routeClick = await page.evaluate(() => {
         const action = actions[focusIndex];
         const intention = String(action?.intention || "").toLowerCase();
-        const routeLike = ["travel", "scout", "flee"].includes(intention)
+        const routeLike = ["move", "travel", "scout", "flee"].includes(intention)
           || String(action?.label || "").toLowerCase() === "flee";
         if (!routeLike) return { clicked: false, focusedKey: String(focusedKey || "") };
         const key = String(focusedKey || "");
@@ -9367,7 +9545,7 @@ async function main() {
       }));
       assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
-        afterFirstListen.labels.includes("travel")
+        afterFirstListen.labels.includes("move")
           && afterFirstListen.labels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive the shared-world lead without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
@@ -11591,6 +11769,7 @@ async function main() {
   // Chat, so the authoritative opening hand may contain one or two cards.
   await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
+  await assertOrderedDrawPassesAndRotatesOneCard();
   await assertBrowserDrawReachesEveryLegalAction();
   await assertNoComposerOrDebugChrome();
   const collectibleAvailable = await page.evaluate(() => actions.some((action) => (
@@ -11653,6 +11832,7 @@ async function main() {
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
+  await assertChatExchangeProgressOwnsFullRow();
   await assertChoicePreviewFollowsSelectedCard();
   await assertKeepsakeLoadoutShapesSceneDeal();
   await assertCarriedDeckUsesWeightLanguage();

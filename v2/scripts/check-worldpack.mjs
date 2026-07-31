@@ -1756,6 +1756,12 @@ for (const location of locations) {
   if (typeof location.allow_combat !== "boolean") {
     fail(`location ${location.id} must declare allow_combat`);
   }
+  if (
+    location.interior_view !== undefined
+    && !["hex", "close"].includes(location.interior_view)
+  ) {
+    fail(`location ${location.id} has invalid interior_view ${location.interior_view}`);
+  }
   const pack = packs.find((candidate) => candidate.id === location.pack_id);
   if (location.ruleset !== undefined
       && (!pack || !packDeclaresRuleset(pack, location.ruleset))) {

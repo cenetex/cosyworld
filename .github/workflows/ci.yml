@@ -54,6 +54,7 @@ jobs:
           npm run v2:worldpack
           npm run v2:kernel
           npm run v2:syntax
+          npm run v2:lonelyforest:contract
 
   runtime:
     name: Rust and browser checks

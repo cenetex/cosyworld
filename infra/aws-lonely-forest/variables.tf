@@ -120,6 +120,41 @@ variable "fly_dns_validation_id" {
   description = "Fly DNS validation label used to issue certificates before the application traffic cutover."
 }
 
+variable "worldpack_fly_hosts" {
+  type = map(object({
+    fly_app_hostname      = string
+    fly_dns_validation_id = optional(string, "")
+  }))
+  default = {
+    "0.lonelyforest.com" = {
+      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
+    }
+    "7.lonelyforest.com" = {
+      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
+    }
+    "89.lonelyforest.com" = {
+      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
+    }
+    "lantern.lonelyforest.com" = {
+      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
+    }
+  }
+  description = "Worldpack subdomains routed to the shared Lonely Forest Fly app. Optional per-certificate Fly DNS validation IDs publish ACME delegation records."
+
+  validation {
+    condition = alltrue([
+      for hostname, target in var.worldpack_fly_hosts :
+      can(regex("^[a-z0-9][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]+$", hostname))
+      && can(regex("^[a-z0-9][a-z0-9.-]*\\.fly\\.dev$", target.fly_app_hostname))
+      && (
+        target.fly_dns_validation_id == ""
+        || can(regex("^[a-z0-9]+$", target.fly_dns_validation_id))
+      )
+    ])
+    error_message = "Worldpack hosts and fly.dev targets must be valid lowercase hostnames; validation IDs may contain lowercase letters and digits."
+  }
+}
+
 variable "deploy_profile" {
   type        = string
   default     = "production"
