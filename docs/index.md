@@ -6,6 +6,12 @@ do not define V2 behavior.
 
 ## Product and design
 
+- **[The CosyWorld Pact](cosyworld-pact.md)** — the promises CosyWorld makes
+  about shared truth, sanctuary, honest choices, discovery, return, AI
+  authority, progression, and player boundaries.
+- **[A Traveler's Guide To CosyWorld](travelers-guide.md)** — the concise
+  player guide to the action hand, Callings, Friends, discovery, scouting,
+  thresholds, rest, the six-function tale rhythm, and what is still direction.
 - **[How to Design a Worldpack](worldpacks/how-to-design-a-worldpack.md)** —
   tentative design method for authored boundaries, world graphs, characters,
   factions, economies, special items, dynamic evolution, and validation.
@@ -90,6 +96,10 @@ do not define V2 behavior.
 - **[Thresholds, Trails, and the Strict Referee](backlog/thresholds-trails-and-strict-referee.md)** —
   dependency-ordered Discovery Slot, Lead, Gate, Hazard, Pressure, trail, and
   recovery work following ADR 0005.
+- **[Quest Grammar and Return](backlog/quest-grammar-and-return.md)** —
+  the code-to-vision diagnosis and dependency-ordered foundation for Hearth,
+  Sign, Venture, Challenge, Discover, and Return across avatars, items, and
+  locations.
 
 GitHub Issues are the live execution backlog. These local backlogs carry the
 long-form contracts and acceptance gates that do not fit cleanly in an issue.

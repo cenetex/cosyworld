@@ -13,9 +13,10 @@ authoritative Collection/Carried/Equipped/Spell deck/Exhausted/Contained/World/
 Escrow zones, weight and size, equipped non-recursive containers, bracelet
 slots, possession-bound skill charms, weapon profiles, executable spell cards,
 idempotent collection materialization, theft, and provenance. Deterministic
-scene composition produces the complete legal offer set and a ranked
-three-card hand for browser and terminal clients. Legacy skill ranks, action
-codes, combat/2 and combat/3 rows remain replay-readable. Covenant contribution
+scene composition produces the complete legal offer set, two ranked
+suggestions, and a complete chooser for browser and terminal clients. Legacy
+skill ranks, action codes, combat/2 and combat/3 rows remain replay-readable.
+Covenant contribution
 and additional advancement choices remain future RPG breadth; they are not
 gaps in the SRD action-card foundation.
 
