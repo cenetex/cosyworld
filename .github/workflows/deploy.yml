@@ -80,6 +80,9 @@ jobs:
       - name: Guard Lonely Forest worldpack bundle compatibility
         run: node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com
 
+      - name: Validate Lonely Forest multitenant contract
+        run: npm run v2:lonelyforest:contract
+
       - name: Build and deploy Lonely Forest
         run: flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false
         env:

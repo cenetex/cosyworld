@@ -868,6 +868,32 @@ resource "aws_route53_record" "app_fly_cert_validation" {
   records         = ["${each.value}.${var.fly_dns_validation_id}.flydns.net"]
 }
 
+resource "aws_route53_record" "worldpack_fly" {
+  for_each = var.worldpack_fly_hosts
+
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = each.key
+  type            = "CNAME"
+  ttl             = 60
+  records         = [each.value.fly_app_hostname]
+}
+
+resource "aws_route53_record" "worldpack_fly_cert_validation" {
+  for_each = {
+    for hostname, target in var.worldpack_fly_hosts :
+    hostname => target
+    if target.fly_dns_validation_id != ""
+  }
+
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = "_acme-challenge.${each.key}"
+  type            = "CNAME"
+  ttl             = 60
+  records         = ["${each.key}.${each.value.fly_dns_validation_id}.flydns.net"]
+}
+
 locals {
   archive_site_dir    = var.archive_site_dir != "" ? var.archive_site_dir : abspath("${path.module}/../../sites/lonelyforestlibrary")
   archive_bucket_name = var.archive_bucket_name != "" ? var.archive_bucket_name : replace(var.archive_domain, ".", "-")

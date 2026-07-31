@@ -872,7 +872,16 @@ pub(super) struct SeedLocationContent {
     #[serde(default)]
     pub(super) natural_potentials: Vec<NaturalPotentialRule>,
     #[serde(default)]
+    pub(super) interior_view: Option<InteriorViewMode>,
+    #[serde(default)]
     pub(super) allow_combat: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum InteriorViewMode {
+    Hex,
+    Close,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -3873,6 +3882,27 @@ fn validate_seed_effect_descriptor(
 #[cfg(test)]
 mod rules_profile_tests {
     use super::*;
+
+    #[test]
+    fn locations_accept_only_supported_interior_views() {
+        let close: SeedLocationContent = serde_json::from_str(
+            r#"{"id":1,"name":"Room","interior_view":"close","allow_combat":false}"#,
+        )
+        .expect("close interior view");
+        assert_eq!(close.interior_view, Some(InteriorViewMode::Close));
+
+        let hex: SeedLocationContent = serde_json::from_str(
+            r#"{"id":2,"name":"City","interior_view":"hex","allow_combat":false}"#,
+        )
+        .expect("hex interior view");
+        assert_eq!(hex.interior_view, Some(InteriorViewMode::Hex));
+
+        let error = serde_json::from_str::<SeedLocationContent>(
+            r#"{"id":3,"name":"Room","interior_view":"isometric","allow_combat":false}"#,
+        )
+        .expect_err("unsupported interior view");
+        assert!(error.to_string().contains("unknown variant"));
+    }
 
     fn official_manifest() -> SeedWorldpackManifest {
         serde_json::from_str(include_str!("../../content/official/worldpack.json"))

@@ -628,6 +628,8 @@ struct LocationMeta {
     #[serde(default)]
     natural_potentials: Vec<NaturalPotentialRule>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    interior_view: Option<InteriorViewMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     image_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     art_prompt: Option<String>,
@@ -4401,6 +4403,15 @@ fn inferred_location_terrain(biome: &str) -> Vec<String> {
     .collect()
 }
 
+fn default_interior_view(location: &SeedLocationContent) -> Option<InteriorViewMode> {
+    match (location.pack_id.as_str(), location.id) {
+        ("cosyworld.core", 1 | 4 | 34 | 36 | 42 | 43 | 50) => Some(InteriorViewMode::Close),
+        ("cosyworld.core", 61) | ("cosyworld.the-holy-land", 712) => Some(InteriorViewMode::Hex),
+        ("ruby-high.first-bell", 10..=14) => Some(InteriorViewMode::Close),
+        _ => None,
+    }
+}
+
 fn seed_location_meta() -> BTreeMap<u64, LocationMeta> {
     active_content()
         .locations
@@ -4427,6 +4438,9 @@ fn seed_location_meta() -> BTreeMap<u64, LocationMeta> {
                     terrain,
                     environment: location.environment.clone(),
                     natural_potentials: location.natural_potentials.clone(),
+                    interior_view: location
+                        .interior_view
+                        .or_else(|| default_interior_view(location)),
                     image_url: None,
                     art_prompt: None,
                 },
@@ -13799,7 +13813,8 @@ impl RuntimeWorld {
         let name = self
             .location_name(location_id)
             .unwrap_or_else(|| "Unknown Location".to_string());
-        self.location_meta
+        let mut meta = self
+            .location_meta
             .get(&location_id)
             .cloned()
             .unwrap_or_else(|| LocationMeta {
@@ -13811,9 +13826,22 @@ impl RuntimeWorld {
                 terrain: Vec::new(),
                 environment: EnvironmentProfile::default(),
                 natural_potentials: Vec::new(),
+                interior_view: None,
                 image_url: None,
                 art_prompt: None,
-            })
+            });
+        if meta.interior_view.is_none() {
+            meta.interior_view = active_content()
+                .locations
+                .iter()
+                .find(|location| location.id == location_id)
+                .and_then(|location| {
+                    location
+                        .interior_view
+                        .or_else(|| default_interior_view(location))
+                });
+        }
+        meta
     }
 
     fn actor_is_explorer(&self, actor_id: u64) -> bool {
@@ -48282,6 +48310,25 @@ mod tests {
     }
 
     #[test]
+    fn current_world_opts_rooms_and_city_scales_into_interior_views() {
+        let locations = seed_location_meta();
+        assert_eq!(
+            locations
+                .get(&34)
+                .and_then(|location| location.interior_view),
+            Some(InteriorViewMode::Close),
+            "Goblin Cave uses the close dungeon view"
+        );
+        assert_eq!(
+            locations
+                .get(&712)
+                .and_then(|location| location.interior_view),
+            Some(InteriorViewMode::Hex),
+            "Jerusalem uses the four-pane city view"
+        );
+    }
+
+    #[test]
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
         assert!(INDEX_HTML.contains("Shared room transcript"));
@@ -48384,6 +48431,14 @@ mod tests {
         assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("room-title-main"));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
+        assert!(INDEX_HTML.contains("id=\"interior-view\""));
+        assert!(INDEX_HTML.contains("function renderInteriorView"));
+        assert!(INDEX_HTML.contains("function exitDirectionCode"));
+        assert!(INDEX_HTML.contains("data-pane=\"0\""));
+        assert!(INDEX_HTML.contains("pointer-events: none;"));
+        assert!(INDEX_HTML.contains("interiorMoving\n            ? \"Move\""));
+        assert!(INDEX_HTML.contains("interiorMoving ? \"Choose an exit.\""));
+        assert!(INDEX_HTML.contains("\"/actions/move\""));
         assert!(INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("function firstThreadModel"));
         assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
@@ -48421,7 +48476,8 @@ mod tests {
         assert!(INDEX_HTML.contains("function pendingChatsHtml"));
         assert!(INDEX_HTML.contains("function resolvePendingChat"));
         assert!(INDEX_HTML.contains("event.type === \"chat.typing\""));
-        assert!(INDEX_HTML.contains("if (resolvePendingChat(event)) changed = true;"));
+        assert!(INDEX_HTML
+            .contains("pendingChats.length !== pendingChatCountBefore || chatProgressChanged"));
         assert!(INDEX_HTML.contains("typing…"));
         assert!(INDEX_HTML.contains("if (!actorId || action?.kind !== \"orb-chat\") return 0;"));
         assert!(!INDEX_HTML.contains("reacting to your card…"));
@@ -48506,6 +48562,9 @@ mod tests {
         assert!(INDEX_HTML.contains("pill.querySelector(\".turn-ping-time\")"));
         assert!(INDEX_HTML.contains("\"/actions/pass\""));
         assert!(INDEX_HTML.contains("\"/actions/need-time\""));
+        assert!(INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
+        assert!(INDEX_HTML.contains("function drawNextHandCard"));
+        assert!(INDEX_HTML.contains("key: \"draw\""));
         assert!(INDEX_HTML.contains("resident_feature_use|resident_autonomy_intent"));
         assert!(!INDEX_HTML.contains("data-event-row title="));
         assert!(!INDEX_HTML.contains(".line.event:hover .text"));

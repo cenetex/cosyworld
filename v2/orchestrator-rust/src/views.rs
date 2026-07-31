@@ -922,6 +922,8 @@ pub(super) struct WorldLocationView {
     pub(super) description: String,
     pub(super) persona: String,
     pub(super) memory: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) interior_view: Option<InteriorViewMode>,
     pub(super) factions: Vec<FactionRefView>,
     pub(super) simulation: LocationSimulationView,
     pub(super) public: bool,
@@ -954,6 +956,8 @@ pub(super) struct LocationView {
     pub(super) description: String,
     pub(super) persona: String,
     pub(super) memory: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) interior_view: Option<InteriorViewMode>,
     pub(super) factions: Vec<FactionRefView>,
     pub(super) simulation: LocationSimulationView,
 }
@@ -1739,6 +1743,7 @@ impl RuntimeWorld {
             description: meta.description,
             persona: meta.persona,
             memory: meta.memory,
+            interior_view: meta.interior_view,
             factions: faction_refs_for_location(location_id),
             simulation: self.location_simulation_view(location_id),
         }
@@ -4158,6 +4163,7 @@ impl RuntimeWorld {
                     description: meta.description,
                     persona: meta.persona,
                     memory: meta.memory,
+                    interior_view: meta.interior_view,
                     factions: faction_refs_for_location(location.id),
                     simulation: self.location_simulation_view(location.id),
                     public: access_rule.required_grant_id.is_none()

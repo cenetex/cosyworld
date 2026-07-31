@@ -74,6 +74,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "terrain",
     "environment",
     "natural_potentials",
+    "interior_view",
     "allow_combat",
   ]),
 });

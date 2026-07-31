@@ -38,6 +38,46 @@ const worldCases = [
     marker: "core-only journal loop",
   },
   {
+    label: "Bethlehem",
+    registryPath: resolve(contentRoot, "bethlehem/registry.json"),
+    entryLocationId: 700,
+    worldpackId: "cosyworld.bethlehem",
+    packIds: [
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "cosyworld.core",
+      "cosyworld.the-holy-land",
+      "cosyworld.composition.core-holy-land",
+    ],
+    location: "Bethlehem",
+    locationPack: "cosyworld.the-holy-land",
+    selectedBy: "cosyworld.core",
+    capability: "cosyworld.core/rules",
+    offerVerb: null,
+    firstTaleAbsent: true,
+    marker: "Bethlehem journal loop",
+  },
+  {
+    label: "Lantern Keeper",
+    registryPath: resolve(contentRoot, "lantern-keeper/registry.json"),
+    entryLocationId: 800,
+    worldpackId: "cosyworld.lantern-keeper",
+    packIds: [
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "cosyworld.core",
+      "cosyworld.rules-srd-5.1",
+      "cosyworld.campaign.the-lantern-keeper",
+    ],
+    location: "Wayside Lantern Inn",
+    locationPack: "cosyworld.campaign.the-lantern-keeper",
+    selectedBy: "cosyworld.core",
+    capability: "cosyworld.core/rules",
+    offerVerb: null,
+    firstTaleAbsent: true,
+    marker: "Lantern Keeper journal loop",
+  },
+  {
     label: "Ruby High only",
     registryPath: resolve(contentRoot, "ruby-high-only/registry.json"),
     worldpackId: "ruby-high.first-bell-only",
@@ -176,7 +216,7 @@ function stopServer(proc) {
   });
 }
 
-async function startServer(tempDir, registryPath) {
+async function startServer(tempDir, registryPath, entryLocationId) {
   const port = await freePort();
   const output = [];
   const env = { ...process.env };
@@ -209,6 +249,11 @@ async function startServer(tempDir, registryPath) {
       }],
     }),
   });
+  if (entryLocationId) {
+    env.COSYWORLD_ENTRY_LOCATION_ID = String(entryLocationId);
+  } else {
+    delete env.COSYWORLD_ENTRY_LOCATION_ID;
+  }
   const proc = spawn(binaryPath, {
     cwd: orchestratorDir,
     env,
@@ -326,7 +371,7 @@ async function runWorldLoop(spec) {
   let first = null;
   let restarted = null;
   try {
-    first = await startServer(tempDir, spec.registryPath);
+    first = await startServer(tempDir, spec.registryPath, spec.entryLocationId);
     assertMountedComposition(first.meta, spec);
     let created;
     try {
@@ -432,7 +477,7 @@ async function runWorldLoop(spec) {
       })}`,
     );
 
-    restarted = await startServer(tempDir, spec.registryPath);
+    restarted = await startServer(tempDir, spec.registryPath, spec.entryLocationId);
     assertMountedComposition(restarted.meta, spec, 1);
     assert(
       restarted.output.some((line) => line.includes("loaded journal checkpoint")),
