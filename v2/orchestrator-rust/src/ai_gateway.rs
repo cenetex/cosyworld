@@ -6,6 +6,9 @@ use super::{
     NaturalPotentialPolicy,
 };
 use crate::ai_voice_routing::VoiceRoutingConfig;
+use crate::media_recipes::media_verdict::{
+    bounded_visual_verdict_summary, MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT,
+};
 pub(crate) use registry::{
     CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
     PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
@@ -691,7 +694,10 @@ pub(crate) async fn request_image_policy_decision(
                             ]
                         }
                     },
-                    "summary": { "type": "string", "maxLength": 240 }
+                    "summary": {
+                        "type": "string",
+                        "maxLength": MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT
+                    }
                 },
                 "required": ["allowed", "violations", "summary"]
             }
@@ -740,9 +746,8 @@ pub(crate) async fn request_image_policy_decision(
 fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, String> {
     let raw: RawImagePolicyDecision = serde_json::from_str(value.trim())
         .map_err(|error| format!("image policy response was not valid strict JSON: {error}"))?;
-    let summary = raw.summary.split_whitespace().collect::<Vec<_>>().join(" ");
+    let summary = bounded_visual_verdict_summary(&raw.summary);
     if summary.is_empty()
-        || summary.chars().count() > 240
         || summary
             .chars()
             .any(|character| character.is_control() && !character.is_whitespace())
@@ -2352,6 +2357,22 @@ mod tests {
         assert!(message.contains("does not support image_url with json_schema"));
         assert!(!message.contains("dGVzdA=="));
         server.abort();
+    }
+
+    #[test]
+    fn image_policy_summary_is_bounded_by_utf8_bytes() {
+        let decision = parse_image_policy_decision(
+            &json!({
+                "allowed": true,
+                "violations": [],
+                "summary": format!("{} accepted", "landscape—".repeat(40))
+            })
+            .to_string(),
+        )
+        .expect("multi-byte policy summary should normalize without a storage failure");
+
+        assert!(decision.summary.len() <= MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT);
+        assert!(decision.summary.is_char_boundary(decision.summary.len()));
     }
 
     #[test]

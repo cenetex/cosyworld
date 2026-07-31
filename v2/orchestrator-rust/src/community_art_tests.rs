@@ -678,6 +678,20 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
 
     assert!(prompt.starts_with(LOCATION_LANDSCAPE_PROMPT_PREFIX));
     assert!(!prompt.contains("trading-card portrait"));
+    for publication_guardrail in [
+        "uninhabited environment",
+        "No people",
+        "animals",
+        "creatures",
+        "signatures",
+        "artist marks",
+        "watermarks",
+    ] {
+        assert!(
+            prompt.contains(publication_guardrail),
+            "missing {publication_guardrail}: {prompt}"
+        );
+    }
     for portrait_leak in [
         "Collectible card art",
         "titled",

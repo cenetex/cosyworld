@@ -28,6 +28,11 @@ const MEDIA_VERDICT_DIR: &str = "media-verdicts/v1";
 /// must bound each constraint they build to this budget; `validate` rejects the
 /// whole brief otherwise.
 pub(crate) const MEDIA_BRIEF_CONSTRAINT_LIMIT: usize = 240;
+/// Maximum persisted UTF-8 byte length for a visual-review summary. The
+/// provider response parser and durable verdict builder both normalize through
+/// `bounded_visual_verdict_summary`, so multi-byte punctuation cannot pass one
+/// boundary and fail the next.
+pub(crate) const MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT: usize = 240;
 const MAX_CANDIDATES_PER_JOB: usize = 4;
 const MAX_REVIEW_FAILURES: u8 = 3;
 const PROVIDER_COOLDOWN_FAILURES: u8 = 3;
@@ -44,6 +49,10 @@ pub(crate) fn bounded_brief_constraints(values: impl IntoIterator<Item = String>
         .map(|value| crate::bounded_component(&value))
         .filter(|value| !value.trim().is_empty())
         .collect()
+}
+
+pub(crate) fn bounded_visual_verdict_summary(value: &str) -> String {
+    bounded_text(value, MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT)
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -597,7 +606,7 @@ pub(crate) fn make_visual_verdict(
         reviewer_version: reviewer_version.into(),
         approved,
         violations,
-        summary: bounded_text(&summary.into(), 240),
+        summary: bounded_visual_verdict_summary(&summary.into()),
         reference_digests: brief.approved_reference_digests.clone(),
         attempts,
         latency_ms,
@@ -921,21 +930,45 @@ fn validate_visual_verdict(
     record: &PersistedMediaVerdict,
     verdict: &MediaVisualVerdict,
 ) -> Result<(), String> {
-    if verdict.schema_version != MEDIA_VERDICT_SCHEMA_VERSION
-        || verdict.brief_digest != record.brief_digest
-        || verdict.reviewer.trim().is_empty()
-        || verdict.reviewer.len() > 120
-        || verdict.reviewer_version.trim().is_empty()
-        || verdict.reviewer_version.len() > 120
-        || verdict.summary.trim().is_empty()
-        || verdict.summary.len() > 240
-        || verdict.attempts == 0
-        || verdict.attempts > MAX_REVIEW_FAILURES
-        || verdict.approved != verdict.violations.is_empty()
-        || verdict.reference_digests != record.brief.approved_reference_digests
-    {
+    if verdict.schema_version != MEDIA_VERDICT_SCHEMA_VERSION {
+        return Err("visual reviewer verdict has an unsupported schema version".to_string());
+    }
+    if verdict.brief_digest != record.brief_digest {
         return Err(
-            "visual reviewer verdict is invalid or not bound to the frozen brief".to_string(),
+            "visual reviewer verdict brief digest does not match the frozen brief".to_string(),
+        );
+    }
+    if verdict.reviewer.trim().is_empty() {
+        return Err("visual reviewer verdict reviewer is empty".to_string());
+    }
+    if verdict.reviewer.len() > 120 {
+        return Err("visual reviewer verdict reviewer exceeds 120 UTF-8 bytes".to_string());
+    }
+    if verdict.reviewer_version.trim().is_empty() {
+        return Err("visual reviewer verdict reviewer version is empty".to_string());
+    }
+    if verdict.reviewer_version.len() > 120 {
+        return Err("visual reviewer verdict reviewer version exceeds 120 UTF-8 bytes".to_string());
+    }
+    if verdict.summary.trim().is_empty() {
+        return Err("visual reviewer verdict summary is empty".to_string());
+    }
+    if verdict.summary.len() > MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT {
+        return Err(format!(
+            "visual reviewer verdict summary exceeds {MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT} UTF-8 bytes"
+        ));
+    }
+    if verdict.attempts == 0 || verdict.attempts > MAX_REVIEW_FAILURES {
+        return Err(format!(
+            "visual reviewer verdict attempts must be between 1 and {MAX_REVIEW_FAILURES}"
+        ));
+    }
+    if verdict.approved != verdict.violations.is_empty() {
+        return Err("visual reviewer verdict approval contradicts its violation list".to_string());
+    }
+    if verdict.reference_digests != record.brief.approved_reference_digests {
+        return Err(
+            "visual reviewer verdict reference digests do not match the frozen brief".to_string(),
         );
     }
     if !record
@@ -1201,13 +1234,12 @@ fn tally_outcome(
 }
 
 fn bounded_text(value: &str, maximum: usize) -> String {
-    value
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .chars()
-        .take(maximum)
-        .collect()
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut end = compact.len().min(maximum);
+    while !compact.is_char_boundary(end) {
+        end -= 1;
+    }
+    compact[..end].to_string()
 }
 
 fn valid_digest(value: &str) -> bool {
