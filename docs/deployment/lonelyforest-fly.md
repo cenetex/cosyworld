@@ -1,27 +1,40 @@
 # Lonely Forest on Fly
 
-`lonelyforest.com` runs from the same source revision as the primary
-`cosyworld` Fly app, but it has its own Fly application, image build, and
-persistent volume:
+The Lonely Forest domains run in one Fly application and one Machine, with one
+mounted volume. Nginx maps an exact hostname allowlist to isolated CosyWorld
+processes; each worldpack has its own SQLite journal directory on that volume.
 
-| Domain | Fly app | Volume | WebAuthn RP ID |
-| --- | --- | --- | --- |
-| `cosyworld.fly.dev` | `cosyworld` | `cosyworld_data` | `cosyworld.fly.dev` |
-| `lonelyforest.com` | `cosyworld-lonelyforest` | `lonelyforest_data` | `lonelyforest.com` |
+| Domain | Worldpack | Journal |
+| --- | --- | --- |
+| `lonelyforest.com` | Official | `/data/cosyworld-v2-events.sqlite` |
+| `0.lonelyforest.com` | Elysium | `/data/worldpacks/0/events.sqlite` |
+| `7.lonelyforest.com` | Bethlehem | `/data/worldpacks/7/events.sqlite` |
+| `89.lonelyforest.com` | Project 89 | `/data/worldpacks/89/events.sqlite` |
+| `lantern.lonelyforest.com` | Lantern Keeper | `/data/worldpacks/lantern/events.sqlite` |
 
-This is deployment-level isolation. The orchestrator remains one authoritative
-world per process and is not allowed to select a journal from an untrusted
-`Host` or `X-Forwarded-Host` header. Adding another domain tenant means adding
-another Fly app, volume, passkey configuration, and explicit deployment target.
+The orchestrator remains one authoritative world per process and is not allowed
+to select a journal from an untrusted `Host` or `X-Forwarded-Host` header.
+Adding a tenant requires an explicit process, data directory, and nginx hostname
+mapping in the committed release.
 
 ## Continuous deployment
 
-`.github/workflows/deploy.yml` builds and deploys `fly.toml` first. It then
-performs a separate remote build from the same checked-out revision using
-`fly.lonelyforest.toml`. A successful workflow therefore proves both apps
-accepted the same source revision. The separate builds let each deployment use
-an app-scoped Fly token; an app-scoped Lonely Forest token cannot pull a private
-image owned by the primary app's registry.
+`.github/workflows/deploy.yml` is the production release authority. The primary
+app may deploy from a push to `main`. Lonely Forest intentionally does **not**:
+it deploys only from a committed `v*` tag or an explicit `workflow_dispatch`
+whose target is `lonelyforest` or `both`.
+
+Do not run `flyctl deploy` for production from a dirty worktree. A local deploy
+has no durable source revision and can be replaced by the next automation run.
+Test local builds locally, commit and merge the complete release, and then use a
+tag or the manual GitHub workflow. Keep the Lonely Forest deploy token scoped to
+the app and stored only in GitHub Actions. Configure required reviewers and
+allowed deployment refs on the `lonelyforest-production` GitHub environment so
+manual production dispatches receive an approval gate.
+
+The separate jobs and app-scoped tokens prevent a primary-app release from
+implicitly touching Lonely Forest. The Lonely Forest job validates the
+multitenant contract before it invokes Fly.
 
 The workflow requires two GitHub Actions secrets:
 
@@ -52,8 +65,8 @@ output.
 1. Create `cosyworld-lonelyforest` and a 1 GB encrypted
    `lonelyforest_data` volume in `sjc`.
 2. Provision the production secrets without deploying a machine.
-3. Build and deploy the current source revision with
-   `fly.lonelyforest.toml` using the Lonely Forest app-scoped token.
+3. Commit and merge the complete source revision, then deploy it through the
+   tagged or manually dispatched GitHub workflow.
 4. Restore the selected Lonely Forest SQLite journal and generated assets to
    the new volume before making the app writable to public traffic.
 5. Add Fly certificates for `lonelyforest.com` and

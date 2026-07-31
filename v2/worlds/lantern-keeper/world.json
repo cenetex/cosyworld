@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.lantern-keeper",
+  "name": "The Lantern Keeper",
+  "version": 1,
+  "description": "A Lantern Keeper-first composition with the CosyWorld core mounted as its dependency.",
+  "entry_location": "cosyworld.core:location/1",
+  "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
+  "rules_profile": "cosyworld.srd5/1",
+  "pack_lifecycle": {
+    "schema_version": 1,
+    "unmount": [
+      {
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "cosyworld.core:location/1"
+        }
+      }
+    ]
+  },
+  "packs": [
+    "cosyworld.core",
+    "cosyworld.rules-srd-5.1",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5",
+    "cosyworld.campaign.the-lantern-keeper"
+  ]
+}

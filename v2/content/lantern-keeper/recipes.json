@@ -1,0 +1,243 @@
+[
+  {
+    "id": 3001,
+    "key": "hearth-story-lantern",
+    "name": "Hearth Story Lantern",
+    "description": "Bind a warm tonic and a tale-button into a lantern that opens a farther cottage doorway.",
+    "input_item_ids": [
+      2001,
+      2005
+    ],
+    "output": {
+      "item_id": 2011,
+      "name": "Hearth Story Lantern",
+      "description": "A small lantern whose flame remembers the first story told beside it.",
+      "kind": "keepsake",
+      "charges": 1,
+      "target_kind": "location_floor",
+      "target_id": 2
+    },
+    "balance": {
+      "kind": "location",
+      "target_kind": "location_floor",
+      "target_id": 2,
+      "reason": "The crafted lantern anchors a new floor slot in the Rain-Soft Garden route instead of adding an orphan item."
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3002,
+    "key": "bank-the-cottage-hearth",
+    "name": "Bank the Cottage Hearth",
+    "description": "Set the hearth tonic beside the story button and bank the cottage fire for whoever arrives next.",
+    "input_item_ids": [
+      2001,
+      2005
+    ],
+    "balance": {
+      "kind": "covenant",
+      "target_kind": "location_floor",
+      "target_id": 1,
+      "reason": "This repeatable care beat leaves the shared home ready for another arrival while both persistent ingredients remain in circulation."
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3003,
+    "key": "tend-the-rain-soft-garden",
+    "name": "Tend the Rain-Soft Garden",
+    "description": "Set the dewbright button beside the watch bell and clear the puddle path for the next visitor.",
+    "input_item_ids": [
+      2002,
+      2007
+    ],
+    "balance": {
+      "kind": "covenant",
+      "target_kind": "location_floor",
+      "target_id": 2,
+      "reason": "This repeatable care beat keeps the first shared route legible while both persistent ingredients remain in circulation."
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3004,
+    "key": "reset-the-practice-circle",
+    "name": "Reset the Practice Circle",
+    "description": "Set the wolfprint charm beside the hearthstone tag and smooth the practice circle after a hard crossing.",
+    "input_item_ids": [
+      2003,
+      2006
+    ],
+    "balance": {
+      "kind": "covenant",
+      "target_kind": "location_floor",
+      "target_id": 3,
+      "reason": "This repeatable care beat makes frontier practice useful to the next traveler while both persistent ingredients remain in circulation."
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "schema_version": 2,
+    "id": 3101,
+    "key": "refine-iron-bloom",
+    "name": "Refine Iron Bloom",
+    "description": "Work a represented iron nodule into a portable bloom at a completed smithy.",
+    "inputs": [
+      {
+        "template_id": "iron_nodule",
+        "quantity": 1,
+        "zones": [
+          "carried",
+          "world"
+        ],
+        "min_charges": 1,
+        "disposition": "transform"
+      }
+    ],
+    "requires": {
+      "building_capabilities": [
+        "transformation_recipes",
+        "metalworking"
+      ],
+      "recipe_tags": [
+        "smithy",
+        "refinement"
+      ]
+    },
+    "output": {
+      "template_id": "iron_bloom",
+      "destination": "actor_hand",
+      "fallback_destination": "location_floor",
+      "effect": "portable",
+      "uniqueness": "per_receipt"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "schema_version": 2,
+    "id": 3102,
+    "key": "forge-waystone-bracket",
+    "name": "Forge Waystone Bracket",
+    "description": "Forge a portable bracket that can be carried to an unfinished place.",
+    "inputs": [
+      {
+        "template_id": "iron_bloom",
+        "quantity": 1,
+        "zones": [
+          "carried",
+          "world"
+        ],
+        "min_charges": 1,
+        "disposition": "transform"
+      }
+    ],
+    "requires": {
+      "building_capabilities": [
+        "transformation_recipes",
+        "metalworking"
+      ],
+      "recipe_tags": [
+        "smithy",
+        "refinement"
+      ]
+    },
+    "output": {
+      "template_id": "waystone_bracket",
+      "destination": "actor_hand",
+      "fallback_destination": "location_floor",
+      "effect": "portable",
+      "uniqueness": "per_receipt"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "schema_version": 2,
+    "id": 3103,
+    "key": "install-waystone-bracket",
+    "name": "Install Waystone Bracket",
+    "description": "Fit a carried bracket into the unfinished ground as a lasting typed anchor.",
+    "inputs": [
+      {
+        "template_id": "waystone_bracket",
+        "quantity": 1,
+        "zones": [
+          "carried",
+          "world"
+        ],
+        "min_charges": 1,
+        "disposition": "transform"
+      }
+    ],
+    "requires": {
+      "location_features": [
+        "generated_place_anchor_site"
+      ]
+    },
+    "output": {
+      "template_id": "waystone_bracket",
+      "destination": "installed_at_location",
+      "fallback_destination": "location_floor",
+      "effect": "installed_fixture",
+      "uniqueness": "per_location"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "schema_version": 2,
+    "id": 3104,
+    "key": "smoke-river-sprat",
+    "name": "Smoke River Sprat",
+    "description": "Preserve a represented catch at a completed smokehouse.",
+    "inputs": [
+      {
+        "template_id": "river_sprat",
+        "quantity": 1,
+        "zones": [
+          "carried",
+          "world"
+        ],
+        "min_charges": 1,
+        "disposition": "transform"
+      }
+    ],
+    "requires": {
+      "building_capabilities": [
+        "transformation_recipes",
+        "preservation"
+      ],
+      "recipe_tags": [
+        "smokehouse",
+        "preservation"
+      ]
+    },
+    "output": {
+      "template_id": "smoked_river_sprat",
+      "destination": "actor_hand",
+      "fallback_destination": "location_floor",
+      "effect": "portable",
+      "uniqueness": "per_receipt"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "schema_version": 2,
+    "id": 3105,
+    "key": "draw-hearth-tonic",
+    "name": "Draw Hearth Tonic",
+    "description": "Draw one warm healing tonic from the Cottage hearth's renewable shared supply.",
+    "inputs": [],
+    "requires": {
+      "location_features": [
+        "seed_room_feature:hearth"
+      ]
+    },
+    "output": {
+      "template_id": "hearth_tonic",
+      "destination": "actor_hand",
+      "fallback_destination": "location_floor",
+      "effect": "provisioned_supply",
+      "uniqueness": "per_receipt"
+    },
+    "pack_id": "cosyworld.core"
+  }
+]

@@ -1,0 +1,910 @@
+[
+  {
+    "id": "room:1",
+    "location_id": 1,
+    "name": "The Cosy Cottage",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "warm threshold",
+      "careful host"
+    ],
+    "boons": [
+      "new avatars can begin here"
+    ],
+    "hooks": [
+      "the hearth notices unfinished promises"
+    ],
+    "resources": {
+      "warmth": 3,
+      "tea": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:2",
+    "location_id": 2,
+    "name": "Rain-Soft Garden",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "rain-bright leaves",
+      "small discoveries"
+    ],
+    "boons": [
+      "seed items surface after gentle attention"
+    ],
+    "hooks": [
+      "the garden remembers what was taken"
+    ],
+    "resources": {
+      "dew": 3,
+      "shelter": 1
+    },
+    "projects": [
+      "rain-soft-garden:trustworthy-path"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:3",
+    "location_id": 3,
+    "name": "Moonlit Trail",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": [
+      "silver hush",
+      "practice circle"
+    ],
+    "boons": [
+      "fleeing remains a valid success"
+    ],
+    "hooks": [
+      "the echo sharpens when travelers push too hard"
+    ],
+    "resources": {
+      "moonlight": 2,
+      "quiet": 1
+    },
+    "projects": [
+      "moonlit-trail:quiet-the-echo"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:4",
+    "location_id": 4,
+    "name": "Mossbell Inn",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "drying boots",
+      "four small guest rooms"
+    ],
+    "boons": [
+      "travelers can sleep without returning to the Cottage"
+    ],
+    "hooks": [
+      "a sealed note lies beneath cup seven"
+    ],
+    "resources": {
+      "beds": 4,
+      "broth": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:30",
+    "location_id": 30,
+    "name": "The Heavens",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "cloud threshold",
+      "kind distance"
+    ],
+    "boons": [
+      "height makes tangled routes easier to read"
+    ],
+    "hooks": [
+      "clouds remember footsteps differently than dirt does"
+    ],
+    "resources": {
+      "weather-glow": 3,
+      "distance": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:31",
+    "location_id": 31,
+    "name": "Lofty Peak",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "thin air",
+      "wind-scoured stone"
+    ],
+    "boons": [
+      "honest effort becomes hard to dismiss"
+    ],
+    "hooks": [
+      "the summit refuses to pretend the climb was easy"
+    ],
+    "resources": {
+      "wind": 3,
+      "grit": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:32",
+    "location_id": 32,
+    "name": "Summit Trail",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "switchback path",
+      "stubborn lanterns"
+    ],
+    "boons": [
+      "one more step can reveal a safer return"
+    ],
+    "hooks": [
+      "the trail remembers every almost-turnaround"
+    ],
+    "resources": {
+      "lantern-light": 3,
+      "footholds": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:33",
+    "location_id": 33,
+    "name": "Alpine Forest",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "snowmelt tracks",
+      "branch-creak warnings"
+    ],
+    "boons": [
+      "watchful pauses reveal old mountain signs"
+    ],
+    "hooks": [
+      "the pines muffle warnings until dusk"
+    ],
+    "resources": {
+      "pine-shelter": 3,
+      "tracks": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:34",
+    "location_id": 34,
+    "name": "Goblin Cave",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": [
+      "echoing bargains",
+      "loose coins"
+    ],
+    "boons": [
+      "sharp choices reveal what a traveler values"
+    ],
+    "hooks": [
+      "the cave is fond of bargains that expose the bargainer"
+    ],
+    "resources": {
+      "echoes": 3,
+      "glitter": 2
+    },
+    "projects": [
+      "goblin-cave:name-the-price"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:35",
+    "location_id": 35,
+    "name": "Circle of the Moon",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "silver stones",
+      "barefoot ceremony"
+    ],
+    "boons": [
+      "quiet vows land with unusual clarity"
+    ],
+    "hooks": [
+      "night keeps perfect time around the circle"
+    ],
+    "resources": {
+      "moon-silver": 3,
+      "stillness": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:36",
+    "location_id": 36,
+    "name": "Solar Temple",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "noon-bright witness",
+      "missing bell"
+    ],
+    "boons": [
+      "vows spoken here become hard to misremember"
+    ],
+    "hooks": [
+      "light reveals what depth has changed"
+    ],
+    "resources": {
+      "radiance": 3,
+      "vows": 2
+    },
+    "projects": [
+      "solar-abyss:drowned-bell"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:40",
+    "location_id": 40,
+    "name": "Old Oak Tree",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "roots like roads",
+      "four remembered truths"
+    ],
+    "boons": [
+      "lost visitors can choose which memory to trust"
+    ],
+    "hooks": [
+      "Root, Ring, Leaf, and Hollow disagree kindly"
+    ],
+    "resources": {
+      "acorns": 3,
+      "rings": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:41",
+    "location_id": 41,
+    "name": "Lost Woods",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "repeating paths",
+      "unhelpful birdsong"
+    ],
+    "boons": [
+      "uncertainty can teach gentler navigation"
+    ],
+    "hooks": [
+      "certainty walks in circles here"
+    ],
+    "resources": {
+      "moss": 3,
+      "breadcrumbs": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:42",
+    "location_id": 42,
+    "name": "Haunted Mansion",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": [
+      "lit windows",
+      "doors that sigh"
+    ],
+    "boons": [
+      "a polite knock can turn fear into conversation"
+    ],
+    "hooks": [
+      "the house prefers guests to sneaks"
+    ],
+    "resources": {
+      "candles": 3,
+      "dust": 2
+    },
+    "projects": [
+      "haunted-mansion:earn-the-threshold"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:43",
+    "location_id": 43,
+    "name": "Quiet Abbey",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "stone hush",
+      "small vows"
+    ],
+    "boons": [
+      "spare words gain unusual weight"
+    ],
+    "hooks": [
+      "the arches ask for only the sentence that matters"
+    ],
+    "resources": {
+      "silence": 3,
+      "vows": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:44",
+    "location_id": 44,
+    "name": "Flower Meadow",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "warm bees",
+      "open color"
+    ],
+    "boons": [
+      "sorrow can be answered with something growing"
+    ],
+    "hooks": [
+      "the meadow tends grief by naming colors"
+    ],
+    "resources": {
+      "pollen": 3,
+      "sun": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:50",
+    "location_id": 50,
+    "name": "Great Library",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "endless shelves",
+      "procedural answers"
+    ],
+    "boons": [
+      "difficult questions can be indexed before they are solved"
+    ],
+    "hooks": [
+      "several maps are missing on purpose"
+    ],
+    "resources": {
+      "marginalia": 3,
+      "ladders": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:60",
+    "location_id": 60,
+    "name": "Brackish Swamp",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": [
+      "black water",
+      "unfinished warnings"
+    ],
+    "boons": [
+      "bad-smelling wisdom can still be useful"
+    ],
+    "hooks": [
+      "bubbles spell warnings too late to be comfortable"
+    ],
+    "resources": {
+      "reeds": 3,
+      "murk": 2
+    },
+    "projects": [
+      "turgid-swamp:amend-the-ledger"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:61",
+    "location_id": 61,
+    "name": "Wilting Jungle",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": [
+      "heavy leaves",
+      "tired vines"
+    ],
+    "boons": [
+      "stubborn life shows where the path can still breathe"
+    ],
+    "hooks": [
+      "every vine refuses to quit elegantly"
+    ],
+    "resources": {
+      "shade": 3,
+      "vines": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:62",
+    "location_id": 62,
+    "name": "Endless Ocean",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "blue horizon",
+      "songs under waves"
+    ],
+    "boons": [
+      "scale can make a small fear honest"
+    ],
+    "hooks": [
+      "every ending may only be a surface"
+    ],
+    "resources": {
+      "tide": 3,
+      "salt": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:63",
+    "location_id": 63,
+    "name": "Digital Realm",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "green cursors",
+      "doors made of code"
+    ],
+    "boons": [
+      "precise questions can become navigable spells"
+    ],
+    "hooks": [
+      "the realm is half a step from compiling into magic"
+    ],
+    "resources": {
+      "queries": 3,
+      "keys": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:64",
+    "location_id": 64,
+    "name": "Darkest Ocean",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "abyssal pressure",
+      "drowned bell"
+    ],
+    "boons": [
+      "memories spoken here surface with fewer lies"
+    ],
+    "hooks": [
+      "depth remembers what light tried to purify"
+    ],
+    "resources": {
+      "pressure": 3,
+      "pearls": 2
+    },
+    "projects": [
+      "solar-abyss:drowned-bell"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "room:65",
+    "location_id": 65,
+    "name": "Dark Abyss",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "black banquet",
+      "abyssal anvil"
+    ],
+    "boons": [
+      "what survives this pressure can name the fear beneath the bell"
+    ],
+    "hooks": [
+      "the feast and the anvil both want witnesses"
+    ],
+    "resources": {
+      "pressure": 4,
+      "omens": 2
+    },
+    "projects": [
+      "solar-abyss:drowned-bell"
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "holy-land:room:700",
+    "location_id": 700,
+    "name": "Bethlehem",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "room for the traveler",
+      "olive-ridge dusk"
+    ],
+    "boons": [
+      "hospitality turns arrival into belonging"
+    ],
+    "hooks": [
+      "someone is still looking for shelter"
+    ],
+    "resources": {
+      "shelter": 3,
+      "lamplight": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:701",
+    "location_id": 701,
+    "name": "Nazareth",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "patient workmanship",
+      "ordinary beginnings"
+    ],
+    "boons": [
+      "practice reveals dignity in small work"
+    ],
+    "hooks": [
+      "a familiar name carries an unfamiliar calling"
+    ],
+    "resources": {
+      "craft": 3,
+      "grain": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:702",
+    "location_id": 702,
+    "name": "Jordan River Crossing",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "waters of beginning",
+      "desert threshold"
+    ],
+    "boons": [
+      "reflection makes a new start easier to name"
+    ],
+    "hooks": [
+      "the far bank asks what should be left behind"
+    ],
+    "resources": {
+      "water": 3,
+      "reeds": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:703",
+    "location_id": 703,
+    "name": "Cana",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "wedding hospitality",
+      "quiet need"
+    ],
+    "boons": [
+      "careful attention notices trouble before it becomes shame"
+    ],
+    "hooks": [
+      "the feast has one more guest than expected"
+    ],
+    "resources": {
+      "hospitality": 3,
+      "vines": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:704",
+    "location_id": 704,
+    "name": "Capernaum",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "crowded doorway",
+      "lakeside ministry"
+    ],
+    "boons": [
+      "neighbors can carry what one household cannot"
+    ],
+    "hooks": [
+      "someone at the threshold cannot reach the room"
+    ],
+    "resources": {
+      "neighbors": 3,
+      "basalt": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:705",
+    "location_id": 705,
+    "name": "Sea of Galilee Shore",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "mended nets",
+      "changeable water"
+    ],
+    "boons": [
+      "shared labor makes fear easier to speak"
+    ],
+    "hooks": [
+      "the wind has shifted before every boat returned"
+    ],
+    "resources": {
+      "fish": 3,
+      "cordage": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:706",
+    "location_id": 706,
+    "name": "Hillside of Teachings",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "open listening",
+      "lake-bright horizon"
+    ],
+    "boons": [
+      "a difficult teaching can be heard without haste"
+    ],
+    "hooks": [
+      "the person at the edge of the crowd has a question"
+    ],
+    "resources": {
+      "attention": 3,
+      "wild-herbs": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:707",
+    "location_id": 707,
+    "name": "Bethsaida",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "working harbor",
+      "first invitations"
+    ],
+    "boons": [
+      "introductions open roads that argument cannot"
+    ],
+    "hooks": [
+      "a missing tool has stopped the morning repair"
+    ],
+    "resources": {
+      "boats": 3,
+      "reeds": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:708",
+    "location_id": 708,
+    "name": "Caesarea Philippi",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "cold springs",
+      "echoing questions"
+    ],
+    "boons": [
+      "naming a loyalty can clarify the road ahead"
+    ],
+    "hooks": [
+      "the cliff returns every answer in a changed voice"
+    ],
+    "resources": {
+      "springwater": 3,
+      "shade": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:709",
+    "location_id": 709,
+    "name": "Sychar Well",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "shared water",
+      "honest noon"
+    ],
+    "boons": [
+      "hospitality can outlast inherited suspicion"
+    ],
+    "hooks": [
+      "a traveler has arrived without a jar"
+    ],
+    "resources": {
+      "water": 3,
+      "conversation": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:710",
+    "location_id": 710,
+    "name": "Jericho",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "oasis heat",
+      "edge of the crowd"
+    ],
+    "boons": [
+      "attention can restore someone to the shared road"
+    ],
+    "hooks": [
+      "the climb begins before every pilgrim is ready"
+    ],
+    "resources": {
+      "dates": 3,
+      "springwater": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:711",
+    "location_id": 711,
+    "name": "Bethany",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "table of friends",
+      "grief held close"
+    ],
+    "boons": [
+      "familiar hospitality gives sorrow room to breathe"
+    ],
+    "hooks": [
+      "an extra place has been set at the table"
+    ],
+    "resources": {
+      "bread": 3,
+      "olive-oil": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:712",
+    "location_id": 712,
+    "name": "Jerusalem",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "festival multitude",
+      "weight of choice"
+    ],
+    "boons": [
+      "pilgrims can find one another across distance"
+    ],
+    "hooks": [
+      "several roads demand an answer before nightfall"
+    ],
+    "resources": {
+      "pilgrims": 3,
+      "lamps": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:713",
+    "location_id": 713,
+    "name": "Garden of Gethsemane",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "wakeful prayer",
+      "olive-shadowed sorrow"
+    ],
+    "boons": [
+      "companionship can remain even when it cannot fix the hour"
+    ],
+    "hooks": [
+      "someone has asked their friends to stay awake"
+    ],
+    "resources": {
+      "quiet": 3,
+      "olive-wood": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:714",
+    "location_id": 714,
+    "name": "Road to Emmaus",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "evening companionship",
+      "slow recognition"
+    ],
+    "boons": [
+      "walking together lets a broken story be told again"
+    ],
+    "hooks": [
+      "a stranger has joined the road at the right pace"
+    ],
+    "resources": {
+      "companionship": 3,
+      "road-bread": 2
+    },
+    "projects": [
+      "holy-land:follow-the-traces"
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  }
+]

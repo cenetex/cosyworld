@@ -1,0 +1,1073 @@
+[
+  {
+    "id": "rain-soft-garden:trustworthy-path",
+    "premise": "Rain has washed soft soil across the first garden stones.",
+    "stakes": "Without a clear first footing, the route toward the river cannot be trusted.",
+    "location_ids": [
+      2
+    ],
+    "participant_ids": [],
+    "progress_clock_id": "rain-soft-garden.trustworthy-path",
+    "danger_clock_id": "rain-soft-garden.path-washes-out",
+    "status": "active",
+    "reward": {
+      "label": "a trustworthy riverside lead",
+      "orbs": 1
+    },
+    "consequence": "the rain hides the old garden path",
+    "memory_summary": "Visitors are uncovering the first stones of the washed garden path.",
+    "action_copy": {
+      "label": "Clear the garden path",
+      "summary": "Choose how to reveal a safe first footing and leave the next visitor a clearer way."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "inspect-washed-stones",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "2",
+          "label": "the rain-covered stepping stones"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 2
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 10
+        },
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "baseline_progress": 1,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Inspect where the stones disappeared",
+        "narration_key": "rain-soft.path.inspect",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "clear-garden-drain",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "rain-soft-garden:trustworthy-path",
+          "label": "the drain carrying water across the path"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 2
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Clear the drain beside the path",
+        "narration_key": "rain-soft.path.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "lift-stones-together",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby traveler at the buried stones"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 2
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Lift the buried stones together",
+        "narration_key": "rain-soft.path.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "filled": 1,
+        "narration_key": "rain-soft.path.first-stone",
+        "text": "The first stone shows through the wash, giving the next visitor one honest footing."
+      },
+      {
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "filled": 3,
+        "narration_key": "rain-soft.path.riverside-line",
+        "text": "The uncovered stones bend toward a damp track that continues toward the riverside."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "moonlit-trail:quiet-the-echo",
+    "premise": "The Moonlit Trail is carrying too much echo.",
+    "stakes": "If nobody steadies the trail, every rest makes its danger louder.",
+    "location_ids": [
+      3
+    ],
+    "participant_ids": [
+      1004
+    ],
+    "progress_clock_id": "moonlit-trail.progress",
+    "danger_clock_id": "moonlit-trail.danger",
+    "status": "active",
+    "reward": {
+      "label": "quieted moonlight",
+      "orbs": 2
+    },
+    "consequence": "echo-fractured trail",
+    "memory_summary": "",
+    "action_copy": {
+      "label": "Quiet the echo",
+      "summary": "Choose how to steady the Moonlit Trail before its echoes grow louder."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "listen-for-echo",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "3",
+          "label": "the echo along the Moonlit Trail"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Listen for where the echo catches",
+        "narration_key": "moonlit.echo.listen",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "read-moonlit-signs",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:study",
+        "target": {
+          "kind": "feature",
+          "id": "moonlit-signs",
+          "label": "the moonlit signs"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 3
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "intelligence",
+          "dc": 12
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 1,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Read the moonlit signs",
+        "narration_key": "moonlit.echo.study",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "set-wolfprint-marker",
+        "action_kind": "use_item",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "item",
+          "id": "2003",
+          "label": "the wolfprint marker"
+        },
+        "requirements": [
+          {
+            "kind": "held_item",
+            "item_id": 2003
+          }
+        ],
+        "resolution": {
+          "kind": "existing_kernel_outcome",
+          "event_type": "item.used"
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Set the wolfprint marker",
+        "narration_key": "moonlit.echo.marker",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "steady-trail",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "moonlit-trail:quiet-the-echo",
+          "label": "the echo-heavy trail"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Steady the trail",
+        "narration_key": "moonlit.echo.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "steady-beside-traveler",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby traveler"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Steady the trail together",
+        "narration_key": "moonlit.echo.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "moonlit-trail.progress",
+        "filled": 2,
+        "narration_key": "moonlit.echo.softens",
+        "text": "The echo loosens; footsteps begin to sound like travelers again."
+      },
+      {
+        "clock_id": "moonlit-trail.danger",
+        "filled": 2,
+        "narration_key": "moonlit.echo.sharpens",
+        "text": "The returning echo sharpens enough to make every quiet step uncertain."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "solar-abyss:drowned-bell",
+    "premise": "The Solar Temple wants its drowned bell purified, while the Abyssal Residents say it has learned a deeper song.",
+    "stakes": "If nobody hears both sides, height and depth will mistake each other for desecration.",
+    "location_ids": [
+      36,
+      64,
+      65
+    ],
+    "participant_ids": [
+      1064,
+      1065,
+      1066,
+      1067
+    ],
+    "progress_clock_id": "solar-abyss.drowned-bell",
+    "danger_clock_id": "solar-abyss.schism",
+    "status": "active",
+    "reward": {
+      "label": "two-toned bell accord",
+      "orbs": 2
+    },
+    "consequence": "solar-abyssal schism",
+    "memory_summary": "The same bell rings differently in noon light and abyssal pressure.",
+    "action_copy": {
+      "label": "Hear both songs",
+      "summary": "Choose how to bring the drowned bell's two songs into accord."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "hear-solar-silence",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "36",
+          "label": "the bell's absence in the Solar Temple"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Hear the solar silence",
+        "narration_key": "solar-abyss.listen.solar",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "hear-abyssal-song",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "64",
+          "label": "the bell's deeper song in the Darkest Ocean"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Hear the abyssal song",
+        "narration_key": "solar-abyss.listen.abyss",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "tune-the-accord",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "solar-abyss:drowned-bell",
+          "label": "the two-toned bell accord"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Tune the two songs together",
+        "narration_key": "solar-abyss.accord.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "compare-the-songs",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby listener"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Compare the songs together",
+        "narration_key": "solar-abyss.accord.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "solar-abyss.drowned-bell",
+        "filled": 2,
+        "narration_key": "solar-abyss.accord.heard",
+        "text": "The two songs stop drowning each other out; a shared interval can be heard."
+      },
+      {
+        "clock_id": "solar-abyss.schism",
+        "filled": 2,
+        "narration_key": "solar-abyss.schism.hardens",
+        "text": "Each side begins calling the other's song a wound instead of an answer."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "goblin-cave:name-the-price",
+    "premise": "Nib has three prices for every useful thing and trusts none of them yet.",
+    "stakes": "If nobody names what the bargain is really for, the cave will turn every promise into leverage.",
+    "location_ids": [
+      34
+    ],
+    "participant_ids": [
+      1070
+    ],
+    "progress_clock_id": "goblin-cave.fair-bargain",
+    "danger_clock_id": "goblin-cave.leverage",
+    "status": "active",
+    "reward": {
+      "label": "a loophole freely closed",
+      "orbs": 2
+    },
+    "consequence": "every promise becomes collateral",
+    "memory_summary": "A fair price names the wanting without owning the wanter.",
+    "action_copy": {
+      "label": "Name the fair price",
+      "summary": "Choose how to help Nib name a bargain everyone can trust."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "name-the-terms",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "goblin-cave:name-the-price",
+          "label": "the unfinished bargain"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "goblin-cave.fair-bargain",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Name the bargain's terms",
+        "narration_key": "goblin-bargain.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "witness-the-bargain",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby witness"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "goblin-cave.fair-bargain",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Witness the bargain together",
+        "narration_key": "goblin-bargain.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "goblin-cave.fair-bargain",
+        "filled": 2,
+        "narration_key": "goblin-bargain.trust",
+        "text": "One price finally names what is wanted without turning the promise into collateral."
+      },
+      {
+        "clock_id": "goblin-cave.leverage",
+        "filled": 2,
+        "narration_key": "goblin-bargain.leverage",
+        "text": "The loopholes begin to sound more important than the promise itself."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "haunted-mansion:earn-the-threshold",
+    "premise": "The Warden will not let another careless guest cross the Mansion's threshold.",
+    "stakes": "If nobody proves they can enter without taking, the Warden will bar every door and call the house safe.",
+    "location_ids": [
+      42
+    ],
+    "participant_ids": [
+      1040
+    ],
+    "progress_clock_id": "haunted-mansion.threshold",
+    "danger_clock_id": "haunted-mansion.warden-rage",
+    "status": "active",
+    "reward": {
+      "label": "the Warden's wary welcome",
+      "orbs": 2
+    },
+    "consequence": "the Mansion seals its doors",
+    "memory_summary": "The Warden respects restraint more than force.",
+    "action_copy": {
+      "label": "Earn the threshold",
+      "summary": "Choose how to prove the Mansion can welcome a careful guest."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "demonstrate-restraint",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "haunted-mansion:earn-the-threshold",
+          "label": "the Warden's threshold"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "haunted-mansion.threshold",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Demonstrate careful restraint",
+        "narration_key": "haunted-threshold.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "vouch-for-a-guest",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a careful guest"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "haunted-mansion.threshold",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Vouch for a careful guest",
+        "narration_key": "haunted-threshold.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "haunted-mansion.threshold",
+        "filled": 2,
+        "narration_key": "haunted-threshold.considers",
+        "text": "The Warden still watches, but no longer treats every careful hand as a thief."
+      },
+      {
+        "clock_id": "haunted-mansion.warden-rage",
+        "filled": 2,
+        "narration_key": "haunted-threshold.bars",
+        "text": "The Warden tests the locks twice and begins naming caution as the only welcome."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "turgid-swamp:amend-the-ledger",
+    "premise": "Beetle's grudge ledger has turned one bad landing into a feud with the whole swamp.",
+    "stakes": "If nobody amends the record, Beetle will defend an old slight long after everyone forgets what happened.",
+    "location_ids": [
+      60
+    ],
+    "participant_ids": [
+      1063
+    ],
+    "progress_clock_id": "turgid-swamp.amends",
+    "danger_clock_id": "turgid-swamp.old-grudge",
+    "status": "active",
+    "reward": {
+      "label": "a grudge struck through",
+      "orbs": 2
+    },
+    "consequence": "the old grudge hardens into law",
+    "memory_summary": "One honest amendment can outweigh a ledger full of slights.",
+    "action_copy": {
+      "label": "Amend the ledger",
+      "summary": "Choose how to turn one old slight into an honest amendment."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "write-the-amendment",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "turgid-swamp:amend-the-ledger",
+          "label": "Beetle's grudge ledger"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "turgid-swamp.amends",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Write an honest amendment",
+        "narration_key": "swamp-ledger.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      },
+      {
+        "version": 1,
+        "id": "remember-the-landing",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "another witness"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "turgid-swamp.amends",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Remember the landing together",
+        "narration_key": "swamp-ledger.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.11"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "turgid-swamp.amends",
+        "filled": 2,
+        "narration_key": "swamp-ledger.reconsiders",
+        "text": "The old landing is still recorded, but the margin now makes room for what happened next."
+      },
+      {
+        "clock_id": "turgid-swamp.old-grudge",
+        "filled": 2,
+        "narration_key": "swamp-ledger.hardens",
+        "text": "The ledger's oldest line is being repeated as if repetition could make it law."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "holy-land:follow-the-traces",
+    "premise": "Christ has gone ahead, and the disciples must follow the traces left in work, hospitality, testimony, and changed lives.",
+    "stakes": "If they hurry past ordinary need, loud rumors and false claimants will decide the road for them.",
+    "location_ids": [
+      705,
+      706,
+      707,
+      709,
+      710,
+      711,
+      712,
+      713,
+      714
+    ],
+    "participant_ids": [
+      7002,
+      7003,
+      7004,
+      7005,
+      7006,
+      7007,
+      7008,
+      7009,
+      7010,
+      7011,
+      7012,
+      7013,
+      7014,
+      7015,
+      7016,
+      7017
+    ],
+    "progress_clock_id": "holy-land.traces",
+    "danger_clock_id": "holy-land.rumors",
+    "status": "active",
+    "reward": {
+      "label": "a trustworthy road onward",
+      "orbs": 2
+    },
+    "consequence": "a false claimant turns the search toward spectacle and rivalry",
+    "memory_summary": "The disciples search for Christ by attending to witnesses, repairing what is broken, and carrying ordinary help from place to place.",
+    "action_copy": {
+      "label": "Follow the traces",
+      "summary": "Gather testimony and answer practical needs until the scattered signs point toward a trustworthy road."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "mend-the-lake-net",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "drying-nets",
+          "label": "the torn lake net"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 705
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 705,
+            "feature_key": "drying-nets",
+            "item_id": 7201
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Mend the lake net",
+        "narration_key": "holy-land.trace.net",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      },
+      {
+        "version": 1,
+        "id": "hear-the-hillside-words",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:study",
+        "target": {
+          "kind": "feature",
+          "id": "listening-stone",
+          "label": "the remembered words on the hillside"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 706
+          },
+          {
+            "kind": "feature_searched",
+            "location_id": 706,
+            "feature_key": "listening-stone"
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 10
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Compare the remembered words",
+        "narration_key": "holy-land.trace.hillside",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      },
+      {
+        "version": 1,
+        "id": "restore-the-boat-tool",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "bethsaida-boat-yard",
+          "label": "the halted boat repair"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 707
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 707,
+            "feature_key": "bethsaida-boat-yard",
+            "item_id": 7203
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Restore the boatwright's tool",
+        "narration_key": "holy-land.trace.boat",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      },
+      {
+        "version": 1,
+        "id": "draw-water-for-a-traveler",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "jacobs-well",
+          "label": "the traveler waiting at the well"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 709
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 709,
+            "feature_key": "jacobs-well",
+            "item_id": 7202
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Draw water for a traveler",
+        "narration_key": "holy-land.trace.well",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      },
+      {
+        "version": 1,
+        "id": "share-bread-at-bethany",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "bethany-table",
+          "label": "the extra place at the table"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 711
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 711,
+            "feature_key": "bethany-table",
+            "item_id": 7204
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Share the road bread",
+        "narration_key": "holy-land.trace.bread",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      },
+      {
+        "version": 1,
+        "id": "tend-the-roadside-stranger",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "jericho-roadside",
+          "label": "the hurt traveler beside the road"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 710
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 710,
+            "feature_key": "jericho-roadside",
+            "item_id": 7210
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Tend the roadside stranger",
+        "narration_key": "holy-land.trace.neighbor",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      },
+      {
+        "version": 1,
+        "id": "keep-the-garden-watch",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "old-olive",
+          "label": "the long watch beneath the olives"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 713
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 713,
+            "feature_key": "old-olive",
+            "item_id": 7205
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "holy-land.traces",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Keep the garden watch",
+        "narration_key": "holy-land.trace.watch",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.the-holy-land",
+        "pack_version": "1.2.1"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "holy-land.rumors",
+        "filled": 1,
+        "narration_key": "holy-land.rumor.first",
+        "text": "Two travelers repeat the same report, but neither can name the witness who began it."
+      },
+      {
+        "clock_id": "holy-land.rumors",
+        "filled": 2,
+        "narration_key": "holy-land.rumor.claim",
+        "text": "A speaker at the road begins answering questions that were never asked of him."
+      },
+      {
+        "clock_id": "holy-land.rumors",
+        "filled": 3,
+        "narration_key": "holy-land.rumor.followers",
+        "text": "A small crowd abandons its errands to follow a claimant promising an immediate sign."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  }
+]

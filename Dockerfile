@@ -41,12 +41,15 @@ ENV RUST_LOG=cosyworld_orchestrator=info,tower_http=warn
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
+  && apt-get install -y --no-install-recommends ca-certificates nginx \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /data
 
 COPY --from=build /app/v2/orchestrator-rust/target/release/cosyworld-orchestrator /app/cosyworld-orchestrator
 COPY --from=build /app/v2/content /app/v2/content
+COPY deploy/lonelyforest /app/deploy/lonelyforest
+
+RUN chmod 0755 /app/deploy/lonelyforest/run-multitenant.sh
 
 EXPOSE 3000
 

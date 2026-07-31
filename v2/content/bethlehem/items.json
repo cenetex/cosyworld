@@ -1,0 +1,401 @@
+[
+  {
+    "id": 2001,
+    "name": "Hearth Tonic",
+    "description": "A warm tonic that gets one person back on their feet, probably complaining.",
+    "kind": "potion",
+    "charges": 1,
+    "location_id": 1,
+    "role": "tool",
+    "capabilities": [
+      "camp_shelter"
+    ],
+    "weight_tenths": 5,
+    "size": "small",
+    "mechanics": {
+      "binding": "srd5.2.1:utilize",
+      "equipment_profile": "carried",
+      "target_predicate": "active_actor_same_location_needing_healing",
+      "resolver": "item_utilize_v1",
+      "effect_budget": {
+        "healing": 10
+      },
+      "uses": 1,
+      "exhaustion": "consume_charge",
+      "recovery": "none",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2002,
+    "name": "Dewbright Button",
+    "description": "A tiny pearled button that makes wet weather look more deliberate.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 2,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2003,
+    "name": "Wolfprint Charm",
+    "description": "A cool iron charm marked with a careful pawprint.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 3,
+    "role": "skill_charm",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "skill_id": "steadiness",
+    "skill_bonus": 1,
+    "mechanics": {
+      "binding": "ability_check_modifier",
+      "equipment_profile": "bracelet",
+      "target_predicate": "possessing_actor",
+      "resolver": "equipped_charm_modifier_v1",
+      "effect_budget": {
+        "skill_bonus": 1
+      },
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2004,
+    "name": "Moonwool Thread",
+    "description": "A silvery strand that tangles at the first hint of rain.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 43,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2005,
+    "name": "Story Button",
+    "description": "A warm wooden button with a tiny tale tucked under its rim.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 1,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2006,
+    "name": "Hearthstone Tag",
+    "description": "A smooth tag cut from warm stone, excellent for labeling chairs and terrible ideas.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 3,
+    "role": "generic",
+    "weight_tenths": 5,
+    "size": "small",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2007,
+    "name": "Watch Bell",
+    "description": "A mute little bell that rings only for those keeping watch.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 2,
+    "role": "skill_charm",
+    "weight_tenths": 2,
+    "size": "tiny",
+    "skill_id": "listening",
+    "skill_bonus": 1,
+    "mechanics": {
+      "binding": "ability_check_modifier",
+      "equipment_profile": "bracelet",
+      "target_predicate": "possessing_actor",
+      "resolver": "equipped_charm_modifier_v1",
+      "effect_budget": {
+        "skill_bonus": 1
+      },
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2008,
+    "name": "Threadbare Map Scrap",
+    "description": "A soft scrap of map-cloth with one path mended in red thread.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 41,
+    "role": "tool",
+    "weight_tenths": 1,
+    "size": "small",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2009,
+    "name": "Abbey Bookmark",
+    "description": "A pressed fern bookmark that keeps sliding out at the dramatic sentence.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 43,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2010,
+    "name": "Mossglass Bead",
+    "description": "A green bead that catches meadow light and keeps it cool enough to trade.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 44,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2012,
+    "name": "Patchwork Satchel",
+    "description": "A many-pocketed shoulder bag whose mended straps make room for a proper travelling deck.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 42,
+    "role": "container",
+    "weight_tenths": 20,
+    "size": "medium",
+    "container_capacity_tenths": 300,
+    "container_opening_size": "medium",
+    "allowed_contents": [
+      "generic",
+      "consumable",
+      "weapon",
+      "skill_charm",
+      "spell",
+      "tool",
+      "relic",
+      "container"
+    ],
+    "access_cost": "free_out_of_combat",
+    "nested_containers": "empty_storage_only",
+    "mechanics": {
+      "binding": "cosyworld.operation/deck",
+      "equipment_profile": "container_harness",
+      "target_predicate": "possessing_actor",
+      "resolver": "container_capacity_v1",
+      "effect_budget": {
+        "capacity_tenths": 300
+      },
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2013,
+    "name": "Ashwood Practice Blade",
+    "description": "A blunt ashwood blade balanced for the bounded, nonlethal scuffles of the frontier.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 3,
+    "role": "weapon",
+    "weight_tenths": 30,
+    "size": "medium",
+    "mechanics": {
+      "binding": "srd5.2.1:attack",
+      "equipment_profile": "weapon_hand",
+      "target_predicate": "active_hostile_actor_same_combat",
+      "resolver": "combat_attack_v4",
+      "effect_budget": {
+        "damage_die": "1d6",
+        "ability": "strength",
+        "nonlethal": true
+      },
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2014,
+    "name": "Steady Light",
+    "description": "A prepared spell card that kindles a replay-safe glow around one nearby traveler until they rest.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 1,
+    "role": "spell",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "mechanics": {
+      "binding": "srd5.2.1:magic",
+      "equipment_profile": "spell_deck",
+      "target_predicate": "active_actor_same_location",
+      "resolver": "bounded_magic_v1",
+      "magic_effect": "cosyworld.magic/steady-light",
+      "effect_budget": {
+        "tag": "steady light",
+        "duration": "until_rest"
+      },
+      "uses": 1,
+      "exhaustion": "consume_charge",
+      "recovery": "none",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 7201,
+    "name": "Mended Net Cord",
+    "description": "A small coil of flax cord, already knotted once and still strong enough to close a torn fishing net.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 705,
+    "role": "tool",
+    "weight_tenths": 3,
+    "size": "tiny",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7202,
+    "name": "Plain Water Jar",
+    "description": "A sound clay jar with a rope handle, light enough for a traveler to carry back from the well.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 709,
+    "role": "tool",
+    "weight_tenths": 18,
+    "size": "small",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7203,
+    "name": "Boatwright's Adze",
+    "description": "A compact iron-edged adze whose worn olive-wood handle fits the empty place in the boat-yard basket.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 707,
+    "role": "tool",
+    "weight_tenths": 22,
+    "size": "small",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7204,
+    "name": "Road Bread",
+    "description": "A round barley loaf wrapped in linen, enough to divide among several tired walkers at evening.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 711,
+    "role": "generic",
+    "weight_tenths": 8,
+    "size": "small",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7205,
+    "name": "Watch Lamp Oil",
+    "description": "A thumb-stoppered flask of ordinary olive oil, kept for a lamp that must remain lit through the night.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 712,
+    "role": "generic",
+    "weight_tenths": 5,
+    "size": "tiny",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7206,
+    "name": "Pearl of Great Price",
+    "description": "A luminous pearl carried by a traveling storyteller when speaking of a merchant's single incomparable find.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 706,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7207,
+    "name": "Lost Silver Coin",
+    "description": "A small silver drachma used when telling of a house swept from corner to corner for one missing coin.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 701,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7208,
+    "name": "Mustard Seed Pouch",
+    "description": "A thumb-sized cloth pouch holding seeds small enough to vanish in a palm and numerous enough to begin a thicket.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 706,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7209,
+    "name": "Waiting Wedding Lamp",
+    "description": "A plain clay lamp kept trimmed for a wedding procession whose hour is known only when the street begins to stir.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 703,
+    "role": "tool",
+    "weight_tenths": 6,
+    "size": "small",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 7210,
+    "name": "Samaritan Oil and Linen",
+    "description": "A travel flask and folded strip of clean linen for tending a stranger found hurt beside the road.",
+    "kind": "potion",
+    "charges": 1,
+    "location_id": 710,
+    "role": "consumable",
+    "weight_tenths": 5,
+    "size": "small",
+    "mechanics": {
+      "binding": "srd5.2.1:utilize",
+      "equipment_profile": "carried",
+      "target_predicate": "active_actor_same_location_needing_healing",
+      "resolver": "item_utilize_v1",
+      "effect_budget": {
+        "healing": 4
+      },
+      "uses": 1,
+      "exhaustion": "consume_charge",
+      "recovery": "none",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    },
+    "pack_id": "cosyworld.the-holy-land"
+  }
+]

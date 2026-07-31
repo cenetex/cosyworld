@@ -1,0 +1,2226 @@
+{
+  "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "id": "cosyworld.lantern-keeper",
+  "name": "The Lantern Keeper",
+  "version": 1,
+  "description": "A Lantern Keeper-first composition with the CosyWorld core mounted as its dependency.",
+  "entry_location": "cosyworld.core:location/1",
+  "pack_lifecycle": {
+    "schema_version": 1,
+    "unmount": [
+      {
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "cosyworld.core:location/1",
+          "destination_pack_id": "cosyworld.core",
+          "destination_location_id": 1
+        }
+      }
+    ]
+  },
+  "rules_profile": "cosyworld.srd5/1",
+  "active_rules_variants": [],
+  "active_rules_extensions": [],
+  "avatar_naming": {
+    "strategy": "culture-grammar/1",
+    "default_culture": "hearthfolk",
+    "cultures": [
+      {
+        "id": "hearthfolk",
+        "style_prompt": "Use a warm pastoral given name with an inherited nature-and-place family compound, an affectionate community byname, or an occasional self-chosen hopeful concept. Keep it grounded and melodic, not a random pile of cute objects.",
+        "selectors": {
+          "species_ids": [
+            "human"
+          ]
+        },
+        "forms": [
+          {
+            "pattern": "{given} {family_root}{family_tail}",
+            "weight": 6
+          },
+          {
+            "pattern": "{given} {byname}",
+            "weight": 2
+          },
+          {
+            "pattern": "{virtue} {family_root}{family_tail}",
+            "weight": 1
+          }
+        ],
+        "pools": {
+          "given": [
+            "Alder",
+            "Anwen",
+            "Arlo",
+            "Aster",
+            "Aubrey",
+            "Barnaby",
+            "Basil",
+            "Beatrix",
+            "Bess",
+            "Bram",
+            "Briony",
+            "Calla",
+            "Cecily",
+            "Clover",
+            "Cora",
+            "Della",
+            "Dot",
+            "Elowen",
+            "Elsie",
+            "Ember",
+            "Esme",
+            "Fable",
+            "Fen",
+            "Fern",
+            "Fia",
+            "Finn",
+            "Flora",
+            "Freya",
+            "Hattie",
+            "Hazel",
+            "Hollis",
+            "Iona",
+            "Ivy",
+            "Jasper",
+            "Jory",
+            "Junia",
+            "Kit",
+            "Lark",
+            "Linden",
+            "Linnet",
+            "Lottie",
+            "Mallow",
+            "Maple",
+            "Marlow",
+            "Merry",
+            "Millie",
+            "Mira",
+            "Morrow",
+            "Moss",
+            "Nessa",
+            "Nettle",
+            "Olive",
+            "Oona",
+            "Orin",
+            "Otis",
+            "Percy",
+            "Pippa",
+            "Posy",
+            "Quill",
+            "Robin",
+            "Rowan",
+            "Rue",
+            "Sable",
+            "Seren",
+            "Sorrel",
+            "Sylvie",
+            "Tansy",
+            "Thea",
+            "Tilda",
+            "Tuppence",
+            "Vale",
+            "Willa",
+            "Willow",
+            "Wren",
+            "Zinnia"
+          ],
+          "family_root": [
+            "Acorn",
+            "Alder",
+            "Amber",
+            "Apple",
+            "Ash",
+            "Barley",
+            "Beech",
+            "Birch",
+            "Briar",
+            "Bramble",
+            "Cedar",
+            "Cherry",
+            "Clover",
+            "Copper",
+            "Dapple",
+            "Elder",
+            "Feather",
+            "Fiddle",
+            "Finch",
+            "Ginger",
+            "Hazel",
+            "Heather",
+            "Honey",
+            "Juniper",
+            "Kestrel",
+            "Laurel",
+            "Mallow",
+            "Maple",
+            "Marigold",
+            "Meadow",
+            "Mint",
+            "Mistle",
+            "Moss",
+            "Oak",
+            "Pear",
+            "Pebble",
+            "Poppy",
+            "Primrose",
+            "Quince",
+            "Rain",
+            "River",
+            "Rose",
+            "Rowan",
+            "Saffron",
+            "Sage",
+            "Silver",
+            "Sorrel",
+            "Star",
+            "Stone",
+            "Summer",
+            "Thistle",
+            "Willow",
+            "Winter"
+          ],
+          "family_tail": [
+            "bell",
+            "bloom",
+            "brook",
+            "briar",
+            "by",
+            "croft",
+            "dale",
+            "dell",
+            "field",
+            "foot",
+            "glen",
+            "grove",
+            "hill",
+            "leaf",
+            "mere",
+            "shaw",
+            "step",
+            "vale",
+            "weather",
+            "wick",
+            "wood"
+          ],
+          "byname": [
+            "Birdsong",
+            "Brightmile",
+            "Candlefriend",
+            "Cheerwell",
+            "Dewstep",
+            "Evenbell",
+            "Fairmile",
+            "Farbell",
+            "Fernwise",
+            "Firstlight",
+            "Gentlehand",
+            "Goodmorrow",
+            "Goodturn",
+            "Hearthward",
+            "Kindhand",
+            "Lamplight",
+            "Larksong",
+            "Merryweather",
+            "Mildheart",
+            "Moonwatch",
+            "Mossfriend",
+            "Oakwise",
+            "Rainkeeper",
+            "Reedwhistle",
+            "Roadwise",
+            "Softstep",
+            "Songkeeper",
+            "Starwatch",
+            "Stillwater",
+            "Storywell",
+            "Sunward",
+            "Sweetvoice",
+            "Warmwelcome",
+            "Willowwise"
+          ],
+          "virtue": [
+            "Amity",
+            "Candor",
+            "Comfort",
+            "Delight",
+            "Grace",
+            "Harmony",
+            "Haven",
+            "Hope",
+            "Joy",
+            "Kindness",
+            "Mercy",
+            "Mirth",
+            "Patience",
+            "Promise",
+            "Quiet",
+            "Reverie",
+            "Solace",
+            "Song",
+            "Trust",
+            "Warmth",
+            "Welcome",
+            "Wonder"
+          ]
+        }
+      },
+      {
+        "id": "mosswhisker",
+        "style_prompt": "Use a quick, bright personal name with a household-and-garden family compound, a fond habit nickname, or a small place of origin. The result may be playful but should still sound like a person with family history.",
+        "selectors": {
+          "species_ids": [
+            "mouse"
+          ]
+        },
+        "forms": [
+          {
+            "pattern": "{given} {family_root}{family_tail}",
+            "weight": 6
+          },
+          {
+            "pattern": "{given} {nickname}",
+            "weight": 2
+          },
+          {
+            "pattern": "{given} of {place_root}{place_tail}",
+            "weight": 1
+          }
+        ],
+        "pools": {
+          "given": [
+            "Alba",
+            "Aster",
+            "Bibi",
+            "Bim",
+            "Brin",
+            "Button",
+            "Cinna",
+            "Clove",
+            "Dandy",
+            "Della",
+            "Dilly",
+            "Dot",
+            "Fennel",
+            "Fig",
+            "Flick",
+            "Flora",
+            "Hettie",
+            "Junie",
+            "Kit",
+            "Lark",
+            "Linnet",
+            "Lottie",
+            "Midge",
+            "Minto",
+            "Nib",
+            "Nilla",
+            "Nim",
+            "Nori",
+            "Olive",
+            "Pease",
+            "Penny",
+            "Pip",
+            "Pippa",
+            "Poppy",
+            "Posy",
+            "Quince",
+            "Rue",
+            "Saffy",
+            "Tansy",
+            "Tibb",
+            "Tilda",
+            "Tupp",
+            "Wicket",
+            "Willa",
+            "Wren"
+          ],
+          "family_root": [
+            "Acorn",
+            "Barley",
+            "Beech",
+            "Bramble",
+            "Candle",
+            "Chestnut",
+            "Clover",
+            "Cricket",
+            "Dapple",
+            "Dew",
+            "Fiddle",
+            "Ginger",
+            "Hazel",
+            "Honey",
+            "Kettle",
+            "Mallow",
+            "Nettle",
+            "Nutmeg",
+            "Patch",
+            "Pebble",
+            "Pollen",
+            "Poppy",
+            "Quince",
+            "Thimble",
+            "Velvet",
+            "Willow"
+          ],
+          "family_tail": [
+            "bell",
+            "bloom",
+            "button",
+            "cap",
+            "foot",
+            "hop",
+            "pocket",
+            "seed",
+            "step",
+            "stitch",
+            "whisk",
+            "wick",
+            "whistle",
+            "wing"
+          ],
+          "nickname": [
+            "Apple-Nose",
+            "Bell-Tapper",
+            "Blink",
+            "Brisk",
+            "Button-Finder",
+            "Candle-Saver",
+            "Cheeks",
+            "Crumbkeeper",
+            "Dew-Paws",
+            "Fiddle-Toes",
+            "First-Awake",
+            "Gentlepaw",
+            "Good-Ears",
+            "Kettle-Singer",
+            "Little-Hop",
+            "Map-Minder",
+            "Merrywhisk",
+            "Needlewise",
+            "Night-Nibbler",
+            "Pocket-Mender",
+            "Quickstep",
+            "Rain-Listener",
+            "Ribbon-Tail",
+            "Seed-Saver",
+            "Softshoe",
+            "Sparrow-Friend",
+            "Teacup",
+            "Threadkeeper",
+            "Thimble-Tap",
+            "Twice-Round",
+            "Warm-Paws",
+            "Whistle"
+          ],
+          "place_root": [
+            "Apple",
+            "Barley",
+            "Bell",
+            "Bramble",
+            "Burrow",
+            "Candle",
+            "Clover",
+            "Elder",
+            "Fern",
+            "Fiddle",
+            "Hazel",
+            "Kettle",
+            "Mallow",
+            "Moss",
+            "Nutmeg",
+            "Thimble"
+          ],
+          "place_tail": [
+            "bank",
+            "barrow",
+            "bridge",
+            "cross",
+            "end",
+            "fen",
+            "fold",
+            "ford",
+            "hollow",
+            "market",
+            "mere",
+            "row"
+          ]
+        }
+      },
+      {
+        "id": "deephearth",
+        "style_prompt": "Put a sturdy inherited clan compound before the personal name as a mark of honor, or use a close-companion byname recalling a gentle deed, habit, or childhood mishap. Favor grounded sounds and family continuity.",
+        "selectors": {
+          "species_ids": [
+            "badger"
+          ]
+        },
+        "forms": [
+          {
+            "pattern": "{clan_root}{clan_tail} {given}",
+            "weight": 6
+          },
+          {
+            "pattern": "{given} {byname}",
+            "weight": 2
+          },
+          {
+            "pattern": "{given} {child_name}",
+            "weight": 1
+          }
+        ],
+        "pools": {
+          "given": [
+            "Ada",
+            "Aldren",
+            "Ansel",
+            "Barda",
+            "Bram",
+            "Bruna",
+            "Cedric",
+            "Cora",
+            "Doran",
+            "Edith",
+            "Elda",
+            "Enid",
+            "Faron",
+            "Greta",
+            "Harlan",
+            "Hester",
+            "Hilda",
+            "Ivor",
+            "Joren",
+            "Kelda",
+            "Lorna",
+            "Marden",
+            "Marta",
+            "Nella",
+            "Nora",
+            "Orla",
+            "Osric",
+            "Petra",
+            "Runa",
+            "Sella",
+            "Stellan",
+            "Tamsin",
+            "Tilda",
+            "Torren",
+            "Una",
+            "Varda",
+            "Walda",
+            "Wendel"
+          ],
+          "clan_root": [
+            "Amber",
+            "Ash",
+            "Broad",
+            "Cedar",
+            "Copper",
+            "Deep",
+            "Elder",
+            "Fern",
+            "Flint",
+            "Granite",
+            "Hearth",
+            "Moss",
+            "Oak",
+            "Rain",
+            "Red",
+            "River",
+            "Root",
+            "Slate",
+            "Stone",
+            "Thorn"
+          ],
+          "clan_tail": [
+            "bank",
+            "burrow",
+            "dell",
+            "delve",
+            "fall",
+            "field",
+            "forge",
+            "grove",
+            "hall",
+            "ridge",
+            "run",
+            "stead",
+            "vale",
+            "ward",
+            "well"
+          ],
+          "byname": [
+            "Bellkeeper",
+            "Broadback",
+            "Candleward",
+            "Deepdelver",
+            "Evenstep",
+            "Firstawake",
+            "Gentlevoice",
+            "Goodstone",
+            "Hearthwise",
+            "Kindshoulder",
+            "Lanternhand",
+            "Longmemory",
+            "Mossfriend",
+            "Oaksteady",
+            "Rainreader",
+            "Rootkeeper",
+            "Slowriver",
+            "Softspoken",
+            "Stonekind",
+            "Storykeeper",
+            "Surefoot",
+            "Warmcloak",
+            "Wellminded",
+            "Woodwise"
+          ],
+          "child_name": [
+            "Apple-Biter",
+            "Bell-Ringer",
+            "Berry-Nose",
+            "Blanket-Thief",
+            "Candle-Watcher",
+            "Chair-Climber",
+            "Crumb-Saver",
+            "Door-Holder",
+            "First-Up",
+            "Honey-Paws",
+            "Kettle-Minder",
+            "Last-Asleep",
+            "Leaf-Counter",
+            "Moss-Knees",
+            "Rain-Hummer",
+            "Root-Napper",
+            "Slow-Blink",
+            "Soot-Stripe",
+            "Story-Asker",
+            "Warm-Ears"
+          ]
+        }
+      }
+    ]
+  },
+  "generation_media_registry": {
+    "schema_version": 1,
+    "profiles": [
+      {
+        "id": "cosyworld.community-art.base/1",
+        "recipes": [
+          "replicate.flux1-dev-lora.base"
+        ]
+      },
+      {
+        "id": "cosyworld.holy-land.generated-landscape/1",
+        "recipes": [
+          "replicate.holy-land-b43l.base"
+        ]
+      },
+      {
+        "id": "project89.world-art.base/1",
+        "recipes": [
+          "replicate.ratimics-project89.v95f3d0eb"
+        ]
+      }
+    ],
+    "recipes": [
+      {
+        "id": "replicate.flux1-dev-lora.base",
+        "profile": "cosyworld.community-art.base/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "black-forest-labs",
+          "name": "flux-dev-lora",
+          "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "community-art/3"
+        ],
+        "lora": true
+      },
+      {
+        "id": "replicate.holy-land-b43l.base",
+        "profile": "cosyworld.holy-land.generated-landscape/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "ratimics",
+          "name": "b43l",
+          "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "holy-land-location/1",
+          "holy-land-location/2"
+        ],
+        "provider_defaults": {
+          "model": "dev",
+          "num_outputs": 1,
+          "num_inference_steps": 28,
+          "guidance_scale": 4.5,
+          "lora_scale": 1.25,
+          "go_fast": false,
+          "megapixels": "1",
+          "output_quality": 92,
+          "disable_safety_checker": false
+        },
+        "lora": false
+      },
+      {
+        "id": "replicate.ratimics-project89.v95f3d0eb",
+        "profile": "project89.world-art.base/1",
+        "provider": "replicate",
+        "model": {
+          "owner": "ratimics",
+          "name": "project89",
+          "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6"
+        },
+        "state": "enabled",
+        "intents": [
+          "location_card_art"
+        ],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "prompt_versions": [
+          "project89-art/2"
+        ],
+        "lora": false
+      }
+    ]
+  },
+  "bundle_hash": "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586",
+  "packs": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.1",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.2.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "srd5.2.1"
+        }
+      ],
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.2.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:949901b6dfd936d60b668c16c7aba9f36b23dd9b89211964df1e1322e44ba00a"
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "name": "CosyWorld SRD 5.2.1 Action Profile",
+      "description": "The bounded SRD 5.2.1 action, skill, equipment, and playable-item profile used by CosyWorld.",
+      "version": "1.0.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-profile-srd5/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.2.1/reference"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "cosyworld.srd5"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 112,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/2",
+      "rules_namespace": "cosyworld.srd5",
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-profile-srd5"
+      },
+      "integrity": "sha256:8ed9de1a2a5c3d49389c2a43c948ee45ccce3363ff901ad0996d8b122c64e068"
+    },
+    {
+      "id": "cosyworld.core",
+      "name": "CosyWorld Core",
+      "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
+      "version": "1.3.11",
+      "kind": "world",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.core/world",
+          "kind": "world",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "default_ruleset": "cosyworld.core/rules",
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/1"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 36,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 11,
+        "items": 13,
+        "locations": 23,
+        "exits": 48,
+        "hidden_exits": 1,
+        "room_features": 17,
+        "room_sheets": 23,
+        "clocks": 12,
+        "jobs": 6,
+        "action_vocabulary": 1,
+        "fronts": 5,
+        "cards": 69,
+        "card_bindings": 0,
+        "lifecycle_hooks": 19,
+        "evolution_tracks": 3,
+        "recipes": 9,
+        "sentences": 21,
+        "external_cards": 0,
+        "assets": 2,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 1,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-progression-safety": {
+          "schema_version": 1,
+          "proof_version": "progression-safety-v1",
+          "entry_location_id": 1,
+          "required_location_ids": [
+            1,
+            2,
+            3,
+            4,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            40,
+            41,
+            42,
+            43,
+            44,
+            50,
+            60,
+            61,
+            62,
+            63,
+            64
+          ],
+          "optional_content": [
+            {
+              "kind": "location",
+              "id": 65,
+              "missable": true
+            }
+          ],
+          "recoveries": [],
+          "access_methods": [],
+          "reclosable_gates": [],
+          "required_discoveries": [],
+          "required_leads": [],
+          "frontier_transitions": []
+        },
+        "x-cosyworld-generation": {
+          "schema_version": 1,
+          "policy_id": "cosyworld.core/generation/1",
+          "migration_version": 1,
+          "collision_namespace": "pack://cosyworld.core/generated/v1",
+          "generated_descendants": {
+            "owner": "source_route",
+            "composition": "active_bundle",
+            "subject_kinds": [
+              "route",
+              "waypoint",
+              "place",
+              "location_card"
+            ],
+            "on_upgrade": "require_declared_migration",
+            "on_unmount": "freeze_with_owner"
+          },
+          "migrations": [
+            {
+              "from_policy_id": "cosyworld.compatibility.host-generation/1",
+              "from_migration_version": 0,
+              "from_pack_version": "1.3.10",
+              "mode": "preserve_descendants"
+            }
+          ],
+          "cross_pack_routes": []
+        },
+        "x-cosyworld-building-archetypes": {
+          "schema_version": 1,
+          "footprint_class": "major",
+          "construction": {
+            "segments": 4,
+            "strategies": [
+              "work",
+              "help",
+              "prepare"
+            ]
+          },
+          "upgrade": {
+            "segments": 3,
+            "strategies": [
+              "work",
+              "help"
+            ]
+          },
+          "archetypes": [
+            {
+              "id": "dwelling",
+              "name": "Cosy Cottage",
+              "description": "A shared home whose completed hearth can make this place safe and hospitable.",
+              "classification": "universal",
+              "capabilities": [
+                "sanctuary",
+                "rest",
+                "hosting",
+                "bonds",
+                "resident_arrivals",
+                "stewardship"
+              ],
+              "upgrade_capabilities": [
+                "knowledge_traces"
+              ],
+              "quest_templates": [
+                "stewardship.cottage"
+              ],
+              "recipe_tags": [
+                "cottage"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "waystation",
+              "name": "Waystation",
+              "description": "A public stopping place for represented deliveries, routes, and travelers.",
+              "classification": "universal",
+              "capabilities": [
+                "route_support",
+                "delivery_needs",
+                "traveler_arrivals",
+                "stewardship"
+              ],
+              "upgrade_capabilities": [
+                "signals"
+              ],
+              "quest_templates": [
+                "service.waystation"
+              ],
+              "recipe_tags": [],
+              "cache_policy": "none"
+            },
+            {
+              "id": "workshop",
+              "name": "Workshop",
+              "description": "A work room that exposes only declared transformations and repairs.",
+              "classification": "universal",
+              "capabilities": [
+                "transformation_recipes",
+                "repair_jobs",
+                "stewardship"
+              ],
+              "upgrade_capabilities": [
+                "carpentry"
+              ],
+              "quest_templates": [
+                "service.workshop"
+              ],
+              "recipe_tags": [
+                "workshop",
+                "repair"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "smithy",
+              "name": "Smithy",
+              "description": "A shared forge for declared metal transformations and repairs.",
+              "classification": "universal",
+              "capabilities": [
+                "transformation_recipes",
+                "metalworking",
+                "repair_jobs",
+                "stewardship"
+              ],
+              "upgrade_capabilities": [
+                "carpentry"
+              ],
+              "quest_templates": [
+                "service.workshop"
+              ],
+              "recipe_tags": [
+                "smithy",
+                "refinement"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "fishery",
+              "name": "Fishery",
+              "description": "A public fishing place that can host catch quests without creating passive fish.",
+              "classification": "special",
+              "natural_resource": "fish_rich_water",
+              "capabilities": [
+                "production_quests",
+                "public_cache",
+                "fishing",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "production.fishery",
+                "stewardship.fishery"
+              ],
+              "loot_table_id": "cosyworld.core:loot/fishery-catch",
+              "recipe_tags": [
+                "fishery"
+              ],
+              "cache_policy": "public_empty_until_reward"
+            },
+            {
+              "id": "smokehouse",
+              "name": "Smokehouse",
+              "description": "A place for declared preservation recipes using physical catches and supplies.",
+              "classification": "special",
+              "natural_resource": "fish_rich_water",
+              "capabilities": [
+                "transformation_recipes",
+                "preservation",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.smokehouse"
+              ],
+              "recipe_tags": [
+                "smokehouse",
+                "preservation"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "boathouse",
+              "name": "Boathouse",
+              "description": "A riverside base for authored boating routes and waterborne work.",
+              "classification": "special",
+              "natural_resource": "fish_rich_water",
+              "capabilities": [
+                "boating",
+                "route_support",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.boathouse"
+              ],
+              "recipe_tags": [
+                "boathouse"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "shallow_mine",
+              "name": "Shallow Mine",
+              "description": "A represented ore-working site that opens mining quests without passive cargo.",
+              "classification": "special",
+              "natural_resource": "ore_seam",
+              "capabilities": [
+                "production_quests",
+                "public_cache",
+                "mining",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "production.shallow_mine",
+                "stewardship.shallow_mine"
+              ],
+              "loot_table_id": "cosyworld.core:loot/shallow-mine-ore",
+              "recipe_tags": [
+                "mine"
+              ],
+              "cache_policy": "public_empty_until_reward"
+            },
+            {
+              "id": "prospectors_lodge",
+              "name": "Prospectors' Lodge",
+              "description": "A base for bounded surveys and represented prospecting expeditions.",
+              "classification": "special",
+              "natural_resource": "ore_seam",
+              "capabilities": [
+                "prospecting",
+                "expeditions",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "expedition.prospecting"
+              ],
+              "recipe_tags": [],
+              "cache_policy": "none"
+            },
+            {
+              "id": "kiln",
+              "name": "Kiln",
+              "description": "A fired-clay station for declared pottery and building-component recipes.",
+              "classification": "special",
+              "natural_resource": "clay_bank",
+              "capabilities": [
+                "transformation_recipes",
+                "pottery",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.kiln"
+              ],
+              "recipe_tags": [
+                "kiln",
+                "pottery"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "pottery",
+              "name": "Pottery",
+              "description": "A clay-working room for authored vessels, tiles, and repair work.",
+              "classification": "special",
+              "natural_resource": "clay_bank",
+              "capabilities": [
+                "transformation_recipes",
+                "pottery",
+                "repair_jobs",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.pottery"
+              ],
+              "recipe_tags": [
+                "pottery"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "carpenters_lodge",
+              "name": "Carpenters' Lodge",
+              "description": "A woodland station for declared carpentry and repairs.",
+              "classification": "special",
+              "natural_resource": "ancient_woodland",
+              "capabilities": [
+                "transformation_recipes",
+                "carpentry",
+                "repair_jobs",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.carpentry"
+              ],
+              "recipe_tags": [
+                "carpentry"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "herbalist",
+              "name": "Herbalist",
+              "description": "A woodland practice room for authored herb quests and remedies.",
+              "classification": "special",
+              "natural_resource": "ancient_woodland",
+              "capabilities": [
+                "herbalism",
+                "medicine",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.herbalist"
+              ],
+              "recipe_tags": [
+                "herbalist"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "watermill",
+              "name": "Watermill",
+              "description": "A water-powered station for declared work and transformations.",
+              "classification": "special",
+              "natural_resource": "fast_river",
+              "capabilities": [
+                "water_power",
+                "transformation_recipes",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.watermill"
+              ],
+              "recipe_tags": [
+                "watermill"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "riverside_workshop",
+              "name": "Riverside Workshop",
+              "description": "A river workshop for declared repairs and water-assisted recipes.",
+              "classification": "special",
+              "natural_resource": "fast_river",
+              "capabilities": [
+                "water_power",
+                "transformation_recipes",
+                "repair_jobs",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.riverside_workshop"
+              ],
+              "recipe_tags": [
+                "workshop",
+                "water_power"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "windmill",
+              "name": "Windmill",
+              "description": "A wind-powered station for authored milling and maintenance work.",
+              "classification": "special",
+              "natural_resource": "reliable_upland_wind",
+              "capabilities": [
+                "wind_power",
+                "transformation_recipes",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.windmill"
+              ],
+              "recipe_tags": [
+                "windmill"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "signal_tower",
+              "name": "Signal Tower",
+              "description": "A high signal point for declared warnings, routes, and traveler arrivals.",
+              "classification": "special",
+              "natural_resource": "reliable_upland_wind",
+              "capabilities": [
+                "signals",
+                "route_support",
+                "traveler_arrivals",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.signal_tower"
+              ],
+              "recipe_tags": [],
+              "cache_policy": "none"
+            },
+            {
+              "id": "bathhouse",
+              "name": "Bathhouse",
+              "description": "A hot-spring gathering place for rest and authored hospitality.",
+              "classification": "special",
+              "natural_resource": "hot_spring",
+              "capabilities": [
+                "rest",
+                "hosting",
+                "bathing",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "stewardship.bathhouse"
+              ],
+              "recipe_tags": [
+                "bathhouse"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "healing_house",
+              "name": "Healing House",
+              "description": "A hot-spring care house for authored healing and stewardship work.",
+              "classification": "special",
+              "natural_resource": "hot_spring",
+              "capabilities": [
+                "healing",
+                "medicine",
+                "hosting",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.healing_house"
+              ],
+              "recipe_tags": [
+                "healing"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "orchard",
+              "name": "Orchard",
+              "description": "A cultivated grove for seasonal tending and authored harvest quests.",
+              "classification": "special",
+              "natural_resource": "rich_soil",
+              "capabilities": [
+                "cultivation",
+                "production_quests",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "production.orchard"
+              ],
+              "loot_table_id": "cosyworld.core:loot/orchard-harvest",
+              "recipe_tags": [
+                "orchard"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "market_garden",
+              "name": "Market Garden",
+              "description": "A public garden for cultivation, deliveries, and represented produce quests.",
+              "classification": "special",
+              "natural_resource": "rich_soil",
+              "capabilities": [
+                "cultivation",
+                "delivery_needs",
+                "production_quests",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "production.market_garden"
+              ],
+              "loot_table_id": "cosyworld.core:loot/market-garden-harvest",
+              "recipe_tags": [
+                "garden"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "apothecary",
+              "name": "Apothecary",
+              "description": "A rare-herb station for declared remedies and physical ingredients.",
+              "classification": "special",
+              "natural_resource": "rare_herb_habitat",
+              "capabilities": [
+                "transformation_recipes",
+                "herbalism",
+                "medicine",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "service.apothecary"
+              ],
+              "recipe_tags": [
+                "apothecary"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "conservatory",
+              "name": "Conservatory",
+              "description": "A sheltered garden for cultivation, study, and careful stewardship.",
+              "classification": "special",
+              "natural_resource": "rare_herb_habitat",
+              "capabilities": [
+                "cultivation",
+                "herbalism",
+                "lore_investigation",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "stewardship.conservatory"
+              ],
+              "recipe_tags": [
+                "conservatory"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "archive",
+              "name": "Archive",
+              "description": "A public record room for lore investigations and durable knowledge traces.",
+              "classification": "special",
+              "natural_resource": "old_ruins",
+              "capabilities": [
+                "lore_investigation",
+                "knowledge_traces",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "investigation.archive"
+              ],
+              "recipe_tags": [
+                "archive"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "museum",
+              "name": "Museum",
+              "description": "A public exhibit room for represented finds and authored study.",
+              "classification": "special",
+              "natural_resource": "old_ruins",
+              "capabilities": [
+                "museum_exhibits",
+                "knowledge_traces",
+                "lore_investigation",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "investigation.museum"
+              ],
+              "recipe_tags": [
+                "museum"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "expedition_lodge",
+              "name": "Expedition Lodge",
+              "description": "A base for bounded journeys into old ruins and connected places.",
+              "classification": "special",
+              "natural_resource": "old_ruins",
+              "capabilities": [
+                "expeditions",
+                "route_support",
+                "lore_investigation",
+                "stewardship"
+              ],
+              "quest_templates": [
+                "expedition.old_ruins"
+              ],
+              "recipe_tags": [],
+              "cache_policy": "none"
+            }
+          ]
+        },
+        "x-cosyworld-loot-tables": {
+          "schema_version": 1,
+          "replay_version": "weighted-fnv1a-v1",
+          "item_templates": [
+            {
+              "id": "hearth_tonic",
+              "name": "Hearth Tonic",
+              "description": "A warm tonic drawn from the Cottage hearth that gets one person back on their feet, probably complaining.",
+              "kind": "potion",
+              "charges": 1,
+              "role": "consumable",
+              "weight_tenths": 5,
+              "size": "small",
+              "mechanics": {
+                "binding": "srd5.2.1:utilize",
+                "equipment_profile": "carried",
+                "target_predicate": "active_actor_same_location_needing_healing",
+                "resolver": "item_utilize_v1",
+                "effect_budget": {
+                  "healing": 10
+                },
+                "uses": 1,
+                "exhaustion": "consume_charge",
+                "recovery": "none",
+                "transfer_policy": "transferable",
+                "theft_policy": "eligible_when_carried"
+              }
+            },
+            {
+              "id": "river_sprat",
+              "name": "River Sprat",
+              "description": "A small silver fish caught through patient shared work.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 4,
+              "size": "small"
+            },
+            {
+              "id": "smoked_river_sprat",
+              "name": "Smoked River Sprat",
+              "description": "A represented catch preserved at a completed smokehouse for later journeys.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 3,
+              "size": "small"
+            },
+            {
+              "id": "glassfin_scale",
+              "name": "Glassfin Scale",
+              "description": "A rare clear scale that keeps a ribbon of river light.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 1,
+              "size": "tiny"
+            },
+            {
+              "id": "iron_nodule",
+              "name": "Iron Nodule",
+              "description": "A workable dark nodule brought out by represented mining.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 20,
+              "size": "small"
+            },
+            {
+              "id": "iron_bloom",
+              "name": "Iron Bloom",
+              "description": "A compact bloom refined from represented ore at a working smithy.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 14,
+              "size": "small"
+            },
+            {
+              "id": "waystone_bracket",
+              "name": "Waystone Bracket",
+              "description": "A fitted iron bracket made to hold one lasting marker in place.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 12,
+              "size": "small"
+            },
+            {
+              "id": "quartz_chip",
+              "name": "Quartz Chip",
+              "description": "A pale mineral chip with one clean shining edge.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 5,
+              "size": "small"
+            },
+            {
+              "id": "orchard_apple",
+              "name": "Orchard Apple",
+              "description": "A firm apple gathered after tending the shared grove.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 3,
+              "size": "small"
+            },
+            {
+              "id": "amber_pear",
+              "name": "Amber Pear",
+              "description": "A golden pear with a warm speckled skin.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 4,
+              "size": "small"
+            },
+            {
+              "id": "garden_beans",
+              "name": "Garden Beans",
+              "description": "A tied bundle of crisp beans from the public garden.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 3,
+              "size": "small"
+            },
+            {
+              "id": "moon_carrot",
+              "name": "Moon Carrot",
+              "description": "A pale carrot curled like a small crescent.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 2,
+              "size": "small"
+            }
+          ],
+          "tables": [
+            {
+              "id": "cosyworld.core:loot/fishery-catch",
+              "version": 1,
+              "allocation_policy": "building_public_cache",
+              "quantity": {
+                "min": 1,
+                "max": 1
+              },
+              "eligibility": {
+                "quest_templates": [
+                  "production.fishery"
+                ],
+                "natural_resources": [
+                  "fish_rich_water"
+                ],
+                "building_capabilities": [
+                  "fishing"
+                ]
+              },
+              "entries": [
+                {
+                  "template_id": "river_sprat",
+                  "weight": 9,
+                  "rarity": "common"
+                },
+                {
+                  "template_id": "glassfin_scale",
+                  "weight": 1,
+                  "rarity": "rare",
+                  "unique": true
+                }
+              ],
+              "fallback_template_id": "river_sprat",
+              "already_present_policy": "fallback",
+              "unavailable_policy": "fallback",
+              "presentation": {
+                "label": "Fishery catch",
+                "summary": "The completed fishing work leaves one physical catch in the Fishery Public Cache."
+              }
+            },
+            {
+              "id": "cosyworld.core:loot/shallow-mine-ore",
+              "version": 1,
+              "allocation_policy": "building_public_cache",
+              "quantity": {
+                "min": 1,
+                "max": 1
+              },
+              "eligibility": {
+                "quest_templates": [
+                  "production.shallow_mine"
+                ],
+                "natural_resources": [
+                  "ore_seam"
+                ],
+                "building_capabilities": [
+                  "mining"
+                ]
+              },
+              "entries": [
+                {
+                  "template_id": "iron_nodule",
+                  "weight": 4,
+                  "rarity": "common"
+                },
+                {
+                  "template_id": "quartz_chip",
+                  "weight": 1,
+                  "rarity": "uncommon"
+                }
+              ],
+              "fallback_template_id": "iron_nodule",
+              "already_present_policy": "allow_duplicate",
+              "unavailable_policy": "fallback",
+              "presentation": {
+                "label": "Mine yield",
+                "summary": "The completed mining work leaves one physical find in the Shallow Mine Public Cache."
+              }
+            },
+            {
+              "id": "cosyworld.core:loot/orchard-harvest",
+              "version": 1,
+              "allocation_policy": "location_stockpile",
+              "quantity": {
+                "min": 1,
+                "max": 1
+              },
+              "eligibility": {
+                "quest_templates": [
+                  "production.orchard"
+                ],
+                "natural_resources": [
+                  "rich_soil"
+                ],
+                "building_capabilities": [
+                  "cultivation"
+                ]
+              },
+              "entries": [
+                {
+                  "template_id": "orchard_apple",
+                  "weight": 4,
+                  "rarity": "common"
+                },
+                {
+                  "template_id": "amber_pear",
+                  "weight": 1,
+                  "rarity": "uncommon"
+                }
+              ],
+              "fallback_template_id": "orchard_apple",
+              "already_present_policy": "allow_duplicate",
+              "unavailable_policy": "fallback",
+              "presentation": {
+                "label": "Orchard harvest",
+                "summary": "The completed tending work leaves one physical fruit at the Orchard."
+              }
+            },
+            {
+              "id": "cosyworld.core:loot/market-garden-harvest",
+              "version": 1,
+              "allocation_policy": "location_stockpile",
+              "quantity": {
+                "min": 1,
+                "max": 1
+              },
+              "eligibility": {
+                "quest_templates": [
+                  "production.market_garden"
+                ],
+                "natural_resources": [
+                  "rich_soil"
+                ],
+                "building_capabilities": [
+                  "cultivation"
+                ]
+              },
+              "entries": [
+                {
+                  "template_id": "garden_beans",
+                  "weight": 4,
+                  "rarity": "common"
+                },
+                {
+                  "template_id": "moon_carrot",
+                  "weight": 1,
+                  "rarity": "uncommon"
+                }
+              ],
+              "fallback_template_id": "garden_beans",
+              "already_present_policy": "allow_duplicate",
+              "unavailable_policy": "fallback",
+              "presentation": {
+                "label": "Garden harvest",
+                "summary": "The completed garden work leaves one physical harvest at the Market Garden."
+              }
+            }
+          ]
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d"
+    },
+    {
+      "id": "cosyworld.rules-srd-5.1",
+      "name": "CosyWorld Rules: SRD 5.1",
+      "description": "An attributed, non-authoritative SRD 5.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.1",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "srd5.1"
+        }
+      ],
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.1"
+      },
+      "integrity": "sha256:8dfd6a920fa611de1f11091ae4c08c3620c47a350a7f565b2557cf11125d8735"
+    },
+    {
+      "id": "cosyworld.campaign.the-lantern-keeper",
+      "name": "The Lantern Keeper",
+      "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
+      "version": "0.1.8",
+      "kind": "campaign",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.campaign.the-lantern-keeper/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.core",
+        "cosyworld.rules-srd-5.1",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-srd-5.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.1/reference"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "cosyworld.core",
+        "cosyworld.rules-srd-5.1"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/800"
+        },
+        {
+          "kind": "character_creation",
+          "id": "the-lantern-keeper"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "CosyWorld and System Reference Document 5.1",
+        "source_url": "https://github.com/cenetex/cosyworld",
+        "modification_notice": "Original CosyWorld campaign material adapts selected SRD 5.1 rules references."
+      },
+      "resource_counts": {
+        "actors": 4,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 4,
+        "locations": 5,
+        "exits": 8,
+        "hidden_exits": 0,
+        "room_features": 6,
+        "room_sheets": 5,
+        "clocks": 2,
+        "jobs": 1,
+        "action_vocabulary": 0,
+        "fronts": 1,
+        "cards": 13,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 1,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-generation": {
+          "schema_version": 1,
+          "policy_id": "cosyworld.campaign.the-lantern-keeper/generation/1",
+          "migration_version": 1,
+          "collision_namespace": "pack://cosyworld.campaign.the-lantern-keeper/generated/v1",
+          "generated_descendants": {
+            "owner": "source_route",
+            "composition": "active_bundle",
+            "subject_kinds": [
+              "route",
+              "waypoint",
+              "place",
+              "location_card"
+            ],
+            "on_upgrade": "require_declared_migration",
+            "on_unmount": "freeze_with_owner"
+          },
+          "prose": {
+            "profile_id": "cosyworld.pathway-prose.ecology/1",
+            "prompt_versions": [
+              "pathway-content-v2"
+            ],
+            "ecology": {
+              "interpolation": "endpoint_blend/1",
+              "required_context": [
+                "route_id",
+                "route_version",
+                "origin",
+                "destination",
+                "travel_direction",
+                "segment_index",
+                "segment_count",
+                "biome",
+                "terrain",
+                "climate",
+                "landforms",
+                "geology",
+                "hydrology",
+                "vegetation",
+                "fauna",
+                "resource_cues",
+                "nearby_authored_descriptions"
+              ]
+            }
+          },
+          "media": {
+            "profile_id": "cosyworld.community-art.base/1",
+            "recipe_id": "replicate.flux1-dev-lora.base",
+            "provider_preference": {
+              "provider": "replicate",
+              "model": "black-forest-labs/flux-dev-lora",
+              "revision": "ae0d7d645446924cf1871e3ca8796e8318f72465d2b5af9323a835df93bf0917"
+            },
+            "prompt_version": "community-art/3",
+            "prompt_prefix": "MRQ, cozy hand-painted fantasy landscape, practical travel detail",
+            "aspect_ratios": [
+              "16:9"
+            ],
+            "output_formats": [
+              "webp"
+            ],
+            "negative_constraints": [
+              "no text",
+              "no logos",
+              "no interface chrome"
+            ],
+            "subject_kinds": [
+              "location_card"
+            ],
+            "authored_art": "permanent",
+            "community_art": "eligible",
+            "unexplored_placeholder": "common_unexplored/1",
+            "fallback": "unexplored_placeholder"
+          },
+          "topology": {
+            "profile_id": "linear_journey",
+            "directionality": "reciprocal_or_explicit_one_way",
+            "evacuation": "world_lifecycle_required",
+            "budgets": {
+              "components": {
+                "min": 1,
+                "max": 1
+              },
+              "roots": {
+                "min": 1,
+                "max": 2
+              },
+              "ingress": {
+                "min": 0,
+                "max": 1
+              },
+              "egress": {
+                "min": 0,
+                "max": 1
+              },
+              "weighted_distance": {
+                "min": 3,
+                "max": 6
+              },
+              "degree": {
+                "min": 1,
+                "max": 3
+              },
+              "cycle_rank": {
+                "min": 0,
+                "max": 1
+              },
+              "bridges": {
+                "min": 3,
+                "max": 4
+              },
+              "articulation_impact": {
+                "min": 1,
+                "max": 3
+              },
+              "terminal_spurs": {
+                "min": 1,
+                "max": 2
+              }
+            }
+          },
+          "migrations": [
+            {
+              "from_policy_id": "cosyworld.compatibility.host-generation/1",
+              "from_migration_version": 0,
+              "from_pack_version": "0.1.6",
+              "mode": "preserve_descendants"
+            }
+          ],
+          "cross_pack_routes": []
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/the-lantern-keeper"
+      },
+      "integrity": "sha256:0318228d0ff1b5c32340c2e712191c3e0e47fccc148179b1eaf9860e581ca141"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "actor_facets": "actor_facets.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "card_bindings": "card_bindings.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json",
+    "sentences": "sentences.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "contributions": "contributions.json",
+  "attributions": "attributions.json",
+  "licenses": "licenses.json",
+  "modified_material": "modified-material.json",
+  "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
+  "registry": "registry.json"
+}

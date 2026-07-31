@@ -1,6 +1,9 @@
 *
 
 !Dockerfile
+!deploy/
+!deploy/lonelyforest/
+!deploy/lonelyforest/**
 !v2/
 !v2/ai-model-rust/
 !v2/ai-model-rust/Cargo.toml

@@ -1,0 +1,517 @@
+[
+  {
+    "location_id": 1,
+    "key": "hearth",
+    "name": "Hearth",
+    "aliases": [
+      "fire",
+      "fireplace",
+      "ashes"
+    ],
+    "look": "A low, steady amber fire.",
+    "search": "The ashes have been swept into a small arrow pointing from the hearth toward the low doorway.",
+    "uses": [
+      {
+        "item_id": 2001,
+        "text": "The tonic warms in your hand. The hearth is warmer."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 1,
+    "key": "low_doorway",
+    "name": "Low Doorway",
+    "aliases": [
+      "door",
+      "doorway",
+      "threshold"
+    ],
+    "look": "The doorway is low enough that even brave guests bow before leaving.",
+    "search": "Old scratch marks near the frame point toward Rain-Soft Garden and a shadow small enough for Skull.",
+    "uses": [
+      {
+        "item_id": 2007,
+        "text": "The bell gives one silent chime. Skull lifts his head."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 1,
+    "key": "scarf_basket",
+    "name": "Scarf Basket",
+    "aliases": [
+      "basket",
+      "blue scarf",
+      "wool",
+      "knitting"
+    ],
+    "look": "Blue wool curls over the basket rim.",
+    "search": "Under the top skein is a round notch exactly the size of a warm wooden button.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button fits the notch. The basket clicks once."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 1,
+    "key": "rain_window",
+    "name": "Rain Window",
+    "aliases": [
+      "window",
+      "rain",
+      "glass"
+    ],
+    "look": "Rain runs down the glass.",
+    "search": "Through the glass: the garden first, the trail beyond it, the school past both.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 4,
+    "key": "lodging",
+    "name": "Guest Rooms",
+    "aliases": [
+      "bed",
+      "beds",
+      "rooms",
+      "upstairs"
+    ],
+    "look": "Four small rooms open from the upstairs landing. Each has a narrow bed and a folded wool blanket.",
+    "search": "Each washstand holds a filled basin. The clean towels are stacked by room number.",
+    "lodging": {
+      "gate": {
+        "kind": "open"
+      }
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 2,
+    "key": "broad_leaves",
+    "name": "Broad Leaves",
+    "aliases": [
+      "leaves",
+      "leaf",
+      "plants"
+    ],
+    "look": "Wide leaves hold rain in neat, trembling beads.",
+    "search": "One leaf has been turned over recently. Its underside shines with button-bright dew.",
+    "uses": [
+      {
+        "item_id": 2002,
+        "text": "The button matches the leaf's shine. Gust would notice it."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 2,
+    "key": "puddle_path",
+    "name": "Puddle Path",
+    "aliases": [
+      "puddle",
+      "path",
+      "mud"
+    ],
+    "look": "Small puddles reflect the cottage window and a sliver of moonlit trail.",
+    "search": "The puddles are shallow, but their reflections make the trail look closer than it is.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 3,
+    "key": "silver_milepost",
+    "name": "Silver Milepost",
+    "aliases": [
+      "milepost",
+      "post",
+      "sign"
+    ],
+    "look": "A silvered post with no distance marked.",
+    "search": "Three scratches read: prove the guard, take what is earned, leave early.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 3,
+    "key": "practice_circle",
+    "name": "Practice Circle",
+    "aliases": [
+      "circle",
+      "sparring circle",
+      "clearing"
+    ],
+    "look": "Moonlight makes a pale circle where Coach waits.",
+    "search": "The dust shows careful footwork and no blood.",
+    "uses": [
+      {
+        "item_id": 2003,
+        "text": "The charm cools in your palm."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 36,
+    "key": "sun_bell",
+    "name": "Missing Sun Bell",
+    "aliases": [
+      "bell",
+      "drowned bell",
+      "sun bell",
+      "temple bell"
+    ],
+    "look": "A clean arch where a noon bell should hang.",
+    "search": "The empty bracket hums a low note. The hum points down.",
+    "uses": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 64,
+    "key": "drowned_bell",
+    "name": "Drowned Bell",
+    "aliases": [
+      "bell",
+      "sun bell",
+      "abyssal bell",
+      "pearl bell"
+    ],
+    "look": "A white-gold bell rests in black water, its rim crusted with pearls.",
+    "search": "The bell is not silent. It rings a lower note than the Solar Temple ever wrote down.",
+    "uses": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 65,
+    "key": "abyssal_anvil",
+    "name": "Abyssal Anvil",
+    "aliases": [
+      "anvil",
+      "forge",
+      "dark anvil"
+    ],
+    "look": "A cold anvil waits beside the impossible feast, polished by pronouncements and bad timing.",
+    "search": "The anvil rings without being struck.",
+    "uses": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "root_voice",
+    "name": "Root Voice",
+    "aliases": [
+      "root",
+      "roots"
+    ],
+    "look": "The roots braid through the soil like roads that decided to stay.",
+    "search": "Root remembers every footstep that circled back and every traveler who pretended not to be lost.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "ring_voice",
+    "name": "Ring Voice",
+    "aliases": [
+      "ring",
+      "rings",
+      "bark"
+    ],
+    "look": "The trunk's rings press time into a patient spiral.",
+    "search": "Ring remembers the years when the forest was less lonely and the paths still argued about names.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "leaf_voice",
+    "name": "Leaf Voice",
+    "aliases": [
+      "leaf",
+      "leaves"
+    ],
+    "look": "Leaves turn their small green faces toward the newest sound.",
+    "search": "Leaf remembers what changed today, which is nearly always more than the rest of the tree admits.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "hollow_voice",
+    "name": "Hollow Voice",
+    "aliases": [
+      "hollow",
+      "secret",
+      "secrets"
+    ],
+    "look": "A dark hollow opens in the trunk, quiet enough to make questions lower their voices.",
+    "search": "Hollow remembers what nobody has asked yet. It is waiting for a better question.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button clicks inside the hollow. Old Oak answers with a story it had kept for a kinder listener."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 34,
+    "key": "nibs_stall",
+    "name": "Nib's Stall",
+    "aliases": [
+      "stall",
+      "counter",
+      "receipt roll",
+      "roll"
+    ],
+    "look": "A plank counter stacked with salvage, oddments, and a receipt roll wider than the stall itself.",
+    "search": "Three prices are inked beside each item. The kindest one is circled in green. The fine print is very fine.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 700,
+    "key": "nativity-courtyard",
+    "name": "Lamplit Courtyard",
+    "aliases": [
+      "courtyard",
+      "lamp"
+    ],
+    "look": "A sheltered courtyard holds a clay lamp, a manger-shaped feeding trough, and the quiet of arriving travelers.",
+    "search": "A cool corner holds clean straw and a cup of water for the next guest.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 701,
+    "key": "nazareth-workshop",
+    "name": "Village Workshop",
+    "aliases": [
+      "workshop",
+      "tools"
+    ],
+    "look": "Wood shavings curl beside well-used tools in an open-fronted village workshop.",
+    "search": "Every repaired yoke bears the patient marks of hands adjusting it to a particular burden.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 702,
+    "key": "jordan-reeds",
+    "name": "River Reeds",
+    "aliases": [
+      "reeds",
+      "river"
+    ],
+    "look": "Reeds open and close with the river wind beside a bank worn smooth by many crossings.",
+    "search": "Between the stones, new green shoots rise from silt left by the last high water.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 703,
+    "key": "cana-jars",
+    "name": "Stone Water Jars",
+    "aliases": [
+      "jars",
+      "water jars"
+    ],
+    "look": "Several large stone jars wait in the shade of a feast courtyard.",
+    "search": "The jars are cool to the touch, carefully cleaned, and placed where serving hands can reach them quickly.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 704,
+    "key": "capernaum-doorway",
+    "name": "Crowded Doorway",
+    "aliases": [
+      "doorway",
+      "house"
+    ],
+    "look": "A basalt doorway opens onto a room where neighbors have made space by standing shoulder to shoulder.",
+    "search": "Scuffed stone at the threshold shows how many people have arrived carrying someone else's hope.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 705,
+    "key": "drying-nets",
+    "name": "Drying Nets",
+    "aliases": [
+      "nets",
+      "net rack"
+    ],
+    "look": "Nets hang from a rough rack, glittering with lake water and threaded with careful repairs.",
+    "search": "A torn mesh has been marked with a bright cord so nobody forgets where patient work must begin.",
+    "uses": [
+      {
+        "item_id": 7201,
+        "text": "The mended cord closes the torn mesh. The fisher speaks of a teacher who treated patient work as part of the road, not a delay from it."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 706,
+    "key": "listening-stone",
+    "name": "Listening Stone",
+    "aliases": [
+      "stone",
+      "overlook"
+    ],
+    "look": "A broad flat stone faces the lake from the grassy slope, warmed by the afternoon sun.",
+    "search": "From here the nearest voice carries clearly without needing to shout over the whole hillside.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 706,
+    "key": "parable-objects",
+    "name": "Storyteller's Cloth",
+    "aliases": [
+      "cloth",
+      "story objects",
+      "parable objects"
+    ],
+    "look": "A faded cloth on the grass holds empty places for ordinary objects a storyteller can lift before the listeners.",
+    "search": "Pressed into the cloth are the shapes of a small pouch, a coin, a clay lamp, and one round object no larger than a fingertip.",
+    "uses": [
+      {
+        "item_id": 7206,
+        "text": "The pearl rests alone at the center of the cloth. A merchant in the gathering asks what could be worth relinquishing every lesser possession."
+      },
+      {
+        "item_id": 7207,
+        "text": "The silver coin catches the light against the cloth. A listener begins the story with a lamp, a broom, and a search that ends in shared joy."
+      },
+      {
+        "item_id": 7208,
+        "text": "A few mustard seeds nearly disappear into the weave. Someone points from the seeds toward the thorny shrubs where birds have gathered."
+      },
+      {
+        "item_id": 7209,
+        "text": "The little lamp fills the last empty shape. Its trimmed wick turns the talk toward readiness that cannot be borrowed at the final hour."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 707,
+    "key": "bethsaida-boat-yard",
+    "name": "Boat Yard",
+    "aliases": [
+      "boats",
+      "yard"
+    ],
+    "look": "A half-repaired fishing boat rests on wooden braces above the reed line.",
+    "search": "Under the hull, a basket holds pegs, cord, and one place left open for the tool that has gone missing.",
+    "uses": [
+      {
+        "item_id": 7203,
+        "text": "The adze fits the empty place, and the repair begins again. A boatwright says Christ sent people onward instead of gathering them around a display."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 708,
+    "key": "northern-spring",
+    "name": "Northern Spring",
+    "aliases": [
+      "spring",
+      "water"
+    ],
+    "look": "Clear cold water emerges beneath the limestone cliff and gathers into a swift channel.",
+    "search": "The spring reflects the cliff and sky together, making it difficult to say where one surface ends.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 709,
+    "key": "jacobs-well",
+    "name": "Old Stone Well",
+    "aliases": [
+      "well",
+      "well stones"
+    ],
+    "look": "Deep-worn stones circle a well beside the Samaritan road, offering a small island of shade.",
+    "search": "Grooves in the rim remember generations of ropes, jars, and hands drawing water for strangers and kin.",
+    "uses": [
+      {
+        "item_id": 7202,
+        "text": "The jar brings up cool water. The waiting traveler recalls that Christ asked for a drink before offering any answer."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 710,
+    "key": "jericho-roadside",
+    "name": "Roadside Shade",
+    "aliases": [
+      "shade",
+      "palm"
+    ],
+    "look": "A date palm throws a narrow strip of shade beside the climbing road.",
+    "search": "The dust holds many footprints, but one clear space remains where the crowd has learned to make room.",
+    "uses": [
+      {
+        "item_id": 7210,
+        "text": "Oil softens the wound and clean linen binds it. The road's urgent question becomes who chose to act as a neighbor."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 711,
+    "key": "bethany-table",
+    "name": "Table of Friends",
+    "aliases": [
+      "table",
+      "bread"
+    ],
+    "look": "Bread, herbs, and clay cups wait on a low table in a house prepared for friends.",
+    "search": "An extra place has been set without asking who might arrive to need it.",
+    "uses": [
+      {
+        "item_id": 7204,
+        "text": "The loaf is broken across the extra place. A guest says Christ left this table toward Jerusalem while still making room for grief and friendship."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 712,
+    "key": "pilgrim-gate",
+    "name": "Pilgrim Gate",
+    "aliases": [
+      "gate",
+      "city gate"
+    ],
+    "look": "Travelers, animals, merchants, and families pass beneath a limestone gate toward the festival city.",
+    "search": "Among the noise, many accents share the same brief prayers for a safe arrival.",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 713,
+    "key": "old-olive",
+    "name": "Old Olive Tree",
+    "aliases": [
+      "olive",
+      "tree"
+    ],
+    "look": "A furrowed olive trunk divides into patient branches beneath the night sky.",
+    "search": "The roots hold the rocky ground with a strength that looks almost like kneeling.",
+    "uses": [
+      {
+        "item_id": 7205,
+        "text": "The watch lamp burns low beneath the branches. The quiet makes clear how easily fear can sleep through the hour it most wants to understand."
+      }
+    ],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "location_id": 714,
+    "key": "emmaus-mile-marker",
+    "name": "Unmarked Mile Stone",
+    "aliases": [
+      "mile stone",
+      "road stone"
+    ],
+    "look": "A weathered roadside stone gives travelers a place to rest without telling them how far remains.",
+    "search": "Three sets of recent footprints overlap in the dust, keeping company for part of the westward road.",
+    "pack_id": "cosyworld.the-holy-land"
+  }
+]
