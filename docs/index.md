@@ -12,6 +12,9 @@ do not define V2 behavior.
 - **[A Traveler's Guide To CosyWorld](travelers-guide.md)** — the concise
   player guide to the action hand, Callings, Friends, discovery, scouting,
   thresholds, rest, the six-function tale rhythm, and what is still direction.
+- **[The CosyWorld Referee's Guide](dm-guide/README.md)** — source and build
+  instructions for the illustrated guide to scenes, discovery, frontier
+  forays, thresholds, tables, and strict AI refereeing.
 - **[How to Design a Worldpack](worldpacks/how-to-design-a-worldpack.md)** —
   tentative design method for authored boundaries, world graphs, characters,
   factions, economies, special items, dynamic evolution, and validation.

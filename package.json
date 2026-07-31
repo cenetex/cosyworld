@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.296",
+  "version": "0.0.297",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -82,7 +82,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "docs:dm-guide": "node scripts/build-dm-guide.mjs",
+    "docs:dm-guide:check": "npm run docs:dm-guide && node scripts/check-dm-guide.mjs"
   },
   "keywords": [
     "discord",

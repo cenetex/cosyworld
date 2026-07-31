@@ -166,20 +166,78 @@ jobs:
           path: webpack-stats.json
           if-no-files-found: warn
 
+  publication:
+    name: Referee guide publication
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Install pinned publication tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes default-jre-headless poppler-utils qpdf unzip
+          curl --fail --location --silent --show-error \
+            --output /tmp/pandoc.deb \
+            https://github.com/jgm/pandoc/releases/download/3.8.1/pandoc-3.8.1-1-amd64.deb
+          sudo dpkg --install /tmp/pandoc.deb
+          curl --fail --location --silent --show-error \
+            --output /tmp/epubcheck.zip \
+            https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip
+          sudo unzip -q /tmp/epubcheck.zip -d /opt/epubcheck
+          epubcheck_dir="$(find /opt/epubcheck -maxdepth 1 -type d -name 'epubcheck-*' -print -quit)"
+          test -n "$epubcheck_dir"
+          sudo tee /usr/local/bin/epubcheck >/dev/null <<EOF
+          #!/bin/sh
+          exec java -jar "$epubcheck_dir/epubcheck.jar" "\$@"
+          EOF
+          sudo chmod 0755 /usr/local/bin/epubcheck
+          pandoc --version
+          epubcheck --version
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build and validate the guide
+        run: npm run docs:dm-guide:check
+
+      - name: Upload publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosyworld-referee-guide
+          path: dist/publications/dm-guide/
+          if-no-files-found: error
+
   # Keep the existing `CI / build` required-check context while allowing the
   # independent verification paths above to run concurrently.
   build:
     name: build
     if: ${{ always() }}
-    needs: [node, runtime, web-build]
+    needs: [node, runtime, web-build, publication]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all CI jobs passed
         env:
           NODE_RESULT: ${{ needs.node.result }}
+          PUBLICATION_RESULT: ${{ needs.publication.result }}
           RUNTIME_RESULT: ${{ needs.runtime.result }}
           WEB_BUILD_RESULT: ${{ needs.web-build.result }}
         run: |
           test "$NODE_RESULT" = success
+          test "$PUBLICATION_RESULT" = success
           test "$RUNTIME_RESULT" = success
           test "$WEB_BUILD_RESULT" = success
