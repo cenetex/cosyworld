@@ -345,6 +345,7 @@ async fn request_ai_avatar_chat(
             temperature: 0.8,
             max_tokens: 70,
             referer: "http://127.0.0.1:3102",
+            model_binding: None,
         },
         avatar_chat_gate_context(plan, followup),
     )
@@ -471,6 +472,44 @@ pub(super) async fn request_ai_avatar_intent(
     store_path: Option<&Path>,
     plan: &AvatarReplyPlan,
 ) -> Result<CertifiedAvatarIntent, GeneratedSpeechError> {
+    let model_binding = active_content()
+        .actor_model_bindings
+        .iter()
+        .find(|binding| binding.actor_id == plan.speaker_actor_id)
+        .cloned();
+    if let Some(binding) = model_binding {
+        let planning = resident_disposition_for_voice(plan).0;
+        let speech = route_certified_voice(
+            config,
+            store_path,
+            VoiceAttemptRequest {
+                feature: "dialogue_resident_raw",
+                prompt_version: "dialogue-resident-raw-v1",
+                system: String::new(),
+                user: plan.user_text.clone(),
+                temperature: 0.0,
+                max_tokens: 160,
+                referer: "http://127.0.0.1:3102",
+                model_binding: Some(binding),
+            },
+            resident_gate_context(plan, false),
+        )
+        .await?;
+        let proposal = AvatarIntentProposal {
+            speech: speech.text().to_string(),
+            intent: None,
+            belief: None,
+            desire: None,
+            promise: None,
+            refusal: None,
+            proposed_action: None,
+        };
+        return Ok(CertifiedAvatarIntent {
+            proposal,
+            speech,
+            planning: planning.trace,
+        });
+    }
     let (planning, voice_action) = if !plan.planner_requested {
         resident_disposition_for_voice(plan)
     } else {
@@ -496,6 +535,7 @@ pub(super) async fn request_ai_avatar_intent(
             temperature: 0.75,
             max_tokens: 120,
             referer: "http://127.0.0.1:3102",
+            model_binding: None,
         },
         resident_gate_context(plan, planning.proposed_action.is_some()),
     )
@@ -711,7 +751,11 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
     anchors.extend(plan.cast.iter().cloned());
     anchors.extend(plan.goals.iter().cloned());
     SpeechGateContext {
-        feature: "dialogue_resident",
+        feature: if plan.speech_mode == "raw" {
+            "dialogue_resident_raw"
+        } else {
+            "dialogue_resident"
+        },
         generation_key: publication_beat_id(
             &plan.publication_beat_id,
             plan.speaker_actor_id,
@@ -739,6 +783,9 @@ fn publication_beat_id(explicit: &str, actor_id: u64, scope_id: u64) -> String {
 }
 
 fn resident_word_budget(plan: &AvatarReplyPlan) -> usize {
+    if plan.speech_mode == "raw" {
+        return 160;
+    }
     if matches!(
         plan.economy_note.as_str(),
         DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT | DIRECTLY_CONTROLLED_REACTION_CONTEXT

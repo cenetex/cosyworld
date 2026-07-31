@@ -801,6 +801,33 @@ depends on Core and SRD 5.1, adds a five-room adventure with one progress/danger
 arc, and owns four level-one character archetypes through the character-creation
 contract above.
 
+## AI cast packs and Elysium
+
+A world pack may declare `actor_model_bindings.json` together with
+`x-cosyworld-ai-cast` schema version 1. The extension pins the provider and
+catalog snapshot, requires a complete one-to-one actor mapping, and explicitly
+disables runtime catalog refresh. Each binding records the pack-owned actor
+reference, requested model ID, canonical catalog slug, modalities and limits,
+supported parameters, public price observations, zero-data-retention
+eligibility, and either `raw` or `unavailable` speech mode.
+
+The compiler rejects duplicate models, duplicate actors, partial casts,
+non-canonical actor references, snapshot drift, and speech modes that disagree
+with catalog modalities. Actor IDs are a stable hash mapping below the
+generated-content handle range, so catalog reordering cannot rename residents.
+The checked-in binding file is the authority for replay; refreshing a provider
+catalog is an explicit pack version and snapshot update.
+
+`cosyworld.elysium` is the first AI cast pack. Snapshot
+`openrouter-2026-07-31.1` contains 485 OpenRouter models: 364 text-chat avatars
+use raw speech, while 121 non-text models remain visible with
+`speech_mode: "unavailable"` instead of silently routing through another
+model. Every avatar has one private void and one unique void token, with
+ambient autonomy disabled. Those room boundaries limit ordinary observation
+and belief exchange to the local avatar, visitor, and item. The 485 voids form
+a sparse chain of reciprocal `discovery: "scout"` edges, so each next cell is
+revealed exactly once by the existing journaled, replay-safe Scout authority.
+
 ## Factions
 
 A faction is either **resident-anchored** or **player-facing**.

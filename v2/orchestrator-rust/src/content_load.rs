@@ -29,6 +29,7 @@ pub(super) struct SeedContent {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) manifest: SeedWorldpackManifest,
     pub(super) actors: Vec<SeedActorContent>,
+    pub(super) actor_model_bindings: Vec<SeedActorModelBinding>,
     pub(super) actor_facets: Vec<SeedActorFacetContent>,
     pub(super) access_gates: Vec<SeedAccessGateContent>,
     pub(super) factions: Vec<SeedFactionContent>,
@@ -720,6 +721,32 @@ pub(super) struct SeedActorContent {
     pub(super) attachments: Vec<SeedResidentAttachmentContent>,
     #[serde(default)]
     pub(super) relationship: Option<SeedRelationshipContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedActorModelBinding {
+    #[serde(default)]
+    pub(super) pack_id: String,
+    pub(super) id: String,
+    pub(super) actor_id: u64,
+    pub(super) actor_ref: String,
+    pub(super) provider: String,
+    pub(super) requested_model_id: String,
+    pub(super) canonical_slug: String,
+    pub(super) display_name: String,
+    pub(super) catalog_snapshot_version: String,
+    pub(super) created: u64,
+    pub(super) input_modalities: Vec<String>,
+    pub(super) output_modalities: Vec<String>,
+    pub(super) context_length: Option<u32>,
+    pub(super) max_completion_tokens: Option<u32>,
+    #[serde(default)]
+    pub(super) supported_parameters: Vec<String>,
+    pub(super) input_cost_per_million: Option<f64>,
+    pub(super) output_cost_per_million: Option<f64>,
+    pub(super) zero_data_retention: bool,
+    pub(super) speech_mode: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2102,6 +2129,65 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             return Err(format!("seed actor {} is missing stats", actor.id));
         };
         validate_seed_stats(actor.id, stats)?;
+    }
+    let mut actor_model_ids = BTreeSet::new();
+    let mut model_actor_ids = BTreeSet::new();
+    let mut bound_actor_counts_by_pack = BTreeMap::<&str, usize>::new();
+    for binding in &content.actor_model_bindings {
+        let expected_ref = format!("pack://{}/actor/{}", binding.pack_id, binding.actor_id);
+        let actor = content
+            .actors
+            .iter()
+            .find(|actor| actor.id == binding.actor_id);
+        let text_chat = binding.input_modalities.iter().any(|value| value == "text")
+            && binding
+                .output_modalities
+                .iter()
+                .any(|value| value == "text");
+        let expected_speech_mode = if text_chat { "raw" } else { "unavailable" };
+        if binding.id != binding.requested_model_id
+            || binding.provider != "openrouter"
+            || binding.id.trim().is_empty()
+            || binding.id.len() > 256
+            || binding.canonical_slug.trim().is_empty()
+            || binding.display_name.trim().is_empty()
+            || binding.catalog_snapshot_version.trim().is_empty()
+            || binding.actor_ref != expected_ref
+            || actor.is_none()
+            || actor.is_some_and(|actor| actor.pack_id != binding.pack_id)
+            || actor.is_some_and(|actor| actor.speech_mode != binding.speech_mode)
+            || binding.speech_mode != expected_speech_mode
+            || binding.input_modalities.is_empty()
+            || binding.output_modalities.is_empty()
+            || !actor_model_ids.insert(binding.id.as_str())
+            || !model_actor_ids.insert(binding.actor_id)
+        {
+            return Err(format!("invalid actor model binding {}", binding.id));
+        }
+        *bound_actor_counts_by_pack
+            .entry(binding.pack_id.as_str())
+            .or_default() += 1;
+        let _ = (
+            binding.created,
+            binding.context_length,
+            binding.max_completion_tokens,
+            binding.supported_parameters.as_slice(),
+            binding.input_cost_per_million,
+            binding.output_cost_per_million,
+            binding.zero_data_retention,
+        );
+    }
+    for (pack_id, bound_actor_count) in bound_actor_counts_by_pack {
+        let actor_count = content
+            .actors
+            .iter()
+            .filter(|actor| actor.pack_id == pack_id)
+            .count();
+        if bound_actor_count != actor_count {
+            return Err(format!(
+                "actor model bindings for {pack_id} cover {bound_actor_count} of {actor_count} actors"
+            ));
+        }
     }
 
     let mut item_ids = BTreeSet::new();

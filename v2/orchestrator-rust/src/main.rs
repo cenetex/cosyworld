@@ -26424,7 +26424,7 @@ async fn say(
     ) {
         return action_rate_limited_response();
     }
-    let Some(content) = normalize_human_message(&payload.content) else {
+    let Some(content) = normalize_active_human_message(&payload.content) else {
         return Json(ActionResponse {
             ok: false,
             status: 400,
@@ -45653,7 +45653,7 @@ mod tests {
 
     #[test]
     fn rust_ffi_kernel_capacities_are_runtime_sized() {
-        assert_eq!(CW_MAX_ACTORS, 512);
+        assert_eq!(CW_MAX_ACTORS, 1024);
         assert_eq!(CW_MAX_ITEMS, 1024);
         assert_eq!(CW_MAX_LOCATIONS, 512);
         assert_eq!(CW_MAX_EXITS, 1024);

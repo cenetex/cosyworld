@@ -18,6 +18,7 @@ import {
   collectContentReferenceCandidates,
 } from "./content-references.mjs";
 import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
+import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
 import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
 import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
@@ -76,6 +77,9 @@ const resourceFiles = {
   evolution_tracks: "evolution_tracks.json",
   recipes: "recipes.json",
   sentences: "sentences.json",
+};
+const optionalResourceFiles = {
+  actor_model_bindings: "actor_model_bindings.json",
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
@@ -792,6 +796,13 @@ const resolved = resolveContentPackGraph(
 );
 const selectedById = new Map(selectedPacks.map((pack) => [pack.manifest.id, pack]));
 const packs = resolved.ordered.map((manifest) => selectedById.get(manifest.id));
+const activeResourceFiles = {
+  ...resourceFiles,
+  ...Object.fromEntries(
+    Object.entries(optionalResourceFiles).filter(([resource]) =>
+      packs.some(({ manifest }) => manifest.resources?.[resource] !== undefined)),
+  ),
+};
 const activeProfilePacks = packs.filter(
   ({ manifest }) => manifest.kind === "rules" && manifest.rules_profile === world.rules_profile,
 );
@@ -826,7 +837,7 @@ if (writeLock) {
   );
 }
 
-const resources = Object.fromEntries(Object.keys(resourceFiles).map((key) => [key, []]));
+const resources = Object.fromEntries(Object.keys(activeResourceFiles).map((key) => [key, []]));
 const externalCards = [];
 const assets = [];
 const ruleBundles = [];
@@ -837,7 +848,7 @@ const characterCreationBundles = [];
 const resourceCountsByPack = new Map();
 const selectedPackIds = new Set(packs.map((pack) => pack.manifest.id));
 for (const pack of packs) {
-  const resourceCounts = Object.fromEntries(Object.keys(resourceFiles).map((key) => [key, 0]));
+  const resourceCounts = Object.fromEntries(Object.keys(activeResourceFiles).map((key) => [key, 0]));
   resourceCounts.external_cards = 0;
   resourceCounts.assets = 0;
   resourceCounts.rules = 0;
@@ -1002,6 +1013,15 @@ for (const bundle of contributionBundles) {
       }
       contributionSlots.set(slot, { id: contribution.id, row: contribution });
     }
+  }
+}
+for (const { manifest: packManifest } of packs) {
+  for (const error of actorModelBindingValidationErrors(
+    packManifest,
+    resources.actors,
+    (resources.actor_model_bindings ?? []).filter((row) => row.pack_id === packManifest.id),
+  )) {
+    assert(false, error);
   }
 }
 const packManifestById = new Map(packs.map((pack) => [pack.manifest.id, pack.manifest]));
@@ -1184,7 +1204,7 @@ const manifest = {
   ...(generationMediaRegistry ? { generation_media_registry: generationMediaRegistry } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,
-  files: resourceFiles,
+  files: activeResourceFiles,
   external_cards: "external_cards.json",
   assets: "assets.json",
   rules: "rules.json",
@@ -1224,7 +1244,7 @@ const outputs = new Map([
   ["modified-material.json", json(modifiedMaterial)],
   ["character_creation.json", json(characterCreationBundles)],
   ["content_refs.json", json(contentReferences)],
-  ...Object.entries(resourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),
+  ...Object.entries(activeResourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),
 ]);
 const artifactDigest = sha256(
   [...outputs].flatMap(([fileName, contents]) => [fileName, contents]),

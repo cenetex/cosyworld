@@ -168,6 +168,7 @@ impl ContentRegistry {
         let content = SeedContent {
             manifest: document.manifest,
             actors: take_resource(&mut resources, "actors")?,
+            actor_model_bindings: take_resource(&mut resources, "actor_model_bindings")?,
             actor_facets: take_resource(&mut resources, "actor_facets")?,
             access_gates: take_resource(&mut resources, "access_gates")?,
             factions: take_resource(&mut resources, "factions")?,

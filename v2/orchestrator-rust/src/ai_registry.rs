@@ -917,12 +917,131 @@ pub(crate) struct PinnedModelSelection {
 }
 
 impl PinnedModelSelection {
+    pub(crate) fn from_actor_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Self, RegistryError> {
+        let requested_model_id =
+            normalize_model_id(&binding.requested_model_id, "requested model id")?;
+        let provider = normalize_provider(&binding.provider)?;
+        if provider != "openrouter" {
+            return Err(RegistryError::InvalidField {
+                field: "provider",
+                detail: "actor model bindings must use openrouter".to_string(),
+            });
+        }
+        let text_input = binding.input_modalities.iter().any(|value| value == "text");
+        let text_output = binding
+            .output_modalities
+            .iter()
+            .any(|value| value == "text");
+        if binding.speech_mode != "raw" || !text_input || !text_output {
+            return Err(RegistryError::CapabilityMismatch {
+                model: requested_model_id,
+                capability: ModelCapability::Voice,
+            });
+        }
+        if policy_mode == DataPolicyMode::Production && !binding.zero_data_retention {
+            return Err(RegistryError::PrivacyRejected {
+                model: requested_model_id,
+            });
+        }
+        let catalog_snapshot_version = normalize_token(
+            &binding.catalog_snapshot_version,
+            "registry snapshot version",
+            128,
+        )?;
+        let concrete_model_id = normalize_model_id(&binding.canonical_slug, "concrete model id")?;
+        let modalities = |values: &[String]| {
+            values
+                .iter()
+                .filter_map(|value| match value.as_str() {
+                    "text" => Some(ModelModality::Text),
+                    "image" => Some(ModelModality::Image),
+                    "audio" | "speech" | "transcription" => Some(ModelModality::Audio),
+                    "video" => Some(ModelModality::Video),
+                    _ => None,
+                })
+                .collect::<BTreeSet<_>>()
+        };
+        let parameter = |names: &[&str]| {
+            binding
+                .supported_parameters
+                .iter()
+                .any(|value| names.contains(&value.as_str()))
+        };
+        let data_policy = if binding.zero_data_retention {
+            DataPolicyEligibility {
+                retention: DataRetention::None,
+                training: TrainingUse::Prohibited,
+            }
+        } else {
+            DataPolicyEligibility::default()
+        };
+        let family = requested_model_id
+            .split_once('/')
+            .map(|(provider, _)| provider.to_string());
+        let candidate = ModelCandidate {
+            requested_model_id,
+            provider,
+            concrete_model: Some(ConcreteModelIdentity {
+                model_id: concrete_model_id,
+                revision: None,
+            }),
+            mutable_alias: false,
+            family,
+            size_class: None,
+            input_modalities: modalities(&binding.input_modalities),
+            output_modalities: modalities(&binding.output_modalities),
+            context_limit: binding.context_length,
+            output_limit: binding.max_completion_tokens,
+            supported_parameters: SupportedParameters {
+                structured_output: parameter(&["structured_outputs", "response_format"]),
+                json_mode: parameter(&["response_format"]),
+                tools: parameter(&["tools", "tool_choice"]),
+                seed: parameter(&["seed"]),
+                stop: parameter(&["stop"]),
+            },
+            data_policy,
+            prompt_adapter: PromptAdapterRef {
+                id: "openrouter-raw-chat".to_string(),
+                version: "1".to_string(),
+            },
+            sampling: SamplingDefaults {
+                hard_output_cap: binding.max_completion_tokens.unwrap_or(4_096).min(4_096),
+                ..SamplingDefaults::default()
+            },
+            declared_capabilities: BTreeSet::from([ModelCapability::Voice]),
+            discovered_capabilities: BTreeSet::new(),
+            observations: CandidateObservations {
+                input_cost_per_million: binding.input_cost_per_million,
+                output_cost_per_million: binding.output_cost_per_million,
+                ..CandidateObservations::default()
+            },
+            declared: true,
+            discovered: true,
+        };
+        Ok(Self {
+            snapshot_version: catalog_snapshot_version,
+            capability: ModelCapability::Voice,
+            candidate: Arc::new(candidate),
+        })
+    }
+
     pub(crate) fn requested_model_id(&self) -> &str {
         self.candidate.requested_model_id()
     }
 
     pub(crate) fn candidate(&self) -> &ModelCandidate {
         &self.candidate
+    }
+
+    pub(crate) fn uses_raw_prompt_adapter(&self) -> bool {
+        self.candidate.prompt_adapter.id == "openrouter-raw-chat"
+    }
+
+    pub(crate) fn enforces_zero_data_retention(&self) -> bool {
+        self.candidate.data_policy.retention == DataRetention::None
     }
 
     pub(crate) fn attribute_response(
@@ -1359,7 +1478,7 @@ fn normalize_model_id(value: &str, field: &'static str) -> Result<String, Regist
         || value.len() > 256
         || !value
             .chars()
-            .all(|character| character.is_ascii_alphanumeric() || "/._:@+-".contains(character))
+            .all(|character| character.is_ascii_alphanumeric() || "/._:@+~-".contains(character))
     {
         return Err(RegistryError::InvalidField {
             field,
