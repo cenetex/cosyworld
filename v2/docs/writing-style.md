@@ -126,6 +126,38 @@ in `v2/content/core/sentences.json`.
 - "As if" and "seems to" remain authorially banned even though this collection
   is exempt from ordinary world-prose lint.
 
+### 8. Chance feedback (every d20 the kernel resolves)
+
+**One disclosure rule for every roll.** Where the kernel resolves a d20, the
+result is shown as a story beat *and* the arithmetic that produced it. Chance
+is legible because the referee is deterministic and has nothing to hide; a
+player who missed is owed the reason.
+
+The card carries a title, the mechanics, and a plain outcome:
+
+```
+Lantern Stitch finds an opening
+Ashwood Practice Blade · Strength attack · d20 14 +3 = 17 vs AC 13
+it lands
+```
+
+- Attacks read `<Ability> attack · … vs AC <n>`; ordinary checks read
+  `<Ability> check · … vs DC <n> · <outcome>`. Both come from one formatter
+  (`abilityCheckMechanics`) so the two surfaces cannot drift apart.
+- The outcome line stays plain language — "it lands", "not this time", "a clue
+  appears". Arithmetic explains the outcome; it never replaces it.
+- Damage, HP, and recovery keep their existing prose treatment. This section
+  governs the roll, not its consequences: "Gust looks steadier" is still right,
+  and zero-HP language is still banned.
+- The same roll may appear in both the transcript and the Log. That is
+  deliberate: the transcript carries the beat you read, the Log the row you
+  scan. They render from `detail` and `story` on the same event.
+
+This reverses an earlier stance under which combat hid its arithmetic while
+ordinary checks exposed theirs — the same kernel roll with two opposite rules.
+Both browser assertions in `v2/scripts/smoke-browser.mjs` now pin exact
+arithmetic. See issue #464.
+
 ## Review checklist
 
 - [ ] Could this sentence appear on a button a player reads 200 times?

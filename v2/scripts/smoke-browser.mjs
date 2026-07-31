@@ -4492,8 +4492,13 @@ async function main() {
       `Class revelation should explain its evidence, default to the recommendation, and preserve all choices: ${JSON.stringify(result)}`,
     );
     assert(/Moonlit Echo slips clear/.test(result.clashMarkup) && /not this time/.test(result.clashMarkup), `combat chance feedback should read as a clash, not a calculation: ${JSON.stringify(result)}`);
-    assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch's Ashwood Practice Blade (Strength).", `room memory should preserve the authoritative combat method in story language: ${JSON.stringify(result)}`);
-    assert(!/d20|modifier|total|\bdc\b|>4<|>6<|>13</i.test(result.clashMarkup), `combat chance feedback should hide dice arithmetic: ${JSON.stringify(result)}`);
+    assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch's Ashwood Practice Blade. Strength attack · d20 4 +2 = 6 vs AC 13.", `room memory should preserve the authoritative combat method in story language: ${JSON.stringify(result)}`);
+    // One disclosure rule for every d20 the kernel resolves. An attack and an
+    // ordinary check must not disagree about whether chance is legible, so the
+    // attack exposes the same arithmetic the non-combat assertion above pins,
+    // against AC rather than DC. See issue #464.
+    assert(/Strength attack · d20 4 \+2 = 6 vs AC 13/.test(result.clashMarkup), `combat chance feedback should expose the same exact arithmetic as a non-combat check: ${JSON.stringify(result)}`);
+    assert(!/\bDC\b/.test(result.clashMarkup), `an attack resolves against AC, never a DC: ${JSON.stringify(result)}`);
     assert(result.combatHitText === "Ashwood Practice Blade breaks through Moonlit Echo's guard.", `combat hits should preserve the authoritative method without damage accounting: ${JSON.stringify(result)}`);
     assert(result.knockoutText === "Ashwood Practice Blade leaves Moonlit Echo's light quiet for now.", `knockouts should preserve the method and avoid zero-HP language: ${JSON.stringify(result)}`);
    assert(result.bankedText === "lets what happened shape what comes next.", `historical settlement should land as a simple story beat instead of exposing memory marks: ${JSON.stringify(result)}`);
