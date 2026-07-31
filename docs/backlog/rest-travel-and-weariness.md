@@ -4,8 +4,11 @@
 by place and carried gear, refreshing exhausted cards through the kernel, with
 expedition depth visible as an unlabeled ring rather than a stamina number.
 
-**Status**: Groomed and filed (2026-07-26); delivery is in progress. The linked
-issues are the source of truth for each slice's implementation state.
+**Status**: Groomed and filed (2026-07-26); delivery is in progress. The
+short-rest/Fatigue follow-on (RT-8, RT-9) was groomed 2026-07-29 and the
+prepared-frontier-camp follow-on (RT-10) proposed 2026-07-30; all three were
+folded in from their issues 2026-07-30. RT-0 through RT-7 track live issues;
+RT-8 onward is direction.
 
 **Execution backlog**: epic [#356](https://github.com/cenetex/cosyworld/issues/356).
 
@@ -19,6 +22,9 @@ issues are the source of truth for each slice's implementation state.
 | RT-5 — the expedition ring | [#353](https://github.com/cenetex/cosyworld/issues/353) | P1 |
 | RT-6 — action reachability decision | [#354](https://github.com/cenetex/cosyworld/issues/354), amended by [#529](https://github.com/cenetex/cosyworld/issues/529) | P0 decision, resolved |
 | RT-7 — lodging pays in fiction | [#355](https://github.com/cenetex/cosyworld/issues/355) | P2 |
+| RT-8 — decide three short rests and the Spent hand | [#603](https://github.com/cenetex/cosyworld/issues/603), folded here | P1, direction |
+| RT-9 — implement long-rest epochs and Spent recovery | [#604](https://github.com/cenetex/cosyworld/issues/604), folded here | P1, direction |
+| RT-10 — require a prepared frontier camp | not filed | P1, proposed |
 
 **Related architecture**:
 
@@ -27,10 +33,13 @@ issues are the source of truth for each slice's implementation state.
 - [ADR 0002: the action hand is authoritative state](../decisions/0002-action-hand-is-authoritative-state.md)
 - [ADR 0005: thresholds, trails, and the strict referee](../decisions/0005-thresholds-trails-and-strict-referee.md)
 
-**Related backlog**: [Action Verbs And Economy](action-verbs-and-economy.md).
+**Related backlog**: [Action Verbs And Economy](action-verbs-and-economy.md)
+and [Thresholds, Trails, And The Strict Referee](thresholds-trails-and-strict-referee.md).
 AVE owns the verb lexicon, per-offer cost/risk presentation, and complete legal
-reachability. This backlog owns what rest *does* and where it is legal. Where
-they touch — the cost surface a rest offer renders into, and the Recover
+reachability. THR owns Anchors, Scout forays, cairns, and traversal recovery
+proof, and consumes the Fatigue restrictions decided here rather than inventing
+a second rest system. This backlog owns what rest *does* and where it is legal.
+Where they touch — the cost surface a rest offer renders into, and the Recover
 intention group — AVE is authoritative and RT consumes it.
 
 ## Why now
@@ -365,6 +374,147 @@ collapse same-kind target offers before the redeal cycle.
 
 ---
 
+## RT-8 — Decide Three Short Rests And The Spent Survival Hand
+
+**Priority**: P1 / later / parked (decision before implementation)
+
+**Scope**: Superseding ADR, migration law, player-facing action contract
+
+**Depends on**: original rest ladder decisions; coordinates with THR-0/THR-7
+
+### Candidate rule to decide
+
+- A long-rest epoch grants three short-rest uses.
+- Fatigue has four states: Fresh, Winded, Weary, and Spent.
+- A short rest costs one turn and one use, clears one Fatigue plus transient
+  `tired`, and may refresh one eligible limited resource. Unsafe short rests
+  can trigger pressure; they do not reset the expedition.
+- Camp, Lodged, and Hearth consume a full watch and begin a new epoch, with
+  distinct place/gear costs and refresh contracts. Camp remains in the
+  expedition and can attract frontier pressure; Hearth closes it.
+- At Spent, disallow new outward scouting, searching, studying, working,
+  forcing, and route branching. Preserve the survival hand: retreat to the
+  last secure Anchor, short rest if a use and opportunity remain, Camp, accept
+  aid, defend/flee, or call for rescue.
+- No action may transition the character to Spent unless retreat, Camp, aid,
+  or rescue remains reachable.
+- Cairns are navigation/recovery Anchors and never satisfy shelter.
+
+### Decisions required
+
+- Confirm or replace three uses, four Fatigue states, and one step recovered.
+- Decide whether a short rest refreshes a chosen resource, an archetype-fixed
+  resource, or no resource beyond Fatigue/tags.
+- Map the complete action taxonomy into allowed and disallowed Spent groups.
+- Reconcile and supersede conflicting parts of ADR 0004 and RT-0 without
+  changing historical event meanings.
+- Fix player-facing copy without exposing system words or hidden pressure.
+
+### Acceptance
+
+- One ADR owns the cadence, Spent hand, migration, and exact superseded text.
+- The rule prevents short-rest spam without creating a recovery soft-lock.
+- Cairn, Camp, Lodged, and Hearth have non-overlapping meanings.
+- Every Spent state has at least one understandable legal recovery route.
+
+---
+
+## RT-9 — Implement Long-Rest Epochs And Spent Recovery
+
+**Priority**: P1 / later / blocked
+
+**Scope**: Kernel/rest state, offers, replay, traversal reachability
+
+**Depends on**: RT-2, RT-4, RT-5, RT-8
+
+### What to do
+
+- Persist remaining short rests and long-rest epoch in authoritative state.
+- Apply the accepted Fatigue thresholds, recovery, time costs, rest-grade
+  reset, card refresh, and pressure hooks.
+- At Spent, filter the complete legal surface to the accepted survival hand;
+  do not merely hide actions from the two-card spotlight.
+- Reject an unavailable rest without spending time, a rest use, or any partial
+  mutation.
+- Project remaining capacity and honest disabled reasons without exposing
+  hidden table/pressure state.
+- Preserve snapshots, reconnects, replay, and historical rest records.
+- Extend worldpack reachability validation so an authored route cannot enter
+  Spent with no retreat, Camp, aid, or rescue edge.
+
+### Acceptance
+
+- Exactly the accepted number of short rests succeeds in one epoch; the next
+  is rejected without mutation.
+- A valid long rest resets the epoch and applies its grade-specific effects.
+- Spent exposes the survival hand across browser, terminal, API, and inference
+  controllers.
+- Direct and inferred intents have identical legality and consequences.
+- Golden replay preserves Fatigue, rest count, offered recovery, time, and
+  pressure results.
+- No legal authored traversal can strand the party.
+
+---
+
+## RT-10 — Require A Prepared Frontier Camp
+
+**Priority**: P1 / later / proposed
+
+**Scope**: frontier Camp eligibility, durable site preparation, fixture
+composition, and migration from the gear-only rule
+
+**Depends on**: RT-2, THR-7S; coordinates with RT-8 and RT-9
+
+### Candidate rule to decide
+
+- Hearth and Lodged retain their existing place rights.
+- Frontier Camp requires both:
+  - a durable prepared navigation site such as a cairn, Signal Anchor, or
+    pack-equivalent fixture; and
+  - equipped Shelter capability.
+- An established fire ring is a separate higher development tier. It grants
+  the authored third connection slot and can host a fire, but a ring alone
+  supplies no fuel, light, warmth, or rest grade.
+- A lit fire consumes fuel and may improve a Camp or prevent an authored cold
+  or dark consequence. It is not durable connection capacity.
+- Packs without cairn stone provide a mechanically equivalent installed
+  marker made from suitable local or carried materials. The capacity and rest
+  contract stay the same even when vocabulary changes.
+
+### What to do
+
+- Record whether the prepared-site requirement supersedes the current
+  `frontier + equipped camp_shelter` Camp derivation or is introduced only for
+  newly authored expedition regions. Recommended: supersede it with an
+  explicit compatibility projection for historical saves.
+- Reuse THR-7S construction receipts and fixtures; Rest must not create cairns,
+  fire rings, fuel, or shelter implicitly.
+- Project honest separate disabled reasons: no prepared site, no Shelter,
+  missing required fuel, unsafe pressure, or Spent restriction.
+- Ensure the first outbound leg always has a reachable authored preparation,
+  retreat, lodging, sanctuary, aid, or rescue path before the actor can become
+  unable to continue.
+- Give successful preparation, lighting, extinguishing, and Camp semantic
+  Journal beats without exposing internal capability nouns.
+
+### Acceptance
+
+- Carrying a tent into arbitrary wilderness is no longer sufficient for Camp
+  under the accepted new-content rule.
+- A cairn plus equipped Shelter permits Camp without pretending the cairn is a
+  bed.
+- A fire ring without fuel is durable infrastructure but not a lit fire; a
+  transient campfire without the installed ring does not grant connection
+  capacity.
+- Sanctuary and lodging remain usable without cairns.
+- Direct input, inference, reconnect, replay, and AI-offline fallback derive
+  identical Camp eligibility and disabled reasons.
+- No route can force a tired or Spent actor into an unrecoverable state.
+
+---
+
+---
+
 ## Open questions
 
 - **Ring direction.** Fills (depth travelled) or drains (supplies left)?
@@ -378,3 +528,6 @@ collapse same-kind target offers before the redeal cycle.
   is graded and gear-gated, tiring a player inside sanctuary may strand nothing
   but still feel punitive. Confirm during RT-4 whether Work should tire only on
   the frontier.
+- **Short-rest refresh.** RT-8 must decide whether the limited-resource refresh
+  is player-selected, archetype-fixed, or omitted. Do not bury that product
+  decision in RT-9 implementation.

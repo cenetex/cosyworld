@@ -471,6 +471,171 @@ Pipeline:
 
 The running server may load new content packs. It must never let the swarm rewrite the C kernel, Rust orchestrator, wallet verification, or economy ledger logic in production.
 
+## A Diverse Model Cast Behind Per-Generation Gates
+
+Groomed 2026-07-26; folded here 2026-07-30 from issues
+[#388](https://github.com/cenetex/cosyworld/issues/388),
+[#393](https://github.com/cenetex/cosyworld/issues/393), and
+[#394](https://github.com/cenetex/cosyworld/issues/394). The registry
+([#389](https://github.com/cenetex/cosyworld/issues/389)), publication gate
+([#390](https://github.com/cenetex/cosyworld/issues/390)), weighted exploration
+([#391](https://github.com/cenetex/cosyworld/issues/391)), and voice/intent
+separation ([#392](https://github.com/cenetex/cosyworld/issues/392)) have
+shipped; Fly evaluation and the adversarial corpus remain direction.
+
+Make model diversity a first-class feature: a broad cast of tiny and unusual
+language models may attempt public character speech, while every individual
+generation is buffered and deterministically qualified before entering the
+shared world.
+
+**The system certifies outputs, not models.** A model that fails one line may
+still participate later at a lower sampling weight. Conversation-only models
+provide voice; a smaller independently qualified planner pool may propose
+bounded intent; the kernel remains the only authority for world actions.
+
+### Product principles
+
+- Diversity of model voice is an intended property, not only a provider
+  fallback mechanism. Any operational text model may attempt voice generation,
+  including 1B/4B models.
+- No model is trusted: every completed output passes the same publication gate.
+- Failed outputs are private, recorded as evaluation evidence, and never
+  streamed or committed.
+- Content failure lowers selection weight but never permanently suspends a
+  model. Provider/transport health and output quality are measured separately.
+- Character identity and durable continuity live in world data; backend model
+  choice is an execution detail.
+- Conversation and intent planning are separate capabilities. A model may
+  qualify for one without the other.
+- Provider-offline play remains mechanically and narratively truthful.
+
+### Architectural contract
+
+```text
+world event
+  -> freeze public generation context
+  -> choose untrusted voice candidate(s)
+  -> generate privately
+  -> deterministic publication gate
+       pass -> commit exactly one visible line
+       fail -> discard, record, and try another candidate
+  -> bounded attempts exhausted -> explicit authored/unavailable outcome
+
+decision-required event
+  -> enumerate authoritative legal candidates
+  -> optional planner proposes one typed intent
+  -> validate against exact candidates and kernel rules
+  -> voice model expresses proposed/committed state truthfully
+```
+
+No diverse live rollout begins before the publication gate and resolved-model
+attribution are present.
+
+### Fly evaluation and resolved-model telemetry
+
+Exercise diverse candidates against production-shaped contexts, record every
+attempt accurately, and use the same evidence for live routing without letting
+shadow output affect the world. Per-generation gating is the live safety
+boundary; shadow evaluation supplies additional traffic and evidence for
+rare or new candidates. It does **not** create a binary trusted-model promotion
+system.
+
+- Enqueue bounded asynchronous shadow jobs from frozen copies of public
+  generation contexts. Shadow responses are never published, charged as
+  successful gameplay, fed into later prompts, or allowed to mutate state.
+- Run the evaluator inside the existing single-writer orchestrator or through a
+  control API preserving one SQLite writer. **Do not attach a second
+  uncoordinated process to the event volume.**
+- Bound concurrency, sample rate, timeouts, daily spend, per-model spend, and
+  queue depth. Live generation and world turns take priority.
+- Apply the exact same adapters and deterministic publication gate used by live
+  dialogue.
+
+Record for every live and shadow attempt: durable generation/job identity and
+feature; requested candidate and **actual resolved model/provider**; registry,
+adapter, prompt, and gate versions; frozen context hash and output hash; every
+gate check and failure code; transport status, attempts, latency, token usage,
+provider-reported cost; live/shadow disposition and whether the line committed;
+selected-candidate evidence and cooldown changes.
+
+Usage attribution based only on the configured `AiConfig.model` is insufficient
+once provider/model fallback exists.
+
+**Operational controls.** Content failure changes sampling evidence only. Rate
+limits, outages, and timeouts affect provider health and cooldown. Runaway
+spend, a permanently malformed endpoint, or repeated infrastructure abuse may
+open a temporary circuit breaker. No raw API key, private provider body, or
+unredacted player-sensitive prompt enters logs or model reports.
+
+### Adversarial corpus
+
+A permanent corpus and integration matrix proving diverse, unreliable models
+may attempt speech without any failed generation becoming public or
+authoritative. Cover at minimum: concise grounded prose, emoji-only, and emote
+speech; crowded rooms with multiple named actors; empty and long-but-bounded
+context; direct action reaction, gift/trade, relationship, danger, ordinary
+banter; prompt injection and requests to expose system/policy/tool/model text;
+multiple-speaker transcripts and invented labels; looping tokens, repeated
+n-grams, unfinished quotes/lists/JSON, length exhaustion; wrong speech mode and
+inaccessible emoji; subject drift and absent scene anchors; exact, normalized,
+and near-duplicate recent lines; proposal-versus-commit truthfulness; valid and
+invalid bounded intent schemas; stale candidate IDs, illegal targets, and
+provider-offline behaviour; multilingual/Unicode punctuation without permitting
+hidden control characters or leakage.
+
+Use deterministic fake OpenAI-compatible providers returning exact
+hostile/successful payloads, finish reasons, resolved model IDs, delays,
+errors, and races. Real-provider evidence supplements but never replaces
+hermetic regression tests.
+
+**Required journeys**: one tiny model fails the gate, a second passes, exactly
+one line commits; two passing hedged candidates race and only one commits;
+every candidate fails and the authored/unavailable result closes the beat; a
+provider errors while the same model succeeds through another provider; a
+conversation-only model is never selected for intent planning; a planner emits
+valid JSON for an illegal action and the kernel rejects it without mutation;
+retry, reconnect, restart, snapshot, and full replay reproduce one committed
+world result; browser and CLI expose the same accepted line or failure outcome
+without rejected-text leakage.
+
+### Definition of done
+
+- [ ] At least three materially different model families, including tiny
+      models, produce accepted public speech in a production-like run.
+- [ ] Every visible generated line has a recorded generation identity, resolved
+      model/provider, gate result, prompt adapter/version, latency, and usage.
+- [ ] An output violating any hard gate is never visible, even under retry,
+      reconnect, race, or provider fallback.
+- [ ] A failing model remains eligible for bounded future exploration without
+      being able to publish a failing output.
+- [ ] Bounded retries and authored fallback prevent a low-quality pool from
+      stalling a world turn.
+- [ ] Voice selection is diverse but character continuity remains stable and
+      inspectable.
+- [ ] Conversation-only models are never asked to execute tools or acquire
+      mechanical authority.
+- [ ] Planner proposals match an exact current legal action/target or fail
+      closed without mutation.
+- [ ] Provider outages, rate limits, content failures, and safety failures have
+      distinct metrics and recovery behaviour.
+- [ ] Snapshot and full journal replay reproduce committed world state without
+      re-running inference.
+- [ ] Provider-offline browser and CLI journeys remain complete and truthful.
+- [ ] Property/fuzz tests cannot make rejected text enter an event, SSE frame,
+      room-memory chapter, later prompt, or visible error.
+- [ ] Statistical tests show exploration remains nonzero, budgets stay bounded,
+      and consistently passing models receive more attempts without total
+      monopoly.
+
+### Out of scope
+
+Letting a model invent verbs, targets, costs, rewards, topology, or world
+truth. Publishing partial or streamed output before validation. Running
+hundreds of models for every line. Treating benchmark rank or parameter count
+as sufficient qualification. Requiring generated speech for authoritative
+campaign correctness. Declaring any third-party model permanently good or bad.
+Requiring network access for the core regression suite.
+
 ## Data Model Additions
 
 ```sql
