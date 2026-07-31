@@ -48680,12 +48680,15 @@ mod tests {
         assert!(INDEX_HTML.contains("economy.trade_stance"));
         assert!(INDEX_HTML.contains("function actorEconomyPanelHtml"));
         assert!(INDEX_HTML.contains("function practiceEvidenceSummary"));
+        assert!(INDEX_HTML.contains("function actorAvailabilityLabel"));
         assert!(INDEX_HTML.contains("function actorPracticePanelHtml"));
-        assert!(INDEX_HTML.contains("(practice.evidence || []).slice(0, 2)"));
+        assert!(INDEX_HTML.contains("for (const evidence of (practice.evidence || []))"));
         assert!(INDEX_HTML.contains("economyRowHtml(\"known for\""));
         assert!(INDEX_HTML.contains("function actorControlModeLabel"));
         assert!(INDEX_HTML.contains("played by\", escapeHtml(controller)"));
         assert!(INDEX_HTML.contains("card-modal-art-workshop"));
+        assert!(INDEX_HTML.contains("aria-describedby=\"card-modal-art-workshop\""));
+        assert!(INDEX_HTML.contains("button:not([disabled]), summary, [href]"));
         assert!(!INDEX_HTML.contains("room-avatar-more"));
         assert!(INDEX_HTML.contains("economy.inventory_count"));
         assert!(INDEX_HTML.contains("economy.carrying_capacity_tenths"));
