@@ -10690,23 +10690,23 @@
         const actor = event.actor_name || "Someone";
         const target = event.target_actor_name || "their opponent";
         const method = event.combat_method || event.item_name || "Unarmed strike";
-        const ability = event.ability || "Strength";
+        const mechanics = combatAttackMechanics(event);
         return success
           ? {
               label: "clash",
               symbol: "✦",
               title: `${actor} finds an opening`,
-              detail: `${method} · ${ability}. ${target} is caught off guard.`,
+              detail: `${method} · ${mechanics}. ${target} is caught off guard.`,
               result: "it lands",
-              story: `${actor} finds an opening against ${target} with ${method} (${ability}).`,
+              story: `${actor} finds an opening against ${target} with ${method}. ${mechanics}.`,
             }
           : {
               label: "clash",
               symbol: "·",
               title: `${target} slips clear`,
-              detail: `${method} · ${ability}. ${actor}'s swing meets empty air.`,
+              detail: `${method} · ${mechanics}. ${actor}'s swing meets empty air.`,
               result: "not this time",
-              story: `${target} slips clear of ${actor}'s ${method} (${ability}).`,
+              story: `${target} slips clear of ${actor}'s ${method}. ${mechanics}.`,
             };
       }
       if (event.content === "notice") {
@@ -10753,7 +10753,17 @@
           };
     }
 
-    function abilityCheckMechanics(event) {
+    // One formatter for every d20 the kernel resolves, so an attack and an
+    // ordinary check cannot disagree about how chance reads. Attacks say
+    // "attack ... vs AC" and let the card's result line carry the outcome;
+    // checks say "check ... vs DC" and spell the outcome out. See issue #464.
+    function abilityCheckMechanics(event, options = {}) {
+      const {
+        kind = "check",
+        threshold = "DC",
+        includeOutcome = true,
+        includeClassSource = true,
+      } = options;
       const ability = abilityLabel(event?.ability, "Ability");
       const raw = Number(event?.raw_roll);
       const modifier = Number(event?.modifier);
@@ -10764,10 +10774,13 @@
       const equation = [
         roll,
         Number.isFinite(total) ? `= ${total}` : "",
-        Number.isFinite(dc) ? `vs DC ${dc}` : "",
+        Number.isFinite(dc) ? `vs ${threshold} ${dc}` : "",
       ].filter(Boolean).join(" ");
+      if (!includeOutcome) {
+        return `${ability} ${kind} · ${equation}`;
+      }
       const outcome = event?.success === true ? "success" : "failure";
-      const choice = authoredAbilityChoice(event?.ability);
+      const choice = includeClassSource ? authoredAbilityChoice(event?.ability) : null;
       const ownedCheck = Number(event?.actor_id || 0) === Number(actorId || 0);
       const skill = choice && ownedCheck
         ? (state?.skills || []).find((candidate) => candidate.skill_id === choice.id)
@@ -10781,7 +10794,16 @@
         && classChoice?.starting_skill_id === skill.skill_id
         ? ` · Class skill: ${skill.label} +${Math.max(0, Number(skill.bonus || 0))} from ${classChoice.label}`
         : "";
-      return `${ability} check · ${equation} · ${outcome}${classSource}`;
+      return `${ability} ${kind} · ${equation} · ${outcome}${classSource}`;
+    }
+
+    function combatAttackMechanics(event) {
+      return abilityCheckMechanics(event, {
+        kind: "attack",
+        threshold: "AC",
+        includeOutcome: false,
+        includeClassSource: false,
+      });
     }
 
     function eventAriaLabel(event, speaker, body) {
