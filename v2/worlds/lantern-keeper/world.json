@@ -19,6 +19,12 @@
       }
     ]
   },
+  "persistence_compatibility": {
+    "schema_version": 1,
+    "replay_compatible_bundle_hashes": [
+      "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586"
+    ]
+  },
   "packs": [
     "cosyworld.core",
     "cosyworld.rules-srd-5.1",

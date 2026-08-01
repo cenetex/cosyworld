@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -18,6 +18,10 @@ const compiledRegistryPath = path.join(
   repoRoot,
   "v2/content/official/registry.json",
 );
+const lanternRegistryPath = path.join(
+  repoRoot,
+  "v2/content/lantern-keeper/registry.json",
+);
 
 function digest(value) {
   return `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
@@ -26,6 +30,8 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
+const LANTERN_ACTIVE_HASH = "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb";
+const LANTERN_PERSISTED_HASH = "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586";
 
 function registry(overrides = {}) {
   return {
@@ -264,5 +270,17 @@ describe("worldpack deploy gate CLI", () => {
     );
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toMatch(/^sha256:[0-9a-f]{64} \d+$/);
+  });
+
+  it("accepts the exact deployed Lantern Keeper journal bundle migration", async () => {
+    const registry = JSON.parse(await readFile(lanternRegistryPath, "utf8"));
+    const candidate = candidateFromRegistry(registry);
+    expect(candidate.bundleHash).toBe(LANTERN_ACTIVE_HASH);
+    expect(candidate.replayCompatible).toContain(LANTERN_PERSISTED_HASH);
+    expect(evaluateWorldpackGate({
+      candidateHash: candidate.bundleHash,
+      candidateReplayCompatible: candidate.replayCompatible,
+      liveHash: LANTERN_PERSISTED_HASH,
+    })).toMatchObject({ ok: true, status: "declared_migration" });
   });
 });
