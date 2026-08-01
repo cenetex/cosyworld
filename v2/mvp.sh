@@ -267,7 +267,7 @@ run_cli_smoke() {
 
   button_output="$(printf 'q' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session")"
   grep -q "\\[Enter\\]" <<<"$button_output"
-  grep -q "Let your avatar speak" <<<"$button_output"
+  grep -q "\\[P\\].*Think" <<<"$button_output"
   if grep -q "Action failed" <<<"$button_output"; then
     echo "$button_output" >&2
     return 1

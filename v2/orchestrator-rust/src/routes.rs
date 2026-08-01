@@ -159,9 +159,9 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/submit", post(submit_action_offer))
         .route("/actions/timeout", post(request_turn_timeout))
         .route("/actions/need-time", post(request_turn_need_time))
-        .route("/actions/pass", post(pass_ordered_scene_turn))
+        .route("/actions/pass", post(legacy_pass_requires_certificate))
         .route("/actions/narrative-move", post(submit_narrative_move))
-        .route("/actions/chat", post(chat))
+        .route("/actions/chat", post(legacy_action_requires_certificate))
         .route("/actions/fund-image", post(fund_community_image))
         .route("/media/room-scenes", post(create_room_scene))
         .route("/media/room-scenes/{job_id}", get(room_scene_status))
@@ -171,33 +171,60 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))
-        .route("/actions/move", post(move_actor))
-        .route("/actions/explore-path", post(explore_pathway))
-        .route("/actions/discover", post(discover))
-        .route("/actions/check", post(ability_check))
-        .route("/actions/study", post(study))
-        .route("/actions/influence", post(influence))
-        .route("/actions/cast-spell", post(cast_spell))
-        .route("/actions/pick-up", post(pick_up_item))
-        .route("/actions/drop", post(drop_item))
-        .route("/actions/use-item", post(use_item))
-        .route("/actions/give-item", post(give_item))
-        .route("/actions/trade-item", post(trade_item))
+        .route("/actions/move", post(legacy_action_requires_certificate))
+        .route(
+            "/actions/explore-path",
+            post(legacy_action_requires_certificate),
+        )
+        .route(
+            "/actions/discover",
+            post(legacy_action_requires_certificate),
+        )
+        .route("/actions/check", post(legacy_action_requires_certificate))
+        .route("/actions/study", post(legacy_action_requires_certificate))
+        .route(
+            "/actions/influence",
+            post(legacy_action_requires_certificate),
+        )
+        .route(
+            "/actions/cast-spell",
+            post(legacy_action_requires_certificate),
+        )
+        .route("/actions/pick-up", post(legacy_action_requires_certificate))
+        .route("/actions/drop", post(legacy_action_requires_certificate))
+        .route(
+            "/actions/use-item",
+            post(legacy_action_requires_certificate),
+        )
+        .route(
+            "/actions/give-item",
+            post(legacy_action_requires_certificate),
+        )
+        .route(
+            "/actions/trade-item",
+            post(legacy_action_requires_certificate),
+        )
         .route("/actions/transfer-offer", post(resolve_transfer_offer))
         .route("/actions/actor-safety", post(set_actor_safety))
         .route("/actions/request-gift", post(request_gift_auto_accept))
-        .route("/actions/theft", post(theft))
-        .route("/actions/craft", post(craft))
-        .route("/actions/attack", post(attack))
-        .route("/actions/defend", post(defend))
-        .route("/actions/prepare", post(prepare))
-        .route("/actions/contribute", post(contribute))
-        .route("/actions/work", post(work))
-        .route("/actions/help", post(help_room))
-        .route("/actions/rest", post(rest))
+        .route("/actions/theft", post(legacy_action_requires_certificate))
+        .route("/actions/craft", post(legacy_action_requires_certificate))
+        .route("/actions/attack", post(legacy_action_requires_certificate))
+        .route("/actions/defend", post(legacy_action_requires_certificate))
+        .route("/actions/prepare", post(legacy_action_requires_certificate))
+        .route(
+            "/actions/contribute",
+            post(legacy_action_requires_certificate),
+        )
+        .route("/actions/work", post(legacy_action_requires_certificate))
+        .route("/actions/help", post(legacy_action_requires_certificate))
+        .route("/actions/rest", post(legacy_action_requires_certificate))
         .route("/actions/bank-ledger", post(bank_ledger))
         .route("/actions/revise-calling", post(revise_calling))
-        .route("/actions/create-bond", post(create_bond))
+        .route(
+            "/actions/create-bond",
+            post(legacy_action_requires_certificate),
+        )
         .route("/actions/revise-bond", post(revise_bond))
         .route("/actions/train-skill", post(train_skill))
         .route("/actions/unlock-charm-slot", post(unlock_charm_slot))
@@ -210,8 +237,11 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/collection/unmaterialize",
             post(unmaterialize_collection_item),
         )
-        .route("/actions/resolve-bond", post(resolve_bond))
-        .route("/actions/flee", post(flee))
+        .route(
+            "/actions/resolve-bond",
+            post(legacy_action_requires_certificate),
+        )
+        .route("/actions/flee", post(legacy_action_requires_certificate))
         .route("/commands", post(command))
         .route(
             "/internal/canonical/commands",

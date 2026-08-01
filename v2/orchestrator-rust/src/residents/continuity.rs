@@ -710,6 +710,14 @@ impl RuntimeWorld {
             .get(&actor.id)
             .and_then(|continuity| continuity.pending_action.as_ref())?;
         match proposal.kind.as_str() {
+            "pass" => self
+                .resident_planner_pass_is_current(actor.id, proposal)
+                .then_some(CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: actor.id,
+                    location_id: actor.location_id,
+                    ..CwAction::default()
+                }),
             "move" => {
                 let destination_location_id = proposal.destination_location_id?;
                 let next_location_id =

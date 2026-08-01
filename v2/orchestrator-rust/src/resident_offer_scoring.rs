@@ -32,6 +32,11 @@ impl RuntimeWorld {
         if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return Vec::new();
         }
+        // A planner-selected Pass is a complete certified decision, not a
+        // hint to run another autonomous preference first.
+        if let Some(record) = self.resident_pending_planner_pass_record(actor, seed, None) {
+            return vec![record];
+        }
 
         let mut records = Vec::new();
         if let Some(record) =
@@ -225,12 +230,61 @@ impl RuntimeWorld {
             let Some(actor) = self.actor_by_id(*actor_id) else {
                 continue;
             };
-            for record in self.resident_economy_autonomy_records(actor, seed) {
+            if !Self::actor_can_act(actor) || !self.actor_uses_inference(*actor_id) {
+                continue;
+            }
+            let (_, offers) =
+                self.legal_action_candidates(Some(*actor_id), &AccessContext::default());
+            let hand = self.action_hand_for(Some(*actor_id), &offers);
+            let records = self.resident_economy_autonomy_records(actor, seed);
+            let mut found_playable_card = false;
+            for record in records.into_iter().filter(|record| {
+                if Self::resident_record_offer_kind(record) == "pass" {
+                    return record.projection_mutations.iter().any(|mutation| {
+                        matches!(mutation, ProjectionMutation::ShuffleHand { reason }
+                            if reason == "resident_planner_pass")
+                    });
+                }
+                offers.iter().any(|offer| {
+                    hand.entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
+                        && self.resident_offer_matches_record(offer, record)
+                })
+            }) {
+                found_playable_card = true;
                 let (rank, score) = self.resident_autonomy_record_priority(actor, &record);
                 candidates.push(ResidentAutonomyCandidate {
                     actor_id: *actor_id,
                     rank,
                     score,
+                    record,
+                });
+            }
+            if !found_playable_card && hand.draw_available {
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: *actor_id,
+                        location_id: actor.location_id,
+                        ..CwAction::default()
+                    },
+                    seed,
+                )
+                .into_actor_consequence(self.world.tick, None);
+                // A resident uses the same finite-hand escape hatch as a player.
+                // This is a turn-consuming pass, never a free redeal.
+                record.bind_offer_kind("pass");
+                record.source_location_id = Some(actor.location_id);
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::ShuffleHand {
+                        reason: "resident_pass".to_string(),
+                    });
+                candidates.push(ResidentAutonomyCandidate {
+                    actor_id: *actor_id,
+                    rank: 89,
+                    score: 0,
                     record,
                 });
             }
@@ -459,6 +513,16 @@ mod tests {
                 _ => {}
             }
         }
+        runtime.record_economy_disclosure(RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID);
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |offer| {
+                offer.kind == "trade_item"
+                    && offer.id
+                        == format!(
+                            "trade_item:{DEWBRIGHT_BUTTON_ITEM_ID}:{WHISKERWIND_ACTOR_ID}:{STORY_BUTTON_ITEM_ID}"
+                        )
+            })
+            .expect("the mutual trade card is dealt before LocalAI scoring");
 
         let actor_ids = runtime.resident_economy_autonomy_candidate_ids();
         let candidates = runtime.resident_autonomy_candidates_for_ids(&actor_ids, 146_030);

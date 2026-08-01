@@ -13,8 +13,9 @@ authoritative Collection/Carried/Equipped/Spell deck/Exhausted/Contained/World/
 Escrow zones, weight and size, equipped non-recursive containers, bracelet
 slots, possession-bound skill charms, weapon profiles, executable spell cards,
 idempotent collection materialization, theft, and provenance. Deterministic
-scene composition produces the complete legal offer set, two ranked
-suggestions, and a complete chooser for browser and terminal clients. Legacy
+scene composition produces an internal legal deck and the current two-card
+hand for browser and terminal clients. Certified Think/Pass rotates by two and yields the turn;
+there is no complete client chooser. Legacy
 skill ranks, action codes, combat/2 and combat/3 rows remain replay-readable.
 Covenant contribution
 and additional advancement choices remain future RPG breadth; they are not

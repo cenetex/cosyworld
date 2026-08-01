@@ -81,9 +81,12 @@ describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal 
       expect(`${index}\n${gates}`).not.toContain(ambiguous);
     }
 
-    expect(index).toContain('id="all-actions-title">all actions</h2>');
-    expect(index).toContain("data-all-action-index");
-    expect(index).toContain('data-player-concept="action-menu"');
+    expect(index).not.toContain('id="all-actions-title">all actions</h2>');
+    expect(index).not.toContain("data-all-action-index");
+    expect(index).not.toContain('data-player-concept="action-menu"');
+    expect(index).toContain('data-player-concept="pass"');
+    expect(index).toContain('aria-label="Think: pass these two actions and commit the turn"');
+    expect(index).toContain("free redeal command has retired");
     expect(index).toContain('${packs === 1 ? "bundle" : "bundles"}');
     expect(index).toContain('/nft/packs/open');
     expect(index).toContain("data-account-open-pack");

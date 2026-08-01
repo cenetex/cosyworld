@@ -35,8 +35,8 @@ RT-8 onward is direction.
 
 **Related backlog**: [Action Verbs And Economy](action-verbs-and-economy.md)
 and [Thresholds, Trails, And The Strict Referee](thresholds-trails-and-strict-referee.md).
-AVE owns the verb lexicon, per-offer cost/risk presentation, and complete legal
-reachability. THR owns Anchors, Scout forays, cairns, and traversal recovery
+AVE owns the verb lexicon, per-offer cost/risk presentation, and the finite
+hand contract over the internal legal candidate set. THR owns Anchors, Scout forays, cairns, and traversal recovery
 proof, and consumes the Fatigue restrictions decided here rather than inventing
 a second rest system. This backlog owns what rest *does* and where it is legal.
 Where they touch — the cost surface a rest offer renders into, and the Recover
@@ -74,7 +74,7 @@ an expedition system instead of bookkeeping.
 | Rest availability | Requires `tired` **and** travel count ≥ `level.clamp(1,4)` | `main.rs:16523` |
 | `tired` sources | Work, repeated unprepared Help, repeat frontier Listen, knack practice | `main.rs:10766`, `:11512`, `:23081`, `:35697`, `:35880` |
 | Hand promotion | Rest ranks 84 outside the frontier; provider `rules:recovery` when tired | `main.rs:19846`, `:19961` |
-| Action reachability | Browser presents two suggestions plus a complete grouped chooser; `hand.shuffled` and free `shuffle`/`more` command compatibility remain | `main.rs`, `index.html` |
+| Action reachability | Internal legal offers are server-only; every client receives exactly two cards plus certified Think/Pass (also in combat). Historic free shuffle aliases are replay-only and version-refused live. | `composition.rs`, `turns.rs`, `index.html` |
 | Lodging | `Wayside Lantern Inn` exists only in `v2/content/the-lantern-keeper/` | — |
 | Core zoning | 6 sanctuary / 16 frontier room sheets, no lodging rung | `v2/content/core/room_sheets.json` |
 
@@ -132,8 +132,8 @@ and Pressure consume that decision; they cannot embed a second fatigue ladder.
   discrete pips equal to `frontier_travel_since_rest_required`. Record that it
   is unlabeled, single (not concentric with HP), and animates only on commit.
 - Consume the reachability decision from ADR 0002 and RT-6. Rest and recovery
-  offers use the same ordinary hand and complete chooser as every other offer;
-  no rest ticket owns or changes that surface.
+  offers use the same two-card hand and certified Think/Pass as every other
+  offer; internal legal candidates are not a client chooser.
 - State whether the ring supersedes or coexists with any future HP surfacing.
   Recommended answer: one ring, weariness only; wounds get portrait treatment.
 
@@ -141,8 +141,8 @@ and Pressure consume that decision; they cannot embed a second fatigue ladder.
 
 - The ADR names the four rest grades, their refresh contracts, the lodging
   gates, and the ring's semantics.
-- `PRD.md`, ADR 0002, and the RPG bible agree that the two-card hand is a
-  spotlight and the grouped chooser renders the complete legal set.
+- `PRD.md`, ADR 0002, and the RPG bible agree that clients receive exactly two
+  cards plus certified Think/Pass; the complete legal set remains internal.
 - The RPG bible's Rest row (`docs/systems/09-cosyworld-rpg-system.md:417`)
   reflects the kernel decision rather than "projection action now."
 - No document describes rest as both currency-priced and zero-Orb.
@@ -306,7 +306,7 @@ and Pressure consume that decision; they cannot embed a second fatigue ladder.
 
 ---
 
-## RT-6 — The two-card spotlight has a complete chooser
+## RT-6 — The two-card spotlight (historic chooser superseded)
 
 **Priority**: P0 decision, no implementation of its own
 **Scope**: Decision only; recorded in ADR 0002 and consumed by AVE-3
@@ -320,28 +320,27 @@ collapse same-kind target offers before the redeal cycle.
 
 ### Resolution
 
-- The ordinary resting surface remains exactly two suggested cards plus one
-  compact control that opens the complete legal set, grouped by intention and
-  target.
-- Redeal remains an optional control inside the chooser. It pages the finite
-  authoritative order without repeats until the pool is exhausted, then cycles.
-- `hand.shuffled` is the journal record. Redeal consumes no turn, currency,
-  item use, or progression and cannot change legality, rank, target, cost,
-  risk, effect, or resolver.
-- The chooser is a rendering of the authoritative `action_offers` projection,
-  not a second legality source. It must preserve all same-kind targets and use
-  the same submission and stale-offer guards as the two suggestions.
+- **Superseded proposal:** the former ordinary resting surface paired two
+  suggested cards with a compact chooser over the complete legal set.
+- #516/#408 supersede free Redeal with certificate-bound Think/Pass. It moves
+  to the next deterministic pair, consumes exactly one turn, and cannot change
+  legality, rank, target, cost, risk, effect, or resolver.
+- `hand.shuffled` remains the journal record. Historic turn-exempt shuffle
+  replay remains valid; live redeal aliases are version-refused.
+- ADR 0002's finite-hand amendment supersedes that chooser: clients receive
+  only the two dealt cards and certified Think/Pass; the complete legal set is
+  internal server state.
 - Rest and recovery offers require no special surface. They enter the same
-  legal set and can appear in the opening pair or a later redeal.
-- ADR 0002 requires exactly two suggestions, a complete accessible chooser,
-  and the optional journaled redeal. Command aliases remain compatible.
+  legal set and can appear in the opening pair or a later deterministic Pass.
+- ADR 0002 requires exactly two suggestions and certified Think/Pass. Only
+  historic replay retains free shuffle semantics; command aliases are refused.
 
 ### Acceptance
 
-- `PRD.md`, the action-hand ADR, and both backlogs describe the same
-  two-suggestion spotlight and complete authoritative chooser.
-- Browser fixtures prove every legal action and target is reachable directly,
-  while shuffle assertions continue to cover the optional turn-free redeal.
+- `PRD.md`, the action-hand ADR, and both backlogs describe the same exact
+  two-card client hand, certified Think/Pass, and internal legal superset.
+- Browser fixtures prove the exact two-action hand and certified Think/Pass;
+  replay fixtures retain historic turn-free shuffle coverage.
 - No RT ticket depends on the outcome; the rest ladder is surface-agnostic.
 
 ---
@@ -432,8 +431,8 @@ collapse same-kind target offers before the redeal cycle.
 - Persist remaining short rests and long-rest epoch in authoritative state.
 - Apply the accepted Fatigue thresholds, recovery, time costs, rest-grade
   reset, card refresh, and pressure hooks.
-- At Spent, filter the complete legal surface to the accepted survival hand;
-  do not merely hide actions from the two-card spotlight.
+- At Spent, filter the internal legal candidate set to the accepted survival
+  hand before dealing; do not merely conceal actions from the two-card hand.
 - Reject an unavailable rest without spending time, a rest use, or any partial
   mutation.
 - Project remaining capacity and honest disabled reasons without exposing
@@ -521,9 +520,9 @@ composition, and migration from the gear-only rule
   Recommended: fills, matching the existing tag accumulation and reading
   cozier. Drains is the more orthodox OSR framing and is the alternative if
   playtesting shows depth reads as progress rather than cost.
-- **Closed — reachability surface.** #529 amended RT-6: the compact complete
-  chooser is authoritative presentation, with deterministic redeal optional
-  inside it.
+- **Closed — reachability surface.** ADR 0002 supersedes the #529 chooser
+  proposal: clients receive a deterministic two-card hand and certified
+  Think/Pass; the legal candidate set remains internal.
 - **`tired` from Work.** Work is currently the main `tired` source. Once rest
   is graded and gear-gated, tiring a player inside sanctuary may strand nothing
   but still feel punitive. Confirm during RT-4 whether Work should tire only on

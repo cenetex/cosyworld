@@ -485,23 +485,44 @@ mod tests {
         assert_eq!(restored.local_leads[&lead_id], *lead);
     }
 
-    #[tokio::test]
-    async fn canonical_command_and_offer_submission_return_the_same_lead_identity() {
-        let base = influence_ready_runtime();
+    #[test]
+    fn canonical_command_and_offer_submission_return_the_same_lead_identity() {
+        std::thread::Builder::new()
+            .name("canonical-lead-identity".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("test runtime")
+                    .block_on(assert_canonical_command_and_offer_lead_identity());
+            })
+            .expect("large-stack test thread")
+            .join()
+            .expect("canonical lead identity test completes");
+    }
+
+    async fn assert_canonical_command_and_offer_lead_identity() {
         let mut command_result = None;
         for seed in 1..=256 {
-            let mut candidate = base.clone();
+            let mut candidate = influence_ready_runtime();
             candidate.next_seed = seed;
+            let offer = candidate
+                .draw_until_test_offer(TEST_ACTOR_ID, &AccessContext::default(), |offer| {
+                    offer.kind == "influence"
+                })
+                .expect("the Influence offer rotates into the test hand");
+            let offer_id = offer.offer_id;
             let state = test_app_state(candidate, None);
             let (session, _) = issue_actor_session(&state, TEST_ACTOR_ID);
-            let response = command(
+            let response = Box::pin(command(
                 ConnectInfo("127.0.0.1:43200".parse().expect("client address")),
                 State(state.clone()),
                 Json(CommandRequest {
                     actor_id: TEST_ACTOR_ID,
                     actor_session: Some(session),
-                    command: "influence Rati".to_string(),
-                    offer_id: None,
+                    command: "this prose must not select the action".to_string(),
+                    offer_id: Some(offer_id),
                     wallet_address: None,
                     wallet: None,
                     wallet_session: None,
@@ -509,7 +530,7 @@ mod tests {
                     cards: None,
                     envelope: None,
                 }),
-            )
+            ))
             .await
             .0;
             let leads = state.inner.lock().await.local_leads.clone();
@@ -522,22 +543,18 @@ mod tests {
             command_result.expect("the command path eventually returns the authored lead");
         let mut offered_result = None;
         for seed in 1..=256 {
-            let mut candidate = base.clone();
+            let mut candidate = influence_ready_runtime();
             candidate.next_seed = seed;
+            let offer = candidate
+                .draw_until_test_offer(TEST_ACTOR_ID, &AccessContext::default(), |offer| {
+                    offer.kind == "influence"
+                })
+                .expect("the Influence offer rotates into the test hand");
             let state = test_app_state(candidate, None);
             let (session, _) = issue_actor_session(&state, TEST_ACTOR_ID);
-            let offer = {
-                let runtime = state.inner.lock().await;
-                runtime
-                    .state_response(Some(TEST_ACTOR_ID), &AccessContext::default())
-                    .action_offers
-                    .into_iter()
-                    .find(|offer| offer.kind == "influence")
-                    .expect("the authored Influence offer is visible")
-            };
             assert_eq!(offer.label, "Ask for a local lead");
             assert_eq!(offer.command, "influence Rati");
-            let response = submit_action_offer(
+            let response = Box::pin(submit_action_offer(
                 ConnectInfo("127.0.0.1:43201".parse().expect("client address")),
                 State(state.clone()),
                 Json(ActionOfferSubmissionRequest {
@@ -558,7 +575,7 @@ mod tests {
                         "target_actor_id": RATI_ACTOR_ID
                     }),
                 }),
-            )
+            ))
             .await
             .0;
             let leads = state.inner.lock().await.local_leads.clone();

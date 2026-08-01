@@ -1054,7 +1054,16 @@ mod tests {
             .find(|exit| exit.distance <= 1)
             .map(|exit| exit.destination_location_id)
             .expect("an adjacent route is available");
-        let offer = direct_offers
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &access, |offer| {
+                offer.kind == "move"
+                    && offer.target.as_ref().and_then(|target| target.id)
+                        == Some(destination_location_id)
+            })
+            .expect("the exact adjacent Move offer is dealt within one bounded rotation");
+        let offer = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &access)
+            .1
             .iter()
             .find(|offer| {
                 offer.target.as_ref().and_then(|target| target.id) == Some(destination_location_id)
@@ -1260,7 +1269,7 @@ mod tests {
         );
         assert_eq!(
             rejected,
-            Err("submitted payload target does not match the authoritative offer")
+            Err("that offer is not in the current two-card hand")
         );
         assert!(
             runtime
@@ -1593,31 +1602,17 @@ mod tests {
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, actor_id);
 
-        let current_offer =
-            |runtime: &RuntimeWorld, kind: &str, target_id: u64, require_hand: bool| {
-                let view = runtime.state_response(Some(actor_id), &AccessContext::default());
-                let offer = view
-                    .action_offers
-                    .into_iter()
-                    .find(|offer| {
-                        offer.kind == kind
-                            && offer
-                                .target
-                                .as_ref()
-                                .is_some_and(|target| target.id == Some(target_id))
-                    })
-                    .unwrap_or_else(|| panic!("{kind} offer for {target_id} should be current"));
-                if require_hand {
-                    assert!(
-                        view.action_hand
-                            .entries
-                            .iter()
-                            .any(|entry| entry.offer_id == offer.offer_id),
-                        "{kind} offer for {target_id} should use the browser hand identity"
-                    );
-                }
-                offer
-            };
+        let current_offer = |runtime: &mut RuntimeWorld, kind: &str, target_id: u64| {
+            runtime
+                .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                    offer.kind == kind
+                        && offer
+                            .target
+                            .as_ref()
+                            .is_some_and(|target| target.id == Some(target_id))
+                })
+                .unwrap_or_else(|| panic!("{kind} offer for {target_id} should rotate into hand"))
+        };
 
         {
             let runtime = state.inner.lock().await;
@@ -1630,8 +1625,8 @@ mod tests {
             );
         }
         let garden_offer = {
-            let runtime = state.inner.lock().await;
-            current_offer(&runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID, true)
+            let mut runtime = state.inner.lock().await;
+            current_offer(&mut runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID)
         };
         let garden_response = submit_offer_for_test(
             &state,
@@ -1658,8 +1653,8 @@ mod tests {
 
         let mut final_travel_offer = None;
         let first_scout = {
-            let runtime = state.inner.lock().await;
-            current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID, false)
+            let mut runtime = state.inner.lock().await;
+            current_offer(&mut runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
         };
         assert!(first_scout.route.is_some());
         let first_scout_response = submit_offer_for_test(
@@ -1684,12 +1679,7 @@ mod tests {
                 let runtime = state.inner.lock().await;
                 runtime.journeys[&actor_id].path[step]
             };
-            let travel = {
-                let runtime = state.inner.lock().await;
-                current_offer(&runtime, "move", next_location_id, true)
-            };
             if step == 3 {
-                final_travel_offer = Some(travel.clone());
                 let mut runtime = state.inner.lock().await;
                 runtime.append_async_job_event(
                     "pathway.refined",
@@ -1703,6 +1693,13 @@ mod tests {
                     None,
                     Some("another unrelated background refinement".to_string()),
                 );
+            }
+            let travel = {
+                let mut runtime = state.inner.lock().await;
+                current_offer(&mut runtime, "move", next_location_id)
+            };
+            if step == 3 {
+                final_travel_offer = Some(travel.clone());
             }
             let travel_response = submit_offer_for_test(
                 &state,
@@ -1725,8 +1722,8 @@ mod tests {
             }
             if step < 3 {
                 let scout = {
-                    let runtime = state.inner.lock().await;
-                    current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID, true)
+                    let mut runtime = state.inner.lock().await;
+                    current_offer(&mut runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
                 };
                 assert!(scout.route.is_some(), "step {step} Scout route binding");
                 let scout_response = submit_offer_for_test(
@@ -1757,8 +1754,8 @@ mod tests {
 
         for destination_location_id in pathway[..pathway.len() - 1].iter().rev().copied() {
             let reverse_offer = {
-                let runtime = state.inner.lock().await;
-                current_offer(&runtime, "move", destination_location_id, true)
+                let mut runtime = state.inner.lock().await;
+                current_offer(&mut runtime, "move", destination_location_id)
             };
             let reverse_response = submit_offer_for_test(
                 &state,

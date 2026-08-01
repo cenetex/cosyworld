@@ -8,16 +8,15 @@ A scene is the meeting point of a location, the people and objects present,
 the active rules profile, the avatar's cards, and the world's remembered
 state. The scene does not grant ownership. It makes existing things relevant.
 
-The server composes one complete set of legal action offers. The ordinary
-interface shows exactly **two suggestions**. **All Actions** exposes every
-other legal action, grouped by intention and target. A free redeal may change
-the two suggestions. It cannot change what is legal.
+The server composes one finite deck of legal action offers. The ordinary
+interface shows exactly **two cards**. A player may commit one or use certified
+**Think** (called **Pass** in a focused turn): it yields the turn and deals the
+next two cards.
 
 ::: {.rule}
-**CORE RULE - The small hand is a spotlight, not a limit.** Never say that a
-player cannot Search, Travel, Help, or use an item merely because it is absent
-from the opening pair. If it is legal, it remains reachable through All
-Actions.
+**CORE RULE - The current hand is the playable limit.** Search, Travel, Help,
+items, and combat choices must be in the current pair. Certified Think/Pass
+cycles toward other legal cards; prose commands cannot bypass the hand.
 :::
 
 An offer should answer five questions before commitment:
@@ -48,7 +47,7 @@ Present information in this order:
    sensory Signs.
 3. **Shared questions:** up to three pressing situations.
 4. **Suggested actions:** the two current offers.
-5. **Choice access:** All Actions and free redeal.
+5. **Choice access:** certified Think/Pass, which yields the turn and deals two cards.
 6. **Commitment detail:** target, cost, likely effect, and named risk.
 
 Do not begin with hidden lore, internal state names, or a list of every rule.
@@ -61,10 +60,10 @@ Rain beads on broad leaves. A narrow print crosses the mud beneath the old
 wall, and the eastern path is open. Rowan ties canvas over a cracked cold
 frame.
 
-The two suggestions are **Follow the small print** and **Help Rowan cover the
-cold frame**. All Actions also contains Travel to the cottage, Study the cold
-frame, and Take the loose twine. Speech remains available separately. Opening
-the chooser or redealing costs no turn.
+The two cards are **Follow the small print** and **Help Rowan cover the cold
+frame**. Travel, Study, and Take remain elsewhere in the deck. Rowan can play
+one current card or Think/Pass and yield the turn. Moderated `say` and `/me`
+remain turn-exempt room speech; they do not replace a card mutation.
 
 Before the print action is confirmed, its detail says: target, the print
 beneath the wall; cost, one turn; risk, rain may blur the trail; likely
@@ -82,9 +81,8 @@ stale offer without spending a turn, then show the new scene.
 ## 11. Played Time and Other Players {#played-time-concurrency}
 
 A committed gameplay action normally consumes a turn. Travel, Search, Study,
-Use, Help, Rest, and conflict actions are examples. Speech, emotes, reading
-the scene, examining a card, opening menus, viewing All Actions, and redealing
-are turn-exempt.
+Use, Help, Rest, conflict actions, and Think/Pass are examples. Reading the scene,
+examining a card, and opening menus are turn-exempt.
 
 CosyWorld uses the lightest concurrency policy that preserves a clear result.
 

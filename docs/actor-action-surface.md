@@ -8,17 +8,17 @@ Every avatar with the same facets in the same scene receives the same candidate
 verbs and targets. `control_mode` decides which intelligence chooses from that
 surface:
 
-- `direct_input`: a person selects one of the certified buttons;
+- `direct_input`: a person selects one of the two current certified cards or Think/Pass;
 - `reactive_ai`, `local_ai`, `roaming_ai`, or `delegated_ai`: an inference
-  controller selects one of those same buttons.
+  controller selects from the same hand or Passes.
 
 Changing a controller never changes the avatar's legal verbs, targets, costs,
 checks, inventory rules, bonds, combat participation, evolution, or deed
 projection. Session ownership decides who may submit a direct choice; it is an
 authorization boundary, not an RPG rule.
 
-The room roster has one projection-visibility policy across `/state`, `/world`,
-typed `look`/`who`, and ordered-turn messages. A `direct_input` avatar whose
+The room roster has one projection-visibility policy across `/state`, typed
+`look`/`who`, and ordered-turn messages. A `direct_input` avatar whose
 presence has lapsed is normally absent. While that avatar still owns an
 authoritative focused turn, the roster keeps them visible until the bounded
 turn-recovery path hands off; nobody is blocked by an unseen name.
@@ -56,8 +56,9 @@ aspirations contribute no legality or score.
 Each inferred action stores a versioned trace with the full candidate set,
 bindings, target, factors, eligibility or rejection, chosen offer, seed, state
 revision, outcome, and committed event sequence IDs. Proposed actions outside
-the certified set fail closed. If no candidate survives grounding and cooldown
-checks, the controller produces no world mutation.
+the certified set fail closed. If no candidate in the current hand survives
+grounding, the controller records certified Pass and yields. If neither a
+playable card nor Pass exists, it produces no world mutation.
 
 Every meaningful outcome uses the same journal and projection path regardless
 of controller. It can reveal a route through canonical Search/Scout, create

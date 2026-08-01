@@ -1,11 +1,7 @@
 use super::*;
 
-fn submitted_payload_target(
-    path: &str,
-    target: &ActionTargetView,
-    payload: &serde_json::Value,
-) -> Option<u64> {
-    let key = match (path, target.kind.as_str()) {
+fn submitted_payload_target_key(path: &str, target: &ActionTargetView) -> Option<&'static str> {
+    Some(match (path, target.kind.as_str()) {
         ("/actions/move" | "/actions/flee" | "/actions/explore-path", "location") => {
             "destination_location_id"
         }
@@ -25,8 +21,16 @@ fn submitted_payload_target(
         ) => "target_actor_id",
         ("/actions/use-item", "actor") => "target_actor_id",
         _ => return None,
-    };
-    payload.get(key).and_then(serde_json::Value::as_u64)
+    })
+}
+
+fn submitted_payload_target(
+    path: &str,
+    target: &ActionTargetView,
+    payload: &serde_json::Value,
+) -> Option<u64> {
+    submitted_payload_target_key(path, target)
+        .and_then(|key| payload.get(key).and_then(serde_json::Value::as_u64))
 }
 
 fn submitted_feature_binding_matches(
@@ -73,6 +77,70 @@ fn submitted_discovery_binding_matches(
             .is_none_or(|receipt_id| receipt_id == discovery.receipt_id)
 }
 
+fn submitted_payload_u64(payload: &serde_json::Value, key: &str) -> Option<u64> {
+    payload.get(key).and_then(serde_json::Value::as_u64)
+}
+
+fn offer_provider_item_id(offer: &RankedActionOffer) -> Option<u64> {
+    offer
+        .provider
+        .id
+        .strip_prefix("item:")
+        .and_then(|item_id| item_id.parse().ok())
+        .or_else(|| {
+            offer
+                .source_collectible
+                .as_ref()
+                .filter(|source| source.kind == "item")
+                .map(|source| source.instance_id)
+        })
+}
+
+fn submitted_stable_offer_payload_matches(
+    offer: &RankedActionOffer,
+    submission: &ActionOfferSubmissionRequest,
+) -> bool {
+    let payload = &submission.payload;
+    let parts = |prefix| {
+        offer
+            .id
+            .strip_prefix(prefix)
+            .map(|rest| rest.split(':').collect::<Vec<_>>())
+    };
+    match offer.kind.as_str() {
+        "give_item" => {
+            let Some(parts) = parts("give_item:") else {
+                return false;
+            };
+            let [item_id, target_actor_id] = parts.as_slice() else {
+                return false;
+            };
+            submitted_payload_u64(payload, "item_id") == item_id.parse().ok()
+                && submitted_payload_u64(payload, "target_actor_id") == target_actor_id.parse().ok()
+        }
+        "trade_item" => {
+            let Some(parts) = parts("trade_item:") else {
+                return false;
+            };
+            let [item_id, target_actor_id, target_item_id] = parts.as_slice() else {
+                return false;
+            };
+            submitted_payload_u64(payload, "item_id") == item_id.parse().ok()
+                && submitted_payload_u64(payload, "target_actor_id") == target_actor_id.parse().ok()
+                && submitted_payload_u64(payload, "target_item_id") == target_item_id.parse().ok()
+        }
+        "use_item"
+            if submission.path == "/actions/use-item" && offer.id.starts_with("use_item:") =>
+        {
+            submitted_payload_u64(payload, "item_id") == offer_provider_item_id(offer)
+        }
+        "cast_spell" if submission.path == "/actions/cast-spell" => {
+            submitted_payload_u64(payload, "item_id") == offer_provider_item_id(offer)
+        }
+        _ => true,
+    }
+}
+
 fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Option<&str> {
     let prefix = format!(
         "{}:{}:",
@@ -110,6 +178,36 @@ impl RuntimeWorld {
         self.world.next_event_seq.saturating_sub(1)
     }
 
+    fn submitted_pickup_exchange_matches(
+        &self,
+        actor_id: u64,
+        offer: &RankedActionOffer,
+        payload: &serde_json::Value,
+    ) -> bool {
+        if offer.kind != "pick_up" {
+            return true;
+        }
+        let Some(incoming_item_id) = offer
+            .target
+            .as_ref()
+            .filter(|target| target.kind == "item")
+            .and_then(|target| target.id)
+        else {
+            return false;
+        };
+        let Ok(expected_exchange_item_id) =
+            self.deterministic_pickup_exchange_item(actor_id, incoming_item_id)
+        else {
+            return false;
+        };
+        match expected_exchange_item_id {
+            Some(expected) => submitted_payload_u64(payload, "target_item_id") == Some(expected),
+            None => {
+                submitted_payload_u64(payload, "target_item_id").is_none_or(|item_id| item_id == 0)
+            }
+        }
+    }
+
     #[cfg(test)]
     pub(super) fn validate_action_offer_submission(
         &self,
@@ -144,6 +242,14 @@ impl RuntimeWorld {
         let Some(offer) = stable_offer else {
             return Err("that offer expired; refresh the scene and submit a current offer_id");
         };
+        let hand = self.action_hand_for(Some(actor_id), &offers);
+        if !hand
+            .entries
+            .iter()
+            .any(|entry| entry.offer_id == offer.offer_id)
+        {
+            return Err("that offer is not in the current two-card hand");
+        }
         let revision_rebound = exact_offer.is_none()
             && offer_composition_matches_at_submitted_revision(offer, submission);
         if !revision_rebound
@@ -162,25 +268,41 @@ impl RuntimeWorld {
         {
             Err("offer identity, rules binding, target, cost, or availability was changed")
         } else if offer.target.as_ref().is_some_and(|target| {
-            submitted_payload_target(&submission.path, target, &submission.payload)
-                .is_some_and(|submitted| target.id != Some(submitted))
+            target.id.is_some_and(|expected| {
+                submitted_payload_target_key(&submission.path, target).is_some()
+                    && submitted_payload_target(&submission.path, target, &submission.payload)
+                        != Some(expected)
+            })
         }) {
             Err("submitted payload target does not match the authoritative offer")
+        } else if submission.path == "/actions/pick-up"
+            && !self.submitted_pickup_exchange_matches(actor_id, offer, &submission.payload)
+        {
+            Err("submitted pickup exchange does not match the authoritative offer")
         } else if !submitted_feature_binding_matches(offer, &submission.payload) {
             Err("submitted feature binding does not match the authoritative offer")
         } else if !submitted_discovery_binding_matches(offer, &submission.payload) {
             Err("submitted discovery binding does not match the authoritative offer")
-        } else if offer.project.as_ref().is_some_and(|project| {
+        } else if !submitted_stable_offer_payload_matches(offer, submission) {
+            Err("submitted payload does not match the authoritative offer binding")
+        } else if matches!(
+            submission.path.as_str(),
+            "/actions/contribute"
+                | "/actions/work"
+                | "/actions/help"
+                | "/actions/study"
+                | "/actions/prepare"
+        ) && offer.project.as_ref().is_some_and(|project| {
             submission
                 .payload
                 .get("job_id")
                 .and_then(serde_json::Value::as_str)
-                .is_some_and(|job_id| job_id != project.id)
+                != Some(project.id.as_str())
                 || submission
                     .payload
                     .get("strategy_id")
                     .and_then(serde_json::Value::as_str)
-                    .is_some_and(|strategy_id| project.strategy_id.as_deref() != Some(strategy_id))
+                    != project.strategy_id.as_deref()
         }) {
             Err("submitted contribution does not match the authoritative quest strategy")
         } else {
@@ -2078,22 +2200,13 @@ pub(super) fn action_offer_is_reachable(offer: &RankedActionOffer) -> bool {
 }
 
 pub(super) fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
-    if offer.intention == "contribute" {
-        return offer
-            .project
-            .as_ref()
-            .map(|project| format!("contribute:{}", project.progress_clock_id))
-            .unwrap_or_else(|| "contribute".to_string());
-    }
-    if matches!(offer.kind.as_str(), "give_item" | "trade_item") {
-        return offer.kind.clone();
-    }
-    if matches!(offer.kind.as_str(), "use_item" | "use_feature") {
-        return "use".to_string();
-    }
-    offer.id.clone()
+    // A finite hand rotates exact certified offers. Collapsing by display
+    // kind made otherwise legal targets permanently unreachable once the
+    // full-action chooser was removed.
+    offer.offer_id.clone()
 }
 
+#[cfg(test)]
 pub(super) fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> bool {
     matches!(
         offer.kind.as_str(),
@@ -2109,7 +2222,15 @@ pub(super) fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> boo
     )
 }
 
+#[cfg(test)]
 pub(super) fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
+    compose_action_hand_at(offers, 0)
+}
+
+pub(super) fn compose_action_hand_at(
+    offers: &[RankedActionOffer],
+    draw_count: usize,
+) -> ActionHandView {
     const CAPACITY: usize = 2;
     let mut candidates: Vec<_> = offers
         .iter()
@@ -2131,60 +2252,29 @@ pub(super) fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandVie
         }
     }
 
-    let mut selected = Vec::new();
-    let mut provider_counts = BTreeMap::<String, u8>::new();
-    for offer in &grouped {
-        let provider_key = format!("{}:{}", offer.provider.kind, offer.provider.id);
-        let count = provider_counts.entry(provider_key).or_default();
-        if *count < 2 {
-            selected.push(*offer);
-            *count += 1;
-        }
-        if selected.len() == CAPACITY {
-            break;
-        }
-    }
-    if selected.len() < CAPACITY {
-        for offer in &grouped {
-            if selected.iter().any(|selected| selected.id == offer.id) {
-                continue;
-            }
-            selected.push(*offer);
-            if selected.len() == CAPACITY {
-                break;
-            }
-        }
-    }
-
-    if !selected
-        .iter()
-        .any(|offer| action_offer_is_generally_useful(offer))
-    {
-        if let Some(general) = grouped
-            .iter()
-            .copied()
-            .find(|offer| action_offer_is_generally_useful(offer))
-        {
-            if selected.len() < CAPACITY {
-                selected.push(general);
-            } else if let Some(last) = selected.last_mut() {
-                *last = general;
-            }
-        }
-    }
-
-    selected.sort_by(|left, right| {
-        left.provider
-            .priority
-            .cmp(&right.provider.priority)
-            .then_with(|| left.rank.cmp(&right.rank))
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    selected.dedup_by(|left, right| left.id == right.id);
+    let deck_size = grouped.len();
+    let selected = if deck_size == 0 {
+        Vec::new()
+    } else {
+        let start = draw_count.saturating_mul(CAPACITY) % deck_size;
+        (0..CAPACITY.min(deck_size))
+            .map(|offset| grouped[(start + offset) % deck_size])
+            .collect::<Vec<_>>()
+    };
 
     ActionHandView {
         schema_version: 1,
         capacity: CAPACITY as u8,
+        deck_size: u16::try_from(deck_size).unwrap_or(u16::MAX),
+        draw_available: deck_size > CAPACITY,
+        generation: u64::try_from(draw_count).unwrap_or(u64::MAX),
+        pass: ActionHandPassView {
+            offer_id: String::new(),
+            label: "Think".to_string(),
+            state_revision: 0,
+            generation: u64::try_from(draw_count).unwrap_or(u64::MAX),
+            scene_key: "ordinary".to_string(),
+        },
         entries: selected
             .into_iter()
             .map(|offer| ActionHandEntryView {
@@ -2194,6 +2284,114 @@ pub(super) fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandVie
                 provider: offer.provider.clone(),
             })
             .collect(),
+    }
+}
+
+impl RuntimeWorld {
+    pub(super) fn current_action_hand_offers<'a>(
+        &self,
+        actor_id: u64,
+        offers: &'a [RankedActionOffer],
+    ) -> Vec<&'a RankedActionOffer> {
+        let hand = self.action_hand_for(Some(actor_id), offers);
+        hand.entries
+            .iter()
+            .filter_map(|entry| offers.iter().find(|offer| offer.offer_id == entry.offer_id))
+            .collect()
+    }
+
+    pub(super) fn planner_action_offers<'a>(
+        &self,
+        actor_id: u64,
+        offers: &'a [RankedActionOffer],
+        planner_backed: bool,
+    ) -> Vec<&'a RankedActionOffer> {
+        if planner_backed {
+            self.current_action_hand_offers(actor_id, offers)
+                .into_iter()
+                .filter(|offer| action_offer_is_reachable(offer))
+                .collect()
+        } else {
+            offers
+                .iter()
+                .filter(|offer| action_offer_is_reachable(offer))
+                .collect()
+        }
+    }
+
+    pub(super) fn action_hand_for(
+        &self,
+        actor_id: Option<u64>,
+        offers: &[RankedActionOffer],
+    ) -> ActionHandView {
+        let draw_count = actor_id
+            .and_then(|actor_id| self.hand_generations.get(&actor_id).copied())
+            .map(|generation| usize::try_from(generation).unwrap_or(usize::MAX))
+            .unwrap_or_default();
+        let mut hand = compose_action_hand_at(offers, draw_count);
+        let state_revision = self.current_state_revision();
+        let scene_key = focused_encounter_for_actor(self, actor_id.unwrap_or_default())
+            .map(|focused| focused.handoff_key())
+            .unwrap_or_else(|| "ordinary".to_string());
+        let label = if scene_key == "ordinary" {
+            "Think"
+        } else {
+            "Pass"
+        };
+        hand.pass = ActionHandPassView {
+            offer_id: format!(
+                "pass:{}:{}:{}:{}",
+                actor_id.unwrap_or_default(),
+                state_revision,
+                hand.generation,
+                scene_key
+            ),
+            label: label.to_string(),
+            state_revision,
+            generation: hand.generation,
+            scene_key,
+        };
+        hand
+    }
+
+    #[cfg(test)]
+    pub(super) fn draw_until_test_offer(
+        &mut self,
+        actor_id: u64,
+        access: &AccessContext,
+        mut predicate: impl FnMut(&RankedActionOffer) -> bool,
+    ) -> Option<RankedActionOffer> {
+        let (_, initial_offers) = self.legal_action_candidates(Some(actor_id), access);
+        let attempts = initial_offers.len().max(1);
+        let starting_draw_count = self
+            .hand_generations
+            .get(&actor_id)
+            .map(|generation| usize::try_from(*generation).unwrap_or(usize::MAX))
+            .unwrap_or_default();
+        let additional_draws = (0..attempts).find(|additional_draws| {
+            let hand = compose_action_hand_at(
+                &initial_offers,
+                starting_draw_count.saturating_add(*additional_draws),
+            );
+            initial_offers.iter().any(|offer| {
+                hand.entries
+                    .iter()
+                    .any(|entry| entry.offer_id == offer.offer_id)
+                    && predicate(offer)
+            })
+        })?;
+        drop(initial_offers);
+        for _ in 0..additional_draws {
+            self.append_hand_shuffled_event(actor_id, "test_draw");
+        }
+        let (_, offers) = self.legal_action_candidates(Some(actor_id), access);
+        let hand = self.action_hand_for(Some(actor_id), &offers);
+        offers.into_iter().find(|offer| {
+            hand.entries
+                .iter()
+                .any(|entry| entry.offer_id == offer.offer_id)
+                && predicate(offer)
+        })
     }
 }
 

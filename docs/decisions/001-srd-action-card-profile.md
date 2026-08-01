@@ -21,10 +21,10 @@ it cannot silently reinterpret an older bundle, journal record, or snapshot.
 ## Projection CCG
 
 The action hand is a deterministic ranked projection of the complete legal
-offer set. It suggests cards; it does not grant legality. More and typed
-commands must keep every legal ordinary action reachable. A spell deck may
-limit prepared Magic effects, but no draw may gate movement, communication,
-Search, Study, Help, Utilize, or another ordinary legal action.
+offer set. The finite two-card hand and certified Think/Pass are the only live
+client action surface, as settled by ADR 0002; More and typed-command
+reachability are superseded. A spell deck may limit prepared Magic effects,
+but the server retains the full legal candidate set for legality and replay.
 
 ## Entity and item model
 

@@ -112,7 +112,7 @@ card grants:
 - `location-greenhouse` unlocks Greenhouse.
 - `location-courtyard` unlocks Courtyard.
 
-Locked expansion doors can be shown as previews in the room state, but `/actions/move` and `/actions/flee` enforce access on the server. Self-hosted installations can define a separate world with their own public rooms, gated rooms, and ownership adapters, while the official hosted world only trusts official collection feeds.
+Locked expansion doors can be shown as previews in room state, but the server validates access again when a current Travel or Flee card is submitted through `/actions/submit`. Self-hosted installations can define a separate world with their own public rooms, gated rooms, and ownership adapters, while the official hosted world only trusts official collection feeds.
 
 The C kernel currently resolves:
 
@@ -141,8 +141,9 @@ The Rust orchestrator currently owns:
 - Actor/item/location/content labels.
 - Native calls into the local Rust model for deterministic avatar identity and speech sanitizer behavior that can also run in WASM; dialogue is generated only through configured AI inference.
 - Card projections for visible actors, items, and locations.
-- Rules-bound legal-action envelopes, deterministic ranked three-card hands,
-  composition traces, and stale/tampered submission rejection.
+- Rules-bound legal-action envelopes, deterministic ranked two-card hands plus
+  certified Think/Pass rotation, composition traces, and stale/tampered
+  submission rejection.
 - Signed-ownership item materialization with durable receipts, reversible
   Collection returns, and possession provenance.
 - Session-touched and heartbeat-refreshed direct-input presence, so stale
@@ -151,7 +152,7 @@ The Rust orchestrator currently owns:
   or combat targets without durable consent, blocks fail closed, and private
   economy details are visible only to the controlling avatar.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
-- Bounded avatar-to-resident `Chat` exchanges, advancement-backed `Befriend`, and moderated human-authored `say` lines for shared room speech.
+- Bounded avatar-to-resident `Chat` exchanges and advancement-backed `Befriend`; authenticated human `say` and `/me` text is separately moderated, journaled, and turn-exempt.
 - OpenAI-compatible contextual resident replies with no deterministic dialogue substitute when inference is unavailable.
 - Event projection.
 - Snapshot persistence.
@@ -161,7 +162,7 @@ The Rust orchestrator currently owns:
 - Trusted ownership-feed projection for active Wooden Box NFTs and unopened avatar packs in `/state`.
 - Signed-wallet staging routes for Wooden Box burn receipts and avatar pack opening/card grants.
 - Resident replies are submitted back through the kernel as actor actions and broadcast one-to-many to everyone in the room.
-- Every sixth committed player world tick advances one deterministic frontier pulse. Ambient weather is harmless; opportunity effects move or strain authored stock, affect faction momentum/influence, and change visible conflict pressure. Pressure cannot cross into stakes unless that same turn records a relevant action at the affected frontier; only then may the pulse advance its active danger clock. The journal replays this history and its exact causal link, snapshots persist it, `/state` exposes local conditions, and `/world` exposes recent distant history. See `docs/world-simulation.md`.
+- Every sixth committed player world tick advances one deterministic frontier pulse. Ambient weather is harmless; opportunity effects move or strain authored stock, affect faction momentum/influence, and change visible conflict pressure. Pressure cannot cross into stakes unless that same turn records a relevant action at the affected frontier; only then may the pulse advance its active danger clock. The journal replays this history and its exact causal link, snapshots persist it, and `/state` exposes only locally visible conditions. See `docs/world-simulation.md`.
 
 ## Agent Play Loop
 
@@ -293,7 +294,7 @@ The browser frames onboarding as `Your first tale`: Notice a clue, watch the Jou
 
 Multi-target verbs stay compact: Take, Use, Give, Trade, Attack, and Chat put legal targets inside one card instead of duplicating hand slots. Long connections remain ordinary segmented geography—Search reveals one adjacent pathway and Travel enters it. Player-facing copy describes story outcomes rather than exposing raw d20, damage, HP, or clock arithmetic. The collapsed room `LOG` names who did what and what changed; the expanded history preserves the audited sequence. That log is also supplied to resident inference, so a delayed reply can refer to cards played and changes that happened in the channel instead of inventing an isolated conversation.
 
-Pathway Scout and Travel remain ordinary dealt actions: discovering a stretch never replaces the hand, moves the player, commits them to the destination, or hides room interactions. A player may continue, backtrack, choose another route, or stay and act. Each revealed waypoint atomically joins the authoritative room and simulation projections as risky frontier with three derived milestones: a durable fixture earns Anchor, an actor-causal physical delivery earns Connection, and three non-repeatable contributions from at least two avatars earn Settlement. Settlement opens a bounded building proposal, extended only by revealed natural features; it does not create a sanctuary or construct anything. `choice` keeps the policy and alternatives in chat, while `support`, `choose`, and explicit delegation write one-line Journal events through a replayable governed-choice state machine; selection preserves every support record and never depends on controller kind, title, Calling, or practice. Until a later building lifecycle changes the place, the deterministic pathway SVG remains the visual fallback.
+Pathway Scout and Travel remain ordinary dealt actions: discovering a stretch never moves the player, commits them to the destination, or hides room interactions. A player may continue, backtrack, choose another route, stay and act, or Think/Pass. Each revealed waypoint atomically joins the authoritative room and simulation projections as risky frontier with three derived milestones: a durable fixture earns Anchor, an actor-causal physical delivery earns Connection, and three non-repeatable contributions from at least two avatars earn Settlement. Settlement opens a bounded building proposal, extended only by revealed natural features; it does not create a sanctuary or construct anything. `choice` keeps the policy and alternatives in Journal, while `support`, `choose`, and explicit delegation write one-line Journal events through a replayable governed-choice state machine; selection preserves every support record and never depends on controller kind, title, Calling, or practice. The browser uses authored location art; the unfinished pathway/dungeon SVG renderer is not part of play.
 
 A governed selection now claims one major footprint and opens a shared construction question rather than completing a building; completion installs only pack-authored capabilities, leaves natural features intact, creates no passive cargo, and exposes its clocks, empty reward caches, recipe tags, and bounded follow-up work to avatars through room state without adding main-page panels.
 
@@ -305,11 +306,11 @@ The scene hand never deals a standalone growth-settlement or generic bracelet ca
 
 Generated avatar titles are short portable card epithets rather than room descriptions. Model-added suffixes such as `at The Cosy Cottage` are removed on creation and when older profiles are replayed, so arrival copy names the room once and the title still makes sense after travel. Identity generation asks for a small fondness, harmless habit, and gentle curiosity; a server-side tone guard repairs titles, descriptions, visual prompts, and older profiles that drift into grudges, ravenous scheming, hostility, cruelty, or villain language.
 
-Wallet-owned cards form a three-card **Keepsake hand** alongside the room's contextual scene cards. Keeping a card close can place its art beside a matching choice, but it does not change available actions, ordering, effects, costs, or odds. The account sheet and card detail view state that cosmetic promise before the player chooses `keep close`; owned card art is a keyboard-accessible detail button. The loadout is stored per wallet in the browser and can be changed from the account sheet without recomposing the action hand. Player-facing rarity is compressed to `everyday`, `curious`, `rare`, and `storybook`; signed Box pack reveals use deterministic rarity weights, never repeat a card within a pack, and prefer cards the wallet does not already own until the eight-card avatar catalog is complete.
+Wallet-owned cards form a three-slot **Keepsake collection** alongside the room's contextual scene cards. Keeping a card close can place its art beside a matching choice, but it does not change available actions, ordering, effects, costs, or odds. The account sheet and card detail view state that cosmetic promise before the player chooses `keep close`; owned card art is a keyboard-accessible detail button. The loadout is stored per wallet in the browser and can be changed from the account sheet without recomposing the action hand. Player-facing rarity is compressed to `everyday`, `curious`, `rare`, and `storybook`; signed Box pack reveals use deterministic rarity weights, never repeat a card within a pack, and prefer cards the wallet does not already own until the eight-card avatar catalog is complete.
 
 When a kept-close card matches an action, the action can name the cosmetic connection—for example, `✦ Homeroom kept close`. The card's authoritative reason—such as `From your Calling`, `From what your Journal remembers`, or `Because Rati trusts you`—is independently shown on the card and repeated in its accessible name, hover copy, and confirmation. The top-bar collection control remains visibly named `account` even on narrow screens, changes to `close` while the sheet is open, exposes its expanded state, and returns to room chat on a second activation or Escape.
 
-After `Your first tale` finishes, the client may derive one grounded **room thread** from projected world state: a wanted gift, urgent care, shared work, danger, an open path, something still hidden, a nearby voice, or finally the room's authored hook. That client-only suggestion cannot reorder or annotate the authoritative three-card hand. The server-authored first-tale projection is the only story guide that may pin and label a matching scene card.
+After `Your first tale` finishes, the client may derive one grounded **room thread** from projected world state: a wanted gift, urgent care, shared work, danger, an open path, something still hidden, a nearby voice, or finally the room's authored hook. That client-only suggestion cannot reorder or annotate the authoritative two-card hand. The server-authored first-tale projection is the only story guide that may pin and label a matching scene card.
 
 Choice-bearing cards keep one confirmation flow while making the selected option feel concrete. Avatar, Item, Location, Give, Trade, Travel, Take, Attack, friendship, and mixed Use choices carry their corresponding cards; selecting another option immediately swaps the preview and accessible image name. Portrait and square art use a contained preview instead of being cropped into the wide action frame.
 
@@ -491,7 +492,7 @@ Every successful scene-card play atomically arms one delayed room heartbeat. Rou
 The MVP economy is enabled by default:
 
 - New human avatars receive 3 Orbs.
-- `Chat`, `Say`, room heartbeats, and repeat `Listen` cost zero Orbs; Chat costs one banked advancement point.
+- `Chat`, room heartbeats, and repeat `Listen` cost zero Orbs.
 - `Listen`, `Attack`, and `Flee` can award Orbs from committed kernel events.
 - Automatic Orb rewards are claim-key gated by actor/context so repeated identical outcomes cannot mint duplicate rewards.
 - Eligible generated card modals pool one Orb per contribution until the total equals the card's level; each level unlocks one history-aware shared image.
@@ -558,17 +559,17 @@ The default client is JRPG-style button mode:
 ```text
 [Enter] primary contextual action
 [Space] secondary contextual action, when present
-[Tab]   rotate available context
+[P]     Think/Pass (skip turn and deal two new cards)
 [Q]     quit
 ```
 
-The client offers actions from visible world state: nearby residents to chat with, visible items, matching evolution gifts, available exits, combat escape routes, and room rules. One-button play remains the normal path, while the command palette and `/commands` endpoint support typed MUD commands such as `look`, `look east`, `go e`, `say <message>`, `/me <action>`, `report <actor>: <reason>`, and `drop <item>`. `/` opens the command palette, `t` opens it prefilled for room speech, nearby actors add a low-priority Report action that prefills `report <actor>: ` for the player to finish, and Up/Down recall commands from the current browser session.
+The client presents the two dealt certified cards in server order, including every authored action kind. Playing a card or choosing the certificate-bound Think/Pass control consumes one turn and deals the next hand. `/commands` remains a narrow text convenience for room inspection, reporting, safety, and turn-exempt speech; state-changing scene play requires a current offered certificate.
 
 Normal play prefers concrete room verbs such as `Take`, `Use`, `Notice`, `Inspect`, `Scout`, `Travel`, `Contribute`, `Flee`, or `Chat` from the ranked action-offer list. Notice receives an ambient lead, Inspect names the thing being examined, Scout names a destination while revealing only its next route segment, Travel moves there, and Contribute groups every authored Work, Help, Check, Study, or Use Item strategy in one project slot. Every choice submits its exact strategy ID through the same route; the server derives the ability, DC, or item from worldpack content. Each offer carries typed metadata for UI/tooling: semantic intention, pack-authored verb, target, accessible label, project and progress-clock identity, category, cost, risk, effect, claim key, source, zone, rank, and disabled-state. Packs may replace the displayed vocabulary without changing those stable semantic roles. Empty group chats render a quiet room vignette instead of a debug placeholder or synthetic log row.
 
 The current location tab participates in the same one-button surface: focusing it changes the command to `listen`, rolls a kernel-owned Wisdom check, and writes the auditable result into Journal. Combat outcomes likewise stay in Journal instead of leaking rolls, damage, knockouts, or fleeing into group chat.
 
-You can connect the CLI to an existing server, or use the typed command shell explicitly. Command mode sends player-authored MUD commands through the same `/commands` resolver as the browser palette, including `say`, `/me`, `report`, direction aliases, and item-name matching. `events` and `watch` replay room events with the active actor session attached, filtering hidden presence bookkeeping so terminal players see the same authenticated room transcript as browser players:
+You can connect the CLI to an existing server, or use the typed command shell explicitly. Command mode supports inspection, reporting, and safety controls; scene play uses the same current offer ids as the browser. `events` and `watch` replay only the active actor's current-room events, filtering hidden presence bookkeeping:
 
 ```sh
 python3 cli/cosy_cli.py --base-url http://127.0.0.1:3102
@@ -594,7 +595,7 @@ Returning players keep their local avatar id plus an opaque `actor_session` mint
 
 When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same live human actor and issue a fresh actor session without emitting duplicate `actor.created` world events. Dev reset clears those links along with the reseeded world.
 
-Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, `/state`, and `/world` use the same room-roster projection. The one bounded exception is a lapsed avatar who still owns a focused turn: that holder stays visible on every roster until turn recovery hands off, but remains absent from actor-target offers and commands. If a stale but valid actor session runs a typed command or accepted direct action, the server emits the same hidden active-presence event as `/presence/ping` so co-located clients refresh, and command/action responses include that presence event when it was created for the request. The browser pings `/presence/ping` before boot refresh when it has a stored actor session, keeps a lightweight heartbeat while connected, and sends `/presence/leave` on page hide. The terminal client does the same on startup and while waiting at the prompt, then sends `/presence/leave` on quit. NPC residents stay visible according to world placement. This keeps shared rooms lively without filling them with closed-tab or old smoke-test avatars.
+Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, and `/state` use the same current-room roster projection. The one bounded exception is a lapsed avatar who still owns a focused turn: that holder stays visible until turn recovery hands off, but remains absent from actor-target offers and commands. The browser and terminal clients maintain explicit presence heartbeats. NPC residents stay visible according to world placement.
 
 Visible actors, items, and locations now resolve through `state.cards`:
 
@@ -616,7 +617,7 @@ By default, a browser can only claim a wallet after signing a Solana wallet chal
 
 - `GET /wallet/challenge?wallet_address=<base58 public key>` returns the exact message to sign.
 - `POST /wallet/session` verifies the Ed25519 signature and returns a short-lived `wallet_session`.
-- `/state`, `/actions/move`, and `/actions/flee` use `wallet_session` to resolve server-owned Ruby High: First Bell expansion access.
+- `/state` and current Travel/Flee offer submission use `wallet_session` to resolve server-owned Ruby High: First Bell expansion access.
 
 The one-button browser shell exposes this as a contextual `connect wallet` command when a locked Ruby High expansion door is focused and no signed wallet session is present.
 
@@ -713,7 +714,7 @@ Chat is a bounded avatar-to-resident exchange, not a human text box, branch pick
 - Chat spends neither an Orb nor advancement and does not create a Bond. A rapid retry reuses the active durable job instead of starting a duplicate exchange.
 - The separate `Befriend` action spends one advancement point and creates a Bond when `create_bond` is legal.
 - If inference, context, or commit fails, the server emits a visible `chat.failed` status instead of silently doing nothing or substituting canned dialogue.
-- `say <message>`, `/me <action>`, and `POST /actions/say` commit moderated human-authored room text as normal `message.created` events; unsafe or overlong text is rejected before it reaches the journal.
+- Clients cannot author arbitrary room messages. Only server-produced dialogue and dice calls enter group chat.
 - Legacy branch records in old snapshots are ignored by `/state` and do not change the primary action.
 
 Items can now drive resident evolution through the C kernel:
@@ -731,7 +732,7 @@ World items use explicit shared scarcity. Each canonical item id is one world ob
 
 The Rust host loads seed actor placement/stats, faction definitions, item descriptions/placement/kinds, location labels, directed exits, combat flags, access gates, complete room RPG sheets, jobs/fronts, lifecycle/effect descriptors, and level-2 evolution tracks from the compiled `content/official/` worldpack. `worlds/official/world.json` selects independently versioned source packs and `pack.lock.json` pins their exact versions, hashes, dependency closure, capabilities, ID-mapping version, licenses, and provenance. The compiler also emits deterministic `pack://` content references and compact runtime handles in `content_refs.json`; snapshots, journals, and stored events persist those canonical identities with pack and ruleset context while the C ABI continues to use numeric handles. Startup tests and `npm run v2:worldpack` validate the Manifest v1 contract, a current lock and byte-deterministic bundle, unique ids, valid references, canonical one-direction-per-room exits, every location having a complete room sheet, seeded kernel parity, faction opposition links, frontier-only front links to jobs and danger clocks, lifecycle hook and clock-fill effect descriptors with reasons, and exactly two unique items for each evolution track. The validator also warns when a combat-capable room has no active local encounter or when a faction has neither seeded members nor an explicit player-facing role. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution, with its evolution track table configured from the worldpack at boot.
 
-Factions are content-backed opposing forces rather than hard-coded teams. `content/core/factions.json` defines each faction's axis, mirrored opposition, protected truth, shadow failure mode, verbs, motifs, home locations, member actors, and whether players can embody a faction that intentionally has no seeded resident. `/state` and `/world` expose that `player_facing` designation in the global faction list and compact faction refs, so clients can render allegiance without inferring it from names. The Great Library is the first explicitly player-facing faction; its empty member roster is intentional. The first mythic axis is also live in content: Solar Temple and Vowbright Angel mirror the Darkest Ocean and Pearl-Deep Listener through the shared `solar-abyss:drowned-bell` project.
+Factions are content-backed opposing forces rather than hard-coded teams. `content/core/factions.json` defines each faction's axis, mirrored opposition, protected truth, shadow failure mode, verbs, motifs, home locations, member actors, and whether players can embody a faction that intentionally has no seeded resident. Global faction state remains internal; players learn about factions through their current room, cards, and Journal rather than a world-inspection API.
 
 Those factions now move through played-time world pulses rather than remaining metadata. A pulse changes ambient weather and opportunity-level trade on a distant frontier route, lets influence propagate, and derives visible conflict pressure from the combined result. The World Library shows each beat's class and response, and entering an affected room reveals its present weather, supplies, faction signs, or tension in story language. Automatic pulses never mutate sanctuary state, never create stakes from an unrelated action, and never run while the world is idle.
 
@@ -754,18 +755,12 @@ Resolved frontier encounters can reopen on later player turns. The Moonlit Trail
 Locations are live channels:
 
 - `/state?actor_id=...` returns the actor's current location, visible presence, available actions, active-human room turn state, and room-scoped recent events.
-- `/world?actor_id=...&actor_session=...&wallet_session=...` returns the shared room map, gated/public status, accessible room contents, and locked-room summaries without exposing locked actor/item details.
-- Each `/world` location reports `actor_count` as all visible avatars, plus
-  `direct_input_actor_count` and `inference_actor_count` from authoritative
-  controller provenance. The transitional `human_count` and `resident_count`
-  fields alias those controller counts for older clients; they no longer inspect
-  kernel actor kind.
-- `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header. A lagged broadcast receiver is closed so EventSource reconnects from its last delivered id instead of silently skipping room lines. If the bounded replay cannot reach the subscribe-time sequence, the stream emits a named `gap` event and the browser reloads `/state` before continuing live updates.
-- `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. The response is `{ "world_id": "world://cosyworld/official", "world_epoch": 1, "events": [...], "next_after": 123, "through_seq": 123, "caught_up": true }`, so each event's `seq` completes its canonical public identity tuple. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500. Polling clients pass `next_after` into the next request so the cursor advances across events hidden by room or card visibility; each request scans at most 1,000 raw events.
-- Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions, with the same temporary focused-turn-holder exception used by MUD room rosters; durable old avatars are not treated as online occupants or actor-action targets.
+- `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE only for the authenticated actor's current room. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header.
+- `/events` uses the same current-room boundary. Wallet/card entitlements do not widen replay into other rooms, and clients cannot traverse the world graph through event history.
+- Human presence in `/state` is filtered to the current actor plus recently touched actor sessions in that room, with the temporary focused-turn-holder exception used by MUD room rosters.
 - `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
 - When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Journal settlement is part of successful discovery rather than a separate waiting-room card. Loadout changes live in Deck & Loadout and do not take the shared room turn. The gentle Nudge / I'm here handoff remains beside scene choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
-- The browser appends only `message.created` speech to group chat. Other matching live events refresh state and remain available through the location's Journal. Lantern Keeper actions additionally end in one persisted `story.receipt`: browser and CLI lead with that authored consequence, replay projects the same receipt without duplicate bookkeeping lines, and expanding its Journal row reveals the covered raw event sequence for inspection.
+- The browser appends only `message.created` speech and dice-call pills to group chat. Combat outcomes and other matching live events refresh state, remain in the location's Journal, and may appear as dismissible important alerts. Lantern Keeper actions additionally end in one persisted `story.receipt`.
 - An active Lantern Keeper scene promotes one shared question outside the Journal with fiction-first situation text, exact progress and danger meters, the completion change, the current danger beat, and its fill consequence. Its rationale list is derived from the same two-entry authoritative action hand as the playable cards; screen-reader labels say `suggestion 1 of 2` and `suggestion 2 of 2`, never count the larger legal offer set. Browser, `look`, CLI reconnect, stale-offer refresh, journal replay, success, and failure all project the same question state. Once either clock resolves it, the live task bars retire to a concise public memory naming its contributors.
 - The Lantern Keeper's light and darkness clocks directly declare their own justified fill effects. Each terminal fill journals exactly one authoritative job outcome and one authored `story.receipt`; retry, reconnect, and journal replay cannot duplicate either. Official worldpack validation requires both direct declarations, their expected completed/failed status, and an authored reason, and rejects a missing, tag-only, or duplicate lifecycle source without imposing the Lantern contract on other pack compositions.
 - Moving between locations swaps to that room's transcript instead of carrying the prior room log forward.
@@ -780,12 +775,11 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /meta`
 - `GET /licenses`
 - `GET /content-packs`
-- `GET /inspect`
 - `GET /state`
 - `GET /state?actor_id=5000&actor_session=<session>`
 - `GET /state?actor_id=5000&actor_session=<session>&wallet_session=<wallet-session>`
 - `GET /world`
-- `GET /world?actor_id=5000&actor_session=<session>&wallet_session=<wallet-session>`
+- `GET /inspect`
 - `GET /events`
 - `GET /events?after=12&limit=80`
 - `GET /moderation`
@@ -801,51 +795,24 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /stream`
 - `POST /dev/reset` when `COSYWORLD_ENABLE_DEV_RESET=1`
 - `POST /avatar`
-- `POST /commands`
+- `POST /commands` for read controls, moderated turn-exempt `say`/`/me`, and certified Think/Pass
 - `POST /presence/ping`
 - `POST /presence/leave`
 - `POST /story/world-beat-exposures`
 - `POST /actions/submit`
-- `POST /actions/create-bond`
-- `POST /actions/chat`
 - `POST /actions/say`
 - `POST /actions/report`
-- `POST /actions/move`
-- `POST /actions/check`
-- `POST /actions/study`
-- `POST /actions/influence`
-- `POST /actions/cast-spell`
-- `POST /actions/pick-up`
-- `POST /actions/drop`
-- `POST /actions/use-item`
-- `POST /actions/give-item`
-- `POST /actions/trade-item`
-- `POST /actions/theft`
-- `POST /actions/craft`
-- `POST /actions/attack`
-- `POST /actions/defend`
-- `POST /actions/prepare`
-- `POST /actions/work`
-- `POST /actions/help`
-- `POST /actions/rest`
+- `POST /actions/timeout`
 - `POST /actions/unlock-charm-slot`
 - `POST /actions/set-charm-equipped`
 - `POST /actions/set-spell-prepared`
 - `POST /actions/set-item-equipped`
 - `POST /actions/set-item-contained`
-- `POST /actions/flee`
 - `POST /collection/materialize`
 - `POST /collection/unmaterialize`
-- `POST /commands`
-
-`POST /actions/use-item` accepts either an actor use (`item_id` plus
-`target_actor_id`) or an exact room-feature use (`item_id`, `location_id`, and
-`feature_key`). Both forms must match a current authoritative offer; typed
-clients never need to round-trip a `use_feature` offer through command prose.
-
-`POST /commands` is the canonical mutation gateway. New callers send the
-authenticated numeric actor handle, an `offer_id` from the current `/state`
-projection, and the stable envelope:
+`POST /actions/submit` is the canonical scene-mutation gateway. Callers send
+the authenticated actor handle and an exact offer from the current two-card
+hand. The offer payload includes its stable envelope:
 
 ```json
 {
@@ -863,12 +830,12 @@ projection, and the stable envelope:
 ```
 
 The identifier's embedded state revision is checked while resolving the exact
-projected offer. Failures expose `error_kind` as `invalid_offer_id`,
-`stale_offer`, `unknown_offer`, or `disabled_offer` and commit no presence or
-world mutation. The prose `command` field is retained as a legacy convenience
-for the palette and older clients; its failures use `parse_failure`. It is not
-the authoritative offer submission contract, and `offer_id` takes precedence
-when both fields are present.
+projected offer, and the server rejects offers outside the current hand.
+Failures expose `invalid_offer_id`, `stale_offer`, `unknown_offer`, or
+`disabled_offer` without world mutation. `/commands` remains limited to
+inspection, reporting, actor safety, and moderated turn-exempt `say`/`/me`
+speech; movement, item, social, work, and combat mutations cannot use it as a
+second API around the hand.
 
 The response includes a durable `receipt` with the same world/intent/actor,
 the committed `world_epoch` and `world_seq`, affected canonical entity
@@ -900,25 +867,19 @@ this signal. Browser clients submit only after the transcript row is visibly
 rendered; terminal and agent clients acknowledge after presentation with
 `cli` or `agent` transport.
 
-`POST /actions/check` is the public Listen action, not a generic client-authored
-roll: the server always resolves Wisdom against DC 12, accepts only `wis` or
-`wisdom` with an omitted or matching DC, and rejects other ability/DC pairs.
-It journals the append-only Search action. `POST /actions/study` is the distinct
-Intelligence-backed Study path. The preferred mechanical submission seam is
-`POST /actions/submit`, which revalidates the server-authored offer identity,
-rules binding, target, collectible source, and state revision before dispatch.
+Listen, Study, Travel, item, social, work, and combat choices all enter through
+`POST /actions/submit`, which revalidates the current two-card hand, offer
+identity, rules binding, target, collectible source, and state revision before
+dispatch. A current Think/Pass certificate submitted to `POST /commands` rotates
+to the next two cards and consumes one turn. There are no direct mechanical
+compatibility routes.
 
-These three routes are compatibility wrappers over the deterministic
-`cosyworld.combat/4` encounter protocol. Attack starts or joins the active
-room-job encounter, Defend takes the Dodge action, and Flee takes Escape through
-an unlocked accessible exit. Initiative includes NPCs, only the current
-participant may take a mechanical action, job-declared NPC participants are the
-only valid targets, and finishing damage is nonlethal at 1 Hit Point. Active
-encounters are exposed through `/state.combat`, advertised by `/meta.combat`,
-journaled as append-only lifecycle events, and persisted in snapshots. See
-[`docs/combat-system.md`](docs/combat-system.md) for the exact SRD-compatible
-surface, equipment-profile damage, legacy replay behavior, and deliberate
-exclusions.
+The deterministic `cosyworld.combat/4` protocol includes NPC initiative and
+allows only the current participant to play a current combat card or Pass.
+Finishing damage is nonlethal at 1 Hit Point. Active encounters are exposed
+through `/state.combat`, advertised by `/meta.combat`, journaled as append-only
+lifecycle events, and persisted in snapshots. See
+[`docs/combat-system.md`](docs/combat-system.md) for the exact surface.
 
 `/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret dialogue and client-authored-speech feature flags, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 
@@ -929,25 +890,21 @@ ready generated art, removes its served bytes, restores the deterministic
 fallback, and preserves full funding so the community can retry without
 spending another Orb.
 
-Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can commit resident `SAY` events internally for contextual heartbeat replies and audited resident beats. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
-
-`POST /actions/say` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "content": "hello room" }` or the alias field `message`. Success returns `200` plus a `message.created` event whose `location_id` is the speaker's current room. Missing or wrong actor sessions return `403`, rejected text returns `400`, rate limits return `429`, and no rejected speech emits a world event.
+Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can commit resident speech internally for contextual heartbeat replies and audited resident beats. Authenticated human `say` and `/me` commands are separately moderated, journaled speech controls and do not consume a scene card or turn.
 
 `POST /actions/report` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "target_actor_id": 1001, "reason": "..." }`. The reporter and target must both be in the same room, and human targets must be visible in active room presence. Success returns `200` plus a durable report id for moderator review; reports do not broadcast into the room timeline.
 
 `POST /actions/timeout` accepts JSON `{ "actor_id": 5000, "actor_session": "..." }`. It is available to an active participant waiting on another active participant in an explicitly ordered combat or cooperative-work scene. A successful nudge journals a system Pass for the current holder and advances to the next eligible participant. Refusals return actionable events with stable types: `turn.timeout_refused.requester_holds_turn`, `turn.timeout_refused.participants_below_two`, `turn.timeout_refused.requester_not_eligible`, `turn.timeout_refused.no_focused_scene`, or `turn.timeout_refused.cooldown`. Refusal checks happen before any world mutation.
 
-`POST /actions/need-time` uses the same actor payload for the current ordered-scene holder's one nonpunitive grace extension. It does not pass the turn or advance world time.
-
 Public mutation endpoints also pass through lightweight in-memory rate limits before they touch the world reducer:
 
 - Avatar creation: 12 attempts per client IP per 10 minutes.
 - Wallet challenge/session: 30 attempts per client IP per minute.
-- Chat, friendship, and player room-message actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
+- Chat and friendship cards: 45 attempts per actor per minute, with a broader shared IP mutation cap.
 - Player reports: 12 attempts per actor per 10 minutes, with the broader shared IP mutation cap.
 - Movement, item, check, and combat actions: 180 attempts per actor per minute, with the same shared IP mutation cap.
 
-Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as resident replies, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
+Server-authored resident dialogue uses the same durable event contract for replay and SSE broadcast; it is never accepted from client text.
 
 Rate limits are intentionally generous for normal play and local smoke tests.
 They are abuse guardrails for the current single-writer process, not a
@@ -986,15 +943,9 @@ curl -s -X POST http://127.0.0.1:3102/avatar \
 ```
 
 ```sh
-curl -s -X POST http://127.0.0.1:3102/actions/chat \
-  -H 'content-type: application/json' \
-  -d '{"actor_id":5000,"actor_session":"...","target_actor_id":1001}'
-```
-
-```sh
-curl -s -X POST http://127.0.0.1:3102/actions/move \
-  -H 'content-type: application/json' \
-  -d '{"actor_id":5000,"actor_session":"...","wallet_session":"...","destination_location_id":2}'
+curl -s http://127.0.0.1:3102/state?actor_id=5000
+# Submit the returned action_hand.pass.offer_id to /commands with its
+# canonical envelope; uncertified direct hand cycling is refused.
 ```
 
 ## Verify

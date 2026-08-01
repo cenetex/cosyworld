@@ -3,10 +3,12 @@
 **Status:** prototype only; not selected, not compiled, and not authorized to
 ship. Proposed identity: `cosyworld.variant/deck-gated-ordinary-actions/0`.
 
-The default `cosyworld.srd5/1` mode remains a projection CCG: the server
-computes every legal action and separately ranks a three-card suggestion hand.
-This spike asks what would happen if a draw constrained ordinary actions as
-well as prepared Magic cards.
+When this historical spike was written, the default `cosyworld.srd5/1` mode
+was described as a projection CCG with a three-card suggestion hand. That
+baseline is superseded: the live mode now deals two certified action offers,
+and certified Think/Pass consumes a turn to rotate them. This spike still asks
+what would happen if a different draw constrained ordinary actions as well as
+prepared Magic cards.
 
 ## Prototype rules
 
@@ -32,8 +34,8 @@ identities remain free.
 ## Scripted playtest
 
 Run `npm run v2:spike:deck-gated`. The deterministic simulator executes 10,000
-scene intents across all twelve actions. With a three-card hand, the projection
-mode has a 0% initial miss rate and 0 selection delay. The current fixture's
+scene intents across all twelve actions. Its historical three-card projection
+baseline had a 0% initial miss rate and 0 selection delay. The current fixture's
 gated prototype has a 74.47% initial miss/fallback rate, 0.745 mean additional
 selection steps, and 0% lockout because of the mandatory free fallback.
 

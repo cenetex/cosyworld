@@ -190,6 +190,19 @@ async function waitForActorJobs(eventDbPath) {
   throw new Error("actor jobs did not become quiescent before pack migration");
 }
 
+function assertDurableMessageEvent(eventDbPath, content) {
+  const database = new Database(eventDbPath, { readonly: true });
+  const events = database
+    .prepare("SELECT payload_json FROM world_events WHERE event_type = 'message.created' ORDER BY seq")
+    .all()
+    .map((row) => JSON.parse(row.payload_json));
+  database.close();
+  assert(
+    events.some((event) => event.content === content),
+    `durable journal lost message ${JSON.stringify(content)}: ${JSON.stringify(events)}`,
+  );
+}
+
 function migratePack(operation, snapshotPath, eventDbPath, sourceRegistry, targetRegistry) {
   const migrated = spawnSync(process.execPath, [
     packMigrationPath,
@@ -275,8 +288,68 @@ async function command(baseUrl, actorId, actorSession, value) {
   return result;
 }
 
+async function passCurrentHand(baseUrl, actorId, actorSession, state) {
+  const pass = state.action_hand?.pass;
+  assert(pass?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
+  const result = await postJson(`${baseUrl}/commands`, {
+    actor_id: actorId,
+    actor_session: actorSession,
+    wallet_address: walletAddress,
+    command: "pass",
+    offer_id: pass.offer_id,
+  });
+  assert(result.ok === true, `Think failed while drawing an exact action: ${JSON.stringify(result)}`);
+}
+
+async function drawExactOffer(baseUrl, actorId, actorSession, predicate, label) {
+  let state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const deckSize = Math.max(1, Number(state.action_hand?.deck_size) || 1);
+  for (let attempt = 0; attempt < deckSize; attempt += 1) {
+    const dealtIds = new Set((state.action_hand?.entries || []).map((entry) => entry.offer_id));
+    const offer = (state.action_offers || []).find((candidate) =>
+      dealtIds.has(candidate.offer_id) && predicate(candidate));
+    if (offer) return offer;
+    await passCurrentHand(baseUrl, actorId, actorSession, state);
+    state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  }
+  throw new Error(`${label} was not dealt in one bounded rotation: ${JSON.stringify(state.action_hand)}`);
+}
+
+async function commandExactOffer(baseUrl, actorId, actorSession, value) {
+  const normalized = String(value).trim().toLowerCase();
+  const expectedKind = normalized === "search" ? "search" : null;
+  const offer = await drawExactOffer(
+    baseUrl,
+    actorId,
+    actorSession,
+    (candidate) => {
+      // The parser accepts bare `search`, while its certificate names the
+      // concrete target. Select that exact certified action by kind.
+      if (expectedKind) return candidate.kind === expectedKind;
+      return String(candidate.command || "").trim().toLowerCase() === normalized;
+    },
+    `command ${value}`,
+  );
+  const result = await postJson(`${baseUrl}/commands`, {
+    actor_id: actorId,
+    actor_session: actorSession,
+    wallet_address: walletAddress,
+    command: value,
+    offer_id: offer.offer_id,
+  });
+  assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
+  return result;
+}
+
 async function move(baseUrl, actorId, actorSession, destinationLocationId) {
-  const result = await postJson(`${baseUrl}/actions/move`, {
+  const offer = await drawExactOffer(
+    baseUrl,
+    actorId,
+    actorSession,
+    (candidate) => candidate.kind === "move" && Number(candidate.target?.id) === Number(destinationLocationId),
+    `travel to ${destinationLocationId}`,
+  );
+  const result = await submitOffer(baseUrl, offer, "/actions/move", {
     actor_id: actorId,
     actor_session: actorSession,
     wallet_address: walletAddress,
@@ -317,7 +390,7 @@ async function submitOffer(
 }
 
 async function discoverExit(baseUrl, actorId, actorSession, destinationLocationId) {
-  await command(baseUrl, actorId, actorSession, "listen");
+  await commandExactOffer(baseUrl, actorId, actorSession, "listen");
   for (let attempt = 0; attempt < 32; attempt += 1) {
     const state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
     if (state.exits?.some((exit) =>
@@ -326,12 +399,12 @@ async function discoverExit(baseUrl, actorId, actorSession, destinationLocationI
       && exit.locked === false)) {
       return state;
     }
-    await command(baseUrl, actorId, actorSession, "search");
+    await commandExactOffer(baseUrl, actorId, actorSession, "search");
   }
   throw new Error(`exit ${destinationLocationId} was not discovered after 32 searches`);
 }
 
-function assertContext(state, {
+async function assertContext(baseUrl, actorId, actorSession, state, {
   location,
   locationPack,
   selectedBy,
@@ -346,25 +419,22 @@ function assertContext(state, {
       && state.rules_context?.capability_id === capability,
     `wrong rules context at ${location}: ${JSON.stringify(state.rules_context)}`,
   );
-  assert(
-    state.action_offers?.some((offer) => offer.verb === offerVerb),
-    `missing ${offerVerb} vocabulary at ${location}: ${JSON.stringify(
-      state.action_offers?.map(({ kind, verb, command, target }) => ({
-        kind,
-        verb,
-        command,
-        target,
-      })),
-    )}`,
+  const contextOffer = await drawExactOffer(
+    baseUrl,
+    actorId,
+    actorSession,
+    (offer) => offer.verb === offerVerb
+      && offer.composition_trace?.source_card_instances?.some((card) => (
+        card.card_id === sourceCard && card.pack_id === locationPack
+      )),
+    `${offerVerb} from ${sourceCard} at ${location}`,
   );
   assert(
-    state.action_offers?.some((offer) =>
-      offer.composition_trace?.source_card_instances?.some((card) =>
-        card.card_id === sourceCard && card.pack_id === locationPack)),
-    `missing ${sourceCard} action-card context at ${location}`,
+    contextOffer.verb === offerVerb,
+    `missing ${offerVerb} vocabulary at ${location}: ${JSON.stringify(contextOffer)}`,
   );
   assert(
-    state.action_offers?.every((offer) =>
+    state.action_offers?.length > 0 && state.action_offers.every((offer) =>
       /^sha256:[0-9a-f]{64}$/.test(offer.composition_id)
       && /^sha256:[0-9a-f]{64}$/.test(offer.composition_trace?.worldpack_bundle_hash)
       && offer.composition_trace?.pack_versions?.some((pack) => pack.pack_id === locationPack)),
@@ -402,7 +472,7 @@ async function main() {
     const actorId = created.actor.id;
     const actorSession = created.actor_session;
     const sourceCottage = await fetchJson(stateUrl(source.baseUrl, actorId, actorSession));
-    assertContext(sourceCottage, {
+    await assertContext(source.baseUrl, actorId, actorSession, sourceCottage, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
       selectedBy: "cosyworld.core",
@@ -454,7 +524,7 @@ async function main() {
     );
 
     const cottage = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
-    assertContext(cottage, {
+    await assertContext(first.baseUrl, actorId, actorSession, cottage, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
       selectedBy: "cosyworld.core",
@@ -471,15 +541,14 @@ async function main() {
     );
     await command(first.baseUrl, actorId, actorSession, "say core side");
     const discovered = await discoverExit(first.baseUrl, actorId, actorSession, 11);
-    const travelOffer = discovered.action_offers?.find((offer) =>
-      offer.kind === "move"
-      && offer.verb === "Travel"
-      && offer.target?.id === 11);
-    assert(
-      travelOffer,
-      `discovered Homeroom path did not become a Core Travel offer: ${JSON.stringify(
-        discovered.action_offers,
-      )}`,
+    const travelOffer = await drawExactOffer(
+      first.baseUrl,
+      actorId,
+      actorSession,
+      (offer) => offer.kind === "move"
+        && offer.verb === "Travel"
+        && offer.target?.id === 11,
+      "discovered Homeroom path did not become a Core Travel offer",
     );
     const travelPayload = {
       actor_id: actorId,
@@ -506,9 +575,9 @@ async function main() {
     const afterRejectedTravel = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
     assert(
       afterRejectedTravel.location?.id === cottage.location.id
-        && afterRejectedTravel.world_seq === discovered.world_seq,
+        && afterRejectedTravel.world_seq === travelOffer.state_revision,
       `rejected composition certificate mutated the scene: ${JSON.stringify({
-        before: { location: discovered.location, world_seq: discovered.world_seq },
+        before: { location: discovered.location, world_seq: travelOffer.state_revision },
         after: {
           location: afterRejectedTravel.location,
           world_seq: afterRejectedTravel.world_seq,
@@ -534,7 +603,7 @@ async function main() {
     );
 
     const homeroom = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
-    assertContext(homeroom, {
+    await assertContext(first.baseUrl, actorId, actorSession, homeroom, {
       location: "Homeroom",
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
@@ -558,7 +627,7 @@ async function main() {
       `restart did not use the journal checkpoint: ${second.output.slice(-40).join("")}`,
     );
     const replayed = await fetchJson(stateUrl(second.baseUrl, actorId, actorSession));
-    assertContext(replayed, {
+    await assertContext(second.baseUrl, actorId, actorSession, replayed, {
       location: "Homeroom",
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",
@@ -577,13 +646,15 @@ async function main() {
       limit: "500",
     });
     const replayEvents = await fetchJson(`${second.baseUrl}/events?${replayQuery}`);
+    // The replay endpoint filters to the actor's visible locations; after the
+    // restart they are in Homeroom, so the earlier Cottage line belongs in the
+    // durable journal assertion rather than the current-room event stream.
+    assertDurableMessageEvent(eventDbPath, "core side");
     assert(
       replayEvents.events?.some((event) =>
-        event.type === "message.created" && event.content === "core side")
-        && replayEvents.events?.some((event) =>
           event.type === "message.created" && event.content === "ruby side")
         && replayEvents.events?.some((event) => event.type === "rules_context.changed"),
-      `journal replay lost the action loop: ${JSON.stringify(replayEvents.events)}`,
+      `journal replay lost the current-room action loop: ${JSON.stringify(replayEvents.events)}`,
     );
 
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_100));
@@ -593,7 +664,7 @@ async function main() {
       `Ruby → Core transition missing: ${JSON.stringify(returnedCore.events)}`,
     );
     const returned = await fetchJson(stateUrl(second.baseUrl, actorId, actorSession));
-    assertContext(returned, {
+    await assertContext(second.baseUrl, actorId, actorSession, returned, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
       selectedBy: "cosyworld.core",
@@ -661,7 +732,7 @@ async function main() {
       `Ruby or its bridge remained mounted: ${JSON.stringify(coreOnly.meta.worldpack)}`,
     );
     const whileUnmounted = await fetchJson(stateUrl(coreOnly.baseUrl, actorId, actorSession));
-    assertContext(whileUnmounted, {
+    await assertContext(coreOnly.baseUrl, actorId, actorSession, whileUnmounted, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
       selectedBy: "cosyworld.core",
@@ -724,7 +795,7 @@ async function main() {
       `remounted restart did not use the journal checkpoint: ${remounted.output.slice(-40).join("")}`,
     );
     const afterRemount = await fetchJson(stateUrl(remounted.baseUrl, actorId, actorSession));
-    assertContext(afterRemount, {
+    await assertContext(remounted.baseUrl, actorId, actorSession, afterRemount, {
       location: "The Cosy Cottage",
       locationPack: "cosyworld.core",
       selectedBy: "cosyworld.core",
@@ -750,7 +821,7 @@ async function main() {
     );
     await move(remounted.baseUrl, actorId, actorSession, 11);
     const restoredHomeroom = await fetchJson(stateUrl(remounted.baseUrl, actorId, actorSession));
-    assertContext(restoredHomeroom, {
+    await assertContext(remounted.baseUrl, actorId, actorSession, restoredHomeroom, {
       location: "Homeroom",
       locationPack: "ruby-high.first-bell",
       selectedBy: "ruby-high.first-bell",

@@ -246,6 +246,10 @@ pub(super) struct StateResponse {
     pub(super) exits: Vec<ExitView>,
     pub(super) actors: Vec<ActorView>,
     pub(super) items: Vec<ItemView>,
+    // These internal projections remain available to Rust-side invariant tests;
+    // clients receive the explicitly named visible projection below.
+    #[allow(dead_code)]
+    #[serde(skip_serializing)]
     pub(super) factions: Vec<FactionView>,
     pub(super) room_features: Vec<RoomFeatureView>,
     pub(super) scene_notices: Vec<DiscoverySceneNoticeView>,
@@ -264,6 +268,8 @@ pub(super) struct StateResponse {
     pub(super) bonds: Vec<BondView>,
     pub(super) chat_bond_claimed_target_ids: Vec<u64>,
     pub(super) cards: CardRegistryView,
+    #[allow(dead_code)]
+    #[serde(skip_serializing)]
     pub(super) card_transactions: Vec<CardTransactionView>,
     pub(super) access: AccessView,
     pub(super) account: AccountView,
@@ -276,9 +282,18 @@ pub(super) struct StateResponse {
     pub(super) recent_events: Vec<EventView>,
     pub(super) journal_beats: Vec<JournalBeatView>,
     pub(super) room_memory: RoomMemoryView,
+    #[allow(dead_code)]
+    #[serde(skip_serializing)]
     pub(super) primary_action: PrimaryAction,
+    #[serde(rename = "primary_action")]
+    pub(super) visible_primary_action: PrimaryAction,
+    #[allow(dead_code)]
+    #[serde(skip_serializing)]
     pub(super) action_offers: Vec<RankedActionOffer>,
+    #[serde(rename = "action_offers")]
+    pub(super) visible_action_offers: Vec<RankedActionOffer>,
     pub(super) action_hand: ActionHandView,
+    #[serde(skip_serializing)]
     pub(super) inspector: InspectorView,
     pub(super) character_creation: Vec<CharacterCreationProfileView>,
     pub(super) character_identity: Option<CharacterIdentityView>,
@@ -1562,11 +1577,9 @@ pub(super) fn assert_complete_offer_inspector(state: &StateResponse) {
             && !decision.reason.is_empty()
             && (!decision.in_hand || decision.available)
     }));
-    assert!(state.inspector.offer_decisions.iter().any(|decision| {
-        decision.available
-            && !decision.in_hand
-            && (decision.reason.contains("remains available to inference")
-                || decision.reason.contains("same choice group"))
+    assert!(state.inspector.offer_decisions.iter().all(|decision| {
+        !decision.reason.contains("same choice group")
+            && !decision.reason.contains("non-browser transports")
     }));
 }
 
@@ -2583,7 +2596,35 @@ impl RuntimeWorld {
             access,
             active_direct_actor_ids,
         );
-        let action_hand = compose_action_hand(&action_offers);
+        let action_hand = self.action_hand_for(client_actor_id, &action_offers);
+        let visible_action_offers = action_hand
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                action_offers
+                    .iter()
+                    .find(|offer| offer.offer_id == entry.offer_id)
+                    .cloned()
+            })
+            .collect::<Vec<_>>();
+        let mut visible_primary_action = primary_action.clone();
+        let hand_kinds = visible_action_offers
+            .iter()
+            .map(|offer| offer.kind.as_str())
+            .collect::<BTreeSet<_>>();
+        visible_primary_action
+            .options
+            .retain(|option| hand_kinds.contains(option.kind.as_str()));
+        if let Some(offer) = visible_action_offers.first() {
+            visible_primary_action.kind = if offer.kind == "move" {
+                "travel".to_string()
+            } else {
+                offer.kind.clone()
+            };
+            visible_primary_action.label = offer.verb.clone();
+            visible_primary_action.command = offer.command.clone();
+            visible_primary_action.disabled = offer.disabled;
+        }
         let shared_questions = self.shared_question_views_with_actions(
             location_id,
             client_actor_id,
@@ -2697,7 +2738,9 @@ impl RuntimeWorld {
             journal_beats,
             room_memory,
             primary_action,
+            visible_primary_action,
             action_offers,
+            visible_action_offers,
             action_hand,
             inspector,
             character_creation: character_creation_views(),
@@ -3567,7 +3610,6 @@ impl RuntimeWorld {
     fn action_offer_decision_view(
         offer: &RankedActionOffer,
         hand_offer_ids: &BTreeSet<String>,
-        hand_groups: &BTreeSet<String>,
     ) -> ActionOfferDecisionView {
         let in_hand = hand_offer_ids.contains(&offer.offer_id);
         let available = action_offer_is_reachable(offer);
@@ -3589,11 +3631,8 @@ impl RuntimeWorld {
             "The action has no active project in the current scene.".to_string()
         } else if !offer.ranked_hand_eligible {
             "Rest is legal here, but nothing currently needs recovery, so it stays outside the two-card browser hand.".to_string()
-        } else if hand_groups.contains(&action_offer_hand_group(offer)) {
-            "A higher-ranked action from the same choice group occupies the browser hand."
-                .to_string()
         } else {
-            "This legal action ranks outside the two-card browser hand and remains available to inference and non-browser transports.".to_string()
+            "This legal action ranks outside the current two-card hand.".to_string()
         };
         ActionOfferDecisionView {
             offer_id: offer.offer_id.clone(),
@@ -3652,19 +3691,9 @@ impl RuntimeWorld {
             .iter()
             .map(|entry| entry.offer_id.clone())
             .collect::<BTreeSet<_>>();
-        let hand_groups = action_hand
-            .entries
-            .iter()
-            .filter_map(|entry| {
-                action_offers
-                    .iter()
-                    .find(|offer| offer.offer_id == entry.offer_id)
-                    .map(action_offer_hand_group)
-            })
-            .collect::<BTreeSet<_>>();
         let offer_decisions = action_offers
             .iter()
-            .map(|offer| Self::action_offer_decision_view(offer, &hand_offer_ids, &hand_groups))
+            .map(|offer| Self::action_offer_decision_view(offer, &hand_offer_ids))
             .collect();
 
         InspectorView {

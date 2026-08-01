@@ -77,9 +77,9 @@ keep separate domains so that a friendly label never silently changes rules:
 | --- | --- | --- |
 | Rules actions | Search, Study, Utilize, Help, Attack | Resolve through the selected rules profile. |
 | Movement | Travel, ordinary movement, crossing an exit | Use movement and access rules; Dash and Disengage may modify it. |
-| Communication | Say, emote, ordinary player speech | Turn-exempt and free unless the player is trying to influence an NPC. |
+| Communication | Bounded Chat card, moderated client `say`/`/me`, and server-authored resident speech | Chat is a turn-consuming current-hand action; typed speech is moderated, journaled, and turn-exempt. |
 | Object transfer | Take, Give, Trade | Inventory and ownership operations, not Utilize by default. |
-| Procedures | Rest, initiative, equipping a loadout | Versioned procedures with their own contracts. |
+| Procedures | Rest, initiative, equipping a loadout | Rest and initiative are scene procedures; authenticated loadout configuration (equip, prepare, contain) is an explicit turn-neutral typed procedure, not a hidden scene-action chooser. |
 | Cosy advancement | Chat, Remember, Evolve, bank a Visit Ledger | CosyWorld progression outside the SRD action economy. Chat spends advancement to begin a friendship. |
 | Interface/meta | Look, inspect a card, report, open a menu | Never consumes a rules action. |
 
@@ -127,24 +127,23 @@ The default CCG-like experience is a **projection CCG**:
 1. The server determines every legal rule action and world operation.
 2. It combines those actions with the scene, equipped collectibles, visible
    subjects, jobs, clocks, and access grants.
-3. It ranks a small hand of contextual action offers.
+3. It ranks a finite contextual action deck and projects its current two-card hand.
 4. The browser renders those offers as cards with art from their source or
    target collectible.
-5. A player can still reach every legal action through More/commands even when
-   it is not in the suggested hand.
+5. A player can play only a card in the current hand. Certified Think/Pass
+   rotates to the next two cards and consumes the turn.
 
-Random draws must not decide which ordinary actions are legal. A future mode
-where a player can act only through drawn cards would add deck construction,
-draw timing, dead hands, card advantage, and a new balance economy. That is a
-separate namespaced rules variant, not an incidental UI change.
+The complete legal set remains authoritative inside the server, but it is not
+a client-side action catalog. The two-card hand is the playable subset. Its
+stable order and durable `hand.shuffled` events make Think/Pass deterministic and
+replayable; initiative, Wit, and Luck can matter because choices are finite.
 
-Spell cards are the deliberate exception to the no-draw default. A **spell
-deck** can determine which owned Magic effects are prepared or currently in a
-player's spell hand, because the deck is the source of those effects. A poor
-spell draw may remove a particular spell choice; it must not remove ordinary
-movement, communication, or SRD actions such as Search, Study, Help, and
-Utilize. The initial spell deck may simply be a deterministic prepared loadout;
-random draw, discard, exhaust, and refresh rules require an explicit profile.
+Spell cards are a separately constrained collectible source, not an exception
+to the finite action hand. A **spell deck** determines which owned Magic
+effects are prepared; a prepared Magic effect is playable only when its exact
+offer is dealt in the current two-card hand. The initial spell deck may simply
+be a deterministic prepared loadout; random draw, discard, exhaust, and
+refresh rules require an explicit profile.
 
 ### Implemented action-offer envelope
 
@@ -297,8 +296,8 @@ These inputs produce two different outputs:
 
 | Output | Contract |
 | --- | --- |
-| Legal action set | Every currently legal rules action and operation, with source, target, resolver, cost, risk, and disabled reason. This is the authoritative superset. |
-| Action hand | At most three ranked suggestions projected from the legal action set, plus free browsing/shuffle. Absence from the hand never makes a legal core action illegal. |
+| Legal action set | Every currently legal rules action and operation. This is an internal authoritative superset, not a public traversal surface. |
+| Action hand | Exactly the current playable subset, with at most two entries. Absence from the hand means the action cannot be submitted until a later certified Think/Pass. |
 
 Composition never moves a card between ownership zones. Entering a room can
 make an equipped charm relevant, make a carried key usable, expose a resident

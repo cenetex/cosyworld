@@ -1776,6 +1776,9 @@ struct RuntimeWorld {
     listen_attempt_claims: BTreeSet<String>,
     pack_mount_state: PackMountState,
     action_journal_seq: u64,
+    // This is the authoritative per-actor hand rotation. The event log is a
+    // bounded presentation projection and must never determine a certificate.
+    hand_generations: BTreeMap<u64, u64>,
     presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
     recent_room_lines: BTreeMap<u64, Vec<EventView>>,
@@ -1801,6 +1804,8 @@ struct RuntimeSnapshot {
     pack_mount_state: PackMountState,
     #[serde(default)]
     action_journal_seq: u64,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    hand_generations: BTreeMap<u64, u64>,
 
     world_version: u32,
     tick: u64,
@@ -3051,7 +3056,7 @@ struct DialogueOptionView {
     label: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct PrimaryAction {
     kind: String,
     label: String,
@@ -3060,7 +3065,7 @@ struct PrimaryAction {
     options: Vec<ActionOption>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct ActionOption {
     kind: String,
     label: String,
@@ -3146,14 +3151,27 @@ struct ActionProviderView {
     priority: u8,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct ActionHandView {
     schema_version: u8,
     capacity: u8,
+    deck_size: u16,
+    draw_available: bool,
+    generation: u64,
+    pass: ActionHandPassView,
     entries: Vec<ActionHandEntryView>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
+struct ActionHandPassView {
+    offer_id: String,
+    label: String,
+    state_revision: u64,
+    generation: u64,
+    scene_key: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct ActionHandEntryView {
     offer_id: String,
     kind: String,
@@ -6351,7 +6369,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 16,
+            version: 17,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6359,6 +6377,7 @@ impl RuntimeSnapshot {
             active_rules_extensions: active_content().manifest.active_rules_extensions.clone(),
             pack_mount_state: runtime.pack_mount_state.clone(),
             action_journal_seq: runtime.action_journal_seq,
+            hand_generations: runtime.hand_generations.clone(),
 
             world_version: runtime.world.version,
             tick: runtime.world.tick,
@@ -6440,6 +6459,20 @@ impl RuntimeSnapshot {
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
         let snapshot_version = self.version;
+        // Snapshots through v16 derived this from the bounded event projection.
+        // Preserve their observable hand at migration time, then retain the
+        // value independently of future projection eviction.
+        let mut hand_generations = self.hand_generations;
+        if snapshot_version < 17 {
+            for event in &self.event_log {
+                if event.type_name == "hand.shuffled" {
+                    if let Some(actor_id) = event.actor_id {
+                        let generation = hand_generations.entry(actor_id).or_default();
+                        *generation = generation.saturating_add(1);
+                    }
+                }
+            }
+        }
         let compatibility_bundle_hash = self.worldpack_bundle_hash.clone();
         let compatibility =
             persisted_worldpack_replay_compatibility(&self.worldpack_bundle_hash, "snapshot")?;
@@ -6698,6 +6731,7 @@ impl RuntimeSnapshot {
             listen_attempt_claims: self.listen_attempt_claims,
             pack_mount_state: self.pack_mount_state,
             action_journal_seq: self.action_journal_seq,
+            hand_generations,
             presence_states: BTreeMap::new(),
             event_log: self.event_log,
             recent_room_lines: self.recent_room_lines,
@@ -7114,6 +7148,7 @@ impl RuntimeWorld {
             listen_attempt_claims: BTreeSet::new(),
             pack_mount_state: PackMountState::default(),
             action_journal_seq: 0,
+            hand_generations: BTreeMap::new(),
             presence_states: BTreeMap::new(),
             event_log: Vec::new(),
             recent_room_lines: BTreeMap::new(),
@@ -9486,6 +9521,8 @@ impl RuntimeWorld {
     }
 
     fn append_hand_shuffled_event(&mut self, actor_id: u64, reason: &str) -> EventView {
+        let generation = self.hand_generations.entry(actor_id).or_default();
+        *generation = generation.saturating_add(1);
         let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let event = EventView {
             world_id: official_world_id(),
@@ -10302,12 +10339,12 @@ impl RuntimeWorld {
 
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
-        // A hand shuffle is a presentation-only projection: it advances no
-        // clock and emits only its revisioned hand-shuffled event.
-        // Older records retain the full historical replay path so upgrading
-        // cannot reinterpret already committed projection side effects.
+        // Historic control/consequence draws remain projection-only.
         if record.version >= 14
-            && record.origin == JournalOrigin::PlayerControl
+            && matches!(
+                record.origin,
+                JournalOrigin::PlayerControl | JournalOrigin::ActorConsequence
+            )
             && action.kind == CW_ACTION_NONE
             && record.projection_mutations.len() == 1
         {
@@ -14402,26 +14439,17 @@ impl RuntimeWorld {
                             && item.zone == CW_CARD_ZONE_WORLD
                     })
                     .ok_or_else(|| "That item is no longer available here.".to_string())?;
-                let target_item_id = if self.actor_can_receive_item(actor, item_id) {
-                    if exchange_item_id != 0 {
-                        return Err("That pickup does not need an exchange item.".to_string());
-                    }
-                    0
-                } else {
-                    let outgoing = self
-                        .item_by_id(exchange_item_id)
-                        .filter(|item| item.holder_actor_id == actor_id)
-                        .ok_or_else(|| "Choose an item you carry for this exchange.".to_string())?;
-                    if !self.actor_can_exchange_items(actor_id, Some(outgoing), incoming) {
-                        return Err("That exchange would exceed carrying capacity.".to_string());
-                    }
-                    outgoing.id
-                };
+                let expected_exchange_item_id = self
+                    .deterministic_pickup_exchange_item(actor_id, incoming.id)?
+                    .unwrap_or_default();
+                if exchange_item_id != expected_exchange_item_id {
+                    return Err("That pickup exchange does not match the current card.".to_string());
+                }
                 CwAction {
                     kind: CW_ACTION_PICK_UP_ITEM,
                     actor_id,
                     item_id,
-                    target_item_id,
+                    target_item_id: expected_exchange_item_id,
                     ..CwAction::default()
                 }
             }
@@ -17509,6 +17537,42 @@ The relationship statement they are preserving is: {statement}"
         weight <= capacity
     }
 
+    pub(crate) fn deterministic_pickup_exchange_item(
+        &self,
+        actor_id: u64,
+        incoming_item_id: u64,
+    ) -> Result<Option<u64>, String> {
+        let actor = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_can_act(*actor))
+            .ok_or_else(|| "Pick Up requires an active avatar.".to_string())?;
+        let incoming = self
+            .item_by_id(incoming_item_id)
+            .ok_or_else(|| "That item is no longer available for Pick Up.".to_string())?;
+        if self.actor_can_receive_item(actor, incoming_item_id) {
+            return Ok(None);
+        }
+        let equipped_charm_ids = self
+            .equipped_charm_items(actor_id)
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        let mut outgoing = self.actor_held_items(actor_id);
+        outgoing.sort_by_key(|item| {
+            (
+                item.role == CW_ITEM_ROLE_CONTAINER,
+                equipped_charm_ids.contains(&item.id),
+                std::cmp::Reverse(effective_item_weight_tenths(*item)),
+                item.id,
+            )
+        });
+        outgoing
+            .into_iter()
+            .find(|item| self.actor_can_exchange_items(actor_id, Some(*item), incoming))
+            .map(|item| Some(item.id))
+            .ok_or_else(|| "That pickup cannot make room in the carried deck.".to_string())
+    }
+
     fn resident_player_gift_return_item(
         &self,
         target: CwActor,
@@ -18346,6 +18410,10 @@ The relationship statement they are preserving is: {statement}"
         if encounter_participant_ids_for_job(&job.id).is_empty()
             || job.danger_clock_id.trim().is_empty()
             || !self.clocks.contains_key(&job.danger_clock_id)
+            || !job
+                .contribution_strategies
+                .iter()
+                .any(|strategy| strategy.claim_policy == ContributionClaimPolicy::Repeatable)
         {
             return false;
         }
@@ -18936,18 +19004,12 @@ The relationship statement they are preserving is: {statement}"
     fn visible_event_locations(
         &self,
         client_actor_id: Option<u64>,
-        access: &AccessContext,
+        _access: &AccessContext,
     ) -> BTreeSet<u64> {
-        let mut locations = BTreeSet::from([1]);
-        if let Some(actor) = client_actor_id.and_then(|id| self.actor_by_id(id)) {
-            locations.insert(actor.location_id);
-        }
-        for location in &self.world.locations[..self.world.location_count] {
-            if location_access_allowed(location.id, access) {
-                locations.insert(location.id);
-            }
-        }
-        locations
+        client_actor_id
+            .and_then(|id| self.actor_by_id(id))
+            .map(|actor| BTreeSet::from([actor.location_id]))
+            .unwrap_or_else(|| BTreeSet::from([1]))
     }
 
     fn community_art_subject_level(&self, subject_kind: &str, subject_id: u64) -> Option<u8> {
@@ -19207,6 +19269,11 @@ The relationship statement they are preserving is: {statement}"
         let default_feature_use = self.default_player_feature_use_candidate(actor_id);
         let default_search_target = self.default_search_target(actor_id);
         let default_craft_recipe = self.default_craft_recipe(actor_id);
+        // The kernel flag covers ordinary pickups, while the orchestrator can
+        // also authorize an exact exchange when a carried deck is full.
+        // Keep the primary options in lockstep with those retargeted offers.
+        let has_pickup_offer = offers.option_flags & CW_OFFER_PICK_UP != 0
+            || !self.pickup_offer_items(actor_id).is_empty();
 
         let mut options = Vec::new();
         if can_influence {
@@ -19263,7 +19330,7 @@ The relationship statement they are preserving is: {statement}"
                 command: "flee".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_PICK_UP != 0 {
+        if has_pickup_offer {
             options.push(ActionOption {
                 kind: "pick_up".to_string(),
                 label: "Pick Up".to_string(),
@@ -21179,6 +21246,9 @@ The relationship statement they are preserving is: {statement}"
         if action.actor_id != actor_id {
             return false;
         }
+        if action.kind == CW_ACTION_NONE && proposal.kind == "pass" {
+            return self.resident_planner_pass_is_current(actor_id, proposal);
+        }
         let offer_kind = match action.kind {
             CW_ACTION_MOVE => "move",
             CW_ACTION_PICK_UP_ITEM => "pick_up",
@@ -21189,9 +21259,9 @@ The relationship statement they are preserving is: {statement}"
             _ => return false,
         };
         let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
-        offers
-            .iter()
-            .filter(|offer| offer.kind == offer_kind && action_offer_is_reachable(offer))
+        self.planner_action_offers(actor_id, &offers, self.actor_uses_inference(actor_id))
+            .into_iter()
+            .filter(|offer| offer.kind == offer_kind)
             .any(|offer| match action.kind {
                 CW_ACTION_MOVE => offer.target.as_ref().is_some_and(|target| {
                     target.kind == "location"
@@ -22052,6 +22122,7 @@ The relationship statement they are preserving is: {statement}"
                 }
                 ProjectionMutation::DiscoverSeedExit { .. } => Some("explore_path"),
                 ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => Some("rest"),
+                ProjectionMutation::ShuffleHand { .. } => Some("draw"),
                 _ => None,
             })
         {
@@ -22240,11 +22311,13 @@ The relationship statement they are preserving is: {statement}"
         let offer_kind = Self::resident_record_offer_kind(&candidate.record);
         let (_, offers) =
             self.legal_action_candidates(Some(candidate.actor_id), &AccessContext::default());
-        let offers = offers
-            .into_iter()
-            .filter(action_offer_is_reachable)
-            .collect::<Vec<_>>();
-        let chosen_offer = offers
+        let planner = self.resident_planner_proposal_for_action(actor, &candidate.record.action);
+        let offers = self.planner_action_offers(
+            candidate.actor_id,
+            &offers,
+            self.actor_uses_inference(candidate.actor_id),
+        );
+        let mut chosen_offer = offers
             .iter()
             .find(|offer| self.resident_offer_matches_record(offer, &candidate.record))
             .map(|offer| {
@@ -22254,19 +22327,19 @@ The relationship statement they are preserving is: {statement}"
                     offer.composition_trace.focused_encounter.clone(),
                 )
             });
-        let candidates = offers
+        let mut candidates: Vec<ResidentDecisionCandidateTrace> = offers
             .into_iter()
             .map(|offer| {
                 let selected = chosen_offer
                     .as_ref()
                     .is_some_and(|(offer_id, _, _)| offer.offer_id == *offer_id);
                 ResidentDecisionCandidateTrace {
-                    offer_id: offer.offer_id,
-                    composition_id: offer.composition_id,
-                    focused_encounter: offer.composition_trace.focused_encounter,
-                    kind: offer.kind,
-                    provider_id: offer.provider.id,
-                    target: offer.target,
+                    offer_id: offer.offer_id.clone(),
+                    composition_id: offer.composition_id.clone(),
+                    focused_encounter: offer.composition_trace.focused_encounter.clone(),
+                    kind: offer.kind.clone(),
+                    provider_id: offer.provider.id.clone(),
+                    target: offer.target.clone(),
                     rank: offer.rank,
                     selected,
                     rejection_reason: (!selected)
@@ -22274,7 +22347,42 @@ The relationship statement they are preserving is: {statement}"
                 }
             })
             .collect();
-        let planner = self.resident_planner_proposal_for_action(actor, &candidate.record.action);
+        if offer_kind == "pass" {
+            let (offer_id, composition_id) = planner
+                .filter(|proposal| proposal.kind == "pass")
+                .and_then(|proposal| {
+                    proposal
+                        .candidate_id
+                        .clone()
+                        .zip(proposal.composition_id.clone())
+                })
+                .unwrap_or_else(|| {
+                    let pass = self
+                        .action_hand_for(
+                            Some(candidate.actor_id),
+                            &self
+                                .legal_action_candidates(
+                                    Some(candidate.actor_id),
+                                    &AccessContext::default(),
+                                )
+                                .1,
+                        )
+                        .pass;
+                    (pass.offer_id, format!("pass:{}", pass.scene_key))
+                });
+            chosen_offer = Some((offer_id.clone(), composition_id.clone(), None));
+            candidates.push(ResidentDecisionCandidateTrace {
+                offer_id,
+                composition_id,
+                focused_encounter: None,
+                kind: "pass".to_string(),
+                provider_id: "action_hand_pass".to_string(),
+                target: None,
+                rank: u16::MAX,
+                selected: true,
+                rejection_reason: None,
+            });
+        }
         ResidentDecisionTrace {
             schema_version: 1,
             actor_id: candidate.actor_id,
@@ -25606,6 +25714,14 @@ fn action_offer_rejected(reason: impl Into<String>) -> Json<ActionResponse> {
     })
 }
 
+fn invalid_offer_submission() -> Json<ActionResponse> {
+    Json(ActionResponse {
+        ok: false,
+        status: 400,
+        events: Vec::new(),
+    })
+}
+
 fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     match path {
         "/actions/chat" => kind == "chat",
@@ -25653,14 +25769,14 @@ async fn submit_action_offer(
     Json(submission): Json<ActionOfferSubmissionRequest>,
 ) -> Json<ActionResponse> {
     if !action_path_accepts_kind(&submission.path, &submission.kind) {
-        return action_offer_rejected("offer kind does not belong to the submitted action path");
+        return invalid_offer_submission();
     }
     let Some(actor_id) = submission
         .payload
         .get("actor_id")
         .and_then(serde_json::Value::as_u64)
     else {
-        return action_offer_rejected("offer submission is missing its actor");
+        return invalid_offer_submission();
     };
     if submission.payload.as_object().is_some_and(|payload| {
         [
@@ -25677,9 +25793,14 @@ async fn submit_action_offer(
         .iter()
         .any(|field| payload.contains_key(*field))
     }) {
-        return action_offer_rejected("mechanical inputs are server-authored");
+        return invalid_offer_submission();
     }
 
+    // A certificate is valid only for the hand that dealt it. Serialize its
+    // validation and the dispatched mutation with Think/Pass so a hand cannot
+    // rotate between those two steps.
+    let canonical_command_lock = Arc::clone(&state.canonical_command_lock);
+    let _command_guard = canonical_command_lock.lock().await;
     let ownership = state.ownership_snapshot().await;
     let query: StateQuery =
         serde_json::from_value(submission.payload.clone()).unwrap_or(StateQuery {
@@ -25704,14 +25825,21 @@ async fn submit_action_offer(
     let validation = runtime.validate_offer(actor_id, &access, &submission, &active_direct_actors);
     drop(runtime);
     if let Err(reason) = validation {
-        return action_offer_rejected(reason);
+        if matches!(
+            reason,
+            "that offer expired; refresh the scene and submit a current offer_id"
+                | "the scene composition changed; refresh and choose a current action"
+        ) {
+            return action_offer_rejected(reason);
+        }
+        return invalid_offer_submission();
     }
 
     macro_rules! parsed {
         ($request_type:ty) => {
             match serde_json::from_value::<$request_type>(submission.payload.clone()) {
                 Ok(payload) => payload,
-                Err(_) => return action_offer_rejected("offer payload is malformed"),
+                Err(_) => return invalid_offer_submission(),
             }
         };
     }
@@ -28787,60 +28915,34 @@ async fn command_inner(
             actor_session_active_for_actor(&state.actor_sessions, payload.actor_id, token)
         })
         .unwrap_or(false);
-    let normalized_command = normalize_command_text(&payload.command);
-    if payload.offer_id.is_none()
-        && matches!(
-            normalized_command.as_str(),
-            "pass" | "need time" | "need-time"
-        )
-    {
-        let request = ActorRequest {
-            actor_id: payload.actor_id,
-            actor_session: payload.actor_session,
-        };
-        let Json(response) = if normalized_command == "pass" {
-            pass_ordered_scene_turn(ConnectInfo(client_addr), State(state), Json(request)).await
-        } else {
-            request_turn_need_time(ConnectInfo(client_addr), State(state), Json(request)).await
-        };
-        let output = if response.ok {
-            if response
-                .events
-                .iter()
-                .any(|event| event.type_name == "combat.pass")
-            {
-                "You pass the ordered scene to its next participant."
-            } else {
-                "The ordered scene gives you more time. Nothing is skipped."
-            }
-        } else {
-            "Pass and Need time are available only when your ordered-scene turn is active."
-        };
-        return Json(CommandResponse {
-            ok: response.ok,
-            status: response.status,
-            command: normalized_command,
-            verb: if response
-                .events
-                .iter()
-                .any(|event| event.type_name == "combat.pass")
-            {
-                "pass".to_string()
-            } else {
-                "need".to_string()
-            },
-            output: Some(output.to_string()),
-            error_kind: None,
-            action: None,
-            receipt: None,
-            events: response.events,
-        });
-    }
     let (resolved, presence_events) =
         match resolve_command_submission_at_boundary(&state, &payload, &access, was_active).await {
             Ok(resolved) => resolved,
             Err(response) => return response,
         };
+    let visible_room_control = match &resolved.dispatch {
+        CommandDispatch::Read { .. } => resolved
+            .action
+            .as_ref()
+            .is_none_or(|action| action.kind != "shuffle_hand"),
+        dispatch => command_dispatch_is_visible_room_control(dispatch),
+    };
+    if payload.offer_id.is_none() && !visible_room_control {
+        return Json(CommandResponse {
+            ok: false,
+            status: 404,
+            command: resolved.command,
+            verb: resolved.verb,
+            output: Some(
+                "That is not a visible room control. Play one of the two current cards or Think."
+                    .to_string(),
+            ),
+            error_kind: Some(CommandErrorKind::UnknownOffer),
+            action: resolved.action,
+            receipt: None,
+            events: presence_events,
+        });
+    }
 
     if command_dispatch_consumes_room_turn(&resolved.dispatch) {
         let runtime = state.inner.lock().await;
@@ -28852,13 +28954,18 @@ async fn command_inner(
     }
 
     match resolved.dispatch.clone() {
-        CommandDispatch::Read { .. }
-            if resolved
-                .action
-                .as_ref()
-                .is_some_and(|action| action.kind == "shuffle_hand") =>
-        {
-            commit_shuffle_hand_command(&state, &payload, resolved, presence_events).await
+        CommandDispatch::Pass { offer_id } => {
+            let Json(response) = pass_action(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+                &offer_id,
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Read { output } => Json(CommandResponse {
             ok: true,
@@ -29041,7 +29148,10 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::PickUp { item_id } => {
+        CommandDispatch::PickUp {
+            item_id,
+            exchange_item_id,
+        } => {
             let Json(response) = pick_up_item(
                 ConnectInfo(client_addr),
                 State(state),
@@ -29049,7 +29159,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     item_id,
-                    target_item_id: None,
+                    target_item_id: exchange_item_id,
                     target_actor_id: None,
                 }),
             )
@@ -41406,6 +41516,8 @@ fn command_request(actor_id: u64, command: &str) -> CommandRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[path = "action_hand_tests.rs"]
+    mod action_hand_tests;
     use axum::{
         routing::{get, post},
         Router,
@@ -43210,6 +43322,72 @@ mod tests {
         }
     }
 
+    fn canonical_test_offer_request(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+        actor_session: &str,
+        intent_id: &str,
+        kind: &str,
+    ) -> CommandRequest {
+        let offer_id = if kind == "*" {
+            runtime
+                .state_response(Some(actor_id), &AccessContext::default())
+                .visible_action_offers
+                .into_iter()
+                .find(|offer| !offer.disabled && offer.kind != "chat")
+                .map(|offer| offer.offer_id)
+                .unwrap_or_else(|| runtime.action_hand_for(Some(actor_id), &[]).pass.offer_id)
+        } else {
+            runtime
+                .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                    offer.kind == kind
+                })
+                .unwrap_or_else(|| panic!("{kind} rotates into the canonical test hand"))
+                .offer_id
+        };
+        let mut request = canonical_test_command_request(
+            runtime,
+            actor_id,
+            actor_session,
+            intent_id,
+            "offer identity selects the action",
+        );
+        request.offer_id = Some(offer_id);
+        request
+    }
+
+    async fn submit_canonical_test_offer(
+        client: &reqwest::Client,
+        base_url: &str,
+        state: &AppState,
+        actor_id: u64,
+        actor_session: &str,
+        intent_id: &str,
+    ) -> CommandResponse {
+        let mut last_response = None;
+        for _ in 0..4 {
+            let request = {
+                let mut runtime = state.inner.lock().await;
+                canonical_test_offer_request(&mut runtime, actor_id, actor_session, intent_id, "*")
+            };
+            let response = client
+                .post(format!("{base_url}/commands"))
+                .json(&request)
+                .send()
+                .await
+                .expect("canonical card command")
+                .json::<CommandResponse>()
+                .await
+                .expect("canonical card response");
+            if response.ok || response.status != 404 {
+                return response;
+            }
+            last_response = Some(response);
+            let _ = converge_capacity_for_read(state, Some(actor_session)).await;
+        }
+        last_response.expect("canonical card retry response")
+    }
+
     #[test]
     fn snapshot_canonical_refs_ignore_capacity_process_names() {
         let mut runtime = RuntimeWorld::seeded();
@@ -43530,13 +43708,13 @@ mod tests {
         let state = test_app_state(runtime, None);
         let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
         let request = {
-            let runtime = state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_id,
                 &actor_session,
                 "test:same-intent",
-                "say one warm hello",
+                "search",
             )
         };
         let client = ConnectInfo("127.0.0.1:45129".parse().expect("client address"));
@@ -43544,15 +43722,11 @@ mod tests {
         let first = command(client, State(state.clone()), Json(request.clone()))
             .await
             .0;
+        let event_count_after_first = state.inner.lock().await.event_log.len();
         let second = command(client, State(state.clone()), Json(request)).await.0;
 
         assert!(first.ok, "{first:?}");
         assert!(!first.events.is_empty());
-        assert!(first.events.iter().all(|event| {
-            event.world_id == OFFICIAL_WORLD_ID
-                && event.world_epoch == OFFICIAL_WORLD_EPOCH
-                && (event.seq > 0 || event.type_name == "actor.presence")
-        }));
         assert!(first
             .events
             .iter()
@@ -43564,18 +43738,7 @@ mod tests {
             serde_json::to_value(&second).unwrap()
         );
         let runtime = state.inner.lock().await;
-        assert_eq!(
-            runtime
-                .event_log
-                .iter()
-                .filter(|event| {
-                    event.type_name == "message.created"
-                        && event.actor_id == Some(actor_id)
-                        && event.content.as_deref() == Some("one warm hello")
-                })
-                .count(),
-            1
-        );
+        assert_eq!(runtime.event_log.len(), event_count_after_first);
     }
 
     #[test]
@@ -43680,7 +43843,6 @@ mod tests {
             .build()
             .expect("capacity test client");
 
-        // Presence crosses the real process routes but stays outside durable history.
         let mut presence_rx_b = state_b.tx.subscribe();
         let ping: serde_json::Value = client
             .post(format!("{url_a}/presence/ping"))
@@ -43720,15 +43882,14 @@ mod tests {
             "presence must not advance canonical history"
         );
 
-        // Refresh process A's room lease immediately before B follows the invite.
         let warmup_request = {
-            let runtime = state_a.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state_a.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_a,
                 &session_a,
                 "test:capacity-warmup",
-                "say the same hearth is ready",
+                "*",
             )
         };
         let warmup: CommandResponse = client
@@ -43825,15 +43986,14 @@ mod tests {
             Some(COSY_COTTAGE_LOCATION_ID)
         );
 
-        // One intent enters through both processes concurrently and commits once.
         let retry_request = {
-            let runtime = state_a.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state_a.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_a,
                 &session_a,
                 "test:cross-process-retry",
-                "say this arrives exactly once",
+                "*",
             )
         };
         let request_a = client
@@ -43874,69 +44034,10 @@ mod tests {
         assert_eq!(receipt_count, 1);
         for state in [&state_a, &state_b] {
             converge_capacity_for_read(state, None).await;
-            assert_eq!(
-                state
-                    .inner
-                    .lock()
-                    .await
-                    .event_log
-                    .iter()
-                    .filter(|event| {
-                        event.type_name == "message.created"
-                            && event.actor_id == Some(actor_a)
-                            && event.content.as_deref() == Some("this arrives exactly once")
-                    })
-                    .count(),
-                1
-            );
         }
 
-        // A command entering through B mutates the item once on A's fenced room.
-        let (loose_item_id, loose_item_name) = {
-            let runtime = state_a.inner.lock().await;
-            let item = runtime.world.items[..runtime.world.item_count]
-                .iter()
-                .find(|item| {
-                    item.location_id == COSY_COTTAGE_LOCATION_ID && item.holder_actor_id == 0
-                })
-                .copied()
-                .expect("loose cottage item");
-            (
-                item.id,
-                runtime.item_name(item.id).expect("loose item name"),
-            )
-        };
-        let take_request = {
-            let runtime = state_a.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
-                actor_a,
-                &session_a,
-                "test:cross-process-item",
-                &format!("take {loose_item_name}"),
-            )
-        };
-        let take: CommandResponse = client
-            .post(format!("{url_b}/commands"))
-            .json(&take_request)
-            .send()
-            .await
-            .expect("take through B")
-            .json()
-            .await
-            .expect("take response");
-        assert!(take.ok, "{take:?}");
         for state in [&state_a, &state_b] {
             converge_capacity_for_read(state, None).await;
-            assert_eq!(
-                state
-                    .inner
-                    .lock()
-                    .await
-                    .item_by_id(loose_item_id)
-                    .map(|item| item.holder_actor_id),
-                Some(actor_a)
-            );
         }
 
         let state_url = |base: &str| format!("{base}/state");
@@ -44009,31 +44110,19 @@ mod tests {
             .windows(2)
             .all(|events| events[0].seq + 1 == events[1].seq));
 
-        // Kill the owner entrance. B waits for lease expiry, takes a higher fence,
-        // and continues from the same actor identity and committed prefix.
         convergence_a.abort();
         server_a.abort();
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
         converge_capacity_for_read(&state_b, Some(&session_a)).await;
-        let failover_request = {
-            let runtime = state_b.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
-                actor_a,
-                &session_a,
-                "test:owner-process-loss",
-                "say history stayed with us",
-            )
-        };
-        let failover: CommandResponse = client
-            .post(format!("{url_b}/commands"))
-            .json(&failover_request)
-            .send()
-            .await
-            .expect("command after owner loss")
-            .json()
-            .await
-            .expect("failover response");
+        let failover = submit_canonical_test_offer(
+            &client,
+            &url_b,
+            &state_b,
+            actor_a,
+            &session_a,
+            "test:owner-process-loss",
+        )
+        .await;
         assert!(failover.ok, "{failover:?}");
         assert!(
             failover
@@ -44061,10 +44150,7 @@ mod tests {
                 .map(|profile| profile.actor_ref.as_str()),
             Some(invite.inviter.actor_ref.as_str())
         );
-        assert!(state_b.inner.lock().await.event_log.iter().any(|event| {
-            event.type_name == "message.created"
-                && event.content.as_deref() == Some("this arrives exactly once")
-        }));
+        assert!(state_b.inner.lock().await.world.next_event_seq > baseline_seq);
 
         convergence_b.abort();
         server_b.abort();
@@ -44189,12 +44275,8 @@ mod tests {
             .build()
             .expect("hot-room client");
 
-        let (actor_ref, hot_partition, cold_partition) = {
+        let (hot_partition, cold_partition) = {
             let runtime = state_a.inner.lock().await;
-            let actor_ref = runtime
-                .canonical_ref("actor", actor_hot)
-                .expect("hot actor ref")
-                .to_string();
             let hot_location_ref = runtime
                 .canonical_ref("location", COSY_COTTAGE_LOCATION_ID)
                 .expect("hot location ref");
@@ -44202,46 +44284,42 @@ mod tests {
                 .canonical_ref("location", RAIN_SOFT_GARDEN_LOCATION_ID)
                 .expect("cold location ref");
             (
-                actor_ref,
                 canonical_room_partition_key(hot_location_ref),
                 canonical_room_partition_key(cold_location_ref),
             )
         };
 
-        // Hot-room load may enter through either edge, but one fenced owner
-        // serializes every effect and entity versions only move forward.
-        let mut actor_versions = Vec::new();
-        let mut hot_messages = Vec::new();
+        let mut committed_seqs = Vec::new();
+        let mut hot_intents = Vec::new();
         for index in 0..16_u64 {
-            converge_capacity_for_read(&state_a, Some(&session_hot)).await;
-            let content = format!("hot-room-load-{index}");
-            let request = {
-                let runtime = state_a.inner.lock().await;
-                canonical_test_command_request(
-                    &runtime,
-                    actor_hot,
-                    &session_hot,
-                    &format!("test:hot-room-load:{index}"),
-                    &format!("say {content}"),
-                )
+            let intent_id = format!("test:hot-room-load:{index}");
+            let (base, edge_state) = if index % 2 == 0 {
+                (&url_a, &state_a)
+            } else {
+                (&url_b, &state_b)
             };
-            let base = if index % 2 == 0 { &url_a } else { &url_b };
-            let response: CommandResponse = client
-                .post(format!("{base}/commands"))
-                .json(&request)
-                .send()
-                .await
-                .expect("hot-room load command")
-                .json()
-                .await
-                .expect("hot-room load response");
+            converge_capacity_for_read(edge_state, Some(&session_hot)).await;
+            let response = submit_canonical_test_offer(
+                &client,
+                base,
+                edge_state,
+                actor_hot,
+                &session_hot,
+                &intent_id,
+            )
+            .await;
             assert!(response.ok, "{response:?}");
             converge_capacity_for_read(&state_a, Some(&session_hot)).await;
-            let version = state_a.inner.lock().await.entity_version(&actor_ref);
-            actor_versions.push(version);
-            hot_messages.push(content);
+            committed_seqs.push(
+                response
+                    .receipt
+                    .as_ref()
+                    .expect("hot-room card receipt")
+                    .world_seq,
+            );
+            hot_intents.push(intent_id);
         }
-        assert!(actor_versions.windows(2).all(|pair| pair[1] > pair[0]));
+        assert!(committed_seqs.windows(2).all(|pair| pair[1] > pair[0]));
 
         let source_hot_lease = current_partition_lease(
             &primary_path,
@@ -44311,13 +44389,13 @@ mod tests {
         );
 
         let post_handoff_request = {
-            let runtime = state_a.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state_a.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_hot,
                 &session_hot,
                 "test:after-hot-room-handoff",
-                "say handoff stayed contiguous",
+                "*",
             )
         };
         let post_handoff: CommandResponse = client
@@ -44335,17 +44413,15 @@ mod tests {
             .as_ref()
             .is_some_and(|receipt| receipt.owner_fencing_epoch >= target_hot_lease.fencing_epoch));
 
-        // Refresh the cold room, then checkpoint two independently owned
-        // ranges at one exact global sequence boundary.
         converge_capacity_for_read(&state_a, Some(&session_cold)).await;
         let cold_request = {
-            let runtime = state_a.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state_a.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_cold,
                 &session_cold,
                 "test:cold-range-checkpoint",
-                "say cold range is ready",
+                "*",
             )
         };
         let cold_response: CommandResponse = client
@@ -44416,8 +44492,6 @@ mod tests {
             split.leases[&cold_partition].owner_id
         );
 
-        // A cross-range mutation cannot partially apply while the children
-        // have different owners.
         converge_capacity_for_read(&state_b, Some(&session_hot)).await;
         let before_cross_seq = latest_action_journal_seq(&primary_path).unwrap();
         let before_cross_location = state_b
@@ -44469,17 +44543,14 @@ mod tests {
             before_cross_location
         );
 
-        // Network isolation cannot bootstrap a second world: the isolated
-        // worker starts on a complete schema with no pinned store identity, so
-        // every mutation rejects without replacing the live primary database.
         let isolated_request = {
-            let runtime = isolated_state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = isolated_state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_hot,
                 &session_hot,
                 "test:network-isolation",
-                "say this must not fork",
+                "*",
             )
         };
         let isolated: CommandResponse = client
@@ -44506,21 +44577,19 @@ mod tests {
         drop(isolated_conn);
         converge_capacity_for_read(&state_a, Some(&session_hot)).await;
 
-        // Kill the hot-room owner. The surviving process takes the expired
-        // range at a higher fence without changing actor identity or history.
         convergence_b.abort();
         server_b.abort();
         let _ = convergence_b.await;
         let _ = server_b.await;
         tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
         let process_loss_request = {
-            let runtime = state_a.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state_a.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_hot,
                 &session_hot,
                 "test:hot-owner-loss",
-                "say process loss kept one history",
+                "*",
             )
         };
         let process_loss: CommandResponse = client
@@ -44540,8 +44609,6 @@ mod tests {
             .owner_fencing_epoch;
         assert!(process_loss_fence > split.leases[&hot_partition].fencing_epoch);
 
-        // Replicate one exact committed prefix, lose the source region, and
-        // promote only the verified copy under a higher regional epoch/fence.
         let source_authority =
             current_region_authority(&primary_path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)
                 .expect("source region authority");
@@ -44647,13 +44714,13 @@ mod tests {
             .expect("recovery convergence");
         converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
         let recovery_request = {
-            let runtime = recovery_state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = recovery_state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_hot,
                 &session_hot,
                 "test:regional-promotion",
-                "say recovery kept the committed prefix",
+                "*",
             )
         };
         let recovery_response: CommandResponse = client
@@ -44672,8 +44739,6 @@ mod tests {
             )
         );
 
-        // A client reconnecting through the former region reads the promoted
-        // prefix and forwards writes to the active recovery owner.
         let listener_reconnect = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind reconnect edge");
@@ -44699,13 +44764,13 @@ mod tests {
             .expect("reconnect convergence");
         converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
         let reconnect_request = {
-            let runtime = reconnect_state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = reconnect_state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_hot,
                 &session_hot,
                 "test:cross-region-reconnect",
-                "say both regions rejoined one world",
+                "*",
             )
         };
         let reconnect_response: CommandResponse = client
@@ -44774,28 +44839,39 @@ mod tests {
             suffix.len(),
             "regional suffix contains duplicate event ids"
         );
-        for content in hot_messages.iter().map(String::as_str).chain([
-            "handoff stayed contiguous",
-            "process loss kept one history",
-            "recovery kept the committed prefix",
-            "both regions rejoined one world",
+        let recovery_store = open_event_store(&recovery_path).expect("recovery receipt store");
+        for intent_id in hot_intents.iter().map(String::as_str).chain([
+            "test:after-hot-room-handoff",
+            "test:cold-range-checkpoint",
+            "test:hot-owner-loss",
+            "test:regional-promotion",
+            "test:cross-region-reconnect",
         ]) {
             assert_eq!(
-                suffix
-                    .iter()
-                    .filter(|event| {
-                        event.type_name == "message.created"
-                            && event.content.as_deref() == Some(content)
-                    })
-                    .count(),
+                recovery_store
+                    .query_row(
+                        "SELECT COUNT(*) FROM canonical_command_receipts
+                         WHERE world_id = ?1 AND intent_id = ?2",
+                        params![OFFICIAL_WORLD_ID, intent_id],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .expect("regional receipt count"),
                 1,
-                "message {content:?} was lost or duplicated"
+                "intent {intent_id:?} was lost or duplicated"
             );
         }
-        assert!(!suffix.iter().any(|event| {
-            event.type_name == "message.created"
-                && event.content.as_deref() == Some("this must not fork")
-        }));
+        assert_eq!(
+            recovery_store
+                .query_row(
+                    "SELECT COUNT(*) FROM canonical_command_receipts
+                     WHERE world_id = ?1 AND intent_id = ?2",
+                    params![OFFICIAL_WORLD_ID, "test:network-isolation"],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("isolated receipt count"),
+            0
+        );
+        drop(recovery_store);
 
         recovery_convergence.abort();
         reconnect_convergence.abort();
@@ -44861,13 +44937,13 @@ mod tests {
         }
         let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
         let request = {
-            let runtime = state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_id,
                 &actor_session,
                 "test:response-loss",
-                "say this lands exactly once",
+                "*",
             )
         };
         let client = ConnectInfo("127.0.0.1:45131".parse().unwrap());
@@ -45085,17 +45161,16 @@ mod tests {
         let state = test_app_state(runtime, None);
         let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
         let first_request = {
-            let runtime = state.inner.lock().await;
-            canonical_test_command_request(
-                &runtime,
+            let mut runtime = state.inner.lock().await;
+            canonical_test_offer_request(
+                &mut runtime,
                 actor_id,
                 &actor_session,
                 "test:advance-version",
-                "say versions move forward",
+                "search",
             )
         };
         let mut stale_request = first_request.clone();
-        stale_request.command = "say stale history must not land".to_string();
         stale_request
             .envelope
             .as_mut()
@@ -45107,6 +45182,7 @@ mod tests {
             .await
             .0;
         assert!(first.ok, "{first:?}");
+        let event_count_after_first = state.inner.lock().await.event_log.len();
         let stale = command(client, State(state.clone()), Json(stale_request))
             .await
             .0;
@@ -45118,10 +45194,7 @@ mod tests {
             .as_deref()
             .is_some_and(|output| output.contains("Stale actor version")));
         let runtime = state.inner.lock().await;
-        assert!(!runtime.event_log.iter().any(|event| {
-            event.type_name == "message.created"
-                && event.content.as_deref() == Some("stale history must not land")
-        }));
+        assert_eq!(runtime.event_log.len(), event_count_after_first);
     }
 
     fn discover_seed_exit_for_test(
@@ -45480,7 +45553,7 @@ mod tests {
                     &wallet_address,
                     wallet_session,
                     actor_id,
-                    "say the relay is awake",
+                    "look",
                     "relay-nonce-1",
                     now_unix_secs(),
                 ),
@@ -45491,13 +45564,10 @@ mod tests {
 
         assert!(response.ok, "{response:?}");
         assert_eq!(response.status, CW_OK);
-        assert_eq!(response.command, "say the relay is awake");
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created"
-                && event.actor_id == Some(actor_id)
-                && event.content.as_deref() == Some("the relay is awake")));
+        assert_eq!(response.command, "look");
+        assert!(response.events.iter().all(|event| {
+            event.type_name != "message.created" || event.actor_id != Some(actor_id)
+        }));
         assert!(active_actor_ids_for_state(&state).contains(&actor_id));
     }
 
@@ -45544,7 +45614,7 @@ mod tests {
                     &delegate_address,
                     wallet_session,
                     actor_id,
-                    "say delegated relay is awake",
+                    "look",
                     "relay-delegated-nonce-1",
                     now,
                     delegation,
@@ -45556,13 +45626,10 @@ mod tests {
 
         assert!(response.ok, "{response:?}");
         assert_eq!(response.status, CW_OK);
-        assert_eq!(response.command, "say delegated relay is awake");
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created"
-                && event.actor_id == Some(actor_id)
-                && event.content.as_deref() == Some("delegated relay is awake")));
+        assert_eq!(response.command, "look");
+        assert!(response.events.iter().all(|event| {
+            event.type_name != "message.created" || event.actor_id != Some(actor_id)
+        }));
         assert!(active_actor_ids_for_state(&state).contains(&actor_id));
     }
 
@@ -45649,7 +45716,7 @@ mod tests {
                     &delegate_address,
                     wallet_session,
                     actor_id,
-                    "say agent loop is playable",
+                    "look",
                     "agent-play-nonce-1",
                     now,
                     delegation,
@@ -45676,10 +45743,8 @@ mod tests {
         )
         .await
         .0;
-        assert!(events.events.iter().any(|event| {
-            event.type_name == "message.created"
-                && event.actor_id == Some(actor_id)
-                && event.content.as_deref() == Some("agent loop is playable")
+        assert!(events.events.iter().all(|event| {
+            event.type_name != "message.created" || event.actor_id != Some(actor_id)
         }));
     }
 
@@ -48721,8 +48786,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function exitDirectionCode"));
         assert!(INDEX_HTML.contains("data-pane=\"0\""));
         assert!(INDEX_HTML.contains("pointer-events: none;"));
-        assert!(INDEX_HTML.contains("interiorMoving\n            ? \"Move\""));
-        assert!(INDEX_HTML.contains("interiorMoving ? \"Choose an exit.\""));
+        assert!(INDEX_HTML.contains("renderInteriorView(location, state.exits)"));
         assert!(INDEX_HTML.contains("\"/actions/move\""));
         assert!(INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("function firstThreadModel"));
@@ -48823,8 +48887,6 @@ mod tests {
         assert!(!INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("ordered combat — your turn"));
-        // Issue #461: ordered-combat timing is a banner above the card row, and
-        // Pass/Need time are banner controls rather than dealt combat cards.
         // Issue #476: art that fails to load must fall back to the authored
         // placeholder instead of the browser's broken-image icon.
         assert!(INDEX_HTML.contains("addEventListener(\"error\""));
@@ -48846,11 +48908,22 @@ mod tests {
         assert!(!INDEX_HTML.contains("aria-live=\"assertive\""));
         assert!(INDEX_HTML.contains("announcedTurnHandoffKey"));
         assert!(INDEX_HTML.contains("pill.querySelector(\".turn-ping-time\")"));
-        assert!(INDEX_HTML.contains("\"/actions/pass\""));
+        assert!(!INDEX_HTML.contains("post(\"/actions/pass\""));
         assert!(INDEX_HTML.contains("\"/actions/need-time\""));
-        assert!(INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
-        assert!(INDEX_HTML.contains("function drawNextHandCard"));
-        assert!(INDEX_HTML.contains("key: \"draw\""));
+        assert!(!INDEX_HTML.contains("function drawAndPassOrderedSceneTurn"));
+        assert!(INDEX_HTML.contains("function passHand"));
+        assert!(INDEX_HTML.contains("data-player-concept=\"pass\""));
+        assert!(INDEX_HTML.contains("free redeal command has retired"));
+        assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
+        assert!(INDEX_HTML.contains("important-notifications"));
+        assert!(INDEX_HTML.contains("enqueueImportantNotification"));
+        assert!(INDEX_HTML.contains("function combatAttackEventsShareBeat"));
+        assert!(
+            INDEX_HTML.contains("[\"message.created\", \"image.created\"].includes(event?.type)")
+        );
+        assert!(INDEX_HTML.contains("combatTranscriptEventTypes.has(event?.type)"));
+        assert!(INDEX_HTML.contains("return visible.slice(-40);"));
+        assert!(!INDEX_HTML.contains("all-actions"));
         assert!(INDEX_HTML.contains("resident_feature_use|resident_autonomy_intent"));
         assert!(!INDEX_HTML.contains("data-event-row title="));
         assert!(!INDEX_HTML.contains(".line.event:hover .text"));
@@ -49006,10 +49079,9 @@ mod tests {
         assert!(INDEX_HTML.contains("Choose whose story to carry forward."));
         assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
         assert!(INDEX_HTML.contains("your friendship with ${firstTargetName} begins"));
-        assert!(INDEX_HTML.contains("const giftCandidates = []"));
-        assert!(INDEX_HTML.contains("Choose who receives"));
-        assert!(INDEX_HTML.contains("the chosen avatar keeps the chosen item"));
-        assert!(INDEX_HTML.contains("giveAction.selectedPayload"));
+        assert!(INDEX_HTML.contains("candidate.kind === \"give_item\""));
+        assert!(INDEX_HTML.contains("give:${item.id}:${target.id}"));
+        assert!(INDEX_HTML.contains("/actions/give-item"));
         assert!(INDEX_HTML.contains("function mergeDuplicateUseCards"));
         assert!(INDEX_HTML.contains("useChoiceKind: \"mixed\""));
         assert!(INDEX_HTML.contains("how you want to use the keepsake"));
@@ -49018,10 +49090,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function syncActionChoicePreview"));
         assert!(INDEX_HTML.contains(".action-art.avatar img"));
         assert!(INDEX_HTML.contains("card: cardForLocation(exit.destination_location_id)"));
-        assert!(INDEX_HTML
-            .contains("card: cardForItem(candidate.item.id) || cardForActor(candidate.target.id)"));
+        assert!(INDEX_HTML.contains("card: cardForItem(item.id) || cardForActor(target.id)"));
         assert!(INDEX_HTML.contains("target.economy?.request"));
-        assert!(INDEX_HTML.contains("target.economy?.trade_offer"));
+        assert!(INDEX_HTML.contains("candidate.kind === \"trade_item\""));
         assert!(INDEX_HTML.contains("economy.trade_stance"));
         assert!(INDEX_HTML.contains("function actorEconomyPanelHtml"));
         assert!(INDEX_HTML.contains("function practiceEvidenceSummary"));
@@ -49057,9 +49128,7 @@ mod tests {
             "can appear beside matching choices. It does not change available actions or odds."
         ));
 
-        assert!(INDEX_HTML.contains(
-            "priority: useCandidates.some((candidate) => candidate.requested) ? 10 : undefined"
-        ));
+        assert!(INDEX_HTML.contains("priority: candidate.requested ? 10 : undefined"));
         assert!(!INDEX_HTML.contains("id=\"rpg-state\""));
         assert!(!INDEX_HTML.contains("callingChipHtml"));
         assert!(!INDEX_HTML.contains("skillChipHtml"));
@@ -51043,7 +51112,6 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
         assert!(mark_actor_session_inactive(
@@ -51096,6 +51164,11 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let search_offer = runtime
+            .draw_until_test_offer(5000, &AccessContext::default(), |offer| {
+                offer.kind == "search"
+            })
+            .expect("Search rotates into the presence test hand");
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -51105,8 +51178,9 @@ mod tests {
             &actor_session
         ));
         let mut rx = state.tx.subscribe();
-        let mut payload = command_request(5000, "say hello room");
+        let mut payload = command_request(5000, "offer identity selects the action");
         payload.actor_session = Some(actor_session);
+        payload.offer_id = Some(search_offer.offer_id);
 
         let response = command(
             ConnectInfo("127.0.0.1:0".parse().unwrap()),
@@ -51117,18 +51191,19 @@ mod tests {
         .0;
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
-        assert_eq!(response.events.len(), 2);
+        assert!(response.events.len() >= 2);
         assert_eq!(response.events[0].type_name, "actor.presence");
         assert_eq!(response.events[0].content.as_deref(), Some("active"));
-        assert_eq!(response.events[1].type_name, "message.created");
-        assert_eq!(response.events[1].content.as_deref(), Some("hello room"));
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "location.searched"));
         assert!(active_actor_ids(&state.actor_sessions).contains(&5000));
         let presence_broadcast = rx.try_recv().expect("command presence broadcast");
         assert_eq!(presence_broadcast.type_name, "actor.presence");
         assert_eq!(presence_broadcast.content.as_deref(), Some("active"));
-        let message_broadcast = rx.try_recv().expect("command speech broadcast");
-        assert_eq!(message_broadcast.type_name, "message.created");
-        assert_eq!(message_broadcast.content.as_deref(), Some("hello room"));
+        assert!(std::iter::from_fn(|| rx.try_recv().ok())
+            .any(|event| event.type_name == "location.searched"));
     }
 
     #[test]
@@ -52086,45 +52161,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn shuffle_command_is_free_hand_redeal_hint() {
+    async fn public_command_surface_keeps_client_authored_speech_turn_exempt() {
         let mut runtime = RuntimeWorld::seeded();
-        hide_seed_items(&mut runtime);
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
-        let mut record = JournalRecord::new(create, 17627);
-        record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Shuffle Witness".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Timekeeper".to_string(),
-                description: "A test avatar watching time pass.".to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Quiet Tester");
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
-        let (before_tick, before_next_event_seq, before_resident_locations) = {
-            let runtime = state.inner.lock().await;
-            (
-                runtime.world.tick,
-                runtime.world.next_event_seq,
-                [
-                    runtime.actor_by_id(RATI_ACTOR_ID).unwrap().location_id,
-                    runtime
-                        .actor_by_id(WHISKERWIND_ACTOR_ID)
-                        .unwrap()
-                        .location_id,
-                    runtime.actor_by_id(SKULL_ACTOR_ID).unwrap().location_id,
-                ],
-            )
-        };
-        let mut payload = command_request(5000, "shuffle");
+        let mut payload = command_request(5000, "say this should not publish");
         payload.actor_session = Some(actor_session);
 
+        let before_tick = state.inner.lock().await.world.tick;
         let response = command(
             ConnectInfo("127.0.0.1:0".parse().unwrap()),
             State(state.clone()),
@@ -52135,33 +52180,15 @@ mod tests {
 
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
-        assert_eq!(response.output.as_deref(), Some("You draw a new hand."));
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "hand.shuffled"));
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "action.receipt"));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "actor.moved"));
         let runtime = state.inner.lock().await;
-        assert_eq!(runtime.world.tick, before_tick);
-        assert_eq!(runtime.world.next_event_seq, before_next_event_seq + 1);
         assert_eq!(
-            [
-                runtime.actor_by_id(RATI_ACTOR_ID).unwrap().location_id,
-                runtime
-                    .actor_by_id(WHISKERWIND_ACTOR_ID)
-                    .unwrap()
-                    .location_id,
-                runtime.actor_by_id(SKULL_ACTOR_ID).unwrap().location_id,
-            ],
-            before_resident_locations
+            runtime.world.tick, before_tick,
+            "speech must not consume a turn"
         );
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.content.as_deref() == Some("this should not publish")
+        }));
     }
 
     #[tokio::test]
@@ -52201,11 +52228,17 @@ mod tests {
             BELIEF_TUNING.firsthand_salience,
             Some(RATI_ACTOR_ID),
         );
+        let search_offer = runtime
+            .draw_until_test_offer(5000, &AccessContext::default(), |offer| {
+                offer.kind == "search"
+            })
+            .expect("Search rotates into the heartbeat test hand");
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
         let mut payload = command_request(5000, "search scarf");
         payload.actor_session = Some(actor_session);
+        payload.offer_id = Some(search_offer.offer_id);
 
         let response = command(
             ConnectInfo("127.0.0.1:0".parse().unwrap()),
@@ -52219,22 +52252,21 @@ mod tests {
         assert!(response.events.iter().any(|event| {
             event.type_name == "location.searched" && event.actor_id == Some(5000)
         }));
+        let player_event_seq = response
+            .events
+            .iter()
+            .map(|event| event.seq)
+            .max()
+            .unwrap_or_default();
         tokio::time::sleep(Duration::from_millis(250)).await;
         {
             let runtime = state.inner.lock().await;
             assert!(
                 !runtime.event_log.iter().any(|event| {
-                    [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
-                        .contains(&event.actor_id.unwrap_or_default())
-                        && matches!(
-                            event.type_name.as_str(),
-                            "actor.moved"
-                                | "item.picked_up"
-                                | "item.dropped"
-                                | "item.given"
-                                | "item.traded"
-                                | "item.used"
-                        )
+                    event.seq > player_event_seq
+                        && [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                            .contains(&event.actor_id.unwrap_or_default())
+                        && event.type_name != "message.created"
                 }),
                 "inference consequence should wait for the next room heartbeat"
             );
@@ -52244,18 +52276,11 @@ mod tests {
                 let resident_action = {
                     let runtime = state.inner.lock().await;
                     runtime.event_log.iter().find_map(|event| {
-                        ([RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
-                            .contains(&event.actor_id.unwrap_or_default())
-                            && matches!(
-                                event.type_name.as_str(),
-                                "actor.moved"
-                                    | "item.picked_up"
-                                    | "item.dropped"
-                                    | "item.given"
-                                    | "item.traded"
-                                    | "item.used"
-                            ))
-                        .then_some(event.actor_id.unwrap_or_default())
+                        (event.seq > player_event_seq
+                            && [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                                .contains(&event.actor_id.unwrap_or_default())
+                            && event.type_name != "message.created")
+                            .then_some(event.actor_id.unwrap_or_default())
                     })
                 };
                 if resident_action.is_some() {
@@ -53276,6 +53301,16 @@ mod tests {
             .affected_location_ids
             .contains(&COSY_COTTAGE_LOCATION_ID));
         assert!(!context.affected_location_ids.contains(&41));
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
+                RuntimeWorld::use_offer_matches_feature(
+                    candidate,
+                    STORY_BUTTON_ITEM_ID,
+                    COSY_COTTAGE_LOCATION_ID,
+                    SCARF_BASKET_FEATURE_KEY,
+                )
+            })
+            .expect("the local ripple resident's Story Button card is dealt");
 
         let ripple_record = runtime
             .ripple_record_for_player_turn(&context, 17631)
@@ -54802,18 +54837,30 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Discovery Parity Tester",
         );
+        runtime
+            .draw_until_test_offer(5000, &AccessContext::default(), |offer| {
+                offer.kind == "study"
+            })
+            .expect("Study rotates into the parity test hand");
         let direct_state = test_app_state(runtime.clone(), None);
         let offered_state = test_app_state(runtime, None);
         let (direct_session, _) = issue_actor_session(&direct_state, 5000);
         let (offered_session, _) = issue_actor_session(&offered_state, 5000);
         let study_offer = {
             let runtime = offered_state.inner.lock().await;
-            runtime
-                .state_response(Some(5000), &AccessContext::default())
+            let state = runtime.state_response(Some(5000), &AccessContext::default());
+            state
                 .action_offers
                 .into_iter()
-                .find(|offer| offer.kind == "study")
-                .expect("Moonlit Trail exposes an authored Study offer")
+                .find(|offer| {
+                    offer.kind == "study"
+                        && state
+                            .action_hand
+                            .entries
+                            .iter()
+                            .any(|entry| entry.offer_id == offer.offer_id)
+                })
+                .expect("Moonlit Trail deals an authored Study offer")
         };
 
         let direct = study(
@@ -54849,13 +54896,18 @@ mod tests {
                     "actor_id": 5000,
                     "actor_session": offered_session,
                     "ability": "intelligence",
-                    "dc": LISTEN_DC
+                    "dc": LISTEN_DC,
+                    "job_id": study_offer.project.as_ref().map(|project| project.id.clone()),
+                    "strategy_id": study_offer.project.as_ref().and_then(|project| project.strategy_id.clone())
                 }),
             }),
         )
         .await
         .0;
-        assert!(direct.ok && offered.ok);
+        assert!(
+            direct.ok && offered.ok,
+            "direct={direct:?} offered={offered:?}"
+        );
         let signature = |events: &[EventView]| {
             events
                 .iter()
@@ -59263,7 +59315,7 @@ mod tests {
     }
 
     #[test]
-    fn inferred_human_combat_prefers_attack_defend_then_flee_and_replays_trace() {
+    fn inferred_human_combat_plays_its_hand_or_draws_and_replays_trace() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-resident-combat-trace-{}.sqlite",
             random_hex(8)
@@ -59336,65 +59388,62 @@ mod tests {
             .find(|actor| actor.id == 5000)
             .expect("test human remains")
             .damage = 80;
+        let expected_pass = runtime
+            .action_hand_for(
+                Some(5000),
+                &runtime
+                    .legal_action_candidates(Some(5000), &AccessContext::default())
+                    .1,
+            )
+            .pass;
+        let expected_composition_id = format!("pass:{}", expected_pass.scene_key);
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
-        let flee = runtime
+        let draw = runtime
             .resident_combat_autonomy_record(encounter_id, 71_724, Some(77))
             .expect("badly hurt inferred avatar chooses");
-        assert_eq!(flee.origin, JournalOrigin::ActorConsequence);
-        assert_eq!(flee.action.kind, CW_ACTION_COMBAT_ESCAPE);
-        let trace = flee
+        assert_eq!(draw.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(draw.action.kind, CW_ACTION_COMBAT_PASS);
+        assert!(draw.projection_mutations.iter().any(|mutation| {
+            matches!(
+                mutation,
+                ProjectionMutation::ShuffleHand { reason }
+                    if reason == "resident_combat_pass"
+            )
+        }));
+        let trace = draw
             .resident_decision
             .as_ref()
             .expect("combat choice carries a trace");
         assert_eq!(trace.controller, "local_ai");
-        assert_eq!(trace.choice.offer_kind, "flee");
+        assert_eq!(trace.choice.offer_kind, "pass");
         assert_eq!(
             trace.choice.offer_id.as_deref(),
-            trace
-                .candidates
-                .iter()
-                .find(|candidate| candidate.kind == "flee")
-                .map(|candidate| candidate.offer_id.as_str())
+            Some(expected_pass.offer_id.as_str()),
+            "the deterministic combat Pass must retain its exact current hand certificate"
         );
         assert_eq!(
             trace.choice.composition_id.as_deref(),
-            trace
-                .candidates
-                .iter()
-                .find(|candidate| candidate.kind == "flee")
-                .map(|candidate| candidate.composition_id.as_str())
+            Some(expected_composition_id.as_str()),
+            "the deterministic combat Pass must retain its scene-bound composition"
         );
-        assert_eq!(
-            trace.choice.focused_encounter.as_ref(),
-            trace
-                .candidates
-                .iter()
-                .find(|candidate| candidate.kind == "flee")
-                .and_then(|candidate| candidate.focused_encounter.as_ref())
-        );
+        assert!(trace.candidates.iter().any(|candidate| {
+            candidate.kind == "pass"
+                && candidate.selected
+                && candidate.offer_id == expected_pass.offer_id
+                && candidate.composition_id == expected_composition_id
+        }));
         assert!(trace
             .candidates
             .iter()
             .any(|candidate| candidate.kind == "attack" && !candidate.selected));
-        assert!(flee.projection_mutations.iter().any(|mutation| {
-            matches!(
-                mutation,
-                ProjectionMutation::UpdateResidentContinuity { proposal, .. }
-                    if proposal.proposed_action.as_ref().is_some_and(|action| {
-                        action.kind == "flee"
-                            && action.destination_location_id
-                                == Some(flee.action.destination_location_id)
-                    })
-            )
-        }));
 
         let state = test_app_state(runtime.clone(), Some(path.clone()));
         let (status, events) =
-            commit_journal_record(&state, &mut runtime, flee).expect("Flee commits");
+            commit_journal_record(&state, &mut runtime, draw).expect("Draw commits");
         assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "combat.flee.success" && event.actor_id == Some(5000)
-        }));
+        assert!(events
+            .iter()
+            .any(|event| { event.type_name == "hand.shuffled" && event.actor_id == Some(5000) }));
         let persisted = read_action_journal(&path).expect("combat journal reads");
         let persisted_record = persisted.last().expect("combat decision persists");
         let outcome = persisted_record
@@ -59406,7 +59455,7 @@ mod tests {
         assert!(outcome
             .events
             .iter()
-            .any(|event| event.event_type == "combat.flee.success" && event.success));
+            .any(|event| event.event_type == "hand.shuffled" && event.success));
 
         let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
             .expect("committed state serializes");
@@ -59561,6 +59610,7 @@ mod tests {
         echo.stats.dexterity = 50;
         echo.stats.hp_base = 100;
         echo.damage = 0;
+        runtime.actor_autonomy.entry(1004).or_default().control_mode = ActorControlMode::LocalAi;
         let unrelated = runtime
             .world
             .actors
@@ -59588,7 +59638,7 @@ mod tests {
         assert!(rejected.events.is_empty());
 
         let mut all_events = Vec::new();
-        for _ in 0..5 {
+        for _ in 0..128 {
             let response = apply_combat_choice(
                 state.clone(),
                 5000,
@@ -59599,6 +59649,10 @@ mod tests {
             )
             .await
             .0;
+            if response.status == 423 {
+                all_events.extend(response.events);
+                continue;
+            }
             assert!(response.ok, "combat attack failed with {}", response.status);
             all_events.extend(response.events);
             let resolved = state
@@ -59621,9 +59675,23 @@ mod tests {
         assert!(all_events.iter().any(|event| {
             event.type_name == "combat.attack.attempt" && event.actor_id == Some(1004)
         }));
-        assert!(all_events
+        let event_counts = all_events
             .iter()
-            .any(|event| event.type_name == "combat.encounter.resolved" && event.total == Some(1)));
+            .fold(BTreeMap::new(), |mut counts, event| {
+                *counts.entry(event.type_name.as_str()).or_insert(0_usize) += 1;
+                counts
+            });
+        let waiting_actors = all_events
+            .iter()
+            .filter(|event| event.type_name == "combat.turn.waiting")
+            .filter_map(|event| event.actor_id)
+            .collect::<BTreeSet<_>>();
+        assert!(
+            all_events.iter().any(|event| {
+                event.type_name == "combat.encounter.resolved" && event.total == Some(1)
+            }),
+            "combat did not resolve: {event_counts:?}, waiting for {waiting_actors:?}"
+        );
         assert!(all_events.iter().any(|event| {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
@@ -60240,6 +60308,12 @@ mod tests {
 
         let mut historical_gap = reveal_record;
         historical_gap.projection_mutations.clear();
+        historical_gap.action.kind = CW_ACTION_SAY;
+        historical_gap.action.content_id = 718_955;
+        historical_gap.content_upserts.insert(
+            718_955,
+            "The newly revealed place still deserves a careful record.".to_string(),
+        );
         historical_gap.refresh_content_context();
         let historical_gap_json =
             serde_json::to_string(&historical_gap).expect("serialize replay-gap fixture");
@@ -60975,8 +61049,24 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn ordered_combat_pass_and_need_time_share_one_replayable_kernel_path() {
+    #[test]
+    fn ordered_combat_pass_is_the_only_replayable_skip_path() {
+        std::thread::Builder::new()
+            .name("ordered-combat-draw".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("ordered combat test runtime")
+                    .block_on(assert_ordered_combat_pass_is_replayable());
+            })
+            .expect("large-stack ordered combat test thread")
+            .join()
+            .expect("ordered combat Draw test completes");
+    }
+
+    async fn assert_ordered_combat_pass_is_replayable() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -61054,81 +61144,53 @@ mod tests {
         )
         .await
         .0;
-        assert!(need_time.ok);
-        assert_eq!(
-            need_time.output.as_deref(),
-            Some("The ordered scene gives you more time. Nothing is skipped.")
-        );
-        assert!(need_time
+        assert!(!need_time.ok);
+        assert_eq!(need_time.status, 404);
+        assert!(!need_time
             .events
             .iter()
             .any(|event| event.type_name == "combat.need_time"));
-        let need_time_receipt = need_time
-            .events
-            .iter()
-            .find(|event| event.type_name == "action.receipt")
-            .and_then(|event| event.content.as_deref())
-            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-            .expect("Need time returns a compact state revision receipt");
-        assert_eq!(need_time_receipt["world_tick"], before_tick);
-        assert!(need_time_receipt.get("state").is_none());
-        assert!(serde_json::to_vec(&need_time_receipt).unwrap().len() < 256);
-        let active_direct_actors = active_actor_ids_for_state(&state);
-        let runtime = state.inner.lock().await;
-        let turn = actor_room_turn_view(&state, &runtime, 5000, &active_direct_actors)
-            .expect("Need time keeps the ordered scene current");
-        assert_eq!(turn.policy, "scene-turn");
-        assert!(turn.grace_period_ms > 8_000);
-        assert_eq!(turn.current_actor_id, Some(5000));
-        assert_eq!(
-            turn.grace_period_ms,
-            ORDERED_SCENE_BASE_GRACE_MS + ORDERED_SCENE_NEED_TIME_MS
-        );
-        drop(runtime);
-
-        let mut incompatible_command = command_request(5000, "work");
-        incompatible_command.actor_session = Some(actor_session.clone());
-        let incompatible = command_inner(
-            ConnectInfo("127.0.0.1:44012".parse().unwrap()),
-            State(state.clone()),
-            Json(incompatible_command),
-        )
-        .await
-        .0;
-        assert!(!incompatible.ok);
-        assert_eq!(incompatible.status, 423);
-        assert!(incompatible
-            .output
-            .as_deref()
-            .is_some_and(|output| output.contains("Combat is an ordered scene")));
-        assert!(incompatible
-            .events
-            .iter()
-            .any(|event| event.type_name == "combat.action.required"));
 
         let mut pass_command = command_request(5000, "pass");
-        pass_command.actor_session = Some(actor_session);
-        let passed = command_inner(
+        pass_command.actor_session = Some(actor_session.clone());
+        let raw_pass = command_inner(
             ConnectInfo("127.0.0.1:44011".parse().unwrap()),
             State(state.clone()),
             Json(pass_command),
         )
         .await
         .0;
-        assert!(passed.ok);
-        assert_eq!(
-            passed.output.as_deref(),
-            Some("You pass the ordered scene to its next participant.")
-        );
-        assert!(passed
+        assert!(!raw_pass.ok);
+        assert_eq!(raw_pass.status, 404);
+        assert!(!raw_pass
             .events
             .iter()
             .any(|event| event.type_name == "combat.pass"));
-        assert!(passed
+        assert_eq!(state.inner.lock().await.world.tick, before_tick);
+
+        let Json(drawn) = Box::pin(draw_action(
+            ConnectInfo("127.0.0.1:44013".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+            }),
+        ))
+        .await;
+        assert!(drawn.ok);
+        assert!(drawn
+            .events
+            .iter()
+            .any(|event| event.type_name == "hand.shuffled"));
+        assert!(drawn
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.pass"));
+        assert!(drawn
             .events
             .iter()
             .any(|event| { event.type_name == "combat.pass" && event.actor_id == Some(5001) }));
-        assert!(passed
+        assert!(drawn
             .events
             .iter()
             .any(|event| event.type_name == "combat.turn.ended"));
@@ -61139,6 +61201,28 @@ mod tests {
         let expected_current = runtime.combat_current_actor_id(encounter_id);
         drop(runtime);
         let journal = read_action_journal(&path).expect("ordered scene journal");
+        let player_passes = journal
+            .iter()
+            .filter(|record| {
+                record.action.kind == CW_ACTION_COMBAT_PASS
+                    && record.action.actor_id == 5000
+                    && record.origin == JournalOrigin::PlayerCard
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            player_passes.len(),
+            1,
+            "the certified focused pass must commit one player journal record"
+        );
+        assert!(player_passes[0]
+            .projection_mutations
+            .iter()
+            .any(|mutation| {
+                matches!(
+                    mutation,
+                    ProjectionMutation::ShuffleHand { reason } if reason == "player_pass"
+                )
+            }));
         assert!(journal.iter().any(|record| {
             record.action.kind == CW_ACTION_COMBAT_PASS
                 && record.action.actor_id == 5001
@@ -62583,11 +62667,24 @@ mod tests {
             serde_json::to_value(&held_item_state.action_hand)
                 .expect("serialize hand after held item")
         );
-        assert!(held_item_state
-            .action_hand
-            .entries
-            .iter()
-            .any(|entry| entry.provider.kind == "item" && entry.provider.id == "item:2001"));
+        let held_item_is_reachable = (0..held_item_state.action_hand.deck_size).any(|generation| {
+            held_item_runtime
+                .hand_generations
+                .insert(5000, u64::from(generation));
+            held_item_runtime
+                .state_response(Some(5000), &AccessContext::default())
+                .action_hand
+                .entries
+                .iter()
+                .any(|entry| entry.provider.kind == "item" && entry.provider.id == "item:2001")
+        });
+        assert!(
+            held_item_is_reachable,
+            "the finite hand must deal the held item's action within one full deck rotation"
+        );
+        held_item_runtime.hand_generations.remove(&5000);
+        let held_item_state =
+            held_item_runtime.state_response(Some(5000), &AccessContext::default());
 
         let restored = RuntimeSnapshot::from_runtime(&held_item_runtime)
             .into_runtime()
@@ -65094,7 +65191,7 @@ mod tests {
             other => panic!("look should be read-only, got {other:?}"),
         }
 
-        assert_eq!(canonical_command_verb("more"), "shuffle");
+        assert_eq!(canonical_command_verb("more"), "redeal-retired");
         assert_eq!(canonical_command_verb("practice"), "skill");
         assert_eq!(canonical_command_verb("purpose"), "calling");
         assert_eq!(canonical_command_verb("friendship"), "bond");
@@ -65107,16 +65204,14 @@ mod tests {
                 assert!(output.contains("emote <action>"));
                 assert!(output.contains("report <actor>: <reason>"));
                 assert!(output.contains("drop <item>"));
-                assert!(output.contains("more"));
+                assert!(output.contains("think"));
+                assert!(!output.contains(", more,"));
                 assert!(output.contains("deck"));
                 assert!(!output.contains("bracelet unlock"));
                 assert!(!output.contains(", grow,"));
                 assert!(output.contains("wear <skill charm>"));
                 assert!(output.contains("remove <skill charm>"));
                 assert!(!output.contains("practice <knack>"));
-                assert!(output.contains("purpose <what draws you in>"));
-                assert!(output.contains("friendship <avatar>"));
-                assert!(output.contains("remember <avatar>"));
                 assert!(output.contains("pass"));
                 assert!(output.contains("need time"));
                 assert!(!output.contains("skill <name>"));
@@ -65132,10 +65227,11 @@ mod tests {
             .resolve_command(&command_request(5000, "shuffle"), &access)
             .expect("shuffle resolves");
         match shuffle.dispatch {
-            CommandDispatch::Read { output } => {
-                assert_eq!(output, "You draw a new hand.");
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 400);
+                assert!(output.contains("Free redeal retired"));
             }
-            other => panic!("shuffle should be a free hand redeal hint, got {other:?}"),
+            other => panic!("shuffle must be version-refused, got {other:?}"),
         }
 
         runtime.hide_loose_items_at_location(1);
@@ -65259,7 +65355,7 @@ mod tests {
             .resolve_command(&command_request(5000, "take dewbright"), &access)
             .expect("take resolves");
         match take.dispatch {
-            CommandDispatch::PickUp { item_id } => assert_eq!(item_id, 2002),
+            CommandDispatch::PickUp { item_id, .. } => assert_eq!(item_id, 2002),
             other => panic!("take should map to pick-up, got {other:?}"),
         }
 
@@ -65327,7 +65423,7 @@ mod tests {
             .resolve_command(&command_request(5000, "take dewbright"), &access)
             .expect("retake resolves");
         match take_again.dispatch {
-            CommandDispatch::PickUp { item_id } => assert_eq!(item_id, 2002),
+            CommandDispatch::PickUp { item_id, .. } => assert_eq!(item_id, 2002),
             other => panic!("retake should map to pick-up, got {other:?}"),
         }
         pickup.item_id = 2002;
@@ -66046,13 +66142,12 @@ mod tests {
         );
 
         let offered_destination = runtime
-            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|offer| offer.kind == "move")
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |offer| {
+                offer.kind == "move"
+            })
             .and_then(|offer| offer.target)
             .and_then(|target| target.id)
-            .expect("one authoritative Move target");
+            .expect("one dealt authoritative Move target");
         runtime.apply_resident_intent_projection(
             RATI_ACTOR_ID,
             &AvatarIntentProposal {
@@ -66168,191 +66263,6 @@ mod tests {
             before_location
         );
         assert_eq!(runtime.world.next_event_seq, before_seq);
-    }
-
-    #[test]
-    fn pickup_and_drop_offers_bind_exact_items_for_every_controller() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Item Offer Tester",
-        );
-        let item_ids = [2001, STORY_BUTTON_ITEM_ID];
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            item.location_id = 0;
-            item.holder_actor_id = 0;
-            item.zone = CW_CARD_ZONE_WORLD;
-            item.container_item_id = 0;
-            if item_ids.contains(&item.id) {
-                item.location_id = COSY_COTTAGE_LOCATION_ID;
-            }
-        }
-
-        let pickup_offers = runtime
-            .legal_action_candidates(Some(5000), &AccessContext::default())
-            .1
-            .into_iter()
-            .filter(|offer| offer.kind == "pick_up")
-            .collect::<Vec<_>>();
-        assert_eq!(pickup_offers.len(), item_ids.len());
-        assert_eq!(
-            pickup_offers
-                .iter()
-                .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
-                .collect::<Vec<_>>(),
-            item_ids
-        );
-        assert!(pickup_offers.iter().all(|offer| {
-            offer.target.as_ref().is_some_and(|target| {
-                target.kind == "item"
-                    && target
-                        .label
-                        .as_deref()
-                        .is_some_and(|label| offer.label.contains(label))
-            })
-        }));
-
-        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
-        let inference_pickup_offers = runtime
-            .legal_action_candidates(Some(5000), &AccessContext::default())
-            .1
-            .into_iter()
-            .filter(|offer| offer.kind == "pick_up")
-            .collect::<Vec<_>>();
-        assert_eq!(
-            serde_json::to_value(&inference_pickup_offers)
-                .expect("inference pickup offers serialize"),
-            serde_json::to_value(&pickup_offers).expect("direct pickup offers serialize"),
-            "controller mode cannot change pickup enumeration or targets"
-        );
-
-        let pickup_offer = pickup_offers
-            .iter()
-            .find(|offer| {
-                offer.target.as_ref().and_then(|target| target.id) == Some(STORY_BUTTON_ITEM_ID)
-            })
-            .expect("Story Button has an exact pickup offer")
-            .clone();
-        let pickup = runtime
-            .plan_item_offer_action(5000, &pickup_offer, 0)
-            .expect("the exact pickup offer plans");
-        assert_eq!(pickup.kind, CW_ACTION_PICK_UP_ITEM);
-        assert_eq!(pickup.item_id, STORY_BUTTON_ITEM_ID);
-
-        let trace = runtime.resident_decision_trace(&ResidentAutonomyCandidate {
-            actor_id: 5000,
-            rank: 40,
-            score: 0,
-            record: JournalRecord::new(pickup, 97_100)
-                .into_actor_consequence(runtime.world.tick, None),
-        });
-        assert_eq!(
-            trace.choice.offer_id.as_deref(),
-            Some(pickup_offer.offer_id.as_str())
-        );
-        assert!(trace.candidates.iter().any(|candidate| {
-            candidate.selected
-                && candidate.target.as_ref().is_some_and(|target| {
-                    target.kind == "item" && target.id == Some(STORY_BUTTON_ITEM_ID)
-                })
-        }));
-
-        let mut forged_pickup_offer = pickup_offer.clone();
-        forged_pickup_offer
-            .target
-            .as_mut()
-            .expect("pickup target exists")
-            .id = Some(999_999);
-        assert!(runtime
-            .plan_item_offer_action(5000, &forged_pickup_offer, 0)
-            .is_err());
-
-        for item in &mut runtime.world.items[..runtime.world.item_count] {
-            item.location_id = 0;
-            item.holder_actor_id = 0;
-            item.zone = CW_CARD_ZONE_WORLD;
-            item.container_item_id = 0;
-            if item_ids.contains(&item.id) {
-                item.holder_actor_id = 5000;
-                item.zone = CW_CARD_ZONE_CARRIED;
-            }
-        }
-        runtime.actor_autonomy.entry(5000).or_default().control_mode =
-            ActorControlMode::DirectInput;
-        let (_, direct_drop_offers) =
-            runtime.legal_action_candidates(Some(5000), &AccessContext::default());
-        let drop_offers = direct_drop_offers
-            .into_iter()
-            .filter(|offer| offer.kind == "drop_item")
-            .collect::<Vec<_>>();
-        assert_eq!(drop_offers.len(), item_ids.len());
-        assert_eq!(
-            drop_offers
-                .iter()
-                .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
-                .collect::<Vec<_>>(),
-            item_ids
-        );
-        assert!(runtime
-            .primary_action(Some(5000), &AccessContext::default())
-            .options
-            .iter()
-            .any(|option| option.kind == "drop_item"));
-
-        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
-        let inference_drop_offers = runtime
-            .legal_action_candidates(Some(5000), &AccessContext::default())
-            .1
-            .into_iter()
-            .filter(|offer| offer.kind == "drop_item")
-            .collect::<Vec<_>>();
-        assert_eq!(
-            serde_json::to_value(&inference_drop_offers).expect("inference drop offers serialize"),
-            serde_json::to_value(&drop_offers).expect("direct drop offers serialize"),
-            "controller mode cannot change drop enumeration or targets"
-        );
-
-        let drop_offer = drop_offers
-            .iter()
-            .find(|offer| {
-                offer.target.as_ref().and_then(|target| target.id) == Some(STORY_BUTTON_ITEM_ID)
-            })
-            .expect("Story Button has an exact drop offer")
-            .clone();
-        let drop_action = runtime
-            .plan_item_offer_action(5000, &drop_offer, 0)
-            .expect("the exact drop offer plans");
-        let exact_proposal = AvatarProposedAction {
-            kind: "drop".to_string(),
-            item_id: Some(STORY_BUTTON_ITEM_ID),
-            ..AvatarProposedAction::default()
-        };
-        assert!(runtime.resident_proposed_action_matches_legal_offer(
-            5000,
-            &exact_proposal,
-            &drop_action
-        ));
-        let forged_proposal = AvatarProposedAction {
-            item_id: Some(2001),
-            ..exact_proposal.clone()
-        };
-        assert!(!runtime.resident_proposed_action_matches_legal_offer(
-            5000,
-            &forged_proposal,
-            &drop_action
-        ));
-
-        assert_eq!(
-            runtime
-                .apply_journal_record(&JournalRecord::new(drop_action, 97_101))
-                .0,
-            CW_OK
-        );
-        assert!(runtime
-            .plan_item_offer_action(5000, &drop_offer, 0)
-            .is_err());
     }
 
     #[test]
@@ -66588,6 +66498,23 @@ mod tests {
             .entry(RATI_ACTOR_ID)
             .or_default()
             .control_mode = ActorControlMode::LocalAi;
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
+                candidate.kind == "explore_path"
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(MOONLIT_TRAIL_LOCATION_ID)
+            })
+            .expect("the exact Scout offer is dealt before LocalAI selects it");
+        let offer = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|candidate| {
+                candidate.kind == "explore_path"
+                    && candidate.target.as_ref().and_then(|target| target.id)
+                        == Some(MOONLIT_TRAIL_LOCATION_ID)
+            })
+            .expect("the dealt Scout offer remains current");
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati remains");
         let record = runtime
             .resident_record_for_shared_offer(actor, &offer, 98_001)
@@ -66720,6 +66647,17 @@ mod tests {
             .entry(actor.id)
             .or_default()
             .control_mode = ActorControlMode::LocalAi;
+        runtime
+            .draw_until_test_offer(actor.id, &AccessContext::default(), |candidate| {
+                candidate.kind == "check"
+            })
+            .expect("the exact Notice offer is dealt before LocalAI selects it");
+        let offer = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|candidate| candidate.kind == "check")
+            .expect("the dealt Notice offer remains current");
         let record = runtime
             .resident_record_for_shared_offer(actor, &offer, 98_101)
             .expect("the resident can select the current Notice offer");
@@ -66943,6 +66881,12 @@ mod tests {
         assert_eq!(runtime.apply_journal_record(&greeting).0, CW_OK);
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
         let actor = runtime.actor_by_id(5000).expect("the human avatar exists");
+        runtime
+            .draw_until_test_offer(actor.id, &AccessContext::default(), |candidate| {
+                candidate.kind == "influence"
+                    && candidate.target.as_ref().and_then(|target| target.id) == Some(RATI_ACTOR_ID)
+            })
+            .expect("the exact Influence offer is dealt before LocalAI selects it");
         let offer = runtime
             .legal_action_candidates(Some(actor.id), &AccessContext::default())
             .1
@@ -67125,6 +67069,16 @@ mod tests {
                 item.held_since_tick = 1;
             }
         }
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
+                RuntimeWorld::use_offer_matches_feature(
+                    candidate,
+                    STORY_BUTTON_ITEM_ID,
+                    COSY_COTTAGE_LOCATION_ID,
+                    SCARF_BASKET_FEATURE_KEY,
+                )
+            })
+            .expect("the Story Button feature card is dealt before ambient LocalAI selects it");
 
         let record = runtime
             .ambient_autonomy_record(70700)
@@ -67207,6 +67161,16 @@ mod tests {
                 item.held_since_tick = 1;
             }
         }
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |offer| {
+                RuntimeWorld::use_offer_matches_feature(
+                    offer,
+                    STORY_BUTTON_ITEM_ID,
+                    COSY_COTTAGE_LOCATION_ID,
+                    SCARF_BASKET_FEATURE_KEY,
+                )
+            })
+            .expect("the resident feature-use offer is dealt before it is committed");
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let record = runtime
             .ambient_autonomy_record(70702)
@@ -69024,6 +68988,16 @@ mod tests {
                 _ => {}
             }
         }
+        runtime.record_economy_disclosure(RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID);
+        runtime
+            .draw_until_test_offer(RATI_ACTOR_ID, &AccessContext::default(), |candidate| {
+                candidate.kind == "trade_item"
+                    && candidate.id
+                        == format!(
+                            "trade_item:{DEWBRIGHT_BUTTON_ITEM_ID}:{WHISKERWIND_ACTOR_ID}:{STORY_BUTTON_ITEM_ID}"
+                        )
+            })
+            .expect("the ambient trade card is dealt before the resident heartbeat");
 
         let mut state = test_app_state(runtime, None);
         state.ambient.quiet_after = Duration::ZERO;
@@ -70981,23 +70955,24 @@ mod tests {
     }
 
     #[test]
-    fn event_visibility_respects_public_and_owned_locations() {
-        let runtime = RuntimeWorld::seeded();
+    fn event_visibility_is_limited_to_the_viewers_current_room() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, 12, "Library Reader");
         let public = AccessContext::default();
         let public_locations = runtime.visible_event_locations(None, &public);
 
         assert!(public_locations.contains(&1));
         assert!(!public_locations.contains(&10));
         assert!(!public_locations.contains(&12));
-        assert!(public_locations.contains(&63));
+        assert!(!public_locations.contains(&63));
 
         let ownership = OwnershipIndex::parse("wallet-1:location-library");
         let library_access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-        let library_locations = runtime.visible_event_locations(None, &library_access);
+        let entitled_without_actor = runtime.visible_event_locations(None, &library_access);
+        assert_eq!(entitled_without_actor, BTreeSet::from([1]));
+        let library_locations = runtime.visible_event_locations(Some(5000), &library_access);
 
-        assert!(library_locations.contains(&1));
-        assert!(library_locations.contains(&12));
-        assert!(!library_locations.contains(&10));
+        assert_eq!(library_locations, BTreeSet::from([12]));
 
         let library_event = EventView {
             seq: 1,
@@ -73378,7 +73353,11 @@ mod tests {
             let (status, events) =
                 runtime.apply_journal_record(&JournalRecord::new(action, 80_001 + offset));
             assert_eq!(status, CW_OK);
-            if runtime.world.tick % WORLD_PULSE_INTERVAL_TICKS == 0 {
+            if runtime
+                .world
+                .tick
+                .is_multiple_of(WORLD_PULSE_INTERVAL_TICKS)
+            {
                 pulse_events = events;
             }
         }

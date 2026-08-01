@@ -40,8 +40,8 @@ Use this procedure whenever the situation changes.
    question.
 2. **State the obvious.** Give the physical facts a person there can readily
    know.
-3. **Present legal approaches.** Show the focused action hand and keep the
-   complete legal set reachable.
+3. **Present legal approaches.** Show the exact two-card action hand and its
+   certified Think/Pass; keep the complete legal candidate set internal.
 4. **Clarify commitment.** Name the target, cost, visible risk, and likely
    scale of effect.
 5. **Resolve once.** Let the authoritative rules produce the result.
@@ -100,8 +100,10 @@ accidental rules engine.
 | Player       | Intent, target, approach, speech, and acceptance of a known risk                              | Unilateral changes to shared state                                |
 
 A worldpack defines what might exist. The server composes the complete legal
-offer set from the present scene. The player commits an action. The rules
-engine resolves it. The server persists and broadcasts the resulting events.
+candidate set from the present scene, then deals its authoritative two-card
+hand and certified Think/Pass. The player commits one of those actions. The
+rules engine resolves it. The server persists and broadcasts the resulting
+events.
 AI can then turn those certified facts into fitting public prose.
 
 Rewards and one-use changes need stable claim keys. Retrying a request,

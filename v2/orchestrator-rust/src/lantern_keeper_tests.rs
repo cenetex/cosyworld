@@ -184,8 +184,8 @@ fn assert_tag_source(
         .any(|event| event.seq == source_event_seq && event.type_name == event_type));
 }
 
-#[test]
-fn lantern_job_prerequisite_feature_is_a_reachable_search_target() {
+#[tokio::test]
+async fn lantern_job_prerequisite_feature_is_a_reachable_search_target() {
     let actor_id = 9_849;
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(&mut runtime, actor_id, 800, "Inn Lamp Reader");
@@ -198,15 +198,42 @@ fn lantern_job_prerequisite_feature_is_a_reachable_search_target() {
     assert_eq!(target.name, "Failing Lantern");
     assert!(target.output.contains("gone north"));
 
-    let mut record = runtime.search_record_for_target(actor_id, &target, 80_999);
-    record = record.into_player_card();
-    let (status, events) = runtime.apply_journal_record(&record);
-    assert_eq!(status, CW_OK);
-    assert!(events.iter().any(|event| {
+    let (_, legal_offers) =
+        runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+    assert!(legal_offers.iter().any(|offer| {
+        offer.kind == "search"
+            && offer.target.as_ref().is_some_and(|target| {
+                target.kind == "feature" && target.label.as_deref() == Some("Failing Lantern")
+            })
+    }));
+    let search_offer = runtime
+        .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+            offer.kind == "search"
+                && offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "feature" && target.label.as_deref() == Some("Failing Lantern")
+                })
+        })
+        .expect("the authored prerequisite Search rotates into the finite hand");
+
+    let state = test_app_state(runtime, None);
+    let (actor_session, _) = issue_actor_session(&state, actor_id);
+    let mut request = command_request(actor_id, &search_offer.command);
+    request.actor_session = Some(actor_session);
+    request.offer_id = Some(search_offer.offer_id);
+    let response = command(
+        ConnectInfo("127.0.0.1:0".parse().expect("client address")),
+        State(state.clone()),
+        Json(request),
+    )
+    .await
+    .0;
+    assert!(response.ok, "{response:?}");
+    assert!(response.events.iter().any(|event| {
         event.type_name == "feature.searched"
             && event.actor_id == Some(actor_id)
             && event.location_id == Some(800)
     }));
+    let runtime = state.inner.lock().await;
     assert!(runtime
         .tags
         .get(&room_feature_search_tag_id(800, "failing_lantern"))
@@ -218,6 +245,136 @@ fn lantern_job_prerequisite_feature_is_a_reachable_search_target() {
         Some("failing_lantern".to_string()),
         "the same job evidence cannot be farmed twice",
     );
+}
+
+#[test]
+fn mara_bond_derives_its_authored_key_gift_without_broad_economy_disclosure() {
+    const ACTOR_ID: u64 = 9_849;
+    const MARA_ACTOR_ID: u64 = 8301;
+    const KEEPER_KEY_ITEM_ID: u64 = 8401;
+    const UNRELATED_ITEM_ID: u64 = 2008;
+
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, ACTOR_ID, 800, "Migrated Bond Carrier");
+    for item in runtime
+        .world
+        .items
+        .iter_mut()
+        .take(runtime.world.item_count)
+    {
+        if matches!(item.id, KEEPER_KEY_ITEM_ID | UNRELATED_ITEM_ID) {
+            item.location_id = 0;
+            item.holder_actor_id = ACTOR_ID;
+            item.zone = CW_CARD_ZONE_CARRIED;
+            item.held_since_tick = runtime.world.tick;
+        }
+    }
+    let source_seq = runtime.world.next_event_seq;
+    assert!(runtime
+        .mark_visit_ledger(
+            ACTOR_ID,
+            "learned_truth",
+            "The road lamps have failed.",
+            source_seq,
+            "test:mara-migrated-relationship",
+        )
+        .is_some());
+    assert!(runtime
+        .bank_visit_ledger(ACTOR_ID, "test:mara-migrated-relationship")
+        .is_some());
+    assert!(!runtime.economy_known_by(ACTOR_ID, MARA_ACTOR_ID));
+
+    let before_bond = RuntimeSnapshot::from_runtime(&runtime);
+    let record = projection_record(
+        ACTOR_ID,
+        362_001,
+        ProjectionMutation::CreateBond {
+            target_actor_id: MARA_ACTOR_ID,
+            statement: "a submitted generic friendship statement".to_string(),
+            cost: BOND_SLOT_COST,
+            reason: "advancement".to_string(),
+        },
+    );
+    let (status, events) = runtime.apply_journal_record(&record);
+    assert_eq!(status, CW_OK);
+    assert!(events
+        .iter()
+        .any(|event| event.type_name == "relationship.beat"));
+    assert!(
+        !runtime.economy_known_by(ACTOR_ID, MARA_ACTOR_ID),
+        "the authored request is item-specific, not a broad economy disclosure"
+    );
+
+    let exact_gift = |candidate: &RankedActionOffer| {
+        candidate.kind == "give_item"
+            && candidate
+                .target
+                .as_ref()
+                .is_some_and(|target| target.id == Some(MARA_ACTOR_ID))
+            && candidate.provider.id == format!("item:{KEEPER_KEY_ITEM_ID}")
+    };
+    let unrelated_gift = |candidate: &RankedActionOffer| {
+        candidate.kind == "give_item"
+            && candidate
+                .target
+                .as_ref()
+                .is_some_and(|target| target.id == Some(MARA_ACTOR_ID))
+            && candidate.provider.id == format!("item:{UNRELATED_ITEM_ID}")
+    };
+    assert!(
+        runtime
+            .actor_gift_is_legal(ACTOR_ID, MARA_ACTOR_ID, UNRELATED_ITEM_ID)
+            .is_ok(),
+        "the unrelated item is otherwise a legal transfer; privacy alone must hide it"
+    );
+    assert!(runtime
+        .legal_action_candidates(Some(ACTOR_ID), &AccessContext::default())
+        .1
+        .iter()
+        .any(exact_gift));
+    assert!(!runtime
+        .legal_action_candidates(Some(ACTOR_ID), &AccessContext::default())
+        .1
+        .iter()
+        .any(unrelated_gift));
+    assert!(
+        runtime
+            .draw_until_test_offer(ACTOR_ID, &AccessContext::default(), exact_gift)
+            .is_some(),
+        "the authored requested gift rotates into the finite hand"
+    );
+
+    let persisted = RuntimeSnapshot::from_runtime(&runtime)
+        .into_runtime()
+        .expect("an existing forming relationship snapshot restores");
+    assert!(!persisted.economy_known_by(ACTOR_ID, MARA_ACTOR_ID));
+    assert!(persisted
+        .legal_action_candidates(Some(ACTOR_ID), &AccessContext::default())
+        .1
+        .iter()
+        .any(exact_gift));
+    assert!(!persisted
+        .legal_action_candidates(Some(ACTOR_ID), &AccessContext::default())
+        .1
+        .iter()
+        .any(unrelated_gift));
+
+    let mut replayed = before_bond
+        .into_runtime()
+        .expect("the pre-bond snapshot restores for replay");
+    assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+    assert!(!replayed.economy_known_by(ACTOR_ID, MARA_ACTOR_ID));
+    assert!(
+        replayed
+            .draw_until_test_offer(ACTOR_ID, &AccessContext::default(), exact_gift)
+            .is_some(),
+        "the replayed relationship request yields the same finite gift"
+    );
+    assert!(!replayed
+        .legal_action_candidates(Some(ACTOR_ID), &AccessContext::default())
+        .1
+        .iter()
+        .any(unrelated_gift));
 }
 
 #[test]
@@ -938,6 +1095,55 @@ fn lantern_journey_evidence_unlocks_one_controller_neutral_finale() {
     );
     assert_eq!(replayed.orb_balance(FINAL_ACTOR_ID), before_orbs + 2);
     assert_eq!(replayed.orb_reward_claims, runtime.orb_reward_claims);
+    let later_checkpoint = RuntimeSnapshot::from_runtime(&runtime);
+    let mut later_tick = later_checkpoint
+        .into_runtime()
+        .expect("completed finale snapshot reconnects before a later frontier tick");
+    later_tick.world.next_event_seq = later_tick
+        .world
+        .next_event_seq
+        .saturating_add(ENCOUNTER_RESET_PLAYER_TICKS);
+    let mut later_record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_SAY,
+            actor_id: FINAL_ACTOR_ID,
+            content_id: 81_021,
+            ..CwAction::default()
+        },
+        81_021,
+    );
+    later_record.content_upserts.insert(
+        81_021,
+        "The beacon's light will guide the next traveler.".to_string(),
+    );
+    let (later_status, later_events) = later_tick.apply_journal_record(&later_record);
+    assert_eq!(later_status, CW_OK);
+    assert!(
+        !later_events
+            .iter()
+            .any(|event| event.type_name == "encounter.reset"),
+        "a completed one-shot Lantern journey must remain a durable world change"
+    );
+    assert_eq!(later_tick.clocks[LANTERN_PROGRESS_CLOCK_ID].filled, 6);
+    assert_eq!(
+        later_tick.job_status(&later_tick.jobs[LANTERN_JOB_ID]),
+        "completed"
+    );
+    assert!(later_tick
+        .tags
+        .get("room:804:beacon_rekindled")
+        .is_some_and(|tag| tag.active));
+    let later_reconnected = RuntimeSnapshot::from_runtime(&later_tick)
+        .into_runtime()
+        .expect("durable Lantern completion survives a later tick snapshot");
+    assert_eq!(
+        later_reconnected.clocks[LANTERN_PROGRESS_CLOCK_ID].filled,
+        6
+    );
+    assert_eq!(
+        later_reconnected.job_status(&later_reconnected.jobs[LANTERN_JOB_ID]),
+        "completed"
+    );
     let reconnected = completed_snapshot
         .into_runtime()
         .expect("completed finale snapshot reconnects");

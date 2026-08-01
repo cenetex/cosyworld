@@ -14,6 +14,7 @@ const CLOCK_PRESENTATION_EXPOSURE_PREFIX: &str = "clock-presentation:v1:";
 const RETURN_WINDOW_DAYS: u64 = 30;
 const HEALTH_WINDOW_DAYS: u64 = 7;
 const STALLED_EVENT_GAP: u64 = 128;
+const PASS_METRIC_WINDOW: usize = 64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct StoryMetricsRetention {
@@ -148,6 +149,13 @@ struct NewStoryMetric<'a> {
     subject_ref: Option<&'a str>,
     attributes: serde_json::Value,
     occurred_at_ms: u64,
+}
+
+#[derive(Default)]
+struct PassMetricWindow {
+    pass_count: u64,
+    meaningful_action_count: u64,
+    consecutive_passes: u64,
 }
 
 pub(super) fn init_story_metrics_store(conn: &Connection) -> io::Result<()> {
@@ -308,6 +316,105 @@ fn count_player_visits(conn: &Connection, player_ref: &str) -> io::Result<u64> {
         )
         .map_err(sqlite_error)?;
     Ok(count.max(0) as u64)
+}
+
+fn pass_metric_window(
+    conn: &Connection,
+    player_ref: &str,
+    session_ref: &str,
+) -> io::Result<PassMetricWindow> {
+    let mut statement = conn
+        .prepare(
+            "SELECT event_kind
+             FROM story_metric_events
+             WHERE schema_version = ?1
+               AND player_ref = ?2
+               AND session_ref = ?3
+               AND event_kind IN ('action_passed', 'meaningful_action_completed')
+             ORDER BY occurred_at_ms DESC, rowid DESC
+             LIMIT ?4",
+        )
+        .map_err(sqlite_error)?;
+    let rows = statement
+        .query_map(
+            params![
+                STORY_METRICS_SCHEMA_VERSION,
+                player_ref,
+                session_ref,
+                PASS_METRIC_WINDOW as i64,
+            ],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(sqlite_error)?;
+    let mut metrics = PassMetricWindow::default();
+    let mut uninterrupted_passes = true;
+    for event_kind in rows {
+        match event_kind.map_err(sqlite_error)?.as_str() {
+            "action_passed" => {
+                metrics.pass_count = metrics.pass_count.saturating_add(1);
+                if uninterrupted_passes {
+                    metrics.consecutive_passes = metrics.consecutive_passes.saturating_add(1);
+                }
+            }
+            "meaningful_action_completed" => {
+                metrics.meaningful_action_count = metrics.meaningful_action_count.saturating_add(1);
+                uninterrupted_passes = false;
+            }
+            _ => {}
+        }
+    }
+    Ok(metrics)
+}
+
+fn pass_rate_basis_points(pass_count: u64, meaningful_action_count: u64) -> u64 {
+    let total = pass_count.saturating_add(meaningful_action_count);
+    (total > 0)
+        .then(|| pass_count.saturating_mul(10_000) / total)
+        .unwrap_or_default()
+}
+
+pub(super) fn record_stale_pass_rejection(
+    path: &Path,
+    actor_id: u64,
+    pass_offer_id: &str,
+) -> io::Result<()> {
+    init_event_store(path)?;
+    let mut conn = open_event_store(path)?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    let now_ms = now_millis();
+    let player_ref = story_player_ref(actor_id);
+    let session_ref = story_session_ref(&player_ref, story_day_index(now_ms));
+    let certificate_ref = story_event_id(&["pass_certificate", pass_offer_id]);
+    let window = pass_metric_window(&tx, &player_ref, &session_ref)?;
+    insert_story_metric(
+        &tx,
+        NewStoryMetric {
+            event_id: story_event_id(&["pass_stale_rejected", &player_ref, &certificate_ref]),
+            player_ref: &player_ref,
+            session_ref: &session_ref,
+            event_kind: "pass_stale_rejected",
+            source_event_seq: None,
+            location_ref: None,
+            target_player_ref: None,
+            subject_ref: None,
+            attributes: serde_json::json!({
+                "status": 409,
+                "metric_window": PASS_METRIC_WINDOW,
+                "pass_count": window.pass_count,
+                "pass_rate_basis_points": pass_rate_basis_points(
+                    window.pass_count,
+                    window.meaningful_action_count,
+                ),
+                "consecutive_passes": window.consecutive_passes,
+                "passes_before_meaningful": window.consecutive_passes,
+            }),
+            occurred_at_ms: now_ms,
+        },
+        now_ms,
+    )?;
+    tx.commit().map_err(sqlite_error)
 }
 
 fn insert_story_metric(
@@ -475,6 +582,48 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
     ) {
         return Ok(());
     }
+    let pass_window = pass_metric_window(conn, &player_ref, &session_ref)?;
+    if record.projection_mutations.iter().any(
+        |mutation| matches!(mutation, ProjectionMutation::ShuffleHand { reason } if reason == "player_pass"),
+    ) {
+        let source_seq = events
+            .iter()
+            .find(|event| event.type_name == "hand.shuffled")
+            .map(|event| event.seq)
+            .unwrap_or_default();
+        let pass_count = pass_window.pass_count.saturating_add(1);
+        let consecutive_passes = pass_window.consecutive_passes.saturating_add(1);
+        insert_story_metric(
+            conn,
+            NewStoryMetric {
+                event_id: story_event_id(&[
+                    "action_passed",
+                    &player_ref,
+                    &source_seq.to_string(),
+                ]),
+                player_ref: &player_ref,
+                session_ref: &session_ref,
+                event_kind: "action_passed",
+                source_event_seq: Some(source_seq),
+                location_ref: Some(&location_ref),
+                target_player_ref: None,
+                subject_ref: None,
+                attributes: serde_json::json!({
+                    "metric_window": PASS_METRIC_WINDOW,
+                    "pass_count": pass_count,
+                    "pass_rate_basis_points": pass_rate_basis_points(
+                        pass_count,
+                        pass_window.meaningful_action_count,
+                    ),
+                    "consecutive_passes": consecutive_passes,
+                    "passes_before_meaningful": consecutive_passes,
+                }),
+                occurred_at_ms: now_ms,
+            },
+            now_ms,
+        )?;
+        return Ok(());
+    }
     let Some(primary) = events
         .iter()
         .find(|event| story_event_counts_as_meaningful(event, actor_id))
@@ -501,6 +650,12 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
             attributes: serde_json::json!({
                 "action_category": action_category,
                 "co_present_direct_actor_count": co_present_direct_actor_count,
+                "metric_window": PASS_METRIC_WINDOW,
+                "pass_rate_basis_points": pass_rate_basis_points(
+                    pass_window.pass_count,
+                    pass_window.meaningful_action_count.saturating_add(1),
+                ),
+                "passes_before_meaningful": pass_window.consecutive_passes,
             }),
             occurred_at_ms: now_ms,
         },

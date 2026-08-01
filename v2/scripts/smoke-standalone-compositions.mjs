@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { constants } from "node:fs";
+import { createHash } from "node:crypto";
 import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -190,6 +191,16 @@ async function postJson(url, body, timeoutMs) {
   }, timeoutMs);
 }
 
+async function postJsonWithStatus(url, body, timeoutMs = 5_000) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  return { status: response.status, body: JSON.parse(await response.text()) };
+}
+
 async function postJsonExpectingStatus(url, body, expectedStatus, timeoutMs) {
   const response = await fetch(url, {
     method: "POST",
@@ -319,15 +330,139 @@ function stateUrl(baseUrl, actorId, actorSession) {
   return `${baseUrl}/state?${query}`;
 }
 
+async function fetchAllActorEvents(baseUrl, actorId, actorSession) {
+  const events = [];
+  let after = 0;
+  const maxPages = 10;
+  for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
+    const query = new URLSearchParams({
+      actor_id: String(actorId),
+      actor_session: actorSession,
+      wallet_address: walletAddress,
+      after: String(after),
+      limit: "500",
+    });
+    const page = await fetchJson(`${baseUrl}/events?${query}`);
+    events.push(...(page.events || []));
+    if (page.caught_up) return events;
+    assert(
+      Number(page.next_after) > after,
+      `Event replay stalled at ${after}: ${JSON.stringify(page)}`,
+    );
+    after = Number(page.next_after);
+  }
+  throw new Error(`Event replay exceeded ${maxPages} pages before catching up`);
+}
+
+function readDurableWorldEvents(eventDbPath) {
+  const database = new Database(eventDbPath, { readonly: true, fileMustExist: true });
+  try {
+    return database
+      .prepare("SELECT payload_json FROM world_events ORDER BY seq ASC")
+      .all()
+      .map(({ payload_json: payload }) => JSON.parse(payload));
+  } finally {
+    database.close();
+  }
+}
+
+function offerEnvelope(state, actorId, offerId) {
+  const actor = state.actors?.find((candidate) => candidate.id === actorId) ?? {};
+  return {
+    world_id: state.world_id ?? "world://cosyworld/official",
+    intent_id: `smoke:offer:${actorId}:${createHash("sha256").update(offerId).digest("hex")}`,
+    actor_ref: actor.canonical_ref ?? "",
+    observed: {},
+    last_world_seq: Number(state.world_seq ?? 0),
+  };
+}
+
+async function dealOffer(baseUrl, actorId, actorSession, predicate, description) {
+  let state;
+  let offer;
+  let passAttempts = 0;
+  let maxPassAttempts = 0;
+  let stalePassRefreshes = 0;
+  const maxStalePassRefreshes = 4;
+  const maxTurnLockedPassRefreshes = 2;
+  let turnLockedPassRefreshes = 0;
+  const maxWriteAuthorityRefreshes = 12;
+  let writeAuthorityRefreshes = 0;
+  while (true) {
+    state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+    offer = state.action_offers?.find((candidate) => !candidate.disabled && predicate(candidate));
+    if (offer) break;
+    if (maxPassAttempts === 0) {
+      maxPassAttempts = Math.max(1, Number(state.action_hand?.deck_size ?? 0));
+    }
+    if (passAttempts >= maxPassAttempts) break;
+    const passOffer = state.action_hand?.pass;
+    assert(
+      passOffer?.offer_id,
+      `No dealt card matches ${description} and Think is unavailable: ${JSON.stringify(state.action_hand)}`,
+    );
+    const passPayload = {
+      actor_id: actorId,
+      actor_session: actorSession,
+      wallet_address: walletAddress,
+      command: "pass",
+      offer_id: passOffer.offer_id,
+      envelope: offerEnvelope(state, actorId, passOffer.offer_id),
+    };
+    const passed = await postJsonWithStatus(`${baseUrl}/commands`, passPayload);
+    if (passed.status === 409 && stalePassRefreshes++ < maxStalePassRefreshes) continue;
+    if (passed.status === 423 && turnLockedPassRefreshes++ < maxTurnLockedPassRefreshes) continue;
+    if (passed.status === 503
+      && passed.body.output?.includes("Canonical write authority is unavailable")
+      && writeAuthorityRefreshes++ < maxWriteAuthorityRefreshes) {
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+      continue;
+    }
+    assert(passed.status >= 200 && passed.status < 300 && passed.body.ok === true,
+      `Think failed while seeking ${description}: ${JSON.stringify(passed)}`);
+    passAttempts += 1;
+  }
+  assert(
+    offer?.offer_id,
+    `The finite hand did not deal ${description} within ${maxPassAttempts} Passes: ${JSON.stringify({
+      hand: state?.action_hand,
+      offers: state?.action_offers?.map(({ kind, command, label }) => ({ kind, command, label })),
+    })}`,
+  );
+  return { state, offer };
+}
+
 async function command(baseUrl, actorId, actorSession, value) {
-  const result = await postJson(`${baseUrl}/commands`, {
-    actor_id: actorId,
-    actor_session: actorSession,
-    wallet_address: walletAddress,
-    command: value,
-  });
-  assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
-  return result;
+  const turnExempt = /^(say|emote|\/me|wield|unwield|prepare-spell|unprepare-spell|stow|unstow)\b/i.test(value);
+  const requestedKind = value.trim().toLowerCase();
+  const matchesRequestedOffer = (candidate) =>
+    candidate.command === value
+      || (requestedKind === "search" && candidate.kind === "search")
+      || (requestedKind === "bond mara wick" && candidate.kind === "create_bond" && candidate.target?.id === 8301);
+  const maxRedeals = 4;
+  let staleRedeals = 0;
+  let turnLockedRedeals = 0;
+  while (true) {
+    const dealt = turnExempt ? {} : await dealOffer(
+      baseUrl, actorId, actorSession, matchesRequestedOffer, value,
+    );
+    const payload = {
+      actor_id: actorId,
+      actor_session: actorSession,
+      wallet_address: walletAddress,
+      command: dealt.offer?.command ?? value,
+      ...(dealt.offer && {
+        offer_id: dealt.offer.offer_id,
+        envelope: offerEnvelope(dealt.state, actorId, dealt.offer.offer_id),
+      }),
+    };
+    const submitted = await postJsonWithStatus(`${baseUrl}/commands`, payload);
+    if (!turnExempt && submitted.status === 409 && staleRedeals++ < maxRedeals) continue;
+    if (!turnExempt && submitted.status === 423 && turnLockedRedeals++ < 2) continue;
+    const result = submitted.body;
+    assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
+    return result;
+  }
 }
 
 function lanternJourneySummary(state) {
@@ -458,13 +593,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   const readyForMara = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
   traceLantern("lantern ready for Mara", readyForMara);
-  const maraOffer = readyForMara.action_offers?.find((offer) =>
-    offer.kind === "create_bond" && offer.target?.id === 8301 && offer.target?.label === "Mara Wick");
-  assert(
-    maraOffer?.command?.startsWith("bond Mara Wick: "),
-    `Lantern Keeper did not prioritize Mara's authored relationship: ${JSON.stringify(lanternJourneySummary(readyForMara))}`,
-  );
-  const metMara = await command(baseUrl, actorId, actorSession, maraOffer.command);
+  const metMara = await command(baseUrl, actorId, actorSession, "bond Mara Wick");
   assert(
     metMara.events?.filter((event) => event.type === "bond.created").length === 1
       && metMara.events?.filter((event) => event.type === "relationship.beat").length === 1
@@ -602,8 +731,10 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     );
   }
   let towerReady = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
-  const initialWorkOffer = towerReady.action_offers?.find((offer) =>
-    offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"));
+  const initialWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
+    offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the finale Work card");
+  towerReady = initialWorkDeal.state;
+  const initialWorkOffer = initialWorkDeal.offer;
   assert(
     initialWorkOffer?.offer_id && initialWorkOffer?.command === "contribute rekindle-beacon",
     `Lantern Keeper did not expose the authoritative finale offer: ${JSON.stringify(lanternJourneySummary(towerReady))}`,
@@ -648,10 +779,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper repeat frontier action did not create a meaningful Rest choice: ${JSON.stringify(repeatedListen)}`,
   );
   const tiredAtTower = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
-  assert(
-    tiredAtTower.action_offers?.some((offer) => offer.kind === "rest" && offer.disabled === false),
-    `Lantern Keeper could not Rest after taking time at the Tower: ${JSON.stringify(lanternJourneySummary(tiredAtTower))}`,
-  );
+  await dealOffer(baseUrl, actorId, actorSession, (offer) => offer.kind === "rest", "the Rest card");
   const rested = await command(baseUrl, actorId, actorSession, "rest");
   assert(
     rested.events?.some((event) =>
@@ -663,10 +791,12 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     `Lantern Keeper Rest did not trade recovery for authored danger: ${JSON.stringify(rested)}`,
   );
   towerReady = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const freshWorkDeal = await dealOffer(baseUrl, actorId, actorSession, (offer) =>
+    offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"), "the refreshed finale Work card");
+  towerReady = freshWorkDeal.state;
+  const freshWorkOffer = freshWorkDeal.offer;
   const readyQuestion = towerReady.shared_questions?.find((question) =>
     question.id === "lantern-keeper:rekindle-the-beacon");
-  const freshWorkOffer = towerReady.action_offers?.find((offer) =>
-    offer.kind === "work" && matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon"));
   assert(
     readyQuestion?.filled === 0
       && readyQuestion?.danger_filled === 1
@@ -682,13 +812,7 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     wallet_address: walletAddress,
     offer_id: freshWorkOffer.offer_id,
     command: freshWorkOffer.command,
-    envelope: {
-      world_id: rested.receipt.world_id,
-      intent_id: "smoke:lantern-golden-finale",
-      actor_ref: rested.receipt.actor_ref,
-      observed: {},
-      last_world_seq: rested.receipt.world_seq,
-    },
+    envelope: { ...offerEnvelope(towerReady, actorId, freshWorkOffer.offer_id), intent_id: "smoke:lantern-golden-finale" },
   };
   const beforeFinaleOrbs = towerReady.economy?.orbs;
   const finale = await postJson(`${baseUrl}/commands`, finalePayload);
@@ -753,6 +877,15 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   await command(baseUrl, actorId, actorSession, "go Mothwood Path");
   const completed = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const afterTravelQuestion = completed.shared_questions?.find((question) =>
+    question.id === "lantern-keeper:rekindle-the-beacon");
+  assert(
+    afterTravelQuestion?.presentation_state === "completed_memory"
+      && afterTravelQuestion?.resolution === "completed"
+      && afterTravelQuestion?.filled === 6
+      && afterTravelQuestion?.danger_filled === 1,
+    `Lantern Keeper's post-finale travel reset completion before restart: ${JSON.stringify(lanternJourneySummary(completed))}`,
+  );
   traceLantern("lantern completed", completed);
   return {
     state: completed,
@@ -967,8 +1100,19 @@ async function runWorldLoop(spec) {
     const actorSession = created.actor_session;
     let finalLocationName = spec.location;
     let goldenJourney = null;
-    const initial = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
-    assertScene(initial, spec);
+    let initial = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    assertScene(initial, spec, { requireOffer: false });
+    if (spec.offerVerb) {
+      const dealt = await dealOffer(
+        first.baseUrl,
+        actorId,
+        actorSession,
+        (offer) => offer.verb === spec.offerVerb,
+        `${spec.label} ${spec.offerVerb} card`,
+      );
+      initial = dealt.state;
+      assertScene(initial, spec);
+    }
     if (spec.goldenJourney) {
       goldenJourney = await beginLanternGoldenJourney(
         first.baseUrl,
@@ -1007,6 +1151,14 @@ async function runWorldLoop(spec) {
         discovered = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
         if (!discovered.action_offers?.some((offer) => offer.kind === "explore_path")) break;
       }
+      const revealedMove = await dealOffer(
+        first.baseUrl,
+        actorId,
+        actorSession,
+        (offer) => offer.kind === "move" && offer.target?.label === spec.scoutDestination,
+        `${spec.label} discovered route Move card`,
+      );
+      discovered = revealedMove.state;
       assert(
         discoveryEventCount === 1
           && !discovered.action_offers?.some((offer) => offer.kind === "explore_path")
@@ -1072,9 +1224,17 @@ async function runWorldLoop(spec) {
         restarted.output.slice(-40).join("")
       }`,
     );
-    const replayed = await fetchJson(stateUrl(restarted.baseUrl, actorId, actorSession));
+    let replayed = await fetchJson(stateUrl(restarted.baseUrl, actorId, actorSession));
     assertScene(replayed, { ...spec, location: finalLocationName }, { requireOffer: false });
     if (spec.scoutDestination) {
+      const replayedMove = await dealOffer(
+        restarted.baseUrl,
+        actorId,
+        actorSession,
+        (offer) => offer.kind === "move" && offer.target?.label === spec.scoutDestination,
+        `${spec.label} replayed route Move card`,
+      );
+      replayed = replayedMove.state;
       assert(
         !replayed.action_offers?.some((offer) => offer.kind === "explore_path")
           && replayed.action_offers?.some((offer) =>
@@ -1086,26 +1246,21 @@ async function runWorldLoop(spec) {
       replayed.world_seq >= committed.world_seq,
       `${spec.label} restart regressed ${committed.world_seq} to ${replayed.world_seq}`,
     );
-    const query = new URLSearchParams({
-      actor_id: String(actorId),
-      actor_session: actorSession,
-      wallet_address: walletAddress,
-      limit: "500",
-    });
-    const events = await fetchJson(`${restarted.baseUrl}/events?${query}`);
+    const events = await fetchAllActorEvents(restarted.baseUrl, actorId, actorSession);
+    const durableEvents = readDurableWorldEvents(eventDbPath);
     assert(
-      events.events?.some((event) =>
+      events.some((event) =>
         event.type === "message.created" && event.content === spec.marker),
       `${spec.label} restart lost ${spec.marker}`,
     );
     if (spec.scoutDestination) {
       assert(
-        events.events?.filter(routeDiscoveryEvent).length === 1,
+        events.filter(routeDiscoveryEvent).length === 1,
         `${spec.label} replay did not retain exactly one route discovery`,
       );
     }
     if (goldenJourney) {
-      assertLanternGoldenReplay(replayed, events.events || [], goldenJourney.expected);
+      assertLanternGoldenReplay(replayed, durableEvents, goldenJourney.expected);
       const restartedFinale = await postJson(
         `${restarted.baseUrl}/commands`,
         goldenJourney.expected.finalePayload,

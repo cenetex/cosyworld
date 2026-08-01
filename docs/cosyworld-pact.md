@@ -29,9 +29,9 @@ the wall.
 ## Every Choice Is Honest
 
 Before a traveler commits, an action names its target, cost, and known risk.
-The complete legal set remains reachable even when the hand shows only two
-suggestions. Looking through that set is free; committing an action spends the
-turn.
+The server's complete legal candidate set is internal. Travelers receive two
+dealt cards plus certified Think/Pass; committing either card or Pass spends
+the turn.
 
 If an action is certain, the world does not roll. If the outcome is uncertain
 and consequential, the referee resolves it from declared rules and recorded

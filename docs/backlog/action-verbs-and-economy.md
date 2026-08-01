@@ -39,8 +39,9 @@ decision. #529's amendment to ADR 0002 settles item 1 now:
 
 1. The ordinary two-card hand is a **spotlight over the legal action set**, not
    the sole source of legality. A compact grouped chooser renders every current
-   legal action and target directly. Free deterministic redeal remains an
-   optional way to replace the two suggestions.
+   legal action and target directly. **This historic proposal is superseded by
+   #516/#408:** the shipping finite hand exposes exactly two actions plus a
+   certificate-bound Think/Pass, not a free redeal.
 2. Every offer declares its action economy explicitly. Labels and action kinds
    never imply whether something consumes a world turn, Tempo, advancement, or
    an item use.
@@ -139,14 +140,15 @@ Every ticket in this epic must preserve these constraints:
 
 ### What to do
 
-- Record the current runtime contract before changing it: two ordinary hand
-  entries, up to five current combat choices, a complete server-side legal
-  offer set, and structured non-browser access.
-- Consume ADR 0002's settled spotlight + complete chooser model. Keep the
-  chooser a rendering of `action_offers`, never a client-authored legal set.
+- Record the current runtime contract before changing it: clients receive
+  exactly two dealt cards plus certified Think/Pass in ordinary and combat
+  scenes; the complete legal offer set is internal only.
+- Consume ADR 0002's settled finite-hand model. The historical complete chooser
+  decision is superseded and no client receives `action_offers` as a legal set.
 - Resolve current three-versus-five combat-hand documentation drift.
-- Keep Say and shuffle/redeal as supported turn-exempt inputs, then update tests
-  and help copy to match.
+- Keep Say as a supported turn-exempt input. Preserve historic turn-exempt
+  `hand.shuffled` replay, while refusing live shuffle/redeal aliases and
+  requiring certificate-bound Think/Pass for a new hand.
 - Align package and Rust crate versions.
 - Triage the existing Rust failures into:
   - restricted-environment listener tests;
@@ -159,8 +161,8 @@ Every ticket in this epic must preserve these constraints:
 
 - The ADRs, RPG Bible, action-system document, browser copy, and runtime agree
   on ordinary and combat hand capacity and browser reachability.
-- Tests continue to require the complete chooser, supported Say, and
-  shuffle/redeal compatibility. No test expects a
+- Tests continue to require supported Say, historic shuffle replay, and
+  certificate-bound Think/Pass. No test expects a
   retired Defend, Grow, or legacy skill action unless it is explicitly a
   compatibility test.
 - `npm run v2:worldpack:inspect` and `npm run v2:kernel` pass.
@@ -270,7 +272,7 @@ Every ticket in this epic must preserve these constraints:
 
 ---
 
-## AVE-3 — Keep The Two-Card Spotlight And Complete Chooser Aligned
+## AVE-3 — Keep The Two-Card Hand And Certified Think/Pass Aligned
 
 **Priority**: P0 product decision amended by #529; P1 implementation
 **Scope**: Browser action surface, action-hand ADR, accessibility, analytics
@@ -278,40 +280,41 @@ Every ticket in this epic must preserve these constraints:
 
 ### What to do
 
-- Keep two authoritative spotlight actions in ordinary scenes.
-- Use the compact third affordance to open the complete current legal set,
-  grouped by intention with each target or strategy explicit.
-- Keep free **redeal** inside that chooser; it replaces the visible pair with
-  the next pair in the finite server-authored legal-offer order.
-- Exclude already shown offers until the current pool is exhausted, allow a
-  final one-card page, then cycle back to the authoritative opening pair.
-- Keep `hand.shuffled` as the journal record and preserve `shuffle` plus `more`
-  as input aliases for the same turn-exempt redeal.
-- Do not add a command field, random draw, or client-authored reconstruction.
-  The chooser must enumerate the same server-authored offers used by command,
-  stale-offer, replay, and action-hand fixtures.
+- Keep exactly two authoritative dealt actions in ordinary and combat scenes.
+- Do not expose a compact chooser or any complete legal set; that superset is
+  internal server state only.
+- Replace free **redeal** with certificate-bound **Think**/**Pass**. It commits
+  one turn and replaces the visible pair with the next pair in the finite
+  server-authored legal-offer order.
+- Bind Pass to actor, focus/scene, state revision, and hand generation; retry
+  via the same canonical submission key is idempotent and stale Pass mutates
+  nothing.
+- Keep `hand.shuffled` as the journal record for both historic replay and new
+  Pass, but version-refuse `shuffle`, `more`, `draw`, `deal`, and `redraw` as
+  live input aliases.
+- Do not add a command field, random draw, client-authored reconstruction, or
+  complete chooser. Commands, stale checks, replay, and fixtures use only the
+  exact dealt offer ids.
 - Preserve provider reasoning—Calling, friendship, held item, job, location—
   as “why this is suggested,” not “why all other legal actions disappeared.”
-- During the active actor's combat turn, show every legal combat action family
-  up to the protocol cap; combat does not use ordinary redeal.
-- Instrument spotlight selection, redeal, disabled-action inspection,
+- During the active actor's combat turn, use the same exact two-card hand and
+  certified Pass; combat has no complete-family bypass.
+- Instrument spotlight selection, certified Pass and hand rotation,
+  disabled-action inspection,
   abandonment, and stale refresh without recording private text.
 
 ### Acceptance
 
-- Every legal ordinary action and target appears directly in the chooser
-  without luck, currency, command knowledge, or repeated redeals.
-- The first two cards remain deterministic and retain their provider reasons.
-- Redeal cannot create, re-rank, retarget, or enable an offer and consumes no
-  world turn.
-- Keyboard and screen-reader users can enumerate and select the complete legal
-  set, including distinct targets; detail/confirm exposes cost, risk, effect,
-  and disabled reason.
-- Two clients with the same authoritative state receive the same spotlight and
-  legal set and produce the same redeal order.
-- Combat continues to present its complete bounded choice set directly.
-- Browser contract tests require exactly two suggestions, the compact chooser,
-  target-bearing rows, and the optional journaled redeal control.
+- The client receives only two deterministic cards and their provider reasons;
+  every other legal candidate stays internal until a later certified Think/Pass.
+- Think/Pass cannot create, re-rank, retarget, or enable an offer; it consumes
+  exactly one world turn and no currency, item use, reward, or progression.
+- Keyboard and screen-reader users can inspect and select each dealt card and
+  its target; detail/confirm exposes cost, risk, effect, and disabled reason.
+- Two clients with the same authoritative state receive the same two cards and
+  certified Pass generation in ordinary and combat scenes.
+- Browser contract tests require exactly two cards and the journaled certified
+  Think/Pass control, never a complete chooser.
 
 ---
 
@@ -495,7 +498,9 @@ Different helpful acts         3 of 5
 
 - Model three to five authored positions and validated relations—adjacency,
   cover, sight, hazard, and exit—without grids or client geometry.
-- Recompose the complete combat hand after a non-ending first action.
+- Any future non-ending combat extension must preserve ADR 0002's finite
+  two-card hand and certified Think/Pass; it must not expose a complete combat
+  chooser.
 - Prevent repeated Attack and accidental free movement by making end-turn
   behavior explicit in the economy block.
 - Give inference-controlled avatars the identical legal set, costs, previews,
@@ -506,7 +511,8 @@ Different helpful acts         3 of 5
 - Move-then-act is possible; attack-twice is not.
 - The client cannot invent positions, movement allowance, cover, Tempo, or
   end-turn behavior.
-- Every legal combat family is visible without ordinary-scene redeal.
+- Every presented combat card is legal, explained, and resolvable; the client
+  receives no complete-family bypass of the two-card hand.
 - Hit, harm, finish, objective effect, and movement previews match the actual
   resolver.
 - Snapshot, reconnect, stale submission, and legacy replay tests cover both
@@ -618,7 +624,7 @@ Different helpful acts         3 of 5
   4. What changes immediately?
   5. What becomes possible or risky afterward?
 - Track repeated confirmation cancellation, disabled-action selection, stale
-  refresh, and redeal use as usability signals, not success metrics by
+  refresh, and certified Pass use as usability signals, not success metrics by
   themselves.
 
 ### Acceptance
@@ -643,7 +649,7 @@ AVE-0 truthful baseline
   │     │     ├── AVE-5 generated-place copy and offers
   │     │     └── AVE-6 concrete project approaches
   │     └── AVE-2 explicit action economy
-  │             └── AVE-3 spotlight + complete chooser reachability
+  │             └── AVE-3 finite hand + certified Pass reachability
   │                     └── AVE-7 combat/6 two-Tempo economy
   │                             └── AVE-8 Dash, Disengage, Hide
   └── AVE-10 clarity gates grow alongside AVE-1 through AVE-6

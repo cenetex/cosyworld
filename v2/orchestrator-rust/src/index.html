@@ -593,26 +593,10 @@
       pointer-events: none;
       isolation: isolate;
     }
-    .interior-view[hidden] {
-      display: none;
-    }
-    .interior-view svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-      filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.24));
-    }
-    .interior-surface {
-      stroke: rgba(255, 239, 185, 0.46);
-      stroke-width: 2;
-      vector-effect: non-scaling-stroke;
-    }
-    .interior-seam {
-      fill: none;
-      stroke: rgba(255, 245, 208, 0.3);
-      stroke-width: 1.25;
-      vector-effect: non-scaling-stroke;
-    }
+    .interior-view[hidden] { display: none; }
+    .interior-view svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.24)); }
+    .interior-surface { stroke: rgba(255, 239, 185, 0.46); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .interior-seam { fill: none; stroke: rgba(255, 245, 208, 0.3); stroke-width: 1.25; vector-effect: non-scaling-stroke; }
     .interior-view[data-mode="hex"] .pane-a { fill: rgba(190, 86, 68, 0.58); }
     .interior-view[data-mode="hex"] .pane-b { fill: rgba(212, 149, 70, 0.58); }
     .interior-view[data-mode="hex"] .pane-c { fill: rgba(71, 135, 128, 0.62); }
@@ -622,24 +606,9 @@
     .interior-view[data-mode="close"] .front-wall { fill: rgba(123, 116, 77, 0.62); }
     .interior-view[data-mode="close"] .right-wall { fill: rgba(84, 72, 103, 0.66); }
     .interior-view[data-mode="close"] .floor { fill: rgba(83, 69, 53, 0.66); }
-    .interior-exit .door-frame {
-      fill: rgba(232, 196, 113, 0.9);
-      stroke: rgba(255, 246, 206, 0.92);
-      stroke-width: 2;
-      vector-effect: non-scaling-stroke;
-    }
-    .interior-exit .door-opening {
-      fill: rgba(5, 8, 12, 0.9);
-      stroke: rgba(5, 8, 12, 0.7);
-      stroke-width: 1;
-      vector-effect: non-scaling-stroke;
-    }
-    .interior-exit .door-mark {
-      fill: none;
-      stroke: rgba(255, 224, 139, 0.88);
-      stroke-width: 2;
-      vector-effect: non-scaling-stroke;
-    }
+    .interior-exit .door-frame { fill: rgba(232, 196, 113, 0.9); stroke: rgba(255, 246, 206, 0.92); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .interior-exit .door-opening { fill: rgba(5, 8, 12, 0.9); stroke: rgba(5, 8, 12, 0.7); stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .interior-exit .door-mark { fill: none; stroke: rgba(255, 224, 139, 0.88); stroke-width: 2; vector-effect: non-scaling-stroke; }
     .room-avatar-rail {
       position: absolute;
       left: 14px;
@@ -1781,6 +1750,9 @@
       white-space: nowrap;
     }
     .turn-banner-control:disabled { opacity: 0.55; cursor: default; }
+    .prompt.combat-mode .chat-progress {
+      display: none !important;
+    }
     .turn-ping-pill {
       flex: 1 1 220px;
       display: flex;
@@ -2242,8 +2214,43 @@
       color: var(--green);
       border-top-color: rgba(101, 230, 138, 0.22);
     }
+    .important-notifications {
+      position: fixed;
+      top: calc(54px + env(safe-area-inset-top, 0px));
+      right: max(12px, env(safe-area-inset-right, 0px));
+      z-index: 24;
+      width: min(360px, calc(100vw - 24px));
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .important-notification {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 11px 12px;
+      border: 1px solid rgba(239, 201, 107, 0.55);
+      border-radius: 6px;
+      background: rgba(10, 16, 12, 0.97);
+      color: var(--text);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.46);
+      pointer-events: auto;
+    }
+    .important-notification-copy { line-height: 1.35; }
+    .important-notification-dismiss {
+      border: 0;
+      background: transparent;
+      color: var(--dim);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .important-notification-dismiss:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+    }
     .card-modal,
-    .all-actions-modal,
     .action-modal,
     .wallet-modal,
     .ai-modal {
@@ -2270,12 +2277,10 @@
         max(12px, env(safe-area-inset-left, 0px));
     }
     .card-modal[hidden],
-    .all-actions-modal[hidden],
     .action-modal[hidden],
     .wallet-modal[hidden],
     .ai-modal[hidden] { display: none; }
     .card-dialog,
-    .all-actions-dialog,
     .action-dialog,
     .wallet-dialog,
     .ai-dialog {
@@ -2288,7 +2293,6 @@
       padding: 12px;
     }
     .card-dialog:focus-visible,
-    .all-actions-dialog:focus-visible,
     .action-dialog:focus-visible,
     .wallet-dialog:focus-visible {
       outline: 2px solid var(--blue);
@@ -2310,7 +2314,6 @@
       padding: 12px;
     }
     .card-close,
-    .all-actions-close,
     .wallet-close,
     .ai-close {
       float: right;
@@ -2331,104 +2334,6 @@
     .action-dialog {
       display: grid;
       gap: 10px;
-    }
-    .all-actions-dialog {
-      width: min(560px, calc(100vw - 28px));
-      display: grid;
-      gap: 12px;
-    }
-    .all-actions-heading {
-      display: flex;
-      gap: 12px;
-      align-items: start;
-      justify-content: space-between;
-    }
-    .all-actions-heading .action-title {
-      padding-top: 4px;
-    }
-    .all-actions-groups {
-      display: grid;
-      gap: 14px;
-    }
-    .all-actions-group {
-      display: grid;
-      gap: 6px;
-    }
-    .all-actions-group-title {
-      margin: 0;
-      color: var(--dim);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .all-actions-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 7px;
-    }
-    .all-action {
-      min-width: 0;
-      min-height: 56px;
-      display: grid;
-      gap: 3px;
-      align-content: center;
-      padding: 9px 10px;
-      border: 1px solid rgba(216, 247, 220, 0.16);
-      border-radius: 4px;
-      background: rgba(216, 247, 220, 0.04);
-      color: var(--text);
-      font: inherit;
-      text-align: left;
-    }
-    .all-action:hover {
-      border-color: rgba(101, 230, 138, 0.5);
-      background: rgba(101, 230, 138, 0.1);
-    }
-    .all-action:focus-visible,
-    .all-actions-close:focus-visible,
-    .all-actions-draw:focus-visible {
-      outline: 2px solid rgba(101, 230, 138, 0.86);
-      outline-offset: 2px;
-    }
-    .all-action.suggested {
-      border-color: rgba(239, 201, 107, 0.48);
-    }
-    .all-action-label {
-      color: var(--green);
-      font-weight: 900;
-      line-height: 1.2;
-    }
-    .all-action-detail {
-      color: var(--dim);
-      font-size: 12px;
-      line-height: 1.3;
-      overflow-wrap: anywhere;
-    }
-    .all-action-status {
-      color: var(--amber);
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .all-actions-draw {
-      min-height: 40px;
-      border: 1px solid rgba(139, 183, 255, 0.42);
-      border-radius: 4px;
-      background: rgba(139, 183, 255, 0.08);
-      color: var(--blue);
-      font: inherit;
-      font-weight: 900;
-    }
-    .all-actions-draw:disabled {
-      opacity: 0.52;
-      cursor: progress;
-    }
-    @media (max-width: 560px) {
-      .all-actions-list {
-        grid-template-columns: 1fr;
-      }
     }
     .action-art {
       clear: both;
@@ -4405,6 +4310,7 @@
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
+    <aside class="important-notifications" id="important-notifications" aria-live="polite" aria-label="Important notices"></aside>
     <footer class="prompt">
       <div class="turn-banner" id="turn-banner" hidden>
         <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -4413,8 +4319,8 @@
       <button class="cmd chat-progress" id="chat-progress" type="button" disabled></button>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="action-menu" data-analytics-event="action.all_open" aria-label="Open all actions">
-        <span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">actions</span>
+      <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="pass" data-analytics-event="action.pass" aria-label="Think: pass these two actions and commit the turn">
+        <span class="shuffle-glyph" aria-hidden="true">↻</span><span class="cmd-label">think</span>
       </button>
     </footer>
   </div>
@@ -4446,17 +4352,6 @@
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
       <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>cancel</button>
-    </section>
-  </div>
-  <div class="all-actions-modal" id="all-actions-modal" hidden>
-    <section class="all-actions-dialog" role="dialog" aria-modal="true" aria-labelledby="all-actions-title" aria-describedby="all-actions-summary" tabindex="-1" data-player-concept="action-menu">
-      <div class="all-actions-heading">
-        <h2 class="action-title" id="all-actions-title">all actions</h2>
-        <button class="all-actions-close" type="button" data-all-actions-close aria-label="Close all actions">x</button>
-      </div>
-      <div class="action-summary" id="all-actions-summary">Choose any legal action. The two cards below the room remain your current suggestions.</div>
-      <div class="all-actions-groups" id="all-actions-groups"></div>
-      <button class="all-actions-draw" id="all-actions-draw" type="button" data-analytics-event="action.draw">draw two different suggestions</button>
     </section>
   </div>
   <div class="wallet-modal" id="wallet-modal" hidden>
@@ -4578,6 +4473,7 @@
     let authoritativeHandIdentity = "";
     let playerPromotedHandKey = "";
     let handShuffleBusy = false;
+    let handPassSubmission = null;
     let recoveryPromptPending = false;
     let logEvents = [];
     const seenSeq = new Set();
@@ -4712,7 +4608,7 @@
     }
 
     function activeModal() {
-      return ["wallet-modal", "all-actions-modal", "action-modal", "card-modal"]
+      return ["wallet-modal", "action-modal", "card-modal"]
         .map((id) => $(id))
         .find((modal) => modal && !modal.hidden) || null;
     }
@@ -5079,6 +4975,7 @@
         focusIndex = 0;
         focusedKey = "";
         playerPromotedHandKey = "";
+        connectStream();
       }
       const isTired = actorIsTired(state);
       if (!isTired) recoveryPromptPending = false;
@@ -5381,121 +5278,26 @@
     }
 
     function exitDirectionCode(direction) {
-      const normalized = String(direction || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[\s_-]+/g, "");
-      return ({
-        n: "N",
-        north: "N",
-        ne: "NE",
-        northeast: "NE",
-        e: "E",
-        east: "E",
-        se: "SE",
-        southeast: "SE",
-        s: "S",
-        south: "S",
-        sw: "SW",
-        southwest: "SW",
-        w: "W",
-        west: "W",
-        nw: "NW",
-        northwest: "NW",
-        u: "U",
-        up: "U",
-        d: "D",
-        down: "D",
-        in: "IN",
-        inside: "IN",
-        out: "OUT",
-        outside: "OUT",
-      })[normalized] || "";
+      const normalized = String(direction || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+      return ({ n: "N", north: "N", ne: "NE", northeast: "NE", e: "E", east: "E", se: "SE", southeast: "SE", s: "S", south: "S", sw: "SW", southwest: "SW", w: "W", west: "W", nw: "NW", northwest: "NW", u: "U", up: "U", d: "D", down: "D", in: "IN", inside: "IN", out: "OUT", outside: "OUT" })[normalized] || "";
     }
 
     const interiorExitSlots = {
-      hex: {
-        NW: [52, 90, 92, 118],
-        N: [346, 91, 92, 118],
-        NE: [642, 74, 92, 118],
-        E: [942, 90, 92, 118],
-        SE: [1040, 191, 92, 112],
-        S: [742, 197, 92, 112],
-        SW: [442, 197, 92, 112],
-        W: [144, 191, 92, 112],
-        U: [552, 14, 96, 52, "hatch"],
-        D: [552, 292, 96, 52, "hatch"],
-        IN: [10, 224, 104, 58, "hatch"],
-        OUT: [1086, 224, 104, 58, "hatch"],
-      },
-      close: {
-        NW: [386, 135, 88, 88],
-        N: [532, 120, 136, 118],
-        NE: [726, 135, 88, 88],
-        E: [987, 120, 112, 118],
-        SE: [867, 194, 92, 88],
-        S: [552, 284, 96, 58, "hatch"],
-        SW: [241, 194, 92, 88],
-        W: [101, 120, 112, 118],
-        U: [552, 20, 96, 52, "hatch"],
-        D: [420, 284, 96, 58, "hatch"],
-        IN: [16, 286, 104, 54, "hatch"],
-        OUT: [1080, 286, 104, 54, "hatch"],
-      },
+      hex: { NW: [52, 90, 92, 118], N: [346, 91, 92, 118], NE: [642, 74, 92, 118], E: [942, 90, 92, 118], SE: [1040, 191, 92, 112], S: [742, 197, 92, 112], SW: [442, 197, 92, 112], W: [144, 191, 92, 112], U: [552, 14, 96, 52, "hatch"], D: [552, 292, 96, 52, "hatch"], IN: [10, 224, 104, 58, "hatch"], OUT: [1086, 224, 104, 58, "hatch"] },
+      close: { NW: [386, 135, 88, 88], N: [532, 120, 136, 118], NE: [726, 135, 88, 88], E: [987, 120, 112, 118], SE: [867, 194, 92, 88], S: [552, 284, 96, 58, "hatch"], SW: [241, 194, 92, 88], W: [101, 120, 112, 118], U: [552, 20, 96, 52, "hatch"], D: [420, 284, 96, 58, "hatch"], IN: [16, 286, 104, 54, "hatch"], OUT: [1080, 286, 104, 54, "hatch"] },
     };
 
     function interiorExitSocket(exit, slot, fallbackIndex = 0) {
       const code = exitDirectionCode(exit?.direction) || "?";
-      const fallbackSlot = [20 + (fallbackIndex * 116), 18, 104, 58, "hatch"];
-      const [x, y, width, height, kind = "door"] = slot || fallbackSlot;
+      const [x, y, width, height, kind = "door"] = slot || [20 + (fallbackIndex * 116), 18, 104, 58, "hatch"];
       const inset = kind === "hatch" ? 6 : 7;
       const destination = String(exit?.destination_location_name || "Unknown destination");
-      const title = `${code}: ${destination}`;
-      return `
-        <g class="interior-exit ${kind}" data-direction="${escapeAttr(code)}" data-destination-id="${escapeAttr(exit?.destination_location_id || "")}">
-          <title>${escapeHtml(title)}</title>
-          <rect class="door-frame" x="${x}" y="${y}" width="${width}" height="${height}" rx="${kind === "hatch" ? 10 : 5}"></rect>
-          <rect class="door-opening" x="${x + inset}" y="${y + inset}" width="${width - (inset * 2)}" height="${height - (inset * 2)}" rx="${kind === "hatch" ? 7 : 3}"></rect>
-          <path class="door-mark" d="${kind === "hatch"
-            ? `M ${x + 15} ${y + (height / 2)} H ${x + width - 15}`
-            : `M ${x + (width / 2)} ${y + 12} V ${y + height - 18}`}"></path>
-        </g>`;
+      return `<g class="interior-exit ${kind}" data-direction="${escapeAttr(code)}" data-destination-id="${escapeAttr(exit?.destination_location_id || "")}"><title>${escapeHtml(`${code}: ${destination}`)}</title><rect class="door-frame" x="${x}" y="${y}" width="${width}" height="${height}" rx="${kind === "hatch" ? 10 : 5}"></rect><rect class="door-opening" x="${x + inset}" y="${y + inset}" width="${width - (inset * 2)}" height="${height - (inset * 2)}" rx="${kind === "hatch" ? 7 : 3}"></rect><path class="door-mark" d="${kind === "hatch" ? `M ${x + 15} ${y + (height / 2)} H ${x + width - 15}` : `M ${x + (width / 2)} ${y + 12} V ${y + height - 18}`}"></path></g>`;
     }
 
     function interiorSvgSurfaces(mode) {
-      if (mode === "hex") {
-        return `
-          <polygon class="interior-surface pane-a" data-pane="0" points="0,35 300,80 300,300 0,340"></polygon>
-          <polygon class="interior-surface pane-b" data-pane="1" points="300,80 600,45 600,315 300,300"></polygon>
-          <polygon class="interior-surface pane-c" data-pane="2" points="600,45 900,80 900,300 600,315"></polygon>
-          <polygon class="interior-surface pane-d" data-pane="3" points="900,80 1200,35 1200,340 900,300"></polygon>
-          <path class="interior-seam" d="M0 35 L600 45 L1200 35 M0 340 L600 315 L1200 340"></path>`;
-      }
-      return `
-        <polygon class="interior-surface ceiling" data-pane="ceiling" points="0,0 1200,0 850,105 350,105"></polygon>
-        <polygon class="interior-surface left-wall" data-pane="left" points="0,0 350,105 350,255 0,360"></polygon>
-        <polygon class="interior-surface front-wall" data-pane="front" points="350,105 850,105 850,255 350,255"></polygon>
-        <polygon class="interior-surface right-wall" data-pane="right" points="850,105 1200,0 1200,360 850,255"></polygon>
-        <polygon class="interior-surface floor" data-pane="floor" points="0,360 350,255 850,255 1200,360"></polygon>
-        <path class="interior-seam" d="M350 105 H850 M350 255 H850"></path>`;
-    }
-
-    function interiorSvgHtml(mode, exits) {
-      const slots = interiorExitSlots[mode] || {};
-      const visibleExits = (Array.isArray(exits) ? exits : [])
-        .filter((exit) => !exitUnavailable(exit, state));
-      const sockets = visibleExits
-        .map((exit, index) => interiorExitSocket(
-          exit,
-          slots[exitDirectionCode(exit.direction)],
-          index,
-        ))
-        .join("");
-      return `
-        <svg class="interior-svg" viewBox="0 0 1200 360" preserveAspectRatio="none" focusable="false">
-          ${interiorSvgSurfaces(mode)}
-          ${sockets}
-        </svg>`;
+      if (mode === "hex") return `<polygon class="interior-surface pane-a" data-pane="0" points="0,35 300,80 300,300 0,340"></polygon><polygon class="interior-surface pane-b" data-pane="1" points="300,80 600,45 600,315 300,300"></polygon><polygon class="interior-surface pane-c" data-pane="2" points="600,45 900,80 900,300 600,315"></polygon><polygon class="interior-surface pane-d" data-pane="3" points="900,80 1200,35 1200,340 900,300"></polygon><path class="interior-seam" d="M0 35 L600 45 L1200 35 M0 340 L600 315 L1200 340"></path>`;
+      return `<polygon class="interior-surface ceiling" data-pane="ceiling" points="0,0 1200,0 850,105 350,105"></polygon><polygon class="interior-surface left-wall" data-pane="left" points="0,0 350,105 350,255 0,360"></polygon><polygon class="interior-surface front-wall" data-pane="front" points="350,105 850,105 850,255 350,255"></polygon><polygon class="interior-surface right-wall" data-pane="right" points="850,105 1200,0 1200,360 850,255"></polygon><polygon class="interior-surface floor" data-pane="floor" points="0,360 350,255 850,255 1200,360"></polygon><path class="interior-seam" d="M350 105 H850 M350 255 H850"></path>`;
     }
 
     function renderInteriorView(location = state?.location, exits = state?.exits) {
@@ -5503,13 +5305,12 @@
       if (!node) return;
       const mode = interiorViewMode(location);
       node.hidden = !mode;
-      if (!mode) {
-        node.removeAttribute("data-mode");
-        node.replaceChildren();
-        return;
-      }
+      if (!mode) { node.removeAttribute("data-mode"); node.replaceChildren(); return; }
+      const visibleExits = (Array.isArray(exits) ? exits : []).filter((exit) => !exitUnavailable(exit, state));
+      const slots = interiorExitSlots[mode] || {};
+      const sockets = visibleExits.map((exit, index) => interiorExitSocket(exit, slots[exitDirectionCode(exit.direction)], index)).join("");
       node.dataset.mode = mode;
-      node.innerHTML = interiorSvgHtml(mode, exits);
+      node.innerHTML = `<svg class="interior-svg" viewBox="0 0 1200 360" preserveAspectRatio="none" focusable="false">${interiorSvgSurfaces(mode)}${sockets}</svg>`;
     }
 
     function buildActions(view) {
@@ -5522,6 +5323,11 @@
           value: choice.statement,
         }));
         const action = {
+          offerKinds: ["create_avatar"],
+          offerIds: (view.action_offers || [])
+            .filter((offer) => String(offer?.kind || "") === "create_avatar")
+            .map((offer) => String(offer?.offer_id || ""))
+            .filter(Boolean),
           handProvider: {
             kind: "rules",
             id: "rules:create-avatar",
@@ -5672,12 +5478,32 @@
       const economy = view.economy || {};
       const ledger = view.ledger || {};
       const skills = Array.isArray(view.skills) ? view.skills : [];
-      const offerFor = (kind) => (view.action_offers || []).find((offer) => offer.kind === kind) || null;
+      const handOfferIdsForKind = (kind) => new Set((view.action_hand?.entries || [])
+        .filter((entry) => String(entry?.kind || "") === String(kind || ""))
+        .map((entry) => String(entry?.offer_id || ""))
+        .filter(Boolean));
+      const offersForCurrentHand = (kind) => {
+        const exactOfferIds = handOfferIdsForKind(kind);
+        const offers = (view.action_offers || []).filter((offer) => (
+          String(offer?.kind || "") === String(kind || "")
+            && (!exactOfferIds.size || exactOfferIds.has(String(offer?.offer_id || "")))
+        ));
+        return offers;
+      };
+      const offerFor = (kind) => offersForCurrentHand(kind)[0] || null;
+      const exactOfferVariants = (kind) => {
+        const offers = offersForCurrentHand(kind);
+        // A dealt same-kind pair is two certificates, not a client-side
+        // chooser. Without that exact pair, retain the legacy one-card UX.
+        return handOfferIdsForKind(kind).size > 1 ? offers : [offers[0] || null];
+      };
       const offerHand = (...candidateOffers) => {
         const offers = candidateOffers.flat().filter(Boolean);
         const offerKinds = [...new Set(offers.map((offer) => String(offer.kind || "")).filter(Boolean))];
-        const projectedKinds = (view.action_hand?.entries || []).map((entry) => String(entry.kind || ""));
-        const selected = offers.find((offer) => projectedKinds.includes(String(offer.kind || "")))
+        const projectedOfferIds = new Set((view.action_hand?.entries || [])
+          .map((entry) => String(entry.offer_id || ""))
+          .filter(Boolean));
+        const selected = offers.find((offer) => projectedOfferIds.has(String(offer.offer_id || "")))
           || offers.slice().sort((left, right) => (
             Number(left?.provider?.priority ?? 255) - Number(right?.provider?.priority ?? 255)
             || Number(left?.rank ?? 500) - Number(right?.rank ?? 500)
@@ -5686,6 +5512,7 @@
           || null;
         return {
           offerKinds,
+          offerIds: [...new Set(offers.map((offer) => String(offer.offer_id || "")).filter(Boolean))],
           handProvider: selected?.provider || null,
           offerRank: Number.isFinite(Number(selected?.rank)) ? Number(selected.rank) : null,
         };
@@ -5695,8 +5522,16 @@
         const kinds = Array.isArray(action.offerKinds)
           ? action.offerKinds.map((kind) => String(kind || "")).filter(Boolean)
           : [];
+        const exactOfferIds = [...new Set((Array.isArray(action.offerIds) ? action.offerIds : [])
+          .map((offerId) => String(offerId || ""))
+          .filter(Boolean))];
         const providerProjection = offerHand(kinds.map(offerFor));
         action.offerKinds = [...new Set(kinds)];
+        // A certified card represents one exact offer.  Only compatibility
+        // cards without an authored offer may infer a same-kind fallback.
+        action.offerIds = exactOfferIds.length
+          ? exactOfferIds
+          : ((view.action_hand?.entries || []).length ? [] : providerProjection.offerIds);
         action.handProvider = action.handProvider || providerProjection.handProvider || {
           kind: "location",
           id: `location:${view.location?.id || "current"}`,
@@ -5722,15 +5557,15 @@
         project: offer?.project || null,
         accessibleLabel: String(accessibleLabel || offer?.accessible_label || "").trim(),
       });
-      const buildChatAction = () => {
+      const buildChatAction = (chatOffer = offerFor("chat")) => {
         if (!options.has("chat")) return null;
-        const chatOffer = offerFor("chat");
         const offeredTargetId = Number(chatOffer?.target?.id || 0);
         const chatCandidates = actorTargets
           .filter((actor) => (
             actor.control_mode !== "direct_input"
             && !actor.blocked_by_you
             && !actor.muted_by_you
+            && (!offeredTargetId || Number(actor.id) === offeredTargetId)
           ))
           .sort((left, right) => (
             Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
@@ -5785,12 +5620,12 @@
         chatAction.run = () => action("/actions/chat", chatAction.selectedPayload());
         return chatAction;
       };
-      const buildBondAction = () => {
+      const buildBondAction = (chatOffer = offerFor("create_bond")) => {
         if (!options.has("create_bond") || Number(ledger.advancement_points || 0) <= 0) return null;
-        const chatOffer = offerFor("create_bond");
         const offeredTargetId = Number(chatOffer?.target?.id || 0);
         const chatCandidates = actorTargets
-          .filter((actor) => !activeBondTargetIds.has(actor.id))
+          .filter((actor) => !activeBondTargetIds.has(actor.id)
+            && (!offeredTargetId || Number(actor.id) === offeredTargetId))
           .sort((left, right) => (
             Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
             || actorLabel(left).localeCompare(actorLabel(right))
@@ -5977,6 +5812,14 @@
         };
       }).filter((candidate) => !candidate.nextStretchRevealed);
       if (scoutCandidates.length) {
+        const projectedScoutOfferIds = new Set((view.action_hand?.entries || [])
+          .filter((entry) => String(entry?.kind || "") === "explore_path")
+          .map((entry) => String(entry?.offer_id || ""))
+          .filter(Boolean));
+        const scoutGroups = projectedScoutOfferIds.size > 1
+          ? scoutCandidates.map((candidate) => [candidate])
+          : [scoutCandidates];
+        for (const scoutCandidates of scoutGroups) {
         const firstScout = scoutCandidates[0];
         const oneScout = scoutCandidates.length === 1;
         const scoutVerb = offerVerb(firstScout.offer, "Scout");
@@ -6033,6 +5876,7 @@
         });
         scoutAction.run = () => action("/actions/explore-path", scoutAction.selectedPayload());
         built.push(scoutAction);
+        }
       }
 
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
@@ -6043,7 +5887,11 @@
       );
       const itemWeightTenths = (item) => item ? Math.max(1, Number(item.weight_tenths || 10)) : 0;
       const itemContainerCapacityTenths = (item) => (
-        item?.role === "container" ? Math.max(0, Number(item?.container_capacity_tenths || 0)) : 0
+        item?.role === "container"
+          && item?.zone === "equipped"
+          && !Number(item?.container_item_id || 0)
+          ? Math.max(0, Number(item?.container_capacity_tenths || 0))
+          : 0
       );
       const carriedDeckFitsAfter = (incoming, outgoing = null) => (
         carriedWeightTenths - itemWeightTenths(outgoing) + itemWeightTenths(incoming)
@@ -6066,15 +5914,17 @@
       };
       const bonds = Array.isArray(view.bonds) ? view.bonds : [];
       const activeBondTargetIds = new Set(bonds.map((bond) => Number(bond.target_actor_id || 0)));
-      const offeredAttackTargetId = Number(offerFor("attack")?.target?.id || 0);
+      const offeredAttackTargetIds = new Set(offersForCurrentHand("attack")
+        .map((offer) => Number(offer?.target?.id || 0))
+        .filter((id) => id > 0));
       const encounterTargetIds = new Set((view.combat?.participants || [])
         .filter((participant) => Number(participant.side) === 2 && participant.status === "active" && !participant.escaped)
         .map((participant) => Number(participant.actor_id)));
       const attackTargetIds = new Set(options.has("attack") ? (view.actors || [])
         .filter((actor) => actor.id !== actorId
           && actor.status === "active"
-          && (offeredAttackTargetId > 0
-            ? actor.id === offeredAttackTargetId
+          && (offeredAttackTargetIds.size > 0
+            ? offeredAttackTargetIds.has(Number(actor.id))
             : encounterTargetIds.size === 0 || encounterTargetIds.has(actor.id)))
         .map((actor) => actor.id) : []);
       const usableTargets = (view.actors || []).filter((actor) => (
@@ -6134,221 +5984,89 @@
       const projectSearchPriority = activeRoomProject && !preparedForRoom && !locationSearchObserved ? 29 : 86;
       const projectPreparePriority = activeRoomProject && !preparedForRoom && locationSearchObserved ? 29 : 32;
       if (options.has("give_item")) {
-        const giveOffer = offerFor("give_item");
-        const offeredTargetId = Number(giveOffer?.target?.id || 0);
-        const giveOfferText = `${giveOffer?.target?.label || ""} ${giveOffer?.effect || ""}`.toLowerCase();
-        const giftCandidates = [];
-        const giftItemForTarget = (target) => {
-          if (offeredTargetId && offeredTargetId !== Number(target.id || 0)) return null;
-          const targetName = actorLabel(target).toLowerCase();
-          const mentionedItem = heldItems.find((held) => giveOfferText.includes(String(held.name || "").toLowerCase()));
-          if (mentionedItem && (!giveOfferText || giveOfferText.includes(targetName))) return mentionedItem;
-          if (target?.control_mode === "direct_input" && heldItems.length) return heldItems[0];
-          if (!offeredTargetId && actorTargets.length === 1 && heldItems.length === 1) return heldItems[0];
-          if (offeredTargetId === Number(target.id || 0) && heldItems.length === 1) return heldItems[0];
-          return null;
-        };
-        for (const target of actorTargets) {
-          const request = target.economy?.request || null;
-          const requestedItemId = Number(request?.item_id || 0);
-          const item = requestedItemId
-            ? heldItems.find((held) => Number(held.id || 0) === requestedItemId)
-            : giftItemForTarget(target);
-          if (!item) continue;
-          giftCandidates.push({
-            key: `${item.id}:${target.id}`,
-            item,
-            target,
-            reason: String(
-              (offeredTargetId === Number(target.id || 0) ? giveOffer?.effect : "")
-              || request?.reason
-              || giveOffer?.effect
-              || ""
-            ),
-            requested: Boolean(requestedItemId),
-            priority: requestedItemId || offeredTargetId === Number(target.id || 0) ? 9 : 12,
+        for (const offer of (view.action_offers || []).filter((candidate) => candidate.kind === "give_item")) {
+          const [, itemIdText, targetIdText] = String(offer.id || "").split(":");
+          const item = itemForId(Number(itemIdText));
+          const target = actorTargets.find((actor) => Number(actor.id) === Number(targetIdText));
+          if (!item || !target) continue;
+          built.push({
+            ...semanticAction(offer, "give"), label: "give", detail: `${item.name} to ${actorLabel(target)}`,
+            command: offer.command || `give ${item.name} to ${actorLabel(target)}`,
+            focusKey: `give:${item.id}:${target.id}`, focusKeys: [`item:${item.id}`, `actor:${target.id}`],
+            card: cardForItem(item.id) || cardForActor(target.id), shape: "item", requestedGift: Boolean(target.economy?.request?.item_id === item.id),
+            effect: offer.effect || `${actorLabel(target)} keeps ${item.name}.`, modalSummary: `Pass ${item.name} to ${actorLabel(target)}.`,
+            run: () => action("/actions/give-item", { actor_id: actorId, item_id: item.id, target_actor_id: target.id }),
           });
-        }
-        giftCandidates.sort((left, right) => (
-          left.priority - right.priority
-          || actorLabel(left.target).localeCompare(actorLabel(right.target))
-        ));
-        if (giftCandidates.length) {
-          const firstGift = giftCandidates[0];
-          const oneChoice = giftCandidates.length === 1;
-          const sameItem = giftCandidates.every((candidate) => candidate.item.id === firstGift.item.id);
-          const focusKeys = [...new Set(giftCandidates.flatMap((candidate) => [
-            `actor:${candidate.target.id}`,
-            `item:${candidate.item.id}`,
-          ]))];
-          const giveAction = {
-            ...semanticAction(giveOffer, "give"),
-            label: "give",
-            detail: oneChoice
-              ? `${firstGift.item.name} to ${actorLabel(firstGift.target)}`
-              : (sameItem
-                ? `${firstGift.item.name} · choose who`
-                : "choose a gift"),
-            command: oneChoice
-              ? `give ${firstGift.item.name} to ${actorLabel(firstGift.target)}`
-              : "give",
-            focusKey: oneChoice
-              ? `actor:${firstGift.target.id}`
-              : `give:${giftCandidates.map((candidate) => candidate.key).join("|")}`,
-            focusKeys,
-            card: sameItem ? cardForItem(firstGift.item.id) : (cardForItem(firstGift.item.id) || cardForActor(firstGift.target.id)),
-            shape: "item",
-            priority: firstGift.priority,
-            requestedGift: giftCandidates.some((candidate) => candidate.requested),
-            effect: oneChoice
-              ? (firstGift.reason || `${actorLabel(firstGift.target)} keeps ${firstGift.item.name} and may use, trade, or treasure it`)
-              : "the chosen avatar keeps the chosen item",
-            ...(oneChoice ? {
-              modalSummary: `Pass ${firstGift.item.name} to ${actorLabel(firstGift.target)}.`,
-            } : {
-              modalSummary: sameItem
-                ? `Choose who receives ${firstGift.item.name}.`
-                : "Choose an item and recipient.",
-              choices: giftCandidates.map((candidate) => ({
-                label: actorLabel(candidate.target),
-                detail: [candidate.item.name, candidate.reason].filter(Boolean).join(" · "),
-                value: candidate.key,
-                card: cardForItem(candidate.item.id) || cardForActor(candidate.target.id),
-              })),
-              selectedChoice: firstGift.key,
-            }),
-          };
-          giveAction.selectedPayload = () => {
-            const selectedGift = giftCandidates.find((candidate) => candidate.key === giveAction.selectedChoice) || firstGift;
-            return {
-              actor_id: actorId,
-              item_id: selectedGift.item.id,
-              target_actor_id: selectedGift.target.id,
-            };
-          };
-          giveAction.run = () => action("/actions/give-item", giveAction.selectedPayload());
-          built.push(giveAction);
         }
       }
       if (options.has("trade_item") && heldItems.length) {
-        const tradeOfferDefault = offerFor("trade_item");
-        const defaultTradeItemId = Number(tradeOfferDefault?.target?.id || 0);
-        const itemById = (itemId) => (view.items || []).find((item) => Number(item.id || 0) === Number(itemId || 0));
-        const tradeCandidates = [];
-        for (const target of actorTargets) {
-          const request = target.economy?.request || null;
-          const tradeOffer = target.economy?.trade_offer || null;
-          if (!tradeOffer) continue;
-          const offeredItem = itemById(tradeOffer.offered_item_id);
-          const targetItem = itemById(tradeOffer.requested_item_id);
-          if (!offeredItem || !targetItem) continue;
-          if (Number(offeredItem.holder_actor_id || 0) !== Number(actorId || 0)) continue;
-          if (Number(targetItem.holder_actor_id || 0) !== Number(target.id || 0)) continue;
-          const willingness = String(tradeOffer.willingness || "").trim();
-          if (String(willingness).toLowerCase() === "refuses" || tradeOffer.accepted === false) continue;
-          const tradeReason = String(tradeOffer.reason || "").trim();
-          const requested = Number(request?.item_id || 0) === Number(offeredItem.id || 0);
-          const defaultOffer = defaultTradeItemId === Number(targetItem.id || 0);
-          const targetName = actorLabel(target);
-          tradeCandidates.push({
-            key: `${target.id}:${offeredItem.id}:${targetItem.id}`,
-            target,
-            targetName,
-            offeredItem,
-            targetItem,
-            requested,
-            reason: requested ? String(request.reason || tradeReason || tradeOfferDefault?.effect || "") : (tradeReason || tradeOfferDefault?.effect || ""),
-            priority: requested ? (willingness === "eager" ? 11 : 14) : (defaultOffer ? 62 : (willingness === "eager" ? 64 : 74)),
-          });
-        }
-        tradeCandidates.sort((left, right) => (
-          left.priority - right.priority
-          || left.targetName.localeCompare(right.targetName)
-        ));
-        if (tradeCandidates.length) {
-          const firstTrade = tradeCandidates[0];
-          const oneTrade = tradeCandidates.length === 1;
-          const tradeAction = {
-            ...semanticAction(tradeOfferDefault, "trade"),
-            label: "trade",
-            detail: oneTrade
-              ? `${firstTrade.offeredItem.name} for ${firstTrade.targetItem.name} with ${firstTrade.targetName}`
-              : "choose a trade",
-            command: oneTrade
-              ? `trade ${firstTrade.offeredItem.name} with ${firstTrade.targetName} for ${firstTrade.targetItem.name}`
-              : "trade",
-            focusKey: oneTrade
-              ? `trade:${firstTrade.target.id}:${firstTrade.targetItem.id}`
-              : `trade:${tradeCandidates.map((candidate) => candidate.key).join("|")}`,
-            focusKeys: [...new Set(tradeCandidates.flatMap((candidate) => [
-              `actor:${candidate.target.id}`,
-              `item:${candidate.offeredItem.id}`,
-              `item:${candidate.targetItem.id}`,
-            ]))],
-            card: oneTrade
-              ? (firstTrade.requested
-                ? (cardForItem(firstTrade.offeredItem.id) || cardForActor(firstTrade.target.id))
-                : (cardForItem(firstTrade.targetItem.id) || cardForActor(firstTrade.target.id)))
-              : (cardForItem(firstTrade.targetItem.id) || cardForActor(firstTrade.target.id)),
-            shape: "item",
-            priority: firstTrade.priority,
-            targetName: oneTrade ? firstTrade.targetName : "",
-            modalTitle: oneTrade ? undefined : "choose a trade",
-            modalSummary: oneTrade
-              ? `Swap ${firstTrade.offeredItem.name} with ${firstTrade.targetName} for ${firstTrade.targetItem.name}.`
-              : "Choose a keepsake to swap.",
-            effect: oneTrade ? (firstTrade.reason || undefined) : "both keepsakes change hands",
-            ...(oneTrade ? {} : {
-              choices: tradeCandidates.map((candidate) => ({
-                label: candidate.targetName,
-                detail: `${candidate.offeredItem.name} for ${candidate.targetItem.name}`,
-                value: candidate.key,
-                card: cardForItem(candidate.targetItem.id) || cardForActor(candidate.target.id),
-              })),
-              selectedChoice: firstTrade.key,
-            }),
-          };
-          tradeAction.selectedPayload = () => {
-            const selected = tradeCandidates.find((candidate) => candidate.key === tradeAction.selectedChoice) || firstTrade;
-            return {
+        for (const offer of (view.action_offers || []).filter((candidate) => candidate.kind === "trade_item")) {
+          const [, itemIdText, targetIdText, targetItemIdText] = String(offer.id || "").split(":");
+          const item = itemForId(Number(itemIdText));
+          const target = actorTargets.find((actor) => Number(actor.id) === Number(targetIdText));
+          const targetItem = itemForId(Number(targetItemIdText));
+          if (!item || !target || !targetItem) continue;
+          built.push({
+            ...semanticAction(offer, "trade"), label: "trade", detail: `${item.name} for ${targetItem.name} with ${actorLabel(target)}`,
+            command: offer.command || `trade ${item.name} with ${actorLabel(target)} for ${targetItem.name}`,
+            focusKey: `trade:${item.id}:${target.id}:${targetItem.id}`, focusKeys: [`item:${item.id}`, `actor:${target.id}`, `item:${targetItem.id}`],
+            card: cardForItem(targetItem.id) || cardForActor(target.id), shape: "item", targetName: actorLabel(target),
+            modalSummary: `Swap ${item.name} with ${actorLabel(target)} for ${targetItem.name}.`, effect: offer.effect,
+            selectedPayload: () => ({
               actor_id: actorId,
-              item_id: selected.offeredItem.id,
-              target_actor_id: selected.target.id,
-              target_item_id: selected.targetItem.id,
-            };
-          };
-          tradeAction.run = () => action("/actions/trade-item", tradeAction.selectedPayload());
-          built.push(tradeAction);
+              item_id: item.id,
+              target_actor_id: target.id,
+              target_item_id: targetItem.id,
+            }),
+            run: () => action("/actions/trade-item", {
+              actor_id: actorId,
+              item_id: item.id,
+              target_actor_id: target.id,
+              target_item_id: targetItem.id,
+            }),
+          });
         }
       }
       if (options.has("theft")) {
-        const theftOffer = offerFor("theft");
-        const itemId = Number(theftOffer?.target?.id || 0);
-        const item = (view.items || []).find((candidate) => Number(candidate.id || 0) === itemId);
-        const targetActorId = Number(item?.holder_actor_id || 0);
-        if (itemId && targetActorId) built.push({
-          ...semanticAction(theftOffer, "take"),
-          label: theftOffer?.label || "steal",
-          detail: theftOffer?.target?.label || item?.name || "a carried card",
-          command: `steal ${item?.name || "item"}`,
-          focusKey: `theft:${targetActorId}:${itemId}`,
-          card: cardForItem(itemId),
-          shape: "item",
-          priority: Number(theftOffer?.rank || 76),
-          modalSummary: "Attempt an observable, server-resolved possession transfer.",
-          effect: theftOffer?.effect,
-          risk: theftOffer?.risk,
-          run: () => action("/actions/theft", {
-            actor_id: actorId,
-            item_id: itemId,
-            target_item_id: itemId,
-            target_actor_id: targetActorId,
-          }),
-        });
+        for (const theftOffer of exactOfferVariants("theft")) {
+          const itemId = Number(theftOffer?.target?.id || 0);
+          const item = (view.items || []).find((candidate) => Number(candidate.id || 0) === itemId);
+          const targetActorId = Number(item?.holder_actor_id || 0);
+          if (itemId && targetActorId) built.push({
+            ...semanticAction(theftOffer, "take"),
+            label: theftOffer?.label || "steal",
+            detail: theftOffer?.target?.label || item?.name || "a carried card",
+            command: `steal ${item?.name || "item"}`,
+            focusKey: `theft:${targetActorId}:${itemId}`,
+            card: cardForItem(itemId),
+            shape: "item",
+            priority: Number(theftOffer?.rank || 76),
+            modalSummary: "Attempt an observable, server-resolved possession transfer.",
+            effect: theftOffer?.effect,
+            risk: theftOffer?.risk,
+            run: () => action("/actions/theft", {
+              actor_id: actorId,
+              item_id: itemId,
+              target_item_id: itemId,
+              target_actor_id: targetActorId,
+            }),
+          });
+        }
       }
       if (view.search_available === true || options.has("search")) {
         const locationName = view.location?.name || "this room";
-        const searchOffers = (view.action_offers || []).filter((offer) => offer.kind === "search");
+        const projectedSearchOfferIds = new Set((view.action_hand?.entries || [])
+          .filter((entry) => entry.kind === "search")
+          .map((entry) => String(entry.offer_id || ""))
+          .filter(Boolean));
+        const searchOffers = (view.action_offers || []).filter((offer) => (
+          offer.kind === "search"
+            && (!projectedSearchOfferIds.size || projectedSearchOfferIds.has(String(offer.offer_id || "")))
+        ));
+        if (!searchOffers.length && projectedSearchOfferIds.size) {
+          // The authoritative hand contains no Search certificate. Do not
+          // synthesize an offerless card from the broad room affordance.
+        } else {
         const searchCandidates = (searchOffers.length ? searchOffers : [null]).map((offer, index) => {
           const target = String(offer?.target?.label || locationName).trim() || locationName;
           return {
@@ -6358,6 +6076,10 @@
             value: String(offer?.offer_id || offer?.id || `${index}:${target}`),
           };
         });
+        const searchGroups = projectedSearchOfferIds.size > 1
+          ? searchCandidates.map((candidate) => [candidate])
+          : [searchCandidates];
+        for (const searchCandidates of searchGroups) {
         const firstSearch = searchCandidates[0];
         const oneSearch = searchCandidates.length === 1;
         const clueLedSearch = firstSearch.target !== locationName;
@@ -6401,31 +6123,59 @@
         inspectAction.selectedTarget = () => searchCandidates.find((candidate) => (
           candidate.value === String(inspectAction.selectedChoice || firstSearch.value)
         )) || firstSearch;
-        inspectAction.run = () => runCommandText(inspectAction.selectedTarget().command);
+        inspectAction.run = () => runCommandText(
+          inspectAction.selectedTarget().command,
+          inspectAction.selectedTarget().offer,
+        );
         built.push(inspectAction);
+        }
+        }
       }
-      const chatAction = buildChatAction();
-      if (chatAction) built.push(chatAction);
-      const bondAction = buildBondAction();
-      if (bondAction) built.push(bondAction);
+      for (const offer of exactOfferVariants("chat")) {
+        const chatAction = buildChatAction(offer);
+        if (chatAction) built.push(chatAction);
+      }
+      for (const offer of exactOfferVariants("create_bond")) {
+        const bondAction = buildBondAction(offer);
+        if (bondAction) built.push(bondAction);
+      }
       if (options.has("pick_up")) {
-        const roomItems = (view.items || []).filter((item) => (
-          Number(item.location_id || 0) === currentLocationId
+        const projectedPickupOfferIds = new Set((view.action_hand?.entries || [])
+          .filter((entry) => entry.kind === "pick_up")
+          .map((entry) => String(entry.offer_id || ""))
+          .filter(Boolean));
+        const pickupOffers = (view.action_offers || []).filter((offer) => (
+          offer.kind === "pick_up"
+            && offer?.target?.kind === "item"
+            && Number(offer?.target?.id || 0) > 0
+            && (!projectedPickupOfferIds.size || projectedPickupOfferIds.has(String(offer.offer_id || "")))
         ));
-        const takeCandidates = roomItems.map((item) => {
+        const takeCandidates = pickupOffers.map((offer) => {
+          const item = (view.items || []).find((candidate) => (
+            Number(candidate.id || 0) === Number(offer.target.id)
+              && Number(candidate.location_id || 0) === currentLocationId
+          ));
+          if (!item) return null;
           const direct = carriedDeckFitsAfter(item);
           const exchangeItem = direct ? null : exchangeCardFor(item);
-          return { item, direct, exchangeItem };
-        }).filter((candidate) => candidate.direct || candidate.exchangeItem);
-        if (takeCandidates.length) {
+          return { item, offer, direct, exchangeItem };
+        }).filter((candidate) => candidate && (candidate.direct || candidate.exchangeItem));
+        // Distinct dealt pickup offers remain distinct cards. A picker is only
+        // valid when one dealt offer itself authorizes multiple choices.
+        const pickupGroups = projectedPickupOfferIds.size > 1
+          ? takeCandidates.map((candidate) => [candidate])
+          : [takeCandidates];
+        for (const takeCandidates of pickupGroups) {
+          if (!takeCandidates.length) continue;
           const firstCandidate = takeCandidates[0];
           const firstItem = firstCandidate.item;
           const heldItemName = firstCandidate.exchangeItem?.name || "what you carry";
           const swapping = Boolean(firstCandidate.exchangeItem);
           const oneItem = takeCandidates.length === 1;
-          const takeOffer = offerFor("pick_up");
+          const takeOffer = firstCandidate.offer;
           const takeAction = {
             ...semanticAction(takeOffer, "take"),
+            offerIds: takeCandidates.map((candidate) => candidate.offer.offer_id),
             label: swapping ? "swap" : "take",
             detail: oneItem
               ? (swapping ? `${heldItemName} for ${firstItem.name}` : firstItem.name)
@@ -6484,15 +6234,24 @@
         }
       }
       if (options.has("drop_item")) {
+        const projectedDropOfferIds = new Set((view.action_hand?.entries || [])
+          .filter((entry) => entry.kind === "drop_item")
+          .map((entry) => String(entry.offer_id || ""))
+          .filter(Boolean));
         const dropOffers = (state?.action_offers || []).filter((offer) => (
           offer.kind === "drop_item"
             && offer?.target?.kind === "item"
             && Number(offer?.target?.id || 0) > 0
+            && (!projectedDropOfferIds.size || projectedDropOfferIds.has(String(offer.offer_id || "")))
         ));
         const dropCandidates = heldItems.filter((item) => (
           dropOffers.some((offer) => Number(offer.target.id) === Number(item.id))
         ));
-        if (dropCandidates.length) {
+        const dropGroups = projectedDropOfferIds.size > 1
+          ? dropCandidates.map((candidate) => [candidate])
+          : [dropCandidates];
+        for (const dropCandidates of dropGroups) {
+          if (!dropCandidates.length) continue;
           const firstItem = dropCandidates[0];
           const oneItem = dropCandidates.length === 1;
           const dropOffer = dropOffers.find((offer) => (
@@ -6500,6 +6259,9 @@
           )) || offerFor("drop_item");
           const dropAction = {
             ...semanticAction(dropOffer, "drop"),
+            offerIds: dropCandidates.map((item) => (
+              dropOffers.find((offer) => Number(offer.target.id) === Number(item.id))?.offer_id
+            )).filter(Boolean),
             label: "drop",
             detail: oneItem ? firstItem.name : "choose a keepsake",
             command: oneItem ? `drop ${firstItem.name}` : "drop",
@@ -6615,15 +6377,24 @@
           ].join(" "),
           effect: method.effect,
           risk: method.consequence,
-          run: () => action("/actions/open", {
-            actor_id: actorId,
-            destination_location_id: Number(offer?.target?.id || 0),
-            threshold_method_id: Number(method.method_id || 0),
-          }),
+          run: () => runCommandText(offer.command, offer),
         });
       }
+      const projectedRouteOfferIds = new Set((view.action_hand?.entries || [])
+        .filter((entry) => ["move", "flee"].includes(String(entry.kind || "")))
+        .map((entry) => String(entry.offer_id || ""))
+        .filter(Boolean));
+      const routeOffers = (view.action_offers || []).filter((offer) => (
+        ["move", "flee"].includes(String(offer.kind || ""))
+          && offer?.target?.kind === "location"
+          && Number(offer?.target?.id || 0) > 0
+          && (!projectedRouteOfferIds.size || projectedRouteOfferIds.has(String(offer.offer_id || "")))
+      ));
       const routeExits = (view.exits || []).filter((exit) => (
         !exitUnavailable(exit, view)
+        && routeOffers.some((offer) => (
+          Number(offer.target.id) === Number(exit.destination_location_id || 0)
+        ))
         && !(journey
           && Number(exit.distance || 1) > 1
           && Number(exit.destination_location_id || 0) === Number(journey.destination_location_id || 0))
@@ -6634,26 +6405,26 @@
           ? [{ exits: routeExits, mode: "flee" }]
           : [{ exits: routeExits.filter((exit) => Number(exit.distance || 1) <= 1), mode: "travel" }]
             .filter((group) => group.exits.length);
-        for (const routeGroup of routeGroups) {
+        const dealtRouteGroups = projectedRouteOfferIds.size > 1
+          ? routeGroups.flatMap((group) => group.exits.map((exit) => ({ ...group, exits: [exit] })))
+          : routeGroups;
+        for (const routeGroup of dealtRouteGroups) {
           const groupedExits = routeGroup.exits;
           const firstExit = groupedExits[0];
           const onePath = groupedExits.length === 1;
           const searchingPathway = false;
           const fleeing = routeGroup.mode === "flee";
-          const interiorMoving = Boolean(interiorViewMode(view.location) && !searchingPathway && !fleeing);
-          const routeOffer = offerFor(fleeing ? "flee" : "move");
+          const routeOffer = routeOffers.find((offer) => (
+            offer.kind === (fleeing ? "flee" : "move")
+              && Number(offer.target.id) === Number(firstExit.destination_location_id || 0)
+          )) || offerFor(fleeing ? "flee" : "move");
           const routeIntention = searchingPathway ? "scout" : (fleeing ? "flee" : "travel");
-          const routeVerb = interiorMoving
-            ? "Move"
-            : offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
+          const routeVerb = offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
           const routeVerbLower = routeVerb.toLowerCase();
           const routeTargetPrefix = searchingPathway
             ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
-          const firstDirection = exitDirectionCode(firstExit.direction);
-          const routeAccessibleLabel = interiorMoving
-            ? `Move${firstDirection ? ` ${firstDirection}` : ""} to ${firstExit.destination_location_name}`
-            : targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
+          const routeAccessibleLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeLabel = String(firstExit.route_label || "").trim();
           const routeGuidance = onePath
             && !searchingPathway
@@ -6664,17 +6435,12 @@
             : "";
           const routeAction = {
             ...semanticAction(routeOffer, routeIntention, routeAccessibleLabel),
-            ...(interiorMoving ? { intention: "move" } : {}),
             label: routeVerb.toLowerCase(),
             detail: onePath
-              ? (interiorMoving
-                ? `${firstDirection || "EXIT"} · ${firstExit.destination_location_name}`
-                : searchingPathway
+              ? (searchingPathway
                 ? `${routeTargetPrefix}${firstExit.destination_location_name}`
                 : (fleeing ? firstExit.destination_location_name : `${routeTargetPrefix}${firstExit.destination_location_name}${routeGuidance}`))
-              : (interiorMoving
-                ? "choose an exit"
-                : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path"))),
+              : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path")),
             command: onePath
               ? `${fleeing ? "flee" : (searchingPathway ? "search pathway to" : "go")} ${firstExit.destination_location_name}`
               : (fleeing ? "flee" : (searchingPathway ? "search pathway" : "go")),
@@ -6689,22 +6455,18 @@
             priority: Number(routeOffer?.rank || (searchingPathway ? 55 : (fleeing ? 50 : 80))),
             modalTitle: onePath
               ? undefined
-              : (interiorMoving
-                ? "choose an exit"
-                : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel"))),
+              : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel")),
             modalSummary: onePath
               ? (fleeing
                 ? `Leave the danger behind and hurry toward ${firstExit.destination_location_name}.`
                 : (searchingPathway
                   ? `Reveal the first adjacent stretch toward ${firstExit.destination_location_name} without moving.`
-                  : (interiorMoving
-                    ? `Move${firstDirection ? ` ${firstDirection}` : ""} into ${firstExit.destination_location_name}.`
-                    : `Travel to ${firstExit.destination_location_name}.`)))
+                  : `Travel to ${firstExit.destination_location_name}.`))
               : (fleeing
                 ? "Choose a way out."
                 : (searchingPathway
                   ? "Choose a destination and reveal its next adjacent route segment without moving."
-                  : (interiorMoving ? "Choose an exit." : "Choose where to travel."))),
+                  : "Choose where to travel.")),
             effect: onePath
               ? (searchingPathway
                 ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
@@ -6712,14 +6474,10 @@
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
               choices: groupedExits.map((exit) => ({
-                label: interiorMoving
-                  ? `${exitDirectionCode(exit.direction) || "EXIT"} · ${exit.destination_location_name}`
-                  : (exit.route_label || exit.destination_location_name),
+                label: exit.route_label || exit.destination_location_name,
                 detail: searchingPathway
                   ? `${Number(exit.distance || 1)} stretches toward ${exit.destination_location_name}`
-                  : (interiorMoving
-                    ? (exit.route_label || "open way")
-                    : `${exit.destination_location_name}${exit.direction ? ` · ${exit.direction}` : ""}`),
+                  : exit.destination_location_name,
                 previewAlt: exit.destination_location_name,
                 value: String(exit.destination_location_id),
                 card: cardForLocation(exit.destination_location_id),
@@ -6732,15 +6490,11 @@
           )) || firstExit;
           routeAction.busyLabel = fleeing
             ? "getting away"
-            : (searchingPathway ? "searching" : (interiorMoving ? "moving" : "travelling"));
+            : (searchingPathway ? "searching" : "travelling");
           routeAction.busyDetail = () => {
             const selectedExit = selectedRouteExit();
             if (fleeing) return `hurrying toward ${selectedExit.destination_location_name}…`;
             if (searchingPathway) return `finding the path toward ${selectedExit.destination_location_name}…`;
-            if (interiorMoving) {
-              const direction = exitDirectionCode(selectedExit.direction);
-              return `moving${direction ? ` ${direction}` : ""} to ${selectedExit.destination_location_name}…`;
-            }
             return `following the path to ${selectedExit.destination_location_name}…`;
           };
           routeAction.selectedPayload = () => {
@@ -6792,103 +6546,71 @@
             || Number(right.target.id === actorId) - Number(left.target.id === actorId)
             || left.targetName.localeCompare(right.targetName)
           ));
-          const firstUse = useCandidates[0];
-          const oneUse = useCandidates.length === 1;
-          const sameItem = useCandidates.every((candidate) => candidate.item.id === firstUse.item.id);
-          const useOffer = firstUse.offer;
-          const useAction = {
-            ...semanticAction(useOffer, "use"),
-            label: "use",
-            detail: oneUse
-              ? `${firstUse.item.name} on ${firstUse.targetName}`
-              : (sameItem ? `${firstUse.item.name} · choose who` : "choose what to use"),
-            command: oneUse ? `use ${firstUse.item.name} on ${firstUse.targetName}` : "use",
-            focusKey: oneUse
-              ? (firstUse.requested ? `actor:${firstUse.target.id}` : `item:${firstUse.item.id}`)
-              : `use:${useCandidates.map((candidate) => candidate.key).join("|")}`,
-            focusKeys: [...new Set(useCandidates.flatMap((candidate) => [
-              `actor:${candidate.target.id}`,
-              `item:${candidate.item.id}`,
-            ]))],
-            card: cardForItem(firstUse.item.id),
-            shape: "item",
-            useChoiceKind: "care",
-            itemName: sameItem ? firstUse.item.name : "",
-            priority: useCandidates.some((candidate) => candidate.requested) ? 10 : undefined,
-            targetName: oneUse ? firstUse.targetName : "",
-            modalTitle: oneUse
-              ? (firstUse.target.id === actorId
-                ? `use ${firstUse.item.name}`
-                : `help ${firstUse.targetName} with ${firstUse.item.name}`)
-              : (sameItem ? `choose who ${firstUse.item.name} should help` : "choose how to help"),
-            modalSummary: oneUse
-              ? (firstUse.target.id === actorId
-                ? `Use ${firstUse.item.name} and catch your breath.`
-                : `Use ${firstUse.item.name} to help ${firstUse.targetName}.`)
-              : (sameItem
-                ? `Choose who ${firstUse.item.name} should help.`
-                : "Choose an item and who it should help."),
-            effect: oneUse
-              ? (firstUse.reason || `${firstUse.targetName} may feel steadier`)
-              : "the person you choose may feel steadier",
-            ...(oneUse ? {} : {
-              choices: useCandidates.map((candidate) => ({
-                label: candidate.target.id === actorId ? "you" : candidate.targetName,
-                detail: [candidate.item.name, candidate.reason || "may feel steadier"].join(" · "),
-                value: candidate.key,
-                card: cardForItem(candidate.item.id),
-              })),
-              selectedChoice: firstUse.key,
-            }),
-          };
-          useAction.selectedPayload = () => {
-            const selected = useCandidates.find((candidate) => candidate.key === useAction.selectedChoice) || firstUse;
-            return {
-              actor_id: actorId,
-              item_id: selected.item.id,
-              target_actor_id: selected.target.id,
-            };
-          };
-          useAction.run = () => action("/actions/use-item", useAction.selectedPayload());
-          built.push(useAction);
+          for (const candidate of useCandidates) {
+            const { item, target, targetName, offer } = candidate;
+            built.push({
+              ...semanticAction(offer, "use"), label: "use", detail: `${item.name} on ${targetName}`,
+              command: offer.command || `use ${item.name} on ${targetName}`,
+              focusKey: `use:${item.id}:${target.id}`, focusKeys: [`item:${item.id}`, `actor:${target.id}`],
+              card: cardForItem(item.id), shape: "item", useChoiceKind: "care", itemName: item.name,
+              priority: candidate.requested ? 10 : undefined, targetName,
+              modalTitle: target.id === actorId ? `use ${item.name}` : `help ${targetName} with ${item.name}`,
+              modalSummary: target.id === actorId ? `Use ${item.name} and catch your breath.` : `Use ${item.name} to help ${targetName}.`,
+              effect: candidate.reason || `${targetName} may feel steadier`,
+              selectedPayload: () => ({
+                actor_id: actorId,
+                item_id: item.id,
+                target_actor_id: target.id,
+              }),
+              run: () => action("/actions/use-item", {
+                actor_id: actorId,
+                item_id: item.id,
+                target_actor_id: target.id,
+              }),
+            });
+          }
         }
       }
       if (options.has("craft")) {
-        const craftOffer = offerFor("craft");
-        const recipeId = Number(craftOffer?.target?.id || 0);
-        if (recipeId) {
-          const recipeName = String(craftOffer?.target?.label || "something useful").trim();
-          const craftVerb = offerVerb(craftOffer, "Craft");
-          built.push({
-            ...semanticAction(craftOffer, "craft"),
-            label: craftVerb.toLowerCase(),
-            detail: recipeName,
-            command: String(craftOffer?.command || `${craftVerb} ${recipeName}`).trim(),
-            focusKey: `craft:${recipeId}`,
-            card: cardForItem(recipeId) || cardForLocation(view.location?.id),
-            shape: "item",
-            priority: Number(craftOffer?.rank || 70),
-            modalSummary: `Make ${recipeName} from what you carry.`,
-            effect: craftOffer?.effect,
-            risk: craftOffer?.risk,
-            run: () => action("/actions/craft", {
-              actor_id: actorId,
-              recipe_id: recipeId,
-            }),
-          });
+        for (const craftOffer of exactOfferVariants("craft")) {
+          const recipeId = Number(craftOffer?.target?.id || 0);
+          if (recipeId) {
+            const recipeName = String(craftOffer?.target?.label || "something useful").trim();
+            const craftVerb = offerVerb(craftOffer, "Craft");
+            built.push({
+              ...semanticAction(craftOffer, "craft"),
+              label: craftVerb.toLowerCase(),
+              detail: recipeName,
+              command: String(craftOffer?.command || `${craftVerb} ${recipeName}`).trim(),
+              focusKey: `craft:${recipeId}`,
+              card: cardForItem(recipeId) || cardForLocation(view.location?.id),
+              shape: "item",
+              priority: Number(craftOffer?.rank || 70),
+              modalSummary: `Make ${recipeName} from what you carry.`,
+              effect: craftOffer?.effect,
+              risk: craftOffer?.risk,
+              run: () => action("/actions/craft", {
+                actor_id: actorId,
+                recipe_id: recipeId,
+              }),
+            });
+          }
         }
       }
       if (options.has("attack")) {
-        const offer = offerFor("attack");
-        const attackRisk = String(offer?.risk || "");
-        const attackMethodId = offer?.source_collectible?.kind === "item"
-          ? Number(offer.source_collectible.instance_id || 0)
-          : 0;
-        const attackMethodName = attackMethodId
-          ? (cardForItem(attackMethodId)?.display_name || itemForId(attackMethodId)?.name || "equipped weapon")
-          : "unarmed strike";
-        const attackTargets = (view.actors || []).filter((actor) => attackTargetIds.has(actor.id));
-        if (attackTargets.length) {
+        for (const offer of exactOfferVariants("attack")) {
+          const attackRisk = String(offer?.risk || "");
+          const attackMethodId = offer?.source_collectible?.kind === "item"
+            ? Number(offer.source_collectible.instance_id || 0)
+            : 0;
+          const attackMethodName = attackMethodId
+            ? (cardForItem(attackMethodId)?.display_name || itemForId(attackMethodId)?.name || "equipped weapon")
+            : "unarmed strike";
+          const exactTargetId = Number(offer?.target?.id || 0);
+          const attackTargets = (view.actors || []).filter((actor) => (
+            attackTargetIds.has(actor.id) && (!exactTargetId || Number(actor.id) === exactTargetId)
+          ));
+          if (!attackTargets.length) continue;
           const firstTarget = attackTargets[0];
           const oneTarget = attackTargets.length === 1;
           const firstTargetLabel = actorLabel(firstTarget);
@@ -6969,7 +6691,11 @@
           priority: projectPreparePriority,
           effect: offer?.effect,
           risk: offer?.risk,
-          run: () => action("/actions/prepare", { actor_id: actorId }),
+          run: () => action("/actions/prepare", {
+            actor_id: actorId,
+            ...(offer?.project?.id ? { job_id: offer.project.id } : {}),
+            ...(offer?.project?.strategy_id ? { strategy_id: offer.project.strategy_id } : {}),
+          }),
         });
       }
       const restOffer = offerFor("rest");
@@ -7069,61 +6795,27 @@
             offer,
           };
         });
-        const firstStrategy = contributionStrategies[0];
-        const oneStrategy = contributionStrategies.length === 1;
-        const contributionAction = {
-          ...semanticAction(
-            firstOffer,
-            "contribute",
-            oneStrategy ? firstStrategy.label : projectLabel,
-          ),
-          ...offerHand(group),
-          project: contributionProject,
-          label: oneStrategy ? firstStrategy.label.toLowerCase() : projectLabel.toLowerCase(),
-          detail: oneStrategy ? firstStrategy.detail : "choose an approach",
-          command: oneStrategy ? firstOffer.command : "contribute",
-          focusKey: `contribute:${contributionProject.id}`,
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: Math.min(
-            projectWorkFinishes ? 28 : (preparedForRoom ? 33 : (preparationSpentForProject ? 36 : 48)),
-            preparedForRoom ? 34 : (preparationSpentForProject ? 37 : 49),
-          ),
-          modalTitle: projectLabel.toLowerCase(),
-          modalSummary: String(
-            contributionProject?.summary
-              || activeProject?.action_summary
-              || `Choose how to contribute to ${projectLabel}.`
-          ),
-          effect: oneStrategy ? firstOffer.effect : "the chosen approach advances the shared work",
-          risk: oneStrategy ? firstOffer.risk : undefined,
-          ...(oneStrategy ? {} : {
-            choices: contributionStrategies.map((strategy) => ({
-              label: strategy.label,
-              detail: strategy.detail,
-              value: strategy.key,
-              card: strategy.card,
-            })),
-            selectedChoice: firstStrategy.key,
-          }),
-        };
-        contributionAction.run = () => {
-          const selected = contributionStrategies.find((strategy) => (
-            strategy.key === String(contributionAction.selectedChoice || firstStrategy.key)
-          )) || firstStrategy;
-          if (!selected.offer.project.strategy_id) {
-            return action(`/actions/${selected.offer.kind}`, {
-              actor_id: actorId,
-              job_id: selected.offer.project.id,
-            });
-          }
-          return action("/actions/contribute", {
-            actor_id: actorId,
-            job_id: selected.offer.project.id,
-            strategy_id: selected.offer.project.strategy_id,
+        for (const strategy of contributionStrategies) {
+          const offer = strategy.offer;
+          const project = offer.project;
+          built.push({
+            ...semanticAction(offer, "contribute", strategy.label), project,
+            label: strategy.label.toLowerCase(), detail: strategy.detail,
+            command: offer.command, focusKey: `contribute:${project.id}:${offer.offer_id}`,
+            card: strategy.card || cardForLocation(view.location?.id), shape: "location",
+            priority: Math.min(
+              projectWorkFinishes ? 28 : (preparedForRoom ? 33 : (preparationSpentForProject ? 36 : 48)),
+              preparedForRoom ? 34 : (preparationSpentForProject ? 37 : 49),
+            ),
+            modalTitle: projectLabel.toLowerCase(),
+            modalSummary: String(project?.summary || activeProject?.action_summary || `Contribute to ${projectLabel}.`),
+            effect: offer.effect, risk: offer.risk,
+            run: () => action(offer.project.strategy_id ? "/actions/contribute" : `/actions/${offer.kind}`, {
+              actor_id: actorId, job_id: project.id,
+              ...(offer.project.strategy_id ? { strategy_id: offer.project.strategy_id } : {}),
+            }),
           });
-        };
-        built.push(contributionAction);
+        }
       });
       const listenAttemptedHere = economy.listen_attempted_here === true;
       const ambientCheckOffer = (view.action_offers || []).find((offer) => (
@@ -7159,62 +6851,65 @@
         });
       }
       if (options.has("influence")) {
-        const influenceOffer = offerFor("influence");
-        const targetId = Number(influenceOffer?.target?.id || 0);
-        if (targetId) built.push({
-          ...semanticAction(influenceOffer, "influence"),
-          label: influenceOffer?.label || "influence",
-          detail: influenceOffer?.target?.label || "a nearby avatar",
-          command: influenceOffer?.command || "ask for a local lead",
-          focusKey: `influence:${targetId}`,
-          card: cardForActor(targetId),
-          shape: "avatar",
-          priority: Number(influenceOffer?.rank || 58),
-          modalSummary: "Ask for one bounded, authored form of cooperation.",
-          effect: influenceOffer?.effect,
-          risk: influenceOffer?.risk,
-          run: () => action("/actions/influence", {
-            actor_id: actorId,
-            target_actor_id: targetId,
-          }),
-        });
+        for (const influenceOffer of exactOfferVariants("influence")) {
+          const targetId = Number(influenceOffer?.target?.id || 0);
+          if (targetId) built.push({
+            ...semanticAction(influenceOffer, "influence"),
+            label: influenceOffer?.label || "influence",
+            detail: influenceOffer?.target?.label || "a nearby avatar",
+            command: influenceOffer?.command || "ask for a local lead",
+            focusKey: `influence:${targetId}`,
+            card: cardForActor(targetId),
+            shape: "avatar",
+            priority: Number(influenceOffer?.rank || 58),
+            modalSummary: "Ask for one bounded, authored form of cooperation.",
+            effect: influenceOffer?.effect,
+            risk: influenceOffer?.risk,
+            run: () => action("/actions/influence", {
+              actor_id: actorId,
+              target_actor_id: targetId,
+            }),
+          });
+        }
       }
       if (options.has("cast_spell")) {
-        const spellOffer = offerFor("cast_spell");
-        const spellId = Number(spellOffer?.source_collectible?.instance_id || 0);
-        if (spellId) built.push({
-          ...semanticAction(spellOffer, "cast"),
-          label: spellOffer?.label || "cast",
-          detail: cardForItem(spellId)?.display_name || "Steady Light",
-          command: spellOffer?.command || "cast steady light",
-          focusKey: `spell:${spellId}`,
-          card: cardForItem(spellId),
-          shape: "item",
-          priority: Number(spellOffer?.rank || 22),
-          modalSummary: "Play this prepared spell card on yourself.",
-          effect: spellOffer?.effect,
-          run: () => action("/actions/cast-spell", {
-            actor_id: actorId,
-            item_id: spellId,
-            target_actor_id: actorId,
-          }),
-        });
+        for (const spellOffer of exactOfferVariants("cast_spell")) {
+          const spellId = Number(spellOffer?.source_collectible?.instance_id || 0);
+          if (spellId) built.push({
+            ...semanticAction(spellOffer, "cast"),
+            label: spellOffer?.label || "cast",
+            detail: cardForItem(spellId)?.display_name || "Steady Light",
+            command: spellOffer?.command || "cast steady light",
+            focusKey: `spell:${spellId}`,
+            card: cardForItem(spellId),
+            shape: "item",
+            priority: Number(spellOffer?.rank || 22),
+            modalSummary: "Play this prepared spell card on yourself.",
+            effect: spellOffer?.effect,
+            run: () => action("/actions/cast-spell", {
+              actor_id: actorId,
+              item_id: spellId,
+              target_actor_id: actorId,
+            }),
+          });
+        }
       }
       if (options.has("resolve_bond")) {
-        const offer = offerFor("resolve_bond");
-        const targetId = Number(offer?.target?.id || 0);
-        const rememberCandidates = bonds
-          .filter((bond) => Number(bond.strength || 0) >= 2 && String(bond.status || "active") === "active")
-          .map((bond) => ({
-            bond,
-            target: actorTargets.find((actor) => actor.id === Number(bond.target_actor_id || 0)),
-          }))
-          .filter((candidate) => candidate.target)
-          .sort((left, right) => (
-            Number(right.target.id === targetId) - Number(left.target.id === targetId)
-            || actorLabel(left.target).localeCompare(actorLabel(right.target))
-          ));
-        if (rememberCandidates.length) {
+        for (const offer of exactOfferVariants("resolve_bond")) {
+          const targetId = Number(offer?.target?.id || 0);
+          const rememberCandidates = bonds
+            .filter((bond) => Number(bond.strength || 0) >= 2 && String(bond.status || "active") === "active")
+            .map((bond) => ({
+              bond,
+              target: actorTargets.find((actor) => actor.id === Number(bond.target_actor_id || 0)),
+            }))
+            .filter((candidate) => candidate.target
+              && (!targetId || Number(candidate.target.id) === targetId))
+            .sort((left, right) => (
+              Number(right.target.id === targetId) - Number(left.target.id === targetId)
+              || actorLabel(left.target).localeCompare(actorLabel(right.target))
+            ));
+          if (!rememberCandidates.length) continue;
           const firstMemory = rememberCandidates[0];
           const oneMemory = rememberCandidates.length === 1;
           const firstTargetName = firstMemory.target.name || actorLabel(firstMemory.target);
@@ -7260,7 +6955,7 @@
         }
       }
       built.forEach(decorateActionHand);
-      mergeDuplicateUseCards(built);
+      if (!(view.action_hand?.entries || []).length) mergeDuplicateUseCards(built);
       built.forEach(decorateActionHand);
       built.sort(compareActions);
       if (!built.length) {
@@ -7370,7 +7065,7 @@
     }
 
     function turnPingPillHtml(turn = state?.turn) {
-      if (!turn?.enabled) return "";
+      if (state?.combat || !turn?.enabled) return "";
       const currentName = turn.current_actor_name || "the current player";
       // Combat keeps its own wording; other ordered policies still need the
       // same status now that no card carries it. See issue #461.
@@ -7385,49 +7080,16 @@
       return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${grace > 0 ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
     }
 
-    // Ordered-combat timing is scene status, not a dealt action. Draw and Need
-    // time live here as bounded controls so the card row stays reserved for
-    // legal combat actions. Drawing is an authoritative pass that rotates one
-    // suggestion; it never narrows the set of legal actions. See issue #461.
-    function orderedSceneDrawAvailable(turn = state?.turn) {
-      return Boolean(
-        turn?.enabled
-          && turn?.policy === "scene-turn"
-          && turn?.is_current_actor
-          && turn?.can_pass
-      );
-    }
-
-    async function drawAndPassOrderedSceneTurn() {
-      const result = await action("/actions/pass", { actor_id: actorId });
-      if (result?.ok) {
-        drawNextHandCard();
-        renderCommands();
-      }
-      return result;
-    }
-
     function turnBannerControlSpecs(turn = state?.turn) {
       if (!turn?.enabled || turn?.policy !== "scene-turn" || !turn?.is_current_actor) return [];
-      const specs = [];
-      if (turn.can_pass) {
-        specs.push({
-          key: "draw",
-          label: "draw",
-          title: "Set this suggestion aside, draw the next one, and yield the combat turn. The next participant acts; drawing does not make you dodge.",
-          run: drawAndPassOrderedSceneTurn,
-        });
-      }
-      if (turn.can_need_time) {
-        const seconds = Math.round(Number(turn.need_time_extension_ms || 60000) / 1000);
-        specs.push({
-          key: "need-time",
-          label: "need time",
-          title: `Keep the combat floor and add ${seconds} seconds of authored grace.`,
-          run: () => action("/actions/need-time", { actor_id: actorId }),
-        });
-      }
-      return specs;
+      if (!turn.can_need_time) return [];
+      const seconds = Math.round(Number(turn.need_time_extension_ms || 60000) / 1000);
+      return [{
+        key: "need-time",
+        label: "need time",
+        title: `Keep this activation and add ${seconds} seconds of grace without passing.`,
+        run: () => action("/actions/need-time", { actor_id: actorId }),
+      }];
     }
 
     function renderTurnBannerControls() {
@@ -7898,6 +7560,35 @@
       return (byPath[path] || []).filter((kind) => explicitKinds.has(kind));
     }
 
+    const offerBoundPaths = new Set([
+      "/actions/chat",
+      "/actions/move",
+      "/actions/explore-path",
+      "/actions/flee",
+      "/actions/open",
+      "/actions/check",
+      "/actions/study",
+      "/actions/discover",
+      "/actions/influence",
+      "/actions/cast-spell",
+      "/actions/pick-up",
+      "/actions/drop",
+      "/actions/use-item",
+      "/actions/give-item",
+      "/actions/trade-item",
+      "/actions/theft",
+      "/actions/craft",
+      "/actions/attack",
+      "/actions/defend",
+      "/actions/prepare",
+      "/actions/contribute",
+      "/actions/work",
+      "/actions/help",
+      "/actions/rest",
+      "/actions/create-bond",
+      "/actions/resolve-bond",
+    ]);
+
     function offerPayloadTarget(path, offer, payload) {
       const targetKind = String(offer?.target?.kind || "");
       if (["/actions/move", "/actions/flee", "/actions/explore-path"].includes(path)
@@ -7925,9 +7616,24 @@
     function currentOfferForSubmission(path, payload) {
       const kinds = offerKindsForPath(path);
       if (!kinds.length) return null;
-      const candidates = (state?.action_offers || []).filter((offer) => kinds.includes(offer.kind));
+      const activeCard = pendingAction?.selectedMode?.()?.source || pendingAction;
+      const cardOfferIds = new Set((activeCard?.offerIds || [])
+        .map((offerId) => String(offerId || ""))
+        .filter(Boolean));
+      const handOfferIds = new Set((state?.action_hand?.entries || [])
+        .map((entry) => String(entry?.offer_id || ""))
+        .filter(Boolean));
+      const certificateRequired = handOfferIds.size > 0;
+      if (certificateRequired && cardOfferIds.size !== 1) return null;
+      const candidates = (state?.action_offers || []).filter((offer) => (
+        kinds.includes(offer.kind)
+          && (!certificateRequired || (
+            handOfferIds.has(String(offer.offer_id || ""))
+              && cardOfferIds.has(String(offer.offer_id || ""))
+          ))
+      ));
       return candidates.find((offer) => {
-        const contributionMatches = path !== "/actions/contribute"
+        const contributionMatches = !["/actions/contribute", "/actions/work", "/actions/help", "/actions/study", "/actions/prepare"].includes(path)
           || (String(offer?.project?.id || "") === String(payload.job_id || "")
             && String(offer?.project?.strategy_id || "") === String(payload.strategy_id || ""));
         const thresholdMethodMatches = path !== "/actions/open"
@@ -7968,6 +7674,17 @@
       const beforeOrbs = economyOrbCount();
       const authoritativePayload = withAccess(payload);
       const offer = currentOfferForSubmission(path, authoritativePayload);
+      if (!offer && offerBoundPaths.has(path)) {
+        const result = {
+          ok: false,
+          status: 409,
+          events: [],
+          output: "That card is no longer in your hand. Think or choose one of the two current cards.",
+        };
+        setError(result.output);
+        void queueRefresh();
+        return result;
+      }
       const result = offer
         ? await post("/actions/submit", {
             path,
@@ -8050,7 +7767,7 @@
       };
     }
 
-    async function runCommandText(commandText) {
+    async function runCommandText(commandText, exactOffer = null) {
       const command = String(commandText || "").trim();
       if (!command) return;
       if (!actorId || !actorSession) {
@@ -8061,17 +7778,14 @@
       const clearFirstTaleAfterAction = firstTaleCelebration
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        const result = await shuffleHand();
-        if (result?.ok) {
-          setStatus("A fresh hand appears.", "ok");
-          pushCommandOutput(command, "You draw a new hand.", true, result.events || []);
-        }
-        return result;
+        setError("That free redeal command has retired. Choose Think to commit a pass.");
+        return null;
       }
       const beforeOrbs = economyOrbCount();
       const result = await post("/commands", withAccess({
         actor_id: actorId,
         command,
+        ...(exactOffer?.offer_id ? { offer_id: exactOffer.offer_id } : {}),
         envelope: canonicalCommandEnvelope(),
       }));
       const resultEvents = result.events || [];
@@ -8409,12 +8123,47 @@
         if (locationChanged) {
           pendingChats = [];
           rebuildLog([...(state.recent_events || [])].reverse());
+          connectStream();
         }
         actions = buildActions(state);
         return true;
       } catch {
         return false;
       }
+    }
+
+    const importantNotificationTypes = new Set([
+      "combat.encounter.started",
+      "combat.attack.hit",
+      "combat.attack.miss",
+      "combat.defend",
+      "combat.dodge",
+      "combat.pass",
+      "combat.knockout",
+      "combat.flee.success",
+      "combat.encounter.resolved",
+      "clock.threshold",
+      "relationship.advanced",
+      "world.conflict.escalated",
+    ]);
+
+    function enqueueImportantNotification(event) {
+      const type = String(event?.type || "");
+      if (!importantNotificationTypes.has(type) && !type.startsWith("clock.threshold")) return;
+      const host = $("important-notifications");
+      if (!host) return;
+      const key = String(event?.seq || `${type}:${Date.now()}`);
+      if ([...host.children].some((child) => child.dataset.notificationKey === key)) return;
+      const text = sceneCardEventText(event)
+        || cleanStatusText(event?.content || eventText(event))
+        || "Something important changed.";
+      const item = document.createElement("div");
+      item.className = "important-notification";
+      item.dataset.notificationKey = key;
+      item.setAttribute("role", "alert");
+      item.innerHTML = `<span class="important-notification-copy">${escapeHtml(text)}</span><button class="important-notification-dismiss" type="button" data-dismiss-important aria-label="Dismiss notification">×</button>`;
+      host.prepend(item);
+      while (host.children.length > 3) host.lastElementChild?.remove();
     }
 
     function pushEvents(events) {
@@ -8439,6 +8188,7 @@
           chatProgressChanged = true;
         }
         if (eventIsHiddenContext(event)) continue;
+        enqueueImportantNotification(event);
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
       }
@@ -9035,6 +8785,7 @@
       if (!event) return false;
       if (worldTranscriptEventTypes.has(event.type)) return true;
       if (String(event.type || "").startsWith("community_art.")) return true;
+      if (String(event.type || "").startsWith("focused.")) return true;
       return event.type === "world.reset"
         || event.type === "actor.presence"
         || event.type === "actor.created"
@@ -9126,9 +8877,7 @@
           worldViewAccessKey = "";
           if (libraryPanelPinned) ensureWorldView(true).then(render).catch(() => render());
         }
-        const coveredByReceipt = Number(event.seq || 0) > 0
-          && Number(event.seq || 0) <= Number(state?.state_revision || 0);
-        if (eventShouldRefreshState(event) && !actionBusy && !coveredByReceipt) queueRefresh();
+        if (eventShouldRefreshState(event)) queueRefresh();
       });
       stream.addEventListener("gap", (message) => {
         let gap = null;
@@ -10510,30 +10259,17 @@
 
     function worldChronicleHtml() {
       const simulation = worldView?.simulation;
-      if (!simulation) {
-        return `<section class="world-chronicle" aria-label="World chronicle"><div class="world-chronicle-head"><strong>the world beyond</strong><small>listening for distant news…</small></div></section>`;
-      }
+      if (!simulation) return `<section class="world-chronicle" aria-label="World chronicle"><div class="world-chronicle-head"><strong>the world beyond</strong><small>listening for distant news…</small></div></section>`;
       const history = Array.isArray(simulation.recent_history) ? simulation.recent_history.slice(0, 8) : [];
       const entries = history.length
         ? history.map((event) => {
-            const route = event.destination_location_name
-              ? `${event.location_name || "somewhere"} → ${event.destination_location_name}`
-              : (event.location_name || "somewhere beyond this room");
+            const route = event.destination_location_name ? `${event.location_name || "somewhere"} → ${event.destination_location_name}` : (event.location_name || "somewhere beyond this room");
             return `<div class="world-chronicle-entry"><span class="world-chronicle-place">${escapeHtml(route)}</span><span class="world-chronicle-copy">${escapeHtml(cleanStatusText(event.content || eventText(event)))}</span></div>`;
           }).join("")
         : `<div class="world-chronicle-entry"><span class="world-chronicle-copy">The wider world is settled. Six committed turns will carry the first distant change.</span></div>`;
-      const movingFactions = (simulation.factions || [])
-        .filter((faction) => Number(faction.momentum || 0) !== 0)
-        .sort((left, right) => Math.abs(Number(right.momentum || 0)) - Math.abs(Number(left.momentum || 0)))
-        .slice(0, 4)
-        .map((faction) => `${faction.faction_name || faction.faction_id} ${Number(faction.momentum) > 0 ? "+" : ""}${Number(faction.momentum || 0)}`)
-        .join(" · ");
-      const pulseLabel = Number(simulation.pulse_index || 0)
-        ? `history pulse ${simulation.pulse_index} · played tick ${simulation.last_advanced_tick}`
-        : `moves every ${simulation.pulse_interval_ticks || 6} committed turns`;
-      const factionLine = movingFactions
-        ? `<div class="world-faction-current">faction momentum · ${escapeHtml(movingFactions)}</div>`
-        : "";
+      const movingFactions = (simulation.factions || []).filter((faction) => Number(faction.momentum || 0) !== 0).sort((left, right) => Math.abs(Number(right.momentum || 0)) - Math.abs(Number(left.momentum || 0))).slice(0, 4).map((faction) => `${faction.faction_name || faction.faction_id} ${Number(faction.momentum) > 0 ? "+" : ""}${Number(faction.momentum || 0)}`).join(" · ");
+      const pulseLabel = Number(simulation.pulse_index || 0) ? `history pulse ${simulation.pulse_index} · played tick ${simulation.last_advanced_tick}` : `moves every ${simulation.pulse_interval_ticks || 6} committed turns`;
+      const factionLine = movingFactions ? `<div class="world-faction-current">faction momentum · ${escapeHtml(movingFactions)}</div>` : "";
       return `<section class="world-chronicle" aria-label="World chronicle"><div class="world-chronicle-head"><strong>the world beyond</strong><small>${escapeHtml(pulseLabel)}</small></div><div class="world-chronicle-list">${entries}</div>${factionLine}</section>`;
     }
 
@@ -13164,79 +12900,6 @@
       openModal("action-modal", $("action-modal-confirm"));
     }
 
-    function allActionsGroupLabel(action) {
-      const value = String(action?.intention || action?.kind || action?.label || "other")
-        .trim()
-        .replaceAll("_", " ");
-      return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "Other";
-    }
-
-    function renderAllActionsModal() {
-      const groupsNode = $("all-actions-groups");
-      if (!groupsNode) return;
-      const suggestedKeys = new Set(actionBarActions().map((action) => actionHandKey(action)));
-      const groups = new Map();
-      actions.forEach((action, actionIndex) => {
-        const groupLabel = allActionsGroupLabel(action);
-        if (!groups.has(groupLabel)) groups.set(groupLabel, []);
-        const choices = Array.isArray(action?.choices) && action.choices.length
-          ? action.choices
-          : [null];
-        choices.forEach((choice, choiceIndex) => {
-          groups.get(groupLabel).push({ action, actionIndex, choice, choiceIndex });
-        });
-      });
-      groupsNode.innerHTML = [...groups.entries()].map(([groupLabel, entries]) => {
-        const groupId = `all-actions-group-${groupLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-        const buttons = entries.map(({ action, actionIndex, choice, choiceIndex }) => {
-          const suggested = suggestedKeys.has(actionHandKey(action));
-          const conversationBusy = action.kind === "orb-chat" && pendingChats.length > 0;
-          const actionLabel = compactActionLabel(action) || action.label || action.command || "act";
-          const targetLabel = conversationBusy
-            ? "current exchange unfolding…"
-            : choice?.label || action.detail || action.accessibleLabel || "";
-          const detail = choice?.detail || (choice ? action.detail : "") || "";
-          const ariaLabel = [
-            actionLabel,
-            targetLabel,
-            detail,
-            suggested ? "suggested now" : "",
-            conversationBusy ? "unavailable until the current conversation settles" : "",
-          ].filter(Boolean).join(", ");
-          return `<button class="all-action${suggested ? " suggested" : ""}" type="button" data-all-action-index="${actionIndex}"${choice ? ` data-all-action-choice-index="${choiceIndex}"` : ""} aria-label="${escapeAttr(ariaLabel)}"${conversationBusy ? " disabled" : ""}><span class="all-action-label">${escapeHtml(actionLabel)}</span>${targetLabel ? `<span class="all-action-detail">${escapeHtml(targetLabel)}</span>` : ""}${!conversationBusy && detail && detail !== targetLabel ? `<span class="all-action-detail">${escapeHtml(detail)}</span>` : ""}${suggested ? `<span class="all-action-status">suggested now</span>` : ""}</button>`;
-        }).join("");
-        return `<section class="all-actions-group" aria-labelledby="${escapeAttr(groupId)}"><h3 class="all-actions-group-title" id="${escapeAttr(groupId)}">${escapeHtml(groupLabel)}</h3><div class="all-actions-list">${buttons}</div></section>`;
-      }).join("");
-      const drawIsOrderedPass = orderedSceneDrawAvailable();
-      $("all-actions-draw").hidden = drawIsOrderedPass;
-      $("all-actions-draw").disabled = handShuffleBusy || drawIsOrderedPass;
-    }
-
-    function openAllActionsModal() {
-      if (!actions.length || actionBusy) return;
-      renderAllActionsModal();
-      openModal(
-        "all-actions-modal",
-        $("all-actions-groups").querySelector("[data-all-action-index]") || $("all-actions-draw"),
-      );
-    }
-
-    function closeAllActionsModal() {
-      closeModal("all-actions-modal");
-    }
-
-    function chooseAllAction(actionIndex, choiceIndex = null) {
-      const selected = actions[actionIndex];
-      if (!selected) return;
-      if (Number.isInteger(choiceIndex) && Array.isArray(selected.choices)) {
-        const choice = selected.choices[choiceIndex];
-        if (!choice) return;
-        selected.selectedChoice = choice.value;
-      }
-      closeAllActionsModal();
-      openActionModal(selected);
-    }
-
     function setCreationModalStage(action, stage) {
       const profile = action?.creationProfile;
       if (!profile || !["species", "origin"].includes(stage)) return;
@@ -13419,6 +13082,10 @@
     }
 
     function actionHandKey(action) {
+      const offerIds = Array.isArray(action?.offerIds)
+        ? action.offerIds.map((offerId) => String(offerId || "")).filter(Boolean)
+        : [];
+      if (offerIds.length === 1) return `offer:${offerIds[0]}`;
       return String(action?.focusKey || action?.command || `${action?.label || ""}:${action?.detail || ""}`).trim();
     }
 
@@ -13528,17 +13195,26 @@
     }
 
     function authoritativeHandSignature(view = state) {
-      return JSON.stringify((view?.action_hand?.entries || []).map((entry) => [
-        String(entry?.kind || ""),
-        String(entry?.intention || ""),
-        String(entry?.provider?.kind || ""),
-        String(entry?.provider?.id || ""),
-      ]));
+      return JSON.stringify({
+        entries: (view?.action_hand?.entries || []).map((entry) => [
+          String(entry?.offer_id || ""),
+          String(entry?.kind || ""),
+          String(entry?.intention || ""),
+          String(entry?.provider?.kind || ""),
+          String(entry?.provider?.id || ""),
+        ]),
+        pass: [
+          String(view?.action_hand?.generation || ""),
+          String(view?.action_hand?.pass?.offer_id || ""),
+          String(view?.action_hand?.pass?.state_revision || ""),
+          String(view?.action_hand?.pass?.scene_key || ""),
+        ],
+      });
     }
 
     function actionMatchesProjectedHandEntry(action, entry) {
-      const kinds = Array.isArray(action?.offerKinds) ? action.offerKinds : [];
-      return kinds.includes(String(entry?.kind || ""));
+      const offerIds = Array.isArray(action?.offerIds) ? action.offerIds : [];
+      return offerIds.includes(String(entry?.offer_id || ""));
     }
 
     function actionIndexForHandKey(key) {
@@ -13554,7 +13230,8 @@
       if (state?.branch) return indexes;
       const ordered = [];
       const chosen = new Set();
-      for (const entry of state?.action_hand?.entries || []) {
+      const authoritativeEntries = state?.action_hand?.entries || [];
+      for (const entry of authoritativeEntries) {
         const index = indexes.find((candidate) => (
           !chosen.has(candidate) && actionMatchesProjectedHandEntry(actions[candidate], entry)
         ));
@@ -13562,6 +13239,7 @@
         ordered.push(index);
         chosen.add(index);
       }
+      if (authoritativeEntries.length) return ordered;
       const remaining = indexes
         .filter((index) => !chosen.has(index))
         .sort((left, right) => (
@@ -13661,6 +13339,10 @@
     function promotePendingRecoveryAction() {
       const index = actionIndexForKey("rest");
       if (index < 0 || actionRank(actions[index]) > 25) return false;
+      const authoritativeEntries = state?.action_hand?.entries || [];
+      if (authoritativeEntries.length && !authoritativeEntries.some((entry) => (
+        actionMatchesProjectedHandEntry(actions[index], entry)
+      ))) return false;
       const key = actionHandKey(actions[index]);
       if (!key) return false;
       discardedHandKeys = discardedHandKeys.filter((entry) => entry !== key);
@@ -13679,12 +13361,6 @@
         focusIndex = 0;
       }
       if (playerPromotedHandKey === key) playerPromotedHandKey = "";
-      if (shouldReconcile) reconcileHand();
-    }
-
-    function discardVisibleHand(shouldReconcile = true) {
-      const visibleKeys = handKeys.slice(0, handCapacity());
-      for (const key of visibleKeys) discardHandKey(key, false);
       if (shouldReconcile) reconcileHand();
     }
 
@@ -13910,39 +13586,11 @@
       $((["primary", "secondary"])[next])?.focus();
     }
 
-    function advanceHandPage() {
-      playerPromotedHandKey = "";
-      discardVisibleHand(false);
-      const validKeys = validActionHandKeySet();
-      const hasUndrawnCard = [...validKeys].some((key) => (
-        !discardedHandKeys.includes(key)
-      ));
-      if (!hasUndrawnCard) {
-        discardedHandKeys = [];
-      }
-      reconcileHand();
+    function isDefinitivePassRejection(result = {}) {
+      return [400, 409, 423].includes(Number(result.status || 0));
     }
 
-    function drawNextHandCard() {
-      playerPromotedHandKey = "";
-      const currentKey = handKeys[0];
-      if (!currentKey) return false;
-      discardHandKey(currentKey, false);
-      const validKeys = validActionHandKeySet();
-      const hasUndrawnCard = [...validKeys].some((key) => (
-        !discardedHandKeys.includes(key)
-      ));
-      if (!hasUndrawnCard) {
-        discardedHandKeys = [];
-      }
-      reconcileHand();
-      return true;
-    }
-
-    async function shuffleHand() {
-      if (orderedSceneDrawAvailable()) {
-        return drawAndPassOrderedSceneTurn();
-      }
+    async function passHand() {
       if (handShuffleBusy
         || !actorId
         || !actorSession
@@ -13950,31 +13598,46 @@
         return null;
       }
       const button = $("shuffle");
-      const modalButton = $("all-actions-draw");
       handShuffleBusy = true;
       button.disabled = true;
-      modalButton.disabled = true;
       try {
+        const pass = state?.action_hand?.pass;
+        if (!pass?.offer_id) {
+          setError("Think is not available until the current hand arrives.");
+          return null;
+        }
+        if (handPassSubmission?.offer_id !== pass.offer_id) {
+          handPassSubmission = {
+            offer_id: pass.offer_id,
+            envelope: canonicalCommandEnvelope(),
+          };
+        }
         const result = await post("/commands", withAccess({
           actor_id: actorId,
           actor_session: actorSession,
-          command: "shuffle",
-          envelope: canonicalCommandEnvelope(),
+          command: "pass",
+          offer_id: handPassSubmission.offer_id,
+          envelope: handPassSubmission.envelope,
         }));
         pushEvents(result.events || []);
         if (!result.ok) {
           setError(commandFailureMessage(result));
+          if (isDefinitivePassRejection(result)) {
+            // A confirmed stale card or changed turn cannot succeed with this
+            // receipt. Keep it only for ambiguous transport/server retries.
+            handPassSubmission = null;
+            await refresh();
+            renderCommands();
+          }
           return result;
         }
+        handPassSubmission = null;
         await refresh();
-        advanceHandPage();
         renderCommands();
-        renderAllActionsModal();
         return result;
       } finally {
         handShuffleBusy = false;
         button.disabled = false;
-        modalButton.disabled = false;
       }
     }
 
@@ -14014,14 +13677,19 @@
         && actorId
         && actorSession
         && state?.primary_action?.kind !== "create_avatar"
-        && validActionHandKeySet().size > handCapacity();
+        && Boolean(state?.action_hand?.pass?.offer_id)
+        && (!state?.combat || state?.turn?.is_current_actor);
+      prompt.classList.toggle("combat-mode", Boolean(state?.combat));
       prompt.classList.toggle("choice-mode", choiceMode);
       prompt.classList.toggle("has-draw", canDraw);
       drawButton.style.display = canDraw ? "flex" : "none";
       drawButton.disabled = handShuffleBusy;
+      const passLabel = state?.action_hand?.pass?.label || "Think";
+      drawButton.querySelector(".cmd-label").textContent = passLabel.toLowerCase();
+      drawButton.setAttribute("aria-label", `${passLabel}: commit a pass for the current two actions`);
       const chatProgress = pendingChats[0] || null;
       renderButton("chat-progress", chatProgress ? chatProgressAction(chatProgress) : null);
-      chatProgressButton.style.display = chatProgress ? "flex" : "none";
+      chatProgressButton.style.display = chatProgress && !state?.combat ? "flex" : "none";
       const visibleActions = actionBarActions().slice(0, handCapacity());
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
@@ -14035,7 +13703,6 @@
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
       }
-      if (!$("all-actions-modal").hidden) renderAllActionsModal();
     }
 
     function actionForButton(id) {
@@ -14768,28 +14435,11 @@
     });
 
     $("shuffle").addEventListener("click", () => {
-      openAllActionsModal();
+      void passHand();
     });
 
-    $("all-actions-modal").addEventListener("click", (event) => {
-      const actionButton = event.target.closest("[data-all-action-index]");
-      if (actionButton) {
-        event.preventDefault();
-        const choiceIndex = actionButton.hasAttribute("data-all-action-choice-index")
-          ? Number(actionButton.dataset.allActionChoiceIndex)
-          : null;
-        chooseAllAction(Number(actionButton.dataset.allActionIndex), choiceIndex);
-        return;
-      }
-      if (event.target.closest("[data-all-actions-close]") || event.target.id === "all-actions-modal") {
-        event.preventDefault();
-        closeAllActionsModal();
-      }
-    });
-
-    $("all-actions-draw").addEventListener("click", (event) => {
-      event.preventDefault();
-      void shuffleHand();
+    $("important-notifications").addEventListener("click", (event) => {
+      event.target.closest("[data-dismiss-important]")?.closest(".important-notification")?.remove();
     });
 
     document.addEventListener("keydown", (event) => {
@@ -14799,14 +14449,6 @@
         if (event.key === "Escape") {
           event.preventDefault();
           closeWalletQrModal(false);
-        }
-        return;
-      }
-      if (!$("all-actions-modal").hidden) {
-        if (trapModalFocus(event, $("all-actions-modal"))) return;
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeAllActionsModal();
         }
         return;
       }

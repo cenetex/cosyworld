@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -37,6 +38,138 @@ WORLD_BEAT_TYPES = {
     "world.conflict.pressure_eased",
     "world.conflict.escalated",
 }
+
+ACTION_KINDS_BY_PATH = {
+    "/actions/chat": {"chat"},
+    "/actions/move": {"move"},
+    "/actions/flee": {"flee"},
+    "/actions/check": {"check"},
+    "/actions/study": {"study"},
+    "/actions/discover": {
+        "focused_notice",
+        "search_discovery",
+        "study_discovery",
+        "scout_discovery",
+    },
+    "/actions/influence": {"influence"},
+    "/actions/cast-spell": {"cast_spell"},
+    "/actions/pick-up": {"pick_up"},
+    "/actions/drop": {"drop_item"},
+    "/actions/use-item": {"use_item", "use_feature"},
+    "/actions/give-item": {"give_item"},
+    "/actions/trade-item": {"trade_item"},
+    "/actions/theft": {"theft"},
+    "/actions/craft": {"craft"},
+    "/actions/attack": {"attack"},
+    "/actions/defend": {"defend"},
+    "/actions/prepare": {"prepare"},
+    "/actions/contribute": {"work", "help", "check", "study", "use_item"},
+    "/actions/work": {"work"},
+    "/actions/help": {"help"},
+    "/actions/rest": {"rest"},
+    "/actions/create-bond": {"create_bond"},
+    "/actions/resolve-bond": {"resolve_bond"},
+}
+
+
+def offer_provider_item_id(offer: dict[str, object]) -> int | None:
+    provider = offer.get("provider") or {}
+    provider_id = provider.get("id") if isinstance(provider, dict) else None
+    if isinstance(provider_id, str) and provider_id.startswith("item:"):
+        try:
+            return int(provider_id.removeprefix("item:"))
+        except ValueError:
+            return None
+    source = offer.get("source_collectible") or {}
+    if isinstance(source, dict) and source.get("kind") == "item":
+        try:
+            return int(source["instance_id"])
+        except (KeyError, TypeError, ValueError):
+            return None
+    return None
+
+
+def offer_matches_payload(offer: dict[str, object], path: str, payload: dict[str, object]) -> bool:
+    """Keep interactive controls bound to the exact certified offer payload."""
+    if offer.get("disabled") or offer.get("kind") not in ACTION_KINDS_BY_PATH.get(path, set()):
+        return False
+    target = offer.get("target") or {}
+    target = target if isinstance(target, dict) else {}
+    target_key = {
+        ("/actions/move", "location"): "destination_location_id",
+        ("/actions/flee", "location"): "destination_location_id",
+        ("/actions/explore-path", "location"): "destination_location_id",
+        ("/actions/craft", "recipe"): "recipe_id",
+        ("/actions/pick-up", "item"): "item_id",
+        ("/actions/drop", "item"): "item_id",
+        ("/actions/trade-item", "item"): "target_item_id",
+        ("/actions/theft", "item"): "target_item_id",
+        ("/actions/use-item", "feature"): "location_id",
+        ("/actions/chat", "actor"): "target_actor_id",
+        ("/actions/attack", "actor"): "target_actor_id",
+        ("/actions/give-item", "actor"): "target_actor_id",
+        ("/actions/create-bond", "actor"): "target_actor_id",
+        ("/actions/resolve-bond", "actor"): "target_actor_id",
+        ("/actions/cast-spell", "actor"): "target_actor_id",
+        ("/actions/influence", "actor"): "target_actor_id",
+        ("/actions/use-item", "actor"): "target_actor_id",
+    }.get((path, str(target.get("kind") or "")))
+    expected_target = target.get("id")
+    if target_key and expected_target is not None and payload.get(target_key) != expected_target:
+        return False
+    discovery = offer.get("discovery") or {}
+    if isinstance(discovery, dict) and discovery:
+        if (
+            payload.get("procedure") != discovery.get("procedure")
+            or payload.get("slot_id") != discovery.get("slot_id")
+            or (
+                payload.get("receipt_id") is not None
+                and payload.get("receipt_id") != discovery.get("receipt_id")
+            )
+        ):
+            return False
+    offer_id = str(offer.get("id") or "")
+    kind = str(offer.get("kind") or "")
+    if kind == "give_item":
+        parts = offer_id.removeprefix("give_item:").split(":")
+        try:
+            expected = tuple(int(part) for part in parts)
+        except ValueError:
+            return False
+        return len(expected) == 2 and (payload.get("item_id"), payload.get("target_actor_id")) == expected
+    if kind == "trade_item":
+        parts = offer_id.removeprefix("trade_item:").split(":")
+        try:
+            expected = tuple(int(part) for part in parts)
+        except ValueError:
+            return False
+        return len(expected) == 3 and (
+            payload.get("item_id"),
+            payload.get("target_actor_id"),
+            payload.get("target_item_id"),
+        ) == expected
+    if kind == "use_feature":
+        parts = offer_id.removeprefix("use_feature:").split(":", 2)
+        try:
+            expected = (int(parts[0]), int(parts[1]), parts[2])
+        except (IndexError, ValueError):
+            return False
+        return len(parts) == 3 and (
+            payload.get("item_id"),
+            payload.get("location_id"),
+            payload.get("feature_key"),
+        ) == expected
+    if (kind == "use_item" and path == "/actions/use-item") or (
+        kind == "cast_spell" and path == "/actions/cast-spell"
+    ):
+        return payload.get("item_id") == offer_provider_item_id(offer)
+    project = offer.get("project") or {}
+    if path in {"/actions/contribute", "/actions/work", "/actions/help", "/actions/study", "/actions/prepare"} and isinstance(project, dict):
+        return (
+            payload.get("job_id") == project.get("id")
+            and payload.get("strategy_id") == project.get("strategy_id")
+        )
+    return True
 
 
 class ButtonAction:
@@ -93,6 +226,8 @@ class Game:
         self.actor_id = actor_id
         self.actor_session = actor_session
         self.last_seq = 0
+        self._pending_pass_payload: dict[str, object] | None = None
+        self._pending_pass_label: str | None = None
         self._acknowledged_world_beats: set[str] = set()
         self._presence_stop = threading.Event()
         self._presence_thread: threading.Thread | None = None
@@ -172,6 +307,10 @@ class Game:
                 self.look()
         elif verb in {"act", "a"}:
             self.act()
+        elif verb in {"think", "pass"}:
+            self.pass_hand()
+        elif verb in {"draw", "shuffle", "deal", "more", "redraw"}:
+            raise ClientError("Free redeal retired. Use think to commit a pass for this hand.")
         elif verb == "chat":
             if rest and not first_token_int(rest):
                 self.run_command(command)
@@ -233,8 +372,10 @@ class Game:
         self.print_exits(state.get("exits") or [])
         self.print_actors(state.get("actors") or [])
         self.print_items(state.get("items") or [])
-        self.print_primary_action(state.get("primary_action") or {})
-        self.print_action_hand(state.get("action_hand") or [])
+        self.print_action_hand(
+            state.get("action_hand") or [],
+            state.get("action_offers") or [],
+        )
         self.print_shared_question(state.get("shared_questions") or [])
         self.remember_events(state.get("recent_events") or [])
 
@@ -256,46 +397,39 @@ class Game:
 
     def act(self) -> None:
         state = self.state()
-        options = state.get("primary_action", {}).get("options") or []
-        if not options:
-            print("No actions available.")
-            return
+        offers = [
+            offer
+            for offer in state.get("action_offers") or []
+            if isinstance(offer, dict) and not offer.get("disabled")
+        ]
         print("Actions:")
-        for index, option in enumerate(options, start=1):
-            print(f"  {index}. {option['label']}")
+        for index, offer in enumerate(offers, start=1):
+            label = str(offer.get("label") or offer.get("kind") or "action")
+            target = offer.get("target") or offer.get("project") or {}
+            target_label = str(target.get("label") or "").strip() if isinstance(target, dict) else ""
+            suffix = f" — {target_label}" if target_label else ""
+            print(f"  {index}. {label}{suffix}")
+        print(f"  {len(offers) + 1}. Think (commit a pass and deal the next two cards)")
         raw = input("Choose action: ").strip().lower()
         if not raw:
             return
         if raw.isdigit():
             index = int(raw) - 1
-            if index < 0 or index >= len(options):
+            if index == len(offers):
+                self.pass_hand()
+                return
+            if index < 0 or index >= len(offers):
                 raise ValueError("action number out of range")
-            kind = options[index]["kind"]
-        else:
-            kind = raw
+            command = str(offers[index].get("command") or "").strip()
+            if not command:
+                raise ClientError("the dealt card is missing its authoritative command")
+            self.run_command(command, offer_id=str(offers[index].get("offer_id") or ""), state=state)
+            return
 
-        if kind == "chat":
-            self.choose_chat(state)
-        elif kind == "check":
-            ability = input(f"Ability [{'/'.join(ABILITIES)}]: ").strip() or "wisdom"
-            dc = input("DC [10]: ").strip()
-            self.check(f"{ability} {dc}".strip())
-        elif kind == "move":
-            self.choose_move(state)
-        elif kind == "flee":
-            self.choose_flee(state)
-        elif kind == "pick_up":
-            self.choose_pickup(state)
-        elif kind == "use_item":
-            self.choose_use_item(state)
-        elif kind == "give_item":
-            self.choose_give_item(state)
-        elif kind == "attack":
-            self.choose_attack(state)
-        elif kind == "defend":
-            self.defend()
+        if raw in {"think", "pass"}:
+            self.pass_hand()
         else:
-            raise ValueError(f"unknown action kind: {kind}")
+            raise ValueError("choose a numbered dealt card, or Think to pass")
 
     def choose_chat(self, state: dict[str, object]) -> None:
         actors = [
@@ -488,12 +622,32 @@ class Game:
             return
         self.print_events(events)
 
-    def run_command(self, command: str) -> None:
+    def run_command(
+        self,
+        command: str,
+        offer_id: str | None = None,
+        state: dict[str, object] | None = None,
+    ) -> None:
         if self.actor_id is None:
             raise ClientError("command requires an avatar")
+        payload = self.with_actor_session({"actor_id": self.actor_id, "command": command})
+        if offer_id:
+            view = state or self.state()
+            actor = next(
+                (candidate for candidate in view.get("actors") or [] if candidate.get("id") == self.actor_id),
+                {},
+            )
+            payload["offer_id"] = offer_id
+            payload["envelope"] = {
+                "world_id": view.get("world_id") or "world://cosyworld/official",
+                "intent_id": offer_intent_id(self.actor_id, offer_id),
+                "actor_ref": actor.get("canonical_ref") or "",
+                "observed": {},
+                "last_world_seq": int(view.get("world_seq") or 0),
+            }
         response = self.client.post(
             "/commands",
-            self.with_actor_session({"actor_id": self.actor_id, "command": command}),
+            payload,
         )
         if not isinstance(response, dict):
             raise ClientError("command response was not an object")
@@ -508,24 +662,27 @@ class Game:
     def post_action(self, path: str, payload: dict[str, object]) -> None:
         authoritative_payload = self.with_actor_session(payload)
         offer = self.current_offer(path, authoritative_payload)
-        if offer:
-            response = self.client.post(
-                "/actions/submit",
-                {
-                    "path": path,
-                    "offer_id": offer.get("offer_id"),
-                    "kind": offer.get("kind"),
-                    "rules_action": offer.get("rules_action"),
-                    "operation": offer.get("operation"),
-                    "rules_profile": offer.get("rules_profile"),
-                    "state_revision": offer.get("state_revision"),
-                    "target": offer.get("target"),
-                    "cost": offer.get("cost"),
-                    "payload": authoritative_payload,
-                },
+        if not offer:
+            raise ClientError(
+                "That action is not in your current two-card hand. Choose Think to commit a pass."
             )
-        else:
-            response = self.client.post(path, authoritative_payload)
+        response = self.client.post(
+            "/actions/submit",
+            {
+                "path": path,
+                "offer_id": offer.get("offer_id"),
+                "composition_id": offer.get("composition_id"),
+                "kind": offer.get("kind"),
+                "rules_action": offer.get("rules_action"),
+                "operation": offer.get("operation"),
+                "rules_profile": offer.get("rules_profile"),
+                "state_revision": offer.get("state_revision"),
+                "route": offer.get("route"),
+                "target": offer.get("target"),
+                "cost": offer.get("cost"),
+                "payload": authoritative_payload,
+            },
+        )
         if not isinstance(response, dict):
             raise ClientError("action response was not an object")
         self.print_events(response.get("events") or [])
@@ -535,69 +692,61 @@ class Game:
             self.look()
 
     def current_offer(self, path: str, payload: dict[str, object]) -> dict[str, object] | None:
-        kinds_by_path = {
-            "/actions/chat": {"chat"},
-            "/actions/move": {"move"},
-            "/actions/flee": {"flee"},
-            "/actions/check": {"check"},
-            "/actions/study": {"study"},
-            "/actions/discover": {
-                "focused_notice",
-                "search_discovery",
-                "study_discovery",
-                "scout_discovery",
+        return next(
+            (
+                offer
+                for offer in self.state().get("action_offers") or []
+                if isinstance(offer, dict) and offer_matches_payload(offer, path, payload)
+            ),
+            None,
+        )
+
+    def pending_pass_payload(self) -> dict[str, object]:
+        if self._pending_pass_payload is not None:
+            return self._pending_pass_payload
+        state = self.state()
+        hand = state.get("action_hand") or {}
+        pass_offer = hand.get("pass") if isinstance(hand, dict) else None
+        if not isinstance(pass_offer, dict) or not pass_offer.get("offer_id"):
+            raise ClientError("Think is not available until the current hand arrives.")
+        self._pending_pass_label = str(pass_offer.get("label") or "Think")
+        actor = next(
+            (candidate for candidate in state.get("actors") or [] if candidate.get("id") == self.actor_id),
+            {},
+        )
+        self._pending_pass_payload = self.with_actor_session({
+            "actor_id": self.actor_id,
+            "command": "pass",
+            "offer_id": pass_offer["offer_id"],
+            "envelope": {
+                "world_id": state.get("world_id") or "world://cosyworld/official",
+                "intent_id": offer_intent_id(self.actor_id, str(pass_offer["offer_id"])),
+                "actor_ref": actor.get("canonical_ref") or "",
+                "observed": {},
+                "last_world_seq": int(state.get("world_seq") or 0),
             },
-            "/actions/influence": {"influence"},
-            "/actions/cast-spell": {"cast_spell"},
-            "/actions/pick-up": {"pick_up"},
-            "/actions/drop": {"drop_item"},
-            "/actions/use-item": {"use_item", "use_feature"},
-            "/actions/give-item": {"give_item"},
-            "/actions/trade-item": {"trade_item"},
-            "/actions/theft": {"theft"},
-            "/actions/craft": {"craft"},
-            "/actions/attack": {"attack"},
-            "/actions/defend": {"defend"},
-            "/actions/prepare": {"prepare"},
-            "/actions/work": {"work"},
-            "/actions/help": {"help"},
-            "/actions/rest": {"rest"},
-            "/actions/create-bond": {"create_bond"},
-            "/actions/resolve-bond": {"resolve_bond"},
-        }
-        kinds = kinds_by_path.get(path)
-        if not kinds:
-            return None
-        offers = [
-            offer
-            for offer in self.state().get("action_offers") or []
-            if offer.get("kind") in kinds and not offer.get("disabled")
-        ]
-        for offer in offers:
-            discovery = offer.get("discovery") or {}
-            if path == "/actions/discover":
-                if (
-                    str(discovery.get("procedure") or "") != str(payload.get("procedure") or "")
-                    or str(discovery.get("slot_id") or "") != str(payload.get("slot_id") or "")
-                    or (
-                        payload.get("receipt_id")
-                        and str(discovery.get("receipt_id") or "")
-                        != str(payload.get("receipt_id") or "")
-                    )
-                ):
-                    continue
-            target = offer.get("target") or {}
-            expected = target.get("id")
-            key = {
-                "location": "destination_location_id",
-                "actor": "target_actor_id",
-                "item": "target_item_id" if path in {"/actions/trade-item", "/actions/theft"} else "item_id",
-                "recipe": "recipe_id",
-            }.get(str(target.get("kind") or ""))
-            submitted = payload.get(key) if key else None
-            if not submitted or not expected or int(submitted) == int(expected):
-                return offer
-        return None
+        })
+        return self._pending_pass_payload
+
+    @staticmethod
+    def is_definitive_pass_rejection(response: dict[str, object]) -> bool:
+        return response.get("status") in {400, 409, 423}
+
+    def pass_hand(self) -> None:
+        response = self.client.post("/commands", self.pending_pass_payload())
+        if not isinstance(response, dict):
+            raise ClientError("Think response was not an object")
+        self.print_events(response.get("events") or [])
+        if response.get("ok"):
+            self._pending_pass_payload = None
+            self._pending_pass_label = None
+            self.look()
+        else:
+            print(f"{self._pending_pass_label or 'Think'} failed with status {response.get('status')}.")
+            if self.is_definitive_pass_rejection(response):
+                self._pending_pass_payload = None
+                self._pending_pass_label = None
+                self.look()
 
     def print_exits(self, exits: list[dict[str, object]]) -> None:
         if not exits:
@@ -642,16 +791,40 @@ class Game:
         option_labels = ", ".join(option["label"] for option in options) or "none"
         print(f"Button: {action.get('label', 'Wait')} [{option_labels}]")
 
-    def print_action_hand(self, offers: object) -> None:
+    def print_action_hand(self, offers: object, action_offers: object = ()) -> None:
+        pass_offer: dict[str, object] | None = None
+        generation: object = None
         if isinstance(offers, dict):
+            pass_offer = offers.get("pass") if isinstance(offers.get("pass"), dict) else None
+            generation = offers.get("generation")
             offers = offers.get("entries") or []
         if not isinstance(offers, list):
             return
         offers = [offer for offer in offers if isinstance(offer, dict)]
-        if not offers:
+        if not offers and pass_offer is None:
             return
-        labels = ", ".join(str(offer.get("label") or offer.get("kind") or "action") for offer in offers)
-        print(f"Hand: {labels}")
+        offered_by_id = {
+            str(offer.get("offer_id") or ""): offer
+            for offer in action_offers
+            if isinstance(offer, dict)
+        }
+        labels = ", ".join(
+            self.hand_offer_label(offer, offered_by_id) for offer in offers
+        )
+        pass_label = str(pass_offer.get("label") or "Think") if pass_offer else "Think"
+        pass_id = str(pass_offer.get("offer_id") or "") if pass_offer else ""
+        hand_id = f" generation {generation}" if generation is not None else ""
+        certificate = f" [{pass_id}]" if pass_id else ""
+        separator = "; " if labels else ""
+        print(f"Hand{hand_id}: {labels}{separator}{pass_label}{certificate}")
+
+    @staticmethod
+    def hand_offer_label(entry: dict[str, object], offered_by_id: dict[str, dict[str, object]]) -> str:
+        offer = offered_by_id.get(str(entry.get("offer_id") or ""), entry)
+        label = str(offer.get("label") or offer.get("kind") or "action")
+        target = offer.get("target") or offer.get("project") or {}
+        target_label = str(target.get("label") or "").strip() if isinstance(target, dict) else ""
+        return f"{label} — {target_label}" if target_label else label
 
     def print_shared_question(self, questions: object) -> None:
         if not isinstance(questions, list):
@@ -958,15 +1131,12 @@ class Game:
 
     def help(self, short: bool = False) -> None:
         if short:
-            print("Type 'act' for the one-button menu, 'say <message>', 'look', or 'help'.")
+            print("Type 'act' for your two cards, 'think' to pass, 'say <message>', 'look', or 'help'.")
             return
         print(
-            "Commands: act, look, who, deck, inventory, say <message>, /me <action>, "
-            "chat/influence <resident>, listen, search <feature>, study <subject>, "
-            "go <location|direction>, take/drop/give/trade/steal <item>, use <item> [target], "
-            "wear/remove <charm>, wield/sling <weapon>, stow <item> in <bag>, unstow <item>, "
-            "prepare spell <spell>, cast <spell> [target], bracelet unlock, prepare/work/assist/rest, "
-            "attack <actor>, defend, report <actor>: <reason>, events/watch [after_seq], quit"
+            "Commands: act, think, look, who, deck, inventory, say <message>, /me <action>, "
+            "report <actor>: <reason>, events/watch [after_seq], quit. Scene actions must be "
+            "one of the two cards shown by act; Think skips your turn and deals two new cards."
         )
 
     @staticmethod
@@ -997,8 +1167,8 @@ class ButtonGame(Game):
                     self.leave_presence()
                     print("\nbye")
                     return
-                if key in {"\t", "s", "S"}:
-                    self.rotation = (self.rotation + 1) % max(1, len(actions))
+                if key in {"p", "P"}:
+                    self.pass_hand()
                     continue
                 if key in {" ", "2"} and len(actions) > 1:
                     actions[1].callback()
@@ -1041,127 +1211,81 @@ class ButtonGame(Game):
             self.message_log.append(f"Generated avatar: {actor.get('name', name)} [{self.actor_id}]")
 
     def button_actions(self, state: dict[str, object]) -> list[ButtonAction]:
-        candidates: list[ButtonAction] = []
-        actors = state.get("actors") or []
-        items = state.get("items") or []
-        exits = state.get("exits") or []
-        options = state.get("primary_action", {}).get("options") or []
-        option_kinds = {option.get("kind") for option in options}
-        held_evolution_items = [
-            item
-            for item in items
-            if item.get("holder_actor_id") == self.actor_id and item.get("kind") == "evolution"
+        hand = state.get("action_hand") or {}
+        entries = hand.get("entries") if isinstance(hand, dict) else []
+        if not isinstance(entries, list):
+            return []
+        offered_by_id = {
+            str(offer.get("offer_id") or ""): offer
+            for offer in state.get("action_offers") or []
+            if isinstance(offer, dict) and offer.get("offer_id")
+        }
+        dealt = [
+            offered_by_id[str(entry.get("offer_id") or "")]
+            for entry in entries
+            if isinstance(entry, dict)
+            and str(entry.get("offer_id") or "") in offered_by_id
         ]
-        resident_targets = [
-            actor
-            for actor in actors
-            if actor.get("id") != self.actor_id
-            and actor.get("kind") == "npc"
-            and actor.get("status") == "active"
+        return [
+            ButtonAction(
+                self.button_offer_label(offer),
+                lambda offer=offer: self.submit_button_offer(state, offer),
+                self.button_offer_detail(offer),
+            )
+            for offer in dealt[:2]
         ]
 
-        if "give_item" in option_kinds:
-            for target in resident_targets:
-                target_id = int(target["id"])
-                for item in held_evolution_items:
-                    item_id = int(item["id"])
-                    if not evolution_item_matches_resident(item_id, target_id):
-                        continue
-                    candidates.append(
-                        ButtonAction(
-                            f"Give: {item['name']}",
-                            lambda item_id=item_id, target_id=target_id: self.give_item(
-                                item_id, target_id
-                            ),
-                            f"To {target['name']}.",
-                        )
-                    )
+    @staticmethod
+    def button_offer_label(offer: dict[str, object]) -> str:
+        return str(
+            offer.get("accessible_label")
+            or offer.get("label")
+            or offer.get("verb")
+            or offer.get("kind")
+            or "Action"
+        )
 
-        for actor in actors:
-            if actor.get("id") == self.actor_id or actor.get("kind") != "npc":
-                continue
-            actor_id = int(actor["id"])
-            name = str(actor["name"])
-            candidates.append(
-                ButtonAction(
-                    f"Chat: {name}",
-                    lambda actor_id=actor_id: self.chat_with(actor_id),
-                    "Let your avatar speak.",
-                )
-            )
+    @staticmethod
+    def button_offer_detail(offer: dict[str, object]) -> str:
+        target = offer.get("target") or offer.get("project") or {}
+        if isinstance(target, dict):
+            label = str(target.get("label") or "").strip()
+            if label:
+                return label
+        return str(offer.get("effect") or offer.get("reason") or "").strip()
 
-        if "pick_up" in option_kinds:
-            for item in items:
-                if item.get("location_id"):
-                    item_id = int(item["id"])
-                    candidates.append(
-                        ButtonAction(
-                            f"Take: {item['name']}",
-                            lambda item_id=item_id: self.pick_up(str(item_id)),
-                            "Gather the item here.",
-                        )
-                    )
-
-        escaping = "flee" in option_kinds
-        if escaping or "move" in option_kinds:
-            for exit_ in exits:
-                if exit_.get("locked") or exit_.get("accessible") is False:
-                    continue
-                destination_id = int(exit_["destination_location_id"])
-                callback = (
-                    (lambda destination_id=destination_id: self.flee(destination_id))
-                    if escaping
-                    else (lambda destination_id=destination_id: self.move(str(destination_id)))
-                )
-                candidates.append(
-                    ButtonAction(
-                        f"{'Flee' if escaping else 'Go'}: {exit_['destination_location_name']}",
-                        callback,
-                        "Escape the combat room." if escaping else "Travel to the next location.",
-                    )
-                )
-
-        if "use_item" in option_kinds:
-            for item in items:
-                if item.get("holder_actor_id") == self.actor_id:
-                    item_id = int(item["id"])
-                    candidates.append(
-                        ButtonAction(
-                            f"Use: {item['name']}",
-                            lambda item_id=item_id: self.use_item(str(item_id)),
-                            "Use the carried item.",
-                        )
-                    )
-
-        if "attack" in option_kinds:
-            for actor in actors:
-                if actor.get("id") != self.actor_id and actor.get("status") == "active":
-                    target_id = int(actor["id"])
-                    candidates.append(
-                        ButtonAction(
-                            f"Attack: {actor['name']}",
-                            lambda target_id=target_id: self.attack(str(target_id)),
-                            "Make a melee attack.",
-                        )
-                    )
-
-        if "defend" in option_kinds:
-            candidates.append(ButtonAction("Defend", self.defend, "Brace for trouble."))
-
-        if "check" in option_kinds:
-            candidates.append(
-                ButtonAction(
-                    "Check: Wisdom",
-                    lambda: self.check("wisdom 12"),
-                    "Read the room with a Wisdom check.",
-                )
-            )
-
-        if not candidates:
-            candidates.append(ButtonAction("Wait", lambda: None, "Nothing calls for action."))
-
-        rotation = self.rotation % len(candidates)
-        return candidates[rotation:] + candidates[:rotation]
+    def submit_button_offer(self, state: dict[str, object], offer: dict[str, object]) -> None:
+        if self.actor_id is None:
+            raise ClientError("command requires an avatar")
+        offer_id = str(offer.get("offer_id") or "").strip()
+        command = str(offer.get("command") or "").strip()
+        if not offer_id or not command:
+            raise ClientError("the dealt card is missing its authoritative command or certificate")
+        actor = next(
+            (candidate for candidate in state.get("actors") or [] if candidate.get("id") == self.actor_id),
+            {},
+        )
+        response = self.client.post(
+            "/commands",
+            self.with_actor_session({
+                "actor_id": self.actor_id,
+                "command": command,
+                "offer_id": offer_id,
+                "envelope": {
+                    "world_id": state.get("world_id") or "world://cosyworld/official",
+                    "intent_id": offer_intent_id(self.actor_id, offer_id),
+                    "actor_ref": actor.get("canonical_ref") or "",
+                    "observed": {},
+                    "last_world_seq": int(state.get("world_seq") or 0),
+                },
+            }),
+        )
+        if not isinstance(response, dict):
+            raise ClientError("command response was not an object")
+        self.capture_events(response.get("events") or [])
+        if not response.get("ok"):
+            self.message_log.append(f"Action failed with status {response.get('status')}.")
+        self.rotation = 0
 
     def render(self, state: dict[str, object], actions: list[ButtonAction]) -> None:
         if sys.stdout.isatty():
@@ -1195,8 +1319,10 @@ class ButtonGame(Game):
             print(f"[Space] {secondary.label}")
             if secondary.detail:
                 print(f"        {secondary.detail}")
-        if len(actions) > 2:
-            print("[Tab]   More")
+        hand = state.get("action_hand") or {}
+        pass_offer = hand.get("pass") if isinstance(hand, dict) else None
+        pass_label = str(pass_offer.get("label") or "Think") if isinstance(pass_offer, dict) else "Think"
+        print(f"[P]     {pass_label} (skip turn and deal two new cards)")
         print("[Q]     Quit")
 
     def render_actors(self, actors: list[dict[str, object]]) -> None:
@@ -1223,12 +1349,56 @@ class ButtonGame(Game):
         print("Paths: " + (", ".join(visible) if visible else "none"))
 
     def post_action(self, path: str, payload: dict[str, object]) -> None:
-        response = self.client.post(path, self.with_actor_session(payload))
+        authoritative_payload = self.with_actor_session(payload)
+        offer = self.current_offer(path, authoritative_payload)
+        if not offer:
+            raise ClientError(
+                "That action is not in your current two-card hand. Choose Think to commit a pass."
+            )
+        response = self.client.post(
+            "/actions/submit",
+            {
+                "path": path,
+                "offer_id": offer.get("offer_id"),
+                "composition_id": offer.get("composition_id"),
+                "kind": offer.get("kind"),
+                "rules_action": offer.get("rules_action"),
+                "operation": offer.get("operation"),
+                "rules_profile": offer.get("rules_profile"),
+                "state_revision": offer.get("state_revision"),
+                "route": offer.get("route"),
+                "target": offer.get("target"),
+                "cost": offer.get("cost"),
+                "payload": authoritative_payload,
+            },
+        )
         if not isinstance(response, dict):
             raise ClientError("action response was not an object")
         self.capture_events(response.get("events") or [])
         if not response.get("ok"):
             self.message_log.append(f"Action failed with status {response.get('status')}.")
+        self.rotation = 0
+
+    def pass_hand(self) -> None:
+        try:
+            payload = self.pending_pass_payload()
+        except ClientError as error:
+            self.message_log.append(str(error))
+            return
+        response = self.client.post("/commands", payload)
+        if not isinstance(response, dict):
+            raise ClientError("Think response was not an object")
+        self.capture_events(response.get("events") or [])
+        if response.get("ok"):
+            self._pending_pass_payload = None
+            self._pending_pass_label = None
+        else:
+            self.message_log.append(
+                f"{self._pending_pass_label or 'Think'} failed with status {response.get('status')}."
+            )
+            if self.is_definitive_pass_rejection(response):
+                self._pending_pass_payload = None
+                self._pending_pass_label = None
         self.rotation = 0
 
     def capture_events(self, events: list[dict[str, object]]) -> None:
@@ -1245,6 +1415,12 @@ class ButtonGame(Game):
             if world_beat_is_renderable(event):
                 self.pending_world_beat_events.append(event)
         self.message_log = self.message_log[-20:]
+
+
+def offer_intent_id(actor_id: int, offer_id: str) -> str:
+    """Return a stable command intent accepted by the canonical envelope validator."""
+    digest = hashlib.sha256(offer_id.encode("utf-8")).hexdigest()
+    return f"cli:offer:{actor_id}:sha256:{digest}"
 
 
 def actor_label(actor_id: object) -> str:
