@@ -9460,7 +9460,27 @@ async function main() {
       return actor ? { id: Number(actor.id), name: actor.name || "" } : null;
     });
     assert(nearbyActor?.id && nearbyActor?.name, "avatar report smoke needs a nearby resident before the room starts moving");
+    async function refreshReportSubmissionState() {
+      const synchronized = await page.evaluate(async (targetActorId) => {
+        await queueRefresh();
+        while (refreshInFlight) await refreshInFlight;
+        const target = actorForId(targetActorId);
+        const reporter = actorForId(actorId);
+        return {
+          targetName: target?.name || "",
+          reporterVersion: Number(reporter?.entity_version || 0),
+        };
+      }, nearbyActor.id);
+      assert(
+        synchronized.targetName === nearbyActor.name && synchronized.reporterVersion > 0,
+        `avatar report submission should refresh the visible reporter and target: ${JSON.stringify(synchronized)}`,
+      );
+    }
     const submitReport = async () => {
+      // The envelope binds the reporter's observed actor version. Refresh
+      // through the browser's normal state path immediately before building
+      // this form, since world activity may advance it between smoke steps.
+      await refreshReportSubmissionState();
       await page.evaluate((targetActorId) => {
         const card = cardForActor(targetActorId);
         if (card) openCardModal(card);

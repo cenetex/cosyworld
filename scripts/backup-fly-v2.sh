@@ -43,6 +43,34 @@ json_value() {
   python3 - "$@"
 }
 
+snapshot_ids() {
+  SNAPSHOTS_JSON="$1" json_value <<'PY'
+import json
+import os
+
+try:
+    value = json.loads(os.environ["SNAPSHOTS_JSON"])
+except (KeyError, json.JSONDecodeError) as error:
+    raise SystemExit(f"invalid flyctl snapshot-list JSON: {error}")
+
+snapshots = value.get("snapshots", []) if isinstance(value, dict) else value
+if not isinstance(snapshots, list):
+    raise SystemExit("flyctl snapshot JSON did not contain a snapshot list")
+
+ids = []
+for snapshot in snapshots:
+    if not isinstance(snapshot, dict):
+        raise SystemExit("flyctl snapshot JSON contained a non-object snapshot")
+    snapshot_id = snapshot.get("id")
+    if not isinstance(snapshot_id, str) or not snapshot_id.startswith("vs_"):
+        raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot id")
+    ids.append(snapshot_id)
+if len(set(ids)) != len(ids):
+    raise SystemExit("flyctl snapshot JSON contained duplicate snapshot ids")
+print(json.dumps(ids))
+PY
+}
+
 if ! volumes_json="$(flyctl volumes list --app "$APP" --json 2>&1)"; then
   volumes_json="${volumes_json//$'\n'/ }"
   echo "::error::could not list volumes for $APP: $volumes_json" >&2
@@ -90,6 +118,16 @@ PY
 
 echo "Resolved $APP/$VOLUME_NAME to $volume_id"
 
+if ! snapshots_before_json="$(flyctl volumes snapshots list "$volume_id" --app "$APP" --json 2>&1)"; then
+  snapshots_before_json="${snapshots_before_json//$'\n'/ }"
+  echo "::error::could not list existing snapshots for $APP/$VOLUME_NAME: $snapshots_before_json" >&2
+  exit 1
+fi
+if ! snapshot_ids_before="$(snapshot_ids "$snapshots_before_json")"; then
+  echo "::error::could not parse existing snapshots for $APP/$VOLUME_NAME" >&2
+  exit 1
+fi
+
 if ! create_json="$(flyctl volumes snapshots create "$volume_id" --app "$APP" --json 2>&1)"; then
   create_json="${create_json//$'\n'/ }"
   echo "::error::could not create snapshot for $volume_id: $create_json" >&2
@@ -99,12 +137,14 @@ fi
 snapshot_id="$(CREATE_JSON="$create_json" json_value <<'PY'
 import json
 import os
-import sys
 
+raw = os.environ.get("CREATE_JSON", "").strip()
+if not raw:
+    raise SystemExit(0)
 try:
-    value = json.loads(os.environ["CREATE_JSON"])
-except (KeyError, json.JSONDecodeError) as error:
-    raise SystemExit(f"invalid flyctl snapshot JSON: {error}")
+    value = json.loads(raw)
+except json.JSONDecodeError:
+    raise SystemExit(0)
 
 def find_snapshot_id(candidate):
     if isinstance(candidate, dict):
@@ -124,14 +164,16 @@ def find_snapshot_id(candidate):
     return None
 
 snapshot_id = find_snapshot_id(value)
-if not snapshot_id:
-    raise SystemExit("flyctl did not return a verifiable snapshot id")
-print(snapshot_id)
+if snapshot_id:
+    print(snapshot_id)
 PY
 )" || {
-  echo "::error::snapshot request for $volume_id returned no verifiable snapshot id" >&2
+  echo "::error::could not inspect snapshot creation response for $volume_id" >&2
   exit 1
 }
+if [ -z "$snapshot_id" ]; then
+  echo "::notice::flyctl snapshot create returned no JSON snapshot id; resolving the exact new snapshot from the verified list"
+fi
 
 timeout_secs="${COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS:-180}"
 poll_secs="${COSYWORLD_FLY_SNAPSHOT_POLL_SECS:-5}"
@@ -152,12 +194,14 @@ while [ "$SECONDS" -lt "$deadline" ]; do
     exit 1
   fi
 
-  snapshot_status="$(SNAPSHOTS_JSON="$snapshots_json" json_value "$snapshot_id" <<'PY'
+  snapshot_state="$(
+    SNAPSHOTS_JSON="$snapshots_json" \
+      SNAPSHOT_ID="$snapshot_id" \
+      SNAPSHOT_IDS_BEFORE="$snapshot_ids_before" \
+      json_value <<'PY'
 import json
 import os
-import sys
 
-snapshot_id = sys.argv[1]
 try:
     value = json.loads(os.environ["SNAPSHOTS_JSON"])
 except (KeyError, json.JSONDecodeError) as error:
@@ -167,17 +211,47 @@ snapshots = value.get("snapshots", []) if isinstance(value, dict) else value
 if not isinstance(snapshots, list):
     raise SystemExit("flyctl snapshot JSON did not contain a snapshot list")
 
+try:
+    before = set(json.loads(os.environ["SNAPSHOT_IDS_BEFORE"]))
+except (KeyError, json.JSONDecodeError) as error:
+    raise SystemExit(f"invalid saved Fly snapshot identity set: {error}")
+
+by_id = {}
 for snapshot in snapshots:
-    if isinstance(snapshot, dict) and snapshot.get("id") == snapshot_id:
-        print(snapshot.get("status", ""))
-        break
+    if not isinstance(snapshot, dict):
+        raise SystemExit("flyctl snapshot JSON contained a non-object snapshot")
+    candidate_id = snapshot.get("id")
+    if not isinstance(candidate_id, str) or not candidate_id.startswith("vs_"):
+        raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot id")
+    if candidate_id in by_id:
+        raise SystemExit("flyctl snapshot JSON contained duplicate snapshot ids")
+    by_id[candidate_id] = snapshot
+
+snapshot_id = os.environ.get("SNAPSHOT_ID", "")
+if not snapshot_id:
+    fresh = sorted(set(by_id).difference(before))
+    if len(fresh) > 1:
+        raise SystemExit(
+            "could not identify exactly one new snapshot after a successful create request: "
+            + ", ".join(fresh)
+        )
+    if len(fresh) == 1:
+        snapshot_id = fresh[0]
+
+if not snapshot_id:
+    print("|pending")
+elif snapshot_id in by_id:
+    print(f"{snapshot_id}|{by_id[snapshot_id].get('status', '')}")
 else:
-    print("missing")
+    print(f"{snapshot_id}|missing")
 PY
-)" || {
-    echo "::error::could not parse snapshot verification response for $snapshot_id" >&2
+  )" || {
+    echo "::error::could not parse snapshot verification response for ${snapshot_id:-new snapshot}" >&2
     exit 1
   }
+
+  snapshot_id="${snapshot_state%%|*}"
+  snapshot_status="${snapshot_state#*|}"
 
   case "$snapshot_status" in
     created)
@@ -190,6 +264,9 @@ PY
       ;;
     missing)
       echo "Waiting for Fly volume snapshot $snapshot_id to appear"
+      ;;
+    pending)
+      echo "Waiting for Fly volume snapshot creation to appear"
       ;;
     *)
       echo "Waiting for Fly volume snapshot $snapshot_id: ${snapshot_status:-unknown}"
