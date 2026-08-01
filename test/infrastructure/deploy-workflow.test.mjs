@@ -120,6 +120,19 @@ describe('deploy workflow', () => {
     expect(dockerfile).toContain('ENTRYPOINT ["/app/entrypoint.sh"]');
   });
 
+  it('keeps the Docker entrypoint COPY, chmod, and ENTRYPOINT destinations aligned', () => {
+    const copies = [...dockerfile.matchAll(/^COPY\s+deploy\/entrypoint\.sh\s+(\S+)$/gm)];
+    expect(copies).toHaveLength(1);
+    const [, entrypointPath] = copies[0];
+    const normalizedDockerfile = dockerfile.replace(/\\\s*\n\s*/g, ' ');
+    const escapedEntrypointPath = entrypointPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    expect(normalizedDockerfile).toMatch(
+      new RegExp(`RUN\\s+chmod\\s+0755\\s+${escapedEntrypointPath}(?:\\s|$)`)
+    );
+    expect(dockerfile).toContain(`ENTRYPOINT ["${entrypointPath}"]`);
+    expect(dockerfile).not.toContain('/app/deploy/entrypoint.sh');
+  });
+
   it('blocks deployment on the real v2 gates before either Fly job runs', () => {
     const gate = job('production-gate', 'primary-fly');
     expect(gate).toContain('npm run v2:worldpack');
