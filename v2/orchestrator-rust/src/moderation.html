@@ -422,6 +422,29 @@
       }
     }
 
+    async function loadAllReports() {
+      const pages = [];
+      let after = null;
+      for (let pageNumber = 0; ; pageNumber += 1) {
+        const query = new URLSearchParams({ limit: "80", status: statusFilter });
+        if (after !== null) query.set("after", String(after));
+        const body = await api(`/moderation/reports?${query}`, { headers: authHeaders() });
+        if (!body || !Array.isArray(body.reports) || typeof body.next_after !== "number" || typeof body.caught_up !== "boolean") {
+          throw new Error("Moderation reports received an invalid pagination response.");
+        }
+        pages.push(body.reports);
+        if (body.caught_up) break;
+        if (!Number.isSafeInteger(body.next_after) || body.next_after <= 0 || (after !== null && body.next_after >= after)) {
+          throw new Error("Moderation reports could not advance through older reports.");
+        }
+        after = body.next_after;
+        if (pageNumber >= 10000) {
+          throw new Error("Moderation reports pagination exceeded its safety limit.");
+        }
+      }
+      return pages.reverse().flat();
+    }
+
     async function loadReports() {
       loadStoreHealth();
       const token = tokenInput.value.trim();
@@ -431,12 +454,11 @@
       }
       setBusy(true);
       try {
-        const query = new URLSearchParams({ limit: "80", status: statusFilter });
         const [body, economyBody] = await Promise.all([
-          api(`/moderation/reports?${query}`, { headers: authHeaders() }),
+          loadAllReports(),
           api("/moderation/economy?limit=40", { headers: authHeaders() }),
         ]);
-        reports = body.reports || [];
+        reports = body;
         economy = economyBody;
         if (!reports.some((report) => report.report_id === selectedReportId)) {
           selectedReportId = reports[0]?.report_id || 0;

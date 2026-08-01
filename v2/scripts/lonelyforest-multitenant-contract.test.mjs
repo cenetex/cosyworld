@@ -71,11 +71,12 @@ function startWorldArguments(script, slug) {
 }
 
 test("Lonely Forest routes fixed hosts to isolated fixed world processes", async () => {
-  const [nginx, supervisor, fly, dockerfile] = await Promise.all([
+  const [nginx, supervisor, fly, dockerfile, entrypoint] = await Promise.all([
     readFile(resolve(deploymentRoot, "nginx.conf"), "utf8"),
     readFile(resolve(deploymentRoot, "run-multitenant.sh"), "utf8"),
     readFile(resolve(repoRoot, "fly.lonelyforest.toml"), "utf8"),
     readFile(resolve(repoRoot, "Dockerfile"), "utf8"),
+    readFile(resolve(repoRoot, "deploy/entrypoint.sh"), "utf8"),
   ]);
 
   const eventDbs = new Set();
@@ -115,13 +116,32 @@ test("Lonely Forest routes fixed hosts to isolated fixed world processes", async
     /elysium_registry="\/app\/v2\/content\/elysium-only\/registry\.json"/,
   );
   assert.match(
+    supervisor,
+    /required_health_urls="http:\/\/127\.0\.0\.1:3107\/health,http:\/\/127\.0\.0\.1:3189\/health,http:\/\/127\.0\.0\.1:3180\/health"/,
+  );
+  assert.match(
+    supervisor,
+    /required_health_urls="\$required_health_urls,http:\/\/127\.0\.0\.1:3101\/health"/,
+    "Elysium must join readiness only when its registry is installed",
+  );
+  assert.match(
+    supervisor,
+    /COSYWORLD_REQUIRED_HEALTH_URLS="\$required_health_urls"/,
+    "root readiness must include every installed tenant",
+  );
+  assert.match(
     nginx,
     /return 503 '\{"ok":false,"error":"Elysium is not installed in this release"\}'/,
   );
+  assert.match(nginx, /location = \/health\/live/);
   assert.match(nginx, /listen 0\.0\.0\.0:3000 default_server;[\s\S]*?return 421;/);
   assert.equal((fly.match(/\[\[mounts\]\]/g) ?? []).length, 1);
   assert.match(fly, /source = "lonelyforest_data"/);
   assert.match(fly, /app = "\/app\/deploy\/lonelyforest\/run-multitenant\.sh"/);
-  assert.match(dockerfile, /apt-get install[^\\\n]*ca-certificates nginx/);
+  assert.match(dockerfile, /apt-get install[^\\\n]*ca-certificates gosu nginx/);
   assert.match(dockerfile, /COPY deploy\/lonelyforest \/app\/deploy\/lonelyforest/);
+  assert.match(dockerfile, /COPY deploy\/entrypoint\.sh \/app\/entrypoint\.sh/);
+  assert.match(dockerfile, /ENTRYPOINT \["\/app\/entrypoint\.sh"\]/);
+  assert.match(entrypoint, /chown -R cosyworld:cosyworld \/data/);
+  assert.match(entrypoint, /exec gosu cosyworld/);
 });

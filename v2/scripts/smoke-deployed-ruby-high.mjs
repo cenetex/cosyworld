@@ -30,6 +30,12 @@ async function inspectTarget(value) {
   assert(meta.deployment?.world_epoch === 1, `${baseUrl.origin} has the wrong canonical world epoch`);
   assert(typeof meta.deployment?.process_id === "string" && meta.deployment.process_id.length > 0, `${baseUrl.origin} has no process id`);
   assert(meta.deployment?.shard_id === meta.deployment?.process_id, `${baseUrl.origin} shard alias differs from process id`);
+  assert(meta.persistence?.snapshot_enabled === true, `${baseUrl.origin} snapshot persistence is disabled`);
+  assert(meta.persistence?.event_store_enabled === true, `${baseUrl.origin} event-store persistence is disabled`);
+  assert(meta.persistence?.event_store?.status === "healthy", `${baseUrl.origin} persistence is ${meta.persistence?.event_store?.status ?? "unobservable"}`);
+  assert(meta.persistence?.event_store?.consecutive_append_failures === 0, `${baseUrl.origin} has consecutive event-store append failures`);
+  assert(meta.persistence?.event_store?.consecutive_read_failures === 0, `${baseUrl.origin} has consecutive event-store read failures`);
+  assert(meta.persistence?.event_store?.pending_event_count === 0, `${baseUrl.origin} has pending event-store writes`);
   assert(meta.ownership_feed?.remote_configured === true, `${baseUrl.origin} has no remote Ruby High feed`);
   assert(meta.ownership_feed?.bearer_configured === true, `${baseUrl.origin} has no Ruby High feed bearer`);
   assert(

@@ -19,6 +19,10 @@ const ciWorkflow = readFileSync(
   new URL('../../.github/workflows/ci.yml', import.meta.url),
   'utf8'
 );
+const deployScripts = readFileSync(
+  new URL('../../.github/workflows/deploy.yml', import.meta.url),
+  'utf8'
+);
 const packageScripts = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
 ).scripts;
@@ -46,6 +50,9 @@ const dockerignore = readFileSync(
 const volumeGuardPath = fileURLToPath(
   new URL('../../scripts/check-fly-volume-space.sh', import.meta.url)
 );
+const backupScriptPath = fileURLToPath(
+  new URL('../../scripts/backup-fly-v2.sh', import.meta.url)
+);
 
 const runVolumeGuard = (fakeFlyctl) => {
   const directory = mkdtempSync(join(tmpdir(), 'cosyworld-volume-guard-'));
@@ -69,6 +76,30 @@ const runVolumeGuard = (fakeFlyctl) => {
   }
 };
 
+const runBackup = (fakeFlyctl, profile = 'primary') => {
+  const directory = mkdtempSync(join(tmpdir(), 'cosyworld-fly-backup-'));
+  const flyctlPath = join(directory, 'flyctl');
+  writeFileSync(flyctlPath, `#!/usr/bin/env bash\n${fakeFlyctl}\n`);
+  chmodSync(flyctlPath, 0o755);
+  try {
+    return spawnSync(
+      backupScriptPath,
+      ['example-world', profile],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${directory}${delimiter}${process.env.PATH}`,
+          COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS: '1',
+          COSYWORLD_FLY_SNAPSHOT_POLL_SECS: '1'
+        }
+      }
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
+
 const job = (name, nextName) => {
   const start = workflow.indexOf(`\n  ${name}:`);
   const end = nextName ? workflow.indexOf(`\n  ${nextName}:`, start + 1) : workflow.length;
@@ -77,10 +108,33 @@ const job = (name, nextName) => {
 
 describe('deploy workflow', () => {
   it('only invokes package scripts that exist', () => {
-    const invokedScripts = [...ciWorkflow.matchAll(/\bnpm run ([\w:-]+)/g)].map(
-      ([, script]) => script
+    const invokedScripts = [ciWorkflow, deployScripts].flatMap((source) =>
+      [...source.matchAll(/\bnpm run ([\w:-]+)/g)].map(([, script]) => script)
     );
     expect(invokedScripts.filter((script) => !packageScripts[script])).toEqual([]);
+  });
+
+  it('keeps the primary Fly app on HTTPS and exposes the lightweight liveness path', () => {
+    expect(primaryFlyConfig).toContain('force_https = true');
+    expect(primaryFlyConfig).not.toContain('force_https = false');
+    expect(dockerfile).toContain('ENTRYPOINT ["/app/entrypoint.sh"]');
+  });
+
+  it('blocks deployment on the real v2 gates before either Fly job runs', () => {
+    const gate = job('production-gate', 'primary-fly');
+    expect(gate).toContain('npm run v2:worldpack');
+    expect(gate).toContain('npm run v2:kernel');
+    expect(gate).toContain('npm run v2:syntax');
+    expect(gate).toContain('npm run v2:architecture');
+    expect(gate).toContain('npm run v2:lonelyforest:contract');
+    expect(gate).toContain('npx vitest run test/infrastructure/deploy-workflow.test.mjs');
+    expect(gate).toContain('npm run v2:rust:test');
+    expect(gate).not.toContain('npm test');
+    expect(gate).not.toContain('v2:deployment:check');
+    expect(workflow).toContain('needs: production-gate');
+    expect(
+      workflow.indexOf('Guard primary worldpack bundle compatibility')
+    ).toBeLessThan(workflow.indexOf('Create rollback backup'));
   });
 
   it('serializes deployments across branch and tag refs', () => {
@@ -109,7 +163,7 @@ describe('deploy workflow', () => {
     expect(workflow).not.toContain('--image');
     expect(workflow).not.toContain('\n  aws:');
     expect(job('github-release')).toContain(
-      'needs: [primary-fly, lonelyforest-fly]'
+      'needs: [production-gate, primary-fly, lonelyforest-fly]'
     );
   });
 
@@ -137,6 +191,29 @@ describe('deploy workflow', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('refusing to deploy blind');
     expect(result.stderr).toContain('machine is stopped and cannot accept SSH');
+  });
+
+  it('creates and verifies an exact Fly volume snapshot before deployment', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) echo '{"id":"vs_new","status":"running"}' ;;
+        *"snapshots list"*) echo '[{"id":"vs_new","status":"created"}]' ;;
+        *) exit 1 ;;
+      esac`
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('fails closed when the configured volume is ambiguous', () => {
+    const result = runBackup(
+      `echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"},{"id":"vol_456","name":"cosyworld_data","state":"created","attached_machine_id":"machine_456"}]'`
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('expected exactly one active volume');
   });
 
   it('accepts a healthy volume report below the configured threshold', () => {

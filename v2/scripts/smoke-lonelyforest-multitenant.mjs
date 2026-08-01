@@ -110,6 +110,18 @@ async function assertWorld(spec) {
     meta.json?.worldpack?.id === spec.worldpack,
     `${spec.host} mounted ${meta.json?.worldpack?.id}, expected ${spec.worldpack}`,
   );
+  assert(
+    meta.json?.persistence?.snapshot_enabled === true
+      && meta.json?.persistence?.event_store_enabled === true,
+    `${spec.host} does not have snapshot and event-store persistence enabled`,
+  );
+  assert(
+    meta.json?.persistence?.event_store?.status === "healthy"
+      && meta.json.persistence.event_store.consecutive_append_failures === 0
+      && meta.json.persistence.event_store.consecutive_read_failures === 0
+      && meta.json.persistence.event_store.pending_event_count === 0,
+    `${spec.host} persistence is degraded: ${JSON.stringify(meta.json?.persistence?.event_store)}`,
+  );
 
   const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const wallet = `lonelyforest-router-smoke-${spec.host}-${nonce}`;

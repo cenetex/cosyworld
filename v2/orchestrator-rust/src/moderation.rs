@@ -87,6 +87,8 @@ pub(crate) struct ModerationReportsResponse {
     pub(crate) ok: bool,
     pub(crate) status: u16,
     pub(crate) reports: Vec<ModerationReportView>,
+    pub(crate) next_after: u64,
+    pub(crate) caught_up: bool,
     pub(crate) error: Option<String>,
 }
 
@@ -266,60 +268,60 @@ pub(crate) fn read_moderation_reports(
     status_filter: ModerationReportStatusFilter,
 ) -> io::Result<ModerationReportsResponse> {
     init_event_store(path)?;
+    if limit == 0 {
+        return Ok(ModerationReportsResponse {
+            ok: true,
+            status: 200,
+            reports: Vec::new(),
+            next_after: after.unwrap_or(0),
+            caught_up: true,
+            error: None,
+        });
+    }
     let conn = open_event_store(path)?;
-    let scan_limit = limit.min(MAX_EVENT_STORE_SCAN) as i64;
-    let after = after.unwrap_or(0) as i64;
-    let mut reports = match status_filter {
-        ModerationReportStatusFilter::All => {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT report_id, status, reporter_actor_id, reporter_actor_name,
-                            reporter_actor_kind, target_actor_id, target_actor_name,
-                            target_actor_kind, location_id, location_name, reason, created_at_ms,
-                            resolved_at_ms, resolved_by, resolution_note
-                     FROM moderation_reports
-                     WHERE report_id > ?1
-                     ORDER BY report_id DESC
-                     LIMIT ?2",
-                )
-                .map_err(sqlite_error)?;
-            let rows = stmt
-                .query_map(params![after, scan_limit], moderation_report_from_row)
-                .map_err(sqlite_error)?;
-            rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?
-        }
-        ModerationReportStatusFilter::Open | ModerationReportStatusFilter::Resolved => {
-            let status = match status_filter {
-                ModerationReportStatusFilter::Open => "open",
-                ModerationReportStatusFilter::Resolved => "resolved",
-                ModerationReportStatusFilter::All => unreachable!(),
-            };
-            let mut stmt = conn
-                .prepare(
-                    "SELECT report_id, status, reporter_actor_id, reporter_actor_name,
-                            reporter_actor_kind, target_actor_id, target_actor_name,
-                            target_actor_kind, location_id, location_name, reason, created_at_ms,
-                            resolved_at_ms, resolved_by, resolution_note
-                     FROM moderation_reports
-                     WHERE report_id > ?1 AND status = ?2
-                     ORDER BY report_id DESC
-                     LIMIT ?3",
-                )
-                .map_err(sqlite_error)?;
-            let rows = stmt
-                .query_map(
-                    params![after, status, scan_limit],
-                    moderation_report_from_row,
-                )
-                .map_err(sqlite_error)?;
-            rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?
-        }
+    let scan_limit = limit.saturating_add(1).min(MAX_EVENT_STORE_SCAN) as i64;
+    let after = after.map(|value| value.min(i64::MAX as u64) as i64);
+    let status = match status_filter {
+        ModerationReportStatusFilter::All => None,
+        ModerationReportStatusFilter::Open => Some("open"),
+        ModerationReportStatusFilter::Resolved => Some("resolved"),
     };
+    let mut stmt = conn
+        .prepare(
+            "SELECT report_id, status, reporter_actor_id, reporter_actor_name,
+                    reporter_actor_kind, target_actor_id, target_actor_name,
+                    target_actor_kind, location_id, location_name, reason, created_at_ms,
+                    resolved_at_ms, resolved_by, resolution_note
+             FROM moderation_reports
+             WHERE report_id < COALESCE(?1, 9223372036854775807)
+               AND (?2 IS NULL OR status = ?2)
+             ORDER BY report_id DESC
+             LIMIT ?3",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![after, status, scan_limit],
+            moderation_report_from_row,
+        )
+        .map_err(sqlite_error)?;
+    let mut reports = rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?;
+    let has_more = reports.len() > limit;
+    if has_more {
+        reports.truncate(limit);
+    }
+    let next_after = reports
+        .last()
+        .map(|report| report.report_id)
+        .or(after.map(|value| value.max(0) as u64))
+        .unwrap_or(0);
     reports.reverse();
     Ok(ModerationReportsResponse {
         ok: true,
         status: 200,
         reports,
+        next_after,
+        caught_up: !has_more,
         error: None,
     })
 }
@@ -965,6 +967,8 @@ pub(crate) async fn moderation_reports_view(
             ok: false,
             status: 403,
             reports: Vec::new(),
+            next_after: query.after.unwrap_or(0),
+            caught_up: true,
             error: Some("moderation bearer token required".to_string()),
         });
     }
@@ -975,6 +979,8 @@ pub(crate) async fn moderation_reports_view(
                 ok: false,
                 status: 400,
                 reports: Vec::new(),
+                next_after: query.after.unwrap_or(0),
+                caught_up: true,
                 error: Some(error.to_string()),
             });
         }
@@ -985,6 +991,8 @@ pub(crate) async fn moderation_reports_view(
             ok: false,
             status: 503,
             reports: Vec::new(),
+            next_after: query.after.unwrap_or(0),
+            caught_up: true,
             error: Some("event store is required for moderation reports".to_string()),
         });
     };
@@ -993,6 +1001,8 @@ pub(crate) async fn moderation_reports_view(
             ok: true,
             status: 200,
             reports: Vec::new(),
+            next_after: query.after.unwrap_or(0),
+            caught_up: true,
             error: None,
         });
     }
@@ -1012,6 +1022,8 @@ pub(crate) async fn moderation_reports_view(
                 ok: false,
                 status: 500,
                 reports: Vec::new(),
+                next_after: query.after.unwrap_or(0),
+                caught_up: true,
                 error: Some(error.to_string()),
             })
         }
