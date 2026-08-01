@@ -1,0 +1,27 @@
+[
+  {
+    "from_location_id": 4,
+    "to_location_id": 800,
+    "flags": 0,
+    "distance": 2,
+    "direction": "north",
+    "discovery": "known"
+  },
+  {
+    "from_location_id": 800,
+    "to_location_id": 4,
+    "flags": 0,
+    "distance": 2,
+    "direction": "south",
+    "discovery": "known"
+  },
+  {
+    "from_location_id": 804,
+    "to_location_id": 32,
+    "flags": 1,
+    "distance": 4,
+    "direction": "north",
+    "directionality": "one_way",
+    "fallback_location_id": 1
+  }
+]

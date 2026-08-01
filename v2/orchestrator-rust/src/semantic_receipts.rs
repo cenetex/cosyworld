@@ -104,13 +104,24 @@ fn next_after_arrival(location_id: u64) -> &'static str {
     }
 }
 
+/// The actor's most recent location *inside the campaign*.
+///
+/// The campaign filter belongs inside the search, not after it. A committed
+/// turn can end on an event that points outside the campaign — filling the
+/// beacon clock also opens the road onward, and that `exit.unlocked` names its
+/// core destination — and taking the last location unconditionally would make
+/// this return `None` and silently drop the finale's story receipt.
 fn lantern_location_for(events: &[EventView], actor_id: u64) -> Option<u64> {
     events
         .iter()
         .rev()
         .filter(|event| event.actor_id == Some(actor_id))
-        .find_map(|event| event.destination_location_id.or(event.location_id))
-        .filter(|location_id| LANTERN_LOCATION_IDS.contains(location_id))
+        .find_map(|event| {
+            event
+                .destination_location_id
+                .or(event.location_id)
+                .filter(|location_id| LANTERN_LOCATION_IDS.contains(location_id))
+        })
 }
 
 fn receipt_event_seqs(events: &[EventView], actor_id: u64) -> Vec<u64> {

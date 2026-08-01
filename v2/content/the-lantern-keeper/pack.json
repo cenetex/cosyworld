@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.campaign.the-lantern-keeper",
   "name": "The Lantern Keeper",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "kind": "campaign",
   "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
   "license": "CC-BY-4.0",
@@ -84,13 +84,20 @@
       "generated_descendants": {
         "owner": "source_route",
         "composition": "active_bundle",
-        "subject_kinds": ["route", "waypoint", "place", "location_card"],
+        "subject_kinds": [
+          "route",
+          "waypoint",
+          "place",
+          "location_card"
+        ],
         "on_upgrade": "require_declared_migration",
         "on_unmount": "freeze_with_owner"
       },
       "prose": {
         "profile_id": "cosyworld.pathway-prose.ecology/1",
-        "prompt_versions": ["pathway-content-v2"],
+        "prompt_versions": [
+          "pathway-content-v2"
+        ],
         "ecology": {
           "interpolation": "endpoint_blend/1",
           "required_context": [
@@ -124,10 +131,20 @@
         },
         "prompt_version": "community-art/3",
         "prompt_prefix": "MRQ, cozy hand-painted fantasy landscape, practical travel detail",
-        "aspect_ratios": ["16:9"],
-        "output_formats": ["webp"],
-        "negative_constraints": ["no text", "no logos", "no interface chrome"],
-        "subject_kinds": ["location_card"],
+        "aspect_ratios": [
+          "16:9"
+        ],
+        "output_formats": [
+          "webp"
+        ],
+        "negative_constraints": [
+          "no text",
+          "no logos",
+          "no interface chrome"
+        ],
+        "subject_kinds": [
+          "location_card"
+        ],
         "authored_art": "permanent",
         "community_art": "eligible",
         "unexplored_placeholder": "common_unexplored/1",
@@ -138,16 +155,46 @@
         "directionality": "reciprocal_or_explicit_one_way",
         "evacuation": "world_lifecycle_required",
         "budgets": {
-          "components": { "min": 1, "max": 1 },
-          "roots": { "min": 1, "max": 2 },
-          "ingress": { "min": 0, "max": 1 },
-          "egress": { "min": 0, "max": 1 },
-          "weighted_distance": { "min": 3, "max": 6 },
-          "degree": { "min": 1, "max": 3 },
-          "cycle_rank": { "min": 0, "max": 1 },
-          "bridges": { "min": 3, "max": 4 },
-          "articulation_impact": { "min": 1, "max": 3 },
-          "terminal_spurs": { "min": 1, "max": 2 }
+          "components": {
+            "min": 1,
+            "max": 1
+          },
+          "roots": {
+            "min": 1,
+            "max": 2
+          },
+          "ingress": {
+            "min": 0,
+            "max": 1
+          },
+          "egress": {
+            "min": 0,
+            "max": 2
+          },
+          "weighted_distance": {
+            "min": 3,
+            "max": 6
+          },
+          "degree": {
+            "min": 1,
+            "max": 3
+          },
+          "cycle_rank": {
+            "min": 0,
+            "max": 1
+          },
+          "bridges": {
+            "min": 3,
+            "max": 4
+          },
+          "articulation_impact": {
+            "min": 1,
+            "max": 3
+          },
+          "terminal_spurs": {
+            "min": 1,
+            "max": 2
+          }
         }
       },
       "migrations": [

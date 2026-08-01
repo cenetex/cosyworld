@@ -648,6 +648,34 @@
     "pack_id": "cosyworld.composition.core-holy-land"
   },
   {
+    "from_location_id": 4,
+    "to_location_id": 800,
+    "flags": 0,
+    "distance": 2,
+    "direction": "north",
+    "discovery": "known",
+    "pack_id": "cosyworld.composition.core-lantern-keeper"
+  },
+  {
+    "from_location_id": 800,
+    "to_location_id": 4,
+    "flags": 0,
+    "distance": 2,
+    "direction": "south",
+    "discovery": "known",
+    "pack_id": "cosyworld.composition.core-lantern-keeper"
+  },
+  {
+    "from_location_id": 804,
+    "to_location_id": 32,
+    "flags": 1,
+    "distance": 4,
+    "direction": "north",
+    "directionality": "one_way",
+    "fallback_location_id": 1,
+    "pack_id": "cosyworld.composition.core-lantern-keeper"
+  },
+  {
     "from_location_id": 10,
     "to_location_id": 11,
     "flags": 0,

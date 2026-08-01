@@ -1440,7 +1440,7 @@ mod tests {
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 49);
-        assert_eq!(registry.content().manifest.packs.len(), 10);
+        assert_eq!(registry.content().manifest.packs.len(), 11);
         assert_eq!(
             registry.content().manifest.rules_profile,
             "cosyworld.srd5/1"

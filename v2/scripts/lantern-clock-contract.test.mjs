@@ -75,6 +75,53 @@ test("Lantern clock contract rejects a duplicate lifecycle source", () => {
   );
 });
 
+test("a filled clock may open exactly one road it earned, and nothing else", () => {
+  const clockId = "lantern-keeper.light";
+  const unlock = {
+    op: "unlock_exit",
+    from_location_id: 804,
+    to_location_id: 32,
+    reason: "beacon_rekindled_opens_the_road",
+  };
+
+  // The shipped content pairs the job status with a single unlock.
+  const shipped = clocks.find((clock) => clock.id === clockId);
+  assert.equal(shipped.on_fill.filter((effect) => effect.op === "unlock_exit").length, 1);
+  assert.deepEqual(validate(), []);
+
+  // Two roads from one fill is not a bounded consequence.
+  const twoRoads = structuredClone(clocks);
+  twoRoads.find((clock) => clock.id === clockId).on_fill.push({
+    ...unlock,
+    to_location_id: 33,
+  });
+  assert.match(validate({ clocks: twoRoads }).join("\n"), /at most one authored exit/);
+
+  // The relaxation admits unlock_exit only; it is not a general effect surface.
+  const foreign = structuredClone(clocks);
+  foreign.find((clock) => clock.id === clockId).on_fill.push({
+    op: "reveal_item",
+    item_id: 2001,
+    location_id: 804,
+    reason: "beacon_rekindled_opens_the_road",
+  });
+  assert.match(
+    validate({ clocks: foreign }).join("\n"),
+    /exactly one authoritative set_job_status/,
+  );
+
+  // Dropping the job status is still rejected even with a road present.
+  const unlockOnly = structuredClone(clocks);
+  const unlockOnlyClock = unlockOnly.find((clock) => clock.id === clockId);
+  unlockOnlyClock.on_fill = unlockOnlyClock.on_fill.filter(
+    (effect) => effect.op !== "set_job_status",
+  );
+  assert.match(
+    validate({ clocks: unlockOnly }).join("\n"),
+    /exactly one authoritative set_job_status/,
+  );
+});
+
 test("compositions without the Lantern pack are outside this contract", () => {
   assert.deepEqual(
     lanternClockEffectValidationErrors({

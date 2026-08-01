@@ -61015,7 +61015,7 @@ mod tests {
         assert_eq!(content.manifest.version, 1);
         assert_eq!(content.manifest.schema_version, 2);
         assert_eq!(content.manifest.rules_profile, "cosyworld.srd5/1");
-        assert_eq!(content.manifest.packs.len(), 10);
+        assert_eq!(content.manifest.packs.len(), 11);
 
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
@@ -61031,7 +61031,7 @@ mod tests {
         assert_eq!(satchel.role, "container");
         assert_eq!(satchel.container_capacity_tenths, 300);
         assert_eq!(content.locations.len(), 49);
-        assert_eq!(content.exits.len(), 112);
+        assert_eq!(content.exits.len(), 115);
 
         assert!(content.exits.iter().any(|exit| {
             exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
