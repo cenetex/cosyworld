@@ -164,4 +164,8 @@
 # state-machine stacks; the remaining added lines are its FFI wiring plus the
 # legacy vector-backed snapshot rehydration contract. This is existing runtime
 # and persistence compatibility wiring, not a new subsystem.
-73796
+# 73796 -> 73828: image-only resident replies add only the journal projection,
+# response dispatch, transcript classification, and INDEX_HTML contract glue at
+# existing runtime seams. Generation, review, storage, serving, and their tests
+# live in resident_image.rs; this is a reviewed integration exception.
+73828

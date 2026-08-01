@@ -60,6 +60,7 @@ mod proxim8;
 mod quest_loot;
 mod rate_limit;
 mod relationships;
+mod resident_image;
 mod resident_offer_scoring;
 mod residents;
 mod rest;
@@ -140,6 +141,7 @@ use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
 use relationships::*;
+use resident_image::*;
 use residents::*;
 use rest::*;
 use room_scene::*;
@@ -998,6 +1000,11 @@ enum ProjectionMutation {
         target_actor_id: u64,
         status: String,
         reason: String,
+    },
+    PublishResidentImage {
+        publication: Box<ResidentImagePublication>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target_actor_id: Option<u64>,
     },
     SetRelationshipDialogueStatus {
         relationship_actor_id: u64,
@@ -10621,6 +10628,21 @@ impl RuntimeWorld {
                         Some(reason.clone()),
                     ));
                 }
+                ProjectionMutation::PublishResidentImage {
+                    publication,
+                    target_actor_id,
+                } => {
+                    if publication.validate().is_ok() {
+                        if let Ok(content) = serde_json::to_string(publication) {
+                            events.push(self.append_async_job_event(
+                                "image.created",
+                                action.actor_id,
+                                *target_actor_id,
+                                Some(content),
+                            ));
+                        }
+                    }
+                }
                 ProjectionMutation::SetRelationshipDialogueStatus {
                     relationship_actor_id,
                     target_actor_id,
@@ -19466,6 +19488,7 @@ The relationship statement they are preserving is: {statement}"
             .into_iter()
             .find(|target| {
                 self.actor_uses_inference(target.id)
+                    && resident_supports_text_reply(target.id)
                     && !self.actors_blocked(actor_id, target.id)
                     && !self.actor_muted(actor_id, target.id)
             })
@@ -20240,6 +20263,7 @@ The relationship statement they are preserving is: {statement}"
             .filter(|event| {
                 event.success
                     && event.type_name != "message.created"
+                    && event.type_name != "image.created"
                     && event_visible_in_location(event, location_id)
             })
             .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
@@ -20724,8 +20748,10 @@ The relationship statement they are preserving is: {statement}"
             return None;
         }
         let latest_room_speaker = self.event_log.iter().rev().find_map(|event| {
-            if event.type_name != "message.created"
-                || event.location_id != Some(speaker.location_id)
+            if !matches!(
+                event.type_name.as_str(),
+                "message.created" | "image.created"
+            ) || event.location_id != Some(speaker.location_id)
             {
                 return None;
             }
@@ -29769,6 +29795,9 @@ async fn complete_avatar_reply(
         let runtime = state.inner.lock().await;
         runtime.prepare_resident_planner_snapshot(plan)
     };
+    if resident_uses_image_reply(plan.speaker_actor_id) {
+        return complete_resident_image_reply(state, &plan, relationship_reply).await;
+    }
     let proposal = match avatar_reply_intent(state, &plan).await {
         Ok(proposal) => proposal,
         Err(error) => {
@@ -29803,6 +29832,7 @@ fn chat_participants_can_continue(
                 && actor.location_id == location_id
                 && target.location_id == location_id
                 && runtime.actor_uses_inference(target_actor_id)
+                && resident_supports_text_reply(target_actor_id)
                 && !runtime.actors_blocked(actor_id, target_actor_id)
                 && !runtime.actor_muted(actor_id, target_actor_id)
         })
@@ -30634,7 +30664,7 @@ fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
         .iter()
         .find(|event| event.success && event.actor_id == Some(actor_id))
         .map(|event| match event.type_name.as_str() {
-            "message.created" => CW_ACTION_SAY,
+            "message.created" | "image.created" => CW_ACTION_SAY,
             "actor.moved" => CW_ACTION_MOVE,
             "ability_check.rolled" => CW_ACTION_ABILITY_CHECK,
             "item.picked_up" => CW_ACTION_PICK_UP_ITEM,
@@ -31207,6 +31237,7 @@ fn room_memory_entry_for_event_at_location(
             | "world.bootstrapped"
             | "actor.presence"
             | "message.created"
+            | "image.created"
             | "combat.participant.joined"
             | "combat.initiative.rolled"
             | "combat.turn.started"
@@ -48718,7 +48749,8 @@ mod tests {
         assert!(INDEX_HTML.contains(
             "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${pendingConversation}${pendingChatReplies}`;"
         ));
-        assert!(INDEX_HTML.contains("return event?.type === \"message.created\""));
+        assert!(INDEX_HTML
+            .contains("return [\"message.created\", \"image.created\"].includes(event?.type);"));
         assert!(INDEX_HTML.contains("function renderJournalLog"));
         assert!(INDEX_HTML.contains("const beats = journalBeatsForPresentation()"));
         assert!(INDEX_HTML.contains("headline.scrollWidth > headline.clientWidth + 2"));

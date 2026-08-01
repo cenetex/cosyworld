@@ -9,6 +9,7 @@ use crate::ai_voice_routing::VoiceRoutingConfig;
 use crate::media_recipes::media_verdict::{
     bounded_visual_verdict_summary, MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 pub(crate) use registry::{
     CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
     PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
@@ -30,6 +31,9 @@ pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAU
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
 pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
 pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v2";
+const IMAGE_GENERATION_MAX_BYTES: usize = 8 * 1024 * 1024;
+const IMAGE_GENERATION_MAX_RESPONSE_BYTES: u64 = 12 * 1024 * 1024;
+const IMAGE_GENERATION_MAX_PROMPT_BYTES: usize = 16 * 1024;
 const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -303,6 +307,23 @@ impl AiConfig {
         }
         PinnedModelSelection::from_actor_binding(binding, self.data_policy_mode)
     }
+
+    pub(crate) fn pin_actor_image_model(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let configured_provider = ai_provider_name(Some(self));
+        let local_development_adapter = self.data_policy_mode == DataPolicyMode::Development
+            && local_ai_base_url(&self.base_url);
+        if configured_provider != "openrouter" && !local_development_adapter {
+            return Err(RegistryError::ProviderMismatch {
+                model: binding.requested_model_id.clone(),
+                declared: "openrouter".to_string(),
+                discovered: configured_provider.to_string(),
+            });
+        }
+        PinnedModelSelection::from_actor_image_binding(binding, self.data_policy_mode)
+    }
 }
 
 fn enabled_ai_api_key(api_key: Option<String>, base_url: &str) -> Option<String> {
@@ -422,7 +443,7 @@ fn parse_capability_models(
         Some(value) => serde_json::from_str::<BTreeMap<ModelCapability, String>>(value)
             .map_err(|error| {
                 format!(
-                    "{AI_CAPABILITY_MODELS_ENV} must map voice, intent_json, or world_content to model ids: {error}"
+                    "{AI_CAPABILITY_MODELS_ENV} must map voice, intent_json, world_content, or image_generation to model ids: {error}"
                 )
             })?,
     };
@@ -567,6 +588,28 @@ pub(crate) struct AiTokenUsage {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub(crate) struct ImageGenerationRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) prompt: &'a str,
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AiGeneratedImage {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) content_type: String,
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
+    pub(crate) model_attribution: ModelAttribution,
+    pub(crate) usage: AiTokenUsage,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct ImagePolicyRequest<'a> {
     pub(crate) feature: &'static str,
     pub(crate) image_url: &'a str,
@@ -653,6 +696,297 @@ pub(crate) async fn request_chat_completion_with_selection(
         Some(selection),
     )
     .await
+}
+
+pub(crate) async fn request_image_generation_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: ImageGenerationRequest<'_>,
+) -> Result<AiGeneratedImage, AiGatewayError> {
+    let started_at = Instant::now();
+    if request.prompt.trim().is_empty() || request.prompt.len() > IMAGE_GENERATION_MAX_PROMPT_BYTES
+    {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} prompt was empty or exceeded its byte limit",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
+    let selection = config
+        .pin_actor_image_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let context_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(request.feature.as_bytes());
+        hasher.update([0]);
+        hasher.update(request.prompt_version.as_bytes());
+        hasher.update([0]);
+        hasher.update(request.prompt.as_bytes());
+        format!("{:x}", hasher.finalize())
+    };
+    let client = reqwest::Client::builder()
+        .timeout(request.timeout)
+        .build()
+        .map_err(|error| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{} client setup failed: {error}", request.feature),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let url = format!("{}/images", config.base_url);
+    let max_attempts = request.max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        let mut payload = json!({
+            "model": selection.requested_model_id(),
+            "prompt": request.prompt,
+            "n": 1,
+        });
+        if selection.enforces_zero_data_retention() {
+            payload["provider"] = json!({ "zdr": true });
+        }
+        if selection.candidate().supported_parameters().seed {
+            let digest = Sha256::digest(context_hash.as_bytes());
+            payload["seed"] = json!(u32::from_be_bytes(
+                digest[..4].try_into().expect("SHA-256 seed prefix")
+            ));
+        }
+        let response = client
+            .post(&url)
+            .bearer_auth(&config.api_key)
+            .header("HTTP-Referer", request.referer)
+            .header("X-OpenRouter-Title", "CosyWorld v2")
+            .header("X-Title", "CosyWorld v2")
+            .json(&payload)
+            .send()
+            .await;
+        let mut response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                let kind = if error.is_timeout() {
+                    AiFailureKind::Timeout
+                } else {
+                    AiFailureKind::Transport
+                };
+                let retryable = error.is_timeout() || error.is_connect();
+                if retryable && attempt < max_attempts {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+                return Err(AiGatewayError {
+                    kind,
+                    message: format!("{} request failed: {error}", request.feature),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+        };
+        let status = response.status();
+        if !status.is_success() {
+            let retryable = status.as_u16() == 429 || status.is_server_error();
+            if retryable && attempt < max_attempts {
+                sleep(retry_delay(attempt)).await;
+                continue;
+            }
+            let detail = provider_error_detail(response).await;
+            return Err(AiGatewayError {
+                kind: AiFailureKind::Provider,
+                message: format!(
+                    "{} provider returned HTTP {status}{}",
+                    request.feature,
+                    detail
+                        .as_deref()
+                        .map(|detail| format!(": {detail}"))
+                        .unwrap_or_default()
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > IMAGE_GENERATION_MAX_RESPONSE_BYTES)
+        {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} response exceeded the image size limit", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let mut response_bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|error| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!(
+                "{} response body could not be read: {error}",
+                request.feature
+            ),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })? {
+            if response_bytes.len().saturating_add(chunk.len())
+                > IMAGE_GENERATION_MAX_RESPONSE_BYTES as usize
+            {
+                return Err(AiGatewayError {
+                    kind: AiFailureKind::InvalidResponse,
+                    message: format!("{} response exceeded the image size limit", request.feature),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+            response_bytes.extend_from_slice(&chunk);
+        }
+        let body: Value =
+            serde_json::from_slice(&response_bytes).map_err(|error| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} response was not valid JSON: {error}", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        let data = body
+            .get("data")
+            .and_then(Value::as_array)
+            .filter(|data| data.len() == 1)
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response did not include exactly one image",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        let image = &data[0];
+        let encoded = image
+            .get("b64_json")
+            .and_then(Value::as_str)
+            .filter(|value| value.len() <= IMAGE_GENERATION_MAX_BYTES.saturating_mul(4) / 3 + 8)
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response did not include one bounded base64 image",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        let bytes = BASE64_STANDARD
+            .decode(encoded)
+            .map_err(|error| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} image was not valid base64: {error}", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        if bytes.is_empty() || bytes.len() > IMAGE_GENERATION_MAX_BYTES {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} image exceeded the decoded size limit", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let declared_content_type = image
+            .get("media_type")
+            .and_then(Value::as_str)
+            .map(normalize_generated_image_content_type)
+            .transpose()
+            .map_err(|()| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} returned an unsupported image MIME type",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        let inferred_content_type =
+            infer_generated_image_content_type(&bytes).ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} returned an unsupported image format", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        if declared_content_type
+            .as_ref()
+            .is_some_and(|declared| declared != &inferred_content_type)
+        {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} image MIME type did not match its bytes",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let content_type = declared_content_type.unwrap_or(inferred_content_type);
+        let provider_model = body.get("model").and_then(Value::as_str);
+        let model_attribution = selection
+            .attribute_response(provider_model)
+            .map_err(|error| {
+                let mut error = AiGatewayError::registry(request.feature, error);
+                error.attempts = attempt;
+                error.latency = started_at.elapsed();
+                error
+            })?;
+        let usage = body.get("usage");
+        let usage = AiTokenUsage {
+            prompt_tokens: usage
+                .and_then(|usage| usage.get("prompt_tokens"))
+                .and_then(Value::as_u64),
+            completion_tokens: usage
+                .and_then(|usage| usage.get("completion_tokens"))
+                .and_then(Value::as_u64),
+            total_tokens: usage
+                .and_then(|usage| usage.get("total_tokens"))
+                .and_then(Value::as_u64),
+        };
+        tracing::info!(
+            feature = request.feature,
+            provider = %model_attribution.provider,
+            requested_model = %model_attribution.requested_model_id,
+            resolved_model = %model_attribution.resolved_model_id,
+            attempts = attempt,
+            latency_ms = started_at.elapsed().as_millis() as u64,
+            "CosyWorld AI image inference completed"
+        );
+        return Ok(AiGeneratedImage {
+            bytes,
+            content_type,
+            attempts: attempt,
+            latency: started_at.elapsed(),
+            model_attribution,
+            usage,
+            context_hash,
+            prompt_version: request.prompt_version.to_string(),
+        });
+    }
+    unreachable!("the bounded AI image attempt loop always returns")
+}
+
+fn normalize_generated_image_content_type(value: &str) -> Result<String, ()> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "image/png" => Ok("image/png".to_string()),
+        "image/jpeg" | "image/jpg" => Ok("image/jpeg".to_string()),
+        "image/webp" => Ok("image/webp".to_string()),
+        "image/gif" => Ok("image/gif".to_string()),
+        _ => Err(()),
+    }
+}
+
+fn infer_generated_image_content_type(bytes: &[u8]) -> Option<String> {
+    match image::guess_format(bytes).ok()? {
+        image::ImageFormat::Png => Some("image/png".to_string()),
+        image::ImageFormat::Jpeg => Some("image/jpeg".to_string()),
+        image::ImageFormat::WebP => Some("image/webp".to_string()),
+        image::ImageFormat::Gif => Some("image/gif".to_string()),
+        _ => None,
+    }
 }
 
 pub(crate) async fn request_image_policy_decision(
@@ -1565,6 +1899,32 @@ mod tests {
         }
     }
 
+    fn image_actor_model_binding(
+        zero_data_retention: bool,
+    ) -> crate::content_load::SeedActorModelBinding {
+        crate::content_load::SeedActorModelBinding {
+            pack_id: "cosyworld.elysium".to_string(),
+            id: "black-forest-labs/flux.2-klein-4b".to_string(),
+            actor_id: 677_376_455_611,
+            actor_ref: "pack://cosyworld.elysium/actor/677376455611".to_string(),
+            provider: "openrouter".to_string(),
+            requested_model_id: "black-forest-labs/flux.2-klein-4b".to_string(),
+            canonical_slug: "black-forest-labs/flux.2-klein-4b".to_string(),
+            display_name: "Black Forest Labs: FLUX.2 Klein 4B".to_string(),
+            catalog_snapshot_version: "openrouter-2026-07-31.1".to_string(),
+            created: 1_768_429_228,
+            input_modalities: vec!["image".to_string(), "text".to_string()],
+            output_modalities: vec!["image".to_string()],
+            context_length: Some(40_960),
+            max_completion_tokens: None,
+            supported_parameters: vec!["seed".to_string()],
+            input_cost_per_million: Some(0.0),
+            output_cost_per_million: Some(0.0),
+            zero_data_retention,
+            speech_mode: "unavailable".to_string(),
+        }
+    }
+
     #[test]
     fn pathway_prompt_carries_route_direction_ecology_and_authored_context() {
         let runtime = RuntimeWorld::seeded();
@@ -1642,6 +2002,101 @@ mod tests {
         ));
         PinnedModelSelection::from_actor_binding(&binding, DataPolicyMode::Development)
             .expect("development may exercise a catalog model without ZDR");
+    }
+
+    #[tokio::test]
+    async fn image_actor_request_uses_the_exact_bound_model_and_dedicated_endpoint() {
+        use std::sync::Mutex;
+
+        const PNG_1X1: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/images",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture image request") = Some(body);
+                    Json(json!({
+                        "model": "black-forest-labs/flux.2-klein-4b",
+                        "data": [{ "b64_json": PNG_1X1 }],
+                        "usage": { "total_tokens": 12 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind image gateway test server");
+        let address = listener.local_addr().expect("image gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let generated = request_image_generation_with_binding(
+            &config,
+            &image_actor_model_binding(false),
+            ImageGenerationRequest {
+                feature: "image_test",
+                prompt_version: "image-test-v1",
+                prompt: "a tiny lantern",
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect("bound image request");
+
+        let body = request_body
+            .lock()
+            .expect("read image request")
+            .clone()
+            .expect("image request captured");
+        assert_eq!(body["model"], "black-forest-labs/flux.2-klein-4b");
+        assert_eq!(body["prompt"], "a tiny lantern");
+        assert_eq!(body["n"], 1);
+        assert!(body.get("provider").is_none());
+        assert!(body.get("messages").is_none());
+        assert!(body.get("seed").and_then(Value::as_u64).is_some());
+        assert_eq!(generated.content_type, "image/png");
+        assert_eq!(generated.usage.total_tokens, Some(12));
+        assert_eq!(
+            generated.model_attribution.resolved_model_id,
+            "black-forest-labs/flux.2-klein-4b"
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn production_image_binding_without_zdr_is_rejected_before_network_io() {
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: "https://openrouter.ai/api/v1".to_string(),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+        let error = request_image_generation_with_binding(
+            &config,
+            &image_actor_model_binding(false),
+            ImageGenerationRequest {
+                feature: "image_privacy_test",
+                prompt_version: "image-privacy-test-v1",
+                prompt: "must not reach the network",
+                timeout: Duration::from_millis(10),
+                max_attempts: 1,
+                referer: "https://cosy.world/",
+            },
+        )
+        .await
+        .expect_err("non-ZDR image binding must fail closed in production");
+        assert_eq!(error.code(), "inference_privacy_rejected");
+        assert_eq!(error.attempts, 0);
     }
 
     #[test]

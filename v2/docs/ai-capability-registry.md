@@ -1,7 +1,8 @@
 # AI capability registry
 
-CosyWorld selects text inference through an immutable, versioned registry
-snapshot. The registry is execution metadata, never kernel authority. It may
+CosyWorld selects text and image inference through immutable, versioned
+capability facts. The operator registry snapshot is execution metadata, never
+kernel authority. It may
 contain hundreds of candidates, while each generation pins exactly one
 candidate and sends only that model ID to the provider.
 
@@ -13,6 +14,9 @@ candidate and sends only that model ID to the provider.
   declare JSON mode or structured output.
 - `world_content` is strict structured content such as hidden pathway identity.
   A candidate must declare structured-output support.
+- `image_generation` accepts text and produces an image. Elysium residents use
+  the same capability validation against their exact checked-in actor binding,
+  rather than borrowing a model from a global text pool.
 
 Capabilities are independent. Discovery metadata is retained for inspection
 but never grants eligibility. Only a normalized declared capability enters a
@@ -101,7 +105,7 @@ Use `COSYWORLD_AI_CAPABILITY_MODELS_JSON` to pin configured defaults without
 collapsing the pools:
 
 ```sh
-COSYWORLD_AI_CAPABILITY_MODELS_JSON='{"voice":"provider/tiny-chat","intent_json":"provider/planner","world_content":"provider/strict-generator"}'
+COSYWORLD_AI_CAPABILITY_MODELS_JSON='{"voice":"provider/tiny-chat","intent_json":"provider/planner","world_content":"provider/strict-generator","image_generation":"provider/image-generator"}'
 ```
 
 If no capability-specific model is configured, the gateway uses the legacy
@@ -166,11 +170,13 @@ supersedes the prior one, while a rejected new attempt does not mutate it.
 
 AI cast worldpacks may bind a resident directly to one OpenRouter model through
 the compiled `actor_model_bindings` resource. This is separate from the
-operator registry pools: when that resident answers, the voice router creates
-one immutable selection from the checked-in binding and never substitutes a
-different configured candidate. Provider-side resolution remains visible in
-the normal self-contained attribution receipt. A non-text binding fails
-unavailable instead of borrowing the global Voice model.
+operator registry pools. A text-output resident enters the voice router with an
+immutable selection from the checked-in binding. A text-input, image-output
+resident enters the image-generation route with that same exact-binding rule
+and publishes an `image.created` event after bounded decoding and vision
+review. Provider-side resolution remains visible in self-contained attribution.
+Other non-text bindings fail unavailable instead of borrowing the global Voice
+model.
 
 Raw speech deliberately removes CosyWorld's character prompt and resident
 planner. The request contains the bounded incoming user line as its sole
@@ -178,6 +184,14 @@ message; it omits system text, configured reasoning effort, sampling defaults,
 tools, and response formats. OpenRouter requests set
 `provider.data_collection: "deny"` and add `provider.zdr: true` for bindings
 whose catalog snapshot confirms a zero-data-retention endpoint.
+
+Image output uses OpenRouter's dedicated `POST /images` route. The candidate is
+stored outside public asset routes, decoded with byte and dimension limits, and
+reviewed from visible pixels. Only an approved candidate is copied to immutable
+public storage and journaled. The event keeps its asset digest, URL, dimensions,
+MIME type, provider/model attribution, prompt version, and context hash, but not
+the raw prompt or rejected bytes. Production still rejects a pack binding that
+lacks the required no-retention/no-training declaration before network I/O.
 
 Publication remains mandatory but uses a thin raw gate: envelope integrity,
 non-empty and bounded output, terminal provider finish, repetition/duplicate

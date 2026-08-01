@@ -32,6 +32,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             get(generated_room_scene_asset),
         )
         .route(
+            "/assets/generated/resident-images/{asset_file}",
+            get(generated_resident_image_asset),
+        )
+        .route(
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
