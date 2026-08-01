@@ -1333,6 +1333,18 @@ pub(super) fn command_actor_turn_rejection(
     ordered_scene_rejection_view(runtime, actor_id)
 }
 
+pub(super) fn direct_command_turn_rejection(
+    _state: &AppState,
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    dispatch: &CommandDispatch,
+) -> Option<Json<ActionResponse>> {
+    if !command_dispatch_consumes_room_turn(dispatch) {
+        return None;
+    }
+    actor_ordered_scene_rejection(runtime, actor_id)
+}
+
 pub(super) fn command_turn_rejected_response(
     resolved: ResolvedCommand,
     view: RoomTurnView,

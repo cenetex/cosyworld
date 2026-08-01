@@ -88,6 +88,7 @@ use ai_publication::*;
 use ai_resident_planning::*;
 use avatar_identity::*;
 use axum::{
+    body::{to_bytes, Body},
     extract::{ConnectInfo, Path as AxumPath, Query, State},
     http::{header, HeaderMap, HeaderName, StatusCode},
     response::{
@@ -2433,6 +2434,9 @@ struct AiUsageLedgerRecord {
 struct HealthResponse {
     ok: bool,
     service: &'static str,
+    status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4951,6 +4955,30 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
         status: RATE_LIMITED_STATUS,
         events: Vec::new(),
     })
+}
+
+async fn action_response_http_status(response: Response) -> Response {
+    let (mut parts, body) = response.into_parts();
+    let is_json = parts
+        .headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("application/json"));
+    if !is_json {
+        return Response::from_parts(parts, body);
+    }
+    let Ok(bytes) = to_bytes(body, 2 * 1024 * 1024).await else {
+        return Response::from_parts(parts, Body::empty());
+    };
+    if let Some(status) = serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .and_then(|value| value.get("status").and_then(serde_json::Value::as_u64))
+        .and_then(|status| u16::try_from(status).ok())
+        .and_then(|status| StatusCode::from_u16(status).ok())
+    {
+        parts.status = status;
+    }
+    Response::from_parts(parts, Body::from(bytes))
 }
 
 fn apply_avatar_creation_flavor(
@@ -13116,10 +13144,7 @@ impl RuntimeWorld {
             return Vec::new();
         };
         if item.holder_actor_id != actor_id
-            || !matches!(
-                item.role,
-                CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER | CW_ITEM_ROLE_TOOL
-            )
+            || !self.item_can_be_equipped(&item)
             || item.container_item_id != 0
         {
             return Vec::new();
@@ -23243,11 +23268,111 @@ fn event_visible_in_location(event: &EventView, location_id: u64) -> bool {
     event.location_id == Some(location_id) || event.destination_location_id == Some(location_id)
 }
 
-async fn health() -> Json<HealthResponse> {
-    Json(HealthResponse {
-        ok: true,
-        service: "cosyworld-orchestrator",
-    })
+fn required_health_urls_from_env() -> Vec<String> {
+    std::env::var("COSYWORLD_REQUIRED_HEALTH_URLS")
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+async fn required_processes_ready(urls: &[String]) -> Result<(), String> {
+    if urls.is_empty() {
+        return Ok(());
+    }
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(2))
+        .build()
+        .map_err(|error| format!("readiness client unavailable: {error}"))?;
+    let checks = urls.iter().map(|url| {
+        let client = client.clone();
+        let url = url.clone();
+        async move {
+            let response = client
+                .get(&url)
+                .send()
+                .await
+                .map_err(|error| format!("{url}: {error}"))?;
+            if response.status().is_success() {
+                Ok(())
+            } else {
+                Err(format!("{url}: HTTP {}", response.status()))
+            }
+        }
+    });
+    let mut tasks = checks.map(|check| tokio::spawn(check)).collect::<Vec<_>>();
+    for task in tasks.drain(..) {
+        match task.await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => return Err(error),
+            Err(error) => return Err(format!("tenant readiness check failed: {error}")),
+        }
+    }
+    Ok(())
+}
+
+fn event_store_readiness(state: &AppState) -> Result<(), String> {
+    if state.event_store_path.is_none() {
+        return Ok(());
+    }
+    let health = state
+        .event_store_health
+        .lock()
+        .map_err(|_| "event store health is unavailable".to_string())?;
+    if health.status(true) == "healthy" {
+        Ok(())
+    } else {
+        Err(format!("event store is {}", health.status(true)))
+    }
+}
+
+async fn health(State(state): State<AppState>) -> (StatusCode, Json<HealthResponse>) {
+    if let Err(error) = event_store_readiness(&state) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(HealthResponse {
+                ok: false,
+                service: "cosyworld-orchestrator",
+                status: "not_ready",
+                error: Some(error),
+            }),
+        );
+    }
+    if let Err(error) = required_processes_ready(&required_health_urls_from_env()).await {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(HealthResponse {
+                ok: false,
+                service: "cosyworld-orchestrator",
+                status: "not_ready",
+                error: Some(error),
+            }),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(HealthResponse {
+            ok: true,
+            service: "cosyworld-orchestrator",
+            status: "ready",
+            error: None,
+        }),
+    )
+}
+
+async fn health_live() -> (StatusCode, Json<HealthResponse>) {
+    (
+        StatusCode::OK,
+        Json(HealthResponse {
+            ok: true,
+            service: "cosyworld-orchestrator",
+            status: "alive",
+            error: None,
+        }),
+    )
 }
 
 async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
@@ -34916,6 +35041,17 @@ async fn set_charm_equipped(
     ) {
         return client_actor_rejected_response();
     }
+    if let Some(response) = direct_command_turn_rejection(
+        &state,
+        &runtime,
+        payload.actor_id,
+        &CommandDispatch::SetCharmEquipped {
+            item_id: payload.item_id,
+            equipped: payload.equipped,
+        },
+    ) {
+        return response;
+    }
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -34970,6 +35106,17 @@ async fn set_spell_prepared(
         payload.actor_session.as_deref(),
     ) {
         return client_actor_rejected_response();
+    }
+    if let Some(response) = direct_command_turn_rejection(
+        &state,
+        &runtime,
+        payload.actor_id,
+        &CommandDispatch::SetSpellPrepared {
+            item_id: payload.item_id,
+            prepared: payload.equipped,
+        },
+    ) {
+        return response;
     }
     let mut record = JournalRecord::new(
         CwAction {
@@ -35026,6 +35173,17 @@ async fn set_item_equipped(
     ) {
         return client_actor_rejected_response();
     }
+    if let Some(response) = direct_command_turn_rejection(
+        &state,
+        &runtime,
+        payload.actor_id,
+        &CommandDispatch::SetItemEquipped {
+            item_id: payload.item_id,
+            equipped: payload.equipped,
+        },
+    ) {
+        return response;
+    }
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -35080,6 +35238,17 @@ async fn set_item_contained(
         payload.actor_session.as_deref(),
     ) {
         return client_actor_rejected_response();
+    }
+    if let Some(response) = direct_command_turn_rejection(
+        &state,
+        &runtime,
+        payload.actor_id,
+        &CommandDispatch::SetItemContained {
+            item_id: payload.item_id,
+            container_item_id: payload.container_item_id,
+        },
+    ) {
+        return response;
     }
     let mut record = JournalRecord::new(
         CwAction {
@@ -41219,6 +41388,103 @@ mod tests {
         routing::{get, post},
         Router,
     };
+
+    #[tokio::test]
+    async fn action_json_status_is_promoted_to_http_status_without_changing_body() {
+        let response = Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        })
+        .into_response();
+        let response = action_response_http_status(response).await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let body = to_bytes(response.into_body(), 1024)
+            .await
+            .expect("action response body should remain readable");
+        let payload: serde_json::Value =
+            serde_json::from_slice(&body).expect("action response should remain JSON");
+        assert_eq!(payload["status"], 409);
+    }
+
+    #[tokio::test]
+    async fn health_reports_configured_event_store_unavailability() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-health-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+
+        let response = health(State(state.clone())).await;
+        assert_eq!(response.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.1 .0.status, "not_ready");
+        assert_eq!(
+            response.1 .0.error.as_deref(),
+            Some("event store is pending")
+        );
+
+        state
+            .event_store_health
+            .lock()
+            .expect("event-store health lock")
+            .record_append_failure(&io::Error::from(io::ErrorKind::PermissionDenied));
+        let response = health(State(state)).await;
+        assert_eq!(response.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            response.1 .0.error.as_deref(),
+            Some("event store is degraded")
+        );
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn liveness_remains_lightweight_when_readiness_fails() {
+        let response = health_live().await;
+        assert_eq!(response.0, StatusCode::OK);
+        assert!(response.1 .0.ok);
+        assert_eq!(response.1 .0.status, "alive");
+    }
+
+    #[tokio::test]
+    async fn required_process_readiness_rejects_any_unhealthy_tenant() {
+        let healthy_listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind healthy readiness server");
+        let healthy_addr = healthy_listener
+            .local_addr()
+            .expect("healthy readiness server address");
+        let healthy_server = tokio::spawn(async move {
+            let app = Router::new().route("/health", get(|| async { StatusCode::OK }));
+            let _ = axum::serve(healthy_listener, app).await;
+        });
+
+        let unhealthy_listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind unhealthy readiness server");
+        let unhealthy_addr = unhealthy_listener
+            .local_addr()
+            .expect("unhealthy readiness server address");
+        let unhealthy_server = tokio::spawn(async move {
+            let app =
+                Router::new().route("/health", get(|| async { StatusCode::SERVICE_UNAVAILABLE }));
+            let _ = axum::serve(unhealthy_listener, app).await;
+        });
+
+        let result = required_processes_ready(&[
+            format!("http://{healthy_addr}/health"),
+            format!("http://{unhealthy_addr}/health"),
+        ])
+        .await;
+        assert!(result
+            .expect_err("one unhealthy tenant must fail readiness")
+            .contains("HTTP 503"));
+
+        healthy_server.abort();
+        unhealthy_server.abort();
+    }
 
     fn production_feed_config() -> OwnershipFeedConfig {
         OwnershipFeedConfig {
@@ -54904,6 +55170,116 @@ mod tests {
         assert_eq!(
             restored.item_by_id(2014).map(|item| item.zone),
             Some(CW_CARD_ZONE_EXHAUSTED)
+        );
+    }
+
+    #[tokio::test]
+    async fn direct_loadout_mutation_rejects_a_non_holder() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Loadout Requester",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Loadout Holder",
+        );
+        let charm = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2003)
+            .expect("Wolfprint Charm exists");
+        charm.location_id = 0;
+        charm.holder_actor_id = 5001;
+        charm.zone = CW_CARD_ZONE_CARRIED;
+
+        let state = test_app_state(runtime, None);
+        let actor_session = issue_actor_session(&state, 5000).0;
+        let response = set_charm_equipped(
+            ConnectInfo("127.0.0.1:46021".parse().expect("client address")),
+            State(state.clone()),
+            Json(SetCharmEquippedRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                item_id: 2003,
+                equipped: true,
+            }),
+        )
+        .await
+        .0;
+
+        assert!(!response.ok);
+        assert_eq!(response.status, 409);
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.item_by_id(2003).map(|item| item.zone),
+            Some(CW_CARD_ZONE_CARRIED)
+        );
+        assert!(!runtime
+            .equipped_charms
+            .get(&5000)
+            .is_some_and(|items| items.contains(&2003)));
+    }
+
+    #[tokio::test]
+    async fn non_shelter_tools_cannot_be_equipped_directly_or_by_command() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Tool Tester");
+        let tool = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2008)
+            .expect("Threadbare Map Scrap exists");
+        tool.location_id = 0;
+        tool.holder_actor_id = 5000;
+        tool.zone = CW_CARD_ZONE_CARRIED;
+
+        let command = runtime
+            .resolve_command(
+                &command_request(5000, "wield Threadbare Map Scrap"),
+                &AccessContext::default(),
+            )
+            .expect("invalid tool command resolves to a disabled dispatch");
+        assert!(matches!(
+            command.dispatch,
+            CommandDispatch::Disabled { status: 409, .. }
+        ));
+        assert!(runtime
+            .set_item_equipped(5000, 2008, true, "invalid_tool_test")
+            .is_empty());
+
+        let state = test_app_state(runtime, None);
+        let actor_session = issue_actor_session(&state, 5000).0;
+        let response = set_item_equipped(
+            ConnectInfo("127.0.0.1:46022".parse().expect("client address")),
+            State(state.clone()),
+            Json(SetCharmEquippedRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                item_id: 2008,
+                equipped: true,
+            }),
+        )
+        .await
+        .0;
+        assert!(!response.ok);
+        assert_eq!(response.status, 409);
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .item_by_id(2008)
+                .map(|item| item.zone),
+            Some(CW_CARD_ZONE_CARRIED)
         );
     }
 

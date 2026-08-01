@@ -24,8 +24,51 @@ permissions:
   contents: read
 
 jobs:
+  production-gate:
+    name: V2 production deployment gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned SRD 5.1 source
+        uses: actions/checkout@v4
+        with:
+          repository: Tabyltop/CC-SRD
+          ref: c05c0438ea6c638bb7cb25224d97c9bd0e187c49
+          path: reference-library/rpg-systems/sources/cc-srd-5e
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Run Node and deployment contract checks
+        run: |
+          npm run v2:worldpack
+          npm run v2:kernel
+          npm run v2:syntax
+          npm run v2:architecture
+          npm run v2:lonelyforest:contract
+          npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
+
+      - name: Verify Rust orchestrator tests
+        run: npm run v2:rust:test
+
   primary-fly:
     name: Deploy primary to Fly
+    needs: production-gate
     if: >-
       github.event_name == 'push' ||
       inputs.target == 'both' ||
@@ -34,6 +77,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
@@ -46,13 +94,22 @@ jobs:
       - name: Guard primary worldpack bundle compatibility
         run: node v2/scripts/check-deploy-worldpack.mjs https://cosyworld.fly.dev
 
-      - name: Deploy primary Fly app
-        run: flyctl deploy --remote-only --config fly.toml
+      - name: Create rollback backup
+        run: scripts/backup-fly-v2.sh cosyworld primary
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      - name: Deploy primary Fly app
+        run: flyctl deploy --remote-only --config fly.toml --strategy rolling
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify primary readiness and persistence
+        run: node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev
+
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
+    needs: production-gate
     # Ordinary main pushes must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
@@ -69,6 +126,11 @@ jobs:
       - name: Checkout committed release
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -83,16 +145,24 @@ jobs:
       - name: Validate Lonely Forest multitenant contract
         run: npm run v2:lonelyforest:contract
 
-      - name: Build and deploy Lonely Forest
-        run: flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false
+      - name: Create rollback backup
+        run: scripts/backup-fly-v2.sh cosyworld-lonelyforest lonelyforest
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
+
+      - name: Build and deploy Lonely Forest
+        run: flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false --strategy rolling
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
+
+      - name: Verify Lonely Forest readiness and persistence
+        run: npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com --expect-elysium --allow-remote-mutations
 
   github-release:
     name: Create GitHub release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [primary-fly, lonelyforest-fly]
+    needs: [production-gate, primary-fly, lonelyforest-fly]
     permissions:
       contents: write
     steps:

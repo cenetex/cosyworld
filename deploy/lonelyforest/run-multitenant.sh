@@ -7,6 +7,12 @@ tenant_data_root="${COSYWORLD_MULTITENANT_DATA_ROOT:-/data/worldpacks}"
 restart_delay="${COSYWORLD_MULTITENANT_RESTART_DELAY_SECS:-2}"
 workers=""
 nginx_pid=""
+elysium_registry="/app/v2/content/elysium-only/registry.json"
+required_health_urls="http://127.0.0.1:3107/health,http://127.0.0.1:3189/health,http://127.0.0.1:3180/health"
+
+if [ -r "$elysium_registry" ]; then
+  required_health_urls="$required_health_urls,http://127.0.0.1:3101/health"
+fi
 
 log() {
   printf '[lonelyforest-multitenant] %s\n' "$*"
@@ -48,6 +54,7 @@ run_world() {
         COSYWORLD_V2_SNAPSHOT_PATH="$snapshot_path" \
         COSYWORLD_V2_EVENT_DB_PATH="$event_db_path" \
         COSYWORLD_GENERATED_ASSET_DIR="$generated_asset_dir" \
+        COSYWORLD_REQUIRED_HEALTH_URLS="$required_health_urls" \
         COSYWORLD_WEBAUTHN_RP_ID="lonelyforest.com" \
         COSYWORLD_WEBAUTHN_ORIGIN="$origin" \
         COSYWORLD_WEBAUTHN_EXTRA_ORIGINS="$extra_origins" \
@@ -106,7 +113,6 @@ mkdir -p \
   /tmp/cosyworld-nginx/client-body \
   /tmp/cosyworld-nginx/proxy \
   "$tenant_data_root"
-chown -R www-data:www-data /tmp/cosyworld-nginx
 
 # Preserve the established Lonely Forest journal paths exactly. The new
 # worldpack processes receive their own directories on the same volume.
@@ -154,7 +160,6 @@ start_world \
   "$tenant_data_root/lantern/generated" \
   ""
 
-elysium_registry="/app/v2/content/elysium-only/registry.json"
 if [ -r "$elysium_registry" ]; then
   start_world \
     "0" \

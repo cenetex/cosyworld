@@ -5123,14 +5123,32 @@
 
     async function exportJournal() {
       const params = requestParams();
-      params.set("limit", "1000");
-      const events = await api(`/events?${params.toString()}`);
+      params.set("limit", "500");
+      let after = 0;
+      let caughtUp = false;
+      const events = [];
+      while (!caughtUp) {
+        const pageParams = new URLSearchParams(params);
+        pageParams.set("after", String(after));
+        const page = await api(`/events?${pageParams.toString()}`);
+        if (!page || !Array.isArray(page.events) || !Number.isSafeInteger(page.next_after) || typeof page.caught_up !== "boolean") {
+          throw new Error("Journal export received an invalid /events response.");
+        }
+        events.push(...page.events);
+        caughtUp = page.caught_up;
+        if (!caughtUp) {
+          if (page.next_after <= after) {
+            throw new Error("Journal export could not advance through the event history.");
+          }
+          after = page.next_after;
+        }
+      }
       const payload = {
         format: "cosyworld.journal/1",
         exported_at: new Date().toISOString(),
         actor_id: actorId || null,
         worldpack_bundle_hash: contentPacks?.bundle_hash || null,
-        events: Array.isArray(events) ? events : [],
+        events,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);

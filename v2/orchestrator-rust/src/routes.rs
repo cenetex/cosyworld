@@ -1,4 +1,5 @@
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -42,6 +43,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/assets/rati.png", get(legacy_rati_asset))
         .route("/assets/{*asset_path}", get(public_pack_asset))
         .route("/health", get(health))
+        .route("/health/live", get(health_live))
         .route("/meta", get(meta))
         .route("/licenses", get(licenses_view))
         .route("/content-packs", get(content_packs_view))
@@ -236,6 +238,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(internal_canonical_legacy_import),
         )
         .route("/stream", get(stream))
+        // Action handlers return JSON envelopes with their authoritative
+        // status field. Promote that field to the HTTP status after handlers
+        // finish, before compression obscures the JSON body.
+        .layer(middleware::map_response(action_response_http_status))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())

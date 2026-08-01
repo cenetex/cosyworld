@@ -240,6 +240,7 @@ pub(super) struct StateResponse {
     pub(super) world_id: String,
     pub(super) world_epoch: u64,
     pub(super) world_seq: u64,
+    pub(super) state_revision: u64,
     pub(super) rules_context: Option<SceneRulesContextView>,
     pub(super) location: LocationView,
     pub(super) exits: Vec<ExitView>,
@@ -2617,6 +2618,7 @@ impl RuntimeWorld {
             world_id: OFFICIAL_WORLD_ID.to_string(),
             world_epoch: OFFICIAL_WORLD_EPOCH,
             world_seq: self.world.next_event_seq.saturating_sub(1),
+            state_revision: self.current_state_revision(),
             rules_context: self
                 .scene_rules_context(location_id, self.world.next_event_seq.saturating_sub(1)),
             location,

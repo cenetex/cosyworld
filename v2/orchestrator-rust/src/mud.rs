@@ -1310,6 +1310,19 @@ fn tag_belongs_in_room_description(tag: &TagView) -> bool {
 }
 
 impl RuntimeWorld {
+    pub(crate) fn item_can_be_equipped(&self, item: &CwItem) -> bool {
+        matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
+            || (item.role == CW_ITEM_ROLE_TOOL
+                && self
+                    .seed_item_contract_for_instance(item.id)
+                    .is_some_and(|contract| {
+                        contract
+                            .capabilities
+                            .iter()
+                            .any(|capability| capability == CAMP_SHELTER_ITEM_CAPABILITY)
+                    }))
+    }
+
     #[cfg(test)]
     pub(crate) fn resolve_command(
         &self,
@@ -1586,18 +1599,7 @@ impl RuntimeWorld {
                 let item = self
                     .resolve_held_item(actor.id, rest.trim())
                     .map_err(|output| command_error(&command, &verb, 404, output))?;
-                let is_camp_shelter = item.role == CW_ITEM_ROLE_TOOL
-                    && self
-                        .seed_item_contract_for_instance(item.id)
-                        .is_some_and(|contract| {
-                            contract
-                                .capabilities
-                                .iter()
-                                .any(|capability| capability == CAMP_SHELTER_ITEM_CAPABILITY)
-                        });
-                if !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
-                    && !is_camp_shelter
-                {
+                if !self.item_can_be_equipped(&item) {
                     return Ok(ResolvedCommand {
                         command,
                         verb,

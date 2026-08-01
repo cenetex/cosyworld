@@ -33,6 +33,12 @@ rewrites the compiled manifest or bundle identity.
   unknown public hosts return HTTP `421`.
 - `deploy/lonelyforest/proxy-headers.conf` preserves streaming HTTP and SSE
   behavior without letting forwarded host values select runtime state.
+- The root `/health` readiness check verifies the root event store and every
+  required sibling process. Elysium is included only when its registry is
+  installed; `/health/live` remains a lightweight process-liveness check.
+- The image entrypoint repairs ownership on the mounted `/data` volume before
+  dropping to the unprivileged `cosyworld` user. Nginx and all orchestrators
+  therefore run without root while retaining access to their volume paths.
 
 Nginx is the only public listener, on port `3000`; every CosyWorld process binds
 to loopback. The Machine has four shared CPUs and 2 GB of memory. It remains one
@@ -55,8 +61,17 @@ allowed deployment refs on the `lonelyforest-production` GitHub environment so
 manual production dispatches receive an approval gate.
 
 The separate jobs and app-scoped tokens prevent a primary-app release from
-implicitly touching Lonely Forest. The Lonely Forest job validates the
-multitenant contract before it invokes Fly.
+implicitly touching Lonely Forest. Both jobs first pass the real v2 Node,
+worldpack, C-kernel, Rust, and routing-contract checks in the shared
+production gate. The Lonely Forest job validates its multitenant contract
+again before it invokes Fly.
+
+Immediately before each deploy, `scripts/backup-fly-v2.sh` resolves the exact
+configured volume (`cosyworld_data` or `lonelyforest_data`), requires one
+attached volume, requests an on-demand Fly snapshot, and waits for that
+specific snapshot to reach `created`. The script is fail-closed and does not
+detach, replace, or destroy a volume. The resulting snapshot ID is printed in
+the workflow log for the rollback operator.
 
 The workflow requires two GitHub Actions secrets:
 
@@ -98,7 +113,8 @@ output.
 6. Put the Fly IPv4 and IPv6 addresses in
    `infra/aws-lonely-forest/deployment.auto.tfvars`, run `terraform plan`, and
    apply the Route 53 change.
-7. Run `npm run v2:lonelyforest:smoke`, then verify `/health`, `/meta`, `/world`,
+7. Run `npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com
+   --expect-elysium --allow-remote-mutations`, then verify `/health`, `/meta`, `/world`,
    the expected entry location, passkey registration, generated assets, and SSE
    reconnect through every hostname.
 8. Set the rollback ECS service's `desired_count` to `0` only after the Fly
@@ -108,6 +124,14 @@ Route 53 and `lonelyforestlibrary.com` remain managed by the AWS Terraform
 module. The unused ECS/EFS/ALB resources are retained for a short rollback
 window and removed in a separate, reviewed destroy after the Fly deployment is
 stable.
+
+The release smoke requires snapshot and event-store persistence to report
+healthy with no pending or failed writes. It exercises every installed tenant,
+including Elysium when its compiled registry is present, and confirms that an
+unknown hostname returns HTTP 421. A Fly volume snapshot is crash-consistent;
+restore it into a new volume during a quiesced, reviewed recovery procedure.
+Never attach a restored copy as a second writable authority or overwrite the
+active volume while its process is running.
 
 ## Data authority
 

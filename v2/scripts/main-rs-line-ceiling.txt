@@ -150,4 +150,13 @@
 # the existing location metadata/view seams, retain the authored defaults, and
 # pin the SVG interior, bounded chat-progress, and ordered draw/pass browser
 # contracts beside the existing INDEX_HTML assertions.
-73406
+# 73406 -> 73600: v2 contract/status middleware plus direct loadout authorization
+# regressions remain at the existing HTTP/AppState boundary; the shared loadout
+# policy lives in turns.rs/mud.rs and the pagination/status contracts in their
+# owning modules. Reviewed integration exception; no new gameplay subsystem.
+# 73600 -> 73782: readiness/liveness health now reports event-store failures and
+# verifies required Lonely Forest sibling processes before Fly declares the
+# machine ready. The deployment boundary remains in main.rs because it owns
+# AppState and the existing HTTP health route; this is a reviewed operational
+# integration exception, with focused health regressions.
+73782
