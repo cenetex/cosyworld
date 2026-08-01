@@ -7204,6 +7204,57 @@ async function main() {
       `the two playable cards should use suggestion ordinals and no legal-superset count: ${JSON.stringify(evidence)}`,
     );
     await page.screenshot({ path: screenshotPath, fullPage: false });
+    await page.locator("#primary").focus();
+    await page.keyboard.press("Tab");
+    evidence.keyboard = await page.evaluate(() => ({
+      activeId: document.activeElement?.id || "",
+      questionElement: document.querySelector("#shared-questions .active-question")?.tagName || "",
+      questionSummary: document.querySelector("#shared-questions .active-question > summary")?.textContent?.trim() || "",
+    }));
+    assert(
+      evidence.keyboard.activeId === "secondary"
+        && evidence.keyboard.questionElement === "DETAILS"
+        && evidence.keyboard.questionSummary.length > 0,
+      `Lantern suggestions and story disclosure must follow keyboard and screen-reader structure: ${JSON.stringify(evidence)}`,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    evidence.mobile = await page.evaluate(() => {
+      const viewport = { width: window.innerWidth, height: window.innerHeight };
+      const buttons = ["primary", "secondary"].map((id) => {
+        const button = document.getElementById(id);
+        const box = button?.getBoundingClientRect();
+        return {
+          id,
+          aria: button?.getAttribute("aria-label") || "",
+          left: box?.left || 0,
+          right: box?.right || 0,
+          top: box?.top || 0,
+          bottom: box?.bottom || 0,
+          width: box?.width || 0,
+          height: box?.height || 0,
+        };
+      });
+      return {
+        viewport,
+        buttons,
+        documentWidth: document.documentElement.scrollWidth,
+        promptVisible: Boolean(document.querySelector(".prompt")?.getClientRects().length),
+      };
+    });
+    assert(
+      evidence.mobile.promptVisible
+        && evidence.mobile.documentWidth <= evidence.mobile.viewport.width
+        && evidence.mobile.buttons.every((button) =>
+          button.width >= 44
+            && button.height >= 44
+            && button.left >= 0
+            && button.right <= evidence.mobile.viewport.width
+            && button.top >= 0
+            && button.bottom <= evidence.mobile.viewport.height
+            && button.aria.includes("of 2")),
+      `Lantern's two truthful suggestions must remain visible touch targets at the mobile breakpoint: ${JSON.stringify(evidence.mobile)}`,
+    );
+    await page.setViewportSize({ width: 1100, height: 900 });
     evidence.frontOutcomes = await page.evaluate(() => {
       const cases = [
         {

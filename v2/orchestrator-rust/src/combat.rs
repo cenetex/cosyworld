@@ -18,7 +18,109 @@ pub(super) struct CombatMethodBinding {
     pub(super) label: String,
 }
 
+pub(super) struct FeatureEncounterResolution<'a> {
+    pub(super) actor_id: u64,
+    pub(super) job_id: &'a str,
+    pub(super) target_actor_id: u64,
+    pub(super) location_id: u64,
+    pub(super) feature_key: &'a str,
+    pub(super) item_id: u64,
+    pub(super) winning_side: i16,
+    pub(super) content: &'a str,
+}
+
 impl RuntimeWorld {
+    pub(super) fn resolve_encounter_by_feature_mutation(
+        &mut self,
+        actor_id: u64,
+        mutation: &ProjectionMutation,
+    ) -> Vec<EventView> {
+        let ProjectionMutation::ResolveEncounterByFeature {
+            job_id,
+            target_actor_id,
+            location_id,
+            feature_key,
+            item_id,
+            winning_side,
+            content,
+        } = mutation
+        else {
+            return Vec::new();
+        };
+        self.resolve_encounter_by_feature(FeatureEncounterResolution {
+            actor_id,
+            job_id,
+            target_actor_id: *target_actor_id,
+            location_id: *location_id,
+            feature_key,
+            item_id: *item_id,
+            winning_side: *winning_side,
+            content,
+        })
+    }
+
+    pub(super) fn resolve_encounter_by_feature(
+        &mut self,
+        resolution: FeatureEncounterResolution<'_>,
+    ) -> Vec<EventView> {
+        let resolution_tag_id =
+            combat_resolution_tag_id(resolution.job_id, resolution.winning_side);
+        let feature_tag_id = room_feature_use_tag_id(
+            resolution.location_id,
+            resolution.feature_key,
+            resolution.item_id,
+        );
+        if self
+            .tags
+            .get(&resolution_tag_id)
+            .is_some_and(|tag| tag.active)
+            || self
+                .tags
+                .get(&feature_tag_id)
+                .is_none_or(|tag| !tag.active || tag.source_event_seq.is_none())
+            || self
+                .jobs
+                .get(resolution.job_id)
+                .is_none_or(|job| self.job_status(job) != "active")
+        {
+            return Vec::new();
+        }
+        let Some(target) = self.actor_by_id(resolution.target_actor_id) else {
+            return Vec::new();
+        };
+        if target.location_id != resolution.location_id || !Self::actor_can_act(target) {
+            return Vec::new();
+        }
+        let Some(target) = self.world.actors[..self.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == resolution.target_actor_id)
+        else {
+            return Vec::new();
+        };
+        target.damage = target.stats.hp_base.saturating_sub(1);
+        target.status = CW_ACTOR_KNOCKED_OUT;
+        target.conditions |= CW_CONDITION_UNCONSCIOUS;
+
+        let mut outcome = self.append_async_job_event(
+            "combat.encounter.resolved",
+            resolution.actor_id,
+            Some(resolution.target_actor_id),
+            Some(resolution.content.to_string()),
+        );
+        outcome.content_id = Some(combat_encounter_id(resolution.job_id));
+        outcome.location_id = Some(resolution.location_id);
+        outcome.total = Some(resolution.winning_side);
+        outcome.success = true;
+        self.replace_projected_event(&outcome);
+        let action = CwAction {
+            actor_id: resolution.actor_id,
+            ..CwAction::default()
+        };
+        let mut events = vec![outcome.clone()];
+        events.extend(self.apply_combat_outcome_projection(&action, &[outcome]));
+        events
+    }
+
     pub(super) fn authoritative_combat_method(&self, actor_id: u64) -> CombatMethodBinding {
         let weapon = self.equipped_weapon_item(actor_id).and_then(|item| {
             let contract = self.seed_item_contract_for_instance(item.id)?;

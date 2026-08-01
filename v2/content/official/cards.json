@@ -1596,6 +1596,20 @@
   },
   {
     "subject_kind": "item",
+    "subject_id": 8405,
+    "card_id": "lantern-keeper-camp-kit",
+    "display_name": "Keeper's Camp Kit",
+    "role": "campaign tool",
+    "rarity": "free",
+    "title": "Shelter on the Lantern Road",
+    "blurb": "A roadroll and lantern hood for resting where every delay lets the dark draw nearer.",
+    "aspect": "square",
+    "source": "the_lantern_keeper",
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "subject_kind": "item",
     "subject_id": 8401,
     "card_id": "lantern-keeper-key",
     "display_name": "Keeper's Brass Key",

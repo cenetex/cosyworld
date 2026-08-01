@@ -713,7 +713,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:da88aa082a8a87d89cee73d4894b451832d85ae5d31b2391eafe87e2f03b166f",
+  "bundle_hash": "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -2025,7 +2025,7 @@
         "actor_facets": 0,
         "access_gates": 0,
         "factions": 0,
-        "items": 4,
+        "items": 5,
         "locations": 5,
         "exits": 8,
         "hidden_exits": 0,
@@ -2035,7 +2035,7 @@
         "jobs": 1,
         "action_vocabulary": 0,
         "fronts": 1,
-        "cards": 13,
+        "cards": 14,
         "card_bindings": 0,
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
@@ -2188,7 +2188,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:050fc1806f8569eea3cc40bef81eb95eb184bb27116d0cbbbdeac7ca4a804065"
+      "integrity": "sha256:f5e55abda7c4eb50bfa62307735190066309b6159f14cabd0cb81829fdd30368"
     },
     {
       "id": "cosyworld.composition.core-lantern-keeper",

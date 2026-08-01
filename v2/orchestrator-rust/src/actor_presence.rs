@@ -84,21 +84,25 @@ impl RuntimeWorld {
         if self.advancement_points_available(actor_id) < usize::from(BOND_SLOT_COST) {
             return None;
         }
-        self.world.actors[..self.world.actor_count]
+        let eligible = |target: &&CwActor| {
+            target.id != actor_id
+                && Self::actor_can_act(**target)
+                && target.location_id == actor.location_id
+                && !self.actors_blocked(actor_id, target.id)
+                && self.actor_target_visible_in_projection(
+                    **target,
+                    Some(actor_id),
+                    active_direct_actor_ids,
+                )
+                && self.active_bond(actor_id, target.id).is_none()
+        };
+        let actors = &self.world.actors[..self.world.actor_count];
+        actors
             .iter()
+            .filter(eligible)
+            .find(|target| self.relationship_contract(target.id).is_some())
+            .or_else(|| actors.iter().find(eligible))
             .copied()
-            .find(|target| {
-                target.id != actor_id
-                    && Self::actor_can_act(*target)
-                    && target.location_id == actor.location_id
-                    && !self.actors_blocked(actor_id, target.id)
-                    && self.actor_target_visible_in_projection(
-                        *target,
-                        Some(actor_id),
-                        active_direct_actor_ids,
-                    )
-                    && self.active_bond(actor_id, target.id).is_none()
-            })
     }
 
     pub(super) fn validate_offer(
@@ -149,6 +153,71 @@ mod tests {
             cards: None,
             envelope: None,
         }
+    }
+
+    #[test]
+    fn authored_relationship_is_the_default_bond_target_ahead_of_seed_order() {
+        const TEST_ACTOR_ID: u64 = 5000;
+        const MARA_ACTOR_ID: u64 = 8301;
+        const LANTERN_INN_LOCATION_ID: u64 = 800;
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            TEST_ACTOR_ID,
+            LANTERN_INN_LOCATION_ID,
+            "Road Listener",
+        );
+        for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
+            if actor.id == RATI_ACTOR_ID || actor.id == MARA_ACTOR_ID {
+                actor.location_id = LANTERN_INN_LOCATION_ID;
+            }
+        }
+        let source_seq = runtime.world.next_event_seq;
+        assert!(runtime
+            .mark_visit_ledger(
+                TEST_ACTOR_ID,
+                "learned_truth",
+                "The road lamps have failed.",
+                source_seq,
+                "test:authored-default-bond",
+            )
+            .is_some());
+        assert!(runtime
+            .bank_visit_ledger(TEST_ACTOR_ID, "test:authored-default-bond")
+            .is_some());
+
+        let target = runtime
+            .default_bondable_resident_with_presence(TEST_ACTOR_ID, None)
+            .expect("one eligible co-present resident");
+
+        assert_eq!(target.id, MARA_ACTOR_ID);
+        assert!(runtime.relationship_contract(target.id).is_some());
+
+        let state = runtime.state_response(Some(TEST_ACTOR_ID), &AccessContext::default());
+        let offer = state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "create_bond")
+            .expect("authored relationship becomes a legal action offer");
+        assert_eq!(
+            offer.target.as_ref().and_then(|target| target.id),
+            Some(MARA_ACTOR_ID)
+        );
+        assert!(offer.command.starts_with("bond Mara Wick: "));
+        let resolved = runtime
+            .resolve_command(
+                &command_request(TEST_ACTOR_ID, &offer.command),
+                &AccessContext::default(),
+            )
+            .expect("the published relationship command parses through the CLI boundary");
+        assert!(matches!(
+            resolved.dispatch,
+            CommandDispatch::CreateBond {
+                target_actor_id: MARA_ACTOR_ID,
+                ..
+            }
+        ));
     }
 
     #[tokio::test]

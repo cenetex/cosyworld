@@ -150,4 +150,4 @@
 # the existing location metadata/view seams, retain the authored defaults, and
 # pin the SVG interior, bounded chat-progress, and ordered draw/pass browser
 # contracts beside the existing INDEX_HTML assertions.
-73431
+73406

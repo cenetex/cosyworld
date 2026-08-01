@@ -1524,7 +1524,7 @@ for (const profile of characterCreationProfiles) {
         recommendation,
         ["offer_kind", "class_id", "explanation"],
       );
-      if (!new Set(["work", "help"]).has(recommendation.offer_kind)) {
+      if (!new Set(["work", "help", "search"]).has(recommendation.offer_kind)) {
         fail(`character creation recommendation ${profile.id} has invalid offer_kind ${recommendation.offer_kind}`);
       }
       if (recommendationOffers.has(recommendation.offer_kind)) {

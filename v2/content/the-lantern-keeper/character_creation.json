@@ -18,6 +18,11 @@
         "offer_kind": "help",
         "class_id": "hedge-mender",
         "explanation": "You helped another traveler move a shared task forward, the same practical care a Hedge Mender brings to the road."
+      },
+      {
+        "offer_kind": "search",
+        "class_id": "mothwood-guide",
+        "explanation": "You read the first clue in the world around you, the same attentive practice a Mothwood Guide brings to the road."
       }
     ],
     "default_species_id": "human",

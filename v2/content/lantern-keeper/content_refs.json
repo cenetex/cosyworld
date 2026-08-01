@@ -47,6 +47,14 @@
       "runtime_handle": 2693745143565876
     },
     {
+      "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-camp-kit",
+      "pack_id": "cosyworld.campaign.the-lantern-keeper",
+      "pack_version": "0.1.9",
+      "kind": "card",
+      "local_id": "lantern-keeper-camp-kit",
+      "runtime_handle": 8549698265771571
+    },
+    {
       "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-chapel",
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
       "pack_version": "0.1.9",
@@ -209,6 +217,15 @@
       "local_id": "8404",
       "legacy_runtime_id": 8404,
       "runtime_handle": 8404
+    },
+    {
+      "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8405",
+      "pack_id": "cosyworld.campaign.the-lantern-keeper",
+      "pack_version": "0.1.9",
+      "kind": "item",
+      "local_id": "8405",
+      "legacy_runtime_id": 8405,
+      "runtime_handle": 8405
     },
     {
       "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/job/lantern-keeper%3Arekindle-the-beacon",

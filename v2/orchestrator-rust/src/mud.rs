@@ -1372,7 +1372,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1586,14 +1586,25 @@ impl RuntimeWorld {
                 let item = self
                     .resolve_held_item(actor.id, rest.trim())
                     .map_err(|output| command_error(&command, &verb, 404, output))?;
-                if !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER) {
+                let is_camp_shelter = item.role == CW_ITEM_ROLE_TOOL
+                    && self
+                        .seed_item_contract_for_instance(item.id)
+                        .is_some_and(|contract| {
+                            contract
+                                .capabilities
+                                .iter()
+                                .any(|capability| capability == CAMP_SHELTER_ITEM_CAPABILITY)
+                        });
+                if !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
+                    && !is_camp_shelter
+                {
                     return Ok(ResolvedCommand {
                         command,
                         verb,
                         action: Some(command_action("set_item_equipped", "Equip", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Only a weapon or container card uses this equipment command."
+                            output: "Only a weapon, container, or camp-shelter tool uses this equipment command."
                                 .to_string(),
                         },
                     });

@@ -903,6 +903,16 @@ pub(super) struct SeedRoomFeatureContent {
 pub(super) struct SeedFeatureUseContent {
     pub(super) item_id: u64,
     pub(super) text: String,
+    #[serde(default)]
+    pub(super) encounter_resolution: Option<SeedFeatureEncounterResolutionContent>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedFeatureEncounterResolutionContent {
+    pub(super) job_id: String,
+    pub(super) target_actor_id: u64,
+    pub(super) winning_side: i16,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2641,6 +2651,23 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     "room feature {} has invalid use item {}",
                     feature.key, use_case.item_id
                 ));
+            }
+            if let Some(resolution) = &use_case.encounter_resolution {
+                let valid_target = content.actors.iter().any(|actor| {
+                    actor.id == resolution.target_actor_id
+                        && actor.location_id == Some(feature.location_id)
+                });
+                let valid_job = content.jobs.iter().any(|job| {
+                    job.id == resolution.job_id
+                        && job.location_ids.contains(&feature.location_id)
+                        && job.participant_ids.contains(&resolution.target_actor_id)
+                });
+                if resolution.winning_side != 1 || !valid_target || !valid_job {
+                    return Err(format!(
+                        "room feature {} has invalid encounter resolution for {}",
+                        feature.key, resolution.job_id
+                    ));
+                }
             }
         }
     }
