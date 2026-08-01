@@ -10,6 +10,7 @@ pub(super) struct FeatureUseCandidate {
     pub(super) item_name: String,
     pub(super) content: String,
     pub(super) effect: String,
+    pub(super) encounter_resolution: Option<SeedFeatureEncounterResolutionContent>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -88,10 +89,23 @@ pub(super) async fn execute_feature_use_action(
         .push(ProjectionMutation::UseFeature {
             item_id: candidate.item_id,
             location_id: candidate.location_id,
-            feature_key: candidate.feature_key,
-            content: candidate.content,
+            feature_key: candidate.feature_key.clone(),
+            content: candidate.content.clone(),
             reason: "use_feature".to_string(),
         });
+    if let Some(resolution) = candidate.encounter_resolution {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveEncounterByFeature {
+                job_id: resolution.job_id,
+                target_actor_id: resolution.target_actor_id,
+                location_id: candidate.location_id,
+                feature_key: candidate.feature_key,
+                item_id: candidate.item_id,
+                winning_side: resolution.winning_side,
+                content: candidate.content,
+            });
+    }
     let Ok((status, mut events)) = commit_journal_record(state, &mut runtime, record) else {
         return FeatureUseActionOutcome {
             response: ActionResponse {
@@ -143,15 +157,27 @@ impl RuntimeWorld {
             .map(|item| item.id)
             .collect::<BTreeSet<_>>();
         let mut candidates = Vec::new();
-        for feature in self.room_feature_views(actor.location_id, Some(actor_id)) {
+        for feature in self.room_features(actor.location_id) {
             for use_case in feature
                 .uses
-                .into_iter()
-                .filter(|use_case| !use_case.used)
+                .iter()
+                .filter(|use_case| {
+                    !self.feature_use_claimed(
+                        actor_id,
+                        actor.location_id,
+                        &feature.key,
+                        use_case.item_id,
+                    )
+                })
                 .filter(|use_case| !require_held_item || held_item_ids.contains(&use_case.item_id))
             {
-                let effect = use_case
-                    .effect
+                let effect = self
+                    .room_feature_use_effect(
+                        Some(actor_id),
+                        actor.location_id,
+                        &feature.key,
+                        use_case.item_id,
+                    )
                     .filter(|effect| !effect.trim().is_empty())
                     .unwrap_or_else(|| use_case.text.clone());
                 let item_name = self
@@ -160,12 +186,13 @@ impl RuntimeWorld {
                 candidates.push(FeatureUseCandidate {
                     actor_id,
                     location_id: actor.location_id,
-                    feature_key: use_case.feature_key,
+                    feature_key: feature.key.clone(),
                     feature_name: feature.name.clone(),
                     item_id: use_case.item_id,
                     item_name,
-                    content: use_case.text,
+                    content: use_case.text.clone(),
                     effect,
+                    encounter_resolution: use_case.encounter_resolution.clone(),
                 });
             }
         }

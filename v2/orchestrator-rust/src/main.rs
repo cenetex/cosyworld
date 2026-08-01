@@ -1121,6 +1121,15 @@ enum ProjectionMutation {
         content: String,
         reason: String,
     },
+    ResolveEncounterByFeature {
+        job_id: String,
+        target_actor_id: u64,
+        location_id: u64,
+        feature_key: String,
+        item_id: u64,
+        winning_side: i16,
+        content: String,
+    },
     AdvanceClock {
         clock_id: String,
         amount: u8,
@@ -1284,6 +1293,9 @@ struct ClassReadinessEvidence {
     strategy_label: String,
     target: ResolvedContributionTarget,
     outcome: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    summary: String,
+    #[serde(default)]
     progress: u8,
     source_event_seq: u64,
 }
@@ -11334,6 +11346,8 @@ impl RuntimeWorld {
                         events.push(ledger_event);
                     }
                 }
+                mutation @ ProjectionMutation::ResolveEncounterByFeature { .. } => events
+                    .extend(self.resolve_encounter_by_feature_mutation(action.actor_id, mutation)),
                 ProjectionMutation::AdvanceClock {
                     clock_id,
                     amount,
@@ -15311,33 +15325,6 @@ impl RuntimeWorld {
             .cloned()
     }
 
-    fn default_search_target(&self, actor_id: u64) -> Option<RoomSearchTarget> {
-        let actor = self.actor_by_id(actor_id)?;
-        if actor.location_id == COSY_COTTAGE_LOCATION_ID
-            && self.listen_attempt_claimed_at(actor_id, actor.location_id)
-            && !self.feature_search_claimed(actor_id, actor.location_id, SCARF_BASKET_FEATURE_KEY)
-        {
-            let feature = self
-                .room_features(actor.location_id)
-                .into_iter()
-                .find(|feature| feature.key == SCARF_BASKET_FEATURE_KEY)?;
-            return Some(RoomSearchTarget::feature(feature));
-        }
-        if self
-            .search_reveal_candidates_for_location(actor.location_id)
-            .is_empty()
-        {
-            return None;
-        }
-        let location_name = self
-            .location_name(actor.location_id)
-            .unwrap_or_else(|| format!("Location {}", actor.location_id));
-        Some(RoomSearchTarget::virtual_room(
-            actor.location_id,
-            location_name,
-        ))
-    }
-
     fn search_record_for_target(
         &self,
         actor_id: u64,
@@ -18792,12 +18779,6 @@ The relationship statement they are preserving is: {statement}"
 
     fn default_bondable_resident(&self, actor_id: u64) -> Option<CwActor> {
         self.default_bondable_resident_with_presence(actor_id, None)
-    }
-
-    fn default_bond_command(&self, actor_id: u64) -> Option<String> {
-        let target = self.default_bondable_resident(actor_id)?;
-        let target_name = self.actor_name(target.id)?;
-        Some(format!("chat {target_name}"))
     }
 
     fn default_resolvable_bond(&self, actor_id: u64) -> Option<BondState> {
@@ -52420,8 +52401,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lantern_keeper_creation_stages_identity_then_reveals_campaign_class_after_shared_work()
-    {
+    async fn lantern_keeper_creation_stages_identity_then_reveals_class_after_world_engagement() {
         let runtime = RuntimeWorld::seeded();
         let guest = runtime.state_response(None, &AccessContext::default());
         assert_eq!(guest.character_creation.len(), 1);
@@ -52462,21 +52442,7 @@ mod tests {
         assert!(actor.description.contains("soot-black rafters"));
         {
             let runtime = state.inner.lock().await;
-            let identity = runtime
-                .character_identities
-                .get(&actor.id)
-                .expect("composed identity");
-            assert_eq!(identity.species_id, "human");
-            assert_eq!(identity.origin_id, "old-chapel");
-            assert_eq!(identity.class_id, None);
-            assert!(!identity.class_selection_ready);
-            assert!(identity.physical_description.contains("human traveler"));
-            assert!(identity
-                .physical_description
-                .contains("old roadside chapel"));
-            assert!(!runtime
-                .skills
-                .contains_key(&skill_state_id(actor.id, "steadiness")));
+            lantern_keeper_tests::assert_staged_identity(&runtime, actor.id);
         }
 
         let speech_events = {
@@ -52499,7 +52465,7 @@ mod tests {
         assert!(!speech_events
             .iter()
             .any(|event| event.type_name == "class.selection_ready"));
-        {
+        let readiness_events = {
             let mut runtime = state.inner.lock().await;
             let identity = runtime
                 .character_identities
@@ -52509,6 +52475,26 @@ mod tests {
             assert_eq!(identity.qualifying_world_actions, 0);
             assert_eq!(identity.class_id, None);
 
+            let target = runtime
+                .default_search_target(actor.id)
+                .expect("the failing lantern is a reachable first action");
+            let record = runtime
+                .search_record_for_target(actor.id, &target, runtime.next_seed_value())
+                .into_player_card();
+            commit_journal_record(&state, &mut runtime, record)
+                .expect("first meaningful campaign action commits")
+                .1
+        };
+        assert!(readiness_events
+            .iter()
+            .any(|event| event.type_name == "feature.searched"));
+        assert!(readiness_events
+            .iter()
+            .any(|event| event.type_name == "class.selection_ready"));
+        {
+            let mut runtime = state.inner.lock().await;
+            lantern_keeper_tests::assert_search_class_readiness(&runtime, actor.id);
+
             let actor_index = runtime.world.actors[..runtime.world.actor_count]
                 .iter()
                 .position(|candidate| candidate.id == actor.id)
@@ -52517,7 +52503,7 @@ mod tests {
             lantern_keeper_tests::install_lantern_finale_evidence(&mut runtime, actor.id);
         }
 
-        let readiness_events = {
+        let contribution_events = {
             let mut runtime = state.inner.lock().await;
             let intent = runtime
                 .job_contribution_intent(actor.id, "work", None, None, None)
@@ -52539,10 +52525,10 @@ mod tests {
                 .expect("shared campaign contribution commits")
                 .1
         };
-        assert!(readiness_events
+        assert!(contribution_events
             .iter()
             .any(|event| event.type_name == "job.contribution.resolved"));
-        assert!(readiness_events
+        assert!(!contribution_events
             .iter()
             .any(|event| event.type_name == "class.selection_ready"));
         {
@@ -52550,27 +52536,16 @@ mod tests {
             let identity = runtime
                 .character_identities
                 .get(&actor.id)
-                .expect("identity becomes ready after shared work");
+                .expect("identity remains ready after shared work");
             assert!(identity.class_selection_ready);
             assert_eq!(identity.qualifying_world_actions, 1);
             assert_eq!(identity.class_id, None);
             let evidence = identity
                 .class_readiness_evidence
                 .as_ref()
-                .expect("first qualifying action is retained");
-            assert_eq!(evidence.offer_kind, "work");
-            assert!(evidence.progress > 0);
-            assert_eq!(evidence.target.kind, "job");
-            let identity_view = runtime
-                .character_identity_view(actor.id)
-                .expect("identity view explains readiness");
-            assert_eq!(
-                identity_view
-                    .class_recommendation
-                    .as_ref()
-                    .map(|recommendation| recommendation.class_id.as_str()),
-                Some("lantern-warden")
-            );
+                .expect("later actions cannot overwrite the first evidence");
+            assert_eq!(evidence.offer_kind, "search");
+            assert_eq!(evidence.target.label, "Failing Lantern");
         }
 
         let class_response = choose_avatar_class(
@@ -52691,7 +52666,7 @@ mod tests {
                 .class_readiness_evidence
                 .as_ref()
                 .map(|evidence| evidence.offer_kind.as_str()),
-            Some("work")
+            Some("search")
         );
     }
 
@@ -55755,7 +55730,7 @@ mod tests {
             });
         assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
         let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let default_command = "bond Rati";
+        let default_command = "bond Rati: I bring small kindnesses to Rati.";
         assert!(banked_state.primary_action.options.iter().any(|option| {
             option.kind == "create_bond"
                 && option.label == "Befriend"
@@ -61022,7 +60997,7 @@ mod tests {
         assert_eq!(content.actors.len(), 56);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 27);
+        assert_eq!(content.items.len(), 28);
         let satchel = content
             .items
             .iter()
@@ -61075,7 +61050,7 @@ mod tests {
             1
         );
         assert_eq!(content.fronts.len(), 7);
-        assert_eq!(content.cards.len(), 119);
+        assert_eq!(content.cards.len(), 120);
         assert_eq!(content.lifecycle_hooks.len(), 19);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 9);

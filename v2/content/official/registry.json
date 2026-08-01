@@ -795,7 +795,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:66eb887cebebfc5516bb0e69ae5f1143f462654df5c0e7d46b0a907a00d99fd4",
+    "bundle_hash": "sha256:3ab091b7b358316785dfd6a0fd3c771dfe9c758b49067cc1d04071c2aac32542",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2107,7 +2107,7 @@
           "actor_facets": 0,
           "access_gates": 0,
           "factions": 0,
-          "items": 4,
+          "items": 5,
           "locations": 5,
           "exits": 8,
           "hidden_exits": 0,
@@ -2117,7 +2117,7 @@
           "jobs": 1,
           "action_vocabulary": 0,
           "fronts": 1,
-          "cards": 13,
+          "cards": 14,
           "card_bindings": 0,
           "lifecycle_hooks": 0,
           "evolution_tracks": 0,
@@ -2270,7 +2270,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:050fc1806f8569eea3cc40bef81eb95eb184bb27116d0cbbbdeac7ca4a804065"
+        "integrity": "sha256:f5e55abda7c4eb50bfa62307735190066309b6159f14cabd0cb81829fdd30368"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -5601,6 +5601,21 @@
         "pack_id": "cosyworld.core"
       },
       {
+        "id": 8405,
+        "name": "Keeper's Camp Kit",
+        "description": "A waxed roadroll, two lantern stakes, and a canvas hood made for resting beside an unlit road.",
+        "kind": "keepsake",
+        "charges": 1,
+        "location_id": 800,
+        "role": "tool",
+        "capabilities": [
+          "camp_shelter"
+        ],
+        "weight_tenths": 30,
+        "size": "medium",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper"
+      },
+      {
         "id": 8401,
         "name": "Keeper's Brass Key",
         "description": "A heavy key warm on one side and cold on the other, cut for the Lantern Tower's inner lock.",
@@ -7890,7 +7905,12 @@
         "uses": [
           {
             "item_id": 8403,
-            "text": "The Dawn Oil burns without heat, and every false reflection in the water goes dark."
+            "text": "The Dawn Oil burns without heat. Every false reflection goes dark, the moth-shadow slips out of the empty armor, and the Moth-Eaten Knight yields the road without a blow.",
+            "encounter_resolution": {
+              "job_id": "lantern-keeper:rekindle-the-beacon",
+              "target_actor_id": 8303,
+              "winning_side": 1
+            }
           }
         ],
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
@@ -12912,6 +12932,20 @@
       },
       {
         "subject_kind": "item",
+        "subject_id": 8405,
+        "card_id": "lantern-keeper-camp-kit",
+        "display_name": "Keeper's Camp Kit",
+        "role": "campaign tool",
+        "rarity": "free",
+        "title": "Shelter on the Lantern Road",
+        "blurb": "A roadroll and lantern hood for resting where every delay lets the dark draw nearer.",
+        "aspect": "square",
+        "source": "the_lantern_keeper",
+        "asset_status": "pending_art",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper"
+      },
+      {
+        "subject_kind": "item",
         "subject_id": 8401,
         "card_id": "lantern-keeper-key",
         "display_name": "Keeper's Brass Key",
@@ -17580,6 +17614,11 @@
               "offer_kind": "help",
               "class_id": "hedge-mender",
               "explanation": "You helped another traveler move a shared task forward, the same practical care a Hedge Mender brings to the road."
+            },
+            {
+              "offer_kind": "search",
+              "class_id": "mothwood-guide",
+              "explanation": "You read the first clue in the world around you, the same attentive practice a Mothwood Guide brings to the road."
             }
           ],
           "default_species_id": "human",
@@ -17725,6 +17764,14 @@
         "kind": "card",
         "local_id": "lantern-keeper-barrow",
         "runtime_handle": 2693745143565876
+      },
+      {
+        "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-camp-kit",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.9",
+        "kind": "card",
+        "local_id": "lantern-keeper-camp-kit",
+        "runtime_handle": 8549698265771571
       },
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-chapel",
@@ -17889,6 +17936,15 @@
         "local_id": "8404",
         "legacy_runtime_id": 8404,
         "runtime_handle": 8404
+      },
+      {
+        "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8405",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.9",
+        "kind": "item",
+        "local_id": "8405",
+        "legacy_runtime_id": 8405,
+        "runtime_handle": 8405
       },
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/job/lantern-keeper%3Arekindle-the-beacon",

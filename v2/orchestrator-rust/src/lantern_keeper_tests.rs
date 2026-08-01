@@ -8,6 +8,52 @@ const PREVIOUS_WORLD_BUNDLE_HASH: &str =
 const FINAL_ACTOR_ID: u64 = 9_800;
 const COMPANION_ACTOR_ID: u64 = 9_801;
 
+pub(super) fn assert_staged_identity(runtime: &RuntimeWorld, actor_id: u64) {
+    let identity = runtime
+        .character_identities
+        .get(&actor_id)
+        .expect("composed identity");
+    assert_eq!(identity.species_id, "human");
+    assert_eq!(identity.origin_id, "old-chapel");
+    assert_eq!(identity.class_id, None);
+    assert!(!identity.class_selection_ready);
+    assert!(identity.physical_description.contains("human traveler"));
+    assert!(identity
+        .physical_description
+        .contains("old roadside chapel"));
+    assert!(!runtime
+        .skills
+        .contains_key(&skill_state_id(actor_id, "steadiness")));
+}
+
+pub(super) fn assert_search_class_readiness(runtime: &RuntimeWorld, actor_id: u64) {
+    let identity = runtime
+        .character_identities
+        .get(&actor_id)
+        .expect("identity becomes ready after searching the failing lantern");
+    assert!(identity.class_selection_ready);
+    assert_eq!(identity.qualifying_world_actions, 1);
+    assert_eq!(identity.class_id, None);
+    let evidence = identity
+        .class_readiness_evidence
+        .as_ref()
+        .expect("first qualifying action is retained");
+    assert_eq!(evidence.offer_kind, "search");
+    assert_eq!(evidence.progress, 0);
+    assert_eq!(evidence.target.kind, "feature");
+    assert_eq!(evidence.target.label, "Failing Lantern");
+    let identity_view = runtime
+        .character_identity_view(actor_id)
+        .expect("identity view explains readiness");
+    assert_eq!(
+        identity_view
+            .class_recommendation
+            .as_ref()
+            .map(|recommendation| recommendation.class_id.as_str()),
+        Some("mothwood-guide")
+    );
+}
+
 fn projection_record(actor_id: u64, seed: u64, mutation: ProjectionMutation) -> JournalRecord {
     let mut record = JournalRecord::new(
         CwAction {
@@ -136,6 +182,137 @@ fn assert_tag_source(
         .event_log
         .iter()
         .any(|event| event.seq == source_event_seq && event.type_name == event_type));
+}
+
+#[test]
+fn lantern_job_prerequisite_feature_is_a_reachable_search_target() {
+    let actor_id = 9_849;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, actor_id, 800, "Inn Lamp Reader");
+
+    let target = runtime
+        .default_search_target(actor_id)
+        .expect("the active Lantern job exposes its first authored prerequisite");
+    assert_eq!(target.location_id, 800);
+    assert_eq!(target.key, "failing_lantern");
+    assert_eq!(target.name, "Failing Lantern");
+    assert!(target.output.contains("gone north"));
+
+    let mut record = runtime.search_record_for_target(actor_id, &target, 80_999);
+    record = record.into_player_card();
+    let (status, events) = runtime.apply_journal_record(&record);
+    assert_eq!(status, CW_OK);
+    assert!(events.iter().any(|event| {
+        event.type_name == "feature.searched"
+            && event.actor_id == Some(actor_id)
+            && event.location_id == Some(800)
+    }));
+    assert!(runtime
+        .tags
+        .get(&room_feature_search_tag_id(800, "failing_lantern"))
+        .is_some_and(|tag| tag.active));
+    assert_ne!(
+        runtime
+            .default_search_target(actor_id)
+            .map(|target| target.key),
+        Some("failing_lantern".to_string()),
+        "the same job evidence cannot be farmed twice",
+    );
+}
+
+#[test]
+fn dawn_oil_authored_choice_resolves_barrow_without_random_combat() {
+    let actor_id = 9_850;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(&mut runtime, actor_id, 803, "Barrow Light-Bearer");
+    let oil = runtime.world.items[..runtime.world.item_count]
+        .iter_mut()
+        .find(|item| item.id == 8403)
+        .expect("the authored Dawn Oil is seeded");
+    oil.location_id = 0;
+    oil.holder_actor_id = actor_id;
+    oil.zone = CW_CARD_ZONE_CARRIED;
+
+    let candidate = runtime
+        .plan_feature_use_choice(actor_id, 8403, 803, "oil_slick")
+        .expect("Dawn Oil has one public Barrow feature choice");
+    let resolution = candidate
+        .encounter_resolution
+        .clone()
+        .expect("the Barrow use declares its deterministic encounter result");
+    assert_eq!(resolution.job_id, LANTERN_JOB_ID);
+    assert_eq!(resolution.target_actor_id, 8303);
+    assert_eq!(resolution.winning_side, 1);
+
+    let mut record = projection_record(
+        actor_id,
+        81_000,
+        ProjectionMutation::UseFeature {
+            item_id: candidate.item_id,
+            location_id: candidate.location_id,
+            feature_key: candidate.feature_key,
+            content: candidate.content.clone(),
+            reason: "barrow_dawn_oil".to_string(),
+        },
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ResolveEncounterByFeature {
+            job_id: resolution.job_id,
+            target_actor_id: resolution.target_actor_id,
+            location_id: candidate.location_id,
+            feature_key: "oil_slick".to_string(),
+            item_id: 8403,
+            winning_side: resolution.winning_side,
+            content: candidate.content,
+        });
+    let (status, events) = runtime.apply_journal_record(&record);
+    assert_eq!(status, CW_OK);
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| {
+                event.type_name == "combat.encounter.resolved"
+                    && event.target_actor_id == Some(8303)
+                    && event.total == Some(1)
+            })
+            .count(),
+        1
+    );
+    assert!(!RuntimeWorld::actor_can_act(
+        runtime
+            .actor_by_id(8303)
+            .expect("the empty armor remains inspectable")
+    ));
+    assert!(runtime.tags[&combat_resolution_tag_id(LANTERN_JOB_ID, 1)].active);
+
+    let duplicate = apply_projection(
+        &mut runtime,
+        actor_id,
+        81_001,
+        ProjectionMutation::ResolveEncounterByFeature {
+            job_id: LANTERN_JOB_ID.to_string(),
+            target_actor_id: 8303,
+            location_id: 803,
+            feature_key: "oil_slick".to_string(),
+            item_id: 8403,
+            winning_side: 1,
+            content: "duplicate".to_string(),
+        },
+    );
+    assert!(duplicate
+        .iter()
+        .all(|event| event.type_name != "combat.encounter.resolved"));
+
+    let restored = RuntimeSnapshot::from_runtime(&runtime)
+        .into_runtime()
+        .expect("the authored Barrow resolution survives reconnect");
+    assert!(restored.tags[&combat_resolution_tag_id(LANTERN_JOB_ID, 1)].active);
+    assert!(!RuntimeWorld::actor_can_act(
+        restored
+            .actor_by_id(8303)
+            .expect("the resolved armor survives reconnect")
+    ));
 }
 
 pub(super) fn install_lantern_finale_evidence(

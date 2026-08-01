@@ -439,8 +439,14 @@ impl RuntimeWorld {
                 let command = if option.kind == "create_bond" {
                     target
                         .as_ref()
-                        .and_then(|target| target.label.as_deref())
-                        .map(|label| format!("bond {label}"))
+                        .and_then(|target| target.id.zip(target.label.as_deref()))
+                        .map(|(target_id, label)| {
+                            let statement = self
+                                .relationship_contract(target_id)
+                                .map(|relationship| relationship.statement.clone())
+                                .unwrap_or_else(|| default_bond_statement(label));
+                            format!("bond {label}: {statement}")
+                        })
                         .unwrap_or_else(|| option.command.clone())
                 } else {
                     option.command.clone()

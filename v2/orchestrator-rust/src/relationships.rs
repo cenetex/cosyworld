@@ -1,5 +1,17 @@
 use super::*;
 
+impl RuntimeWorld {
+    pub(super) fn default_bond_command(&self, actor_id: u64) -> Option<String> {
+        let target = self.default_bondable_resident(actor_id)?;
+        let target_name = self.actor_name(target.id)?;
+        let statement = self
+            .relationship_contract(target.id)
+            .map(|relationship| relationship.statement.clone())
+            .unwrap_or_else(|| default_bond_statement(&target_name));
+        Some(format!("bond {target_name}: {statement}"))
+    }
+}
+
 pub(super) const RELATIONSHIP_DIALOGUE_PENDING: &str = "pending";
 pub(super) const RELATIONSHIP_DIALOGUE_DELIVERED: &str = "delivered";
 pub(super) const RELATIONSHIP_DIALOGUE_UNAVAILABLE: &str = "unavailable";
