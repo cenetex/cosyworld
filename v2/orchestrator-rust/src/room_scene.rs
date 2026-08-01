@@ -541,6 +541,12 @@ impl RuntimeWorld {
             .ok_or_else(|| "room-scene location is missing".to_string())?;
         let meta = self.location_meta_for(location_id);
         let mut environmental_facts = Vec::new();
+        if !meta.description.trim().is_empty() {
+            environmental_facts.push(meta.description.clone());
+        }
+        if !meta.persona.trim().is_empty() {
+            environmental_facts.push(meta.persona.clone());
+        }
         if !meta.biome.trim().is_empty() {
             environmental_facts.push(format!("biome: {}", meta.biome));
         }
@@ -550,6 +556,11 @@ impl RuntimeWorld {
         if let Some(art_prompt) = meta.art_prompt.filter(|value| !value.trim().is_empty()) {
             environmental_facts.push(format!("approved environment: {art_prompt}"));
         }
+        environmental_facts.extend(
+            self.media_location_evidence(location_id)
+                .into_iter()
+                .map(|evidence| evidence.text),
+        );
         let public_beat = event
             .content
             .as_deref()
@@ -741,14 +752,15 @@ fn room_scene_prompt(job: &FrozenRoomSceneJob) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     crate::compact_whitespace(&format!(
-        "Compose one bounded room scene from these references in this exact order. {indexed} \
-         Illustrate only committed event {} at projection {}: {} Environmental facts: {} \
-         Safe areas: {} Style: {} Forbidden: {} The reference set is complete; do not add, \
-         remove, merge, replace, or reinterpret any subject, holder, relationship, location, \
-         outcome, text, logo, or game mechanic.",
+        "{indexed} Scene: {} at projection {} — {} Place: {}, level {}; {} \
+         Wide composition: {} Style: {} Exclude: {} Complete reference set only; do not add, \
+         remove, merge, replace, or reinterpret any subject, holder, relationship, location, or \
+         outcome; no text, logo, or invented mechanic.",
         job.public_beat_type,
         job.projection_seq,
         job.public_beat,
+        job.location_name,
+        job.location_level,
         job.environmental_facts.join("; "),
         job.safe_areas.join("; "),
         job.style_constraints.join("; "),

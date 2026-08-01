@@ -7,6 +7,7 @@ mod actor_job_contention_tests;
 mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
+mod ai_context;
 mod ai_gateway;
 mod ai_publication;
 mod ai_resident_planning;
@@ -83,6 +84,7 @@ use account_auth::*;
 use activation::*;
 use actor_practice::*;
 use actor_rules_facets::*;
+use ai_context::*;
 use ai_gateway::*;
 use ai_publication::*;
 use ai_resident_planning::*;
@@ -400,7 +402,6 @@ struct RoomMemoryCacheEntry {
 
 #[derive(Clone, Debug)]
 struct RoomMemoryChapter {
-    location_id: u64,
     day_index: u64,
     latest_seq: u64,
     summary: String,
@@ -15772,9 +15773,11 @@ impl RuntimeWorld {
             ));
         }
 
-        let memory_notes = self.belief_prompt_notes(resident.id);
-        if !memory_notes.is_empty() {
-            parts.push(format!("carried memories: {}", memory_notes.join(" | ")));
+        if client_actor_id.is_none_or(|actor_id| actor_id == resident.id) {
+            let memory_notes = self.belief_prompt_notes(resident.id);
+            if !memory_notes.is_empty() {
+                parts.push(format!("carried memories: {}", memory_notes.join(" | ")));
+            }
         }
 
         let sought: Vec<_> = economy
@@ -16017,9 +16020,11 @@ The relationship statement they are preserving is: {statement}"
             speaker_name: self
                 .actor_name(actor.id)
                 .unwrap_or_else(|| format!("Actor {}", actor.id)),
+            speaker_voice: self.authored_actor_voice(actor.id),
             speech_mode: actor_meta
                 .map(|meta| meta.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
+            location_id: actor.location_id,
             resident_continuity: self.resident_continuity_for(actor),
             economy_note: self.resident_economy_prompt_note(actor, None),
             goals: self.narrative_goal_lines(Some(actor.id), actor.location_id),
@@ -16029,7 +16034,12 @@ The relationship statement they are preserving is: {statement}"
             location_title: location_meta.title,
             location_description: location_meta.description,
             location_persona: location_meta.persona,
-            location_memory: location_meta.memory,
+            location_evidence: self.conversation_location_evidence(
+                actor.location_id,
+                actor.id,
+                None,
+            ),
+            public_room_memory: self.recent_public_room_evidence(actor.location_id, 3),
             cast: self.room_cast_names(actor.location_id),
             recent_lines: self.recent_room_lines(actor.location_id, 8),
             recent_activity: self.recent_room_activity(actor.location_id, 10),
@@ -20371,12 +20381,14 @@ The relationship statement they are preserving is: {statement}"
                 .map(|meta| meta.description.clone())
                 .filter(|description| !description.trim().is_empty())
                 .unwrap_or_else(|| "A quiet visitor in CosyWorld.".to_string()),
+            actor_voice: self.authored_actor_voice(actor_id),
+            actor_continuity: Some(self.resident_continuity_for(actor)),
+            target_actor_id,
             target_actor_name,
             target_title: target_meta
                 .map(|meta| meta.title.clone())
                 .filter(|title| !title.trim().is_empty())
                 .unwrap_or_else(|| "resident".to_string()),
-            target_continuity: self.resident_continuity_for(target),
             target_economy_note,
             goals: self.narrative_goal_lines(Some(actor_id), actor.location_id),
             location_name: self
@@ -20385,7 +20397,12 @@ The relationship statement they are preserving is: {statement}"
             location_title: location_meta.title,
             location_description: location_meta.description,
             location_persona: location_meta.persona,
-            location_memory: location_meta.memory,
+            location_evidence: self.conversation_location_evidence(
+                actor.location_id,
+                actor_id,
+                Some(target_actor_id),
+            ),
+            public_room_memory: self.recent_public_room_evidence(actor.location_id, 3),
             cast: self.room_cast_names(actor.location_id),
             recent_lines,
             recent_speaker_shingle_hashes: self.resident_recent_voice_shingle_hashes(actor_id),
@@ -20753,9 +20770,11 @@ The relationship statement they are preserving is: {statement}"
         Some(AvatarReplyPlan {
             speaker_actor_id: target_actor_id,
             speaker_name: responder_name.clone(),
+            speaker_voice: self.authored_actor_voice(target_actor_id),
             speech_mode: responder_meta
                 .map(|meta| meta.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
+            location_id: responder.location_id,
             resident_continuity: if incoming_is_spoken {
                 self.resident_continuity_for(responder)
             } else {
@@ -20769,7 +20788,12 @@ The relationship statement they are preserving is: {statement}"
             location_title: location_meta.title,
             location_description: location_meta.description,
             location_persona: location_meta.persona,
-            location_memory: location_meta.memory,
+            location_evidence: self.conversation_location_evidence(
+                responder.location_id,
+                target_actor_id,
+                Some(speaker_actor_id),
+            ),
+            public_room_memory: self.recent_public_room_evidence(responder.location_id, 3),
             cast: self.room_cast_names(responder.location_id),
             recent_lines: self.recent_room_lines(responder.location_id, 8),
             recent_activity: self.recent_room_activity(responder.location_id, 10),
@@ -20912,9 +20936,11 @@ The relationship statement they are preserving is: {statement}"
             speaker_name: self
                 .actor_name(npc.id)
                 .unwrap_or_else(|| format!("Actor {}", npc.id)),
+            speaker_voice: self.authored_actor_voice(npc.id),
             speech_mode: npc_meta
                 .map(|meta| meta.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
+            location_id: npc.location_id,
             resident_continuity: self.resident_continuity_for(npc),
             economy_note,
             goals: self.narrative_goal_lines(Some(npc.id), npc.location_id),
@@ -20924,7 +20950,12 @@ The relationship statement they are preserving is: {statement}"
             location_title: location_meta.title,
             location_description: location_meta.description,
             location_persona: location_meta.persona,
-            location_memory: location_meta.memory,
+            location_evidence: self.conversation_location_evidence(
+                npc.location_id,
+                npc.id,
+                None,
+            ),
+            public_room_memory: self.recent_public_room_evidence(npc.location_id, 3),
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             recent_activity: self.recent_room_activity(npc.location_id, 10),
@@ -30846,7 +30877,6 @@ fn load_current_room_memory_chapter_for_state(
         if let Some(cached) = cache.get(&location_id) {
             if cached.day_index == day_index {
                 return Some(RoomMemoryChapter {
-                    location_id,
                     day_index,
                     latest_seq: cached.latest_seq,
                     summary: cached.summary.clone(),
@@ -31823,55 +31853,14 @@ async fn request_ai_room_memory_summary(
     prior_chapters: &[RoomMemoryChapter],
     entries: &[RoomMemoryEntryView],
 ) -> Result<String, String> {
-    let context = if entries.is_empty() {
-        "No recent room events.".to_string()
-    } else {
-        entries
-            .iter()
-            .map(|entry| {
-                format!(
-                    "[{}:{}] {}",
-                    entry.kind,
-                    entry.label,
-                    entry.text.replace('\n', " ")
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-    let chapter_memory = if prior_chapters.is_empty() {
-        "No prior room chapters.".to_string()
-    } else {
-        prior_chapters
-            .iter()
-            .map(|chapter| {
-                format!(
-                    "Location {} day {} through event {} ({}): {}",
-                    chapter.location_id,
-                    chapter.day_index,
-                    chapter.latest_seq,
-                    chapter.source,
-                    chapter.summary
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-    let system = "You write today's shared room memory as a fond, wry recap of a day in a shared house for humans in a cozy multiplayer MUD. Treat prior chapters as private room memory and recent mixed chat/log entries as today's raw material. Write only today's visible room story, not an archive. Lead with concrete mishaps, props, appetites, and near-misses: who tracked in mud, what got knocked over, who is not speaking to whom and why it involves a teapot. Warm, cheeky, physical; no mysticism, no atmosphere for its own sake. Do not use technical words like log, event, roll, ledger, tag, advancement, summary, chapter, prompt, AI, model, UI, RAG, or system. Do not write labels, bullets, semicolons, colon-separated phrases, slash-separated fragments, or list-like note clusters. Output 1-2 vivid story-like sentences under 65 words.";
-    let user = format!(
-        "Location: {name}\nLocation title: {title}\nPrior room memory, oldest to newest:\n{chapter_memory}\nToday's mixed chat and log entries, oldest to newest:\n{context}\nWrite today's current room story.",
-        name = location.name,
-        title = location.title,
-        chapter_memory = chapter_memory,
-        context = context,
-    );
+    let (system, user) = room_memory_prompt(location, prior_chapters, entries);
     let completion = request_chat_completion(
         config,
         ChatCompletionRequest {
             feature: "room_memory",
-            prompt_version: "room-memory-v1",
+            prompt_version: "room-memory-v2",
             capability: ModelCapability::Voice,
-            system,
+            system: &system,
             user: &user,
             temperature: 0.45,
             max_tokens: 110,
@@ -40388,17 +40377,16 @@ fn load_room_memory_chapter(
     init_event_store(path)?;
     let conn = open_event_store(path)?;
     conn.query_row(
-        "SELECT location_id, day_index, latest_seq, summary, source
+        "SELECT day_index, latest_seq, summary, source
          FROM room_memory_chapters
          WHERE location_id = ?1 AND day_index = ?2",
         params![location_id as i64, day_index as i64],
         |row| {
             Ok(RoomMemoryChapter {
-                location_id: row.get::<_, i64>(0)?.max(0) as u64,
-                day_index: row.get::<_, i64>(1)?.max(0) as u64,
-                latest_seq: row.get::<_, i64>(2)?.max(0) as u64,
-                summary: row.get(3)?,
-                source: row.get(4)?,
+                day_index: row.get::<_, i64>(0)?.max(0) as u64,
+                latest_seq: row.get::<_, i64>(1)?.max(0) as u64,
+                summary: row.get(2)?,
+                source: row.get(3)?,
             })
         },
     )
@@ -40419,7 +40407,7 @@ fn load_room_memory_prior_chapters(
     let conn = open_event_store(path)?;
     let mut stmt = conn
         .prepare(
-            "SELECT location_id, day_index, latest_seq, summary, source
+            "SELECT day_index, latest_seq, summary, source
              FROM room_memory_chapters
              WHERE location_id = ?1 AND day_index < ?2
              ORDER BY day_index DESC
@@ -40435,11 +40423,10 @@ fn load_room_memory_prior_chapters(
             ],
             |row| {
                 Ok(RoomMemoryChapter {
-                    location_id: row.get::<_, i64>(0)?.max(0) as u64,
-                    day_index: row.get::<_, i64>(1)?.max(0) as u64,
-                    latest_seq: row.get::<_, i64>(2)?.max(0) as u64,
-                    summary: row.get(3)?,
-                    source: row.get(4)?,
+                    day_index: row.get::<_, i64>(0)?.max(0) as u64,
+                    latest_seq: row.get::<_, i64>(1)?.max(0) as u64,
+                    summary: row.get(2)?,
+                    source: row.get(3)?,
                 })
             },
         )
@@ -46140,7 +46127,6 @@ mod tests {
         let runtime = RuntimeWorld::seeded();
         let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
         let prior = vec![RoomMemoryChapter {
-            location_id: COSY_COTTAGE_LOCATION_ID,
             day_index: 20_600,
             latest_seq: 42,
             summary: "Moss Lantern found the Dewbright Button and promised Rati a small kindness."
@@ -52370,7 +52356,8 @@ mod tests {
             acting_avatar.economy_note,
             DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT
         );
-        assert!(resident_system_prompt(&acting_avatar).contains("i speak for us both"));
+        assert!(resident_voice_user_prompt(&acting_avatar, "")
+            .contains(DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT));
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -52388,7 +52375,8 @@ mod tests {
             other_avatar.economy_note,
             DIRECTLY_CONTROLLED_REACTION_CONTEXT
         );
-        assert!(resident_system_prompt(&other_avatar).contains("in my own mouth — never theirs"));
+        assert!(resident_voice_user_prompt(&other_avatar, "")
+            .contains(DIRECTLY_CONTROLLED_REACTION_CONTEXT));
     }
 
     #[test]
@@ -53534,12 +53522,11 @@ mod tests {
         assert_eq!(plan.location_name, "Old Oak Tree");
         assert!(plan.location_persona.contains("different truth"));
         assert!(plan
-            .location_memory
+            .location_evidence
             .iter()
-            .any(|line| line.contains("Leaf")));
-        let oak_prompt = resident_system_prompt(&plan);
-        assert!(oak_prompt.contains("i've never been just one voice"));
-        assert!(oak_prompt.contains("no line breaks, no speaker names, and no colons"));
+            .any(|evidence| evidence.text.contains("Leaf")));
+        assert!(plan.speaker_voice.contains("Root is stubborn"));
+        assert!(plan.speaker_voice.contains("without speaker labels"));
     }
 
     #[test]
@@ -69843,7 +69830,9 @@ mod tests {
         AvatarReplyPlan {
             speaker_actor_id,
             speaker_name: speaker_name.to_string(),
+            speaker_voice: String::new(),
             speech_mode: speech_mode.to_string(),
+            location_id: 1,
             resident_continuity: ResidentContinuityState::empty(
                 speaker_actor_id,
                 format!("{speaker_name} / Test Resident / speech:{speech_mode} / A test resident."),
@@ -69854,7 +69843,8 @@ mod tests {
             location_title: "Rainlit Hearth".to_string(),
             location_description: "A warm room of firelight.".to_string(),
             location_persona: "The cottage is a careful host.".to_string(),
-            location_memory: Vec::new(),
+            location_evidence: Vec::new(),
+            public_room_memory: Vec::new(),
             cast: vec![speaker_name.to_string()],
             recent_lines: Vec::new(),
             recent_activity: Vec::new(),
@@ -70249,17 +70239,20 @@ mod tests {
             .expect("Rati chat plan available in cottage");
         assert_eq!(plan.actor_name, "Need Witness");
         assert_eq!(plan.target_actor_name, "Rati");
-        assert_eq!(plan.target_continuity.resident_id, RATI_ACTOR_ID);
-        assert!(plan.target_continuity.stable_identity.contains("Rati"));
+        let speaker_continuity = plan.actor_continuity.as_ref().expect("speaker continuity");
+        assert_eq!(speaker_continuity.resident_id, 5000);
+        assert!(speaker_continuity.stable_identity.contains("Need Witness"));
         assert!(plan
-            .target_continuity
+            .actor_continuity
+            .as_ref()
+            .expect("speaker continuity")
             .memory_atoms
             .iter()
-            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
+            .all(|atom| !atom.text.contains("Gust near Rain-Soft Garden")));
         assert_eq!(plan.missing_need.as_deref(), Some("Moonwool Thread"));
         assert!(plan.target_economy_note.contains("motive: Rati"));
-        assert!(plan.target_economy_note.contains("carried memories:"));
-        assert!(plan
+        assert!(!plan.target_economy_note.contains("carried memories:"));
+        assert!(!plan
             .target_economy_note
             .contains("heard Gust near Rain-Soft Garden"));
         assert!(plan.target_economy_note.contains("Moonwool Thread"));

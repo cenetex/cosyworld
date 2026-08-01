@@ -698,11 +698,12 @@ mod tests {
                 })
             })
             .expect("follow-up user prompt");
-        assert!(followup_prompt.contains("current speech owner: Inference Tester (actor_id=5000)"));
-        assert!(followup_prompt.contains("speaker=Inference Tester (actor_id=5000"));
-        assert!(followup_prompt.contains("speaker=Rati (actor_id=1001"));
+        assert!(followup_prompt.contains("i am Inference Tester"));
+        assert!(followup_prompt.contains("Inference Tester → Rati:"));
+        assert!(followup_prompt.contains("Rati → Inference Tester:"));
         assert!(followup_prompt
             .contains("Kindly enough, though the kettle has opinions about punctuality."));
+        assert!(!followup_prompt.contains("actor_id="));
         assert!(!followup_prompt.contains("i am Rati"));
         server.abort();
     }

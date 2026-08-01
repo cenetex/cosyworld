@@ -48,7 +48,8 @@
       "sha256:531f773526919ce1da0b8713401ebf60e900f2a906f790ba9a443c6809fed0fa",
       "sha256:f760e930ed3fc83d1e363e1e10bbe7dd4e08ae7b981f8316907fcd63682cff55",
       "sha256:50205c5d58ef8e556744f5c383018ef1e2c440a7df2784ba013ecf75523d8f9f",
-      "sha256:9576956c1e4e526044e6bf67996d18ada8a52f140be77ea25d763b2f386dc790"
+      "sha256:9576956c1e4e526044e6bf67996d18ada8a52f140be77ea25d763b2f386dc790",
+      "sha256:3ab091b7b358316785dfd6a0fd3c771dfe9c758b49067cc1d04071c2aac32542"
     ]
   },
   "pack_lifecycle": {
@@ -794,7 +795,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:3ab091b7b358316785dfd6a0fd3c771dfe9c758b49067cc1d04071c2aac32542",
+  "bundle_hash": "sha256:407b41af639a9cdd0ee1e5a043482d56bd5e935fcc99f53385733fb39d4425c0",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1957,7 +1958,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d"
+      "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -2269,7 +2270,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:f5e55abda7c4eb50bfa62307735190066309b6159f14cabd0cb81829fdd30368"
+      "integrity": "sha256:3731d8e8ce81da825b3f69fc99f49bb22b6f1f206595460f3444f8ce3990562f"
     },
     {
       "id": "cosyworld.the-holy-land",

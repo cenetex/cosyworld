@@ -363,6 +363,10 @@ impl ModelCandidate {
         self.output_limit
     }
 
+    pub(crate) fn context_limit(&self) -> Option<u32> {
+        self.context_limit
+    }
+
     pub(crate) fn provider(&self) -> &str {
         &self.provider
     }

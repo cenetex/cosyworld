@@ -1545,6 +1545,10 @@ for (const actor of actors) {
     fail(error.message);
   }
   validateRequiredStrings("actor", actor, ["name", "speech_mode", "title", "description"]);
+  if (actor.voice !== undefined
+      && (!isNonEmptyString(actor.voice) || [...actor.voice].length > 500)) {
+    fail(`actor ${actor.id} voice must contain 1-500 characters`);
+  }
   if (actor.ambient_autonomy !== undefined && typeof actor.ambient_autonomy !== "boolean") {
     fail(`actor ${actor.id} has invalid ambient_autonomy`);
   }
@@ -1752,6 +1756,73 @@ for (const location of locations) {
   validateRequiredStrings("location", location, ["name", "title", "description", "persona"]);
   if (!Array.isArray(location.memory) || location.memory.some((entry) => !isNonEmptyString(entry))) {
     fail(`location ${location.id} must have non-empty memory strings`);
+  }
+  const knowledgeRows = location.knowledge === undefined
+    ? []
+    : asArray(`location ${location.id} knowledge`, location.knowledge);
+  const knowledgeFields = new Set([
+    "text",
+    "scope",
+    "owner_actor_id",
+    "shared_actor_ids",
+    "visibility",
+    "reveal_event",
+    "sayability",
+    "visuality",
+    "salience",
+  ]);
+  for (const [knowledgeIndex, knowledge] of knowledgeRows.entries()) {
+    const label = `location ${location.id} knowledge ${knowledgeIndex}`;
+    if (!isObject(knowledge)) {
+      fail(`${label} must be an object`);
+      continue;
+    }
+    for (const field of Object.keys(knowledge)) {
+      if (!knowledgeFields.has(field)) fail(`${label} has unknown field ${field}`);
+    }
+    if (!isNonEmptyString(knowledge.text) || [...knowledge.text].length > 500) {
+      fail(`${label} text must contain 1-500 characters`);
+    }
+    if (knowledge.scope !== undefined
+        && !["self", "relationship", "room", "location", "world"].includes(knowledge.scope)) {
+      fail(`${label} has invalid scope ${knowledge.scope}`);
+    }
+    if (knowledge.visibility !== undefined
+        && !["private", "shared", "public", "revealed_after_event"].includes(knowledge.visibility)) {
+      fail(`${label} has invalid visibility ${knowledge.visibility}`);
+    }
+    if (knowledge.sayability !== undefined
+        && !["influence_only", "disclosable", "sealed"].includes(knowledge.sayability)) {
+      fail(`${label} has invalid sayability ${knowledge.sayability}`);
+    }
+    if (knowledge.visuality !== undefined
+        && !["visible", "subtext_only", "never_render"].includes(knowledge.visuality)) {
+      fail(`${label} has invalid visuality ${knowledge.visuality}`);
+    }
+    if (knowledge.salience !== undefined
+        && (!Number.isInteger(knowledge.salience) || knowledge.salience < 0 || knowledge.salience > 100)) {
+      fail(`${label} salience must be an integer from 0 to 100`);
+    }
+    if (knowledge.owner_actor_id !== undefined
+        && (!Number.isInteger(knowledge.owner_actor_id) || knowledge.owner_actor_id <= 0)) {
+      fail(`${label} owner_actor_id must be a positive integer`);
+    }
+    if (knowledge.shared_actor_ids !== undefined
+        && (!Array.isArray(knowledge.shared_actor_ids)
+          || knowledge.shared_actor_ids.length === 0
+          || knowledge.shared_actor_ids.some((actorId) => !Number.isInteger(actorId) || actorId <= 0))) {
+      fail(`${label} shared_actor_ids must contain positive integers`);
+    }
+    if (knowledge.visibility === "private" && knowledge.owner_actor_id === undefined) {
+      fail(`${label} private knowledge needs owner_actor_id`);
+    }
+    if (knowledge.visibility === "shared"
+        && (!Array.isArray(knowledge.shared_actor_ids) || knowledge.shared_actor_ids.length === 0)) {
+      fail(`${label} shared knowledge needs shared_actor_ids`);
+    }
+    if (knowledge.visibility === "revealed_after_event" && !isNonEmptyString(knowledge.reveal_event)) {
+      fail(`${label} revealed_after_event knowledge needs reveal_event`);
+    }
   }
   if (typeof location.allow_combat !== "boolean") {
     fail(`location ${location.id} must declare allow_combat`);

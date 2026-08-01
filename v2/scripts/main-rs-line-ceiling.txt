@@ -159,4 +159,4 @@
 # machine ready. The deployment boundary remains in main.rs because it owns
 # AppState and the existing HTTP health route; this is a reviewed operational
 # integration exception, with focused health regressions.
-73782
+73775

@@ -29,7 +29,18 @@
     "persona": "The ruin rewards careful questions and punishes anyone who mistakes age for helplessness.",
     "biome": "woodland ruin",
     "terrain": ["fallen masonry", "wet ivy", "open nave"],
-    "memory": ["Keepers once swore to light the road, not rule it.", "A brass key was hidden where noon never reaches."],
+    "memory": ["Keepers once swore to light the road, not rule it."],
+    "knowledge": [
+      {
+        "text": "A brass key was hidden where noon never reaches.",
+        "scope": "location",
+        "visibility": "revealed_after_event",
+        "reveal_event": "lantern_keeper.brass_key_revealed",
+        "sayability": "disclosable",
+        "visuality": "visible",
+        "salience": 95
+      }
+    ],
     "allow_combat": false
   },
   {

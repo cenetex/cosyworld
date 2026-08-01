@@ -10,7 +10,8 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
-      "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca"
+      "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
+      "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e"
     ]
   },
   "pack_lifecycle": {
@@ -738,7 +739,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e",
+  "bundle_hash": "sha256:a802c581ab174a0751125760135d36fabfaf7a989507108e90f410c3810c1ffe",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1901,7 +1902,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d"
+      "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
     },
     {
       "id": "ruby-high.first-bell",

@@ -643,8 +643,8 @@ fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora
     let history = community_art_prompt_history(
         "location",
         &[
-            "Mara Bramblebrook leaves Foxglove Turn behind.".to_string(),
-            "Quiet Rise has chalk in my boots already.".to_string(),
+            "a newly opened path cuts through the chalk".to_string(),
+            "river stones show recent careful tending".to_string(),
         ],
     );
     let plan = CommunityArtPlan {
@@ -1737,10 +1737,9 @@ fn location_brief_truncates_the_joined_stable_traits_instead_of_failing_validati
         "the kept constraint is a prefix of the authored description"
     );
 
-    assert_eq!(
-        brief.pack_negative_constraints.len(),
-        plan.stable_traits.len(),
-        "no stable trait is silently discarded"
+    assert!(
+        brief.pack_negative_constraints.is_empty(),
+        "positive identity traits must never be inverted into negative constraints"
     );
     for constraint in brief
         .required_subjects
