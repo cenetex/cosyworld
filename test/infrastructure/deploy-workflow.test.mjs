@@ -198,12 +198,84 @@ describe('deploy workflow', () => {
       `case "$*" in
         *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
         *"snapshots create"*) echo '{"id":"vs_new","status":"running"}' ;;
-        *"snapshots list"*) echo '[{"id":"vs_new","status":"created"}]' ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_new","status":"created"}]'
+          else
+            touch "$state_file"
+            echo '[]'
+          fi ;;
         *) exit 1 ;;
       esac`
     );
 
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('recovers a verifiable new snapshot when flyctl create returns an empty successful response', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) : ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_existing","status":"created"},{"id":"vs_new","status":"created"}]'
+          else
+            touch "$state_file"
+            echo '[{"id":"vs_existing","status":"created"}]'
+          fi ;;
+        *) exit 1 ;;
+      esac`
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('fails closed when an empty successful create response exposes multiple new snapshots', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) : ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_existing","status":"created"},{"id":"vs_one","status":"created"},{"id":"vs_two","status":"created"}]'
+          else
+            touch "$state_file"
+            echo '[{"id":"vs_existing","status":"created"}]'
+          fi ;;
+        *) exit 1 ;;
+      esac`
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('could not identify exactly one new snapshot');
+  });
+
+  it('recovers the exact new snapshot when Fly emits non-JSON create diagnostics', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_new","status":"created"}]'
+          else
+            touch "$state_file"
+            echo '[]'
+          fi ;;
+        *"snapshots create"*) echo 'snapshot created' ;;
+        *) exit 1 ;;
+      esac`
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('returned no JSON snapshot id');
+    expect(result.stdout).not.toContain('snapshot created');
     expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
   });
 

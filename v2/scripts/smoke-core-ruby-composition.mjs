@@ -63,6 +63,37 @@ async function postJson(url, body) {
   });
 }
 
+async function postJsonExpectingStatus(url, body, expectedStatus) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5_000),
+  });
+  const text = await response.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      `${url} returned HTTP ${response.status} with invalid JSON: ${text.slice(0, 400)} (${error.message})`,
+    );
+  }
+  assert(
+    response.status === expectedStatus,
+    `${url} returned HTTP ${response.status}, expected ${expectedStatus}: ${text.slice(0, 400)}`,
+  );
+  assert(
+    parsed && typeof parsed === "object" && !Array.isArray(parsed),
+    `${url} returned HTTP ${response.status} with a non-object JSON response: ${text.slice(0, 400)}`,
+  );
+  assert(
+    parsed.status === expectedStatus,
+    `${url} returned JSON status ${parsed.status}, expected ${expectedStatus}: ${text.slice(0, 400)}`,
+  );
+  return parsed;
+}
+
 async function waitForMeta(baseUrl, proc, output) {
   const deadline = Date.now() + 10_000;
   let lastError = null;
@@ -258,8 +289,15 @@ async function move(baseUrl, actorId, actorSession, destinationLocationId) {
   return result;
 }
 
-async function submitOffer(baseUrl, offer, path, payload, compositionId = offer.composition_id) {
-  return postJson(`${baseUrl}/actions/submit`, {
+async function submitOffer(
+  baseUrl,
+  offer,
+  path,
+  payload,
+  compositionId = offer.composition_id,
+  expectedStatus,
+) {
+  const body = {
     path,
     offer_id: offer.offer_id,
     composition_id: compositionId,
@@ -272,7 +310,10 @@ async function submitOffer(baseUrl, offer, path, payload, compositionId = offer.
     target: offer.target,
     cost: offer.cost,
     payload,
-  });
+  };
+  return expectedStatus === undefined
+    ? postJson(`${baseUrl}/actions/submit`, body)
+    : postJsonExpectingStatus(`${baseUrl}/actions/submit`, body, expectedStatus);
 }
 
 async function discoverExit(baseUrl, actorId, actorSession, destinationLocationId) {
@@ -452,6 +493,7 @@ async function main() {
       "/actions/move",
       travelPayload,
       `sha256:${"0".repeat(64)}`,
+      409,
     );
     assert(
       rejectedTravel.ok === false

@@ -190,6 +190,37 @@ async function postJson(url, body, timeoutMs) {
   }, timeoutMs);
 }
 
+async function postJsonExpectingStatus(url, body, expectedStatus, timeoutMs) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs ?? 5_000),
+  });
+  const text = await response.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      `${url} returned HTTP ${response.status} with invalid JSON: ${text.slice(0, 400)} (${error.message})`,
+    );
+  }
+  assert(
+    response.status === expectedStatus,
+    `${url} returned HTTP ${response.status}, expected ${expectedStatus}: ${text.slice(0, 400)}`,
+  );
+  assert(
+    parsed && typeof parsed === "object" && !Array.isArray(parsed),
+    `${url} returned HTTP ${response.status} with a non-object JSON response: ${text.slice(0, 400)}`,
+  );
+  assert(
+    parsed.status === expectedStatus,
+    `${url} returned JSON status ${parsed.status}, expected ${expectedStatus}: ${text.slice(0, 400)}`,
+  );
+  return parsed;
+}
+
 async function waitForMeta(baseUrl, proc, output) {
   const deadline = Date.now() + 10_000;
   let lastError = null;
@@ -383,12 +414,12 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     chosen.ok === true && chosen.events?.filter((event) => event.type === "class.chosen").length === 1,
     `Lantern Keeper Class selection did not commit exactly once: ${JSON.stringify(chosen)}`,
   );
-  const duplicate = await postJson(`${baseUrl}/avatar/class`, {
+  const duplicate = await postJsonExpectingStatus(`${baseUrl}/avatar/class`, {
     actor_id: actorId,
     actor_session: actorSession,
     character_creation_id: "the-lantern-keeper",
     class_id: "lantern-warden",
-  });
+  }, 409);
   assert(
     duplicate.ok === false && duplicate.status === 409,
     `Lantern Keeper allowed Class selection to be replayed: ${JSON.stringify(duplicate)}`,
@@ -480,12 +511,12 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
         matchesProjectOffer(offer, "lantern-keeper:rekindle-the-beacon")),
     `Lantern Keeper did not reach Saint Orra with the shortcut still closed: ${JSON.stringify(lanternJourneySummary(saintOrra))}`,
   );
-  const shortcut = await postJson(`${baseUrl}/commands`, {
+  const shortcut = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
     wallet_address: walletAddress,
     command: "work",
-  });
+  }, 409);
   assert(
     shortcut.ok === false && shortcut.events?.length === 0,
     `Lantern Keeper accepted the Saint Orra finale shortcut: ${JSON.stringify(shortcut)}`,
@@ -579,13 +610,13 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
   traceLantern("lantern Tower ready", towerReady);
 
-  const tamperedOffer = await postJson(`${baseUrl}/commands`, {
+  const tamperedOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
     wallet_address: walletAddress,
     offer_id: `${initialWorkOffer.offer_id}:tampered`,
     command: initialWorkOffer.command,
-  });
+  }, 404);
   assert(
     tamperedOffer.ok === false
       && tamperedOffer.status === 404
@@ -595,13 +626,13 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   );
 
   const firstTowerListen = await command(baseUrl, actorId, actorSession, "listen");
-  const staleOffer = await postJson(`${baseUrl}/commands`, {
+  const staleOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
     wallet_address: walletAddress,
     offer_id: initialWorkOffer.offer_id,
     command: initialWorkOffer.command,
-  });
+  }, 409);
   assert(
     staleOffer.ok === false
       && staleOffer.status === 409
@@ -674,10 +705,10 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
     JSON.stringify(retriedFinale) === JSON.stringify(finale),
     `Lantern Keeper finale retry was not idempotent: ${JSON.stringify({ finale, retriedFinale })}`,
   );
-  const conflictingRetry = await postJson(`${baseUrl}/commands`, {
+  const conflictingRetry = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     ...finalePayload,
     offer_id: `${freshWorkOffer.offer_id}:tampered-retry`,
-  });
+  }, 409);
   assert(
     conflictingRetry.ok === false
       && conflictingRetry.status === 409
@@ -986,12 +1017,12 @@ async function runWorldLoop(spec) {
           offers: discovered.action_offers?.map(({ kind, target }) => ({ kind, target })),
         })}`,
       );
-      const repeated = await postJson(`${first.baseUrl}/commands`, {
+      const repeated = await postJsonExpectingStatus(`${first.baseUrl}/commands`, {
         actor_id: actorId,
         actor_session: actorSession,
         wallet_address: walletAddress,
         command: `scout ${spec.scoutDestination}`,
-      });
+      }, 404);
       assert(
         repeated.ok === false,
         `${spec.label} allowed its already-discovered route to be scouted again`,
@@ -1147,10 +1178,10 @@ async function assertServicesContract(server, expectedPackIds) {
         pack.notices?.some((notice) => notice.text.includes("System Reference Document 5.2.1"))),
     `services-only licenses are incomplete: ${JSON.stringify(licenses)}`,
   );
-  const rejected = await postJson(`${server.baseUrl}/avatar`, {
+  const rejected = await postJsonExpectingStatus(`${server.baseUrl}/avatar`, {
     name: "No World Walker",
     wallet_address: walletAddress,
-  });
+  }, 503);
   assert(
     rejected.ok === false
       && rejected.status === 503
