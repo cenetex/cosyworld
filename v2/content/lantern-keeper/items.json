@@ -265,6 +265,21 @@
     "pack_id": "cosyworld.core"
   },
   {
+    "id": 8405,
+    "name": "Keeper's Camp Kit",
+    "description": "A waxed roadroll, two lantern stakes, and a canvas hood made for resting beside an unlit road.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 800,
+    "role": "tool",
+    "capabilities": [
+      "camp_shelter"
+    ],
+    "weight_tenths": 30,
+    "size": "medium",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
     "id": 8401,
     "name": "Keeper's Brass Key",
     "description": "A heavy key warm on one side and cold on the other, cut for the Lantern Tower's inner lock.",

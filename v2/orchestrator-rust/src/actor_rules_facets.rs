@@ -1,5 +1,58 @@
 use super::*;
 
+impl RuntimeWorld {
+    pub(super) fn default_search_target(&self, actor_id: u64) -> Option<RoomSearchTarget> {
+        let actor = self.actor_by_id(actor_id)?;
+        if actor.location_id == COSY_COTTAGE_LOCATION_ID
+            && self.listen_attempt_claimed_at(actor_id, actor.location_id)
+            && !self.feature_search_claimed(actor_id, actor.location_id, SCARF_BASKET_FEATURE_KEY)
+        {
+            let feature = self
+                .room_features(actor.location_id)
+                .into_iter()
+                .find(|feature| feature.key == SCARF_BASKET_FEATURE_KEY)?;
+            return Some(RoomSearchTarget::feature(feature));
+        }
+        if let Some(feature) = self
+            .room_features(actor.location_id)
+            .into_iter()
+            .find(|feature| {
+                !self.feature_search_claimed(actor_id, actor.location_id, &feature.key)
+                    && self.jobs.values().any(|job| {
+                        self.job_status(job) == "active"
+                            && job.contribution_strategies.iter().any(|strategy| {
+                                strategy.requirements.iter().any(|requirement| {
+                                    matches!(
+                                        requirement,
+                                        ContributionRequirement::FeatureSearched {
+                                            location_id,
+                                            feature_key,
+                                        } if *location_id == actor.location_id
+                                            && feature_key == &feature.key
+                                    )
+                                })
+                            })
+                    })
+            })
+        {
+            return Some(RoomSearchTarget::feature(feature));
+        }
+        if self
+            .search_reveal_candidates_for_location(actor.location_id)
+            .is_empty()
+        {
+            return None;
+        }
+        let location_name = self
+            .location_name(actor.location_id)
+            .unwrap_or_else(|| format!("Location {}", actor.location_id));
+        Some(RoomSearchTarget::virtual_room(
+            actor.location_id,
+            location_name,
+        ))
+    }
+}
+
 const ACTOR_RULES_FACET_SCHEMA_VERSION: u8 = 1;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -170,6 +223,106 @@ impl RuntimeWorld {
         projection_events
     }
 
+    fn first_meaningful_class_readiness_event(
+        actor_id: u64,
+        events: &[EventView],
+    ) -> Option<&EventView> {
+        events.iter().find(|event| {
+            event.actor_id == Some(actor_id)
+                && event.success
+                && (matches!(
+                    event.type_name.as_str(),
+                    "actor.moved"
+                        | "ability_check.rolled"
+                        | "location.searched"
+                        | "feature.searched"
+                        | "exit.discovered"
+                        | "avatar.discovered"
+                        | "item.picked_up"
+                        | "item.dropped"
+                        | "item.used"
+                        | "item.given"
+                        | "item.traded"
+                        | "combat.attack.attempt"
+                        | "combat.attack.hit"
+                        | "combat.attack.miss"
+                        | "combat.defend"
+                        | "combat.flee.success"
+                ) || (matches!(event.type_name.as_str(), "tag.applied" | "tag.cleared")
+                    && matches!(event.tag_label.as_deref(), Some("prepared") | Some("tired"))))
+        })
+    }
+
+    fn generic_class_readiness_evidence(
+        &self,
+        record: &JournalRecord,
+        action: &CwAction,
+        committed_events: &[EventView],
+    ) -> Option<ClassReadinessEvidence> {
+        if action.kind == CW_ACTION_SAY {
+            return None;
+        }
+        let event =
+            Self::first_meaningful_class_readiness_event(action.actor_id, committed_events)?;
+        let offer_kind = Self::resident_record_offer_kind(record);
+        let strategy_label = self.action_offer_verb(&offer_kind, action.actor_id);
+        let label = self
+            .card_reaction_subject(event)
+            .or_else(|| event.location_name.clone())
+            .unwrap_or_else(|| "the world around you".to_string());
+        let (target_kind, target_id) = match event.type_name.as_str() {
+            "actor.moved" | "combat.flee.success" | "exit.discovered" => (
+                "location",
+                event
+                    .destination_location_id
+                    .or(event.location_id)
+                    .map(|id| id.to_string()),
+            ),
+            "avatar.discovered"
+            | "combat.attack.attempt"
+            | "combat.attack.hit"
+            | "combat.attack.miss" => ("actor", event.target_actor_id.map(|id| id.to_string())),
+            "item.picked_up" | "item.dropped" | "item.used" | "item.given" => {
+                ("item", event.item_id.map(|id| id.to_string()))
+            }
+            "item.traded" => (
+                "item",
+                event
+                    .target_item_id
+                    .or(event.item_id)
+                    .map(|id| id.to_string()),
+            ),
+            "feature.searched" => (
+                "feature",
+                event.location_id.map(|location_id| {
+                    format!(
+                        "{location_id}:{}",
+                        label.to_ascii_lowercase().replace(' ', "_")
+                    )
+                }),
+            ),
+            "tag.applied" | "tag.cleared" => ("tag", event.tag_id.clone()),
+            _ => ("location", event.location_id.map(|id| id.to_string())),
+        };
+        let target = ResolvedContributionTarget {
+            kind: target_kind.to_string(),
+            id: target_id.unwrap_or_else(|| format!("event:{}", event.seq)),
+            label,
+        };
+        Some(ClassReadinessEvidence {
+            offer_kind,
+            strategy_label: strategy_label.clone(),
+            summary: format!(
+                "{strategy_label} at {} became your first meaningful world action.",
+                target.label
+            ),
+            target,
+            outcome: "committed".to_string(),
+            progress: 0,
+            source_event_seq: event.seq,
+        })
+    }
+
     pub(super) fn apply_class_readiness_projection(
         &mut self,
         record: &JournalRecord,
@@ -194,7 +347,7 @@ impl RuntimeWorld {
         {
             return Vec::new();
         }
-        let Some((source_event_seq, trace)) = committed_events.iter().find_map(|event| {
+        let contribution_evidence = committed_events.iter().find_map(|event| {
             (event.type_name == "job.contribution.resolved"
                 && event.actor_id == Some(action.actor_id))
             .then(|| {
@@ -206,16 +359,23 @@ impl RuntimeWorld {
                     .map(|trace| (event.seq, trace))
             })
             .flatten()
-        }) else {
+        });
+        let evidence = contribution_evidence
+            .map(|(source_event_seq, trace)| ClassReadinessEvidence {
+                offer_kind: trace.action_kind.clone(),
+                strategy_label: trace.strategy_label.clone(),
+                target: trace.target.clone(),
+                outcome: trace.outcome.clone(),
+                summary: format!(
+                    "{} changed {} by +{} progress.",
+                    trace.strategy_label, trace.target.label, trace.total_progress
+                ),
+                progress: trace.total_progress,
+                source_event_seq,
+            })
+            .or_else(|| self.generic_class_readiness_evidence(record, action, committed_events));
+        let Some(evidence) = evidence else {
             return Vec::new();
-        };
-        let evidence = ClassReadinessEvidence {
-            offer_kind: trace.action_kind.clone(),
-            strategy_label: trace.strategy_label.clone(),
-            target: trace.target.clone(),
-            outcome: trace.outcome.clone(),
-            progress: trace.total_progress,
-            source_event_seq,
         };
         let became_ready = {
             let Some(identity) = self.character_identities.get_mut(&action.actor_id) else {
@@ -264,11 +424,8 @@ impl RuntimeWorld {
             action.actor_id,
             None,
             Some(format!(
-                "{} changed {} by +{} progress. Optional campaign rules are now available.{}",
-                evidence.strategy_label,
-                evidence.target.label,
-                evidence.progress,
-                recommendation_copy
+                "{} Optional campaign rules are now available.{}",
+                evidence.summary, recommendation_copy
             )),
         )]
     }
@@ -648,6 +805,130 @@ mod tests {
                 runtime.character_identities[&RATI_ACTOR_ID].class_readiness_evidence
             );
         }
+    }
+
+    #[test]
+    fn first_committed_search_reveals_class_without_waiting_for_finale_work() {
+        let mut runtime = RuntimeWorld::seeded();
+        let actor_id = RATI_ACTOR_ID;
+        runtime.character_identities.insert(
+            actor_id,
+            AvatarIdentityState {
+                actor_id,
+                profile_id: "the-lantern-keeper".to_string(),
+                species_id: "human".to_string(),
+                origin_id: "old-chapel".to_string(),
+                physical_description: String::new(),
+                class_id: None,
+                class_selection_ready: false,
+                qualifying_world_actions: 0,
+                class_source_event_seq: None,
+                class_readiness_evidence: None,
+            },
+        );
+        let action = CwAction {
+            kind: CW_ACTION_SEARCH,
+            actor_id,
+            location_id: 800,
+            ..CwAction::default()
+        };
+        let mut record = JournalRecord::new(action, 2).into_player_card();
+        record.bind_offer_kind("search");
+        let feature_search = EventView {
+            seq: 51,
+            type_name: "feature.searched".to_string(),
+            success: true,
+            actor_id: Some(actor_id),
+            location_id: Some(800),
+            location_name: Some("Wayside Lantern Inn".to_string()),
+            content: Some(
+                "failing lantern: Its wick points toward Rowan Vale's missing tower.".to_string(),
+            ),
+            ..EventView::default()
+        };
+
+        let readiness = runtime.apply_class_readiness_projection(
+            &record,
+            &action,
+            std::slice::from_ref(&feature_search),
+        );
+
+        assert_eq!(readiness.len(), 1);
+        assert_eq!(readiness[0].type_name, "class.selection_ready");
+        let identity = &runtime.character_identities[&actor_id];
+        assert!(identity.class_selection_ready);
+        assert_eq!(identity.qualifying_world_actions, 1);
+        let evidence = identity
+            .class_readiness_evidence
+            .as_ref()
+            .expect("the first meaningful world action is frozen");
+        assert_eq!(evidence.offer_kind, "search");
+        assert_eq!(evidence.target.kind, "feature");
+        assert_eq!(evidence.target.label, "failing lantern");
+        assert_eq!(evidence.progress, 0);
+        assert_eq!(evidence.source_event_seq, feature_search.seq);
+        assert!(evidence.summary.contains("first meaningful world action"));
+        assert_eq!(
+            runtime
+                .character_identity_view(actor_id)
+                .and_then(|view| view.class_recommendation)
+                .map(|recommendation| recommendation.class_id),
+            Some("mothwood-guide".to_string())
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("search readiness survives snapshot restore");
+        assert_eq!(
+            restored.character_identities[&actor_id].class_readiness_evidence,
+            identity.class_readiness_evidence
+        );
+    }
+
+    #[test]
+    fn chat_only_speech_does_not_reveal_class() {
+        let mut runtime = RuntimeWorld::seeded();
+        let actor_id = RATI_ACTOR_ID;
+        runtime.character_identities.insert(
+            actor_id,
+            AvatarIdentityState {
+                actor_id,
+                profile_id: "the-lantern-keeper".to_string(),
+                species_id: "human".to_string(),
+                origin_id: "old-chapel".to_string(),
+                physical_description: String::new(),
+                class_id: None,
+                class_selection_ready: false,
+                qualifying_world_actions: 0,
+                class_source_event_seq: None,
+                class_readiness_evidence: None,
+            },
+        );
+        let action = CwAction {
+            kind: CW_ACTION_SAY,
+            actor_id,
+            ..CwAction::default()
+        };
+        let record = JournalRecord::new(action, 3).into_player_card();
+        let message = EventView {
+            seq: 52,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(actor_id),
+            ..EventView::default()
+        };
+
+        let readiness = runtime.apply_class_readiness_projection(
+            &record,
+            &action,
+            std::slice::from_ref(&message),
+        );
+
+        assert!(readiness.is_empty());
+        let identity = &runtime.character_identities[&actor_id];
+        assert!(!identity.class_selection_ready);
+        assert_eq!(identity.qualifying_world_actions, 0);
+        assert!(identity.class_readiness_evidence.is_none());
     }
 
     #[test]

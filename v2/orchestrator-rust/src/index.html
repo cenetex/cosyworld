@@ -5588,7 +5588,7 @@
           const evidence = characterIdentity.class_readiness_evidence || null;
           const recommendation = characterIdentity.class_recommendation || null;
           const evidenceSummary = evidence
-            ? `${evidence.strategy_label} changed ${evidence.target?.label || "a shared task"} by +${evidence.progress} progress.`
+            ? (evidence.summary || `${evidence.strategy_label} changed ${evidence.target?.label || "a shared task"} by +${evidence.progress} progress.`)
             : "A shared-world contribution made campaign Class rules available.";
           const recommendationSummary = recommendation
             ? `${recommendation.class_label} is recommended because ${lowerInitial(recommendation.explanation)}`
@@ -12847,7 +12847,7 @@
           || null;
         return [
           evidence
-            ? ["First qualifying action", `${evidence.strategy_label} changed ${evidence.target?.label || "a shared task"} by +${evidence.progress} progress (${evidence.outcome})`]
+            ? ["First qualifying action", evidence.summary || `${evidence.strategy_label} changed ${evidence.target?.label || "a shared task"} by +${evidence.progress} progress (${evidence.outcome})`]
             : ["First qualifying action", "a contribution changed a shared task"],
           recommendation
             ? ["Recommendation", `${recommendation.class_label}: ${recommendation.explanation}`]

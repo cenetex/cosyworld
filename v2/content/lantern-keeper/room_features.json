@@ -351,7 +351,12 @@
     "uses": [
       {
         "item_id": 8403,
-        "text": "The Dawn Oil burns without heat, and every false reflection in the water goes dark."
+        "text": "The Dawn Oil burns without heat. Every false reflection goes dark, the moth-shadow slips out of the empty armor, and the Moth-Eaten Knight yields the road without a blow.",
+        "encounter_resolution": {
+          "job_id": "lantern-keeper:rekindle-the-beacon",
+          "target_actor_id": 8303,
+          "winning_side": 1
+        }
       }
     ],
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
