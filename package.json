@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.309",
+  "version": "0.0.310",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -22,7 +22,7 @@
     "v2:smoke": "./v2/mvp.sh smoke",
     "v2:browser:check": "./v2/mvp.sh browser-check",
     "v2:smoke:ruby-high-deploy": "node v2/scripts/smoke-deployed-ruby-high.mjs",
-    "v2:lonelyforest:contract": "node --test v2/scripts/lonelyforest-multitenant-contract.test.mjs",
+    "v2:lonelyforest:contract": "node --test v2/scripts/lonelyforest-multitenant-contract.test.mjs v2/scripts/smoke-lonelyforest-multitenant.test.mjs",
     "v2:lonelyforest:smoke": "node v2/scripts/smoke-lonelyforest-multitenant.mjs",
     "v2:check": "./v2/mvp.sh check",
     "v2:stop": "./v2/mvp.sh stop",
