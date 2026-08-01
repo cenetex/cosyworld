@@ -32,6 +32,7 @@ Relevant implementation points:
 - `POST /actions/say` is a separate, non-AI route: it takes player-typed `content` directly, moderates/sanitizes it, and commits it as a `message.created` room event with no LLM call involved. This is the human-typed room-speech path that `Chat` intentionally does not provide.
 - Successful card commits atomically enqueue a delayed, durable room heartbeat. One pending/running heartbeat per room coalesces later cards.
 - Resident replies are one-to-many world events. Their inference context includes the current card event and recent channel log, not only the latest spoken line.
+- An image-only cast binding receives the same grounded heartbeat as a visual prompt. The gateway calls the exact bound OpenRouter model through `POST /images`, buffers and decodes one bounded image, runs a fail-closed vision publication review, and journals an `image.created` event only after approval. The original prompt and rejected bytes never enter the public event.
 - Chat has no Orb affordability check or ledger mutation; its authoritative cost is one advancement point.
 - Generated cards use deterministic/local art as a safe fallback. Eligible avatars, runtime items, and familiar generated locations can replace it through a community-funded Replicate image job.
 - The C kernel already has combat primitives for safe-room rejection, attack, defend, flee, and potion use.
@@ -62,7 +63,7 @@ Official OpenRouter docs confirm the integration shape:
 
 - Authentication uses Bearer tokens, and API keys can have credit limits and OAuth flows: https://openrouter.ai/docs/api/reference/authentication
 - Key credit/rate information can be checked with `GET https://openrouter.ai/api/v1/key`: https://openrouter.ai/docs/api/reference/limits
-- Image generation is available through Chat Completions and Responses, with image-capable models discoverable via `output_modalities=image`: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+- Image generation is available through the dedicated `POST /api/v1/images` endpoint, with image-capable models discoverable via `output_modalities=image`: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
 - The Models API exposes model architecture, modalities, pricing, and supported parameters: https://openrouter.ai/docs/api/api-reference/models/get-models
 - Structured outputs use `response_format` with JSON schema on compatible models: https://openrouter.ai/docs/guides/features/structured-outputs
 
@@ -135,7 +136,7 @@ Community image generation is different: the server validates a level-scoped sha
 
 ## AI Gateway
 
-The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Text selection uses a versioned immutable capability-registry snapshot: `voice`, `intent_json`, and `world_content` have independent declared pools, provider discovery cannot grant eligibility, and each request pins one candidate plus its prompt-adapter and catalog versions. Avatar voice publication adds durable, weighted selection without replacement, bounded attempts/hedges/latency/spend, separately dimensioned content and provider-health evidence, and exactly one publication-gated winner; replay returns the accepted receipt without rerunning selection. Resident `intent_json` composition is intentionally unchanged pending the voice/intent split. Mutable aliases require the provider response's concrete model for attribution. Production data policy permits a prompt to leave CosyWorld only after an explicit no-retention/no-training declaration passes. Persisted attribution is self-contained so refreshes cannot rewrite in-flight or historical identity. The capability contract is in `v2/docs/ai-capability-registry.md`; visibility-aware, context-dominant prompt assembly is in `v2/docs/context-dominant-prompting.md`.
+The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Selection uses versioned immutable capability facts: `voice`, `intent_json`, `world_content`, and `image_generation` require compatible declared modalities, and each request pins one candidate plus its prompt-adapter and catalog versions. Elysium image replies use the actor's exact checked-in binding rather than a fallback model. Avatar voice publication adds durable, weighted selection without replacement, bounded attempts/hedges/latency/spend, separately dimensioned content and provider-health evidence, and exactly one publication-gated winner; replay returns the accepted receipt without rerunning selection. Resident `intent_json` composition is intentionally unchanged pending the voice/intent split. Mutable aliases require the provider response's concrete model for attribution. Production data policy permits a prompt to leave CosyWorld only after an explicit no-retention/no-training declaration passes. Persisted attribution is self-contained so refreshes cannot rewrite in-flight or historical identity. The capability contract is in `v2/docs/ai-capability-registry.md`; visibility-aware, context-dominant prompt assembly is in `v2/docs/context-dominant-prompting.md`.
 
 Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
 
@@ -358,14 +359,11 @@ Recommended provider path:
 3. Existing Google Gemini composition fallback for multi-reference scenes.
 4. Deterministic local placeholder only when no configured media provider exists.
 
-Ruby High already demonstrates the OpenRouter response parsing shape:
-
-- request `modalities: ["image", "text"]`;
-- pass reference images as `{ type: "image_url", image_url: { url } }` content parts;
-- read `choices[0].message.images[0].image_url.url`;
-- upload data URLs to stable object storage when available.
-
-CosyWorld should generalize that into Rust rather than copying the Ruby High TypeScript directly.
+For text-to-image resident replies, CosyWorld sends `model` and `prompt` to
+`POST /images`, accepts one bounded `data[0].b64_json` result, validates its
+declared or detected image format and decoded dimensions, and writes it to
+stable immutable storage only after review. Reference-based composition remains
+a separate future media-job concern.
 
 ### Image Ownership
 
@@ -805,7 +803,7 @@ Current status: partially implemented. Moonlit Trail exposes `Attack`, `Defend`,
 
 ### Stage 5: Generalized Media Jobs
 
-- Port Ruby High's OpenRouter portrait/composition response parsing into Rust.
+- Generalize the resident `POST /images` provider path for portrait and composition jobs.
 - Add `media_jobs` and `media_assets`.
 - Move the current community card-image worker behind a durable, provider-neutral queue and object storage.
 - Generate combat scene media asynchronously from committed combat events.

@@ -16,7 +16,7 @@ For free public Chat, community-funded evolving card art, combat rewards, and se
 - `core-c/`: deterministic C rules kernel.
 - `ai-model-rust/`: deterministic local AI generation model with native and WASM exports.
 - `orchestrator-rust/`: Rust HTTP/SSE host that compiles and calls the C kernel through FFI.
-- `orchestrator-rust/src/ai_gateway.rs`: OpenAI-compatible/OpenRouter text inference configuration, bounded retries, timeouts, typed failures, and request telemetry.
+- `orchestrator-rust/src/ai_gateway.rs`: OpenAI-compatible/OpenRouter text and exact-bound image inference, bounded retries and response sizes, timeouts, typed failures, and request telemetry.
 - `orchestrator-rust/src/routes.rs`: HTTP route table extracted from the runtime bootstrap.
 - `orchestrator-rust/src/world_simulation.rs`: deterministic played-time weather, trade, faction, and conflict reducer.
 - `orchestrator-rust/src/index.html`: one-button browser MUD shell served by the Rust host.

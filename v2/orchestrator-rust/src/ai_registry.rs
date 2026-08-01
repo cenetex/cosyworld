@@ -39,6 +39,7 @@ pub(crate) enum ModelCapability {
     Voice,
     IntentJson,
     WorldContent,
+    ImageGeneration,
 }
 
 impl ModelCapability {
@@ -47,6 +48,7 @@ impl ModelCapability {
             Self::Voice => "voice",
             Self::IntentJson => "intent_json",
             Self::WorldContent => "world_content",
+            Self::ImageGeneration => "image_generation",
         }
     }
 }
@@ -410,14 +412,20 @@ impl ModelCandidate {
     fn supports(&self, capability: ModelCapability) -> bool {
         self.declared_capabilities.contains(&capability)
             && self.input_modalities.contains(&ModelModality::Text)
-            && self.output_modalities.contains(&ModelModality::Text)
             && match capability {
-                ModelCapability::Voice => true,
+                ModelCapability::Voice => self.output_modalities.contains(&ModelModality::Text),
                 ModelCapability::IntentJson => {
-                    self.supported_parameters.json_mode
-                        || self.supported_parameters.structured_output
+                    self.output_modalities.contains(&ModelModality::Text)
+                        && (self.supported_parameters.json_mode
+                            || self.supported_parameters.structured_output)
                 }
-                ModelCapability::WorldContent => self.supported_parameters.structured_output,
+                ModelCapability::WorldContent => {
+                    self.output_modalities.contains(&ModelModality::Text)
+                        && self.supported_parameters.structured_output
+                }
+                ModelCapability::ImageGeneration => {
+                    self.output_modalities.contains(&ModelModality::Image)
+                }
             }
     }
 
@@ -502,6 +510,7 @@ impl CapabilityRegistrySnapshot {
                 ModelCapability::Voice,
                 ModelCapability::IntentJson,
                 ModelCapability::WorldContent,
+                ModelCapability::ImageGeneration,
             ] {
                 if candidate.supports(capability) {
                     pools.entry(capability).or_default().push(key.clone());
@@ -888,6 +897,7 @@ fn missing_parameters(
             ),
         ModelCapability::WorldContent => (!parameters.structured_output)
             .then_some("\"supported_parameters\":{\"structured_output\":true}"),
+        ModelCapability::ImageGeneration => None,
     }
 }
 
@@ -1028,6 +1038,108 @@ impl PinnedModelSelection {
         Ok(Self {
             snapshot_version: catalog_snapshot_version,
             capability: ModelCapability::Voice,
+            candidate: Arc::new(candidate),
+        })
+    }
+
+    pub(crate) fn from_actor_image_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Self, RegistryError> {
+        let requested_model_id =
+            normalize_model_id(&binding.requested_model_id, "requested model id")?;
+        let provider = normalize_provider(&binding.provider)?;
+        if provider != "openrouter" {
+            return Err(RegistryError::InvalidField {
+                field: "provider",
+                detail: "actor image-model bindings must use openrouter".to_string(),
+            });
+        }
+        let text_input = binding.input_modalities.iter().any(|value| value == "text");
+        let image_output = binding
+            .output_modalities
+            .iter()
+            .any(|value| value == "image");
+        if !text_input || !image_output {
+            return Err(RegistryError::CapabilityMismatch {
+                model: requested_model_id,
+                capability: ModelCapability::ImageGeneration,
+            });
+        }
+        if policy_mode == DataPolicyMode::Production && !binding.zero_data_retention {
+            return Err(RegistryError::PrivacyRejected {
+                model: requested_model_id,
+            });
+        }
+        let catalog_snapshot_version = normalize_token(
+            &binding.catalog_snapshot_version,
+            "registry snapshot version",
+            128,
+        )?;
+        let concrete_model_id = normalize_model_id(&binding.canonical_slug, "concrete model id")?;
+        let modalities = |values: &[String]| {
+            values
+                .iter()
+                .filter_map(|value| match value.as_str() {
+                    "text" => Some(ModelModality::Text),
+                    "image" => Some(ModelModality::Image),
+                    "audio" | "speech" | "transcription" => Some(ModelModality::Audio),
+                    "video" => Some(ModelModality::Video),
+                    _ => None,
+                })
+                .collect::<BTreeSet<_>>()
+        };
+        let data_policy = if binding.zero_data_retention {
+            DataPolicyEligibility {
+                retention: DataRetention::None,
+                training: TrainingUse::Prohibited,
+            }
+        } else {
+            DataPolicyEligibility::default()
+        };
+        let family = requested_model_id
+            .split_once('/')
+            .map(|(provider, _)| provider.to_string());
+        let candidate = ModelCandidate {
+            requested_model_id,
+            provider,
+            concrete_model: Some(ConcreteModelIdentity {
+                model_id: concrete_model_id,
+                revision: None,
+            }),
+            mutable_alias: false,
+            family,
+            size_class: None,
+            input_modalities: modalities(&binding.input_modalities),
+            output_modalities: modalities(&binding.output_modalities),
+            context_limit: binding.context_length,
+            output_limit: binding.max_completion_tokens,
+            supported_parameters: SupportedParameters {
+                seed: binding
+                    .supported_parameters
+                    .iter()
+                    .any(|value| value == "seed"),
+                ..SupportedParameters::default()
+            },
+            data_policy,
+            prompt_adapter: PromptAdapterRef {
+                id: "openrouter-image".to_string(),
+                version: "1".to_string(),
+            },
+            sampling: SamplingDefaults::default(),
+            declared_capabilities: BTreeSet::from([ModelCapability::ImageGeneration]),
+            discovered_capabilities: BTreeSet::new(),
+            observations: CandidateObservations {
+                input_cost_per_million: binding.input_cost_per_million,
+                output_cost_per_million: binding.output_cost_per_million,
+                ..CandidateObservations::default()
+            },
+            declared: true,
+            discovered: true,
+        };
+        Ok(Self {
+            snapshot_version: catalog_snapshot_version,
+            capability: ModelCapability::ImageGeneration,
             candidate: Arc::new(candidate),
         })
     }

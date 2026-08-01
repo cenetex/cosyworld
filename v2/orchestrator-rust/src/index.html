@@ -1030,6 +1030,27 @@
       border-left-color: rgba(239, 201, 107, 0.4);
       background: linear-gradient(90deg, rgba(239, 201, 107, 0.05), transparent 58%);
     }
+    .line.chat.image-reply .text {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+    .resident-reply-image {
+      display: block;
+      width: min(100%, 640px);
+      max-height: min(68vh, 720px);
+      object-fit: contain;
+      object-position: left top;
+      border: 1px solid rgba(239, 201, 107, 0.34);
+      border-radius: 12px;
+      background: rgba(8, 11, 9, 0.72);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+    }
+    .resident-image-alt {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.35;
+    }
     .line.chat.pending {
       opacity: 0.78;
     }
@@ -8161,7 +8182,7 @@
     }
 
     function messageActorUsesInference(event) {
-      if (event?.type !== "message.created") return false;
+      if (!["message.created", "image.created"].includes(event?.type)) return false;
       const numericActorId = Number(event.actor_id || 0);
       const actor = actorForId(numericActorId);
       return event.source_world_tick != null
@@ -8193,7 +8214,7 @@
         const event = events[index];
         const eventLocationId = Number(event?.location_id || 0);
         if (currentLocationId && eventLocationId && eventLocationId !== currentLocationId) continue;
-        if (event?.type === "message.created") {
+        if (["message.created", "image.created"].includes(event?.type)) {
           visible.push(event);
           continue;
         }
@@ -8443,7 +8464,7 @@
       if (selected) return selected;
       if (!avatars.length) return actorForId(actorId);
       const latestAvatarId = [...logEvents].reverse().find((event) => (
-        event?.type === "message.created"
+        ["message.created", "image.created"].includes(event?.type)
         && avatars.some((actor) => Number(actor.id) === Number(event.actor_id))
       ))?.actor_id;
       if (!latestAvatarId) return avatars[0];
@@ -8630,7 +8651,7 @@
       return muted.has(Number(event?.actor_id || 0));
     }
 
-    const chatEventTypes = new Set(["message.created"]);
+    const chatEventTypes = new Set(["message.created", "image.created"]);
     const combatTranscriptEventTypes = new Set([
       "combat.encounter.started",
       "combat.attack.attempt",
@@ -9026,6 +9047,7 @@
         || event.type === "turn.timeout_requested"
         || event.type === "turn.timeout_passed"
         || event.type === "message.created"
+        || event.type === "image.created"
         || event.type === "chat.failed"
         || event.type === "dialogue.unavailable"
         || event.type === "dialogue.delivered"
@@ -9907,7 +9929,7 @@
 
     function roomMemoryEntryForEvent(event) {
       if (!event) return null;
-      if (event.type === "message.created") {
+      if (["message.created", "image.created"].includes(event.type)) {
         return null;
       }
       if (
@@ -10093,7 +10115,7 @@
         return { kind: "bond", label: "relationship", text: cleanStatusText(event.content || "earned trust changes the relationship") };
       }
       if (event.type === "dialogue.unavailable") {
-        return { kind: "bond", label: "dialogue unavailable", text: "The promised resident reply could not run. No substitute speech was created." };
+        return { kind: "bond", label: "reply unavailable", text: "The promised resident reply could not run. No substitute reply was created." };
       }
       if (event.type === "calling.set") {
         if (callingEventReason(event) === "avatar_created") {
@@ -10291,7 +10313,7 @@
         || Boolean(pendingChatReplies)
         || Boolean(defeatScene);
       const inferredOnly = visibleEvents.length > 0 && visibleEvents.every((event) => (
-        event.type === "message.created" && messageActorUsesInference(event)
+        ["message.created", "image.created"].includes(event.type) && messageActorUsesInference(event)
       ));
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
@@ -10647,11 +10669,12 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return event?.type === "message.created";
+      return ["message.created", "image.created"].includes(event?.type);
     }
 
     function transcriptEventHtml(event) {
       if (event?.type === "message.created") return messageHtml(event);
+      if (event?.type === "image.created") return residentImageHtml(event);
       if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
       return sceneCardEventHtml(event);
     }
@@ -10998,6 +11021,7 @@
 
     function timelineEventHtml(event) {
       if (event.type === "message.created") return messageHtml(event);
+      if (event.type === "image.created") return residentImageHtml(event);
       if (isRollEvent(event)) return rollHtml(event);
       return sceneCardEventHtml(event);
     }
@@ -11029,7 +11053,7 @@
         return "The conversation slipped away before it could begin. Try talking again.";
       }
       if (type === "dialogue.unavailable") {
-        return "Dialogue unavailable: Mara's promised reply could not run. The authored relationship beat still stands, and no substitute speech was created.";
+        return "Reply unavailable: the resident's promised reply could not run. The authored relationship beat still stands, and no substitute reply was created.";
       }
       if (type === "relationship.beat" || type === "relationship.advanced") {
         return finishSentence(cleanStatusText(event.content || "The relationship changes through a visible deed"));
@@ -11252,6 +11276,42 @@
       return `<div class="line chat ${kind}"${attrs}>${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text">${escapeHtml(body)}${repeatHtml}</span></div>`;
     }
 
+    function residentImageMetadata(event) {
+      if (event?.type !== "image.created") return null;
+      let value;
+      try {
+        value = JSON.parse(String(event.content || ""));
+      } catch {
+        return null;
+      }
+      if (!value || Number(value.schema_version) !== 1) return null;
+      const assetId = String(value.asset_id || "");
+      const url = String(value.url || "");
+      const mimeType = String(value.mime_type || "");
+      const expectedUrl = `/assets/generated/resident-images/${assetId}.image`;
+      if (!/^[a-f0-9]{64}$/.test(assetId) || url !== expectedUrl) return null;
+      if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mimeType)) return null;
+      const width = Number(value.width || 0);
+      const height = Number(value.height || 0);
+      if (!Number.isInteger(width) || !Number.isInteger(height)
+        || width < 1 || height < 1 || width > 4096 || height > 4096
+        || width * height > 16777216) return null;
+      const alt = cleanStatusText(value.alt)
+        || `${event.actor_name || "A resident"} shares a visual reply.`;
+      return { assetId, url, mimeType, width, height, alt };
+    }
+
+    function residentImageHtml(event) {
+      const speaker = event.actor_name || "CosyWorld";
+      const meta = residentImageMetadata(event);
+      if (!meta) {
+        return `<div class="line event scene-card warning" data-event-row><span class="event-label" aria-hidden="true">✦</span><span class="text">A visual reply could not be displayed.</span></div>`;
+      }
+      const kind = event.actor_id === actorId ? "you" : event.actor_id ? "avatar" : "world";
+      const aria = `${speaker}: ${meta.alt}`;
+      return `<div class="line chat image-reply ${kind}" aria-label="${escapeAttr(aria)}">${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text"><img class="resident-reply-image" src="${escapeAttr(meta.url)}" alt="${escapeAttr(meta.alt)}" width="${meta.width}" height="${meta.height}" loading="lazy" decoding="async"><span class="resident-image-alt" aria-hidden="true">${escapeHtml(meta.alt)}</span></span></div>`;
+    }
+
     function chatPfpHtml(event, speaker) {
       const card = event.actor_id ? cardForActor(event.actor_id) : null;
       const fallback = card || {
@@ -11471,6 +11531,7 @@
       if (storyReceipt) return storyReceipt.text;
       if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
+      if (event.type === "image.created") return residentImageMetadata(event)?.alt || "shares a visual reply.";
       if (event.type === "feature.searched" || event.type === "location.searched") return searchEventText(event);
       if (event.type === "exit.discovered") {
         return event.content || `discovers a way to ${event.destination_location_name || "somewhere new"}.`;
@@ -11558,7 +11619,7 @@
       if (event.type === "skill.stepped") return `${skillEventLabel(event)}.`;
       if (event.type === "bond.deepened") return `grows closer to ${event.target_actor_name || "someone"}.`;
       if (event.type === "relationship.beat" || event.type === "relationship.advanced") return finishSentence(cleanStatusText(event.content || "the relationship changes"));
-      if (event.type === "dialogue.unavailable") return "Dialogue unavailable; no substitute speech was created.";
+      if (event.type === "dialogue.unavailable") return "Resident reply unavailable; no substitute reply was created.";
       if (event.type === "bond.created") {
         return String(event.content || "").includes(":forming:")
           ? `began a forming relationship with ${event.target_actor_name || "someone"}.`

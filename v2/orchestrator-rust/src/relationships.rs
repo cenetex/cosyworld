@@ -374,7 +374,10 @@ pub(super) async fn relationship_reply_evidence_exists(
 ) -> bool {
     state.inner.lock().await.event_log.iter().any(|event| {
         event.success
-            && event.type_name == "message.created"
+            && matches!(
+                event.type_name.as_str(),
+                "message.created" | "image.created"
+            )
             && event.actor_id == Some(expectation.target_actor_id)
             && event.caused_by_event_seq == Some(expectation.relationship_event_seq)
     })
