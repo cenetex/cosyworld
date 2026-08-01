@@ -41,7 +41,7 @@ use crate::{
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
 pub(super) const LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION: u8 = 1;
-pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 3;
+pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 4;
 pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
     "MRQ, cozy storybook landscape, wide environment establishing view";
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
@@ -209,7 +209,7 @@ impl CommunityArtImagePolicy {
     pub(super) fn prompt(self) -> &'static str {
         match self {
             Self::LocationLandscape => {
-                "Landscape only. No people, human figures, humanoids, characters, animals, creatures, silhouettes, faces, body parts, statues, portraits, text, letters, numbers, logos, watermarks, UI, or card borders."
+                "Landscape only. Produce an uninhabited environment. No people, human figures, humanoids, characters, animals, creatures, silhouettes, faces, body parts, statues, or portraits. Do not generate text, letters, numbers, signatures, artist marks, logos, watermarks, UI, or card borders."
             }
         }
     }
@@ -217,7 +217,7 @@ impl CommunityArtImagePolicy {
     fn review(self) -> &'static str {
         match self {
             Self::LocationLandscape => {
-                "Publish only a landscape with no visible or implied people, human figures, humanoids, characters, animals, creatures, silhouettes, faces, body parts, statues, portraits, readable text, letters, numbers, logos, or watermarks."
+                "Publish only a landscape with no visible or implied people, human figures, humanoids, characters, animals, creatures, silhouettes, faces, body parts, statues, or portraits, and no readable text (including signatures or artist marks), letters, numbers, logos, or watermarks."
             }
         }
     }

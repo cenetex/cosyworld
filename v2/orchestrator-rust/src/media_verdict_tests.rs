@@ -267,6 +267,86 @@ fn visual_verdict_is_versioned_bounded_and_covers_semantic_failure_taxonomy() {
 }
 
 #[test]
+fn multibyte_visual_summary_is_bounded_by_utf8_bytes_and_persists() {
+    let root = root("multibyte-summary");
+    let frozen = brief("multibyte-summary-job");
+    let candidate = image(patterned_png(16, 9, 9), "image/png", "multibyte-summary");
+    assert_eq!(
+        prepare(&root, frozen.clone(), &candidate, None, None),
+        MediaVerdictDisposition::ReviewPending
+    );
+    let verdict = make_visual_verdict(
+        &frozen,
+        sha256_hex(&candidate.bytes),
+        "fixture-reviewer",
+        "fixture-reviewer/1",
+        true,
+        Vec::new(),
+        format!("{} accepted", "landscape—".repeat(40)),
+        1,
+        1,
+        0,
+    )
+    .expect("build byte-bounded verdict");
+
+    assert!(verdict.summary.len() <= MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT);
+    assert!(verdict.summary.is_char_boundary(verdict.summary.len()));
+    assert_eq!(
+        record_media_visual_verdict(&root, "multibyte-summary-job", verdict),
+        Ok(MediaVerdictDisposition::Approved)
+    );
+}
+
+#[test]
+fn visual_verdict_binding_errors_name_the_invalid_field() {
+    let root = root("binding-errors");
+    let mut frozen = brief("binding-errors-job");
+    frozen.approved_reference_digests = vec!["a".repeat(64)];
+    let candidate = image(patterned_png(16, 9, 10), "image/png", "binding-errors");
+    assert_eq!(
+        prepare(&root, frozen.clone(), &candidate, None, None),
+        MediaVerdictDisposition::ReviewPending
+    );
+    let record = load_record_by_job(&root, "binding-errors-job").expect("load frozen record");
+    let valid = make_visual_verdict(
+        &frozen,
+        sha256_hex(&candidate.bytes),
+        "fixture-reviewer",
+        "fixture-reviewer/1",
+        true,
+        Vec::new(),
+        "The candidate matches the frozen brief.",
+        1,
+        1,
+        0,
+    )
+    .expect("build valid verdict");
+
+    let mut wrong_brief = valid.clone();
+    wrong_brief.brief_digest = "b".repeat(64);
+    assert_eq!(
+        validate_visual_verdict(&record, &wrong_brief),
+        Err("visual reviewer verdict brief digest does not match the frozen brief".to_string())
+    );
+
+    let mut wrong_references = valid.clone();
+    wrong_references.reference_digests = vec!["c".repeat(64)];
+    assert_eq!(
+        validate_visual_verdict(&record, &wrong_references),
+        Err("visual reviewer verdict reference digests do not match the frozen brief".to_string())
+    );
+
+    let mut oversized_summary = valid;
+    oversized_summary.summary = "🌲".repeat(61);
+    assert_eq!(
+        validate_visual_verdict(&record, &oversized_summary),
+        Err(format!(
+            "visual reviewer verdict summary exceeds {MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT} UTF-8 bytes"
+        ))
+    );
+}
+
+#[test]
 fn approved_verdict_survives_restart_and_is_bound_to_brief_candidate_and_references() {
     let root = root("restart");
     let mut frozen = brief("restart-job");
