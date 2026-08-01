@@ -198,7 +198,7 @@ Standing rules for new work:
 
 ## Deployment and Scale
 
-`COSYWORLD_DEPLOY_PROFILE=production` refuses to boot without the protected remote ownership feed + bearer, the SQLite event store, a moderation token, a shard id, and with any dev shortcut enabled. Kernel capacities are compiled (512 actors, 1024 items, 256 locations, 1024 exits) and exposed with live counters on `/meta`; approaching them is a sharding conversation, not a hot patch. Track live-item growth against authored faucet bounds and content-ratio validation; raise a capacity or retention decision before the item counter approaches its compiled cap.
+`COSYWORLD_DEPLOY_PROFILE=production` refuses to boot without the protected remote ownership feed + bearer, the SQLite event store, a moderation token, a shard id, and with any dev shortcut enabled. Kernel capacities are compiled (1024 actors, 1024 items, 2048 locations, 4096 exits) and exposed with live counters on `/meta`; approaching them is a sharding conversation, not a hot patch. Locations and exits are sized so a single world can mount every authored pack at once — that union currently seeds 555 locations and 1151 exits — with room for generated pathway descendants. Actors and items are not: the same union seeds 565 actors and 540 items, which leaves under half of each cap for live play. Track live-item growth against authored faucet bounds and content-ratio validation; raise a capacity or retention decision before the item counter approaches its compiled cap.
 
 Scale model: one shard per process, isolated stores, route players to their shard at a layer above. Revisit only when a single world's concurrency actually demands it.
 

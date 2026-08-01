@@ -238,7 +238,7 @@ test("Project 89 Ring 3 is a populated longhaul circuit within kernel capacity",
   const ring3Waypoints = [...ring3Edges.values()]
     .reduce((total, exit) => total + exit.distance - 1, 0);
   assert.equal(authoredLocations + ring2Waypoints + ring3Waypoints, 406);
-  assert.ok(authoredLocations + ring2Waypoints + ring3Waypoints <= 512);
+  assert.ok(authoredLocations + ring2Waypoints + ring3Waypoints <= 2048);
 });
 
 test("Project 89 generated-place terminology never falls back to cairns", () => {

@@ -2006,7 +2006,7 @@ impl RuntimeWorld {
         let mut open_decision = CwGateDecision::default();
         if unsafe {
             cw_gate_evaluate(
-                &self.world,
+                &*self.world,
                 gate.id,
                 actor_id,
                 std::ptr::null(),
@@ -2029,7 +2029,7 @@ impl RuntimeWorld {
                 let mut decision = CwGateDecision::default();
                 if unsafe {
                     cw_gate_evaluate(
-                        &self.world,
+                        &*self.world,
                         gate.id,
                         actor_id,
                         facts.as_ptr(),
@@ -2134,7 +2134,7 @@ impl RuntimeWorld {
         let mut decision = CwGateDecision::default();
         let status = unsafe {
             cw_gate_evaluate(
-                &self.world,
+                &*self.world,
                 threshold.gate_id,
                 threshold.actor_id,
                 threshold.facts.as_ptr(),
@@ -2158,7 +2158,7 @@ impl RuntimeWorld {
         let mut decision = CwGateDecision::default();
         (unsafe {
             cw_gate_evaluate(
-                &self.world,
+                &*self.world,
                 threshold.gate_id,
                 action.actor_id,
                 threshold.facts.as_ptr(),

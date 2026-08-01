@@ -1706,7 +1706,11 @@ enum SearchRevealCandidate {
 
 #[derive(Clone, Debug)]
 struct RuntimeWorld {
-    world: CwWorld,
+    // Boxed so `RuntimeWorld` stays small enough to move cheaply. The kernel
+    // world is a flat 285 KB struct; keeping it inline put several copies in
+    // the bootstrap match and its async state machine, which overflowed the
+    // main thread stack in unoptimized builds.
+    world: Box<CwWorld>,
     canonical_identities: CanonicalIdentityState,
     command_receipts: CommandReceiptCache,
     ai_publications: BTreeMap<String, AiPublicationReceipt>,
@@ -6520,7 +6524,7 @@ impl RuntimeSnapshot {
             }
         }
 
-        let mut world = CwWorld {
+        let mut world = Box::new(CwWorld {
             version: self.world_version,
             tick: self.tick,
             next_event_seq: self.next_event_seq,
@@ -6531,11 +6535,11 @@ impl RuntimeSnapshot {
             evolution_track_count: self.world_evolution_tracks.len(),
             combat_encounter_count: self.world_combat_encounters.len(),
             ..CwWorld::default()
-        };
+        });
 
         if world.version == 0 {
             unsafe {
-                cw_world_init(&mut world);
+                cw_world_init(&mut *world);
             }
             world.actor_count = self.world_actors.len();
             world.item_count = self.world_items.len();
@@ -7037,10 +7041,10 @@ impl RuntimeWorld {
     }
 
     fn seeded() -> Self {
-        let mut world = CwWorld::default();
+        let mut world = Box::new(CwWorld::default());
 
         unsafe {
-            cw_world_init(&mut world);
+            cw_world_init(&mut *world);
         }
 
         let mut runtime = RuntimeWorld {
@@ -8429,7 +8433,7 @@ impl RuntimeWorld {
             };
             let status = unsafe {
                 cw_world_set_item_profile(
-                    &mut self.world,
+                    &mut *self.world,
                     item.id,
                     item.weight_tenths.max(1),
                     size_class,
@@ -8441,7 +8445,7 @@ impl RuntimeWorld {
             let (max_charges, recovery, ready_zone) = seed_item_recovery_profile(item);
             let recovery_status = unsafe {
                 cw_world_set_item_recovery_profile(
-                    &mut self.world,
+                    &mut *self.world,
                     item.id,
                     max_charges,
                     recovery,
@@ -8483,7 +8487,7 @@ impl RuntimeWorld {
             }
             let status = unsafe {
                 cw_world_set_evolution_track(
-                    &mut self.world,
+                    &mut *self.world,
                     track.actor_id,
                     requirements.as_ptr(),
                     track.requirements.len(),
@@ -13479,7 +13483,7 @@ impl RuntimeWorld {
         let mut events = CwEventBuffer::default();
         let status = unsafe {
             cw_world_apply_with_tick(
-                &mut self.world,
+                &mut *self.world,
                 &action,
                 seed,
                 u8::from(advances_world_tick),
@@ -16375,7 +16379,7 @@ The relationship statement they are preserving is: {statement}"
             _ => return false,
         };
         let mut offers = CwActionOffers::default();
-        (unsafe { cw_get_action_offers(&self.world, action.actor_id, &mut offers) }) == CW_OK
+        (unsafe { cw_get_action_offers(&*self.world, action.actor_id, &mut offers) }) == CW_OK
             && offers.option_flags & required_offer != 0
     }
 
@@ -19136,7 +19140,7 @@ The relationship statement they are preserving is: {statement}"
         }
 
         let mut offers = CwActionOffers::default();
-        let status = unsafe { cw_get_action_offers(&self.world, actor_id, &mut offers) };
+        let status = unsafe { cw_get_action_offers(&*self.world, actor_id, &mut offers) };
         let has_authored_contribution = !self
             .job_contribution_intents(actor_id, None, None, None, None)
             .is_empty();
@@ -45917,11 +45921,28 @@ mod tests {
     fn rust_ffi_kernel_capacities_are_runtime_sized() {
         assert_eq!(CW_MAX_ACTORS, 1024);
         assert_eq!(CW_MAX_ITEMS, 1024);
-        assert_eq!(CW_MAX_LOCATIONS, 512);
-        assert_eq!(CW_MAX_EXITS, 1024);
+        assert_eq!(CW_MAX_LOCATIONS, 2048);
+        assert_eq!(CW_MAX_EXITS, 4096);
         assert_eq!(CW_MAX_EVENTS, 256);
         assert!(CW_MAX_EVENTS >= CW_MAX_EVOLUTION_TRACKS + 2);
         assert_eq!(CW_MAX_EVOLUTION_TRACKS, 128);
+    }
+
+    #[test]
+    fn legacy_kernel_layout_snapshot_rehydrates_into_the_current_world_abi() {
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.world_version = CW_KERNEL_VERSION - 1;
+
+        let restored = snapshot
+            .into_runtime()
+            .expect("vector-backed legacy snapshot rehydrates");
+
+        // Snapshots persist active entries as vectors, not the fixed-array
+        // cw_world memory layout. Rehydration therefore upgrades an older
+        // layout safely into the currently compiled kernel ABI.
+        assert_eq!(restored.world.version, CW_KERNEL_VERSION);
+        assert!(restored.world.location_count <= CW_MAX_LOCATIONS);
+        assert!(restored.world.exit_count <= CW_MAX_EXITS);
     }
 
     #[test]

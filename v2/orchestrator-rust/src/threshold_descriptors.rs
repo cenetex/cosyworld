@@ -2072,7 +2072,7 @@ impl RuntimeWorld {
             && record.action.kind == CW_ACTION_NONE
             && !record.projection_mutations.is_empty()
         {
-            unsafe { cw_world_access_changed(&mut self.world) };
+            unsafe { cw_world_access_changed(&mut *self.world) };
         }
     }
 
@@ -2158,7 +2158,7 @@ impl RuntimeWorld {
             }
         }
         if !events.is_empty() {
-            unsafe { cw_world_access_changed(&mut self.world) };
+            unsafe { cw_world_access_changed(&mut *self.world) };
         }
         events
     }
@@ -2324,7 +2324,7 @@ impl RuntimeWorld {
                 }
             }
         }
-        unsafe { cw_world_access_changed(&mut self.world) };
+        unsafe { cw_world_access_changed(&mut *self.world) };
         events
     }
 
@@ -2702,7 +2702,7 @@ impl RuntimeWorld {
                         ..CwGate::default()
                     };
                     let status = unsafe {
-                        cw_world_set_gate(&mut self.world, &gate, methods.as_ptr(), methods.len())
+                        cw_world_set_gate(&mut *self.world, &gate, methods.as_ptr(), methods.len())
                     };
                     assert_eq!(
                         status, CW_OK,
@@ -2734,7 +2734,7 @@ impl RuntimeWorld {
         let mut gate_state = CwGateDecision::default();
         if unsafe {
             cw_gate_evaluate(
-                &self.world,
+                &*self.world,
                 gate.id,
                 actor_id,
                 std::ptr::null(),
@@ -2759,7 +2759,7 @@ impl RuntimeWorld {
                 let mut decision = CwGateDecision::default();
                 if unsafe {
                     cw_gate_evaluate(
-                        &self.world,
+                        &*self.world,
                         gate.id,
                         actor_id,
                         facts.as_ptr(),
@@ -3212,7 +3212,7 @@ mod tests {
             ..CwGatePredicate::default()
         };
         assert_eq!(
-            unsafe { cw_world_set_gate(&mut runtime.world, &gate, &method, 1) },
+            unsafe { cw_world_set_gate(&mut *runtime.world, &gate, &method, 1) },
             CW_OK
         );
         runtime.threshold_gate_sources.insert(
@@ -3366,7 +3366,7 @@ mod tests {
         let methods = [key_method, tool_method];
         assert_eq!(
             unsafe {
-                cw_world_set_gate(&mut runtime.world, &gate, methods.as_ptr(), methods.len())
+                cw_world_set_gate(&mut *runtime.world, &gate, methods.as_ptr(), methods.len())
             },
             CW_OK
         );
@@ -3442,7 +3442,7 @@ mod tests {
         assert_eq!(
             unsafe {
                 cw_gate_evaluate(
-                    &runtime.world,
+                    &*runtime.world,
                     gate_id,
                     action.actor_id,
                     std::ptr::null(),
@@ -3536,7 +3536,7 @@ mod tests {
             ..CwGatePredicate::default()
         };
         assert_eq!(
-            unsafe { cw_world_set_gate(&mut runtime.world, &gate, &method, 1) },
+            unsafe { cw_world_set_gate(&mut *runtime.world, &gate, &method, 1) },
             CW_OK
         );
         runtime.threshold_gate_sources.insert(
@@ -3660,7 +3660,7 @@ mod tests {
             .expect("projection route binding");
         projection_route.threshold = Some(projection_offer);
         runtime.tags.get_mut(&tag_id).expect("threshold tag").active = false;
-        unsafe { cw_world_access_changed(&mut runtime.world) };
+        unsafe { cw_world_access_changed(&mut *runtime.world) };
         assert!(!runtime.route_binding_is_current(&projection_route));
         assert!(!runtime.threshold_action_is_current_and_allowed(&projected_move));
         assert!(
@@ -3676,7 +3676,7 @@ mod tests {
         );
         runtime.tags.get_mut(&tag_id).expect("threshold tag").active = true;
         runtime.jobs.get_mut(&job_id).expect("threshold job").status = "changed".to_string();
-        unsafe { cw_world_access_changed(&mut runtime.world) };
+        unsafe { cw_world_access_changed(&mut *runtime.world) };
         assert!(
             !runtime
                 .threshold_offer_binding_for_exit_with_access(
