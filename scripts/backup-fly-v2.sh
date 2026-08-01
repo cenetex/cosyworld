@@ -57,17 +57,22 @@ snapshots = value.get("snapshots", []) if isinstance(value, dict) else value
 if not isinstance(snapshots, list):
     raise SystemExit("flyctl snapshot JSON did not contain a snapshot list")
 
-ids = []
+ids = set()
 for snapshot in snapshots:
     if not isinstance(snapshot, dict):
         raise SystemExit("flyctl snapshot JSON contained a non-object snapshot")
     snapshot_id = snapshot.get("id")
     if not isinstance(snapshot_id, str) or not snapshot_id.startswith("vs_"):
         raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot id")
-    ids.append(snapshot_id)
-if len(set(ids)) != len(ids):
-    raise SystemExit("flyctl snapshot JSON contained duplicate snapshot ids")
-print(json.dumps(ids))
+    status = snapshot.get("status", "")
+    if not isinstance(status, str):
+        raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot status")
+    ids.add(snapshot_id)
+
+# The before-set is identity-only. After every list record has passed schema
+# validation, duplicate statuses or incidental metadata cannot make an old id
+# appear new, so one copy of each id is sufficient.
+print(json.dumps(sorted(ids)))
 PY
 }
 
@@ -223,9 +228,25 @@ for snapshot in snapshots:
     candidate_id = snapshot.get("id")
     if not isinstance(candidate_id, str) or not candidate_id.startswith("vs_"):
         raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot id")
-    if candidate_id in by_id:
-        raise SystemExit("flyctl snapshot JSON contained duplicate snapshot ids")
-    by_id[candidate_id] = snapshot
+    status = snapshot.get("status", "")
+    if not isinstance(status, str):
+        raise SystemExit("flyctl snapshot JSON contained an unverifiable snapshot status")
+    by_id.setdefault(candidate_id, []).append(snapshot)
+
+normalized = {}
+terminal_statuses = {"failed", "error", "destroyed"}
+for candidate_id, records in by_id.items():
+    statuses = {record.get("status", "").strip().lower() for record in records}
+    terminal = sorted({
+        status for status in statuses if status in terminal_statuses
+    })
+    if terminal:
+        # A terminal failure always wins over a duplicate stale success; never
+        # claim a backup was created while Fly reports any terminal failure.
+        normalized[candidate_id] = terminal[0]
+        continue
+    normalized[candidate_id] = next(iter(statuses)) if len(statuses) == 1 else "conflicting"
+by_id = normalized
 
 snapshot_id = os.environ.get("SNAPSHOT_ID", "")
 if not snapshot_id:
@@ -241,7 +262,7 @@ if not snapshot_id:
 if not snapshot_id:
     print("|pending")
 elif snapshot_id in by_id:
-    print(f"{snapshot_id}|{by_id[snapshot_id].get('status', '')}")
+    print(f"{snapshot_id}|{by_id[snapshot_id]}")
 else:
     print(f"{snapshot_id}|missing")
 PY

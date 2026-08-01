@@ -76,7 +76,7 @@ const runVolumeGuard = (fakeFlyctl) => {
   }
 };
 
-const runBackup = (fakeFlyctl, profile = 'primary') => {
+const runBackup = (fakeFlyctl, profile = 'primary', timeoutSecs = '1') => {
   const directory = mkdtempSync(join(tmpdir(), 'cosyworld-fly-backup-'));
   const flyctlPath = join(directory, 'flyctl');
   writeFileSync(flyctlPath, `#!/usr/bin/env bash\n${fakeFlyctl}\n`);
@@ -90,7 +90,7 @@ const runBackup = (fakeFlyctl, profile = 'primary') => {
         env: {
           ...process.env,
           PATH: `${directory}${delimiter}${process.env.PATH}`,
-          COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS: '1',
+          COSYWORLD_FLY_SNAPSHOT_TIMEOUT_SECS: timeoutSecs,
           COSYWORLD_FLY_SNAPSHOT_POLL_SECS: '1'
         }
       }
@@ -277,6 +277,103 @@ describe('deploy workflow', () => {
     expect(result.stdout).toContain('returned no JSON snapshot id');
     expect(result.stdout).not.toContain('snapshot created');
     expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('collapses identical and same-status Fly snapshot duplicates', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) echo 'snapshot created' ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_existing","status":"created","size_gb":1},{"id":"vs_existing","status":"created","size_gb":2},{"id":"vs_identical","status":"created"},{"id":"vs_identical","status":"created"},{"id":"vs_new","status":"created","region":"yyz"},{"id":"vs_new","status":"created","region":"sea"}]'
+          else
+            touch "$state_file"
+            echo '[{"id":"vs_existing","status":"created","size_gb":1},{"id":"vs_existing","status":"created","size_gb":2},{"id":"vs_identical","status":"created"},{"id":"vs_identical","status":"created"}]'
+          fi ;;
+        *) exit 1 ;;
+      esac`
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('waits for conflicting duplicate Fly snapshot statuses to converge', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) echo '{"id":"vs_new","status":"running"}' ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          count=0
+          if [ -f "$state_file" ]; then count="$(cat "$state_file")"; fi
+          count=$((count + 1))
+          echo "$count" > "$state_file"
+          if [ "$count" -eq 1 ]; then
+            echo '[]'
+          elif [ "$count" -eq 2 ]; then
+            echo '[{"id":"vs_new","status":"created"},{"id":"vs_new","status":"running"}]'
+          else
+            echo '[{"id":"vs_new","status":"created","region":"yyz"},{"id":"vs_new","status":"created","region":"sea"}]'
+          fi ;;
+        *) exit 1 ;;
+      esac`,
+      'primary',
+      '3'
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Waiting for Fly volume snapshot vs_new: conflicting');
+    expect(result.stdout).toContain('Verified Fly volume snapshot vs_new');
+  });
+
+  it('fails closed when conflicting duplicate Fly snapshot statuses do not converge', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) echo '{"id":"vs_new","status":"running"}' ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_new","status":"created"},{"id":"vs_new","status":"running"}]'
+          else
+            touch "$state_file"
+            echo '[]'
+          fi ;;
+        *) exit 1 ;;
+      esac`,
+      'primary',
+      '2'
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('Waiting for Fly volume snapshot vs_new: conflicting');
+    expect(result.stderr).toContain('timed out waiting for Fly volume snapshot vs_new');
+    expect(result.stdout).not.toContain('Verified Fly volume snapshot');
+  });
+
+  it('fails closed when a duplicate Fly snapshot record reports a terminal failure', () => {
+    const result = runBackup(
+      `case "$*" in
+        *"volumes list"*) echo '[{"id":"vol_123","name":"cosyworld_data","state":"created","attached_machine_id":"machine_123"}]' ;;
+        *"snapshots create"*) echo '{"id":"vs_new","status":"running"}' ;;
+        *"snapshots list"*)
+          state_file="$(dirname "$0")/snapshot-list-count"
+          if [ -f "$state_file" ]; then
+            echo '[{"id":"vs_new","status":"created"},{"id":"vs_new","status":"failed"}]'
+          else
+            touch "$state_file"
+            echo '[]'
+          fi ;;
+        *) exit 1 ;;
+      esac`
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("terminal state 'failed'");
+    expect(result.stdout).not.toContain('Verified Fly volume snapshot');
   });
 
   it('fails closed when the configured volume is ambiguous', () => {
