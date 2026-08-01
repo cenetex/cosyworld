@@ -19,6 +19,9 @@ const bridgePack = readJson("core-holy-land-bridge", "pack.json");
 const officialWorld = JSON.parse(
   fs.readFileSync(path.resolve(scriptDir, "../worlds/official/world.json"), "utf8"),
 );
+const bethlehemWorld = JSON.parse(
+  fs.readFileSync(path.resolve(scriptDir, "../worlds/bethlehem/world.json"), "utf8"),
+);
 
 test("the Twelve search for Christ for twelve distinct reasons", () => {
   const disciples = actors.filter(({ id }) => id >= 7002 && id <= 7013);
@@ -125,4 +128,15 @@ test("the official world accepts replay from prior Holy Land bundles", () => {
       "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028",
     ),
   );
+});
+
+test("Bethlehem accepts the pre-context-dominant prompt bundle", () => {
+  // #669 changed only authored voice text and prompt presentation: the world,
+  // resource identities, rules profile, pack versions, and persisted-state
+  // interpretation remain stable across this boundary.
+  const compatible = bethlehemWorld.persistence_compatibility
+    .replay_compatible_bundle_hashes;
+  assert.deepEqual(compatible, [
+    "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df",
+  ]);
 });

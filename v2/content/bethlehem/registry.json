@@ -9,6 +9,12 @@
     "version": 1,
     "description": "A Bethlehem-first composition of the CosyWorld core and Holy Land worldpacks.",
     "entry_location": "cosyworld.core:location/1",
+    "persistence_compatibility": {
+      "schema_version": 1,
+      "replay_compatible_bundle_hashes": [
+        "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df"
+      ]
+    },
     "pack_lifecycle": {
       "schema_version": 1,
       "unmount": [

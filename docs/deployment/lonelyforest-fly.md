@@ -14,8 +14,13 @@ processes; each worldpack has its own SQLite journal directory on that volume.
 
 The orchestrator remains one authoritative world per process and is not allowed
 to select a journal from an untrusted `Host` or `X-Forwarded-Host` header.
-Adding a tenant requires an explicit process, data directory, and nginx hostname
-mapping in the committed release.
+`deploy/lonelyforest/tenants.tsv` is the committed tenant identity manifest. It
+is the source of truth for the slug, public hostname, registry, loopback port,
+entry location, and every persistence path. The supervisor starts processes
+from that file; the contract test cross-validates nginx routing and Fly health
+behavior against every row. Adding a tenant therefore requires an intentional
+manifest change plus matching nginx routing, not an ad hoc process or volume
+path.
 
 Accounts, avatars, sessions, world events, snapshots, and generated assets stay
 isolated between processes even though all passkeys use the parent RP ID
@@ -72,6 +77,64 @@ attached volume, requests an on-demand Fly snapshot, and waits for that
 specific snapshot to reach `created`. The script is fail-closed and does not
 detach, replace, or destroy a volume. The resulting snapshot ID is printed in
 the workflow log for the rollback operator.
+Before Fly replaces the image, the Lonely Forest job runs
+`v2/scripts/check-lonelyforest-worldpacks.mjs`. It reads every
+required tenant's live `https://<host>/meta` identity and compares it with the
+candidate registry using the same exact-match or explicitly declared
+replay-compatible migration rule as the primary deploy guard. Missing,
+malformed, unreachable, or undeclared identities stop the release; the output
+names the tenant, live hash, candidate hash, and remediation. This proves both
+forward deploys and rollbacks: an older image cannot normally declare a
+snapshot hash created by a newer image.
+
+Required tenants are `root`, `7`, `89`, and `lantern`. Their supervisor exits
+the Machine immediately when a child exits, and the required-tenant health
+monitor probes every required process's private `/health` after a 45-second
+startup grace, then every five seconds. A hung or unready tenant therefore
+terminates the Machine even if nginx could still proxy root `/health`; Fly
+observes failed health and restarts the single deployment boundary. Elysium
+(`0`) is explicitly optional: its registry may be absent from a release, in
+which case only its hostname returns the documented `503`; when present, it is
+still continuity checked like every other candidate registry. The supervisor
+also treats an unexpected health-monitor exit as fatal, so monitoring cannot
+silently disappear while nginx remains available. Internal required-tenant
+failures use a nonzero supervisor exit; normal operator `TERM`/`INT`/`HUP`
+shutdown remains clean.
+
+### Recovery when a tenant is already unavailable
+
+Do not bypass the guard and do not blindly redeploy the previous image. A
+successful forward boot may have written a snapshot under the new bundle hash;
+the older image will then fail its own bundle-identity check and can crash-loop
+before it serves recovery traffic.
+
+1. Leave the mounted volume attached and obtain the unavailable tenant's
+   persisted identity from its snapshot on that volume. If volume access is
+   unavailable, a reviewed operator may save the last observed `/meta` response
+   in a committed capture file. Never infer the hash from the candidate image.
+2. Store a capture with this exact shape and review it with the recovery change:
+
+   ```json
+   {
+     "schema_version": 1,
+     "tenant": "lantern",
+     "source": "tenant-volume",
+     "captured_at": "2026-08-01T12:34:56Z",
+     "meta": { "worldpack": { "bundle_hash": "sha256:<64 lowercase hex>" } }
+   }
+   ```
+
+   `source` may instead be `operator-capture`, but it must still contain the
+   unmodified observed `/meta` identity and a reviewable timestamp.
+3. Run the guard explicitly with
+   `node v2/scripts/check-lonelyforest-worldpacks.mjs --recovery-capture lantern=path/to/capture.json`.
+   It records a GitHub Actions warning with the capture path, source, and time,
+   then applies the normal exact/declaration comparison. It never silently
+   skips the unavailable tenant. A mismatch means author the tenant's explicit
+   replay-compatible migration or restore the matching image; do not edit a
+   persisted bundle hash.
+4. Preserve the workflow log and capture with the incident record, then verify
+   every hostname's `/meta` after recovery before creating the next release.
 
 The workflow requires two GitHub Actions secrets:
 
