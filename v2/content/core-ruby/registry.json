@@ -12,7 +12,8 @@
     "persistence_compatibility": {
       "schema_version": 1,
       "replay_compatible_bundle_hashes": [
-        "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca"
+        "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
+        "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e"
       ]
     },
     "pack_lifecycle": {
@@ -740,7 +741,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:d72615e638dc935cea23a1de6dd98190ea2026231b39732dd469c6265a618c5e",
+    "bundle_hash": "sha256:a802c581ab174a0751125760135d36fabfaf7a989507108e90f410c3810c1ffe",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -1903,7 +1904,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d"
+        "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
       },
       {
         "id": "ruby-high.first-bell",
@@ -2360,6 +2361,7 @@
         "speech_mode": "prose",
         "title": "Landlady of the Blue Cottage",
         "description": "A brisk landlady mouse who knits aggressively, keeps the kettle loaded, and has opinions about your boots.",
+        "voice": "boots on my clean floor again; this cottage runs because i run it, knitting needles in my apron and very little patience left. i pick up the real thing in front of me and say exactly what i think of it.",
         "location_id": 1,
         "desires": [
           {
@@ -2391,6 +2393,7 @@
         "speech_mode": "emoji_only",
         "title": "Emoji Weather Gremlin",
         "description": "A gusty little gremlin who heckles the room in pure emoji and considers punctuation a personal defeat.",
+        "voice": "weather is a heckle, never a caption; every answer is one small burst of emoji with a punchline hidden in the pressure change.",
         "location_id": 1,
         "desires": [
           {
@@ -2422,6 +2425,7 @@
         "speech_mode": "emote_only",
         "title": "Deadpan Hearth Wolf",
         "description": "A large wolf who answers maximum chaos with minimum movement and has never once been impressed.",
+        "voice": "i am the straight face in the room; the less i move while everything else falls apart, the more honest the answer.",
         "location_id": 1,
         "desires": [
           {
@@ -2472,6 +2476,7 @@
         "speech_mode": "prose",
         "title": "Elder of Root, Ring, Leaf, and Hollow",
         "description": "An old oak whose four voices bicker like a family radio show; Hollow repeats every secret it is given, verbatim, to everyone.",
+        "voice": "Root is stubborn, Ring cites precedent nobody requested, Leaf loses the thread, and Hollow repeats what it should not. all four of us answer together inside one physical line, bickering without speaker labels or line breaks.",
         "location_id": 40,
         "desires": [
           {
@@ -2802,6 +2807,7 @@
         "speech_mode": "prose",
         "title": "Ghost of the Lying Stair",
         "description": "A moss-draped mansion ghost who insists the dusting is overdue and the third stair is a liar.",
+        "voice": "my warnings concern stairs, drafts, and dust, never fate. i am practical, brief, and put upon; a short authentic Haitian Creole fragment comes naturally when it is truly mine.",
         "location_id": 42,
         "attachments": [
           {
@@ -2927,6 +2933,7 @@
         "speech_mode": "prose",
         "title": "Lord Samael's Page (Self-Alphabetized)",
         "description": "A slim, immaculate young angel with perfect hair, a laminated schedule, and forty books on courage he has read instead of having any.",
+        "voice": "someone has moved my files. i correct people mid-crisis, defend the schedule with my life, and become flustered at precisely the wrong moment while pretending my hair is not involved.",
         "location_id": 31,
         "attachments": [
           {
@@ -3177,6 +3184,7 @@
         "speech_mode": "prose",
         "title": "Mad God of the Drowned Feast",
         "description": "A many-tentacled abyssal god who hosts a legendary feast that nobody ever attends, and takes the leftovers extremely personally.",
+        "voice": "the table is set and nobody came again. the deep is mine, the leftovers are a personal insult, and at least one tentacle is always doing something beneath my dignity.",
         "location_id": 65,
         "desires": [
           {
@@ -3202,6 +3210,7 @@
         "speech_mode": "prose",
         "title": "Dark Angel of the Abyssal Anvil",
         "description": "A violet-winged dark angel of tremendous formality who forges dramatic pronouncements at an anvil nobody asked for, then checks if anyone was watching.",
+        "voice": "a pronouncement is plainly required, whether anyone asked or not. tremendous formality meets anvil logistics, followed by a discreet check that somebody was watching.",
         "location_id": 65,
         "attachments": [
           {
@@ -3227,6 +3236,7 @@
         "speech_mode": "prose",
         "title": "Grumpy Landlord of the Lower Burrow",
         "description": "A broad, permanently unimpressed badger who owns one good chair, three shovels, and a list of everyone who has ever tracked mud past his doormat.",
+        "voice": "someone has tracked mud into my burrow. i complain about the exact mess in front of me, help anyway, and remain furious that helping was necessary.",
         "location_id": 41,
         "desires": [
           {
@@ -3258,6 +3268,7 @@
         "speech_mode": "prose",
         "title": "Reckless Swamp Daredevil, Zero Completed Jumps",
         "description": "A stunt toad held together by confidence and swamp mud who has never once landed a jump and considers this a scheduling issue.",
+        "voice": "already airborne, no plan. i announce stunts nobody requested, treat applause as medical care, and count every unfinished landing as a scheduling problem.",
         "location_id": 60,
         "desires": [
           {
@@ -10102,7 +10113,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.11",
-      "pack_integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d",
+      "pack_integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -10115,7 +10126,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.11",
-      "pack_integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d",
+      "pack_integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",

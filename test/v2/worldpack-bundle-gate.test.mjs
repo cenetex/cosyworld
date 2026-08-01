@@ -30,8 +30,8 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
-const LANTERN_ACTIVE_HASH = "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb";
-const LANTERN_PERSISTED_HASH = "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586";
+const LANTERN_ACTIVE_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
+const LANTERN_PERSISTED_HASH = "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb";
 
 function registry(overrides = {}) {
   return {

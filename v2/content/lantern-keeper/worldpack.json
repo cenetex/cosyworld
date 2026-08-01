@@ -10,7 +10,8 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
-      "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586"
+      "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586",
+      "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb"
     ]
   },
   "pack_lifecycle": {
@@ -719,7 +720,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb",
+  "bundle_hash": "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1882,7 +1883,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:a60c199c2b0f6fd04e57d6db38e13028e7a20796293d865d991453ee683ed13d"
+      "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -2194,7 +2195,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:f5e55abda7c4eb50bfa62307735190066309b6159f14cabd0cb81829fdd30368"
+      "integrity": "sha256:3731d8e8ce81da825b3f69fc99f49bb22b6f1f206595460f3444f8ce3990562f"
     },
     {
       "id": "cosyworld.composition.core-lantern-keeper",

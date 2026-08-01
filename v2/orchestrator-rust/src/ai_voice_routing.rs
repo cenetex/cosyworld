@@ -1,4 +1,5 @@
 use crate::{
+    ai_context::{PromptBudgetTelemetry, PromptEnvelope},
     ai_gateway::{
         request_chat_completion_with_selection, AiCompletion, AiConfig, AiGatewayError,
         ChatCompletionRequest, ModelCapability, PinnedModelSelection,
@@ -118,8 +119,7 @@ fn env_integer(name: &str, default: u64, min: u64, max: u64) -> Result<u64, Stri
 pub(crate) struct VoiceAttemptRequest {
     pub(crate) feature: &'static str,
     pub(crate) prompt_version: &'static str,
-    pub(crate) system: String,
-    pub(crate) user: String,
+    pub(crate) prompt: PromptEnvelope,
     pub(crate) temperature: f64,
     pub(crate) max_tokens: u32,
     pub(crate) referer: &'static str,
@@ -173,6 +173,8 @@ pub(crate) struct VoiceSelectionDecision {
     pub(crate) random_unit: f64,
     pub(crate) weighted_key: f64,
     pub(crate) estimated_cost_microdollars: u64,
+    #[serde(default)]
+    pub(crate) prompt_budget: PromptBudgetTelemetry,
     pub(crate) selected: bool,
     /// True when this attempt reuses an already-planned model to fill the
     /// attempt budget, because the registry pinned fewer distinct candidates
@@ -230,14 +232,17 @@ impl VoiceAttemptBackend for GatewayVoiceBackend {
     ) -> VoiceAttemptFuture {
         let config = self.config.clone();
         Box::pin(async move {
+            let rendered = request
+                .prompt
+                .render_for(selection.candidate().context_limit(), request.max_tokens);
             request_chat_completion_with_selection(
                 &config,
                 ChatCompletionRequest {
                     feature: request.feature,
                     prompt_version: request.prompt_version,
                     capability: ModelCapability::Voice,
-                    system: &request.system,
-                    user: &request.user,
+                    system: &rendered.system,
+                    user: &rendered.user,
                     temperature: request.temperature,
                     max_tokens: request.max_tokens,
                     timeout,
@@ -558,10 +563,14 @@ fn build_voice_plan(
             let latency_ms = observed.latency_p50_ms.unwrap_or(1_000).max(1) as f64;
             let ceiling_ms = config.latency_ceiling.as_millis().max(1) as f64;
             let latency_weight = ceiling_ms / (ceiling_ms + latency_ms);
+            let rendered = request
+                .prompt
+                .render_for(candidate.context_limit(), request.max_tokens);
             let estimated_cost_microdollars = estimated_cost(
                 observed.input_cost_per_million,
                 observed.output_cost_per_million,
                 request,
+                &rendered.telemetry,
                 config.unknown_cost_microdollars,
             );
             let spend = config.spend_ceiling_microdollars.max(1) as f64;
@@ -607,6 +616,7 @@ fn build_voice_plan(
                     random_unit,
                     weighted_key,
                     estimated_cost_microdollars,
+                    prompt_budget: rendered.telemetry,
                     selected: false,
                     resampled: false,
                     excluded_reason,
@@ -682,12 +692,13 @@ fn estimated_cost(
     input_rate: Option<f64>,
     output_rate: Option<f64>,
     request: &VoiceAttemptRequest,
+    prompt_budget: &PromptBudgetTelemetry,
     unknown: u64,
 ) -> u64 {
     let (Some(input_rate), Some(output_rate)) = (input_rate, output_rate) else {
         return unknown;
     };
-    let input_tokens = ((request.system.chars().count() + request.user.chars().count()) / 4).max(1);
+    let input_tokens = prompt_budget.estimated_prompt_tokens.max(1) as usize;
     (input_rate * input_tokens as f64 + output_rate * request.max_tokens as f64)
         .ceil()
         .max(1.0) as u64
@@ -1425,8 +1436,14 @@ mod tests {
         VoiceAttemptRequest {
             feature,
             prompt_version: "routing-test-prompt-v1",
-            system: "Write one short anchored line.".to_string(),
-            user: "The teapot rattled.".to_string(),
+            prompt: PromptEnvelope::default()
+                .system("Write one short anchored line.")
+                .user(
+                    "The teapot rattled.",
+                    crate::PromptSegmentKind::UniqueEvidence,
+                    100,
+                    true,
+                ),
             temperature: 0.7,
             max_tokens: 70,
             referer: "http://127.0.0.1:3102",
@@ -1587,6 +1604,11 @@ mod tests {
             .1
             .iter()
             .all(|decision| decision.final_weight >= config.voice_routing.exploration_floor));
+        assert!(first.1.iter().all(|decision| {
+            decision.prompt_budget.estimated_prompt_tokens > 0
+                && decision.prompt_budget.context_limit
+                    > decision.prompt_budget.estimated_prompt_tokens
+        }));
     }
 
     #[test]

@@ -459,8 +459,18 @@
       "open nave"
     ],
     "memory": [
-      "Keepers once swore to light the road, not rule it.",
-      "A brass key was hidden where noon never reaches."
+      "Keepers once swore to light the road, not rule it."
+    ],
+    "knowledge": [
+      {
+        "text": "A brass key was hidden where noon never reaches.",
+        "scope": "location",
+        "visibility": "revealed_after_event",
+        "reveal_event": "lantern_keeper.brass_key_revealed",
+        "sayability": "disclosable",
+        "visuality": "visible",
+        "salience": 95
+      }
     ],
     "allow_combat": false,
     "pack_id": "cosyworld.campaign.the-lantern-keeper"

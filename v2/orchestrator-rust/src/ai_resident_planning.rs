@@ -42,18 +42,6 @@ pub(super) enum ResidentSpeechAct {
     React,
 }
 
-impl ResidentSpeechAct {
-    pub(super) fn as_str(self) -> &'static str {
-        match self {
-            Self::Inform => "inform",
-            Self::Propose => "propose",
-            Self::Commit => "commit",
-            Self::Refuse => "refuse",
-            Self::React => "react",
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum ResidentPlanningStatus {
@@ -1063,7 +1051,7 @@ mod tests {
             proposed_action: disposition.proposed_action.clone(),
             trace: disposition.trace.clone(),
         })
-        .contains("status=committed"));
+        .contains("the room has already seen me"));
 
         let outcome_record = planning_speech_record(
             &runtime,

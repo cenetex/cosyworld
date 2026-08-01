@@ -41,7 +41,7 @@ use crate::{
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
 pub(super) const LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION: u8 = 1;
-pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 4;
+pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 5;
 pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
     "MRQ, cozy storybook landscape, wide environment establishing view";
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
@@ -386,6 +386,27 @@ pub(super) fn community_art_generation_retryable_for_profile(
             || community_art_generation_retryable(generation, candidate_exists))
 }
 
+fn location_visual_history_trace(event_type: &str) -> Option<&'static str> {
+    match event_type {
+        "pathway.discovered" => Some("a newly opened path cuts through the terrain"),
+        "first_tale.public_trace" => Some("a small public story-marker rests in the landscape"),
+        "natural_feature.revealed" => Some("a newly noticed natural feature now shapes the view"),
+        "governance.selected" => {
+            Some("shared stewardship has left the grounds deliberately tended")
+        }
+        "building.completed" => {
+            Some("a newly completed structure belongs to the settled landscape")
+        }
+        "quest.loot_allocated" => Some("signs of an opened cache remain in the surroundings"),
+        "world.logistics.completed" => {
+            Some("worked routes and orderly supplies have marked the ground")
+        }
+        "item.crafted" => Some("a modest work area shows recent craft use"),
+        "item.transformed" => Some("subtle traces of recent craftwork remain"),
+        _ => None,
+    }
+}
+
 pub(super) fn community_art_prompt_history(
     subject_kind: &str,
     history_entries: &[String],
@@ -394,10 +415,17 @@ pub(super) fn community_art_prompt_history(
         if history_entries.is_empty() {
             "newly revealed terrain with no depicted travelers".to_string()
         } else {
-            format!(
-                "{} recent public moments have left subtle environmental traces such as path wear, tended ground, and changing weather; depict no traveler or written record",
-                history_entries.len()
-            )
+            history_entries
+                .iter()
+                .map(|entry| {
+                    crate::compact_whitespace(entry)
+                        .trim_end_matches(['.', '!', '?'])
+                        .to_string()
+                })
+                .filter(|entry| !entry.is_empty())
+                .take(6)
+                .collect::<Vec<_>>()
+                .join(". ")
         }
     } else if history_entries.is_empty() {
         "newly arrived in the shared world".to_string()
@@ -422,11 +450,11 @@ pub(super) fn build_community_art_prompt(
         .unwrap_or("No words, logo, watermark, UI, gore, or photorealism.");
     let prompt = if image_policy == Some(CommunityArtImagePolicy::LocationLandscape) {
         format!(
-            "Wide environment illustration of {name}. {blurb}. Authoritative landscape level {level}. Canonical landscape facts: {subject_details}. Let the terrain and weather remember public history only through environmental detail: {history}. Preserve the established geography across later levels. {image_constraints}"
+            "{name} — {blurb}. {subject_details}. Public visual traces: {history}. Wide uninhabited level {level} environment; established geography. {image_constraints}"
         )
     } else {
         format!(
-            "Collectible card art for {subject_kind} {name}, titled {title}. {blurb}. Authoritative level {level}. Canonical visual facts: {subject_details}. Let the image visibly remember this public history without adding text: {history}. Preserve the subject's established identity across later levels. {image_constraints}"
+            "{subject_kind} {name} — {title}. {blurb}. Level {level}. {subject_details}. Public visual traces: {history}. Established identity. {image_constraints}"
         )
     };
     crate::compact_whitespace(&prompt)
@@ -536,6 +564,12 @@ impl RuntimeWorld {
     fn location_community_art_details(&self, location_id: u64) -> String {
         let meta = self.location_meta_for(location_id);
         let mut facts = Vec::new();
+        if !meta.description.trim().is_empty() {
+            facts.push(format!("canonical description: {}", meta.description));
+        }
+        if !meta.persona.trim().is_empty() {
+            facts.push(format!("place character: {}", meta.persona));
+        }
         if !meta.biome.trim().is_empty() {
             facts.push(format!("biome: {}", meta.biome));
         }
@@ -560,6 +594,9 @@ impl RuntimeWorld {
             if !sheet.hooks.is_empty() {
                 facts.push(format!("visible hooks: {}", sheet.hooks.join(", ")));
             }
+        }
+        for evidence in self.media_location_evidence(location_id) {
+            facts.push(format!("public place memory: {}", evidence.text));
         }
         facts.join(". ")
     }
@@ -679,6 +716,7 @@ impl RuntimeWorld {
             .event_log
             .iter()
             .rev()
+            .filter(|event| event.success)
             .filter(|event| match subject_kind {
                 "actor" => {
                     event.actor_id == Some(subject_id) || event.target_actor_id == Some(subject_id)
@@ -692,16 +730,23 @@ impl RuntimeWorld {
                 }
                 _ => false,
             })
-            .take(12)
-            .map(|event| PublicArtHistoryEvent {
-                seq: event.seq,
-                summary: event
-                    .content
-                    .as_deref()
-                    .filter(|content| !content.trim().is_empty())
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| event.type_name.replace('.', " ")),
+            .filter_map(|event| {
+                let summary = if subject_kind == "location" {
+                    location_visual_history_trace(&event.type_name)?.to_string()
+                } else {
+                    event
+                        .content
+                        .as_deref()
+                        .filter(|content| !content.trim().is_empty())
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| event.type_name.replace('.', " "))
+                };
+                Some(PublicArtHistoryEvent {
+                    seq: event.seq,
+                    summary,
+                })
             })
+            .take(if subject_kind == "location" { 6 } else { 12 })
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
@@ -1503,7 +1548,7 @@ pub(super) fn community_art_media_brief(plan: &CommunityArtPlan) -> FrozenMediaB
             .forbidden
             .push("people, characters, creatures, silhouettes, faces, or body parts".to_string());
     }
-    brief.pack_negative_constraints = bounded_brief_constraints(plan.stable_traits.iter().cloned());
+    brief.pack_negative_constraints = Vec::new();
     if let Some(job) = &plan.evolution_job {
         brief
             .approved_reference_digests

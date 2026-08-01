@@ -708,6 +708,8 @@ pub(super) struct SeedActorContent {
     pub(super) title: String,
     pub(super) description: String,
     #[serde(default)]
+    pub(super) voice: String,
+    #[serde(default)]
     pub(super) ambient_autonomy: Option<bool>,
     #[serde(default)]
     pub(super) location_id: Option<u64>,
@@ -863,6 +865,8 @@ pub(super) struct SeedLocationContent {
     pub(super) persona: String,
     #[serde(default)]
     pub(super) memory: Vec<String>,
+    #[serde(default)]
+    pub(super) knowledge: Vec<crate::ScopedKnowledge>,
     #[serde(default)]
     pub(super) biome: String,
     #[serde(default)]
@@ -2144,6 +2148,12 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 actor.id
             ));
         }
+        if actor.voice.chars().count() > 500 {
+            return Err(format!(
+                "seed actor {} voice exceeds 500 characters",
+                actor.id
+            ));
+        }
         let Some(stats) = actor.stats.as_ref() else {
             return Err(format!("seed actor {} is missing stats", actor.id));
         };
@@ -2254,6 +2264,12 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 "seed location {} is missing title, description, or persona",
                 location.id
             ));
+        }
+        for (index, knowledge) in location.knowledge.iter().enumerate() {
+            knowledge.validate(&format!(
+                "seed location {} knowledge {}",
+                location.id, index
+            ))?;
         }
     }
     let mut character_creation_pack_ids = BTreeSet::new();

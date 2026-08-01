@@ -366,6 +366,8 @@ pub(super) fn stable_art_traits(
         ],
         "item" => &["item type:", "equipment role:", "size:"],
         "location" => &[
+            "canonical description:",
+            "place character:",
             "biome:",
             "terrain:",
             "reviewed landscape brief:",
