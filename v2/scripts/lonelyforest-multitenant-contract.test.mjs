@@ -97,6 +97,30 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   );
   assert.match(nginx, /location = \/health\/live/);
   assert.match(nginx, /listen 0\.0\.0\.0:3000 default_server;[\s\S]*?return 421;/);
+  assert.doesNotMatch(nginx, /^user\s+/m, "nginx runs as the non-root entrypoint user");
+  assert.doesNotMatch(nginx, /\/dev\/(?:stdout|stderr)/, "non-root nginx must not open container-owned standard streams");
+  assert.doesNotMatch(nginx, /\/var\/lib\/nginx/, "non-root nginx must not retain default temp paths");
+  assert.match(nginx, /^error_log \/tmp\/cosyworld-nginx\/error\.log notice;$/m);
+  assert.match(nginx, /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log combined;$/m);
+  assert.match(supervisor, /mkdir -p[\s\S]*?\/tmp\/cosyworld-nginx \\/);
+  for (const [directive, directory] of [
+    ["client_body_temp_path", "/tmp/cosyworld-nginx/client-body"],
+    ["proxy_temp_path", "/tmp/cosyworld-nginx/proxy"],
+    ["fastcgi_temp_path", "/tmp/cosyworld-nginx/fastcgi"],
+    ["uwsgi_temp_path", "/tmp/cosyworld-nginx/uwsgi"],
+    ["scgi_temp_path", "/tmp/cosyworld-nginx/scgi"],
+  ]) {
+    assert.match(nginx, new RegExp(`\\b${directive}\\s+${escapeRegExp(directory)};`));
+    assert.match(
+      supervisor,
+      new RegExp(`mkdir -p[\\s\\S]*?${escapeRegExp(directory)}`),
+      `${directive} directory must exist before non-root nginx -t`,
+    );
+  }
+  assert.ok(
+    supervisor.indexOf("/tmp/cosyworld-nginx/scgi") < supervisor.indexOf('if ! nginx -t -c "$nginx_config"'),
+    "all nginx temp directories must be created before nginx validates its config",
+  );
   assert.equal((fly.match(/\[\[mounts\]\]/g) ?? []).length, 1);
   assert.match(fly, /source = "lonelyforest_data"/);
   assert.match(fly, /app = "\/app\/deploy\/lonelyforest\/run-multitenant\.sh"/);

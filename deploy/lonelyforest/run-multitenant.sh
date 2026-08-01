@@ -149,8 +149,12 @@ trap 'stop_all; exit 0' TERM INT HUP
 trap 'stop_all; exit 1' USR1
 
 mkdir -p \
+  /tmp/cosyworld-nginx \
   /tmp/cosyworld-nginx/client-body \
   /tmp/cosyworld-nginx/proxy \
+  /tmp/cosyworld-nginx/fastcgi \
+  /tmp/cosyworld-nginx/uwsgi \
+  /tmp/cosyworld-nginx/scgi \
   "$tenant_data_root"
 
 # tenants.tsv is the committed source of truth for hostname, registry, port,
