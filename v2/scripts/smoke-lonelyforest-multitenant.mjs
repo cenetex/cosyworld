@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import http from "node:http";
 import https from "node:https";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const baseUrl = new URL(
@@ -10,6 +12,7 @@ const baseUrl = new URL(
 const expectElysium = args.includes("--expect-elysium");
 const allowRemoteMutations = args.includes("--allow-remote-mutations");
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+const scriptPath = fileURLToPath(import.meta.url);
 
 if (!loopbackHosts.has(baseUrl.hostname) && !allowRemoteMutations) {
   throw new Error(
@@ -40,19 +43,43 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function request(host, path, { method = "GET", body } = {}) {
+export function requestTarget(base, host, { routerProbe = false } = {}) {
+  // Local router tests deliberately exercise nginx's Host dispatch through one
+  // loopback listener. A remote smoke must instead connect to the hostname it
+  // advertises, so DNS and TLS SNI agree with Host.
+  const connectToBase = loopbackHosts.has(base.hostname) || routerProbe;
+  const hostname = connectToBase ? base.hostname : host;
+  return {
+    hostname,
+    port: base.port || undefined,
+    hostHeader: host,
+    // Node otherwise derives SNI from Host. Router probes intentionally send
+    // an untrusted Host through the base certificate, so pin SNI separately.
+    servername: base.protocol === "https:" ? hostname : undefined,
+  };
+}
+
+export function requestContext({ method, host, path, target }) {
+  const authority = target.port ? `${target.hostname}:${target.port}` : target.hostname;
+  return `${method} host=${host} path=${path} connect=${authority}`;
+}
+
+export function request(host, path, { method = "GET", body, routerProbe = false } = {}, base = baseUrl) {
   const payload = body === undefined ? null : JSON.stringify(body);
-  const transport = baseUrl.protocol === "https:" ? https : http;
+  const transport = base.protocol === "https:" ? https : http;
+  const target = requestTarget(base, host, { routerProbe });
+  const context = requestContext({ method, host, path, target });
   return new Promise((resolveRequest, rejectRequest) => {
     const req = transport.request(
       {
-        protocol: baseUrl.protocol,
-        hostname: baseUrl.hostname,
-        port: baseUrl.port || undefined,
+        protocol: base.protocol,
+        hostname: target.hostname,
+        port: target.port,
+        ...(target.servername ? { servername: target.servername } : {}),
         method,
         path,
         headers: {
-          host,
+          host: target.hostHeader,
           accept: "application/json",
           ...(payload === null
             ? {}
@@ -80,8 +107,10 @@ function request(host, path, { method = "GET", body } = {}) {
         });
       },
     );
-    req.on("error", rejectRequest);
-    req.on("timeout", () => req.destroy(new Error(`timed out requesting ${host}${path}`)));
+    req.on("error", (error) => {
+      rejectRequest(new Error(`${context}: ${error.message}`, { cause: error }));
+    });
+    req.on("timeout", () => req.destroy(new Error(`${context}: timed out after 10000ms`)));
     if (payload !== null) req.write(payload);
     req.end();
   });
@@ -187,7 +216,9 @@ async function main() {
     );
   }
 
-  const unknown = await request("untrusted.lonelyforest.com", "/");
+  // This is intentionally a router probe rather than a tenant request: there
+  // is no public DNS/TLS identity for the untrusted host.
+  const unknown = await request("untrusted.lonelyforest.com", "/", { routerProbe: true }, baseUrl);
   assert(unknown.status === 421, `unknown host returned HTTP ${unknown.status}`);
 
   console.log(JSON.stringify({
@@ -199,7 +230,9 @@ async function main() {
   }, null, 2));
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message || String(error));
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
+  main().catch((error) => {
+    console.error(error.stack || error.message || String(error));
+    process.exit(1);
+  });
+}
