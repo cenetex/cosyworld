@@ -9,10 +9,12 @@ use serde::{Deserialize, Serialize};
 mod rejections;
 pub(crate) use rejections::*;
 
+// These mirror the compiled capacities in core-c/include/cosy_kernel.h. They
+// are part of the cw_world layout, so the two files must move together.
 pub const CW_MAX_ACTORS: usize = 1024;
 pub const CW_MAX_ITEMS: usize = 1024;
-pub const CW_MAX_LOCATIONS: usize = 512;
-pub const CW_MAX_EXITS: usize = 1024;
+pub const CW_MAX_LOCATIONS: usize = 2048;
+pub const CW_MAX_EXITS: usize = 4096;
 pub const CW_MAX_EVENTS: usize = 256;
 pub const CW_MAX_EVOLUTION_TRACKS: usize = 128;
 pub const CW_MAX_EVOLUTION_REQUIREMENTS: usize = 4;
@@ -29,7 +31,8 @@ pub const CW_MAX_GATE_CLAIMS: usize = 128;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
 // Kernel version 9 is reserved by #411 for project-push ABI state.
-pub const CW_KERNEL_VERSION: u32 = 13;
+// Version 14 widens the location and exit arrays; sizeof(cw_world) changed.
+pub const CW_KERNEL_VERSION: u32 = 14;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_INVALID: u32 = 1;
@@ -923,5 +926,49 @@ mod tests {
         assert_eq!(action.kind, CW_ACTION_REST);
         assert_eq!(action.rest.requested_grade, CW_REST_GRADE_HEARTH);
         assert_eq!(action.rest.entitled_grade, CW_REST_GRADE_CAMP);
+    }
+
+    /// One world that mounts every authored pack at once currently seeds 555
+    /// locations and 1151 exits, which both exceeded the pre-version-14
+    /// capacities. This pins the headroom the topology actually needs rather
+    /// than each number in isolation, and proves the far end of each widened
+    /// array is addressable through the shared struct.
+    #[test]
+    fn capacity_holds_every_authored_pack_in_one_world() {
+        const UNIFIED_SEED_LOCATIONS: usize = 555;
+        const UNIFIED_SEED_EXITS: usize = 1151;
+        const ELYSIUM_LAST_LOCATION_ID: u64 = 652_484;
+
+        // One world needs room for generated pathway descendants beyond its
+        // seed, and every location must be able to carry at least one exit.
+        const {
+            assert!(CW_MAX_LOCATIONS >= UNIFIED_SEED_LOCATIONS * 2);
+            assert!(CW_MAX_EXITS >= UNIFIED_SEED_EXITS * 2);
+            assert!(CW_MAX_EXITS >= CW_MAX_LOCATIONS);
+        }
+
+        let mut world = CwWorld {
+            location_count: CW_MAX_LOCATIONS,
+            exit_count: CW_MAX_EXITS,
+            ..CwWorld::default()
+        };
+        world.locations[CW_MAX_LOCATIONS - 1] = CwLocation {
+            id: ELYSIUM_LAST_LOCATION_ID,
+            ..CwLocation::default()
+        };
+        world.exits[CW_MAX_EXITS - 1] = CwExit {
+            from_location_id: ELYSIUM_LAST_LOCATION_ID,
+            to_location_id: 1,
+            ..CwExit::default()
+        };
+
+        assert_eq!(
+            world.locations[CW_MAX_LOCATIONS - 1].id,
+            ELYSIUM_LAST_LOCATION_ID
+        );
+        assert_eq!(
+            world.exits[CW_MAX_EXITS - 1].from_location_id,
+            ELYSIUM_LAST_LOCATION_ID
+        );
     }
 }

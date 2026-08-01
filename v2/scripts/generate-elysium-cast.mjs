@@ -255,8 +255,8 @@ async function main() {
     bindings.every((binding) => binding.actor_id === actorId(binding.id)),
     "Elysium actor ids do not match the stable model-id mapping",
   );
-  assert(resources.locations.length <= 512, "Elysium exceeds the location capacity");
-  assert(resources.exits.length <= 1024, "Elysium exceeds the exit capacity");
+  assert(resources.locations.length <= 2048, "Elysium exceeds the location capacity");
+  assert(resources.exits.length <= 4096, "Elysium exceeds the exit capacity");
   assert(resources.items.length <= 1024, "Elysium exceeds the item capacity");
   assert(
     new Set(resources.actors.map((actor) => actor.location_id)).size === bindings.length,

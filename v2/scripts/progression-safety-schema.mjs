@@ -410,10 +410,10 @@ export function progressionSafetyValidationErrors(config, label = "progression s
     errors.push(`${label} entry_location_id must be positive`);
   }
   if (
-    !boundedUnique(config.required_location_ids, 1, 512)
+    !boundedUnique(config.required_location_ids, 1, 2048)
     || config.required_location_ids.some((id) => !positiveInteger(id))
   ) {
-    errors.push(`${label} required_location_ids must be 1-512 unique positive ids`);
+    errors.push(`${label} required_location_ids must be 1-2048 unique positive ids`);
   }
   if (!boundedUnique(config.optional_content, 0, 128, (entry) => `${entry?.kind}:${entry?.id}`)) {
     errors.push(`${label} optional_content must be a bounded unique list`);

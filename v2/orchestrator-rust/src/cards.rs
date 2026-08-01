@@ -311,7 +311,7 @@ impl RuntimeWorld {
 
     pub(super) fn set_item_zone(&mut self, item_id: u64, zone: u8, container_item_id: u64) -> bool {
         unsafe {
-            cw_world_set_item_zone(&mut self.world, item_id, zone, container_item_id) == CW_OK
+            cw_world_set_item_zone(&mut *self.world, item_id, zone, container_item_id) == CW_OK
         }
     }
 

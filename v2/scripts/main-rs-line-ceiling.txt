@@ -159,4 +159,9 @@
 # machine ready. The deployment boundary remains in main.rs because it owns
 # AppState and the existing HTTP health route; this is a reviewed operational
 # integration exception, with focused health regressions.
-73775
+# 73775 -> 73796: Kernel version 14 widened the location and exit arrays. The
+# RuntimeWorld Box keeps the resulting 285 KB C world off bootstrap and async
+# state-machine stacks; the remaining added lines are its FFI wiring plus the
+# legacy vector-backed snapshot rehydration contract. This is existing runtime
+# and persistence compatibility wiring, not a new subsystem.
+73796

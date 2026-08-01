@@ -1089,7 +1089,7 @@ mod tests {
         }
         let mut kernel_offers = CwActionOffers::default();
         assert_eq!(
-            unsafe { cw_get_action_offers(&runtime.world, RATI_ACTOR_ID, &mut kernel_offers) },
+            unsafe { cw_get_action_offers(&*runtime.world, RATI_ACTOR_ID, &mut kernel_offers) },
             CW_OK
         );
         assert_eq!(kernel_offers.option_flags & CW_OFFER_CRAFT, 0);
