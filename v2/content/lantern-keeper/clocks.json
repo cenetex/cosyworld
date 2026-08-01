@@ -313,6 +313,12 @@
         "job_id": "lantern-keeper:rekindle-the-beacon",
         "status": "completed",
         "reason": "lantern_keeper_completed"
+      },
+      {
+        "op": "unlock_exit",
+        "from_location_id": 804,
+        "to_location_id": 32,
+        "reason": "beacon_rekindled_opens_the_road"
       }
     ],
     "presentation": {

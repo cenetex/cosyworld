@@ -533,7 +533,7 @@ fn previous_epoch_snapshot_refreshes_the_finale_contract_and_shared_evidence() {
         .expect("active finale strategy replaces the old snapshot contract");
     assert_eq!(restored_strategy.requirements.len(), 10);
     assert_eq!(restored_strategy.baseline_progress, 6);
-    assert_eq!(restored_strategy.pack_version, "0.1.8");
+    assert_eq!(restored_strategy.pack_version, "0.1.9");
     assert_eq!(
         restored.tags[&room_feature_use_tag_id(801, "cold_lamp_post", 8402)].source_event_seq,
         Some(321)
@@ -850,6 +850,26 @@ fn assert_both_lantern_clock_fills_are_once_only() {
             .tags
             .get(case.expected_tag_id)
             .is_some_and(|tag| tag.active));
+
+        // Winning pays a road. The light clock opens the way onward from the
+        // tower; the darkness clock must not, so failure cannot hand out the
+        // reward that only success earns.
+        let road_is_open = !runtime.authored_route_locked_for_edge(804, 32);
+        assert_eq!(
+            road_is_open,
+            case.clock_id == LANTERN_PROGRESS_CLOCK_ID,
+            "the road onward from the Lantern Tower follows the beacon, not the dark"
+        );
+        if road_is_open {
+            assert!(
+                events.iter().any(|event| {
+                    event.type_name == "exit.unlocked"
+                        && event.location_id == Some(804)
+                        && event.destination_location_id == Some(32)
+                }),
+                "the opened road is a public journaled world event"
+            );
+        }
         let consequence_events = events
             .iter()
             .filter(|event| {

@@ -265,6 +265,7 @@ describe("worldpack authored relationships", () => {
       "ruby-high.first-bell",
       "cosyworld.composition.core-ruby",
       "cosyworld.composition.core-holy-land",
+      "cosyworld.composition.core-lantern-keeper",
     ]);
     expect(locations).toHaveLength(49);
     expect(rules.map((bundle) => bundle.pack_id)).toEqual([
@@ -368,6 +369,9 @@ describe("canonical topology validation", () => {
       exit.from_location_id === 1 && exit.to_location_id === 2);
     forward.directionality = "one_way";
     forward.fallback_location_id = 3;
+    const lanternRoad = exits.find((exit) =>
+      exit.from_location_id === 804 && exit.to_location_id === 32);
+    lanternRoad.fallback_location_id = 3;
     const oneWayExits = exits.filter((exit) =>
       exit.from_location_id !== 2 || exit.to_location_id !== 1);
     writeJson(root, "exits.json", oneWayExits);
@@ -403,6 +407,10 @@ describe("canonical topology validation", () => {
 
   it("requires evacuation destinations to retain egress to the world root", () => {
     const root = worldpackFixture();
+    const exits = JSON.parse(fs.readFileSync(path.join(root, "exits.json"), "utf8"))
+      .filter((exit) => exit.pack_id !== "cosyworld.composition.core-lantern-keeper");
+    writeJson(root, "exits.json", exits);
+    updateExitCounts(root, exits);
     const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
     const policy = manifest.pack_lifecycle.unmount.find(
       (candidate) => candidate.pack_id === "ruby-high.first-bell",

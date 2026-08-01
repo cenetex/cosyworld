@@ -97,7 +97,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.8"
+        "pack_version": "0.1.9"
       },
       {
         "version": 1,
@@ -179,7 +179,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.8"
+        "pack_version": "0.1.9"
       }
     ],
     "narrated_thresholds": [

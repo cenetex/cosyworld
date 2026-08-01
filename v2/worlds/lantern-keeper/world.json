@@ -24,6 +24,7 @@
     "cosyworld.rules-srd-5.1",
     "cosyworld.rules-srd-5.2.1",
     "cosyworld.rules-profile-srd5",
-    "cosyworld.campaign.the-lantern-keeper"
+    "cosyworld.campaign.the-lantern-keeper",
+    "cosyworld.composition.core-lantern-keeper"
   ]
 }

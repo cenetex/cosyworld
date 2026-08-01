@@ -3643,16 +3643,40 @@ fn validate_lantern_clock_effect_contract(content: &SeedContent) -> Result<(), S
         if authoritative.is_empty() {
             return Err(format!("clock {clock_id} on_fill cannot be tag-only"));
         }
-        if !matches!(
-            authoritative.as_slice(),
-            [EffectDescriptor::SetJobStatus {
-                job_id,
-                status,
-                ..
-            }] if job_id == LANTERN_KEEPER_JOB_ID && status == expected_status
-        ) {
+        // The job status is the required consequence and there may be exactly
+        // one of it. A clock may additionally open a road it has earned: the
+        // relit beacon is what makes the way onward passable, and paying that
+        // with an authored UnlockExit keeps the topology change authoritative,
+        // journaled, and replayable rather than a projection or a tag other
+        // surfaces would have to interpret. Nothing else is admitted here, so
+        // the clock still cannot grant items, currency, or access at large.
+        let mut job_status_effects = 0usize;
+        let mut unlock_effects = 0usize;
+        for effect in &authoritative {
+            match effect {
+                EffectDescriptor::SetJobStatus { job_id, status, .. }
+                    if job_id == LANTERN_KEEPER_JOB_ID && status == expected_status =>
+                {
+                    job_status_effects += 1;
+                }
+                EffectDescriptor::UnlockExit { .. } => {
+                    unlock_effects += 1;
+                }
+                _ => {
+                    return Err(format!(
+                        "clock {clock_id} on_fill admits only one set_job_status consequence for {LANTERN_KEEPER_JOB_ID}:{expected_status} and at most one unlock_exit"
+                    ));
+                }
+            }
+        }
+        if job_status_effects != 1 {
             return Err(format!(
                 "clock {clock_id} must declare exactly one authoritative set_job_status consequence for {LANTERN_KEEPER_JOB_ID}:{expected_status}"
+            ));
+        }
+        if unlock_effects > 1 {
+            return Err(format!(
+                "clock {clock_id} may open at most one authored exit on fill"
             ));
         }
     }

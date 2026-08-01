@@ -40,15 +40,33 @@ export function lanternClockEffectValidationErrors({
       errors.push(`clock ${clockId} on_fill cannot be tag-only`);
       continue;
     }
-    if (
-      authoritative.length !== 1
-      || authoritative[0]?.op !== "set_job_status"
-      || authoritative[0]?.job_id !== LANTERN_KEEPER_JOB_ID
-      || authoritative[0]?.status !== expectedStatus
-    ) {
+    // The job status is required and may appear exactly once. A clock may
+    // additionally open a road it has earned, so at most one unlock_exit is
+    // admitted alongside it. Nothing else: the clock still cannot grant items,
+    // currency, or access at large. Mirrors validate_lantern_clock_effect_contract
+    // in v2/orchestrator-rust/src/content_load.rs.
+    let jobStatusEffects = 0;
+    let unlockEffects = 0;
+    let foreign = false;
+    for (const effect of authoritative) {
+      if (
+        effect?.op === "set_job_status"
+        && effect?.job_id === LANTERN_KEEPER_JOB_ID
+        && effect?.status === expectedStatus
+      ) {
+        jobStatusEffects += 1;
+      } else if (effect?.op === "unlock_exit") {
+        unlockEffects += 1;
+      } else {
+        foreign = true;
+      }
+    }
+    if (foreign || jobStatusEffects !== 1) {
       errors.push(
         `clock ${clockId} must declare exactly one authoritative set_job_status consequence for ${LANTERN_KEEPER_JOB_ID}:${expectedStatus}`,
       );
+    } else if (unlockEffects > 1) {
+      errors.push(`clock ${clockId} may open at most one authored exit on fill`);
     }
   }
 
