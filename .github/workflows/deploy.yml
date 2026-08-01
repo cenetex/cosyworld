@@ -15,6 +15,11 @@ on:
           - both
           - primary
           - lonelyforest
+      lonelyforest_recovery_capture:
+        description: Reviewed committed tenant=path capture, only when that tenant's live /meta is unavailable
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: deploy-${{ github.repository }}
@@ -139,8 +144,15 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
-      - name: Guard Lonely Forest worldpack bundle compatibility
-        run: node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com
+      - name: Guard every Lonely Forest tenant worldpack bundle compatibility
+        run: |
+          if [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
+            node v2/scripts/check-lonelyforest-worldpacks.mjs --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"
+          else
+            node v2/scripts/check-lonelyforest-worldpacks.mjs
+          fi
+        env:
+          COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE: ${{ inputs.lonelyforest_recovery_capture }}
 
       - name: Validate Lonely Forest multitenant contract
         run: npm run v2:lonelyforest:contract

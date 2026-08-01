@@ -41,7 +41,7 @@ ENV RUST_LOG=cosyworld_orchestrator=info,tower_http=warn
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates gosu nginx \
+  && apt-get install -y --no-install-recommends ca-certificates curl gosu nginx \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system cosyworld \
   && useradd --system --no-create-home --gid cosyworld --groups www-data --shell /usr/sbin/nologin cosyworld \
@@ -54,7 +54,10 @@ COPY --from=build /app/v2/content /app/v2/content
 COPY deploy/lonelyforest /app/deploy/lonelyforest
 COPY deploy/entrypoint.sh /app/entrypoint.sh
 
-RUN chmod 0755 /app/entrypoint.sh /app/deploy/lonelyforest/run-multitenant.sh
+RUN chmod 0755 \
+  /app/entrypoint.sh \
+  /app/deploy/lonelyforest/check-required-health.sh \
+  /app/deploy/lonelyforest/run-multitenant.sh
 
 EXPOSE 3000
 

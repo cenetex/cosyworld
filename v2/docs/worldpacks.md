@@ -343,6 +343,13 @@ older bundle cannot declare a newer hash. The gate never mutates the journal,
 the snapshot, or the recorded hashes; the remedy for a blocked deploy is the
 declared migration path above, never a hand-edited hash.
 
+Lonely Forest is one Fly Machine containing several isolated world processes.
+Its release gate applies this same proof to every required tenant registry and
+public `/meta` identity, rather than treating the root host as evidence for
+every journal. See [the Lonely Forest deployment procedure](../../docs/deployment/lonelyforest-fly.md#recovery-when-a-tenant-is-already-unavailable)
+for required-tenant health behavior and the narrow captured-identity recovery
+path when a crashed tenant cannot serve `/meta`.
+
 Pack content has a canonical, version-independent identity of the form
 `pack://<pack-id>/<kind>/<local-id>`. For example,
 `pack://five-e-commons/creature/goblin-warrior` and
