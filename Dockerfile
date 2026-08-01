@@ -54,7 +54,7 @@ COPY --from=build /app/v2/content /app/v2/content
 COPY deploy/lonelyforest /app/deploy/lonelyforest
 COPY deploy/entrypoint.sh /app/entrypoint.sh
 
-RUN chmod 0755 /app/deploy/entrypoint.sh /app/deploy/lonelyforest/run-multitenant.sh
+RUN chmod 0755 /app/entrypoint.sh /app/deploy/lonelyforest/run-multitenant.sh
 
 EXPOSE 3000
 
