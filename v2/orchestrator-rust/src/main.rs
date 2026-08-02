@@ -48776,12 +48776,12 @@ mod tests {
         assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("room-title-main"));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
-        assert!(INDEX_HTML.contains("id=\"interior-view\""));
-        assert!(INDEX_HTML.contains("function renderInteriorView"));
-        assert!(INDEX_HTML.contains("function exitDirectionCode"));
-        assert!(INDEX_HTML.contains("data-pane=\"0\""));
+        assert!(!INDEX_HTML.contains("interior-view"));
+        assert!(!INDEX_HTML.contains("renderInteriorView"));
+        assert!(!INDEX_HTML.contains("exitDirectionCode"));
+        assert!(!INDEX_HTML.contains("interior-surface"));
+        assert!(!INDEX_HTML.contains("interior-exit"));
         assert!(INDEX_HTML.contains("pointer-events: none;"));
-        assert!(INDEX_HTML.contains("renderInteriorView(location, state.exits)"));
         assert!(INDEX_HTML.contains("\"/actions/move\""));
         assert!(INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("function firstThreadModel"));

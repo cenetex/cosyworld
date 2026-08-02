@@ -586,29 +586,6 @@
         linear-gradient(180deg, rgba(5, 8, 6, 0.08), rgba(5, 8, 6, 0.18) 43%, rgba(5, 8, 6, 0.78)),
         radial-gradient(circle at 18% 84%, rgba(101, 230, 138, 0.2), transparent 32%);
     }
-    .interior-view {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      isolation: isolate;
-    }
-    .interior-view[hidden] { display: none; }
-    .interior-view svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.24)); }
-    .interior-surface { stroke: rgba(255, 239, 185, 0.46); stroke-width: 2; vector-effect: non-scaling-stroke; }
-    .interior-seam { fill: none; stroke: rgba(255, 245, 208, 0.3); stroke-width: 1.25; vector-effect: non-scaling-stroke; }
-    .interior-view[data-mode="hex"] .pane-a { fill: rgba(190, 86, 68, 0.58); }
-    .interior-view[data-mode="hex"] .pane-b { fill: rgba(212, 149, 70, 0.58); }
-    .interior-view[data-mode="hex"] .pane-c { fill: rgba(71, 135, 128, 0.62); }
-    .interior-view[data-mode="hex"] .pane-d { fill: rgba(69, 92, 139, 0.64); }
-    .interior-view[data-mode="close"] .ceiling { fill: rgba(55, 80, 99, 0.48); }
-    .interior-view[data-mode="close"] .left-wall { fill: rgba(62, 100, 105, 0.66); }
-    .interior-view[data-mode="close"] .front-wall { fill: rgba(123, 116, 77, 0.62); }
-    .interior-view[data-mode="close"] .right-wall { fill: rgba(84, 72, 103, 0.66); }
-    .interior-view[data-mode="close"] .floor { fill: rgba(83, 69, 53, 0.66); }
-    .interior-exit .door-frame { fill: rgba(232, 196, 113, 0.9); stroke: rgba(255, 246, 206, 0.92); stroke-width: 2; vector-effect: non-scaling-stroke; }
-    .interior-exit .door-opening { fill: rgba(5, 8, 12, 0.9); stroke: rgba(5, 8, 12, 0.7); stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .interior-exit .door-mark { fill: none; stroke: rgba(255, 224, 139, 0.88); stroke-width: 2; vector-effect: non-scaling-stroke; }
     .room-avatar-rail {
       position: absolute;
       left: 14px;
@@ -4291,7 +4268,6 @@
           <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open">
             <img id="room-hero-image" alt="" />
           </button>
-          <div class="interior-view" id="interior-view" aria-hidden="true" hidden></div>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
         </div>
         <div class="room-title">
@@ -5286,47 +5262,6 @@
         return "Wallet signing prompt is not available in this browser. Open the QR page inside Phantom or Solflare and try again.";
       }
       return message ? `${fallback}: ${message}` : fallback;
-    }
-
-    function interiorViewMode(location = state?.location) {
-      const mode = String(location?.interior_view || "").trim().toLowerCase();
-      return mode === "hex" || mode === "close" ? mode : null;
-    }
-
-    function exitDirectionCode(direction) {
-      const normalized = String(direction || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
-      return ({ n: "N", north: "N", ne: "NE", northeast: "NE", e: "E", east: "E", se: "SE", southeast: "SE", s: "S", south: "S", sw: "SW", southwest: "SW", w: "W", west: "W", nw: "NW", northwest: "NW", u: "U", up: "U", d: "D", down: "D", in: "IN", inside: "IN", out: "OUT", outside: "OUT" })[normalized] || "";
-    }
-
-    const interiorExitSlots = {
-      hex: { NW: [52, 90, 92, 118], N: [346, 91, 92, 118], NE: [642, 74, 92, 118], E: [942, 90, 92, 118], SE: [1040, 191, 92, 112], S: [742, 197, 92, 112], SW: [442, 197, 92, 112], W: [144, 191, 92, 112], U: [552, 14, 96, 52, "hatch"], D: [552, 292, 96, 52, "hatch"], IN: [10, 224, 104, 58, "hatch"], OUT: [1086, 224, 104, 58, "hatch"] },
-      close: { NW: [386, 135, 88, 88], N: [532, 120, 136, 118], NE: [726, 135, 88, 88], E: [987, 120, 112, 118], SE: [867, 194, 92, 88], S: [552, 284, 96, 58, "hatch"], SW: [241, 194, 92, 88], W: [101, 120, 112, 118], U: [552, 20, 96, 52, "hatch"], D: [420, 284, 96, 58, "hatch"], IN: [16, 286, 104, 54, "hatch"], OUT: [1080, 286, 104, 54, "hatch"] },
-    };
-
-    function interiorExitSocket(exit, slot, fallbackIndex = 0) {
-      const code = exitDirectionCode(exit?.direction) || "?";
-      const [x, y, width, height, kind = "door"] = slot || [20 + (fallbackIndex * 116), 18, 104, 58, "hatch"];
-      const inset = kind === "hatch" ? 6 : 7;
-      const destination = String(exit?.destination_location_name || "Unknown destination");
-      return `<g class="interior-exit ${kind}" data-direction="${escapeAttr(code)}" data-destination-id="${escapeAttr(exit?.destination_location_id || "")}"><title>${escapeHtml(`${code}: ${destination}`)}</title><rect class="door-frame" x="${x}" y="${y}" width="${width}" height="${height}" rx="${kind === "hatch" ? 10 : 5}"></rect><rect class="door-opening" x="${x + inset}" y="${y + inset}" width="${width - (inset * 2)}" height="${height - (inset * 2)}" rx="${kind === "hatch" ? 7 : 3}"></rect><path class="door-mark" d="${kind === "hatch" ? `M ${x + 15} ${y + (height / 2)} H ${x + width - 15}` : `M ${x + (width / 2)} ${y + 12} V ${y + height - 18}`}"></path></g>`;
-    }
-
-    function interiorSvgSurfaces(mode) {
-      if (mode === "hex") return `<polygon class="interior-surface pane-a" data-pane="0" points="0,35 300,80 300,300 0,340"></polygon><polygon class="interior-surface pane-b" data-pane="1" points="300,80 600,45 600,315 300,300"></polygon><polygon class="interior-surface pane-c" data-pane="2" points="600,45 900,80 900,300 600,315"></polygon><polygon class="interior-surface pane-d" data-pane="3" points="900,80 1200,35 1200,340 900,300"></polygon><path class="interior-seam" d="M0 35 L600 45 L1200 35 M0 340 L600 315 L1200 340"></path>`;
-      return `<polygon class="interior-surface ceiling" data-pane="ceiling" points="0,0 1200,0 850,105 350,105"></polygon><polygon class="interior-surface left-wall" data-pane="left" points="0,0 350,105 350,255 0,360"></polygon><polygon class="interior-surface front-wall" data-pane="front" points="350,105 850,105 850,255 350,255"></polygon><polygon class="interior-surface right-wall" data-pane="right" points="850,105 1200,0 1200,360 850,255"></polygon><polygon class="interior-surface floor" data-pane="floor" points="0,360 350,255 850,255 1200,360"></polygon><path class="interior-seam" d="M350 105 H850 M350 255 H850"></path>`;
-    }
-
-    function renderInteriorView(location = state?.location, exits = state?.exits) {
-      const node = $("interior-view");
-      if (!node) return;
-      const mode = interiorViewMode(location);
-      node.hidden = !mode;
-      if (!mode) { node.removeAttribute("data-mode"); node.replaceChildren(); return; }
-      const visibleExits = (Array.isArray(exits) ? exits : []).filter((exit) => !exitUnavailable(exit, state));
-      const slots = interiorExitSlots[mode] || {};
-      const sockets = visibleExits.map((exit, index) => interiorExitSocket(exit, slots[exitDirectionCode(exit.direction)], index)).join("");
-      node.dataset.mode = mode;
-      node.innerHTML = `<svg class="interior-svg" viewBox="0 0 1200 360" preserveAspectRatio="none" focusable="false">${interiorSvgSurfaces(mode)}${sockets}</svg>`;
     }
 
     function buildActions(view) {
@@ -8943,7 +8878,6 @@
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
       roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} keepsake`);
       setCardTarget(roomHeroCard, locationCard);
-      renderInteriorView(location, state.exits);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       $("subtitle").textContent = location.name || "Unknown";
       const brand = $("brand");
