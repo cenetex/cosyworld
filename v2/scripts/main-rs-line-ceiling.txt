@@ -168,4 +168,8 @@
 # response dispatch, transcript classification, and INDEX_HTML contract glue at
 # existing runtime seams. Generation, review, storage, serving, and their tests
 # live in resident_image.rs; this is a reviewed integration exception.
-73828
+# 73828 -> 73827: personalized card-policy execution and its regressions live in
+# card_policy_objective.rs; event projection and shared test helpers moved to
+# their existing views.rs and test_support.rs seams. Root retains only persisted
+# state, journal mutation, boot configuration, and /meta boundary wiring.
+73827

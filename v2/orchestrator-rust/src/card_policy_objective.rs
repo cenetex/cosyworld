@@ -486,9 +486,527 @@ fn stable_branch_seed(
     hash
 }
 
+#[derive(Clone, Debug)]
+struct CommittedResidentPolicyTurn {
+    action: CwAction,
+    offer_kind: String,
+    offer_label: String,
+    offer_id: String,
+    events: Vec<EventView>,
+}
+
+impl CommittedResidentPolicyTurn {
+    fn narration_prompt(&self) -> String {
+        let outcomes = self
+            .events
+            .iter()
+            .filter(|event| event.success)
+            .filter_map(|event| {
+                event
+                    .content
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|content| !content.is_empty())
+                    .map(str::to_string)
+                    .or_else(|| {
+                        (!event.type_name.is_empty())
+                            .then(|| event.type_name.replace(['.', '_'], " "))
+                    })
+            })
+            .take(4)
+            .collect::<Vec<_>>();
+        format!(
+            "Your local instinct already committed the public action \"{}\" ({}). \
+The authoritative outcome is: {}. Speak one short in-character after-the-fact line about the \
+instinct behind that completed action. Do not propose another action and do not invent an outcome.",
+            self.offer_label,
+            self.offer_kind.replace('_', " "),
+            if outcomes.is_empty() {
+                "the kernel accepted the action exactly as offered".to_string()
+            } else {
+                outcomes.join(" | ")
+            }
+        )
+    }
+}
+
+fn commit_resident_card_policy_turn(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    base_plan: &AvatarReplyPlan,
+    rollout: &CardPolicyRollout,
+) -> Result<Option<CommittedResidentPolicyTurn>, String> {
+    if rollout.mode != CardPolicyRolloutMode::Live || !base_plan.planner_requested {
+        return Ok(None);
+    }
+    if !runtime.actor_has_active_treasure_objective(base_plan.speaker_actor_id) {
+        return Ok(None);
+    }
+    let maximum_draws = base_plan
+        .card_policy_snapshot
+        .as_ref()
+        .map(|snapshot| snapshot.deck_candidate_ids.len().saturating_add(1))
+        .unwrap_or(1)
+        .clamp(1, 128);
+    let mut accumulated_events = Vec::new();
+    for draw_index in 0..=maximum_draws {
+        let plan = runtime.prepare_resident_planner_snapshot(base_plan.clone());
+        let planning = request_resident_card_policy(rollout, &plan);
+        let action = planning
+            .trace
+            .card_policy
+            .as_ref()
+            .map(|policy| policy.action)
+            .ok_or_else(|| {
+                planning
+                    .trace
+                    .card_policy_failure_code
+                    .clone()
+                    .unwrap_or_else(|| "card_policy_decision_missing".to_string())
+            })?;
+        match action {
+            CardPolicyAction::A | CardPolicyAction::B => {
+                let seed = runtime.next_seed_value();
+                let Some((record, offer)) =
+                    runtime.resident_card_policy_action_record(&plan, &planning, seed)
+                else {
+                    return Err("card_policy_selected_offer_stale_or_illegal".to_string());
+                };
+                let committed_action = record.action;
+                let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
+                    return Err("card_policy_action_commit_failed".to_string());
+                };
+                accumulated_events.extend(events);
+                if status != CW_OK {
+                    return Err(format!("card_policy_kernel_rejected:{status}"));
+                }
+                return Ok(Some(CommittedResidentPolicyTurn {
+                    action: committed_action,
+                    offer_kind: offer.kind,
+                    offer_label: offer.accessible_label,
+                    offer_id: offer.offer_id,
+                    events: accumulated_events,
+                }));
+            }
+            CardPolicyAction::Draw => {
+                let seed = runtime.next_seed_value();
+                let Some(record) = runtime.resident_card_policy_draw_record(&plan, &planning, seed)
+                else {
+                    return Err("card_policy_draw_stale_or_illegal".to_string());
+                };
+                let committed_action = record.action;
+                let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
+                    return Err("card_policy_draw_commit_failed".to_string());
+                };
+                accumulated_events.extend(events);
+                if status != CW_OK {
+                    return Err(format!("card_policy_draw_kernel_rejected:{status}"));
+                }
+                // A draw is itself an authoritative turn. Usually we immediately
+                // re-rank the next pair, but if the objective budget ended or a
+                // pathological model keeps drawing beyond one deck traversal,
+                // publish this completed draw and resume on the next reply turn.
+                if !runtime.actor_has_active_treasure_objective(base_plan.speaker_actor_id)
+                    || draw_index == maximum_draws
+                {
+                    return Ok(Some(CommittedResidentPolicyTurn {
+                        action: committed_action,
+                        offer_kind: "draw".to_string(),
+                        offer_label: "draw the next two cards".to_string(),
+                        offer_id: format!(
+                            "resident-card-policy-draw:{}:{}",
+                            base_plan.speaker_actor_id, draw_index
+                        ),
+                        events: accumulated_events,
+                    }));
+                }
+            }
+        }
+    }
+    unreachable!("bounded card-policy turn always selects or returns its final draw")
+}
+
+fn resident_card_policy_narration_plan(
+    runtime: &RuntimeWorld,
+    mut plan: AvatarReplyPlan,
+    committed: &CommittedResidentPolicyTurn,
+) -> AvatarReplyPlan {
+    if let Some(actor) = runtime.actor_by_id(plan.speaker_actor_id) {
+        let location_meta = runtime.location_meta_for(actor.location_id);
+        plan.location_id = actor.location_id;
+        plan.location_name = runtime
+            .location_name(actor.location_id)
+            .unwrap_or_else(|| "Unknown Location".to_string());
+        plan.location_title = location_meta.title;
+        plan.location_description = location_meta.description;
+        plan.location_persona = location_meta.persona;
+        plan.location_evidence =
+            runtime.conversation_location_evidence(actor.location_id, actor.id, None);
+        plan.public_room_memory = runtime.recent_public_room_evidence(actor.location_id, 3);
+        plan.cast = runtime.room_cast_names(actor.location_id);
+        plan.recent_lines = runtime.recent_room_lines(actor.location_id, 8);
+        plan.recent_activity = runtime.recent_room_activity(actor.location_id, 10);
+        plan.resident_continuity = runtime.resident_continuity_for(actor);
+        plan.economy_note = runtime.resident_economy_prompt_note(actor, None);
+        plan.goals = runtime.narrative_goal_lines(Some(actor.id), actor.location_id);
+    }
+    plan.user_text = committed.narration_prompt();
+    plan.caused_by_event_seq = committed.events.last().map(|event| event.seq);
+    plan.observed_through_seq = committed.events.last().map(|event| event.seq);
+    plan.source_world_tick = Some(runtime.world.tick);
+    plan.source_location_id = Some(plan.location_id);
+    plan.publication_beat_id = format!(
+        "resident-card-policy-narration:{}:{}",
+        plan.speaker_actor_id,
+        committed
+            .events
+            .last()
+            .map(|event| event.seq)
+            .unwrap_or_default()
+    );
+    plan.planner_requested = false;
+    plan.planner_candidates.clear();
+    plan.card_policy_snapshot = None;
+    plan
+}
+
+fn resident_card_policy_fallback_line(
+    plan: &AvatarReplyPlan,
+    committed: &CommittedResidentPolicyTurn,
+) -> String {
+    match plan.speech_mode.as_str() {
+        "emoji_only" => "✨➡️".to_string(),
+        "emote_only" => format!(
+            "*{} follows a quiet instinct: {}.*",
+            plan.speaker_name, committed.offer_label
+        ),
+        "oracle" => format!(
+            "Root: Instinct chose {}. Ring: The choice is already made.",
+            committed.offer_label
+        ),
+        _ => format!("I followed the pull to {}.", committed.offer_label),
+    }
+}
+
+fn commit_resident_card_policy_fallback(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    plan: &AvatarReplyPlan,
+    committed: &CommittedResidentPolicyTurn,
+    relationship_reply: Option<&RelationshipReplyExpectation>,
+) -> Option<Vec<EventView>> {
+    let actor = runtime
+        .actor_by_id(plan.speaker_actor_id)
+        .filter(|actor| RuntimeWorld::actor_can_act(*actor))?;
+    let content_id = runtime.next_content_id_value();
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_SAY,
+            actor_id: actor.id,
+            content_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record.caused_by_event_seq = committed.events.last().map(|event| event.seq);
+    record.source_world_tick = Some(runtime.world.tick);
+    record.observed_through_seq = committed.events.last().map(|event| event.seq);
+    record.source_location_id = Some(actor.location_id);
+    record.content_upserts.insert(
+        content_id,
+        resident_card_policy_fallback_line(plan, committed),
+    );
+    if let Some(expectation) = relationship_reply {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetRelationshipDialogueStatus {
+                relationship_actor_id: expectation.actor_id,
+                target_actor_id: expectation.target_actor_id,
+                status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
+                reason: "the committed action received an authored fallback narration".to_string(),
+            });
+    }
+    let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
+        return None;
+    };
+    (status == CW_OK).then_some(events)
+}
+
+pub(super) async fn complete_avatar_reply(
+    state: &AppState,
+    plan: AvatarReplyPlan,
+    relationship_reply: Option<&RelationshipReplyExpectation>,
+) -> Result<bool, String> {
+    let (plan, committed) = {
+        let mut runtime = state.inner.lock().await;
+        let plan = runtime.prepare_resident_planner_snapshot(plan);
+        let committed = state
+            .card_policy
+            .as_deref()
+            .filter(|rollout| rollout.mode == CardPolicyRolloutMode::Live)
+            .map(|rollout| commit_resident_card_policy_turn(state, &mut runtime, &plan, rollout))
+            .transpose()?
+            .flatten();
+        let narration_plan = committed
+            .as_ref()
+            .map(|committed| resident_card_policy_narration_plan(&runtime, plan.clone(), committed))
+            .unwrap_or(plan);
+        (narration_plan, committed)
+    };
+    if let Some(committed) = committed.as_ref() {
+        tracing::debug!(
+            actor_id = committed.action.actor_id,
+            action_kind = committed.action.kind,
+            offer_id = %committed.offer_id,
+            "resident card policy committed before narration"
+        );
+        broadcast_events(state, &committed.events);
+    }
+    if resident_uses_image_reply(plan.speaker_actor_id) {
+        return match complete_resident_image_reply(state, &plan, relationship_reply).await {
+            Ok(published) => Ok(published || committed.is_some()),
+            Err(error) if committed.is_some() => {
+                warn!("resident image narration failed after committed action: {error}");
+                Ok(true)
+            }
+            Err(error) => Err(error),
+        };
+    }
+    let proposal = match avatar_reply_intent(state, &plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!("AI resident narration failed: {}", error);
+            record_rejected_ai_publication(state, &error);
+            if let Some(committed) = committed.as_ref() {
+                let mut runtime = state.inner.lock().await;
+                let fallback = commit_resident_card_policy_fallback(
+                    state,
+                    &mut runtime,
+                    &plan,
+                    committed,
+                    relationship_reply,
+                );
+                drop(runtime);
+                if let Some(events) = fallback {
+                    broadcast_events(state, &events);
+                }
+                return Ok(true);
+            }
+            return Err(error.to_string());
+        }
+    };
+    let mut runtime = state.inner.lock().await;
+    let Some(events) =
+        commit_resident_reply_record(state, &mut runtime, &plan, proposal, relationship_reply)
+    else {
+        return Ok(committed.is_some());
+    };
+    drop(runtime);
+    broadcast_events(state, &events);
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn active_test_treasure_objective(runtime: &mut RuntimeWorld, max_turns: u16) {
+        let treasure_item_id = runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .find(|item| {
+                item.zone == CW_CARD_ZONE_WORLD
+                    && item.holder_actor_id == 0
+                    && item.location_id != 0
+            })
+            .expect("seeded world has a loose treasure candidate")
+            .id;
+        runtime.treasure_objectives.insert(
+            "test-card-policy-treasure".to_string(),
+            TreasureObjectiveState {
+                schema_version: 1,
+                id: "test-card-policy-treasure".to_string(),
+                actor_id: RATI_ACTOR_ID,
+                treasure_item_id,
+                max_turns,
+                turns_taken: 0,
+                status: TreasureObjectiveStatus::Active,
+                started_world_tick: runtime.world.tick,
+                started_event_seq: runtime.world.next_event_seq.saturating_sub(1),
+                resolved_event_seq: None,
+            },
+        );
+    }
+
+    fn live_test_card_policy(
+        plan: &AvatarReplyPlan,
+        target: CardPolicyAction,
+    ) -> Arc<CardPolicyRollout> {
+        use cosyworld_orchestrator::card_policy::CardPolicyModel;
+
+        for seed in 0..10_000 {
+            let model = CardPolicyModel::new(seed);
+            if test_card_policy_action(&model, plan) == target {
+                return Arc::new(CardPolicyRollout {
+                    mode: CardPolicyRolloutMode::Live,
+                    model_hash: model.model_hash(),
+                    model: Arc::new(model),
+                    top_k: 1,
+                });
+            }
+        }
+        panic!("no deterministic model selected {target:?}");
+    }
+
+    fn test_card_policy_action(
+        model: &cosyworld_orchestrator::card_policy::CardPolicyModel,
+        plan: &AvatarReplyPlan,
+    ) -> CardPolicyAction {
+        use cosyworld_orchestrator::card_policy::CARD_POLICY_FEATURES;
+
+        let snapshot = plan
+            .card_policy_snapshot
+            .as_ref()
+            .expect("prepared card-policy snapshot");
+        let features = snapshot
+            .candidate_features_q15
+            .iter()
+            .map(|features| {
+                let features: &[i16; CARD_POLICY_FEATURES] = features
+                    .as_slice()
+                    .try_into()
+                    .expect("fixed card-policy feature shape");
+                *features
+            })
+            .collect::<Vec<_>>();
+        model
+            .rank(&features)
+            .expect("rank test observation")
+            .action_for_hand(snapshot.hand_candidate_indices, 1)
+            .expect("adapt test ranking")
+    }
+
+    #[tokio::test]
+    async fn live_card_policy_commits_action_before_fallback_narration() {
+        let mut runtime = RuntimeWorld::seeded();
+        active_test_treasure_objective(&mut runtime, 8);
+        let mut plan = runtime
+            .resident_reply_plan_for_target(
+                SKULL_ACTOR_ID,
+                RATI_ACTOR_ID,
+                "Something glints beyond the room.",
+            )
+            .expect("seeded resident reply plan");
+        plan.planner_requested = true;
+        let plan = runtime.prepare_resident_planner_snapshot(plan);
+        let rollout = live_test_card_policy(&plan, CardPolicyAction::A);
+        let first_new_seq = runtime.world.next_event_seq;
+        let mut state = test_app_state(runtime, None);
+        state.card_policy = Some(rollout);
+
+        assert!(complete_avatar_reply(&state, plan, None)
+            .await
+            .expect("committed action survives unavailable narration provider"));
+
+        let runtime = state.inner.lock().await;
+        let new_events = runtime
+            .event_log
+            .iter()
+            .filter(|event| event.seq >= first_new_seq)
+            .collect::<Vec<_>>();
+        let narration_seq = new_events
+            .iter()
+            .find(|event| {
+                event.type_name == "message.created" && event.actor_id == Some(RATI_ACTOR_ID)
+            })
+            .map(|event| event.seq)
+            .expect("authored fallback narration was committed");
+        assert!(new_events.iter().any(|event| {
+            event.seq < narration_seq
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.type_name != "message.created"
+                && event.type_name != "treasure_objective.completed"
+                && event.type_name != "treasure_objective.timed_out"
+        }));
+        assert!(runtime
+            .card_policy_preferences
+            .get(&RATI_ACTOR_ID)
+            .is_some_and(|preferences| !preferences.is_empty()));
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("card-policy history survives a snapshot round trip");
+        assert_eq!(
+            restored.card_policy_preferences,
+            runtime.card_policy_preferences
+        );
+    }
+
+    #[tokio::test]
+    async fn live_card_policy_draws_then_reranks_the_new_hand() {
+        use cosyworld_orchestrator::card_policy::CardPolicyModel;
+
+        let mut runtime = RuntimeWorld::seeded();
+        active_test_treasure_objective(&mut runtime, 8);
+        let mut plan = runtime
+            .resident_reply_plan_for_target(
+                SKULL_ACTOR_ID,
+                RATI_ACTOR_ID,
+                "The first two choices feel wrong.",
+            )
+            .expect("seeded resident reply plan");
+        plan.planner_requested = true;
+        let plan = runtime.prepare_resident_planner_snapshot(plan);
+
+        let mut after_draw = runtime.clone();
+        after_draw.hand_generations.insert(RATI_ACTOR_ID, 1);
+        let after_draw_plan = after_draw.prepare_resident_planner_snapshot(plan.clone());
+        let rollout = (0..10_000)
+            .find_map(|seed| {
+                let model = CardPolicyModel::new(seed);
+                (test_card_policy_action(&model, &plan) == CardPolicyAction::Draw
+                    && test_card_policy_action(&model, &after_draw_plan) != CardPolicyAction::Draw)
+                    .then(|| {
+                        Arc::new(CardPolicyRollout {
+                            mode: CardPolicyRolloutMode::Live,
+                            model_hash: model.model_hash(),
+                            model: Arc::new(model),
+                            top_k: 1,
+                        })
+                    })
+            })
+            .expect("a deterministic model draws once and then selects the new hand");
+        let first_new_seq = runtime.world.next_event_seq;
+        let mut state = test_app_state(runtime, None);
+        state.card_policy = Some(rollout);
+
+        assert!(complete_avatar_reply(&state, plan, None)
+            .await
+            .expect("draw and committed action survive unavailable narration provider"));
+
+        let runtime = state.inner.lock().await;
+        let new_events = runtime
+            .event_log
+            .iter()
+            .filter(|event| event.seq >= first_new_seq)
+            .collect::<Vec<_>>();
+        let draw_seq = new_events
+            .iter()
+            .find(|event| event.type_name == "hand.shuffled")
+            .map(|event| event.seq)
+            .expect("draw advanced the authoritative hand");
+        let narration_seq = new_events
+            .iter()
+            .find(|event| event.type_name == "message.created")
+            .map(|event| event.seq)
+            .expect("fallback narrated the final action");
+        assert!(new_events.iter().any(|event| {
+            event.seq > draw_seq
+                && event.seq < narration_seq
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.type_name != "hand.shuffled"
+        }));
+        assert_eq!(runtime.hand_generations.get(&RATI_ACTOR_ID), Some(&1));
+    }
 
     fn loose_treasure(runtime: &RuntimeWorld) -> CwItem {
         runtime.world.items[..runtime.world.item_count]

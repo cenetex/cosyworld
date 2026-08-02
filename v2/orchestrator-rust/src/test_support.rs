@@ -1,5 +1,20 @@
 use super::*;
 
+pub(super) fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+    CommandRequest {
+        actor_id,
+        actor_session: None,
+        command: command.to_string(),
+        offer_id: None,
+        wallet_address: None,
+        wallet: None,
+        wallet_session: None,
+        owned_card_ids: None,
+        cards: None,
+        envelope: None,
+    }
+}
+
 pub(super) fn initialize_test_event_store(path: &Path) {
     init_event_store(path).expect("initialize complete test event-store schema");
     let conn = open_event_store(path).expect("verify test event-store schema");

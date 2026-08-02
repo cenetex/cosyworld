@@ -1,7 +1,7 @@
 # Production card-policy artifact
 
 `incumbent.cwrank` is the deterministic integer ranker deployed in production
-shadow mode for CosyWorld `0.0.316`.
+shadow mode for CosyWorld `0.0.318`.
 
 - artifact format: `CWRANK2`, version 2
 - artifact size: 516 bytes

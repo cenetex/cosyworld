@@ -541,17 +541,16 @@ fn prepare_real_command(mut args: impl Iterator<Item = String>) -> Result<(), Bo
     })
 }
 
+type CardPolicyDatasetSplit = (
+    Vec<CardPolicySample>,
+    Vec<CardPolicySample>,
+    Vec<CardPolicySample>,
+);
+
 fn split_rows_by_world(
     rows: &[CardPolicySample],
     seed: u64,
-) -> Result<
-    (
-        Vec<CardPolicySample>,
-        Vec<CardPolicySample>,
-        Vec<CardPolicySample>,
-    ),
-    Box<dyn Error>,
-> {
+) -> Result<CardPolicyDatasetSplit, Box<dyn Error>> {
     let mut worlds = rows.iter().map(|row| row.world_seed).collect::<Vec<_>>();
     worlds.sort_unstable();
     worlds.dedup();

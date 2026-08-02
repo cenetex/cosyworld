@@ -1,5 +1,16 @@
 use super::*;
 
+pub(super) fn event_current_hp(event: &CwEvent) -> Option<i16> {
+    match event.type_ {
+        CW_EVENT_ACTOR_CREATED
+        | CW_EVENT_ITEM_USED
+        | CW_EVENT_COMBAT_ATTACK_HIT
+        | CW_EVENT_COMBAT_KNOCKOUT
+        | CW_EVENT_AVATAR_EVOLVED => Some(event.current_hp),
+        _ => opt_i16(event.current_hp),
+    }
+}
+
 impl Default for EventView {
     fn default() -> Self {
         Self {
