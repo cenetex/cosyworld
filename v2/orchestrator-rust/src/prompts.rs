@@ -357,9 +357,9 @@ async fn request_ai_avatar_chat(
                 "dialogue_avatar"
             },
             prompt_version: if followup {
-                "dialogue-avatar-followup-v4"
+                "dialogue-avatar-followup-v5"
             } else {
-                "dialogue-avatar-v4"
+                "dialogue-avatar-v5"
             },
             prompt: avatar_chat_prompt(plan, followup),
             temperature: 0.8,
@@ -571,7 +571,7 @@ pub(super) async fn request_ai_avatar_intent(
             store_path,
             VoiceAttemptRequest {
                 feature: "dialogue_resident_raw",
-                prompt_version: "dialogue-resident-raw-v1",
+                prompt_version: "dialogue-resident-raw-v2",
                 prompt: PromptEnvelope::default().user(
                     plan.user_text.clone(),
                     PromptSegmentKind::UniqueEvidence,
@@ -619,7 +619,7 @@ pub(super) async fn request_ai_avatar_intent(
         store_path,
         VoiceAttemptRequest {
             feature: "dialogue_resident",
-            prompt_version: "dialogue-resident-voice-v4",
+            prompt_version: "dialogue-resident-voice-v5",
             prompt,
             temperature: 0.75,
             max_tokens: 120,
@@ -860,6 +860,15 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
     // present, which made announcing it the cheapest way to pass the gate. See
     // issue #553.
     anchors.extend(plan.cast.iter().cloned());
+    let other_speaker_names = std::iter::once(plan.target_actor_name.clone())
+        .chain(plan.cast.iter().cloned())
+        .chain(
+            plan.exchange_turns
+                .iter()
+                .flat_map(|turn| [turn.speaker_name.clone(), turn.recipient_name.clone()]),
+        )
+        .filter(|name| !name.eq_ignore_ascii_case(&plan.actor_name))
+        .collect();
     SpeechGateContext {
         feature: if followup {
             "dialogue_avatar_followup"
@@ -873,6 +882,7 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         ),
         speaker_actor_id: plan.actor_id,
         speaker_name: plan.actor_name.clone(),
+        other_speaker_names,
         mode: SpeechMode::Prose,
         max_words: if followup { 28 } else { 34 },
         anchors,
@@ -910,6 +920,17 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
     // guaranteed way through the gate. See issue #553.
     anchors.extend(plan.cast.iter().cloned());
     anchors.extend(plan.goals.iter().cloned());
+    let other_speaker_names = plan
+        .cast
+        .iter()
+        .cloned()
+        .chain(
+            plan.incoming_turn
+                .iter()
+                .flat_map(|turn| [turn.speaker_name.clone(), turn.recipient_name.clone()]),
+        )
+        .filter(|name| !name.eq_ignore_ascii_case(&plan.speaker_name))
+        .collect();
     SpeechGateContext {
         feature: if plan.speech_mode == "raw" {
             "dialogue_resident_raw"
@@ -923,6 +944,7 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         ),
         speaker_actor_id: plan.speaker_actor_id,
         speaker_name: plan.speaker_name.clone(),
+        other_speaker_names,
         mode: SpeechMode::from_name(&plan.speech_mode),
         max_words: resident_word_budget(plan),
         anchors,
