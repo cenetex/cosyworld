@@ -61,6 +61,7 @@ pub(crate) enum PublicationCheckCode {
     // Append-only. Stored receipts keep the codes they were written with, so a
     // new variant never changes how an old rejection reads.
     VoiceObjectAgency,
+    VoiceFallbackIdentity,
 }
 
 impl PublicationCheckCode {
@@ -79,6 +80,7 @@ impl PublicationCheckCode {
             Self::VoiceUnsafeTone => "voice_unsafe_tone",
             Self::VoiceProposedActionClaim => "voice_proposed_action_claim",
             Self::VoiceObjectAgency => "voice_object_agency",
+            Self::VoiceFallbackIdentity => "voice_fallback_identity",
         }
     }
 }
@@ -458,8 +460,24 @@ impl crate::RuntimeWorld {
         let Some(receipt) = record.ai_publication.as_ref() else {
             return true;
         };
-        record.action.kind == crate::CW_ACTION_SAY
-            && !self.ai_publications.contains_key(&receipt.generation_id)
+        let published_text = if record.action.kind == crate::CW_ACTION_SAY {
+            record.content_upserts.get(&record.action.content_id)
+        } else if record.action.kind == crate::CW_ACTION_NONE
+            && record.origin == crate::JournalOrigin::ActorConsequence
+            && record.projection_mutations.len() == 1
+            && record.projection_mutations.iter().any(|mutation| {
+                matches!(
+                    mutation,
+                    crate::ProjectionMutation::RecordAvatarReflection { content_id, .. }
+                        if *content_id == record.action.content_id
+                )
+            })
+        {
+            record.content_upserts.get(&record.action.content_id)
+        } else {
+            None
+        };
+        !self.ai_publications.contains_key(&receipt.generation_id)
             && receipt.generation_id
                 == publication_generation_id_for(
                     &receipt.feature,
@@ -467,10 +485,7 @@ impl crate::RuntimeWorld {
                     &receipt.generation_key,
                     record.action.actor_id,
                 )
-            && record
-                .content_upserts
-                .get(&record.action.content_id)
-                .is_some_and(|text| receipt_matches_text(receipt, text))
+            && published_text.is_some_and(|text| receipt_matches_text(receipt, text))
     }
 }
 
@@ -544,11 +559,23 @@ fn evaluate_checks(
             PublicationCheckCode::VoiceObjectAgency,
             raw || !scene_object_acts_with_volition(&lowered),
         ),
+        (
+            PublicationCheckCode::VoiceFallbackIdentity,
+            raw || !contains_numeric_traveler_identity(text),
+        ),
     ];
     checks
         .into_iter()
         .map(|(code, passed)| PublicationCheck { code, passed })
         .collect()
+}
+
+fn contains_numeric_traveler_identity(value: &str) -> bool {
+    normalized_words(value).windows(2).any(|pair| {
+        matches!(pair[0].as_str(), "traveler" | "traveller")
+            && !pair[1].is_empty()
+            && pair[1].chars().all(|character| character.is_ascii_digit())
+    })
 }
 
 fn has_clean_terminal_structure(value: &str) -> bool {
@@ -1328,6 +1355,21 @@ mod tests {
         assert_eq!(
             PublicationCheckCode::VoiceObjectAgency.as_str(),
             "voice_object_agency"
+        );
+    }
+
+    #[test]
+    fn numeric_traveler_fallback_identity_is_rejected() {
+        assert_eq!(
+            rejected_code(
+                "Traveler 1002 waits beside the hearth.",
+                context(&["hearth".to_string()], &[])
+            ),
+            PublicationCheckCode::VoiceFallbackIdentity
+        );
+        assert_eq!(
+            PublicationCheckCode::VoiceFallbackIdentity.as_str(),
+            "voice_fallback_identity"
         );
     }
 

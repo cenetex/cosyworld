@@ -812,6 +812,14 @@ fn physical_delivery_receipt(event: &EventView, events: &[&EventView]) -> Option
 pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
     match event.type_name.as_str() {
         "message.created" => event.content.clone(),
+        "avatar.thought" => event
+            .content
+            .as_ref()
+            .map(|content| format!("You think: {content}")),
+        "avatar.dream" => event
+            .content
+            .as_ref()
+            .map(|content| format!("You dream: {content}")),
         "transfer.offer_created"
         | "transfer.offer_declined"
         | "transfer.offer_withdrawn"
@@ -1003,6 +1011,18 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             .to_string(),
         ),
         "ability_check.rolled" => Some(match (event.content.as_deref(), event.success) {
+            (Some("think"), true) => {
+                "Your Intelligence check succeeds; a thought is forming asynchronously.".to_string()
+            }
+            (Some("think"), false) => {
+                "Your Intelligence check misses; no thought is generated this time.".to_string()
+            }
+            (Some("dream"), true) => {
+                "Your Wisdom check succeeds; a dream is forming asynchronously.".to_string()
+            }
+            (Some("dream"), false) => {
+                "Your Wisdom check misses; no dream is generated this time.".to_string()
+            }
             (Some("study"), true) => {
                 "You study the signs and understand their meaning.".to_string()
             }

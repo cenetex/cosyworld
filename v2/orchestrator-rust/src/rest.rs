@@ -230,6 +230,87 @@ pub(super) fn declared_item_recovery_profile(
     (max_charges, recovery, ready_zone)
 }
 
+pub(super) async fn rest(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let turn_location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id);
+    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+        return response;
+    }
+    let dream_job = runtime
+        .rest_has_recovery_target(payload.actor_id)
+        .then(|| runtime.avatar_reflection_job(payload.actor_id, AvatarReflectionKind::Dream))
+        .flatten();
+    let Ok((action, mutations)) = runtime.plan_rest_action(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+    record.bind_offer_kind("rest");
+    record.projection_mutations.extend(mutations);
+    if let Some(job) = dream_job.clone() {
+        attach_avatar_reflection_check(&mut record, job);
+    }
+
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        payload.actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    if let Some(plan) = ripple_reply_plan {
+        schedule_player_tick_observation(&state, plan);
+    }
+    if status == CW_OK {
+        if let Some(job) = dream_job {
+            schedule_avatar_reflection(&state, job, &events);
+        }
+    }
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;

@@ -172,4 +172,6 @@
 # card_policy_objective.rs; event projection and shared test helpers moved to
 # their existing views.rs and test_support.rs seams. Root retains only persisted
 # state, journal mutation, boot configuration, and /meta boundary wiring.
-73827
+# 73827 -> 73822: move generated avatar persona regression coverage into its
+# owning avatar_identity.rs seam while integrating checked reflections.
+73822
