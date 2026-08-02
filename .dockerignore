@@ -1,6 +1,9 @@
 *
 
 !Dockerfile
+!models/
+!models/card-policy/
+!models/card-policy/**
 !deploy/
 !deploy/lonelyforest/
 !deploy/lonelyforest/**

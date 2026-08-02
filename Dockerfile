@@ -51,6 +51,7 @@ RUN apt-get update \
 
 COPY --from=build /app/v2/orchestrator-rust/target/release/cosyworld-orchestrator /app/cosyworld-orchestrator
 COPY --from=build /app/v2/content /app/v2/content
+COPY models/card-policy /app/models/card-policy
 COPY deploy/lonelyforest /app/deploy/lonelyforest
 COPY deploy/entrypoint.sh /app/entrypoint.sh
 

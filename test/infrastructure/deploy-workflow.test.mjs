@@ -8,6 +8,7 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -43,6 +44,9 @@ const lonelyForestFlyConfig = readFileSync(
   'utf8'
 );
 const dockerfile = readFileSync(new URL('../../Dockerfile', import.meta.url), 'utf8');
+const cardPolicyModel = readFileSync(
+  new URL('../../models/card-policy/incumbent.cwrank', import.meta.url)
+);
 const dockerignore = readFileSync(
   new URL('../../.dockerignore', import.meta.url),
   'utf8'
@@ -118,6 +122,27 @@ describe('deploy workflow', () => {
     expect(primaryFlyConfig).toContain('force_https = true');
     expect(primaryFlyConfig).not.toContain('force_https = false');
     expect(dockerfile).toContain('ENTRYPOINT ["/app/entrypoint.sh"]');
+  });
+
+  it('ships the checksummed card ranker in conservative production shadow mode', () => {
+    expect(cardPolicyModel.subarray(0, 8).toString('utf8')).toBe('CWRANK2\n');
+    expect(cardPolicyModel).toHaveLength(516);
+    expect(createHash('sha256').update(cardPolicyModel).digest('hex')).toBe(
+      'c670bf6efac8e95f9bed910955aded920d3570c8c483d0533ea980c9f53e2962'
+    );
+    expect(dockerignore).toContain('!models/card-policy/**');
+    expect(dockerfile).toContain(
+      'COPY models/card-policy /app/models/card-policy'
+    );
+    expect(primaryFlyConfig).toContain(
+      'COSYWORLD_CARD_POLICY_MODE = "shadow"'
+    );
+    expect(primaryFlyConfig).toContain(
+      'COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"'
+    );
+    expect(primaryFlyConfig).toContain(
+      'COSYWORLD_CARD_POLICY_TOP_K = "3"'
+    );
   });
 
   it('keeps the Docker entrypoint COPY, chmod, and ENTRYPOINT destinations aligned', () => {

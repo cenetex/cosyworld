@@ -36,6 +36,12 @@ async function inspectTarget(value) {
   assert(meta.persistence?.event_store?.consecutive_append_failures === 0, `${baseUrl.origin} has consecutive event-store append failures`);
   assert(meta.persistence?.event_store?.consecutive_read_failures === 0, `${baseUrl.origin} has consecutive event-store read failures`);
   assert(meta.persistence?.event_store?.pending_event_count === 0, `${baseUrl.origin} has pending event-store writes`);
+  assert(meta.features?.card_policy_mode === "shadow", `${baseUrl.origin} card policy is not in shadow mode`);
+  assert(meta.features?.card_policy_top_k === 3, `${baseUrl.origin} card policy top-k is not 3`);
+  assert(
+    meta.features?.card_policy_model_hash === "1e1002a4907456f2",
+    `${baseUrl.origin} has the wrong card-policy model`,
+  );
   assert(meta.ownership_feed?.remote_configured === true, `${baseUrl.origin} has no remote Ruby High feed`);
   assert(meta.ownership_feed?.bearer_configured === true, `${baseUrl.origin} has no Ruby High feed bearer`);
   assert(
@@ -58,6 +64,9 @@ async function inspectTarget(value) {
   return {
     url: baseUrl.origin,
     profile: meta.deployment.profile,
+    card_policy_mode: meta.features.card_policy_mode,
+    card_policy_top_k: meta.features.card_policy_top_k,
+    card_policy_model_hash: meta.features.card_policy_model_hash,
     ownership_feed_status: meta.ownership_feed.status,
     wallet_count: meta.ownership_feed.wallet_count,
     last_success_at_unix: meta.ownership_feed.last_success_at_unix,
