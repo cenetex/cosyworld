@@ -200,6 +200,19 @@ impl RuntimeWorld {
         self.ensure_authored_route_records();
         self.ensure_hidden_route_records();
         self.migrate_generated_pathways_for_snapshot(snapshot_version, historical_bundle_hash)?;
+        if declared_worldpack_migration {
+            // Only a declared migration may retire routes. An exact snapshot
+            // stays fail-closed above, so this can never silently drop a route
+            // from a bundle that was supposed to match.
+            let retired = self.retire_routes_absent_from_active_bundle()?;
+            if !retired.is_empty() {
+                tracing::warn!(
+                    retired_route_count = retired.len(),
+                    retired_routes = ?retired,
+                    "declared worldpack migration retired routes the active bundle no longer declares"
+                );
+            }
+        }
         self.validate_canonical_route_records()
     }
 
@@ -488,7 +501,13 @@ impl RuntimeWorld {
         Ok(())
     }
 
-    pub(super) fn validate_canonical_route_records(&self) -> Result<(), String> {
+    /// The canonical route set the active bundle declares: authored exits,
+    /// hidden exits, and the edges of every generated pathway. Both
+    /// validation and declared-migration retirement read this one
+    /// definition so they can never disagree about what is canonical.
+    pub(super) fn canonical_route_expectations(
+        &self,
+    ) -> Result<BTreeMap<String, RouteRecordState>, String> {
         let mut expected = BTreeMap::<String, RouteRecordState>::new();
         for exit in &active_content().exits {
             let owner_pack_id = if exit.pack_id.is_empty() {
@@ -624,6 +643,37 @@ impl RuntimeWorld {
                 }
             }
         }
+        Ok(expected)
+    }
+
+    /// Retires persisted canonical routes the migrated bundle no longer
+    /// declares.
+    ///
+    /// `ensure_authored_route_records` and `ensure_hidden_route_records` add
+    /// and reconcile what the new bundle gained, but nothing removed what it
+    /// dropped, so a declared migration that retired an authored exit left a
+    /// persisted route with no canonical counterpart and failed validation on
+    /// boot. Returns the retired ids so the caller can record them; the
+    /// journal is untouched, since retiring a route forgets a path forward
+    /// rather than rewriting the history that used it.
+    pub(super) fn retire_routes_absent_from_active_bundle(
+        &mut self,
+    ) -> Result<Vec<String>, String> {
+        let expected = self.canonical_route_expectations()?;
+        let retired = self
+            .routes
+            .keys()
+            .filter(|route_id| !expected.contains_key(*route_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        for route_id in &retired {
+            self.routes.remove(route_id);
+        }
+        Ok(retired)
+    }
+
+    pub(super) fn validate_canonical_route_records(&self) -> Result<(), String> {
+        let expected = self.canonical_route_expectations()?;
 
         for (storage_key, route) in &self.routes {
             if storage_key != &route.id
@@ -3820,6 +3870,71 @@ mod tests {
         let replayed = RuntimeSnapshot::from_runtime(&restored)
             .into_runtime()
             .expect("the migrated current checkpoint is idempotent");
+        assert_eq!(replayed.routes, restored.routes);
+    }
+
+    /// Issue #696: the Elysium rhizome (#680) retired the authored exit
+    /// between locations 652001 and 652002. Lonely Forest tenant 0 still had
+    /// that route in its snapshot, so the declared migration loaded it, found
+    /// no canonical counterpart, and crash-looped the whole multitenant app.
+    #[test]
+    fn declared_worldpack_migration_retires_routes_the_new_bundle_dropped() {
+        let runtime = RuntimeWorld::seeded();
+        let seed_route = runtime
+            .route_for_edge(700, 712)
+            .expect("Holy Land authored route")
+            .clone();
+        // A canonical authored id for a pair the active bundle does not join.
+        let dropped_id = canonical_authored_route_id(&seed_route.owner_pack_id, 652_001, 652_002);
+        assert!(
+            !runtime.routes.contains_key(&dropped_id),
+            "fixture must name a route the active bundle does not declare"
+        );
+        let dropped = RouteRecordState {
+            canonical_id: dropped_id.clone(),
+            id: dropped_id.clone(),
+            edges: vec![
+                RouteEdgeState {
+                    from_location_id: 652_001,
+                    to_location_id: 652_002,
+                    flags: 0,
+                },
+                RouteEdgeState {
+                    from_location_id: 652_002,
+                    to_location_id: 652_001,
+                    flags: 0,
+                },
+            ],
+            ..seed_route
+        };
+
+        // An exact snapshot stays fail-closed: only a declared migration may retire.
+        let mut exact = RuntimeSnapshot::from_runtime(&runtime);
+        exact.routes.insert(dropped_id.clone(), dropped.clone());
+        assert!(
+            exact.into_runtime().is_err(),
+            "an exact bundle must never silently drop a route it still claims to match"
+        );
+
+        let mut migrated = RuntimeSnapshot::from_runtime(&runtime);
+        migrated.worldpack_bundle_hash =
+            "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170".to_string();
+        migrated.routes.insert(dropped_id.clone(), dropped);
+        let restored = migrated
+            .into_runtime()
+            .expect("a declared migration must boot after retiring a dropped route");
+        assert!(
+            !restored.routes.contains_key(&dropped_id),
+            "the retired route must not survive the migration"
+        );
+        assert!(
+            restored.routes.contains_key(&seed_route.id),
+            "retirement must not disturb routes the bundle still declares"
+        );
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("the retired checkpoint is idempotent");
         assert_eq!(replayed.routes, restored.routes);
     }
 
