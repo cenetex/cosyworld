@@ -664,17 +664,12 @@ pub(crate) fn push_resident_continuity_note(
 
 pub(crate) fn resident_proposed_action_intent(action: &AvatarProposedAction) -> Option<String> {
     let kind = sanitize_continuity_note_text(Some(&action.kind))?;
-    let mut parts = vec![format!("propose {kind}")];
-    if let Some(target_actor_id) = action.target_actor_id {
-        parts.push(format!("target actor {target_actor_id}"));
-    }
-    if let Some(item_id) = action.item_id {
-        parts.push(format!("item {item_id}"));
-    }
-    if let Some(destination_location_id) = action.destination_location_id {
-        parts.push(format!("destination {destination_location_id}"));
-    }
-    Some(trim_to_chars(&parts.join("; "), 180))
+    // Entity ids belong to the executable action certificate, not to a resident's
+    // interior voice. Keeping them here lets models turn implementation details into
+    // dialogue (for example, "item 11453577331"). The typed pending action retains
+    // every id needed for validation and execution; continuity only needs the verb.
+    let kind = compact_whitespace(&kind.replace('_', " ").replace('-', " "));
+    Some(trim_to_chars(&format!("propose {kind}"), 180))
 }
 
 pub(crate) fn resident_continuity_path_from_env(

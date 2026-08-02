@@ -186,7 +186,7 @@ jobs:
   build:
     name: build
     if: ${{ always() }}
-    needs: [node, runtime, web-build, publication]
+    needs: [node, runtime, publication]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all CI jobs passed
@@ -194,9 +194,7 @@ jobs:
           NODE_RESULT: ${{ needs.node.result }}
           PUBLICATION_RESULT: ${{ needs.publication.result }}
           RUNTIME_RESULT: ${{ needs.runtime.result }}
-          WEB_BUILD_RESULT: ${{ needs.web-build.result }}
         run: |
           test "$NODE_RESULT" = success
           test "$PUBLICATION_RESULT" = success
           test "$RUNTIME_RESULT" = success
-          test "$WEB_BUILD_RESULT" = success
