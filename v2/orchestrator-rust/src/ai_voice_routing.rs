@@ -6,8 +6,8 @@ use crate::{
     },
     ai_publication::{
         append_ai_publication_attempt, certify_speech, publication_generation_id,
-        AiPublicationReceipt, CertifiedSpeech, PublicationCheckCode, PublicationRejection,
-        SpeechGateContext, SpeechMode,
+        score_speech_candidate, AiPublicationReceipt, CertifiedSpeech, PublicationCheckCode,
+        PublicationRejection, SpeechCandidateScore, SpeechGateContext, SpeechMode,
     },
 };
 use rusqlite::{params, Connection, OptionalExtension};
@@ -27,7 +27,7 @@ pub(crate) const VOICE_UNKNOWN_COST_MICRODOLLARS_ENV: &str =
     "COSYWORLD_AI_VOICE_UNKNOWN_COST_MICRODOLLARS";
 pub(crate) const VOICE_EXPLORATION_FLOOR_BPS_ENV: &str = "COSYWORLD_AI_VOICE_EXPLORATION_FLOOR_BPS";
 
-const MAX_VOICE_ATTEMPTS: u8 = 3;
+const MAX_VOICE_ATTEMPTS: u8 = 10;
 const MAX_JOB_LEASE_RETRIES: u32 = 1;
 const VOICE_RETRY_FEEDBACK_RESERVE_TOKENS: u32 = 96;
 
@@ -63,8 +63,12 @@ impl VoiceRoutingConfig {
             1,
             MAX_VOICE_ATTEMPTS as u64,
         )? as u8;
-        let hedge_width =
-            env_integer(VOICE_HEDGE_WIDTH_ENV, defaults.hedge_width as u64, 1, 3)? as u8;
+        let hedge_width = env_integer(
+            VOICE_HEDGE_WIDTH_ENV,
+            defaults.hedge_width as u64,
+            1,
+            MAX_VOICE_ATTEMPTS as u64,
+        )? as u8;
         if hedge_width > max_attempts {
             return Err(format!(
                 "{VOICE_HEDGE_WIDTH_ENV} must not exceed {VOICE_MAX_ATTEMPTS_ENV}"
@@ -197,6 +201,12 @@ struct PlannedCandidate {
     selection: PinnedModelSelection,
     decision: VoiceSelectionDecision,
     retry_feedback_cost_microdollars: u64,
+}
+
+struct RankedCertifiedCandidate {
+    candidate: PlannedCandidate,
+    speech: CertifiedSpeech,
+    score: SpeechCandidateScore,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -346,7 +356,8 @@ async fn route_certified_voice_with(
     let mut provider_failures = 0usize;
     let mut next_candidate = 0usize;
     let mut first_batch = true;
-    while next_candidate < planned.len() {
+    let mut certified_candidates = Vec::new();
+    'generation: while next_candidate < planned.len() {
         let remaining_candidates = planned.len() - next_candidate;
         // Hedges are peers, not retries. Keep one bounded attempt in reserve so
         // every multi-attempt configuration can act on a publication-gate verdict.
@@ -364,12 +375,16 @@ async fn route_certified_voice_with(
         first_batch = false;
         let elapsed = started.elapsed();
         let Some(remaining) = config.voice_routing.latency_ceiling.checked_sub(elapsed) else {
-            mark_timed_out_batch(store_path, &generation_id, batch);
+            mark_timed_out_batch(store_path, &generation_id, batch, &BTreeSet::new());
+            if !certified_candidates.is_empty() {
+                break 'generation;
+            }
             let code = "voice_latency_exhausted";
             finish_voice_job_unavailable(store_path, &generation_id, &owner, code);
             return Err(routing_error(code, rejections));
         };
         let mut attempts = JoinSet::new();
+        let mut completed_ordinals = BTreeSet::new();
         for candidate in batch.iter().cloned() {
             let backend = Arc::clone(&backend);
             let request = request_with_retry_feedback(&request, &rejections, &gate);
@@ -385,7 +400,10 @@ async fn route_certified_voice_with(
             let elapsed = started.elapsed();
             let Some(remaining) = config.voice_routing.latency_ceiling.checked_sub(elapsed) else {
                 attempts.abort_all();
-                mark_timed_out_batch(store_path, &generation_id, batch);
+                mark_timed_out_batch(store_path, &generation_id, batch, &completed_ordinals);
+                if !certified_candidates.is_empty() {
+                    break 'generation;
+                }
                 let code = "voice_latency_exhausted";
                 finish_voice_job_unavailable(store_path, &generation_id, &owner, code);
                 return Err(routing_error(code, rejections));
@@ -393,7 +411,10 @@ async fn route_certified_voice_with(
             let joined = tokio::time::timeout(remaining, attempts.join_next()).await;
             let Some(joined) = joined.ok().flatten() else {
                 attempts.abort_all();
-                mark_timed_out_batch(store_path, &generation_id, batch);
+                mark_timed_out_batch(store_path, &generation_id, batch, &completed_ordinals);
+                if !certified_candidates.is_empty() {
+                    break 'generation;
+                }
                 let code = "voice_latency_exhausted";
                 finish_voice_job_unavailable(store_path, &generation_id, &owner, code);
                 return Err(routing_error(code, rejections));
@@ -402,6 +423,7 @@ async fn route_certified_voice_with(
                 provider_failures += 1;
                 continue;
             };
+            completed_ordinals.insert(candidate.decision.ordinal);
             match result {
                 Err(error) => {
                     provider_failures += 1;
@@ -470,42 +492,99 @@ async fn route_certified_voice_with(
                                 speech.receipt().model_attribution.as_ref(),
                                 true,
                             );
-                            let speech = speech.with_prior_rejections(rejections.clone());
-                            if accept_voice_job(
-                                store_path,
-                                &generation_id,
-                                &owner,
-                                &candidate.decision.family,
-                                &speech,
-                            ) {
-                                record_decision_result(
-                                    store_path,
-                                    &generation_id,
-                                    candidate.decision.ordinal,
-                                    "accepted",
-                                    None,
-                                );
-                                attempts.abort_all();
-                                return Ok(speech);
-                            }
+                            let score = score_speech_candidate(speech.text(), &gate);
+                            tracing::info!(
+                                generation_id = %generation_id,
+                                candidate_round = candidate.decision.ordinal,
+                                anchor_matches = score.anchor_matches,
+                                novelty_bps = score.novelty_bps,
+                                lexical_diversity_bps = score.lexical_diversity_bps,
+                                "AI voice candidate passed the gate and entered ranking"
+                            );
                             record_decision_result(
                                 store_path,
                                 &generation_id,
                                 candidate.decision.ordinal,
-                                "certified_loser",
+                                "certified",
                                 None,
                             );
-                            if let Some(cached) =
-                                load_accepted_voice_job(store_path, &generation_id)
-                            {
-                                attempts.abort_all();
-                                return Ok(cached);
-                            }
+                            certified_candidates.push(RankedCertifiedCandidate {
+                                candidate,
+                                speech,
+                                score,
+                            });
                         }
                     }
                 }
             }
         }
+    }
+
+    if !certified_candidates.is_empty() {
+        let certified_pool_size = certified_candidates.len();
+        let winner_index = certified_candidates
+            .iter()
+            .enumerate()
+            .max_by(|(_, left), (_, right)| {
+                left.score.cmp(&right.score).then_with(|| {
+                    right
+                        .speech
+                        .receipt()
+                        .candidate_id
+                        .cmp(&left.speech.receipt().candidate_id)
+                })
+            })
+            .map(|(index, _)| index)
+            .expect("non-empty certified candidate pool has a winner");
+        let winner = certified_candidates.swap_remove(winner_index);
+        for loser in certified_candidates {
+            record_decision_result(
+                store_path,
+                &generation_id,
+                loser.candidate.decision.ordinal,
+                "certified_loser",
+                None,
+            );
+        }
+        let speech = winner.speech.with_prior_rejections(rejections.clone());
+        tracing::info!(
+            generation_id = %generation_id,
+            candidate_round = winner.candidate.decision.ordinal,
+            certified_pool_size,
+            anchor_matches = winner.score.anchor_matches,
+            novelty_bps = winner.score.novelty_bps,
+            lexical_diversity_bps = winner.score.lexical_diversity_bps,
+            "selected the highest-ranked certified AI voice candidate"
+        );
+        if accept_voice_job(
+            store_path,
+            &generation_id,
+            &owner,
+            &winner.candidate.decision.family,
+            &speech,
+        ) {
+            record_decision_result(
+                store_path,
+                &generation_id,
+                winner.candidate.decision.ordinal,
+                "accepted",
+                None,
+            );
+            return Ok(speech);
+        }
+        record_decision_result(
+            store_path,
+            &generation_id,
+            winner.candidate.decision.ordinal,
+            "certified_loser",
+            None,
+        );
+        if let Some(cached) = load_accepted_voice_job(store_path, &generation_id) {
+            return Ok(cached);
+        }
+        let code = "voice_job_store_unavailable";
+        finish_voice_job_unavailable(store_path, &generation_id, &owner, code);
+        return Err(routing_error(code, rejections));
     }
 
     let code = if provider_failures == planned.len() {
@@ -1377,8 +1456,16 @@ fn record_decision_result(
     );
 }
 
-fn mark_timed_out_batch(path: Option<&Path>, generation_id: &str, batch: &[PlannedCandidate]) {
-    for candidate in batch {
+fn mark_timed_out_batch(
+    path: Option<&Path>,
+    generation_id: &str,
+    batch: &[PlannedCandidate],
+    completed_ordinals: &BTreeSet<u8>,
+) {
+    for candidate in batch
+        .iter()
+        .filter(|candidate| !completed_ordinals.contains(&candidate.decision.ordinal))
+    {
         record_provider_failure(
             path,
             &candidate.decision.provider,
@@ -1741,6 +1828,35 @@ mod tests {
                 .count(),
             2,
             "only the filler attempts are marked as resampled",
+        );
+    }
+
+    #[test]
+    fn attempt_budget_can_build_a_ten_response_pool() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 10,
+            hedge_width: 10,
+            spend_ceiling_microdollars: u64::MAX,
+            ..VoiceRoutingConfig::default()
+        });
+        let (planned, _) = build_voice_plan(
+            None,
+            "generation-ten-response-pool",
+            5_000,
+            "prose",
+            &request("dialogue_avatar"),
+            &config.voice_routing,
+            config.pin_models(ModelCapability::Voice).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(planned.len(), 10);
+        assert_eq!(
+            planned
+                .iter()
+                .filter(|candidate| candidate.decision.resampled)
+                .count(),
+            9,
         );
     }
 
@@ -2154,6 +2270,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn every_passing_candidate_is_ranked_before_one_is_accepted() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 3,
+            hedge_width: 3,
+            spend_ceiling_microdollars: u64::MAX,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_outputs([
+            ("provider/tiny-a", "Teapot ready.", 0),
+            ("provider/tiny-a", "Teapot waits beside the window.", 10),
+            ("provider/tiny-a", "Teapot and biscuit ready.", 0),
+        ]);
+        let mut publication_gate = gate("ranked-pool-beat");
+        publication_gate.anchors = vec!["teapot".to_string(), "biscuit".to_string()];
+
+        let certified = route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            publication_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the best passing candidate is selected");
+
+        assert_eq!(backend.call_count(), 3);
+        assert_eq!(certified.text(), "Teapot and biscuit ready.");
+    }
+
+    #[tokio::test]
     async fn raw_retry_keeps_feedback_in_the_single_user_envelope() {
         let config = single_candidate(VoiceRoutingConfig {
             max_attempts: 2,
@@ -2297,7 +2443,11 @@ mod tests {
         .await
         .expect("one hedge certifies");
         assert!(certified.text().contains("Teapot"));
-        assert_eq!(backend.call_count(), 2);
+        assert_eq!(
+            backend.call_count(),
+            3,
+            "all bounded candidates are compared before the durable winner is accepted"
+        );
         let cached_backend = MockBackend::default();
         let cached = route_certified_voice_with(
             &config,

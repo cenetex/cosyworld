@@ -564,6 +564,17 @@ mod tests {
             .any(|event| event.type_name == "message.created"));
     }
 
+    /// The scripted exchange the fake provider plays back, in order. Turn
+    /// selection reads the transcript already in the prompt rather than a call
+    /// counter, because voice routing asks the provider more than once per
+    /// turn and then ranks the certified candidates.
+    const CHAT_SCRIPT: [&str; 4] = [
+        "I found a quiet minute. How is the cottage treating you?",
+        "Kindly enough, though the kettle has opinions about punctuality.",
+        "Then I will keep one ear on the kettle and one on your story.",
+        "A sensible arrangement. Come back before the kettle starts whistling secrets.",
+    ];
+
     #[tokio::test]
     async fn completed_chat_commits_exactly_two_lines_from_each_participant() {
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -574,21 +585,30 @@ mod tests {
                 let calls = calls.clone();
                 let requests = requests.clone();
                 move |Json(request): Json<serde_json::Value>| {
-                    let index = calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    // Voice routing certifies and ranks several candidates per
+                    // turn, so a scripted reply cannot key off the call count.
+                    // Answer the turn the prompt is actually asking for: each
+                    // committed line adds one "said to" row to the transcript.
+                    // Voice routing certifies and ranks several candidates per
+                    // turn, so a scripted reply cannot key off the call count.
+                    // Answer whichever turn the transcript has not reached yet;
+                    // the prompt already carries every committed line.
+                    let payload = request.to_string();
+                    let index = CHAT_SCRIPT
+                        .iter()
+                        .rposition(|line| payload.contains(line))
+                        .map(|position| position + 1)
+                        .unwrap_or_default();
                     requests
                         .lock()
                         .expect("capture Chat inference request")
                         .push(request);
                     async move {
-                        let content = [
-                            "I found a quiet minute. How is the cottage treating you?",
-                            "Kindly enough, though the kettle has opinions about punctuality.",
-                            "Then I will keep one ear on the kettle and one on your story.",
-                            "A sensible arrangement. Come back before it starts whistling secrets.",
-                        ]
-                        .get(index)
-                        .copied()
-                        .unwrap_or("The conversation has already settled.");
+                        let content = CHAT_SCRIPT
+                            .get(index)
+                            .copied()
+                            .unwrap_or("The conversation has already settled.");
                         Json(serde_json::json!({
                             "model": "test-chat-model",
                             "choices": [{
@@ -687,17 +707,30 @@ mod tests {
             .any(|event| event.type_name == "chat.failed"));
         drop(runtime);
         let captured = requests.lock().expect("inspect Chat inference requests");
-        let followup_request = captured.get(2).expect("avatar follow-up request");
-        let followup_prompt = followup_request["messages"]
-            .as_array()
-            .and_then(|messages| {
+        // Voice routing ranks several certified candidates before accepting
+        // one, so the follow-up is no longer at a fixed request offset. Select
+        // it by the speaker it is written for instead of by position.
+        let last_user_prompt = |request: &serde_json::Value| -> Option<String> {
+            request["messages"].as_array().and_then(|messages| {
                 messages.iter().rev().find_map(|message| {
                     (message["role"].as_str() == Some("user"))
                         .then(|| message["content"].as_str())
                         .flatten()
+                        .map(str::to_string)
                 })
             })
-            .expect("follow-up user prompt");
+        };
+        // The opener is also written for Inference Tester, so match the
+        // follow-up by the transcript it must carry back into the prompt.
+        let followup_prompt = captured
+            .iter()
+            .filter_map(last_user_prompt)
+            .rfind(|prompt| {
+                prompt.contains("i am Inference Tester")
+                    && prompt.contains("Inference Tester said to Rati:")
+            })
+            .expect("avatar follow-up prompt carrying the exchange transcript");
+        let followup_prompt = followup_prompt.as_str();
         assert!(followup_prompt.contains("i am Inference Tester"));
         assert!(followup_prompt.contains("Inference Tester said to Rati:"));
         assert!(followup_prompt.contains("Rati said to Inference Tester:"));

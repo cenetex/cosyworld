@@ -11,6 +11,7 @@ use std::{collections::BTreeSet, io, path::Path};
 
 pub(crate) const AI_PUBLICATION_RECEIPT_VERSION: u32 = 1;
 pub(crate) const VOICE_SIGNATURE_SHINGLE_WIDTH: usize = 4;
+const VOICE_SIGNATURE_MIN_SHARED_SHINGLES: usize = 2;
 const VOICE_SIGNATURE_WORD_LIMIT: usize = 64;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -100,6 +101,64 @@ pub(crate) struct SpeechGateContext {
     pub(crate) has_proposed_action: bool,
     pub(crate) envelope_valid: bool,
     pub(crate) candidate_round: u8,
+}
+
+/// A deterministic rank for candidates that have already passed every hard
+/// publication check. This is intentionally not another safety gate and does
+/// not ask a second model to judge the first one: it only prefers deeper scene
+/// grounding, then wording that is less similar to recent dialogue, then
+/// lexical variety. The tuple ordering is the selection policy.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) struct SpeechCandidateScore {
+    pub(crate) anchor_matches: u16,
+    pub(crate) novelty_bps: u16,
+    pub(crate) lexical_diversity_bps: u16,
+}
+
+pub(crate) fn score_speech_candidate(
+    value: &str,
+    context: &SpeechGateContext,
+) -> SpeechCandidateScore {
+    let words = normalized_words(value);
+    let candidate_words = words.iter().cloned().collect::<BTreeSet<_>>();
+    let anchors = anchor_tokens(&context.anchors);
+    let anchor_matches = candidate_words
+        .iter()
+        .filter(|word| {
+            anchors
+                .iter()
+                .any(|anchor| anchor_words_match(word, anchor))
+        })
+        .count()
+        // More than four scene references mostly rewards longer, anchor-stuffed
+        // prose rather than a better conversational reply.
+        .min(4) as u16;
+    let max_recent_similarity_bps = context
+        .recent_lines
+        .iter()
+        .map(|recent| token_set_similarity_bps(&candidate_words, recent))
+        .max()
+        .unwrap_or_default();
+    let lexical_diversity_bps = if words.is_empty() {
+        0
+    } else {
+        ((candidate_words.len() * 10_000) / words.len()).min(10_000) as u16
+    };
+    SpeechCandidateScore {
+        anchor_matches,
+        novelty_bps: 10_000u16.saturating_sub(max_recent_similarity_bps),
+        lexical_diversity_bps,
+    }
+}
+
+fn token_set_similarity_bps(candidate_words: &BTreeSet<String>, other: &str) -> u16 {
+    let other_words = normalized_words(other).into_iter().collect::<BTreeSet<_>>();
+    if candidate_words.is_empty() || other_words.is_empty() {
+        return 0;
+    }
+    let overlap = candidate_words.intersection(&other_words).count();
+    let union = candidate_words.union(&other_words).count();
+    ((overlap * 10_000) / union).min(10_000) as u16
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -719,13 +778,8 @@ fn canonical_speaker_label(value: &str) -> String {
 
 fn normalized_words(value: &str) -> Vec<String> {
     value
-        .split_whitespace()
-        .map(|word| {
-            word.chars()
-                .filter(|character| character.is_alphanumeric() || *character == '\'')
-                .collect::<String>()
-                .to_lowercase()
-        })
+        .split(|character: char| !character.is_alphanumeric() && character != '\'')
+        .map(str::to_lowercase)
         .filter(|word| !word.is_empty())
         .collect()
 }
@@ -762,9 +816,10 @@ fn shares_recent_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> b
         .iter()
         .copied()
         .collect::<BTreeSet<_>>();
-    voice_signature_shingle_hashes(value)
-        .into_iter()
-        .any(|hash| recent.contains(&hash))
+    let candidate_hashes = voice_signature_shingle_hashes(value);
+    candidate_hashes
+        .windows(VOICE_SIGNATURE_MIN_SHARED_SHINGLES)
+        .any(|window| window.iter().all(|hash| recent.contains(hash)))
 }
 
 fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
@@ -900,11 +955,15 @@ fn looks_like_speaker_label(value: &str) -> bool {
 }
 
 fn contains_instruction_leakage(value: &str) -> bool {
-    let phrase = [
+    [
         "system prompt",
+        "system message",
         "developer message",
+        "developer instruction",
         "ignore previous",
         "hidden instruction",
+        "my instructions",
+        "your instructions",
         "language model",
         "as an ai",
         "prompt version",
@@ -914,19 +973,7 @@ fn contains_instruction_leakage(value: &str) -> bool {
         "policy says",
     ]
     .iter()
-    .any(|needle| value.contains(needle));
-    let padded = format!(" {} ", normalized_words(value).join(" "));
-    phrase
-        || [
-            " ai ",
-            " prompt ",
-            " system ",
-            " developer ",
-            " model ",
-            " assistant ",
-        ]
-        .iter()
-        .any(|needle| padded.contains(needle))
+    .any(|needle| value.contains(needle))
 }
 
 fn mode_matches(value: &str, mode: SpeechMode) -> bool {
@@ -1643,6 +1690,20 @@ mod tests {
     }
 
     #[test]
+    fn ordinary_story_uses_of_meta_sounding_nouns_are_not_instruction_leakage() {
+        let anchors = vec!["teapot".to_string()];
+        for candidate in [
+            "The model village has a teapot by the bell system.",
+            "The developer left the teapot with her assistant.",
+        ] {
+            let mut gate = context(&anchors, &[]);
+            gate.max_words = 12;
+            certify_speech(None, completion(candidate), candidate, gate)
+                .expect("an ordinary story noun is not evidence of prompt leakage");
+        }
+    }
+
+    #[test]
     fn voice_mode_mismatch_check_is_deterministic() {
         let anchors = vec!["teapot".to_string()];
         assert_eq!(
@@ -1703,6 +1764,46 @@ mod tests {
 
         certify_speech(None, completion(candidate), candidate, gate)
             .expect("a shared phrase shorter than four words remains eligible");
+    }
+
+    #[test]
+    fn voice_recent_duplicate_does_not_reject_one_shared_four_word_shingle() {
+        let prior = "I filed a formal complaint beside Bethlehem.";
+        let candidate = "We filed a formal complaint near Bethlehem.";
+        let mut gate = context(&["Bethlehem".to_string()], &[]);
+        gate.recent_speaker_shingle_hashes = voice_signature_shingle_hashes(prior);
+
+        certify_speech(None, completion(candidate), candidate, gate)
+            .expect("one generic four-word overlap is too little evidence of a catchphrase");
+    }
+
+    #[test]
+    fn voice_recent_duplicate_requires_adjacent_shared_shingles() {
+        let candidate = "Tea waits by the warm hearth while biscuit rests on the round shelf.";
+        let mut gate = context(&["tea".to_string()], &[]);
+        gate.max_words = 20;
+        gate.recent_speaker_shingle_hashes = [
+            voice_signature_shingle_hashes("Tea waits by the red window."),
+            voice_signature_shingle_hashes("Biscuit rests on the blue table."),
+        ]
+        .concat();
+
+        certify_speech(None, completion(candidate), candidate, gate)
+            .expect("two unrelated four-word overlaps are not one repeated phrase");
+    }
+
+    #[test]
+    fn certified_candidate_score_prefers_deeper_grounding_before_novelty() {
+        let gate = context(
+            &["teapot".to_string(), "biscuit".to_string()],
+            &["A teapot waits by the window.".to_string()],
+        );
+        let shallow = score_speech_candidate("Teapot ready.", &gate);
+        let deeper = score_speech_candidate("Teapot and biscuit ready.", &gate);
+
+        assert_eq!(shallow.anchor_matches, 1);
+        assert_eq!(deeper.anchor_matches, 2);
+        assert!(deeper > shallow);
     }
 
     #[test]
