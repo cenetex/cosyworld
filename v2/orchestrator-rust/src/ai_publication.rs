@@ -89,6 +89,7 @@ pub(crate) struct SpeechGateContext {
     pub(crate) generation_key: String,
     pub(crate) speaker_actor_id: u64,
     pub(crate) speaker_name: String,
+    pub(crate) other_speaker_names: Vec<String>,
     pub(crate) mode: SpeechMode,
     pub(crate) max_words: usize,
     pub(crate) anchors: Vec<String>,
@@ -190,7 +191,7 @@ pub(crate) fn certify_speech(
     candidate_text: &str,
     context: SpeechGateContext,
 ) -> Result<CertifiedSpeech, Box<PublicationRejection>> {
-    let text = bounded_normalize(candidate_text);
+    let text = bounded_normalize(candidate_text, &context);
     let candidate_hash = sha256_hex(completion.text.as_bytes());
     let output_hash = sha256_hex(text.as_bytes());
     let generation_id = publication_generation_id(&context, &completion.prompt_version);
@@ -203,7 +204,7 @@ pub(crate) fn certify_speech(
     );
     let publication_id = sha256_hex(format!("{}\0{}", generation_id, output_hash).as_bytes());
 
-    let checks = evaluate_checks(&text, &completion.finish_reason, &context);
+    let checks = evaluate_checks(&text, candidate_text, &completion.finish_reason, &context);
     let prompt_adapter_id = completion
         .model_attribution
         .as_ref()
@@ -283,6 +284,7 @@ pub(crate) fn certified_test_speech(
         generation_key: format!("test:{speaker_actor_id}"),
         speaker_actor_id,
         speaker_name: speaker_name.to_string(),
+        other_speaker_names: Vec::new(),
         mode: SpeechMode::Prose,
         max_words: 80,
         anchors: vec!["Keeper Brass Key".to_string()],
@@ -474,6 +476,7 @@ impl crate::RuntimeWorld {
 
 fn evaluate_checks(
     text: &str,
+    candidate_text: &str,
     finish_reason: &str,
     context: &SpeechGateContext,
 ) -> Vec<PublicationCheck> {
@@ -507,7 +510,7 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceMultipleSpeakers,
-            raw || !has_multiple_speakers(text, &context.speaker_name),
+            raw || !has_multiple_speakers(candidate_text, context),
         ),
         (
             PublicationCheckCode::VoiceInstructionLeakage,
@@ -577,23 +580,114 @@ fn has_clean_terminal_structure(value: &str) -> bool {
     delimiters.is_empty() && !straight_quote_open && !curly_quote_open
 }
 
-fn bounded_normalize(value: &str) -> String {
-    let trimmed = value.trim();
-    if trimmed.len() >= 2 {
-        let first = trimmed.chars().next();
-        let last = trimmed.chars().last();
+fn bounded_normalize(value: &str, context: &SpeechGateContext) -> String {
+    let normalized = strip_outer_quote_pair(value.trim());
+    if context.mode == SpeechMode::Raw {
+        return normalized;
+    }
+    normalized
+        .lines()
+        .map(str::trim)
+        .map(|line| strip_own_speaker_label(line, &context.speaker_name))
+        .map(|line| strip_outer_quote_pair(line.trim()))
+        .filter(|line| !line.is_empty())
+        .flat_map(|line| {
+            line.split_whitespace()
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn strip_outer_quote_pair(value: &str) -> String {
+    if value.len() >= 2 {
+        let first = value.chars().next();
+        let last = value.chars().last();
         if matches!(
             (first, last),
             (Some('"'), Some('"')) | (Some('“'), Some('”'))
         ) {
-            return trimmed
+            return value
                 .chars()
                 .skip(1)
-                .take(trimmed.chars().count().saturating_sub(2))
-                .collect::<String>();
+                .take(value.chars().count().saturating_sub(2))
+                .collect();
         }
     }
-    trimmed.to_string()
+    value.to_string()
+}
+
+fn strip_own_speaker_label(value: &str, speaker_name: &str) -> String {
+    // Model-backed residents can carry provider-qualified display names such
+    // as `Anthropic: Claude Fable Latest`. Match that exact name before the
+    // generic first-colon parser so punctuation inside the name is harmless.
+    if let Some(rest) = value.strip_prefix(speaker_name) {
+        let rest = strip_leading_speaker_annotation(rest.trim_start());
+        if let Some(speech) = rest.strip_prefix(':') {
+            return speech.trim_start().to_string();
+        }
+    }
+    let Some((label, speech)) = value.split_once(':') else {
+        return value.to_string();
+    };
+    let label = speaker_label_without_annotation(label);
+    if label.contains('\n')
+        || label.contains('\r')
+        || canonical_speaker_label(label) != canonical_speaker_label(speaker_name)
+    {
+        return value.to_string();
+    }
+    speech.trim_start().to_string()
+}
+
+fn strip_leading_speaker_annotation(value: &str) -> &str {
+    let mut value = value.trim_start();
+    loop {
+        let mut after_annotation = None;
+        for (open, close) in [('(', ')'), ('[', ']')] {
+            if let Some(rest) = value.strip_prefix(open) {
+                if let Some((_, after)) = rest.split_once(close) {
+                    after_annotation = Some(after.trim_start());
+                    break;
+                }
+            }
+        }
+        let Some(after) = after_annotation else {
+            return value;
+        };
+        value = after;
+    }
+}
+
+fn speaker_label_without_annotation(value: &str) -> &str {
+    let mut value = value.trim();
+    loop {
+        let mut undecorated = None;
+        for (open, close) in [('(', ')'), ('[', ']')] {
+            if let Some(without_close) = value.strip_suffix(close) {
+                if let Some((label, _)) = without_close.rsplit_once(open) {
+                    let label = label.trim_end();
+                    if !label.is_empty() {
+                        undecorated = Some(label);
+                        break;
+                    }
+                }
+            }
+        }
+        let Some(label) = undecorated else {
+            return value;
+        };
+        value = label;
+    }
+}
+
+fn canonical_speaker_label(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 fn normalized_words(value: &str) -> Vec<String> {
@@ -646,19 +740,136 @@ fn shares_recent_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> b
         .any(|hash| recent.contains(&hash))
 }
 
-fn has_multiple_speakers(value: &str, speaker_name: &str) -> bool {
-    if value.lines().count() > 1 {
+fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
+    let nonempty_lines = value
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let marked_turns = nonempty_lines
+        .iter()
+        .filter(|line| {
+            line.chars()
+                .next()
+                .is_some_and(|character| matches!(character, '"' | '“' | '—' | '–'))
+                || line
+                    .strip_prefix('-')
+                    .is_some_and(|rest| rest.chars().next().is_some_and(char::is_whitespace))
+        })
+        .count();
+    if marked_turns > 1 {
         return true;
     }
-    let _ = speaker_name;
-    value.split_whitespace().any(|token| {
-        let label = token.trim_matches(['"', '\'', '“', '”']);
-        label.ends_with(':')
-            && label
-                .trim_end_matches(':')
-                .chars()
-                .all(|character| character.is_alphanumeric() || character == '_')
-    })
+
+    let speaker = canonical_speaker_label(&context.speaker_name);
+    let other_speakers = context
+        .other_speaker_names
+        .iter()
+        .map(|name| canonical_speaker_label(name))
+        .filter(|name| !name.is_empty() && *name != speaker)
+        .collect::<BTreeSet<_>>();
+    // Remove the one harmless label we know exactly before scanning turn
+    // boundaries. This matters for punctuated names such as `Dr. Rati`: the
+    // period is otherwise indistinguishable from a sentence boundary. A
+    // second same-line label remains in the scan and is rejected below.
+    let label_scan = value
+        .lines()
+        .map(str::trim)
+        .map(|line| strip_own_speaker_label(line, &context.speaker_name))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut own_label_lines = BTreeSet::new();
+    for label in dialogue_boundary_labels(&label_scan) {
+        if label.canonical == speaker {
+            if !label.at_line_start || !own_label_lines.insert(label.line_index) {
+                return true;
+            }
+            continue;
+        }
+        if other_speakers.contains(&label.canonical)
+            || label.name_shaped
+            || matches!(
+                label.canonical.as_str(),
+                "system" | "user" | "assistant" | "narrator" | "developer"
+            )
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[derive(Debug)]
+struct DialogueBoundaryLabel {
+    canonical: String,
+    name_shaped: bool,
+    line_index: usize,
+    at_line_start: bool,
+}
+
+fn dialogue_boundary_labels(value: &str) -> Vec<DialogueBoundaryLabel> {
+    let mut labels = Vec::new();
+    for (colon, character) in value.char_indices() {
+        if character != ':' {
+            continue;
+        }
+        let before = &value[..colon];
+        let start = before
+            .char_indices()
+            .rev()
+            .find_map(|(index, character)| {
+                matches!(
+                    character,
+                    '\n' | '\r' | '.' | '!' | '?' | ';' | '/' | '|' | '—' | '–'
+                )
+                .then_some(index + character.len_utf8())
+            })
+            .unwrap_or(0);
+        let raw_label = before[start..].trim();
+        let speaker_label = speaker_label_without_annotation(raw_label);
+        let canonical = canonical_speaker_label(speaker_label);
+        if !canonical.is_empty() {
+            let line_start = before
+                .char_indices()
+                .rev()
+                .find_map(|(index, character)| {
+                    matches!(character, '\n' | '\r').then_some(index + character.len_utf8())
+                })
+                .unwrap_or(0);
+            labels.push(DialogueBoundaryLabel {
+                canonical,
+                name_shaped: looks_like_speaker_label(speaker_label),
+                line_index: before[..line_start]
+                    .bytes()
+                    .filter(|byte| *byte == b'\n')
+                    .count(),
+                at_line_start: start == line_start,
+            });
+        }
+    }
+    labels
+}
+
+fn looks_like_speaker_label(value: &str) -> bool {
+    // A leading ASCII dash is a common dialogue bullet, not part of the name.
+    // Keep internal hyphens intact for names such as Anne-Marie.
+    let value = value.trim();
+    let value = value
+        .strip_prefix('-')
+        .map(str::trim_start)
+        .unwrap_or(value);
+    let value = value.trim_matches(|character: char| {
+        !character.is_alphanumeric() && !matches!(character, ' ' | '_' | '-' | '\'' | '’')
+    });
+    let words = value.split_whitespace().collect::<Vec<_>>();
+    !words.is_empty()
+        && words.len() <= 4
+        && words.iter().all(|word| {
+            word.chars().next().is_some_and(char::is_uppercase)
+                && word.chars().all(|character| {
+                    character.is_alphanumeric() || matches!(character, '_' | '-' | '\'' | '’')
+                })
+        })
 }
 
 fn contains_instruction_leakage(value: &str) -> bool {
@@ -1044,6 +1255,7 @@ mod tests {
             generation_key: "test-beat-1".to_string(),
             speaker_actor_id: 42,
             speaker_name: "Rati".to_string(),
+            other_speaker_names: vec!["Gust".to_string()],
             mode: SpeechMode::Prose,
             max_words: 8,
             anchors: anchors.to_vec(),
@@ -1274,6 +1486,112 @@ mod tests {
     }
 
     #[test]
+    fn own_speaker_label_and_harmless_wrap_are_normalized() {
+        let raw = "Rati:\nTeapot ready.\nRati: \"I'll pour.\"";
+        let published = "Teapot ready. I'll pour.";
+        let speech = certify_speech(
+            None,
+            completion(raw),
+            raw,
+            context(&["teapot".to_string()], &[]),
+        )
+        .expect("one speaker's harmless formatting certifies");
+
+        assert_eq!(speech.text(), published);
+        assert_eq!(speech.receipt().candidate_hash, sha256_hex(raw.as_bytes()));
+        assert_eq!(
+            speech.receipt().output_hash,
+            sha256_hex(published.as_bytes())
+        );
+    }
+
+    #[test]
+    fn own_speaker_label_with_stage_direction_is_normalized() {
+        let raw = "Rati (smiling): Teapot ready.";
+        let speech = certify_speech(
+            None,
+            completion(raw),
+            raw,
+            context(&["teapot".to_string()], &[]),
+        )
+        .expect("one speaker's stage direction is harmless label formatting");
+
+        assert_eq!(speech.text(), "Teapot ready.");
+    }
+
+    #[test]
+    fn punctuated_own_speaker_label_is_normalized() {
+        let raw = "Dr. Rati: Teapot ready.";
+        let mut gate = context(&["teapot".to_string()], &[]);
+        gate.speaker_name = "Dr. Rati".to_string();
+        let speech = certify_speech(None, completion(raw), raw, gate)
+            .expect("the exact punctuated speaker label is harmless formatting");
+
+        assert_eq!(speech.text(), "Teapot ready.");
+    }
+
+    #[test]
+    fn colon_qualified_own_speaker_label_is_normalized() {
+        let raw = "Anthropic: Claude Fable Latest: Teapot ready.";
+        let mut gate = context(&["teapot".to_string()], &[]);
+        gate.speaker_name = "Anthropic: Claude Fable Latest".to_string();
+        let speech = certify_speech(None, completion(raw), raw, gate)
+            .expect("the exact provider-qualified speaker label is harmless formatting");
+
+        assert_eq!(speech.text(), "Teapot ready.");
+    }
+
+    #[test]
+    fn natural_colon_and_wrapping_do_not_invent_a_second_speaker() {
+        for (raw, published) in [
+            (
+                "One thing: teapot first.\nBiscuits follow.",
+                "One thing: teapot first. Biscuits follow.",
+            ),
+            (
+                "I asked Gust: teapot or biscuits?",
+                "I asked Gust: teapot or biscuits?",
+            ),
+        ] {
+            let speech = certify_speech(
+                None,
+                completion(raw),
+                raw,
+                context(&["teapot".to_string()], &[]),
+            )
+            .expect("ordinary punctuation and wrapping certify");
+            assert_eq!(speech.text(), published);
+        }
+    }
+
+    #[test]
+    fn foreign_labels_and_alternating_turns_still_fail_closed() {
+        let anchors = vec!["teapot".to_string()];
+        for raw in [
+            "Rati: Teapot ready.\nGust: Not yet.",
+            "Teapot ready. Gust: Not yet.",
+            "Rati: Teapot ready; Gust: Not yet.",
+            "Rati: Teapot ready / Gust: Not yet.",
+            "Rati: Teapot ready; Dr. Gust: Not yet.",
+            "Rati: Teapot ready.\nGust (smiling): Not yet.",
+            "Rati: Teapot ready; Gust [quietly]: Not yet.",
+            "Bob (smiling): Teapot ready.",
+            "Bob: Teapot ready.",
+            "- Bob: Teapot ready.",
+            "Rati: Teapot ready; Rati: I'll pour.",
+            "—Teapot ready.\n—Not yet.",
+            "Narrator: Teapot ready.",
+        ] {
+            assert_check_failed(
+                raw,
+                completion(raw),
+                context(&anchors, &[]),
+                PublicationCheckCode::VoiceMultipleSpeakers,
+            );
+        }
+    }
+
+    #[test]
     fn voice_instruction_leakage_check_is_deterministic() {
         let anchors = vec!["teapot".to_string()];
         assert_eq!(
@@ -1410,6 +1728,7 @@ mod tests {
             },
         )
         .expect("raw model identity speech certifies");
+        assert_eq!(speech.text(), text, "raw output keeps its formatting");
         for code in [
             PublicationCheckCode::VoiceMultipleSpeakers,
             PublicationCheckCode::VoiceInstructionLeakage,
@@ -1464,7 +1783,7 @@ mod tests {
     }
 
     #[test]
-    fn normalization_only_removes_outer_space_and_one_quote_pair() {
+    fn normalization_removes_outer_space_and_one_quote_pair() {
         let anchors = vec!["teapot".to_string()];
         let recent = Vec::new();
         let certified = certify_speech(
@@ -1592,6 +1911,7 @@ mod tests {
                 generation_key: "privacy-beat-1".to_string(),
                 speaker_actor_id: 1001,
                 speaker_name: "Rati".to_string(),
+                other_speaker_names: Vec::new(),
                 mode: SpeechMode::Prose,
                 max_words: 20,
                 anchors: vec!["teapot".to_string()],
@@ -1653,6 +1973,7 @@ mod tests {
                 generation_key: format!("replay-beat-{content_id}"),
                 speaker_actor_id: actor_id,
                 speaker_name: "Rati".to_string(),
+                other_speaker_names: Vec::new(),
                 mode: SpeechMode::Prose,
                 max_words: 12,
                 anchors: vec!["teapot".to_string()],

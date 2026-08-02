@@ -1,18 +1,21 @@
 use crate::{
-    ai_context::{PromptBudgetTelemetry, PromptEnvelope},
+    ai_context::{PromptBudgetTelemetry, PromptEnvelope, PromptSegmentKind},
     ai_gateway::{
         request_chat_completion_with_selection, AiCompletion, AiConfig, AiGatewayError,
         ChatCompletionRequest, ModelCapability, PinnedModelSelection,
     },
     ai_publication::{
         append_ai_publication_attempt, certify_speech, publication_generation_id,
-        AiPublicationReceipt, CertifiedSpeech, PublicationRejection, SpeechGateContext,
+        AiPublicationReceipt, CertifiedSpeech, PublicationCheckCode, PublicationRejection,
+        SpeechGateContext, SpeechMode,
     },
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{future::Future, io, path::Path, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeSet, future::Future, io, path::Path, pin::Pin, sync::Arc, time::Duration,
+};
 use tokio::{task::JoinSet, time::Instant};
 
 pub(crate) const VOICE_MAX_ATTEMPTS_ENV: &str = "COSYWORLD_AI_VOICE_MAX_ATTEMPTS";
@@ -26,6 +29,7 @@ pub(crate) const VOICE_EXPLORATION_FLOOR_BPS_ENV: &str = "COSYWORLD_AI_VOICE_EXP
 
 const MAX_VOICE_ATTEMPTS: u8 = 3;
 const MAX_JOB_LEASE_RETRIES: u32 = 1;
+const VOICE_RETRY_FEEDBACK_RESERVE_TOKENS: u32 = 96;
 
 #[derive(Clone, Debug)]
 pub(crate) struct VoiceRoutingConfig {
@@ -192,6 +196,7 @@ pub(crate) struct VoiceSelectionDecision {
 struct PlannedCandidate {
     selection: PinnedModelSelection,
     decision: VoiceSelectionDecision,
+    retry_feedback_cost_microdollars: u64,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -339,7 +344,24 @@ async fn route_certified_voice_with(
     let started = Instant::now();
     let mut rejections = Vec::new();
     let mut provider_failures = 0usize;
-    for batch in planned.chunks(config.voice_routing.hedge_width as usize) {
+    let mut next_candidate = 0usize;
+    let mut first_batch = true;
+    while next_candidate < planned.len() {
+        let remaining_candidates = planned.len() - next_candidate;
+        // Hedges are peers, not retries. Keep one bounded attempt in reserve so
+        // every multi-attempt configuration can act on a publication-gate verdict.
+        let available_to_batch = if first_batch && remaining_candidates > 1 {
+            remaining_candidates - 1
+        } else {
+            remaining_candidates
+        };
+        let batch_width = (config.voice_routing.hedge_width as usize)
+            .min(available_to_batch)
+            .max(1);
+        let batch_end = next_candidate + batch_width;
+        let batch = &planned[next_candidate..batch_end];
+        next_candidate = batch_end;
+        first_batch = false;
         let elapsed = started.elapsed();
         let Some(remaining) = config.voice_routing.latency_ceiling.checked_sub(elapsed) else {
             mark_timed_out_batch(store_path, &generation_id, batch);
@@ -350,7 +372,7 @@ async fn route_certified_voice_with(
         let mut attempts = JoinSet::new();
         for candidate in batch.iter().cloned() {
             let backend = Arc::clone(&backend);
-            let request = request.clone();
+            let request = request_with_retry_feedback(&request, &rejections, &gate);
             attempts.spawn(async move {
                 let result = backend
                     .attempt(candidate.selection.clone(), request, remaining)
@@ -495,6 +517,106 @@ async fn route_certified_voice_with(
     Err(routing_error(code, rejections))
 }
 
+fn request_with_retry_feedback(
+    request: &VoiceAttemptRequest,
+    rejections: &[PublicationRejection],
+    gate: &SpeechGateContext,
+) -> VoiceAttemptRequest {
+    let mut request = request.clone();
+    if let Some(instruction) = retry_instruction(rejections, gate, request.max_tokens) {
+        request.prompt = if gate.mode == SpeechMode::Raw {
+            request
+                .prompt
+                .user(instruction, PromptSegmentKind::Envelope, u8::MAX, true)
+        } else {
+            request.prompt.system(instruction)
+        };
+    }
+    request
+}
+
+fn retry_instruction(
+    rejections: &[PublicationRejection],
+    gate: &SpeechGateContext,
+    max_tokens: u32,
+) -> Option<String> {
+    let failed = rejections
+        .iter()
+        .flat_map(|rejection| rejection.receipt.checks.iter())
+        .filter_map(|check| (!check.passed).then_some(check.code))
+        .collect::<BTreeSet<_>>();
+    if failed.is_empty()
+        || failed
+            .iter()
+            .all(|code| *code == PublicationCheckCode::VoiceEnvelopeInvalid)
+    {
+        return None;
+    }
+
+    let mut clauses = Vec::new();
+    let needs_complete_shape = failed.iter().any(|code| {
+        matches!(
+            code,
+            PublicationCheckCode::VoiceEmpty
+                | PublicationCheckCode::VoiceBudgetExceeded
+                | PublicationCheckCode::VoiceFinishIncomplete
+        )
+    });
+    if needs_complete_shape {
+        clauses.push(match gate.mode {
+            SpeechMode::Prose => {
+                format!("one short complete line · at most {} words", gate.max_words)
+            }
+            SpeechMode::EmojiOnly => "3–6 emoji only".to_string(),
+            SpeechMode::EmoteOnly => {
+                format!("one complete *emote* · at most {} words", gate.max_words)
+            }
+            SpeechMode::Raw => {
+                let conservative_words = gate.max_words.min((max_tokens as usize / 2).clamp(8, 64));
+                format!("one complete response · at most {conservative_words} words")
+            }
+        });
+    }
+    if failed.iter().any(|code| {
+        matches!(
+            code,
+            PublicationCheckCode::VoiceRepeatedNgram | PublicationCheckCode::VoiceRecentDuplicate
+        )
+    }) {
+        clauses.push("fresh wording · no repeated phrase".to_string());
+    }
+    if failed.contains(&PublicationCheckCode::VoiceMultipleSpeakers) {
+        clauses.push("one voice · no speaker labels".to_string());
+    }
+    if failed.contains(&PublicationCheckCode::VoiceInstructionLeakage) {
+        clauses.push("spoken words only · no meta".to_string());
+    }
+    if failed.contains(&PublicationCheckCode::VoiceModeMismatch) && !needs_complete_shape {
+        clauses.push(
+            match gate.mode {
+                SpeechMode::Prose => "spoken prose only",
+                SpeechMode::EmojiOnly => "emoji only",
+                SpeechMode::EmoteOnly => "one emote only",
+                SpeechMode::Raw => "plain response only",
+            }
+            .to_string(),
+        );
+    }
+    if failed.contains(&PublicationCheckCode::VoiceAnchorMissing) {
+        clauses.push("touch something already present".to_string());
+    }
+    if failed.contains(&PublicationCheckCode::VoiceUnsafeTone) {
+        clauses.push("keep it gentle".to_string());
+    }
+    if failed.contains(&PublicationCheckCode::VoiceProposedActionClaim) {
+        clauses.push("intention, not completed action".to_string());
+    }
+    if failed.contains(&PublicationCheckCode::VoiceObjectAgency) {
+        clauses.push("objects don't think or choose".to_string());
+    }
+    (!clauses.is_empty()).then(|| format!("again · {}", clauses.join(" · ")))
+}
+
 fn routing_error(code: &'static str, rejections: Vec<PublicationRejection>) -> VoiceRoutingError {
     VoiceRoutingError { code, rejections }
 }
@@ -633,20 +755,26 @@ fn build_voice_plan(
 
     let mut planned = Vec::new();
     let mut all = Vec::with_capacity(decisions.len());
-    let mut spent = 0u64;
     for (selection, mut decision) in decisions {
         if decision.excluded_reason.is_none() && planned.len() < config.max_attempts as usize {
-            if spent.saturating_add(decision.estimated_cost_microdollars)
+            decision.selected = true;
+            decision.ordinal = planned.len() as u8 + 1;
+            let candidate = PlannedCandidate {
+                retry_feedback_cost_microdollars: estimated_retry_feedback_cost(
+                    selection.candidate().observations().input_cost_per_million,
+                ),
+                selection,
+                decision: decision.clone(),
+            };
+            let mut prospective = planned.clone();
+            prospective.push(candidate.clone());
+            if planned_spend_microdollars(&prospective, config.hedge_width)
                 <= config.spend_ceiling_microdollars
             {
-                spent = spent.saturating_add(decision.estimated_cost_microdollars);
-                decision.selected = true;
-                decision.ordinal = planned.len() as u8 + 1;
-                planned.push(PlannedCandidate {
-                    selection,
-                    decision: decision.clone(),
-                });
+                planned.push(candidate);
             } else {
+                decision.selected = false;
+                decision.ordinal = 0;
                 decision.excluded_reason = Some("spend_ceiling".to_string());
             }
         } else if decision.excluded_reason.is_none() {
@@ -667,20 +795,24 @@ fn build_voice_plan(
         let mut ordinal = planned.len() as u8;
         while planned.len() < config.max_attempts as usize {
             let source = planned[0].clone();
-            let cost = source.decision.estimated_cost_microdollars;
-            if spent.saturating_add(cost) > config.spend_ceiling_microdollars {
-                break;
-            }
-            spent = spent.saturating_add(cost);
             ordinal += 1;
             let mut decision = source.decision.clone();
             decision.selected = true;
             decision.ordinal = ordinal;
             decision.resampled = true;
-            planned.push(PlannedCandidate {
+            let candidate = PlannedCandidate {
                 selection: source.selection.clone(),
                 decision: decision.clone(),
-            });
+                retry_feedback_cost_microdollars: source.retry_feedback_cost_microdollars,
+            };
+            let mut prospective = planned.clone();
+            prospective.push(candidate.clone());
+            if planned_spend_microdollars(&prospective, config.hedge_width)
+                > config.spend_ceiling_microdollars
+            {
+                break;
+            }
+            planned.push(candidate);
             all.push(decision);
         }
     }
@@ -702,6 +834,37 @@ fn estimated_cost(
     (input_rate * input_tokens as f64 + output_rate * request.max_tokens as f64)
         .ceil()
         .max(1.0) as u64
+}
+
+fn estimated_retry_feedback_cost(input_rate: Option<f64>) -> u64 {
+    input_rate
+        .map(|rate| {
+            (rate * VOICE_RETRY_FEEDBACK_RESERVE_TOKENS as f64)
+                .ceil()
+                .max(0.0) as u64
+        })
+        .unwrap_or_default()
+}
+
+fn planned_spend_microdollars(planned: &[PlannedCandidate], hedge_width: u8) -> u64 {
+    let first_batch_width = match planned.len() {
+        0 => 0,
+        1 => 1,
+        len => (hedge_width as usize).min(len - 1).max(1),
+    };
+    planned
+        .iter()
+        .enumerate()
+        .fold(0u64, |spent, (index, candidate)| {
+            let feedback_cost = if index < first_batch_width {
+                0
+            } else {
+                candidate.retry_feedback_cost_microdollars
+            };
+            spent
+                .saturating_add(candidate.decision.estimated_cost_microdollars)
+                .saturating_add(feedback_cost)
+        })
 }
 
 fn stable_affinity(actor_id: u64, family: &str) -> f64 {
@@ -1269,12 +1432,15 @@ mod tests {
     struct MockOutput {
         text: String,
         delay: Duration,
+        finish_reason: String,
     }
 
     #[derive(Clone, Default)]
     struct MockBackend {
         outputs: Arc<StdMutex<BTreeMap<String, VecDeque<MockOutput>>>>,
         calls: Arc<StdMutex<Vec<String>>>,
+        systems: Arc<StdMutex<Vec<String>>>,
+        users: Arc<StdMutex<Vec<String>>>,
     }
 
     impl MockBackend {
@@ -1290,6 +1456,26 @@ mod tests {
                     .push_back(MockOutput {
                         text: text.to_string(),
                         delay: Duration::from_millis(delay_ms),
+                        finish_reason: "stop".to_string(),
+                    });
+            }
+            drop(configured);
+            backend
+        }
+
+        fn with_finished_outputs(
+            outputs: impl IntoIterator<Item = (&'static str, &'static str, &'static str, u64)>,
+        ) -> Self {
+            let backend = Self::default();
+            let mut configured = backend.outputs.lock().unwrap();
+            for (model, text, finish_reason, delay_ms) in outputs {
+                configured
+                    .entry(model.to_string())
+                    .or_default()
+                    .push_back(MockOutput {
+                        text: text.to_string(),
+                        delay: Duration::from_millis(delay_ms),
+                        finish_reason: finish_reason.to_string(),
                     });
             }
             drop(configured);
@@ -1298,6 +1484,13 @@ mod tests {
 
         fn call_count(&self) -> usize {
             self.calls.lock().unwrap().len()
+        }
+
+        fn rendered_prompts(&self) -> (Vec<String>, Vec<String>) {
+            (
+                self.systems.lock().unwrap().clone(),
+                self.users.lock().unwrap().clone(),
+            )
         }
     }
 
@@ -1310,6 +1503,9 @@ mod tests {
         ) -> VoiceAttemptFuture {
             let model = selection.requested_model_id().to_string();
             self.calls.lock().unwrap().push(model.clone());
+            let rendered = request.prompt.render_for_test();
+            self.systems.lock().unwrap().push(rendered.system);
+            self.users.lock().unwrap().push(rendered.user);
             let output = self
                 .outputs
                 .lock()
@@ -1319,6 +1515,7 @@ mod tests {
                 .unwrap_or(MockOutput {
                     text: "Teapot ready.".to_string(),
                     delay: Duration::ZERO,
+                    finish_reason: "stop".to_string(),
                 });
             Box::pin(async move {
                 tokio::time::sleep(output.delay).await;
@@ -1330,7 +1527,7 @@ mod tests {
                     attempts: 1,
                     latency: output.delay,
                     model_attribution: Some(model_attribution),
-                    finish_reason: "stop".to_string(),
+                    finish_reason: output.finish_reason,
                     usage: AiTokenUsage {
                         prompt_tokens: Some(20),
                         completion_tokens: Some(6),
@@ -1376,6 +1573,18 @@ mod tests {
                 }
             }
         })
+    }
+
+    fn priced_candidate(
+        requested: &str,
+        provider: &str,
+        input_cost_per_million: f64,
+        output_cost_per_million: f64,
+    ) -> Value {
+        let mut value = candidate(requested, provider, requested, requested, "r1", true);
+        value["observations"]["input_cost_per_million"] = json!(input_cost_per_million);
+        value["observations"]["output_cost_per_million"] = json!(output_cost_per_million);
+        value
     }
 
     fn config(values: Vec<Value>, routing: VoiceRoutingConfig) -> AiConfig {
@@ -1457,6 +1666,7 @@ mod tests {
             generation_key: key.to_string(),
             speaker_actor_id: 5_000,
             speaker_name: "Tiny Tester".to_string(),
+            other_speaker_names: vec!["Gust".to_string()],
             mode: crate::ai_publication::SpeechMode::Prose,
             max_words: 20,
             anchors: vec!["teapot".to_string()],
@@ -1768,12 +1978,307 @@ mod tests {
             .any(|value| value.excluded_reason.as_deref() == Some("spend_ceiling")));
     }
 
+    #[test]
+    fn retry_feedback_cost_is_bounded() {
+        let prompt_budget = PromptBudgetTelemetry {
+            estimated_prompt_tokens: 10,
+            ..PromptBudgetTelemetry::default()
+        };
+        let request = request("dialogue_avatar");
+        assert_eq!(
+            estimated_cost(Some(1.0), Some(1.0), &request, &prompt_budget, 250),
+            80,
+        );
+        assert_eq!(
+            estimated_retry_feedback_cost(Some(1.0)),
+            VOICE_RETRY_FEEDBACK_RESERVE_TOKENS as u64,
+        );
+        assert_eq!(estimated_retry_feedback_cost(None), 0);
+    }
+
+    #[test]
+    fn sequential_retries_each_fit_their_own_feedback_cost() {
+        let generous = config(
+            vec![priced_candidate(
+                "provider/cheap",
+                "provider-cheap",
+                1.0,
+                0.0,
+            )],
+            VoiceRoutingConfig {
+                max_attempts: 3,
+                hedge_width: 1,
+                spend_ceiling_microdollars: u64::MAX,
+                ..VoiceRoutingConfig::default()
+            },
+        );
+        let request = request("dialogue_avatar");
+        let (generous_plan, _) = build_voice_plan(
+            None,
+            "sequential-retry-cost-baseline",
+            5_000,
+            "prose",
+            &request,
+            &generous.voice_routing,
+            generous.pin_models(ModelCapability::Voice).unwrap(),
+        )
+        .unwrap();
+        let base_cost = generous_plan[0].decision.estimated_cost_microdollars;
+        let feedback_cost = estimated_retry_feedback_cost(Some(1.0));
+        let ceiling_with_only_one_feedback =
+            base_cost.saturating_mul(3).saturating_add(feedback_cost);
+        let bounded = config(
+            vec![priced_candidate(
+                "provider/cheap",
+                "provider-cheap",
+                1.0,
+                0.0,
+            )],
+            VoiceRoutingConfig {
+                max_attempts: 3,
+                hedge_width: 1,
+                spend_ceiling_microdollars: ceiling_with_only_one_feedback,
+                ..VoiceRoutingConfig::default()
+            },
+        );
+        let (planned, _) = build_voice_plan(
+            None,
+            "sequential-retry-cost-bounded",
+            5_000,
+            "prose",
+            &request,
+            &bounded.voice_routing,
+            bounded.pin_models(ModelCapability::Voice).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(planned.len(), 2);
+        assert_eq!(
+            planned_spend_microdollars(&planned, 1),
+            base_cost.saturating_mul(2).saturating_add(feedback_cost)
+        );
+    }
+
+    #[test]
+    fn unused_expensive_candidate_does_not_tax_a_cheap_retry() {
+        let path = test_path("candidate-specific-retry-cost");
+        let _ = fs::remove_file(&path);
+        crate::init_event_store(&path).unwrap();
+        let routing = VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 1,
+            spend_ceiling_microdollars: 50,
+            ..VoiceRoutingConfig::default()
+        };
+        let config = config(
+            vec![
+                priced_candidate("provider/cheap", "provider-cheap", 0.1, 0.0),
+                priced_candidate("provider/expensive", "provider-expensive", 100.0, 0.0),
+            ],
+            routing,
+        );
+        record_provider_failure(
+            Some(&path),
+            "provider-expensive",
+            "provider/expensive",
+            "inference_provider_error",
+        );
+        let (planned, decisions) = build_voice_plan(
+            Some(&path),
+            "candidate-specific-retry-cost",
+            5_000,
+            "prose",
+            &request("dialogue_avatar"),
+            &config.voice_routing,
+            config.pin_models(ModelCapability::Voice).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(planned.len(), 2, "the cheap model can still be retried");
+        assert!(planned
+            .iter()
+            .all(|candidate| candidate.decision.requested_model_id == "provider/cheap"));
+        assert_eq!(
+            decisions
+                .iter()
+                .find(|decision| decision.requested_model_id == "provider/expensive")
+                .and_then(|decision| decision.excluded_reason.as_deref()),
+            Some("provider_cooldown")
+        );
+        assert!(planned_spend_microdollars(&planned, 1) <= 50);
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn rejection_feedback_reaches_only_later_attempts() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 2,
+            ..VoiceRoutingConfig::default()
+        });
+        let rejected = "Gust: Teapot plan:";
+        let backend = MockBackend::with_outputs([
+            ("provider/tiny-a", rejected, 0),
+            ("provider/tiny-a", "Teapot ready.", 0),
+        ]);
+
+        let certified = route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            gate("feedback-beat"),
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the corrected retry certifies");
+
+        assert_eq!(certified.text(), "Teapot ready.");
+        assert_eq!(certified.prior_rejections().len(), 1);
+        assert_eq!(
+            certified.prior_rejections()[0].failure_code,
+            PublicationCheckCode::VoiceFinishIncomplete,
+            "the receipt keeps the first failed check even when feedback covers every failed check",
+        );
+        let (systems, users) = backend.rendered_prompts();
+        assert_eq!(systems.len(), 2);
+        assert_eq!(systems[0], "Write one short anchored line.");
+        assert_eq!(
+            systems[1],
+            "Write one short anchored line.\nagain · one short complete line · at most 20 words · one voice · no speaker labels",
+        );
+        assert_eq!(users, vec!["The teapot rattled."; 2]);
+        assert!(systems
+            .iter()
+            .chain(&users)
+            .all(|prompt| !prompt.contains(rejected)));
+    }
+
+    #[tokio::test]
+    async fn raw_retry_keeps_feedback_in_the_single_user_envelope() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 2,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_outputs([
+            (
+                "provider/tiny-a",
+                "teapot rattles and teapot rattles and",
+                0,
+            ),
+            ("provider/tiny-a", "A clean answer.", 0),
+        ]);
+        let mut raw_request = request("dialogue_resident_raw");
+        raw_request.prompt = PromptEnvelope::default().user(
+            "raw scene",
+            PromptSegmentKind::UniqueEvidence,
+            100,
+            true,
+        );
+        let mut raw_gate = gate("raw-feedback-beat");
+        raw_gate.mode = SpeechMode::Raw;
+        raw_gate.anchors.clear();
+
+        let certified = route_certified_voice_with(
+            &config,
+            None,
+            raw_request,
+            raw_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the raw retry certifies");
+
+        assert_eq!(certified.text(), "A clean answer.");
+        let (systems, users) = backend.rendered_prompts();
+        assert_eq!(systems, vec![""; 2]);
+        assert_eq!(users[0], "raw scene");
+        assert_eq!(
+            users[1],
+            "raw scene\nagain · fresh wording · no repeated phrase"
+        );
+    }
+
+    #[tokio::test]
+    async fn raw_length_retry_uses_a_conservative_word_cap() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 2,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_finished_outputs([
+            ("provider/tiny-a", "still going", "length", 0),
+            ("provider/tiny-a", "A complete answer.", "stop", 0),
+        ]);
+        let mut raw_request = request("dialogue_resident_raw");
+        raw_request.max_tokens = 160;
+        raw_request.prompt = PromptEnvelope::default().user(
+            "raw scene",
+            PromptSegmentKind::UniqueEvidence,
+            100,
+            true,
+        );
+        let mut raw_gate = gate("raw-length-feedback-beat");
+        raw_gate.mode = SpeechMode::Raw;
+        raw_gate.max_words = 400;
+        raw_gate.anchors.clear();
+
+        route_certified_voice_with(
+            &config,
+            None,
+            raw_request,
+            raw_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the length-corrected raw retry certifies");
+
+        let (systems, users) = backend.rendered_prompts();
+        assert_eq!(systems, vec![""; 2]);
+        assert_eq!(users[0], "raw scene");
+        assert_eq!(
+            users[1],
+            "raw scene\nagain · one complete response · at most 64 words"
+        );
+    }
+
+    #[tokio::test]
+    async fn retry_shape_feedback_respects_emoji_mode() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 2,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_outputs([
+            ("provider/tiny-a", "unfinished:", 0),
+            ("provider/tiny-a", "☕🌧️😤", 0),
+        ]);
+        let mut emoji_gate = gate("emoji-feedback-beat");
+        emoji_gate.mode = SpeechMode::EmojiOnly;
+
+        route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            emoji_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the emoji retry certifies");
+
+        let (systems, _) = backend.rendered_prompts();
+        assert_eq!(
+            systems[1],
+            "Write one short anchored line.\nagain · 3–6 emoji only · touch something already present"
+        );
+    }
+
     #[tokio::test]
     async fn hedge_race_accepts_once_and_duplicate_reuses_the_durable_job() {
         let path = test_path("race");
         let _ = fs::remove_file(&path);
         let config = three_candidates(VoiceRoutingConfig {
-            max_attempts: 2,
+            max_attempts: 3,
             hedge_width: 2,
             ..VoiceRoutingConfig::default()
         });
