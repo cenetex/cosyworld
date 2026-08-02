@@ -11990,7 +11990,7 @@ async function main() {
           && chatRect
           && (
             window.innerWidth <= 900
-              ? chatRect.bottom <= journalRect.top + 0.5
+              ? journalRect.bottom <= chatRect.top + 0.5
               : chatRect.right <= journalRect.left + 0.5
           )
         ),

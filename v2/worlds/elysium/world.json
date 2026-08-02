@@ -6,6 +6,12 @@
   "description": "The standalone Elysium AI zone, woven as a scoutable Fibonacci-Wythoff rhizome.",
   "entry_location": "cosyworld.elysium:location/652000",
   "rules_profile": "cosyworld.srd5/1",
+  "persistence_compatibility": {
+    "schema_version": 1,
+    "replay_compatible_bundle_hashes": [
+      "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf"
+    ]
+  },
   "packs": [
     "cosyworld.elysium",
     "cosyworld.rules-srd-5.2.1",
