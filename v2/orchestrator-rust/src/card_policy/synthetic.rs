@@ -4,7 +4,7 @@ use std::error::Error;
 use serde::Serialize;
 
 use super::{
-    adapt_ranking_to_hand, adapt_scored_ranking_to_hand, CardPolicyAction,
+    adapt_ranking_to_hand, adapt_scored_ranking_to_hand, card_kind_code_q15, CardPolicyAction,
     CardPolicyCandidateSample, CardPolicyModel, CardPolicySample, CARD_POLICY_DEFAULT_TOP_K,
     CARD_POLICY_FEATURES, CARD_POLICY_MAX_TOP_K,
 };
@@ -315,7 +315,7 @@ fn candidate_features(
     let target_visits = state.visit_counts[usize::from(target)];
     features[12] = bool_q15(is_move);
     features[13] = bool_q15(is_search);
-    features[14] = 0;
+    features[14] = card_kind_code_q15(if is_move { "move" } else { "search" });
     features[15] = bool_q15(target_visits > 0);
     features[16] = bool_q15(has_bit(state.searched_mask, target));
     features[17] = fraction_q15(world.adjacency[usize::from(target)].len(), 8);
@@ -323,7 +323,7 @@ fn candidate_features(
     features[19] = bool_q15(state.previous == target);
     features[20] = bool_q15(is_move && edge_was_used(&state.used_edges, state.location, target));
     features[21] = fraction_q15(usize::from(target_visits.min(4)), 4);
-    features[22] = bool_q15(target == state.location);
+    features[22] = fraction_q15(if is_move { 60 } else { 65 }, 100);
     features[23] = i16::MAX;
     features
 }

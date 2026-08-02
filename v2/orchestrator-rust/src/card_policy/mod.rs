@@ -40,17 +40,29 @@ pub const CARD_POLICY_FEATURE_SCHEMA: [&str; CARD_POLICY_FEATURES] = [
     "observation_bias",
     "card_kind_move",
     "card_kind_search",
-    "card_kind_other",
+    "card_kind_code",
     "card_target_visited",
     "card_target_searched",
     "card_target_degree",
     "card_matches_hint",
     "card_returns_to_previous",
-    "card_edge_was_used",
-    "card_target_visit_count",
-    "card_targets_current_node",
+    "card_was_repeated_by_avatar",
+    "card_avatar_kind_frequency",
+    "card_offer_rank",
     "card_bias",
 ];
+
+/// Stable scalar embedding for an authored action kind. It is deliberately
+/// derived from the string rather than an enum ordinal so world-pack action
+/// additions do not renumber older model inputs.
+pub fn card_kind_code_q15(kind: &str) -> i16 {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in kind.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    (hash % i16::MAX as u64) as i16
+}
 
 pub(crate) fn feature_schema_hash() -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;

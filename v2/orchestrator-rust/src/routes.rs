@@ -151,6 +151,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/moderation/actors/{actor_id}/unsuspend",
             post(moderation_unsuspend_actor),
         )
+        .route(
+            "/moderation/card-policy/treasure-objectives",
+            post(start_treasure_objective),
+        )
         .route("/dev/reset", post(dev_reset))
         .route("/avatar", post(create_avatar))
         .route("/avatar/class", post(choose_avatar_class))

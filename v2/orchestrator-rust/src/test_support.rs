@@ -87,6 +87,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
         trust_client_card_ids: false,
         dev_reset_enabled: false,
+        card_policy: None,
         ai_config: Arc::new(None),
         generation_controls: Arc::new(GenerationControls::default()),
         avatar_art_config: Arc::new(None),

@@ -148,6 +148,8 @@ pub(super) struct AvatarReplyPlan {
     pub(super) planner_requested: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(super) planner_candidates: Vec<ResidentPlannerCandidate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) card_policy_snapshot: Option<ResidentCardPolicySnapshot>,
 }
 
 impl AvatarReplyPlan {
@@ -565,7 +567,15 @@ pub(super) async fn request_ai_avatar_intent(
         .find(|binding| binding.actor_id == plan.speaker_actor_id)
         .cloned();
     if let Some(binding) = model_binding {
-        let planning = resident_disposition_for_voice(plan).0;
+        let planning = if plan.planner_requested && !plan.planner_candidates.is_empty() {
+            config
+                .card_policy
+                .as_deref()
+                .map(|rollout| request_resident_card_policy(rollout, plan))
+                .unwrap_or_else(|| resident_disposition_for_voice(plan).0)
+        } else {
+            resident_disposition_for_voice(plan).0
+        };
         let speech = route_certified_voice(
             config,
             store_path,

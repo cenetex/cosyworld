@@ -41,7 +41,13 @@ tensor shape, feature-schema hash, deterministic seed, and checksum. Loading
 rejects stale v1 three-class artifacts and any model whose feature contract or
 checksum differs.
 
-The model proposes a card ranking. It never bypasses authoritative offer
+The model proposes a ranking over every card that the resident can execute in
+the current state. Dialogue cards (`chat`), human advancement/bond controllers,
+theft, and combat choices outside the resident's current turn are intentionally
+not policy candidates. Every included card must first produce an exact kernel
+record; a coverage test fails if the policy deck and commit adapter drift.
+
+The model never bypasses authoritative offer
 identity, staleness checks, costs, permissions, or the world kernel. A/B still
 uses the existing command path. DRAW only advances the replayable actor-scoped
 hand cursor.
@@ -58,7 +64,16 @@ state from the current avatar's journal history, including:
 - avatar-local clue knowledge;
 - consecutive draws and remaining episode budget.
 
-Two avatars viewing the same legal deck can therefore rank it differently. The
+Two avatars viewing the same legal deck can therefore rank it differently. In
+addition, each avatar owns a small replayable preference residual keyed by the
+card kind and authoritative targets. During supervised treasure objectives, a
+zero-regret selected branch adds one preference step and a regretted branch
+subtracts one; values are bounded to `[-16, 16]`, persisted in snapshots, and
+added to shared-model scores deterministically. This is the online-learning
+layer: it personalizes an avatar immediately without mutating shared weights or
+making replay depend on wall-clock timing.
+
+The
 hidden treasure identity is never a feature. Synthetic rows are grouped and
 split by whole world/trajectory rather than shuffled as independent cards.
 
@@ -144,11 +159,14 @@ history-shaped features from one whose decisions are actually affected by
 them. The simulation is deterministic except for elapsed-time and throughput
 fields.
 
-On the fixed-seed 10,000-avatar regression population, all three shortlist
-depths found treasure in every episode. Score-tied top-3 reduced learned mean
-turns from 8.629 to 8.144 and the draw rate from 37.6% to 34.1%. This regression
-exists specifically to prevent the former permissive top-3 behavior from
-returning.
+On the current fixed-seed 10,000-avatar, top-3 regression population, the
+learned policy found treasure in all 10,000 episodes with 8.190 mean turns,
+p50/p90/p99 of 8/12/15 turns, and a 38.0% draw rate. Clearing avatar history
+reduced success to 10.2% and timed out 8,980 episodes; history changed the top
+card on 82.5% and the final A/B/DRAW action on 70.8% of decisions made after
+history existed. The exact oracle averaged 4.338 turns. This regression exists
+specifically to prevent a policy that accepts history-shaped inputs but ignores
+them, or the former permissive top-3 behavior, from returning.
 
 ## Live rollout
 
@@ -161,8 +179,19 @@ cargo run --release --bin cosyworld-orchestrator
 
 `COSYWORLD_CARD_POLICY_MODE` accepts `off` (default), `shadow`, or `live`.
 `COSYWORLD_CARD_POLICY_TOP_K` accepts 1 through 3 and defaults to 1. Shadow runs
-both selectors and preserves the LLM decision. Live skips the LLM intent
-selection request; voice generation remains independent.
+both selectors and preserves the LLM decision, including for avatars with a
+custom voice-model binding. Live bypasses LLM intent selection only while that
+avatar has an active, moderator-created treasure objective; ordinary resident
+dialogue keeps the existing LLM planner. `/meta` reports the active mode,
+shortlist depth, and model hash.
+
+In live objective turns, the ranker commits A or B through the authoritative
+kernel before any LLM call. DRAW commits the hand rotation and immediately
+rebuilds and re-ranks the next pair, bounded to one deck traversal per reply;
+the final draw can resume on the next reply turn. Only after the action is
+public does the voice model narrate the completed instinct and frozen outcome.
+If voice generation fails, the server publishes a short authored fallback, so
+the already committed action is never rolled back or hidden.
 
 The journal trace records the model hash, full candidate identities, frozen
 per-avatar Q15 features, all scores, complete ranking, shortlist depth, exact
@@ -171,9 +200,11 @@ the decision and turn later outcomes into training examples.
 
 ## Continual learning
 
-Do not mutate live weights after each action. That would make replay depend on
-timing and allow one noisy episode to corrupt an avatar's policy. Use online
-data with gated artifact updates instead:
+Do not mutate shared live weights after each action. That would make replay
+depend on timing and allow one noisy episode to corrupt every avatar's policy.
+The bounded per-avatar residual described above is safe for immediate online
+adaptation because its update is journaled and objective-supervised. Use
+collected online data with gated artifact updates for the shared ranker:
 
 1. collect journaled observations and eventual treasure outcomes;
 2. convert complete avatar trajectories into replay rows;

@@ -358,6 +358,20 @@ OpenRouter works too:
 OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=openai/gpt-5.6-luna cargo run
 ```
 
+Resident action selection can use the pure-Rust all-card ranker while the LLM
+only narrates the already committed instinct. Start with shadow mode; live mode
+is currently scoped to moderator-created treasure objectives:
+
+```sh
+COSYWORLD_CARD_POLICY_MODE=shadow
+COSYWORLD_CARD_POLICY_MODEL_PATH=../../output/card-policy/card-policy.cwrank
+COSYWORLD_CARD_POLICY_TOP_K=3
+```
+
+See [`docs/card-policy-ranker.md`](docs/card-policy-ranker.md) for synthetic
+training, population simulation, objective collection, per-avatar online
+history, promotion gates, and live rollout behavior.
+
 Optional overrides:
 
 ```sh

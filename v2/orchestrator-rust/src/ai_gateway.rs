@@ -10,6 +10,9 @@ use crate::media_recipes::media_verdict::{
     bounded_visual_verdict_summary, MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use cosyworld_orchestrator::card_policy::{
+    CardPolicyModel, CARD_POLICY_DEFAULT_TOP_K, CARD_POLICY_MAX_TOP_K,
+};
 pub(crate) use registry::{
     CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability,
     PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
@@ -31,10 +34,102 @@ pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAU
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
 pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
 pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v2";
+pub(crate) const CARD_POLICY_MODE_ENV: &str = "COSYWORLD_CARD_POLICY_MODE";
+pub(crate) const CARD_POLICY_MODEL_PATH_ENV: &str = "COSYWORLD_CARD_POLICY_MODEL_PATH";
+pub(crate) const CARD_POLICY_TOP_K_ENV: &str = "COSYWORLD_CARD_POLICY_TOP_K";
+const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 const IMAGE_GENERATION_MAX_BYTES: usize = 8 * 1024 * 1024;
 const IMAGE_GENERATION_MAX_RESPONSE_BYTES: u64 = 12 * 1024 * 1024;
 const IMAGE_GENERATION_MAX_PROMPT_BYTES: usize = 16 * 1024;
-const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum CardPolicyRolloutMode {
+    #[default]
+    Off,
+    Shadow,
+    Live,
+}
+
+impl CardPolicyRolloutMode {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "off" | "" => Ok(Self::Off),
+            "shadow" => Ok(Self::Shadow),
+            "live" => Ok(Self::Live),
+            _ => Err(format!(
+                "{CARD_POLICY_MODE_ENV} must be off, shadow, or live; got {value:?}"
+            )),
+        }
+    }
+
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Shadow => "shadow",
+            Self::Live => "live",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct CardPolicyRollout {
+    pub(crate) mode: CardPolicyRolloutMode,
+    pub(crate) model: Arc<CardPolicyModel>,
+    pub(crate) model_hash: u64,
+    pub(crate) top_k: usize,
+}
+
+impl CardPolicyRollout {
+    pub(crate) fn from_env() -> Result<Option<Self>, String> {
+        let mode = CardPolicyRolloutMode::parse(
+            &std::env::var(CARD_POLICY_MODE_ENV).unwrap_or_else(|_| "off".to_string()),
+        )?;
+        if mode == CardPolicyRolloutMode::Off {
+            return Ok(None);
+        }
+        let artifact_path = std::env::var(CARD_POLICY_MODEL_PATH_ENV)
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                format!("{CARD_POLICY_MODEL_PATH_ENV} is required when card policy is enabled")
+            })?;
+        let bytes = std::fs::read(&artifact_path).map_err(|error| {
+            format!("cannot read {CARD_POLICY_MODEL_PATH_ENV}={artifact_path:?}: {error}")
+        })?;
+        let model = CardPolicyModel::from_bytes(&bytes)
+            .map_err(|error| format!("invalid card-policy artifact {artifact_path:?}: {error}"))?;
+        let model_hash = model.model_hash();
+        let top_k = std::env::var(CARD_POLICY_TOP_K_ENV)
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| {
+                value
+                    .parse::<usize>()
+                    .map_err(|_| format!("{CARD_POLICY_TOP_K_ENV} must be an integer from 1 to 3"))
+            })
+            .transpose()?
+            .unwrap_or(CARD_POLICY_DEFAULT_TOP_K);
+        if !(1..=CARD_POLICY_MAX_TOP_K).contains(&top_k) {
+            return Err(format!(
+                "{CARD_POLICY_TOP_K_ENV} must be from 1 to {CARD_POLICY_MAX_TOP_K}; got {top_k}"
+            ));
+        }
+        tracing::info!(
+            mode = mode.as_str(),
+            top_k,
+            model_hash = format_args!("{model_hash:016x}"),
+            artifact_path = %artifact_path,
+            "loaded resident card-policy ranker"
+        );
+        Ok(Some(Self {
+            mode,
+            model: Arc::new(model),
+            model_hash,
+            top_k,
+        }))
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum GenerationMode {
@@ -135,6 +230,7 @@ pub(crate) struct AiConfig {
     pub(crate) capability_models: BTreeMap<ModelCapability, String>,
     pub(crate) data_policy_mode: DataPolicyMode,
     pub(crate) voice_routing: VoiceRoutingConfig,
+    pub(crate) card_policy: Option<Arc<CardPolicyRollout>>,
 }
 
 impl AiConfig {
@@ -234,7 +330,6 @@ impl AiConfig {
             data_policy_mode,
         )?;
         let voice_routing = VoiceRoutingConfig::from_env()?;
-
         Ok(Some(Self {
             api_key,
             base_url,
@@ -246,6 +341,10 @@ impl AiConfig {
             capability_models,
             data_policy_mode,
             voice_routing,
+            // The local card ranker is loaded by AppState independently of the
+            // remote AI provider. AppState attaches it here when an AI-backed
+            // voice configuration is also present.
+            card_policy: None,
         }))
     }
 
@@ -2311,6 +2410,25 @@ mod tests {
         assert_eq!(controls.mode("dialogue_avatar"), GenerationMode::Shadow);
         assert!(GenerationControls::from_values(Some("unbounded"), None).is_err());
         assert!(GenerationControls::from_values(None, Some(r#"{"Bad Feature":"off"}"#)).is_err());
+    }
+
+    #[test]
+    fn card_policy_rollout_mode_is_explicit_and_fail_closed() {
+        assert_eq!(
+            CardPolicyRolloutMode::parse("off").unwrap(),
+            CardPolicyRolloutMode::Off
+        );
+        assert_eq!(
+            CardPolicyRolloutMode::parse("SHADOW").unwrap(),
+            CardPolicyRolloutMode::Shadow
+        );
+        assert_eq!(
+            CardPolicyRolloutMode::parse("live").unwrap(),
+            CardPolicyRolloutMode::Live
+        );
+        let error = CardPolicyRolloutMode::parse("auto")
+            .expect_err("an ambiguous live mode must not be accepted");
+        assert!(error.contains(CARD_POLICY_MODE_ENV));
     }
 
     #[tokio::test]
