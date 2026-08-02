@@ -4,13 +4,13 @@
   "canonical_id_mapping_version": 1,
   "id": "cosyworld.elysium",
   "name": "Elysium",
-  "version": 1,
-  "description": "The standalone Elysium AI zone.",
+  "version": 2,
+  "description": "The standalone Elysium AI zone, woven as a scoutable Fibonacci-Wythoff rhizome.",
   "entry_location": "cosyworld.elysium:location/652000",
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
-  "bundle_hash": "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf",
+  "bundle_hash": "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -175,8 +175,8 @@
     {
       "id": "cosyworld.elysium",
       "name": "Elysium",
-      "description": "A sparse chain of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
-      "version": "0.1.0",
+      "description": "A scoutable Fibonacci-Wythoff rhizome of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
+      "version": "0.2.0",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit/",
@@ -185,7 +185,7 @@
         {
           "id": "cosyworld.elysium/world",
           "kind": "world",
-          "version": "0.1.0"
+          "version": "0.2.0"
         }
       ],
       "dependencies": [
@@ -224,7 +224,7 @@
         "factions": 0,
         "items": 485,
         "locations": 485,
-        "exits": 968,
+        "exits": 1032,
         "hidden_exits": 0,
         "room_features": 0,
         "room_sheets": 485,
@@ -267,7 +267,7 @@
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:fceb4488fa7f6e1bbcf0d5de81ff82495132b7f6f17070d84a63d3b1ead01935"
+      "integrity": "sha256:faad197a624e2d4f66801cf1f2303845df03b9fa4db12b4b907fc4fae58b5ec0"
     }
   ],
   "files": {

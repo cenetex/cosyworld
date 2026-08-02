@@ -8,6 +8,9 @@ const v2Root = path.resolve(scriptDir, "..");
 const packRoot = path.join(v2Root, "content", "elysium");
 const LOCATION_BASE = 652_000;
 const ITEM_BASE = 6_520_000;
+const EXIT_CAPACITY = 4_096;
+const PHI = (1 + Math.sqrt(5)) / 2;
+const PHI_CONJUGATE = PHI - 1;
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
 
@@ -117,15 +120,16 @@ function locationsFromBindings(bindings) {
   return bindings.map((_binding, index) => ({
     id: LOCATION_BASE + index,
     name: `Void ${voidNumber(index)}`,
-    title: "A Private Model Void",
-    description: "A featureless dark cell contains one model avatar and one inert marker.",
-    persona: "Attention ends at this room's boundary. The next cell exists only after a successful Scout.",
+    title: "A Private Node in the Void",
+    description: "A dark node in a branching fractal web contains one model avatar and one inert marker.",
+    persona: "Attention holds at this node. Scout reveals unmapped filaments before anyone can travel them.",
     memory: [
       "This private cell contains one model avatar and one unique inert marker.",
+      "Scout reveals the local filaments of the Fibonacci-Wythoff rhizome one route at a time.",
     ],
     biome: "void",
     terrain: [
-      "featureless dark plane",
+      "dark plane crossed by latent golden-ratio filaments",
     ],
     allow_combat: false,
   }));
@@ -145,30 +149,129 @@ function itemsFromBindings(bindings) {
   }));
 }
 
-function exitsFromBindings(bindings) {
-  const exits = [];
-  for (let index = 0; index + 1 < bindings.length; index += 1) {
-    exits.push({
-      from_location_id: LOCATION_BASE + index,
-      to_location_id: LOCATION_BASE + index + 1,
-      flags: 0,
-      distance: 1,
-      direction: "east",
-      discovery: "scout",
-    });
-    exits.push({
-      from_location_id: LOCATION_BASE + index + 1,
-      to_location_id: LOCATION_BASE + index,
-      flags: 0,
-      distance: 1,
-      direction: "west",
-      discovery: "scout",
-    });
-  }
-  return exits;
+function wythoffParent(index) {
+  assert(Number.isInteger(index) && index > 0, `invalid Wythoff node index ${index}`);
+  return Math.floor((index - 1) / PHI);
 }
 
-function roomSheetsFromBindings(bindings) {
+function goldenPairScore(left, right) {
+  return (
+    ((left + 1) * PHI_CONJUGATE)
+    + ((right + 1) * PHI_CONJUGATE * PHI_CONJUGATE)
+  ) % 1;
+}
+
+function voidTopology(nodeCount) {
+  if (nodeCount === 0) return { edges: [], depths: [] };
+
+  const depths = [0];
+  const childrenByParent = new Map();
+  const branchEdges = [];
+  for (let child = 1; child < nodeCount; child += 1) {
+    const parent = wythoffParent(child);
+    assert(parent >= 0 && parent < child, `Wythoff parent escaped the rooted web at ${child}`);
+    depths[child] = depths[parent] + 1;
+    const siblings = childrenByParent.get(parent) ?? [];
+    siblings.push(child);
+    childrenByParent.set(parent, siblings);
+    branchEdges.push({ left: parent, right: child, kind: "branch" });
+  }
+
+  assert(
+    [...childrenByParent.values()].every((children) => children.length <= 2),
+    "the Wythoff tree must remain binary",
+  );
+
+  const nodesByDepth = new Map();
+  for (let index = 0; index < depths.length; index += 1) {
+    const peers = nodesByDepth.get(depths[index]) ?? [];
+    peers.push(index);
+    nodesByDepth.set(depths[index], peers);
+  }
+
+  const lateralCandidates = [];
+  for (const peers of nodesByDepth.values()) {
+    for (let leftIndex = 0; leftIndex < peers.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < peers.length; rightIndex += 1) {
+        const left = peers[leftIndex];
+        const right = peers[rightIndex];
+        if (left > 0 && wythoffParent(left) === wythoffParent(right)) continue;
+        lateralCandidates.push({
+          left,
+          right,
+          kind: "rhizome",
+          score: goldenPairScore(left, right),
+        });
+      }
+    }
+  }
+  lateralCandidates.sort((left, right) =>
+    left.score - right.score || left.left - right.left || left.right - right.right);
+
+  const undirectedCapacity = Math.floor(EXIT_CAPACITY / 2);
+  const lateralBudget = Math.min(32, Math.max(0, undirectedCapacity - branchEdges.length));
+  const lateralNodes = new Set();
+  const lateralEdges = [];
+  for (const candidate of lateralCandidates) {
+    if (lateralEdges.length >= lateralBudget) break;
+    if (lateralNodes.has(candidate.left) || lateralNodes.has(candidate.right)) continue;
+    lateralNodes.add(candidate.left);
+    lateralNodes.add(candidate.right);
+    lateralEdges.push({ left: candidate.left, right: candidate.right, kind: candidate.kind });
+  }
+  assert(
+    lateralEdges.length === lateralBudget,
+    `could only weave ${lateralEdges.length} of ${lateralBudget} lateral void filaments`,
+  );
+
+  const childOrdinal = new Map();
+  for (const [parent, children] of childrenByParent) {
+    children.forEach((child, ordinal) => childOrdinal.set(`${parent}:${child}`, ordinal));
+  }
+  const edges = [...branchEdges, ...lateralEdges].map((edge) => {
+    if (edge.kind === "rhizome") {
+      return { ...edge, leftDirection: "east", rightDirection: "west" };
+    }
+    const ordinal = childOrdinal.get(`${edge.left}:${edge.right}`);
+    assert(ordinal === 0 || ordinal === 1, `missing branch ordinal for ${edge.left}:${edge.right}`);
+    return ordinal === 0
+      ? { ...edge, leftDirection: "northwest", rightDirection: "southeast" }
+      : { ...edge, leftDirection: "northeast", rightDirection: "southwest" };
+  });
+  return { edges, depths };
+}
+
+function exitsFromTopology(topology) {
+  const exits = topology.edges.flatMap((edge) => [
+    {
+      from_location_id: LOCATION_BASE + edge.left,
+      to_location_id: LOCATION_BASE + edge.right,
+      flags: 0,
+      distance: 1,
+      direction: edge.leftDirection,
+      discovery: "scout",
+    },
+    {
+      from_location_id: LOCATION_BASE + edge.right,
+      to_location_id: LOCATION_BASE + edge.left,
+      flags: 0,
+      distance: 1,
+      direction: edge.rightDirection,
+      discovery: "scout",
+    },
+  ]);
+  return exits.sort((left, right) =>
+    left.from_location_id - right.from_location_id
+    || left.direction.localeCompare(right.direction)
+    || left.to_location_id - right.to_location_id);
+}
+
+function roomSheetsFromBindings(bindings, topology) {
+  const degreeByNode = new Map();
+  for (const edge of topology.edges) {
+    degreeByNode.set(edge.left, (degreeByNode.get(edge.left) ?? 0) + 1);
+    degreeByNode.set(edge.right, (degreeByNode.get(edge.right) ?? 0) + 1);
+  }
   return bindings.map((_binding, index) => ({
     id: `room:${LOCATION_BASE + index}`,
     location_id: LOCATION_BASE + index,
@@ -176,15 +279,14 @@ function roomSheetsFromBindings(bindings) {
     safety: "safe",
     zone: "frontier",
     aspects: [
-      "one model avatar in a private featureless cell",
+      "one model avatar at a private node in the dark rhizome",
     ],
     boons: [
       "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web",
     ],
     hooks: [
-      index + 1 < bindings.length
-        ? "the next private cell waits for a successful Scout"
-        : "future geography is intentionally undefined",
+      `${degreeByNode.get(index) ?? 0} local void filaments can be revealed by Scout and then travelled`,
     ],
     resources: {
       void_items: 1,
@@ -194,13 +296,51 @@ function roomSheetsFromBindings(bindings) {
 }
 
 function generatedResources(bindings) {
+  const topology = voidTopology(bindings.length);
   return {
     actors: actorsFromBindings(bindings),
     locations: locationsFromBindings(bindings),
     items: itemsFromBindings(bindings),
-    exits: exitsFromBindings(bindings),
-    room_sheets: roomSheetsFromBindings(bindings),
+    exits: exitsFromTopology(topology),
+    room_sheets: roomSheetsFromBindings(bindings, topology),
   };
+}
+
+function assertVoidTopology(bindings, resources) {
+  const nodeCount = bindings.length;
+  const adjacency = new Map(bindings.map((_binding, index) => [index, new Set()]));
+  const directions = new Set();
+  for (const exit of resources.exits) {
+    const from = exit.from_location_id - LOCATION_BASE;
+    const to = exit.to_location_id - LOCATION_BASE;
+    adjacency.get(from)?.add(to);
+    const directionKey = `${from}:${exit.direction}`;
+    assert(!directions.has(directionKey), `void ${from} repeats direction ${exit.direction}`);
+    directions.add(directionKey);
+    assert(exit.discovery === "scout", `void filament ${from}->${to} bypasses Scout`);
+  }
+
+  const visited = new Set(nodeCount > 0 ? [0] : []);
+  const pending = nodeCount > 0 ? [0] : [];
+  while (pending.length > 0) {
+    for (const neighbor of adjacency.get(pending.shift()) ?? []) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      pending.push(neighbor);
+    }
+  }
+
+  const undirectedRoutes = resources.exits.length / 2;
+  const cycleRank = undirectedRoutes - nodeCount + (nodeCount > 0 ? 1 : 0);
+  assert(visited.size === nodeCount, `the void rhizome strands ${nodeCount - visited.size} nodes`);
+  assert(resources.exits.length <= EXIT_CAPACITY, "Elysium exceeds the exit capacity");
+  assert(nodeCount < 3 || adjacency.get(0)?.size === 2, "the entry void must begin with two Scout branches");
+  assert(nodeCount < 4 || [...adjacency.values()].some((neighbors) => neighbors.size >= 3), "the void does not branch");
+  assert(nodeCount < 4 || cycleRank > 0, "the void has no lateral rhizome loops");
+  assert(
+    [...adjacency.values()].every((neighbors) => neighbors.size <= 4),
+    "a void node exceeds the four-filament exploration budget",
+  );
 }
 
 async function fetchCatalog(query = "") {
@@ -217,15 +357,23 @@ async function main() {
   assert(/^openrouter-\d{4}-\d{2}-\d{2}\.\d+$/.test(snapshotVersion ?? ""), "invalid snapshot version");
 
   if (args.has("--write")) {
-    const catalog = args.has("--fetch")
-      ? await fetchCatalog("?output_modalities=all")
-      : readJson(path.resolve(option("--catalog")));
-    const zdrCatalog = args.has("--fetch")
-      ? await fetchCatalog("?output_modalities=all&zdr=true")
-      : readJson(path.resolve(option("--zdr-catalog")));
-    const bindings = bindingsFromCatalog(catalog, zdrCatalog, snapshotVersion);
+    const refreshBindings = args.has("--fetch") || option("--catalog") !== undefined;
+    const bindings = refreshBindings
+      ? bindingsFromCatalog(
+          args.has("--fetch")
+            ? await fetchCatalog("?output_modalities=all")
+            : readJson(path.resolve(option("--catalog"))),
+          args.has("--fetch")
+            ? await fetchCatalog("?output_modalities=all&zdr=true")
+            : readJson(path.resolve(option("--zdr-catalog"))),
+          snapshotVersion,
+        )
+      : readJson(path.join(packRoot, "actor_model_bindings.json"));
     const resources = generatedResources(bindings);
-    fs.writeFileSync(path.join(packRoot, "actor_model_bindings.json"), json(bindings));
+    assertVoidTopology(bindings, resources);
+    if (refreshBindings) {
+      fs.writeFileSync(path.join(packRoot, "actor_model_bindings.json"), json(bindings));
+    }
     for (const [resource, rows] of Object.entries(resources)) {
       fs.writeFileSync(path.join(packRoot, `${resource}.json`), json(rows));
     }
@@ -237,6 +385,7 @@ async function main() {
 
   const bindings = readJson(path.join(packRoot, "actor_model_bindings.json"));
   const resources = generatedResources(bindings);
+  assertVoidTopology(bindings, resources);
   assert(bindings.length > 0, "Elysium model binding snapshot is empty");
   assert(
     bindings.every((binding) => binding.catalog_snapshot_version === snapshotVersion),
@@ -256,7 +405,7 @@ async function main() {
     "Elysium actor ids do not match the stable model-id mapping",
   );
   assert(resources.locations.length <= 2048, "Elysium exceeds the location capacity");
-  assert(resources.exits.length <= 4096, "Elysium exceeds the exit capacity");
+  assert(resources.exits.length <= EXIT_CAPACITY, "Elysium exceeds the exit capacity");
   assert(resources.items.length <= 1024, "Elysium exceeds the item capacity");
   assert(
     new Set(resources.actors.map((actor) => actor.location_id)).size === bindings.length,

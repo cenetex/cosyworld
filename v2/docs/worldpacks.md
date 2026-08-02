@@ -834,8 +834,12 @@ checked-in model binding. Other unsupported output modalities remain visible
 and unavailable instead of silently routing through another model. Every avatar has one private void and one unique void token, with
 ambient autonomy disabled. Those room boundaries limit ordinary observation
 and belief exchange to the local avatar, visitor, and item. The 485 voids form
-a sparse chain of reciprocal `discovery: "scout"` edges, so each next cell is
-revealed exactly once by the existing journaled, replay-safe Scout authority.
+a deterministic Fibonacci-Wythoff rhizome: a shallow golden-ratio branching
+tree guarantees reachability, while sparse phyllotactic cross-links make loops
+between branches without exceeding the fixed kernel exit budget. Every local
+filament is a reciprocal `discovery: "scout"` route. A player can Scout any
+unmapped filament at the current node, then Travel it after the existing
+journaled, replay-safe Scout authority reveals it exactly once.
 
 ## Factions
 
