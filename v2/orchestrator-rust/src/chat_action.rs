@@ -699,11 +699,12 @@ mod tests {
             })
             .expect("follow-up user prompt");
         assert!(followup_prompt.contains("i am Inference Tester"));
-        assert!(followup_prompt.contains("Inference Tester → Rati:"));
-        assert!(followup_prompt.contains("Rati → Inference Tester:"));
+        assert!(followup_prompt.contains("Inference Tester said to Rati:"));
+        assert!(followup_prompt.contains("Rati said to Inference Tester:"));
+        assert!(!followup_prompt.contains("actor_id="));
+        assert!(!followup_prompt.contains("event_seq="));
         assert!(followup_prompt
             .contains("Kindly enough, though the kettle has opinions about punctuality."));
-        assert!(!followup_prompt.contains("actor_id="));
         assert!(!followup_prompt.contains("i am Rati"));
         server.abort();
     }

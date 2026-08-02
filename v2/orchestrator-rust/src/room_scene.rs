@@ -26,12 +26,13 @@ use crate::media_recipes::media_verdict::{
 use crate::{
     active_content, allow_actor_mutation, client_actor_authorized_for_state,
     event_visible_in_location, execute_replicate_art, freeze_approved_community_media_reference,
-    immutable_media_asset_bytes, is_safe_image_content_type, moderation_authorized,
-    reconcile_community_media_asset_status, register_derived_room_scene_media_asset,
-    resolve_frozen_media_reference, AppState, DownloadedReplicateImage, FrozenMediaAssetReference,
-    MediaAssetProvenance, MediaIntent, MediaJobRequest, MediaOperation, MediaRecipeRegistry,
-    MediaRecipeRuntimeControls, MediaReferenceSlot, ReplicateAvatarArtConfig, ResolvedMediaJob,
-    RuntimeWorld, CHAT_ACTION_LIMIT,
+    grounded_avatar_name_for_prompt, immutable_media_asset_bytes, is_safe_image_content_type,
+    moderation_authorized, reconcile_community_media_asset_status,
+    register_derived_room_scene_media_asset, resolve_frozen_media_reference, AppState,
+    DownloadedReplicateImage, FrozenMediaAssetReference, MediaAssetProvenance, MediaIntent,
+    MediaJobRequest, MediaOperation, MediaRecipeRegistry, MediaRecipeRuntimeControls,
+    MediaReferenceSlot, ReplicateAvatarArtConfig, ResolvedMediaJob, RuntimeWorld,
+    CHAT_ACTION_LIMIT,
 };
 
 const ROOM_SCENE_SCHEMA_VERSION: u8 = 1;
@@ -510,7 +511,8 @@ impl RuntimeWorld {
                 actor_id: *actor_id,
                 name: self
                     .actor_name(*actor_id)
-                    .unwrap_or_else(|| format!("Actor {actor_id}")),
+                    .map(|name| grounded_avatar_name_for_prompt(*actor_id, &name))
+                    .unwrap_or_else(|| "Someone".to_string()),
                 grounded_pose: (event.actor_id == Some(*actor_id))
                     .then(|| "performing the committed public beat".to_string()),
                 grounded_attention: (event.target_actor_id == Some(*actor_id))

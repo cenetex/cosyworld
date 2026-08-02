@@ -1874,6 +1874,10 @@ pub(super) async fn pass_action(
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
     let focused = focused_encounter_for_actor(&runtime, payload.actor_id);
+    let thought_job = focused
+        .is_none()
+        .then(|| runtime.avatar_reflection_job(payload.actor_id, AvatarReflectionKind::Thought))
+        .flatten();
     // A focused Pass is one authoritative action, not a hand shuffle followed
     // by a second control mutation. Keeping both consequences in this record
     // means the journal cannot retain a new hand if the focused scene rejects
@@ -1928,6 +1932,9 @@ pub(super) async fn pass_action(
         .push(ProjectionMutation::ShuffleHand {
             reason: "player_pass".to_string(),
         });
+    if let Some(job) = thought_job.clone() {
+        attach_avatar_reflection_check(&mut record, job);
+    }
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         drop(runtime);
         broadcast_events(&state, &released_events);
@@ -1968,6 +1975,11 @@ pub(super) async fn pass_action(
     broadcast_events(&state, &events);
     if let Some(observation) = observation {
         schedule_player_tick_observation(&state, observation);
+    }
+    if status == CW_OK {
+        if let Some(job) = thought_job {
+            schedule_avatar_reflection(&state, job, &events);
+        }
     }
 
     if !was_active {

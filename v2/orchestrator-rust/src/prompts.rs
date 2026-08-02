@@ -376,7 +376,7 @@ async fn request_ai_avatar_chat(
 
 fn format_directed_dialogue_turn(turn: &DirectedDialogueTurn) -> String {
     format!(
-        "{speaker} → {recipient}: {content}",
+        "{speaker} said to {recipient}: {content}",
         speaker = turn.speaker_name,
         recipient = turn.recipient_name,
         content = turn.content
@@ -442,7 +442,7 @@ fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
     let (history, freshest) = avatar_chat_dialogue_parts(plan, followup);
     let mut prompt = PromptEnvelope::default()
         .system(format!(
-            "only {}'s next spoken line · at most {word_budget} words",
+            "only {}'s next spoken line · at most {word_budget} words · use supplied verified facts only · do not invent possessions, companions, memories, or completed actions",
             plan.actor_name
         ))
         .user("…still me.", PromptSegmentKind::Envelope, 100, true)
@@ -678,7 +678,7 @@ fn resident_voice_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> Prompt
             false,
         )
         .user(
-            plan.speaker_voice.clone(),
+            grounded_resident_voice(plan),
             PromptSegmentKind::UniqueEvidence,
             95,
             false,
@@ -1102,20 +1102,31 @@ pub(super) fn format_resident_continuity(continuity: &ResidentContinuityState) -
 }
 
 pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
+    let truth = "use supplied verified facts only · do not invent possessions, companions, memories, or completed actions";
     match SpeechMode::from_name(&plan.speech_mode) {
         SpeechMode::EmojiOnly => format!(
-            "only {}'s next line · 3–6 emoji · no words",
-            plan.speaker_name
+            "only {}'s next line · 3–6 emoji · no words · {truth}",
+            plan.speaker_name,
         ),
         SpeechMode::EmoteOnly => format!(
-            "only {}'s next line · one third-person emote in *asterisks* · no quoted speech",
-            plan.speaker_name
+            "only {}'s next line · one third-person emote in *asterisks* · no quoted speech · {truth}",
+            plan.speaker_name,
         ),
         _ => format!(
-            "only {}'s next spoken line · at most {} words",
+            "only {}'s next spoken line · at most {} words · {truth}",
             plan.speaker_name,
             resident_word_budget(plan)
         ),
+    }
+}
+
+fn grounded_resident_voice(plan: &AvatarReplyPlan) -> String {
+    match plan.speaker_actor_id {
+        1001 => "i want this cottage orderly and welcoming, dislike needless mess, and have strong opinions about everyone's footwear. my patience is short but my care is practical.".to_string(),
+        1056 => "i prefer immaculate order, correct people mid-crisis, defend procedure far too earnestly, and get flustered at precisely the wrong moment.".to_string(),
+        1066 => "i want an audience, dislike being overlooked, and meet every disappointment with grand appetite and wounded pride.".to_string(),
+        1067 => "i prefer tremendous formality, make pronouncements whether or not anyone asked, and immediately worry whether anybody was listening.".to_string(),
+        _ => plan.speaker_voice.clone(),
     }
 }
 
@@ -1197,7 +1208,10 @@ mod publication_tests {
         reply.speaker_name = "Rati".to_string();
         reply.speech_mode = "prose".to_string();
         let system = resident_system_prompt(&reply);
-        assert_eq!(system, "only Rati's next spoken line · at most 40 words");
+        assert_eq!(
+            system,
+            "only Rati's next spoken line · at most 40 words · use supplied verified facts only · do not invent possessions, companions, memories, or completed actions"
+        );
         for attractor in ["bodily", "catchphrase", "room's name", "teapot", "funny"] {
             assert!(
                 !system.contains(attractor),
@@ -1230,7 +1244,7 @@ mod publication_tests {
         let system = resident_system_prompt(&reply);
         assert_eq!(
             system,
-            "only Pip Marrow's next spoken line · at most 40 words"
+            "only Pip Marrow's next spoken line · at most 40 words · use supplied verified facts only · do not invent possessions, companions, memories, or completed actions"
         );
     }
 
@@ -1354,7 +1368,7 @@ mod publication_tests {
 
         let prompt = avatar_chat_user_prompt(&chat, true);
         assert!(prompt.contains("i am Elsie Starfield"));
-        assert!(prompt.contains("Judas Iscariot → Elsie Starfield"));
+        assert!(prompt.contains("Judas Iscariot said to Elsie Starfield:"));
         assert!(!prompt.contains("actor_id="));
         assert!(prompt.contains("I will look with you first. Bethlehem can wait."));
         assert!(!prompt.contains("Passerby"));

@@ -1569,7 +1569,7 @@ async fn certified_pass_is_actor_bound_idempotent_and_stale_safe() {
 }
 
 #[tokio::test]
-async fn repeated_certified_passes_only_rotate_the_hand_and_replay_without_farming() {
+async fn repeated_certified_thinks_rotate_and_roll_without_farming() {
     let actor_id = 5_000;
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(
@@ -1679,6 +1679,15 @@ async fn repeated_certified_passes_only_rotate_the_hand_and_replay_without_farmi
             && record.projection_mutations.iter().any(|mutation| {
                 matches!(mutation, ProjectionMutation::ShuffleHand { reason } if reason == "player_pass")
             })
+            && record.projection_mutations.iter().any(|mutation| {
+                matches!(
+                    mutation,
+                    ProjectionMutation::AvatarReflectionCheck {
+                        reflection_kind: AvatarReflectionKind::Thought,
+                        ..
+                    }
+                )
+            })
     }));
     let mut replayed = baseline_snapshot
         .into_runtime()
@@ -1754,6 +1763,20 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
         .await
         .0;
         assert!(response.ok, "certified Pass succeeds: {response:?}");
+        let thought_check = response
+            .events
+            .iter()
+            .find(|event| {
+                event.type_name == "ability_check.rolled"
+                    && event.content.as_deref() == Some("think")
+            })
+            .expect("each certified Think / Pass rolls for an asynchronous thought");
+        assert_eq!(thought_check.ability.as_deref(), Some("Intelligence"));
+        assert_eq!(thought_check.dc, Some(AVATAR_REFLECTION_DC as i16));
+        assert!(!response
+            .events
+            .iter()
+            .any(|event| event.type_name == "avatar.thought"));
         pass_source_seqs.push(
             response
                 .events
@@ -1825,6 +1848,19 @@ async fn certified_pass_metrics_track_consecutive_passes_and_reset_after_meaning
     .await
     .0;
     assert!(next_pass.ok, "Pass after Search succeeds: {next_pass:?}");
+    let thought_check = next_pass
+        .events
+        .iter()
+        .find(|event| {
+            event.type_name == "ability_check.rolled" && event.content.as_deref() == Some("think")
+        })
+        .expect("the post-Search Think / Pass rolls for a thought");
+    assert_eq!(thought_check.ability.as_deref(), Some("Intelligence"));
+    assert_eq!(thought_check.dc, Some(AVATAR_REFLECTION_DC as i16));
+    assert!(!next_pass
+        .events
+        .iter()
+        .any(|event| event.type_name == "avatar.thought"));
     pass_source_seqs.push(
         next_pass
             .events

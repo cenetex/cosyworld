@@ -62,6 +62,17 @@ server-authored avatar lines, use moderated room speech, move, collect and trade
 items, earn and spend Orbs, report players, and unlock avatar cards through the
 Wooden Box and pack flow.
 
+Generated avatar personas are first-person streams of consciousness: desires,
+preferences, dislikes, and social instincts grounded in the character's actual
+state. Persona generation and repair reject invented possessions, imaginary or
+invisible companions, pets, familiars, and numeric fallback identities.
+
+The certified **Think / Pass** action defers the avatar's turn and rolls a rare
+DC 18 Intelligence check. Only a success queues an asynchronous interior
+thought. A Rest that actually recovers fatigue, practice, travel, or an item
+rolls the same DC against Wisdom; only a success queues an asynchronous dream.
+Failed checks are ordinary deterministic game events and make no AI request.
+
 ## Production Runtime
 
 The root `Dockerfile` builds the V2 Rust orchestrator. `fly.toml` runs it on the

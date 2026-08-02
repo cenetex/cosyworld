@@ -5,7 +5,6 @@ use super::{
     content_policy::{
         compact_whitespace, has_disallowed_control_character, human_message_is_cozy_safe,
     },
-    trim_to_chars,
 };
 
 pub(super) const MAX_AVATAR_NAME_CHARS: usize = 28;
@@ -31,8 +30,8 @@ impl From<ModelGeneratedAvatarIdentity> for GeneratedAvatarIdentity {
     }
 }
 
-pub(super) fn fallback_avatar_name(actor_id: u64) -> String {
-    format!("Traveler {actor_id}")
+pub(super) fn fallback_avatar_name(_actor_id: u64) -> String {
+    "Newcomer".to_string()
 }
 
 pub(super) fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String {
@@ -47,6 +46,7 @@ pub(super) fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String
         || normalized.chars().count() > MAX_AVATAR_NAME_CHARS
         || !human_message_is_cozy_safe(&normalized)
         || avatar_name_is_reserved(&normalized)
+        || avatar_name_leaks_runtime_id(&normalized)
         || !normalized
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, ' ' | '-' | '\''))
@@ -56,6 +56,21 @@ pub(super) fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String
     } else {
         normalized
     }
+}
+
+pub(super) fn avatar_name_leaks_runtime_id(value: &str) -> bool {
+    let words = value
+        .split_whitespace()
+        .map(|word| {
+            word.trim_matches(|character: char| !character.is_ascii_alphanumeric())
+                .to_ascii_lowercase()
+        })
+        .collect::<Vec<_>>();
+    words.windows(2).any(|pair| {
+        matches!(pair[0].as_str(), "traveler" | "traveller" | "actor")
+            && !pair[1].is_empty()
+            && pair[1].chars().all(|character| character.is_ascii_digit())
+    })
 }
 
 fn avatar_name_is_reserved(name: &str) -> bool {
@@ -177,6 +192,7 @@ pub(super) fn sanitize_avatar_description(value: Option<&str>, fallback: &str) -
         || normalized.chars().count() > 220
         || !human_message_is_cozy_safe(&normalized)
         || !avatar_flavor_is_cozy(&normalized)
+        || !avatar_persona_is_grounded(&normalized)
         || has_disallowed_control_character(&normalized)
     {
         fallback.to_string()
@@ -185,38 +201,133 @@ pub(super) fn sanitize_avatar_description(value: Option<&str>, fallback: &str) -
     }
 }
 
-pub(super) fn align_avatar_description_name(
-    value: &str,
-    name: &str,
-    fallback_name: &str,
-) -> String {
-    let aligned = if fallback_name != name && value.contains(fallback_name) {
-        value.replace(fallback_name, name)
-    } else {
-        value.to_string()
-    };
-    if aligned
-        .to_ascii_lowercase()
-        .contains(&name.to_ascii_lowercase())
+pub(super) fn sanitize_existing_avatar_description(value: Option<&str>, fallback: &str) -> String {
+    let normalized = value.map(compact_whitespace).unwrap_or_default();
+    if normalized.is_empty()
+        || normalized.chars().count() > 220
+        || !human_message_is_cozy_safe(&normalized)
+        || !avatar_flavor_is_cozy(&normalized)
+        || avatar_persona_claims_private_fiction(&normalized)
+        || has_disallowed_control_character(&normalized)
     {
-        aligned
+        fallback.to_string()
     } else {
-        trim_to_chars(&format!("{name} — {aligned}"), 220)
+        normalized
     }
 }
 
-pub(super) fn avatar_visual_prompt(name: &str, title: &str, description: &str) -> String {
+pub(super) fn avatar_persona_is_grounded(value: &str) -> bool {
+    let lowered = format!(" {} ", value.to_ascii_lowercase());
+    let first_person = [
+        " i like ",
+        " i prefer ",
+        " i want ",
+        " i dislike ",
+        " i avoid ",
+        " i hope ",
+        " i enjoy ",
+        " i am ",
+        " i notice ",
+        " i wonder ",
+        " i feel ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker));
+    first_person && !lowered.contains(" my ") && !avatar_persona_claims_private_fiction(value)
+}
+
+fn avatar_persona_claims_private_fiction(value: &str) -> bool {
+    let lowered = format!(" {} ", value.to_ascii_lowercase());
+    [
+        " imaginary ",
+        " invisible ",
+        " companion ",
+        " familiar ",
+        " sidekick ",
+        " pet ",
+        " i carry ",
+        " i keep ",
+        " i have ",
+        " i hold ",
+        " i wear ",
+        " i own ",
+        " i brought ",
+        " i travel with ",
+        " follows me ",
+        " beside me ",
+        " carries a ",
+        " carries an ",
+        " keeps a ",
+        " keeps an ",
+        " holds a ",
+        " holds an ",
+        " wears a ",
+        " wears an ",
+        " has a ",
+        " has an ",
+        // Repair the six pre-audit deterministic personas without rewriting
+        // unrelated historical biographies during snapshot restoration.
+        " biscuit wrapped in a handkerchief ",
+        " crooked picture ",
+        " wipes their feet twice ",
+        " comfiest chair ",
+        " plans folded inside one pocket ",
+        " trade a good story ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
+}
+
+pub(super) fn grounded_avatar_persona_for_prompt(actor_id: u64, value: &str) -> String {
+    if avatar_persona_is_grounded(value) {
+        compact_whitespace(value)
+    } else {
+        fallback_avatar_identity(actor_id).description
+    }
+}
+
+pub(super) fn grounded_avatar_name_for_prompt(actor_id: u64, value: &str) -> String {
+    let normalized = compact_whitespace(value);
+    if normalized.is_empty() || avatar_name_leaks_runtime_id(&normalized) {
+        fallback_avatar_identity(actor_id).name
+    } else {
+        normalized
+    }
+}
+
+pub(super) fn avatar_visual_prompt(name: &str, title: &str, _description: &str) -> String {
     compact_whitespace(&format!(
-        "{name}, {title}. {description}. Cozy full-body fantasy avatar portrait, warm cottage light, expressive silhouette, readable trading-card character art, safe for all ages."
+        "{name}, {title}. Exactly one full-body fantasy avatar with empty hands, practical clothing, no handheld props, pets, companions, familiars, mascots, or floating objects. Warm cottage light, expressive silhouette, readable trading-card character art, safe for all ages."
     ))
 }
 
 fn sanitize_avatar_visual_prompt(value: Option<&str>, fallback: &str) -> String {
     let normalized = value.map(compact_whitespace).unwrap_or_default();
+    let lowered = format!(" {} ", normalized.to_ascii_lowercase());
+    let invents_prop_or_companion = [
+        " holding ",
+        " carrying ",
+        " clutching ",
+        " wielding ",
+        " handheld ",
+        " companion ",
+        " familiar ",
+        " sidekick ",
+        " mascot ",
+        " pet ",
+        " backpack ",
+        " satchel ",
+        " lantern ",
+        " map ",
+        " weapon ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker));
     if normalized.is_empty()
         || normalized.chars().count() > 360
         || !human_message_is_cozy_safe(&normalized)
         || !avatar_flavor_is_cozy(&normalized)
+        || invents_prop_or_companion
         || has_disallowed_control_character(&normalized)
     {
         fallback.to_string()
@@ -251,13 +362,9 @@ pub(super) fn avatar_identity_from_json_value_with_naming_context(
         value.get("title").and_then(|value| value.as_str()),
         &fallback.title,
     );
-    let description = align_avatar_description_name(
-        &sanitize_avatar_description(
-            value.get("description").and_then(|value| value.as_str()),
-            &fallback.description,
-        ),
-        &name,
-        &fallback.name,
+    let description = sanitize_avatar_description(
+        value.get("description").and_then(|value| value.as_str()),
+        &fallback.description,
     );
     let fallback_visual_prompt = avatar_visual_prompt(&name, &title, &description);
     GeneratedAvatarIdentity {
@@ -373,5 +480,69 @@ mod tests {
         let expected = fallback_avatar_identity_with_naming_context(5000, Some(&context));
         assert_eq!(identity.name, expected.name);
         assert_ne!(identity.name, "Traveler 5000");
+        assert_ne!(
+            grounded_avatar_name_for_prompt(5000, "Traveler 1002"),
+            "Traveler 1002"
+        );
+    }
+
+    #[test]
+    fn existing_and_new_personas_share_the_grounded_first_person_contract() {
+        let existing = "A patient test avatar who listens before speaking.";
+        let fallback = "I prefer patient company and want to listen first.";
+        assert_eq!(
+            sanitize_existing_avatar_description(Some(existing), fallback),
+            existing
+        );
+        assert_eq!(
+            sanitize_avatar_description(Some(existing), fallback),
+            fallback
+        );
+        for invented in [
+            "I like quiet rooms and keep an imaginary button in my pocket.",
+            "I prefer warm greetings while an invisible companion follows me.",
+            "I want to help and I carry a private lantern.",
+            "I enjoy company with my tiny familiar beside me.",
+        ] {
+            assert_eq!(
+                sanitize_existing_avatar_description(Some(invented), fallback),
+                fallback,
+                "invented persona detail survived: {invented}"
+            );
+        }
+        let grounded = "I wonder what makes strangers feel welcome and prefer listening first.";
+        assert_eq!(
+            sanitize_existing_avatar_description(Some(grounded), fallback),
+            grounded
+        );
+        assert_eq!(
+            grounded_avatar_persona_for_prompt(5000, existing),
+            fallback_avatar_identity(5000).description
+        );
+    }
+
+    #[test]
+    fn generated_avatar_description_is_grounded_first_person_not_a_name_biography() {
+        let identity = avatar_identity_from_json_value(
+            &serde_json::json!({
+                "name": "Maggie Nibble",
+                "title": "Cunning Snack Seeker"
+            }),
+            5000,
+        );
+        assert_eq!(identity.name, "Maggie Nibble");
+        assert!(avatar_persona_is_grounded(&identity.description));
+        assert!(identity.description.starts_with("I "));
+        assert!(!identity.description.contains("Maggie Nibble"));
+
+        let generic = avatar_identity_from_json_value(
+            &serde_json::json!({
+                "name": "Pip Crumb",
+                "description": "Always has three plans and one biscuit."
+            }),
+            5000,
+        );
+        assert!(avatar_persona_is_grounded(&generic.description));
+        assert!(!generic.description.contains("biscuit"));
     }
 }

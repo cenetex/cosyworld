@@ -999,6 +999,22 @@
       border-left-color: rgba(239, 201, 107, 0.4);
       background: linear-gradient(90deg, rgba(239, 201, 107, 0.05), transparent 58%);
     }
+    .line.chat.reflection .speaker::after {
+      display: block;
+      margin-top: 2px;
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .line.chat.reflection.thought .speaker::after { content: "thinks"; }
+    .line.chat.reflection.dream .speaker::after { content: "dreams"; }
+    .line.chat.reflection .text {
+      color: var(--dim);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-style: italic;
+    }
     .line.chat.image-reply .text {
       display: grid;
       gap: 7px;
@@ -8401,7 +8417,12 @@
       return muted.has(Number(event?.actor_id || 0));
     }
 
-    const chatEventTypes = new Set(["message.created", "image.created"]);
+    const chatEventTypes = new Set([
+      "message.created",
+      "image.created",
+      "avatar.thought",
+      "avatar.dream",
+    ]);
     const combatTranscriptEventTypes = new Set([
       "combat.encounter.started",
       "combat.attack.attempt",
@@ -9678,7 +9699,7 @@
 
     function roomMemoryEntryForEvent(event) {
       if (!event) return null;
-      if (["message.created", "image.created"].includes(event.type)) {
+      if (["message.created", "image.created", "avatar.thought", "avatar.dream"].includes(event.type)) {
         return null;
       }
       if (
@@ -9952,9 +9973,10 @@
       if (event.type === "ability_check.rolled") {
         const studying = event.content === "study";
         const noticing = event.content === "notice";
+        const reflecting = ["think", "dream"].includes(event.content);
         return {
           kind: "roll",
-          label: studying ? "study" : (noticing ? "notice" : "check"),
+          label: reflecting ? event.content : (studying ? "study" : (noticing ? "notice" : "check")),
           text: cleanStatusText(abilityCheckEventText(event)),
         };
       }
@@ -10405,12 +10427,13 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return ["message.created", "image.created"].includes(event?.type);
+      return ["message.created", "image.created", "avatar.thought", "avatar.dream"].includes(event?.type);
     }
 
     function transcriptEventHtml(event) {
       if (event?.type === "message.created") return messageHtml(event);
       if (event?.type === "image.created") return residentImageHtml(event);
+      if (["avatar.thought", "avatar.dream"].includes(event?.type)) return avatarReflectionHtml(event);
       if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
       return sceneCardEventHtml(event);
     }
@@ -10758,6 +10781,7 @@
     function timelineEventHtml(event) {
       if (event.type === "message.created") return messageHtml(event);
       if (event.type === "image.created") return residentImageHtml(event);
+      if (["avatar.thought", "avatar.dream"].includes(event.type)) return avatarReflectionHtml(event);
       if (isRollEvent(event)) return rollHtml(event);
       return sceneCardEventHtml(event);
     }
@@ -11010,6 +11034,15 @@
         ? `<span class="chat-repeat" aria-label="Repeated ${repeat} times">×${repeat}</span>`
         : "";
       return `<div class="line chat ${kind}"${attrs}>${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text">${escapeHtml(body)}${repeatHtml}</span></div>`;
+    }
+
+    function avatarReflectionHtml(event) {
+      const speaker = event.actor_name || "Someone";
+      const body = event.content || "";
+      const reflectionKind = event.type === "avatar.dream" ? "dream" : "thought";
+      const actorKind = Number(event.actor_id || 0) === Number(actorId || 0) ? "you" : "avatar";
+      const label = `${speaker} ${reflectionKind === "dream" ? "dreams" : "thinks"}: ${body}`;
+      return `<div class="line chat reflection ${reflectionKind} ${actorKind}" aria-label="${escapeAttr(label)}">${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text">${escapeHtml(body)}</span></div>`;
     }
 
     function residentImageMetadata(event) {
@@ -11268,6 +11301,8 @@
       if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
       if (event.type === "image.created") return residentImageMetadata(event)?.alt || "shares a visual reply.";
+      if (event.type === "avatar.thought") return event.content || "thinks for a moment.";
+      if (event.type === "avatar.dream") return event.content || "dreams during the long rest.";
       if (event.type === "feature.searched" || event.type === "location.searched") return searchEventText(event);
       if (event.type === "exit.discovered") {
         return event.content || `discovers a way to ${event.destination_location_name || "somewhere new"}.`;
@@ -11549,6 +11584,16 @@
         return event.success
           ? `studies the signs and understands their meaning. ${mechanics}.`
           : `studies the signs, but their meaning stays unclear. ${mechanics}.`;
+      }
+      if (event.content === "think") {
+        return event.success
+          ? `turns inward and catches a thought worth following. ${mechanics}.`
+          : `turns inward, but no clear thought settles this time. ${mechanics}.`;
+      }
+      if (event.content === "dream") {
+        return event.success
+          ? `rests deeply enough for a dream to take shape. ${mechanics}.`
+          : `rests without bringing a dream back. ${mechanics}.`;
       }
       const hint = listenHintForLocation(event.location_id, event.success);
       return `checks carefully: ${hint} ${mechanics}.`;
@@ -13632,6 +13677,15 @@
           return result;
         }
         handPassSubmission = null;
+        const thoughtRoll = (result.events || []).find((event) => (
+          event.type === "ability_check.rolled" && event.content === "think"
+        ));
+        setStatus(
+          thoughtRoll?.success
+            ? "The Intelligence check lands; an avatar thought is forming asynchronously."
+            : "The Intelligence check misses; no avatar thought is generated this time.",
+          thoughtRoll?.success ? "ok" : "quiet",
+        );
         await refresh();
         renderCommands();
         return result;
