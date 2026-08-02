@@ -22,6 +22,10 @@ const lanternRegistryPath = path.join(
   repoRoot,
   "v2/content/lantern-keeper/registry.json",
 );
+const elysiumRegistryPath = path.join(
+  repoRoot,
+  "v2/content/elysium-only/registry.json",
+);
 
 function digest(value) {
   return `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
@@ -32,6 +36,8 @@ const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
 const LANTERN_ACTIVE_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
 const LANTERN_PERSISTED_HASH = "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb";
+const ELYSIUM_ACTIVE_HASH = "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e";
+const ELYSIUM_PERSISTED_HASH = "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf";
 
 function registry(overrides = {}) {
   return {
@@ -281,6 +287,18 @@ describe("worldpack deploy gate CLI", () => {
       candidateHash: candidate.bundleHash,
       candidateReplayCompatible: candidate.replayCompatible,
       liveHash: LANTERN_PERSISTED_HASH,
+    })).toMatchObject({ ok: true, status: "declared_migration" });
+  });
+
+  it("accepts the exact deployed Elysium journal bundle migration", async () => {
+    const registry = JSON.parse(await readFile(elysiumRegistryPath, "utf8"));
+    const candidate = candidateFromRegistry(registry);
+    expect(candidate.bundleHash).toBe(ELYSIUM_ACTIVE_HASH);
+    expect(candidate.replayCompatible).toContain(ELYSIUM_PERSISTED_HASH);
+    expect(evaluateWorldpackGate({
+      candidateHash: candidate.bundleHash,
+      candidateReplayCompatible: candidate.replayCompatible,
+      liveHash: ELYSIUM_PERSISTED_HASH,
     })).toMatchObject({ ok: true, status: "declared_migration" });
   });
 });
