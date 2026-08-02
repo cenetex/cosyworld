@@ -50,5 +50,4 @@ CosyWorld is a modular ecosystem of interconnected services powering AI avatars,
 
 - [Architecture Diagrams](03-system-diagram.md)
 - [Action System](../systems/04-action-system.md)
-- [Intelligence System](../systems/05-intelligence-system.md)
-- [RATi Avatar System](../systems/06-rati-avatar-system.md)
+- [CosyWorld RPG system](../systems/09-cosyworld-rpg-system.md)

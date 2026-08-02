@@ -125,48 +125,6 @@ jobs:
       - name: Run fresh-seed browser gate
         run: npm run v2:browser:check
 
-  web-build:
-    name: Web build
-    runs-on: ubuntu-latest
-    env:
-      CI: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit --no-fund
-
-      - name: Build (fast)
-        if: github.event_name == 'pull_request'
-        run: npm run build:js
-
-      - name: Build (full)
-        if: github.event_name != 'pull_request'
-        run: npm run build
-
-      - name: Analyze bundle
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-        id: analyze
-        run: npm run analyze
-
-      - name: Upload webpack stats
-        if: steps.analyze.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: webpack-stats
-          path: webpack-stats.json
-          if-no-files-found: warn
-
   publication:
     name: Referee guide publication
     runs-on: ubuntu-latest

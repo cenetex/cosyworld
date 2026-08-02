@@ -38,7 +38,7 @@ export default defineConfig({
         '**/*.test.{js,mjs}',
         '**/*.spec.{js,mjs}',
       ],
-      include: ['src/**/*.mjs'],
+      include: ['v2/scripts/**/*.mjs'],
       all: true,
       lines: 10,
       functions: 10,
@@ -49,7 +49,6 @@ export default defineConfig({
     // Test file patterns
     include: [
       'test/**/*.test.{js,mjs}',
-      'src/**/*.test.{js,mjs}',
     ],
     
     // Test timeout (10 seconds)
@@ -75,7 +74,6 @@ export default defineConfig({
   
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
       '@test': path.resolve(__dirname, './test'),
     },
   },

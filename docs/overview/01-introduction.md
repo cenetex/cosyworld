@@ -60,5 +60,5 @@ CosyWorld is a next-generation AI avatar universe. It creates persistent, evolvi
 - See the [System Overview](02-system-overview.md) for architecture
 - Explore [System Diagrams](03-system-diagram.md)
 - Learn about [Action System](../systems/04-action-system.md)
-- Dive into [Intelligence System](../systems/05-intelligence-system.md)
+- Dive into the [CosyWorld RPG system](../systems/09-cosyworld-rpg-system.md)
 - Review [Deployment Guide](../deployment/07-deployment.md)

@@ -36,7 +36,7 @@ Then run every row that matches the change:
 | Surface | Required checks |
 | --- | --- |
 | Markdown-only docs | inspect links/commands; `npm run check:version` |
-| Legacy Node (`src/`, `test/`) | `npm test`; `npm run lint` when linted source changes |
+| Cross-surface tests (`test/`) | `npm test` |
 | Pack/content/compiler | `npm run v2:worldpack` |
 | C kernel or ABI | `npm run v2:kernel`; `npm run v2:rust:test` |
 | Rust orchestrator | `npm run v2:rust:test`; targeted Rust test while iterating |

@@ -12,12 +12,11 @@ export default [
       'reference-library/**',
       'coverage/**',
       'data/**/*.json',
-      'src/utils/schemaValidator.mjs',
       '**/*.min.js'
     ]
   },
   {
-    files: ['src/**/*.mjs', 'scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
