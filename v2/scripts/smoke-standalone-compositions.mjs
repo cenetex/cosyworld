@@ -144,6 +144,7 @@ const worldCases = [
     localSeedActorCount: 1,
     localItemCount: 1,
     scoutDestination: "Void 002",
+    additionalScoutDestination: "Void 003",
   },
 ];
 
@@ -1140,6 +1141,16 @@ async function runWorldLoop(spec) {
     let discovered = initial;
     let discoveryEventCount = 0;
     if (spec.scoutDestination) {
+      if (spec.additionalScoutDestination) {
+        const initialScoutTargets = initial.action_offers
+          ?.filter((offer) => offer.kind === "explore_path")
+          .map((offer) => offer.target?.label);
+        assert(
+          initialScoutTargets?.includes(spec.scoutDestination)
+            && initialScoutTargets.includes(spec.additionalScoutDestination),
+          `${spec.label} did not expose its branching Scout routes: ${JSON.stringify(initialScoutTargets)}`,
+        );
+      }
       for (let attempt = 0; attempt < 24; attempt += 1) {
         const scouted = await command(
           first.baseUrl,
@@ -1149,7 +1160,8 @@ async function runWorldLoop(spec) {
         );
         discoveryEventCount += scouted.events?.filter(routeDiscoveryEvent).length ?? 0;
         discovered = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
-        if (!discovered.action_offers?.some((offer) => offer.kind === "explore_path")) break;
+        if (!discovered.action_offers?.some((offer) =>
+          offer.kind === "explore_path" && offer.target?.label === spec.scoutDestination)) break;
       }
       const revealedMove = await dealOffer(
         first.baseUrl,
@@ -1161,7 +1173,8 @@ async function runWorldLoop(spec) {
       discovered = revealedMove.state;
       assert(
         discoveryEventCount === 1
-          && !discovered.action_offers?.some((offer) => offer.kind === "explore_path")
+          && !discovered.action_offers?.some((offer) =>
+            offer.kind === "explore_path" && offer.target?.label === spec.scoutDestination)
           && discovered.action_offers?.some((offer) =>
             offer.kind === "move" && offer.target?.label === spec.scoutDestination),
         `${spec.label} did not reveal its route exactly once: ${JSON.stringify({
@@ -1236,7 +1249,8 @@ async function runWorldLoop(spec) {
       );
       replayed = replayedMove.state;
       assert(
-        !replayed.action_offers?.some((offer) => offer.kind === "explore_path")
+        !replayed.action_offers?.some((offer) =>
+          offer.kind === "explore_path" && offer.target?.label === spec.scoutDestination)
           && replayed.action_offers?.some((offer) =>
             offer.kind === "move" && offer.target?.label === spec.scoutDestination),
         `${spec.label} restart lost its discovered route`,
