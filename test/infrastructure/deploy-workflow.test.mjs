@@ -205,6 +205,16 @@ describe('deploy workflow', () => {
     );
   });
 
+  it('allows the primary ownership feed one scheduled refresh before failing readiness', () => {
+    const primaryFly = job('primary-fly', 'lonelyforest-fly');
+    expect(primaryFly).toContain('for attempt in {1..13}');
+    expect(primaryFly).toContain(
+      'node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev'
+    );
+    expect(primaryFly).toContain('sleep 10');
+    expect(primaryFly).toContain('remained degraded after 120 seconds');
+  });
+
   it('auto-extends both data volumes before the deploy guard, with bounded spend', () => {
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
       expect(config).toContain('auto_extend_size_threshold = 80');
