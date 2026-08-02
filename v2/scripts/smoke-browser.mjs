@@ -533,6 +533,43 @@ async function main() {
   await assertModerationCanSuspendActor(moderationProbeAvatar);
   let chatPendingChecked = false;
   let useFocusedActionOnNextClick = false;
+  let focusedSelectionIdentity = null;
+  const livingItemEvidence = [];
+  const playerSpeechEvidence = new Set();
+  const observedBranchEventReceipts = [];
+  const branchReceiptAudits = new Set();
+  let moonlitProjectObservedCompleted = false;
+  const recordLivingItemEvidence = (evidence) => {
+    if (!runLivingWorldStress) return;
+    if (livingItemEvidence.some((existing) => (
+      existing.type === evidence.type
+        && existing.resident === evidence.resident
+        && existing.item === evidence.item
+    ))) return;
+    livingItemEvidence.push(evidence);
+  };
+  page.on("response", (response) => {
+    const request = response.request();
+    const pathname = new URL(response.url()).pathname;
+    if (
+      request.method() !== "POST"
+        || (pathname !== "/commands" && !pathname.startsWith("/actions/"))
+    ) return;
+    const audit = response.json()
+      .then((body) => {
+        for (const event of body?.events || []) {
+          if (!String(event?.type || "").startsWith("branch.")) continue;
+          if (observedBranchEventReceipts.some((existing) => (
+            Number(existing.seq || 0) === Number(event.seq || 0)
+              && existing.type === event.type
+          ))) continue;
+          observedBranchEventReceipts.push({ seq: Number(event.seq || 0), type: event.type });
+        }
+      })
+      .catch(() => {});
+    branchReceiptAudits.add(audit);
+    audit.finally(() => branchReceiptAudits.delete(audit));
+  });
 
   async function primaryText() {
     return page.locator("#primary").evaluate((node) => {
@@ -8503,6 +8540,9 @@ async function main() {
       if (stopWhen && await stopWhen()) return null;
       candidates = await page.evaluate(() => actionBarActions().map((action) => ({
         index: action.actionIndex,
+        handKey: actionHandKey(action),
+        offerIds: (action.offerIds || []).map(String),
+        generation: Number(state?.action_hand?.generation || 0),
         text: [compactActionLabel(action), friendlyActionText(action?.detail), action?.command]
           .filter(Boolean).join(" "),
       })));
@@ -8512,12 +8552,16 @@ async function main() {
           focusIndex = index;
           focusedKey = actionHandKey(actions[index]);
         }, match.index);
+        focusedSelectionIdentity = {
+          handKey: match.handKey,
+          offerIds: match.offerIds,
+          generation: match.generation,
+        };
         useFocusedActionOnNextClick = true;
         return match.text;
       }
       if (draw + 1 < Math.min(attempts, deckSize)) {
-        await page.locator("#shuffle").click();
-        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null && document.querySelector("#shuffle")?.disabled === false);
+        await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
       }
     }
     throw new Error(`${label} was not dealt within one full hand rotation: ${JSON.stringify(candidates)}`);
@@ -8527,7 +8571,7 @@ async function main() {
     return focusPrimaryMatching(label, predicate, Math.max(64, shuffles), stopWhen);
   }
 
-  async function drawPrimaryMatching(label, needles) {
+  async function drawPrimaryMatching(label, needles, stopWhen = null) {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
@@ -8537,6 +8581,7 @@ async function main() {
     const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
     let result = null;
     for (let draw = 0; draw < deckSize; draw += 1) {
+      if (stopWhen && await stopWhen()) return null;
       result = await page.evaluate((terms) => {
       const actionText = (action) => [
         action?.label,
@@ -8572,14 +8617,16 @@ async function main() {
       return {
         ok: true,
         index: action.actionIndex,
+        handKey: actionHandKey(action),
+        offerIds: (action.offerIds || []).map(String),
+        generation: Number(state?.action_hand?.generation || 0),
         choiceMatched: Boolean(selectedChoice),
         text: actionText(action),
       };
     }, normalizedNeedles);
       if (result.ok) break;
       if (draw + 1 < deckSize) {
-        await page.locator("#shuffle").click();
-        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null && document.querySelector("#shuffle")?.disabled === false);
+        await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
       }
     }
     assert(result.ok, `${label} card was not drawable from actions: ${JSON.stringify(result)}`);
@@ -8587,6 +8634,11 @@ async function main() {
       focusIndex = index;
       focusedKey = actionHandKey(actions[index]);
     }, result.index);
+    focusedSelectionIdentity = {
+      handKey: result.handKey,
+      offerIds: result.offerIds,
+      generation: result.generation,
+    };
     useFocusedActionOnNextClick = true;
     await assertNoVisibleOverflow();
     assert(
@@ -8596,60 +8648,112 @@ async function main() {
     return result.text;
   }
 
-  async function drawRoomSearch(label, extraNeedles = []) {
+  async function drawRoomSearch(label, extraNeedles = [], stopWhen = null) {
     const needles = extraNeedles.map((needle) => needle.toLowerCase());
     return focusPrimaryMatchingAcrossShuffles(label, (text) => (
       text.startsWith("inspect ")
         && needles.every((needle) => text.includes(needle))
-    ));
+    ), 8, stopWhen);
   }
 
   async function passCertifiedHandForDraw(label) {
-    const before = await page.evaluate(() => {
-      const pass = state?.action_hand?.pass || null;
-      const control = document.querySelector("#shuffle");
-      return {
-        offerId: String(pass?.offer_id || ""),
-        generation: Number(state?.action_hand?.generation || 0),
-        controlId: control?.id || "",
-        visible: Boolean(control && getComputedStyle(control).display !== "none"),
-        disabled: Boolean(control?.disabled),
-        ariaLabel: control?.getAttribute("aria-label") || "",
-      };
-    });
-    assert(
-      before.offerId
-        && before.controlId === "shuffle"
-        && before.visible
-        && !before.disabled
-        && /commit a pass/i.test(before.ariaLabel),
-      `${label} hand rotation must start from the certified Pass (Think) control: ${JSON.stringify(before)}`,
+    let lastRejection = null;
+    const currentPassState = () => page.evaluate(() => ({
+      offerId: String(state?.action_hand?.pass?.offer_id || ""),
+      generation: Number(state?.action_hand?.generation || 0),
+    }));
+    const reconciledAsOneHandAdvance = (before, after) => (
+      after.offerId
+        && after.offerId !== before.offerId
+        && after.generation === before.generation + 1
     );
-    const responsePromise = page.waitForResponse((response) => (
-      response.request().method() === "POST"
-        && new URL(response.url()).pathname === "/commands"
-        && String(response.request().postData() || "").includes("\"command\":\"pass\"")
-    ));
-    await page.locator("#shuffle").click();
-    const response = await responsePromise;
-    const receipt = await response.json();
-    const request = response.request().postDataJSON();
-    const shuffleEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
-    assert(
-      receipt.ok === true
-        && request?.command === "pass"
-        && request?.offer_id === before.offerId
-        && Number(shuffleEvent?.seq || 0) > 0,
-      `${label} hand rotation must commit the exact certified Pass, never an undealt action: ${JSON.stringify({ before, request, receipt })}`,
-    );
-    await page.waitForFunction(() => (
-      actionBusy === false
-        && refreshInFlight === null
-        && document.querySelector("#shuffle")?.disabled === false
-    ));
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await page.waitForFunction(() => (
+        actionBusy === false
+          && refreshInFlight === null
+          && document.querySelector("#shuffle")?.disabled === false
+      ));
+      const before = await page.evaluate(() => {
+        const pass = state?.action_hand?.pass || null;
+        const control = document.querySelector("#shuffle");
+        return {
+          offerId: String(pass?.offer_id || ""),
+          generation: Number(state?.action_hand?.generation || 0),
+          controlId: control?.id || "",
+          visible: Boolean(control && getComputedStyle(control).display !== "none"),
+          disabled: Boolean(control?.disabled),
+          ariaLabel: control?.getAttribute("aria-label") || "",
+        };
+      });
+      assert(
+        before.offerId
+          && before.controlId === "shuffle"
+          && before.visible
+          && !before.disabled
+          && /commit a pass/i.test(before.ariaLabel),
+        `${label} hand rotation must start from the certified Pass (Think) control: ${JSON.stringify(before)}`,
+      );
+      let response;
+      try {
+        [response] = await Promise.all([
+          page.waitForResponse((candidate) => (
+            candidate.request().method() === "POST"
+              && new URL(candidate.url()).pathname === "/commands"
+              && String(candidate.request().postData() || "").includes("\"command\":\"pass\"")
+          ), { timeout: 10_000 }),
+          page.locator("#shuffle").click(),
+        ]);
+      } catch (error) {
+        lastRejection = { before, error: String(error?.message || error) };
+        await page.evaluate(() => refresh());
+        const after = await currentPassState();
+        if (reconciledAsOneHandAdvance(before, after)) return;
+        assert(
+          after.offerId === before.offerId && after.generation === before.generation,
+          `${label} Pass outcome was ambiguous across multiple hand generations: ${JSON.stringify({ before, after, error: lastRejection.error })}`,
+        );
+        throw new Error(`${label} Pass response was not observed; refusing an ambiguous retry: ${lastRejection.error}`);
+      }
+      const receipt = await response.json();
+      const request = response.request().postDataJSON();
+      const shuffleEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+      if (receipt.ok === true) {
+        assert(
+          request?.command === "pass"
+            && String(request?.offer_id || "") === before.offerId
+            && Number(shuffleEvent?.seq || 0) > 0,
+          `${label} hand rotation must commit the exact certified Pass, never an undealt action: ${JSON.stringify({ before, request, receipt })}`,
+        );
+        await page.waitForFunction(() => (
+          actionBusy === false
+            && refreshInFlight === null
+            && document.querySelector("#shuffle")?.disabled === false
+        ));
+        const after = await currentPassState();
+        assert(
+          reconciledAsOneHandAdvance(before, after),
+          `${label} successful Pass should advance exactly one hand generation: ${JSON.stringify({ before, request, after, receipt })}`,
+        );
+        return;
+      }
+      lastRejection = { before, request, receipt, httpStatus: response.status() };
+      assert(
+        Number(receipt.status || response.status()) === 409,
+        `${label} Pass failed without a definitive stale certificate: ${JSON.stringify(lastRejection)}`,
+      );
+      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+      await page.evaluate(() => refresh());
+      const after = await currentPassState();
+      if (reconciledAsOneHandAdvance(before, after)) return;
+      assert(
+        after.generation === before.generation,
+        `${label} stale Pass crossed multiple hand generations: ${JSON.stringify({ before, after, lastRejection })}`,
+      );
+    }
+    throw new Error(`${label} could not obtain a fresh certified Pass after three stale scenes: ${JSON.stringify(lastRejection)}`);
   }
 
-  async function drawCertifiedGardenInspect(label) {
+  async function drawCertifiedGardenInspect(label, stopWhen = null) {
     const inspectIsLegal = await page.evaluate(() => (
       state?.search_available === true
         || actions.some((action) => (
@@ -8660,9 +8764,18 @@ async function main() {
     if (!inspectIsLegal) return null;
 
     const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
-    const drawLimit = Math.min(deckSize, 24);
+    const drawLimit = deckSize;
     let lastHand = [];
     for (let draw = 0; draw < drawLimit; draw += 1) {
+      if (stopWhen && await stopWhen()) return false;
+      const inspectStillLegal = await page.evaluate(() => (
+        state?.search_available === true
+          || actions.some((action) => (
+            String(action?.intention || "").toLowerCase() === "inspect"
+              || String(action?.label || "").toLowerCase() === "inspect"
+          ))
+      ));
+      if (!inspectStillLegal) return false;
       const dealt = await page.evaluate(() => {
         const certifiedSearchOfferIds = new Set((state?.action_hand?.entries || [])
           .filter((entry) => String(entry?.kind || "") === "search")
@@ -8687,6 +8800,8 @@ async function main() {
         return {
           ok: true,
           index: action.actionIndex,
+          handKey: actionHandKey(action),
+          generation: Number(state?.action_hand?.generation || 0),
           text: [compactActionLabel(action), friendlyActionText(action?.detail), action?.command]
             .filter(Boolean)
             .join(" "),
@@ -8704,6 +8819,11 @@ async function main() {
           focusIndex = index;
           focusedKey = actionHandKey(actions[index]);
         }, dealt.index);
+        focusedSelectionIdentity = {
+          handKey: dealt.handKey,
+          offerIds: dealt.offerIds.map(String),
+          generation: dealt.generation,
+        };
         useFocusedActionOnNextClick = true;
         await assertNoVisibleOverflow();
         return dealt.text;
@@ -8732,7 +8852,7 @@ async function main() {
     const needle = text.toLowerCase();
     const focus = async () => page.evaluate((destination) => {
       const visible = actionBarActions();
-      const action = visible.find((action) => {
+      const visibleAction = visible.find((action) => {
         const intention = String(action?.intention || "").toLowerCase();
         const label = String(action?.label || "").toLowerCase();
         if (!["move", "travel", "scout", "flee"].includes(intention) && label !== "flee") return false;
@@ -8749,7 +8869,7 @@ async function main() {
           `${choice.label || ""} ${choice.detail || ""}`.toLowerCase().includes(destination)
         ));
       });
-      if (!action) {
+      if (!visibleAction) {
         return {
           ok: false,
           location: state?.location?.name || "",
@@ -8767,16 +8887,21 @@ async function main() {
             .map((action) => `${action.label} ${action.detail || action.command || ""} ${(action.choices || []).map((choice) => choice.label).join(" ")}`),
         };
       }
-      const route = action;
+      const route = actions[visibleAction.actionIndex];
       const choice = (route.choices || []).find((candidate) => (
         `${candidate.label || ""} ${candidate.detail || ""}`.toLowerCase().includes(destination)
       ));
       if (choice) route.selectedChoice = choice.value;
-      focusIndex = route.actionIndex;
+      focusIndex = visibleAction.actionIndex;
       focusedKey = choice ? `exit:${choice.value}` : actionHandKey(route);
       return {
         ok: true,
-        index: route.actionIndex,
+        index: visibleAction.actionIndex,
+        handKey: actionHandKey(route),
+        offerIds: (route.offerIds || []).map(String),
+        generation: Number(state?.action_hand?.generation || 0),
+        routeIdentity: choice ? String(choice.value || "") : "",
+        destinationLocationId: Number(route.selectedPayload?.()?.destination_location_id || 0),
         choice: choice?.label || "",
         intention: String(route?.intention || "").toLowerCase(),
         text: [route?.label, route?.detail, route?.command, choice?.label, choice?.detail]
@@ -8800,14 +8925,20 @@ async function main() {
         || primary.toLowerCase().startsWith("search")
         || primary.toLowerCase().includes("search pathway");
       if (result.ok && routeVisible) {
+        focusedSelectionIdentity = {
+          handKey: result.handKey,
+          offerIds: result.offerIds,
+          generation: result.generation,
+          routeIdentity: result.routeIdentity,
+          destinationLocationId: result.destinationLocationId,
+        };
         useFocusedActionOnNextClick = true;
         await assertNoVisibleOverflow();
         return primary;
       }
       last = { result, primary };
       if (attempt < deckSize) {
-        await page.locator("#shuffle").click();
-        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null && document.querySelector("#shuffle")?.disabled === false);
+        await passCertifiedHandForDraw(`route ${text} draw ${attempt}`);
       }
     }
     if (
@@ -8821,73 +8952,38 @@ async function main() {
 
   async function confirmRouteTo(name, label, focusBeforeConfirm = () => focusRoute(name)) {
     let lastResult = null;
+    let stableDestinationId = 0;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       const focused = await focusBeforeConfirm();
+      if (focused?.replan === true) return focused;
       assert(focused !== false, `${label} route card should remain focusable`);
-      const responsePromise = page.waitForResponse((response) => (
-        response.request().method() === "POST"
-          && ["/actions/submit", "/actions/move", "/actions/flee", "/actions/explore-path"]
-            .includes(new URL(response.url()).pathname)
-      ));
-      const routeClick = await page.evaluate(() => {
-        const action = actions[focusIndex];
-        const intention = String(action?.intention || "").toLowerCase();
-        const routeLike = ["move", "travel", "scout", "flee"].includes(intention)
-          || String(action?.label || "").toLowerCase() === "flee";
-        if (!routeLike) return { clicked: false, focusedKey: String(focusedKey || "") };
-        const key = String(focusedKey || "");
-        openActionModal(action);
-        return {
-          clicked: true,
-          focusedKey: key,
-          routeIdentity: key.startsWith("exit:") ? key.slice("exit:".length) : "",
+      if (focused && typeof focused === "object") {
+        focusedSelectionIdentity = {
+          handKey: focused.handKey,
+          offerIds: focused.offerIds,
+          generation: focused.generation,
+          routeIdentity: focused.routeIdentity || "",
+          destinationLocationId: Number(focused.destinationLocationId || 0),
         };
-      });
-      if (!routeClick.clicked) {
-        responsePromise.catch(() => {});
-        await page.evaluate(() => refresh());
-        continue;
       }
-      const focusedRouteIdentity = routeClick.routeIdentity;
-      await page.waitForSelector("#action-modal:not([hidden])");
-      const choices = page.locator("#action-modal-choices .action-choice");
-      const choiceCount = await choices.count();
-      if (choiceCount > 0) {
-        const modalChoices = await choices.evaluateAll((nodes) => nodes.map((node, index) => ({
-          index,
-          label: node.textContent?.trim().replace(/\s+/g, " ") || "",
-          value: node.querySelector("input")?.value || "",
-          checked: Boolean(node.querySelector("input")?.checked),
-        })));
-        const destinationChoices = modalChoices.filter((choice) => (
-          choice.value === focusedRouteIdentity
-        ));
-        assert(
-          destinationChoices.length === 1
-            && destinationChoices[0].label.toLowerCase().includes(name.toLowerCase()),
-          `${name} should resolve to one stable route identity even when generated places share a display name: ${JSON.stringify({ focusedRouteIdentity, modalChoices })}`,
-        );
-        await choices.nth(destinationChoices[0].index).click();
-      }
-      await page.locator("#action-modal-confirm").click();
-      const response = await responsePromise;
-      lastResult = {
-        httpStatus: response.status(),
-        path: new URL(response.url()).pathname,
-        request: response.request().postDataJSON(),
-        body: await response.json(),
-      };
-      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
-      if (lastResult.body?.ok === true) {
-        await assertNoVisibleOverflow();
-        steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
-        return lastResult.body;
-      }
+      const expectedRoute = focusedSelectionIdentity;
       assert(
-        Number(lastResult.body?.status || lastResult.httpStatus) === 409,
-        `${label} should commit or reject only as a stale concurrent offer: ${JSON.stringify(lastResult)}`,
+        expectedRoute?.handKey
+          && expectedRoute?.offerIds?.length === 1
+          && expectedRoute.destinationLocationId > 0,
+        `${label} should retain one exact certified route and destination: ${JSON.stringify(expectedRoute)}`,
       );
-      await page.evaluate(() => refresh());
+      if (!stableDestinationId) stableDestinationId = expectedRoute.destinationLocationId;
+      assert(
+        expectedRoute.destinationLocationId === stableDestinationId,
+        `${label} stale retry should not switch to another same-named destination: ${JSON.stringify({ stableDestinationId, expectedRoute })}`,
+      );
+      lastResult = await commitFocusedCertifiedAction(label, {
+        choiceText: expectedRoute.routeIdentity ? name : "",
+        choiceValue: expectedRoute.routeIdentity,
+        expectedDestinationId: expectedRoute.destinationLocationId,
+      });
+      if (lastResult.ok) return lastResult.body;
     }
     throw new Error(`${label} stayed stale after three fresh offers: ${JSON.stringify(lastResult)}`);
   }
@@ -8944,82 +9040,270 @@ async function main() {
     return true;
   }
 
-  async function clickPrimary(label) {
-    if (useFocusedActionOnNextClick) {
-      await page.evaluate(() => openActionModal(focusedAction()));
-      useFocusedActionOnNextClick = false;
-    } else {
-      await page.locator("#primary").click({ force: true });
+  async function clickPrimary(label, { allowStale = false } = {}) {
+    if (useFocusedActionOnNextClick && focusedSelectionIdentity) {
+      const result = await commitFocusedCertifiedAction(label);
+      if (!result.ok && !allowStale) {
+        throw new Error(`${label} exact selected certificate became stale before commit`);
+      }
+      return result;
     }
+    focusedSelectionIdentity = null;
+    useFocusedActionOnNextClick = false;
+    await page.locator("#primary").click({ force: true });
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
     steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
   }
 
-  async function clickActionMatching(label, needles) {
-    return clickDealtActionMatching(label, needles);
-
-    const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-    let lastResult = null;
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      await page.waitForFunction(() => (
-        actionBusy === false
-          && refreshInFlight === null
-          && document.querySelector("#action-modal")?.hidden === true
-      ), null, { timeout: 35_000 });
-      const selected = await page.evaluate((terms) => {
-        const actionText = (action) => [
-          compactActionLabel(action),
-          action?.detail,
-          action?.command,
-          action?.cost,
-          action?.risk,
-          action?.effect,
-        ].filter(Boolean).join(" ").toLowerCase();
-        const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
-        if (index < 0) return { ok: false, actions: actions.map(actionText) };
-        focusIndex = index;
-        focusedKey = actionHandKey(actions[index]);
-        openActionModal(actions[index]);
-        return { ok: true, action: actionText(actions[index]) };
-      }, normalizedNeedles);
-      assert(selected.ok, `${label} card was not atomically selectable: ${JSON.stringify(selected)}`);
-      const responsePromise = page.waitForResponse((response) => (
-        response.request().method() === "POST"
-          && new URL(response.url()).pathname.startsWith("/actions/")
+  async function commitFocusedCertifiedAction(label, options = {}) {
+    const {
+      choiceText = "",
+      choiceValue = "",
+      transferTarget = "",
+      expectedDestinationId = 0,
+      expectedProjectId = "",
+      expectedStrategyId,
+      expectedItemId = 0,
+      expectedLocationId = 0,
+    } = options;
+    const expectedSelection = focusedSelectionIdentity;
+    focusedSelectionIdentity = null;
+    useFocusedActionOnNextClick = false;
+    assert(expectedSelection, `${label} should retain the exact selected hand identity before commit`);
+    const selectionStaleness = (expected) => page.evaluate((selection) => {
+      const handOfferIds = new Set((state?.action_hand?.entries || [])
+        .map((entry) => String(entry?.offer_id || ""))
+        .filter(Boolean));
+      return {
+        generation: Number(state?.action_hand?.generation || 0),
+        expectedGeneration: Number(selection.generation || 0),
+        missingOfferIds: (selection.offerIds || []).filter((offerId) => (
+          !handOfferIds.has(String(offerId))
+        )),
+      };
+    }, expected);
+    const opened = await page.evaluate((expected) => {
+      if (Number(state?.action_hand?.generation || 0) !== Number(expected.generation)) return false;
+      const sameOffers = (action) => {
+        const actual = (action.offerIds || []).map(String).sort();
+        const wanted = (expected.offerIds || []).map(String).sort();
+        return actual.length === wanted.length && actual.every((offerId, index) => offerId === wanted[index]);
+      };
+      const visibleAction = actionBarActions().find((candidate) => (
+        actionHandKey(candidate) === expected.handKey && sameOffers(candidate)
       ));
-      await confirmActionModalIfOpen();
-      const response = await responsePromise;
-      const body = await response.json();
-      lastResult = { httpStatus: response.status(), body };
-      await page.waitForFunction(() => (
-        actionBusy === false
-          && refreshInFlight === null
-          && document.querySelector("#action-modal")?.hidden === true
-      ), null, { timeout: 35_000 });
-      if (body?.ok === true) {
-        await assertNoVisibleOverflow();
-        steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
-        return lastResult;
-      }
-      const staleOffer = Number(body?.status || response.status()) === 409
-        && (body?.events || []).some((event) => String(event.content || "").includes("offer_id"));
+      const action = visibleAction ? actions[visibleAction.actionIndex] : null;
+      if (action && (!sameOffers(action) || actionHandKey(action) !== expected.handKey)) return false;
+      if (!action) return false;
+      focusIndex = visibleAction.actionIndex;
+      focusedKey = actionHandKey(action);
+      openActionModal(action);
+      return true;
+    }, expectedSelection);
+    if (!opened) {
+      const staleness = await selectionStaleness(expectedSelection);
       assert(
-        staleOffer,
-        `${label} should commit or reject only as a stale concurrent offer: ${JSON.stringify(lastResult)}`,
+        staleness.generation !== staleness.expectedGeneration
+          || staleness.missingOfferIds.length > 0,
+        `${label} exact current certificate disappeared only from the rendered action model: ${JSON.stringify(staleness)}`,
       );
       await page.evaluate(() => refresh());
+      return { ok: false, stale: true, submission: null };
     }
-    throw new Error(`${label} stayed stale after three fresh offers: ${JSON.stringify(lastResult)}`);
+    await page.waitForSelector("#action-modal:not([hidden])");
+    if (choiceText || choiceValue) {
+      const choices = page.locator("#action-modal-choices .action-choice");
+      if (await choices.count() > 0) {
+        const modalChoices = await choices.evaluateAll((nodes) => nodes.map((node, index) => ({
+          index,
+          label: node.textContent?.trim().replace(/\s+/g, " ") || "",
+          value: node.querySelector("input")?.value || "",
+        })));
+        const matchingChoices = modalChoices.filter((choice) => (
+          (!choiceValue || choice.value === choiceValue)
+            && (!choiceText || choice.label.toLowerCase().includes(choiceText.toLowerCase()))
+        ));
+        assert(matchingChoices.length === 1, `${choiceText || choiceValue} should appear once in the ${label} choices`);
+        await choices.nth(matchingChoices[0].index).click();
+      }
+    }
+    const submission = await page.evaluate((expected) => {
+      const aggregate = actionConfirmAction;
+      const selected = aggregate?.selectedMode?.()?.source || aggregate;
+      const offerIds = (selected?.offerIds || []).map(String);
+      const handOfferIds = new Set((state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")));
+      const focusKey = String(selected?.focusKey || "");
+      const selectedPayload = selected?.selectedPayload?.() || null;
+      const intention = String(selected?.intention || "").toLowerCase();
+      const [kind, itemId, targetActorId, targetItemId] = focusKey.split(":");
+      const featureParts = kind === "use-feature" ? focusKey.split(":") : [];
+      const featureItemId = Number(featureParts.at(-1) || 0);
+      const featureKey = kind === "use-feature" ? featureParts.slice(1, -1).join(":") : "";
+      const expectedPath = kind === "give"
+        ? "/actions/give-item"
+        : (kind === "trade" ? "/actions/trade-item" : "");
+      const target = (state?.actors || []).find((actor) => Number(actor.id || 0) === Number(targetActorId));
+      return {
+        offerIds,
+        focusKey,
+        command: String(selected?.command || ""),
+        projectId: String(selected?.project?.id || ""),
+        strategyId: String(selected?.project?.strategy_id || ""),
+        expectedPath,
+        itemId: Number(itemId || 0),
+        targetActorId: Number(targetActorId || 0),
+        targetItemId: Number(targetItemId || 0),
+        targetName: target?.name || "",
+        destinationLocationId: Number(selectedPayload?.destination_location_id || 0),
+        payloadItemId: Number(selectedPayload?.item_id || featureItemId || 0),
+        payloadLocationId: Number(
+          selectedPayload?.location_id
+            || (kind === "use-feature" ? state?.location?.id : 0)
+            || 0,
+        ),
+        featureKey: String(selectedPayload?.feature_key || featureKey),
+        routePath: intention === "scout"
+          ? "/actions/explore-path"
+          : (intention === "flee"
+            ? "/actions/flee"
+            : (intention === "travel"
+              ? "/actions/move"
+              : (kind === "use-feature" ? "/actions/use-item" : ""))),
+        selectionMatches: offerIds.every((offerId) => (expected.offerIds || []).includes(offerId)),
+        certified: offerIds.length === 1
+          && handOfferIds.has(offerIds[0])
+          && offerIds.every((offerId) => (expected.offerIds || []).includes(offerId)),
+      };
+    }, expectedSelection);
+    if (transferTarget) {
+      assert(
+        submission.expectedPath
+          && submission.itemId > 0
+          && submission.targetActorId > 0
+          && submission.targetName === transferTarget,
+        `${transferTarget} choice should resolve one exact transfer target: ${JSON.stringify(submission)}`,
+      );
+    }
+    if (expectedDestinationId) {
+      assert(
+        submission.destinationLocationId === Number(expectedDestinationId),
+        `${label} should retain destination ${expectedDestinationId}: ${JSON.stringify(submission)}`,
+      );
+    }
+    if (expectedProjectId || expectedStrategyId !== undefined) {
+      assert(
+        (!expectedProjectId || submission.projectId === expectedProjectId)
+          && (expectedStrategyId === undefined
+            || submission.strategyId === String(expectedStrategyId || "")),
+        `${label} should retain its exact authored project strategy: ${JSON.stringify({ expectedProjectId, expectedStrategyId, submission })}`,
+      );
+    }
+    if (expectedItemId || expectedLocationId) {
+      assert(
+        (!expectedItemId || submission.payloadItemId === Number(expectedItemId))
+          && (!expectedLocationId || submission.payloadLocationId === Number(expectedLocationId)),
+        `${label} should retain its exact authored item use: ${JSON.stringify({ expectedItemId, expectedLocationId, submission })}`,
+      );
+    }
+    if (!submission.certified) {
+      const staleness = await selectionStaleness(expectedSelection);
+      assert(
+        staleness.generation !== staleness.expectedGeneration
+          || staleness.missingOfferIds.length > 0,
+        `${label} exact current certificate resolved to an uncertified modal action: ${JSON.stringify({ staleness, submission })}`,
+      );
+      await page.evaluate(() => {
+        closeActionModal();
+        return refresh();
+      });
+      return { ok: false, stale: true, submission };
+    }
+    const responsePromise = page.waitForResponse((response) => {
+      if (response.request().method() !== "POST") return false;
+      const responsePath = new URL(response.url()).pathname;
+      const request = response.request().postDataJSON();
+      if (responsePath === "/commands") {
+        return submission.offerIds.includes(String(request?.offer_id || ""))
+          && request?.command === submission.command;
+      }
+      if (responsePath !== "/actions/submit") return false;
+      return submission.offerIds.includes(String(request?.offer_id || ""))
+        && (!submission.routePath || request?.path === submission.routePath)
+        && (!submission.expectedPath || (
+          request?.path === submission.expectedPath
+            && Number(request?.payload?.item_id || 0) === submission.itemId
+            && Number(request?.payload?.target_actor_id || 0) === submission.targetActorId
+            && (
+              submission.targetItemId === 0
+                || Number(request?.payload?.target_item_id || 0) === submission.targetItemId
+            )
+        ))
+        && (!expectedDestinationId
+          || Number(request?.payload?.destination_location_id || 0) === Number(expectedDestinationId))
+        && (!expectedItemId || Number(request?.payload?.item_id || 0) === Number(expectedItemId))
+        && (!expectedLocationId || Number(request?.payload?.location_id || 0) === Number(expectedLocationId))
+        && (!submission.featureKey || request?.payload?.feature_key === submission.featureKey);
+    }, { timeout: 10_000 }).then((response) => ({ response }));
+    const localRejectionPromise = page.waitForFunction(() => (
+      actionBusy === false
+        && document.querySelector("#action-modal")?.hidden === true
+        && /no longer in your hand/i.test(document.querySelector("#error")?.textContent || "")
+    ), null, { timeout: 10_000 }).then(() => ({ localRejection: true }));
+    await page.locator("#action-modal-confirm").click();
+    const outcome = await Promise.race([responsePromise, localRejectionPromise]);
+    if (outcome.localRejection) {
+      responsePromise.catch(() => {});
+      await page.evaluate(() => refresh());
+      return { ok: false, stale: true, submission };
+    }
+    const response = outcome.response;
+    const body = await response.json();
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && document.querySelector("#action-modal")?.hidden === true
+    ), null, { timeout: 35_000 });
+    if (body?.ok !== true) {
+      const responsePath = new URL(response.url()).pathname;
+      const retryableConflict = Number(body?.status || response.status()) === 409
+        && (
+          (body?.events || []).some((event) => (
+            ["action.offer_rejected", "action.conflict"].includes(String(event?.type || ""))
+          ))
+            || (responsePath === "/commands" && body?.error_kind === "stale_offer")
+        );
+      assert(
+        retryableConflict,
+        `${label} should commit or reject only with exact stale-offer evidence: ${JSON.stringify(body)}`,
+      );
+      await page.evaluate(() => refresh());
+      return { ok: false, stale: true, submission, body };
+    }
+    await assertNoVisibleOverflow();
+    steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
+    return {
+      ok: true,
+      stale: false,
+      submission,
+      body,
+      request: response.request().postDataJSON(),
+    };
+  }
+
+  async function clickActionMatching(label, needles) {
+    const body = await clickDealtActionMatching(label, needles);
+    return { httpStatus: Number(body?.status || 200), body };
   }
 
   async function clickDealtActionMatching(label, needles) {
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
     let lastHand = [];
     let lastScene = {};
+    let staleAttempts = 0;
     const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 8)));
-    for (let draw = 0; draw < deckSize; draw += 1) {
+    for (let draw = 0; draw < deckSize;) {
       await page.waitForFunction(() => (
         actionBusy === false
           && refreshInFlight === null
@@ -9050,8 +9334,13 @@ async function main() {
         }
         focusIndex = action.actionIndex;
         focusedKey = actionHandKey(action);
-        openActionModal(action);
-        return { ok: true, action: actionText(action) };
+        return {
+          ok: true,
+          action: actionText(action),
+          handKey: actionHandKey(action),
+          offerIds: (action.offerIds || []).map(String),
+          generation: Number(state?.action_hand?.generation || 0),
+        };
       }, normalizedNeedles);
       lastHand = selected.hand || lastHand;
       lastScene = {
@@ -9059,33 +9348,51 @@ async function main() {
         items: selected.items || lastScene.items || [],
       };
       if (selected.ok) {
-        const responsePromise = page.waitForResponse((response) => (
-          response.request().method() === "POST"
-            && new URL(response.url()).pathname.startsWith("/actions/")
-        ));
-        await confirmActionModalIfOpen();
-        const response = await responsePromise;
-        const body = await response.json();
-        await page.waitForFunction(() => (
-          actionBusy === false
-            && refreshInFlight === null
-            && document.querySelector("#action-modal")?.hidden === true
-        ), null, { timeout: 35_000 });
-        if (body?.ok === true) return body;
-        const staleOffer = Number(body?.status || response.status()) === 409
-          && (body?.events || []).some((event) => String(event.content || "").includes("offer_id"));
-        assert(staleOffer, `${label} should commit or reject only as a stale dealt offer: ${JSON.stringify(body)}`);
+        focusedSelectionIdentity = {
+          handKey: selected.handKey,
+          offerIds: selected.offerIds,
+          generation: selected.generation,
+        };
+        useFocusedActionOnNextClick = true;
+        const result = await commitFocusedCertifiedAction(label);
+        if (result.ok) return result.body;
+        staleAttempts += 1;
+        assert(staleAttempts < 3, `${label} stayed stale after three fresh offers`);
+        continue;
       }
-      await page.locator("#shuffle").click();
+      if (draw + 1 < deckSize) {
+        await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
+      }
+      draw += 1;
     }
     throw new Error(`${label} was not dealt within one complete hand rotation: ${JSON.stringify({ lastHand, ...lastScene })}`);
   }
 
   async function clickPrimaryAndAssertPending(label) {
-    if (useFocusedActionOnNextClick) {
-      await page.evaluate(() => openActionModal(focusedAction()));
+    if (useFocusedActionOnNextClick && focusedSelectionIdentity) {
+      const expectedSelection = focusedSelectionIdentity;
+      const opened = await page.evaluate((expected) => {
+        if (Number(state?.action_hand?.generation || 0) !== Number(expected.generation)) return false;
+        const wanted = (expected.offerIds || []).map(String).sort();
+        const visible = actionBarActions().find((candidate) => {
+          const actual = (candidate.offerIds || []).map(String).sort();
+          return actionHandKey(candidate) === expected.handKey
+            && actual.length === wanted.length
+            && actual.every((offerId, index) => offerId === wanted[index]);
+        });
+        const action = visible ? actions[visible.actionIndex] : null;
+        if (!action) return false;
+        focusIndex = visible.actionIndex;
+        focusedKey = actionHandKey(action);
+        openActionModal(action);
+        return true;
+      }, expectedSelection);
+      assert(opened, `${label} pending lifecycle should open its exact current Chat certificate`);
+      focusedSelectionIdentity = null;
       useFocusedActionOnNextClick = false;
     } else {
+      focusedSelectionIdentity = null;
+      useFocusedActionOnNextClick = false;
       await page.locator("#primary").click();
     }
     await confirmActionModalIfOpen();
@@ -9175,7 +9482,11 @@ async function main() {
 
   async function clickSearchAndAssertProgress(label) {
     const before = visibleDiscoveryKeys(await fetchCurrentState());
-    await clickPrimary(label);
+    const result = await clickPrimary(label, { allowStale: true });
+    if (result?.stale) {
+      steps.push({ label: `${label} replanned`, outcome: "the exact Inspect certificate changed" });
+      return false;
+    }
     await page.waitForFunction(
       () => !document.querySelector("#primary")?.disabled,
       null,
@@ -9184,6 +9495,7 @@ async function main() {
     const after = visibleDiscoveryKeys(await fetchCurrentState());
     const additions = after.filter((key) => !before.includes(key));
     steps.push({ label: `${label} discovery`, additions, outcome: additions.length ? "revealed" : "no new lead" });
+    return true;
   }
 
   async function waitForLocation(name) {
@@ -9234,22 +9546,43 @@ async function main() {
     }, name);
     await confirmRouteTo(name, `${route.includes("flee") ? "flee" : (searchingPathway ? "search" : "travel")} ${name}`);
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
-    const segmentedJourney = Boolean((await fetchCurrentState()).journey);
+    const journeyAtStart = await fetchCurrentState();
+    const segmentedJourney = Boolean(journeyAtStart.journey);
+    const journeyDestinationId = Number(journeyAtStart.journey?.destination_location_id || 0);
     let pathwayActions = 0;
-    while (segmentedJourney && (await fetchCurrentState()).journey) {
-      pathwayActions += 1;
-      assert(pathwayActions <= 12, `segmented route to ${name} should finish without looping`);
+    let pathwayPlans = 0;
+    while (segmentedJourney) {
       const current = await fetchCurrentState();
+      if (!current.journey) break;
+      pathwayPlans += 1;
+      assert(pathwayPlans <= 36, `segmented route to ${name} should replan without looping`);
+      assert(
+        Number(current.journey?.destination_location_id || 0) === journeyDestinationId,
+        `segmented route to ${name} should retain its original destination: ${JSON.stringify({ journeyDestinationId, journey: current.journey })}`,
+      );
       const nextName = String(current.journey?.next_location_name || name);
       const beforeLocation = String(current.location?.name || "");
-      const focusJourneyStep = () => page.evaluate(({ nextLocationId, destinationId, currentStep }) => {
+      const focusJourneyStep = () => page.evaluate((expected) => {
+        const actual = {
+          locationId: Number(state?.location?.id || 0),
+          nextLocationId: Number(state?.journey?.next_location_id || 0),
+          destinationId: Number(state?.journey?.destination_location_id || 0),
+          currentStep: Number(state?.journey?.current_step || 0),
+        };
+        if (
+          actual.locationId !== expected.locationId
+            || actual.nextLocationId !== expected.nextLocationId
+            || actual.destinationId !== expected.destinationId
+            || actual.currentStep !== expected.currentStep
+        ) return { replan: true, actual, expected };
+        const { nextLocationId, destinationId, currentStep } = expected;
         const exitKey = `exit:${nextLocationId}`;
         const searchKey = `journey-search:${destinationId}:${currentStep}`;
-        const index = actions.findIndex((action) => (
-          actionMatchesFocusKey(action, exitKey) || actionMatchesFocusKey(action, searchKey)
+        const visibleAction = actionBarActions().find((candidate) => (
+          actionMatchesFocusKey(candidate, exitKey) || actionMatchesFocusKey(candidate, searchKey)
         ));
-        if (index < 0) return false;
-        const action = actions[index];
+        if (!visibleAction) return false;
+        const action = actions[visibleAction.actionIndex];
         const journeyChoice = (action.choices || []).find((choice) => {
           const value = String(choice.value || "");
           return value.includes(searchKey)
@@ -9257,8 +9590,13 @@ async function main() {
             || value === String(nextLocationId);
         });
         if (journeyChoice) action.selectedChoice = journeyChoice.value;
-        focusAction(index, actionMatchesFocusKey(action, exitKey) ? exitKey : searchKey);
+        focusAction(visibleAction.actionIndex, actionMatchesFocusKey(action, exitKey) ? exitKey : searchKey);
         return {
+          handKey: actionHandKey(action),
+          offerIds: (action.offerIds || []).map(String),
+          generation: Number(state?.action_hand?.generation || 0),
+          routeIdentity: String(journeyChoice?.value || ""),
+          destinationLocationId: Number(action.selectedPayload?.()?.destination_location_id || 0),
           intention: String(action.intention || "").toLowerCase(),
           text: [action.label, action.detail, journeyChoice?.label, journeyChoice?.detail]
             .filter(Boolean)
@@ -9266,11 +9604,27 @@ async function main() {
             .toLowerCase(),
         };
       }, {
+        locationId: Number(current.location?.id || 0),
         nextLocationId: Number(current.journey?.next_location_id || 0),
         destinationId: Number(current.journey?.destination_location_id || 0),
         currentStep: Number(current.journey?.current_step || 0),
       });
-      const focusedJourneyStep = await focusJourneyStep();
+      let focusedJourneyStep = await focusJourneyStep();
+      if (focusedJourneyStep?.replan) {
+        await page.evaluate(() => refresh());
+        continue;
+      }
+      const journeyDeckSize = await page.evaluate(() => (
+        Math.max(1, Number(state?.action_hand?.deck_size || 1))
+      ));
+      for (let draw = 1; !focusedJourneyStep && draw < journeyDeckSize; draw += 1) {
+        await passCertifiedHandForDraw(`continue journey toward ${nextName}`);
+        focusedJourneyStep = await focusJourneyStep();
+      }
+      if (focusedJourneyStep?.replan) {
+        await page.evaluate(() => refresh());
+        continue;
+      }
       assert(
         focusedJourneyStep,
         `journey should remain an available hand option toward ${nextName}: ${JSON.stringify({
@@ -9290,9 +9644,21 @@ async function main() {
       );
       const primary = focusedJourneyStep.text;
       if (focusedJourneyStep.intention === "scout" || /^(search|scout)\b/.test(primary)) {
-        await confirmRouteTo(nextName, `search for ${nextName}`, focusJourneyStep);
+        const searchResult = await confirmRouteTo(nextName, `search for ${nextName}`, focusJourneyStep);
+        if (searchResult?.replan) {
+          await page.evaluate(() => refresh());
+          continue;
+        }
+        pathwayActions += 1;
+        assert(pathwayActions <= 12, `segmented route to ${name} should finish without looping`);
         await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
         const afterSearch = await fetchCurrentState();
+        assert(
+          afterSearch.journey
+            ? Number(afterSearch.journey.destination_location_id || 0) === journeyDestinationId
+            : Number(afterSearch.location?.id || 0) === journeyDestinationId,
+          `Scout toward ${name} should preserve or complete the original journey: ${JSON.stringify({ journeyDestinationId, afterSearch: { location: afterSearch.location, journey: afterSearch.journey } })}`,
+        );
         assert(
           String(afterSearch.location?.name || "") === beforeLocation,
           `Scout should reveal the next adjacent location without moving: ${JSON.stringify({ beforeLocation, after: afterSearch.location })}`,
@@ -9308,13 +9674,32 @@ async function main() {
           `a revealed segment should offer ordinary Travel to ${nextName}: ${JSON.stringify(focusedJourneyStep)}`,
         );
         const travelResult = await confirmRouteTo(nextName, `travel to ${nextName}`, focusJourneyStep);
+        if (travelResult?.replan) {
+          await page.evaluate(() => refresh());
+          continue;
+        }
+        pathwayActions += 1;
+        assert(pathwayActions <= 12, `segmented route to ${name} should finish without looping`);
         await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
         const afterTravel = await fetchCurrentState();
+        assert(
+          afterTravel.journey
+            ? Number(afterTravel.journey.destination_location_id || 0) === journeyDestinationId
+            : Number(afterTravel.location?.id || 0) === journeyDestinationId,
+          `Travel toward ${name} should preserve or complete the original journey: ${JSON.stringify({ journeyDestinationId, afterTravel: { location: afterTravel.location, journey: afterTravel.journey } })}`,
+        );
         assert(
           String(afterTravel.location?.name || "") !== beforeLocation,
           `Travel should enter the next revealed segment instead of remaining in place: ${JSON.stringify({ location: afterTravel.location, travelResult })}`,
         );
       }
+    }
+    if (segmentedJourney) {
+      const arrived = await fetchCurrentState();
+      assert(
+        !arrived.journey && Number(arrived.location?.id || 0) === journeyDestinationId,
+        `segmented route to ${name} should finish at its original destination id: ${JSON.stringify({ journeyDestinationId, location: arrived.location, journey: arrived.journey })}`,
+      );
     }
     await waitForLocation(name);
   }
@@ -9618,7 +10003,16 @@ async function main() {
         const body = await clickDealtActionMatching(`take ${name}`, ["take", nameLower]);
         lastResult = { httpStatus: Number(body?.status || 200), body };
       } catch (error) {
-        if (allowResidentClaim) return false;
+        if (allowResidentClaim) {
+          await page.evaluate(() => refresh());
+          const claimedByResident = await page.evaluate((itemName) => {
+            const currentActorId = Number(actorId || 0);
+            const item = (state?.items || []).find((candidate) => candidate.name === itemName);
+            return Number(item?.holder_actor_id || 0) > 0
+              && Number(item?.holder_actor_id || 0) !== currentActorId;
+          }, name);
+          if (claimedByResident) return false;
+        }
         throw error;
       }
       steps.push({ label: `take ${name}`, attempt });
@@ -9639,23 +10033,70 @@ async function main() {
     throw new Error(`take ${name} stayed stale after three fresh offers: ${JSON.stringify(lastResult)}`);
   }
 
-  async function revealBySearchIfNeeded(itemName, searchNeedles, label) {
-    const itemNeedle = itemName.toLowerCase();
+  async function worldItemPlacement(itemName, itemId) {
+    return page.evaluate(async ({ expectedName, expectedId }) => {
+      const currentActorId = Number(actorId || 0);
+      const currentLocationId = Number(state?.location?.id || 0);
+      const projected = (state?.items || []).find((item) => (
+        Number(item.id || 0) === Number(expectedId) || item.name === expectedName
+      ));
+      if (Number(projected?.holder_actor_id || 0) === currentActorId) {
+        return { kind: "player", location: state?.location?.name || "" };
+      }
+      if (Number(projected?.holder_actor_id || 0) > 0) {
+        const holder = (state?.actors || []).find((actor) => (
+          Number(actor.id || 0) === Number(projected.holder_actor_id)
+        ));
+        if (holder) {
+          return { kind: "resident", holder: holder.name, location: state?.location?.name || "" };
+        }
+      }
+      if (projected && Number(projected.location_id || 0) === currentLocationId) {
+        return { kind: "loose", location: state?.location?.name || "" };
+      }
+      const currentActorSession = localStorage.getItem("cosyworld.actorSession") || "";
+      const params = new URLSearchParams({
+        actor_id: String(currentActorId),
+        actor_session: currentActorSession,
+        wallet_address: "dev-wallet",
+      });
+      const world = await fetch(`/world?${params}`).then((response) => response.json());
+      for (const location of world.locations || []) {
+        if ((location.items || []).some((item) => (
+          Number(item.id || 0) === Number(expectedId) || item.name === expectedName
+        ))) {
+          return { kind: "loose", location: location.name };
+        }
+        const holder = (location.actors || []).find((actor) => (
+          (actor.economy?.held_item_ids || []).some((heldId) => (
+            Number(heldId) === Number(expectedId)
+          ))
+        ));
+        if (holder) {
+          return Number(holder.id || 0) === currentActorId
+            ? { kind: "player", location: location.name }
+            : { kind: "resident", holder: holder.name, location: location.name };
+        }
+      }
+      return null;
+    }, { expectedName: itemName, expectedId: itemId });
+  }
+
+  async function revealBySearchIfNeeded(itemName, itemId, searchNeedles, label) {
+    const itemPlacement = () => worldItemPlacement(itemName, itemId);
+    const stoppedByPlacement = async () => Boolean(await itemPlacement());
+    const wasNotDealt = (error, expectedLabel) => String(error?.message || error)
+      .startsWith(`${expectedLabel} was not dealt within one full hand rotation:`);
     for (let attempt = 1; attempt <= 8; attempt += 1) {
-      const canTakeItem = await page.evaluate((needle) => actions.some((action) => (
-        ["take", "swap"].includes(String(action.label || "").toLowerCase())
-          && (
-            String(action.detail || action.command || "").toLowerCase().includes(needle)
-            || (action.choices || []).some((choice) => (
-              `${choice.label || ""} ${choice.detail || ""}`.toLowerCase().includes(needle)
-            ))
-          )
-      )), itemNeedle);
-      if (canTakeItem) return;
+      const beforeSearch = await itemPlacement();
+      if (beforeSearch) return beforeSearch;
       let searchCard;
       try {
-        searchCard = await drawRoomSearch(label, searchNeedles);
-      } catch {
+        searchCard = await drawRoomSearch(label, searchNeedles, stoppedByPlacement);
+      } catch (targetedError) {
+        if (!wasNotDealt(targetedError, label)) throw targetedError;
+        const afterTargetedDraw = await itemPlacement();
+        if (afterTargetedDraw) return afterTargetedDraw;
         const restAvailable = await page.evaluate(() => actions.some((action) => (
           String(action?.label || "").toLowerCase() === "rest"
         )));
@@ -9663,7 +10104,14 @@ async function main() {
           await drawPrimaryMatching(`${label} recovery`, ["rest", "feel fresh"]);
           await clickPrimary(`${label} recovery`);
         }
-        searchCard = await drawRoomSearch(`${label} room-wide`);
+        const afterRecovery = await itemPlacement();
+        if (afterRecovery) return afterRecovery;
+        searchCard = await drawRoomSearch(`${label} room-wide`, [], stoppedByPlacement);
+      }
+      if (!searchCard) {
+        const placement = await itemPlacement();
+        assert(placement, `${itemName} placement stopped its hand rotation but was not observable`);
+        return placement;
       }
       steps.push({ label, attempt, primary: searchCard });
       await clickSearchAndAssertProgress(`${label} ${attempt}`);
@@ -9809,62 +10257,106 @@ async function main() {
     await assertActionBarCapped("combat attack action bar");
   }
 
-  async function focusGiftForResident(name) {
+  async function focusGiftForResident(name, stopWhen = null) {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const result = await page.evaluate((residentName) => {
-      const needle = residentName.toLowerCase();
-      const index = actions.findIndex((action) => (
-        ["give", "swap", "trade"].includes(action.label)
-        && (
-          String(action.detail || "").toLowerCase().includes(needle)
-          || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(needle))
-        )
-      ));
-      if (index < 0) {
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    let result = null;
+    for (let draw = 0; draw < deckSize; draw += 1) {
+      result = await page.evaluate((residentName) => {
+        const needle = residentName.toLowerCase();
+        const action = actionBarActions().find((candidate) => (
+          ["give", "swap", "trade"].includes(candidate.label)
+          && (
+            String(candidate.detail || "").toLowerCase().includes(needle)
+            || (candidate.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(needle))
+          )
+        ));
+        if (!action) {
+          return {
+            ok: false,
+            actions: actionBarActions().map((candidate) => ({
+              label: candidate.label,
+              detail: candidate.detail,
+              choices: candidate.choices || [],
+            })),
+          };
+        }
+        focusIndex = action.actionIndex;
+        focusedKey = actionHandKey(actions[action.actionIndex]);
         return {
-          ok: false,
-          actions: actions.map((action) => ({ label: action.label, detail: action.detail, choices: action.choices || [] })),
+          ok: true,
+          handKey: actionHandKey(action),
+          offerIds: (action.offerIds || []).map(String),
+          generation: Number(state?.action_hand?.generation || 0),
+          text: [
+            action.label,
+            action.detail,
+            action.command,
+          ].filter(Boolean).join(" "),
         };
+      }, name);
+      if (result.ok) break;
+      if (stopWhen && await stopWhen()) return null;
+      if (draw + 1 < deckSize) {
+        await passCertifiedHandForDraw(`find ${name} gift`);
       }
-      focusIndex = index;
-      focusedKey = actionHandKey(actions[index]);
-      return {
-        ok: true,
-        text: [
-          actions[index].label,
-          actions[index].detail,
-          actions[index].command,
-        ].filter(Boolean).join(" "),
-      };
-    }, name);
-    assert(result.ok, `${name} should be carried by one Give or Swap card: ${JSON.stringify(result)}`);
+    }
+    assert(result?.ok, `${name} should be carried by one Give or Swap card: ${JSON.stringify(result)}`);
+    focusedSelectionIdentity = {
+      handKey: result.handKey,
+      offerIds: result.offerIds,
+      generation: result.generation,
+    };
+    useFocusedActionOnNextClick = true;
     await assertNoVisibleOverflow();
     return result.text;
   }
 
   async function giveFocusedCardTo(name, label) {
-    await page.evaluate(() => openActionModal(focusedAction()));
-    useFocusedActionOnNextClick = false;
-    await page.waitForSelector("#action-modal:not([hidden])");
-    const choices = page.locator("#action-modal-choices .action-choice");
-    const choiceCount = await choices.count();
-    if (choiceCount > 0) {
-      const targetChoice = choices.filter({ hasText: name });
-      assert(await targetChoice.count() === 1, `${name} should appear once in the Give choices`);
-      await targetChoice.click();
+    const result = await commitFocusedCertifiedAction(label, {
+      choiceText: name,
+      transferTarget: name,
+    });
+    if (!result.ok) return false;
+    const { submission } = result;
+    const transferReceipt = (result.body?.events || []).find((event) => (
+      event.type === "item.given"
+        && Number(event.item_id || 0) === Number(submission.itemId)
+        && Number(event.target_actor_id || 0) === Number(submission.targetActorId)
+    ));
+    assert(
+      transferReceipt,
+      `${name} gift should return an exact authoritative item.given receipt: ${JSON.stringify(result.body?.events || [])}`,
+    );
+    recordLivingItemEvidence({
+      type: "item.given",
+      resident: name,
+      item: transferReceipt.item_name || `item:${submission.itemId}`,
+    });
+    const transferVerified = await page.evaluate(async ({ itemId, targetActorId }) => {
+      const currentActorId = localStorage.getItem("cosyworld.actorId") || "";
+      const currentActorSession = localStorage.getItem("cosyworld.actorSession") || "";
+      const params = new URLSearchParams({
+        actor_id: currentActorId,
+        actor_session: currentActorSession,
+        wallet_address: "dev-wallet",
+      });
+      const world = await fetch(`/world?${params}`).then((worldResponse) => worldResponse.json());
+      const target = (world.locations || []).flatMap((location) => location.actors || [])
+        .find((actor) => Number(actor.id || 0) === Number(targetActorId));
+      return (target?.economy?.held_item_ids || []).some((heldId) => Number(heldId) === Number(itemId));
+    }, submission);
+    if (!transferVerified) {
+      steps.push({
+        label: `${name} settled ${submission.itemId} after receipt`,
+        outcome: "the shared world advanced after the exact gift",
+      });
     }
-    await page.locator("#action-modal-confirm").click();
-    await page.waitForFunction(() => (
-      actionBusy === false
-        && refreshInFlight === null
-        && document.querySelector("#action-modal")?.hidden === true
-    ), null, { timeout: 35_000 });
-    await assertNoVisibleOverflow();
-    steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
+    return true;
   }
 
   async function resolveHeldKeepsakeFor(name, label, itemName) {
@@ -9873,16 +10365,11 @@ async function main() {
     let lastPrimary = "";
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       lastJourney = await joinResident(name);
-      const availability = await page.evaluate(({ residentName, itemName }) => ({
-        nearby: (state?.actors || []).some((actor) => actor.name === residentName),
-        give: actions.some((action) => (
-          ["give", "swap", "trade"].includes(action.label)
-            && (
-              String(action.detail || "").toLowerCase().includes(residentName.toLowerCase())
-              || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(residentName.toLowerCase()))
-            )
-        )),
-        use: actions.some((action) => (
+      const availability = await page.evaluate(({ residentName, itemName }) => {
+        const dealt = actionBarActions();
+        const item = (state?.items || []).find((candidate) => candidate.name === itemName) || null;
+        const resident = (state?.actors || []).find((actor) => actor.name === residentName) || null;
+        const useAction = dealt.find((action) => (
           String(action.label || "").toLowerCase() === "use"
             && [
               action.detail,
@@ -9890,24 +10377,95 @@ async function main() {
               action.effect,
               ...(action.choices || []).flatMap((choice) => [choice.label, choice.detail]),
             ].filter(Boolean).join(" ").toLowerCase().includes(itemName.toLowerCase())
-        )),
-      }), { residentName: name, itemName });
+        ));
+        const matchingUseChoices = (useAction?.choices || []).filter((choice) => (
+          [choice.label, choice.detail]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(itemName.toLowerCase())
+        ));
+        return {
+          nearby: (state?.actors || []).some((actor) => actor.name === residentName),
+          give: dealt.some((action) => (
+            ["give", "swap", "trade"].includes(action.label)
+              && (
+                String(action.detail || "").toLowerCase().includes(residentName.toLowerCase())
+                || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(residentName.toLowerCase()))
+              )
+          )),
+          use: useAction ? {
+            handKey: actionHandKey(useAction),
+            offerIds: (useAction.offerIds || []).map(String),
+            generation: Number(state?.action_hand?.generation || 0),
+            choiceValue: matchingUseChoices.length === 1
+              ? String(matchingUseChoices[0].value || "")
+              : "",
+            choiceCount: (useAction.choices || []).length,
+            matchingChoiceCount: matchingUseChoices.length,
+            itemId: Number(item?.id || 0),
+            locationId: Number(state?.location?.id || 0),
+            residentActorId: Number(resident?.id || 0),
+          } : null,
+        };
+      }, { residentName: name, itemName });
       lastAvailability = availability;
       if (!availability.nearby) continue;
-      if (!availability.give) {
-        if (availability.use) {
-          await clickActionMatching(`use ${itemName} for ${name}`, ["use", itemName.toLowerCase()]);
-          return lastJourney;
-        } else {
-          await listenAtCurrentLocation();
+      if (!availability.give && availability.use) {
+        assert(
+          availability.use.choiceCount === 0 || availability.use.matchingChoiceCount === 1,
+          `${itemName} should resolve to one exact authored Use mode: ${JSON.stringify(availability.use)}`,
+        );
+        focusedSelectionIdentity = availability.use;
+        useFocusedActionOnNextClick = true;
+        const useResult = await commitFocusedCertifiedAction(`use ${itemName} for ${name}`, {
+          choiceText: availability.use.choiceValue ? itemName : "",
+          choiceValue: availability.use.choiceValue,
+          expectedItemId: availability.use.itemId,
+          expectedLocationId: availability.use.locationId,
+        });
+        if (useResult.ok) {
+          const usedReceipt = (useResult.body?.events || []).some((event) => (
+            event.type === "item.used"
+              && Number(event.item_id || 0) === availability.use.itemId
+              && (!event.location_id || Number(event.location_id) === availability.use.locationId)
+          ));
+          const bondReceipt = (useResult.body?.events || []).some((event) => (
+            event.type === "bond.deepened"
+              && Number(event.target_actor_id || 0) === availability.use.residentActorId
+          ));
+          assert(
+            usedReceipt && bondReceipt,
+            `${itemName} Use should settle through its authored feature and ${name} bond: ${JSON.stringify(useResult.body?.events || [])}`,
+          );
+          recordLivingItemEvidence({
+            type: "item.used",
+            resident: name,
+            item: itemName,
+          });
+          return { journey: lastJourney, settled: true };
         }
         continue;
       }
-      lastPrimary = await focusGiftForResident(name);
+      lastPrimary = await focusGiftForResident(name, () => page.evaluate(
+        ({ residentName, heldItemName }) => (
+          !(state?.actors || []).some((actor) => actor.name === residentName)
+            || actionBarActions().some((action) => (
+              String(action.label || "").toLowerCase() === "use"
+                && [
+                  action.detail,
+                  action.command,
+                  action.effect,
+                  ...(action.choices || []).flatMap((choice) => [choice.label, choice.detail]),
+                ].filter(Boolean).join(" ").toLowerCase().includes(heldItemName.toLowerCase())
+            ))
+        ),
+        { residentName: name, heldItemName: itemName },
+      ));
+      if (!lastPrimary) continue;
       steps.push({ label: `focus ${name} gift`, attempt, primary: lastPrimary });
       if (!/^(give|swap|trade)\b/i.test(lastPrimary)) continue;
-      await giveFocusedCardTo(name, label);
-      return lastJourney;
+      if (await giveFocusedCardTo(name, label)) return { journey: lastJourney, settled: true };
     }
     throw new Error(`${name} did not expose a gift, discovery, or authored use: ${JSON.stringify({ lastJourney, lastAvailability, lastPrimary })}`);
   }
@@ -10001,7 +10559,7 @@ async function main() {
       if (await currentLocation() !== "Rain-Soft Garden") {
         await travelPathTo("Rain-Soft Garden");
       }
-      const residentHeld = await page.evaluate(async (expected) => {
+      const residentClaimState = await page.evaluate(async (expected) => {
         const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
         const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
         const params = new URLSearchParams({
@@ -10011,25 +10569,38 @@ async function main() {
         });
         const world = await fetch(`/world?${params}`).then((response) => response.json());
         const held = [];
+        const misdirected = [];
         for (const location of world.locations || []) {
           for (const resident of location.actors || []) {
             for (const keepsake of expected) {
               if (
-                resident.name === keepsake.residentName
+                resident.kind === "npc"
                 && (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
               ) {
-                held.push({ ...keepsake, residentName: resident.name, location: location.name });
+                const claim = { ...keepsake, actualResidentName: resident.name, location: location.name };
+                if (resident.name === keepsake.residentName) held.push(claim);
+                else misdirected.push(claim);
               }
             }
           }
         }
-        return held;
+        return { held, misdirected };
       }, keepsakes);
-      for (const found of residentHeld) {
+      assert(
+        residentClaimState.misdirected.length === 0,
+        `garden keepsakes should not settle with the wrong resident: ${JSON.stringify(residentClaimState.misdirected)}`,
+      );
+      for (const found of residentClaimState.held) {
         if (delivered.has(found.itemName)) continue;
         delivered.add(found.itemName);
+        recordLivingItemEvidence({
+          type: "item.held",
+          resident: found.actualResidentName,
+          item: found.itemName,
+          location: found.location,
+        });
         steps.push({
-          label: `${found.residentName} found ${found.itemName}`,
+          label: `${found.actualResidentName} found ${found.itemName}`,
           location: found.location,
         });
       }
@@ -10045,11 +10616,28 @@ async function main() {
       }, [...itemToResident.keys()].filter((itemName) => !delivered.has(itemName)));
       if (carriedGift) {
         const recipientName = itemToResident.get(carriedGift.itemName);
-        await resolveHeldKeepsakeFor(recipientName, `give ${carriedGift.itemName}`, carriedGift.itemName);
+        const settlement = await resolveHeldKeepsakeFor(
+          recipientName,
+          `give ${carriedGift.itemName}`,
+          carriedGift.itemName,
+        );
         if (await currentLocation() !== "Rain-Soft Garden") {
           await travelPathTo("Rain-Soft Garden");
         }
-        delivered.add(carriedGift.itemName);
+        if (settlement?.settled) delivered.add(carriedGift.itemName);
+        continue;
+      }
+      const looseKeepsake = await page.evaluate((remainingItemNames) => {
+        const currentLocationId = Number(state?.location?.id || 0);
+        const item = (state?.items || []).find((candidate) => (
+          Number(candidate.holder_actor_id || 0) === 0
+            && Number(candidate.location_id || 0) === currentLocationId
+            && remainingItemNames.includes(candidate.name)
+        ));
+        return item ? { itemName: item.name } : null;
+      }, [...itemToResident.keys()].filter((itemName) => !delivered.has(itemName)));
+      if (looseKeepsake) {
+        await takeItem(looseKeepsake.itemName, { allowResidentClaim: true });
         continue;
       }
       const available = await page.evaluate(() => actions
@@ -10081,10 +10669,62 @@ async function main() {
           steps.push({ label: "clear garden floor", item: blockingItem });
           continue;
         }
-        const searchCard = await drawCertifiedGardenInspect("garden keepsake search");
+        const remainingKeepsakes = keepsakes.filter(({ itemName: remainingName }) => (
+          !delivered.has(remainingName)
+        ));
+        const gardenSceneChanged = () => page.evaluate(async (expected) => {
+          const currentActorId = Number(actorId || 0);
+          const currentLocationId = Number(state?.location?.id || 0);
+          const expectedNames = new Set(expected.map((item) => item.itemName));
+          if ((state?.items || []).some((item) => (
+            expectedNames.has(item.name)
+              && (
+                Number(item.holder_actor_id || 0) === currentActorId
+                  || Number(item.location_id || 0) === currentLocationId
+                  || (state?.actors || []).some((resident) => {
+                    const keepsake = expected.find((candidate) => Number(candidate.itemId) === Number(item.id));
+                    return keepsake
+                      && Number(resident.id || 0) === Number(item.holder_actor_id || 0)
+                      && resident.name === keepsake.residentName;
+                  })
+              )
+          ))) return true;
+          const visibleText = actionBarActions().map((action) => [
+            action.label,
+            action.detail,
+            action.command,
+            ...(action.choices || []).flatMap((choice) => [choice.label, choice.detail]),
+          ].filter(Boolean).join(" "));
+          if (visibleText.some((text) => (
+            [...expectedNames].some((name) => text.toLowerCase().includes(name.toLowerCase()))
+          ))) return true;
+          const currentActorSession = localStorage.getItem("cosyworld.actorSession") || "";
+          const params = new URLSearchParams({
+            actor_id: String(currentActorId),
+            actor_session: currentActorSession,
+            wallet_address: "dev-wallet",
+          });
+          const world = await fetch(`/world?${params}`).then((response) => response.json());
+          return (world.locations || []).some((location) => (
+            (location.actors || []).some((resident) => (
+              expected.some((keepsake) => (
+                resident.name === keepsake.residentName
+                  && (resident.economy?.held_item_ids || []).includes(Number(keepsake.itemId))
+              ))
+            ))
+          ));
+        }, remainingKeepsakes);
+        const searchCard = await drawCertifiedGardenInspect(
+          "garden keepsake search",
+          gardenSceneChanged,
+        );
+        if (searchCard === false) continue;
         if (!searchCard) {
-          await travelPathTo("The Cosy Cottage");
-          steps.push({ label: "let the garden turn without a legal Inspect", attempt });
+          if (await gardenSceneChanged()) continue;
+          if (attempt < 12) {
+            await passCertifiedHandForDraw("find remaining garden keepsake");
+            steps.push({ label: "rotate garden hand without a legal Inspect", attempt });
+          }
           continue;
         }
         steps.push({ label: "garden keepsake search", attempt, primary: searchCard });
@@ -10333,6 +10973,8 @@ async function main() {
         && result.emote.events.some((event) => event.type === "message.created" && event.content === "nods to the room."),
       `emote command should emit room narration: ${JSON.stringify(result.emote)}`,
     );
+    playerSpeechEvidence.add("hello room");
+    playerSpeechEvidence.add("nods to the room.");
     assert(result.primaryCommand.length > 0, `primary button should expose command metadata: ${JSON.stringify(result)}`);
     steps.push({ label: "mud command api", primaryCommand: result.primaryCommand });
   }
@@ -12445,6 +13087,7 @@ async function main() {
         && result.clean.events.some((event) => event.type === "message.created" && event.content === "The hearth hears a tiny hello."),
       `clean human speech should emit a room event: ${JSON.stringify(result.clean)}`,
     );
+    playerSpeechEvidence.add("The hearth hears a tiny hello.");
   }
 
   async function focusedChatTargetId() {
@@ -13004,15 +13647,136 @@ async function main() {
       await travelTo("Rain-Soft Garden");
     }
     await travelTo("Moonlit Trail");
+    const moonlitProjectStatus = async () => {
+      const current = await fetchCurrentState();
+      const progress = (current.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+      const job = (current.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
+      const filled = Number(progress?.filled || 0);
+      return {
+        current,
+        filled,
+        status: job?.status || "missing",
+        completed: filled === 4 && job?.status === "completed",
+      };
+    };
+    const projectAdvancedBeyond = (baseline) => async () => {
+      const project = await moonlitProjectStatus();
+      return project.completed || project.filled > baseline;
+    };
+    const drawMoonlitProjectStrategy = async (
+      label,
+      { strategyId, needles, stopWhen },
+    ) => {
+      await page.waitForFunction(() => (
+        actionBusy === false
+          && refreshInFlight === null
+          && document.querySelector("#action-modal")?.hidden === true
+      ), null, { timeout: 35_000 });
+      const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
+      const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+      let lastHand = [];
+      for (let draw = 0; draw < deckSize; draw += 1) {
+        if (stopWhen && await stopWhen()) return null;
+        const result = await page.evaluate(({ expectedStrategyId, terms }) => {
+          const actionText = (action) => [
+            action?.label,
+            action?.detail,
+            action?.command,
+            action?.cost,
+            action?.risk,
+            action?.effect,
+            ...(action?.choices || []).flatMap((choice) => [choice.label, choice.detail]),
+          ].filter(Boolean).join(" ").toLowerCase();
+          const visible = actionBarActions();
+          const action = visible.find((candidate) => {
+            const source = actions[candidate.actionIndex];
+            return source?.project?.id === "moonlit-trail:quiet-the-echo"
+              && String(source?.project?.strategy_id || "") === String(expectedStrategyId || "")
+              && terms.every((term) => actionText(source).includes(term));
+          });
+          if (!action) {
+            return {
+              ok: false,
+              hand: visible.map((candidate) => {
+                const source = actions[candidate.actionIndex];
+                return {
+                  text: actionText(source),
+                  projectId: String(source?.project?.id || ""),
+                  strategyId: String(source?.project?.strategy_id || ""),
+                };
+              }),
+            };
+          }
+          const source = actions[action.actionIndex];
+          return {
+            ok: true,
+            index: action.actionIndex,
+            handKey: actionHandKey(source),
+            offerIds: (source.offerIds || []).map(String),
+            generation: Number(state?.action_hand?.generation || 0),
+            text: actionText(source),
+          };
+        }, { expectedStrategyId: strategyId, terms: normalizedNeedles });
+        if (result.ok) {
+          await page.evaluate((index) => {
+            focusIndex = index;
+            focusedKey = actionHandKey(actions[index]);
+          }, result.index);
+          focusedSelectionIdentity = {
+            handKey: result.handKey,
+            offerIds: result.offerIds,
+            generation: result.generation,
+          };
+          useFocusedActionOnNextClick = true;
+          await assertNoVisibleOverflow();
+          return result.text;
+        }
+        lastHand = result.hand;
+        if (draw + 1 < deckSize) {
+          await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
+        }
+      }
+      throw new Error(`${label} exact authored project card was not dealt within one full hand rotation: ${JSON.stringify(lastHand)}`);
+    };
+    const commitMoonlitProjectWithRetry = async (
+      label,
+      { strategyId, needles, stopWhen },
+    ) => {
+      let lastResult = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        if (attempt > 1) {
+          if (stopWhen && await stopWhen()) {
+            return { ...lastResult, stopped: true };
+          }
+          const redrawn = await drawMoonlitProjectStrategy(`${label} retry ${attempt}`, {
+            strategyId,
+            needles,
+            stopWhen,
+          });
+          if (!redrawn) return { ...lastResult, stopped: true };
+        }
+        lastResult = await commitFocusedCertifiedAction(label, {
+          expectedProjectId: "moonlit-trail:quiet-the-echo",
+          expectedStrategyId: strategyId,
+        });
+        if (lastResult.ok) return lastResult;
+        assert(lastResult.stale, `${label} should retry only after exact stale-offer evidence`);
+        if (stopWhen && await stopWhen()) {
+          return { ...lastResult, stopped: true };
+        }
+      }
+      throw new Error(`${label} stayed stale after three fresh authored offers: ${JSON.stringify(lastResult)}`);
+    };
     const projectBeforePrimer = await fetchCurrentState();
     const projectProgressBeforePrimer = (projectBeforePrimer.clocks || []).find(
       (clock) => clock.id === "moonlit-trail.progress",
     );
+    const projectFilledBeforePrimer = Number(projectProgressBeforePrimer?.filled || 0);
     let progressPrimer = "resident feature use";
-    if (Number(projectProgressBeforePrimer?.filled || 0) === 1) {
+    if (projectFilledBeforePrimer >= 1) {
       steps.push({
         label: "resident primed project",
-        progress: "1/4",
+        progress: `${projectFilledBeforePrimer}/4`,
         item: "Wolfprint Charm",
       });
     } else {
@@ -13026,34 +13790,36 @@ async function main() {
         await takeItem("Wolfprint Charm");
         const projectCluePrimary = await primaryText();
         steps.push({ label: "project clue default", primary: projectCluePrimary });
-        const projectClueNeedles = await page.evaluate(() => {
-          const visibleActions = actions.map((action) => [
-            action.label,
-            action.detail,
-            action.command,
-          ].filter(Boolean).join(" ").toLowerCase());
-          if (visibleActions.some((text) => text.includes("investigate this place"))) {
-            return ["investigate this place"];
-          }
-          if (visibleActions.some((text) => (
-            text.includes("search") && text.includes("moonlit trail")
-          ))) {
-            return ["search", "moonlit trail"];
-          }
-          return null;
-        });
+        const projectClueNeedles = await page.evaluate(() => (
+          actions.some((action) => (
+            action?.project?.id === "moonlit-trail:quiet-the-echo"
+              && action?.project?.strategy_id === "listen-for-echo"
+          ))
+            ? ["listen for where the echo catches"]
+            : null
+        ));
         if (projectClueNeedles) {
-          await drawPrimaryMatching("investigate project clue", projectClueNeedles);
-          await clickPrimary("investigate project clue");
-          await page.waitForFunction(
-            () => !document.querySelector("#primary")?.disabled,
-          );
+          const projectClueCard = await drawMoonlitProjectStrategy("investigate project clue", {
+            strategyId: "listen-for-echo",
+            needles: projectClueNeedles,
+            stopWhen: projectAdvancedBeyond(projectFilledBeforePrimer),
+          });
+          let clueResult = null;
+          if (projectClueCard) {
+            clueResult = await commitMoonlitProjectWithRetry("investigate project clue", {
+              strategyId: "listen-for-echo",
+              needles: projectClueNeedles,
+              stopWhen: projectAdvancedBeyond(projectFilledBeforePrimer),
+            });
+          }
           const projectAfterClue = await fetchCurrentState();
           const projectProgressAfterClue = (projectAfterClue.clocks || []).find(
             (clock) => clock.id === "moonlit-trail.progress",
           );
-          primerCommitted = Number(projectProgressAfterClue?.filled || 0)
-            > Number(projectProgressBeforePrimer?.filled || 0);
+          primerCommitted = Number(projectProgressAfterClue?.filled || 0) > projectFilledBeforePrimer;
+          if (clueResult && !clueResult.ok) {
+            assert(primerCommitted, "stale project clue should coincide with authoritative progress");
+          }
           if (primerCommitted) {
             progressPrimer = "investigate project clue";
             steps.push({
@@ -13065,23 +13831,47 @@ async function main() {
       }
       let featureUseCommitted = primerCommitted;
       if (wolfprintAvailable && !featureUseCommitted) {
+        let projectUsePrimary = null;
         try {
-          const projectUsePrimary = await drawPrimaryMatching(
-            "project feature use",
-            ["use", "wolfprint charm"],
-          );
-          assert(
-            projectUsePrimary.includes("makes a little headway"),
-            "project feature use should preview its gentle progress without counting steps",
-          );
-          await clickPrimary("use project feature item");
-          featureUseCommitted = true;
+          projectUsePrimary = await drawMoonlitProjectStrategy("project feature use", {
+            strategyId: "set-wolfprint-marker",
+            needles: ["set the wolfprint marker"],
+            stopWhen: projectAdvancedBeyond(projectFilledBeforePrimer),
+          });
         } catch (error) {
+          if (!String(error?.message || error).startsWith("project feature use exact authored project card was not dealt")) {
+            throw error;
+          }
           progressPrimer = "safe help";
           steps.push({
             label: "project feature use unavailable",
             error: String(error.message || error).slice(0, 240),
           });
+        }
+        if (!projectUsePrimary) {
+          const project = await moonlitProjectStatus();
+          featureUseCommitted = project.completed || project.filled > projectFilledBeforePrimer;
+          if (featureUseCommitted) {
+            progressPrimer = "resident project contribution";
+            steps.push({ label: "resident primed project while drawing feature use", progress: `${project.filled}/4` });
+          }
+        } else {
+          const useResult = await commitMoonlitProjectWithRetry("use project feature item", {
+            strategyId: "set-wolfprint-marker",
+            needles: ["set the wolfprint marker"],
+            stopWhen: projectAdvancedBeyond(projectFilledBeforePrimer),
+          });
+          if (useResult.ok) {
+            assert(
+              useResult.submission.strategyId === "set-wolfprint-marker",
+              `Wolfprint use should resolve its exact authored strategy: ${JSON.stringify(useResult.submission)}`,
+            );
+            featureUseCommitted = true;
+          } else {
+            const project = await moonlitProjectStatus();
+            featureUseCommitted = project.completed || project.filled > projectFilledBeforePrimer;
+            assert(featureUseCommitted, "stale Wolfprint use should coincide with authoritative project progress");
+          }
         }
       }
       if (!featureUseCommitted) {
@@ -13090,43 +13880,142 @@ async function main() {
             && !actions.some((action) => String(action.label || "").toLowerCase() === "help")
         ));
         if (needsRest) {
-          await drawPrimaryMatching("rest before project help", ["rest", "feel fresh"]);
-          await clickPrimary("rest before helping project");
+          const restBeforeHelp = await drawPrimaryMatching(
+            "rest before project help",
+            ["rest", "feel fresh"],
+            projectAdvancedBeyond(projectFilledBeforePrimer),
+          );
+          if (restBeforeHelp) await clickPrimary("rest before helping project");
           progressPrimer = "rest then safe help";
         }
-        const legacyProjectHelpAvailable = await page.evaluate(() => (
-          actions.some((action) => {
-            const text = [
-              action.label,
-              action.detail,
-              action.command,
-              ...(action.choices || []).flatMap((choice) => [choice.label, choice.detail]),
-            ].filter(Boolean).join(" ").toLowerCase();
-            return text.includes("steady the trail together") && text.includes("coach");
-          })
-        ));
+        const legacyProjectHelpAvailable = await page.evaluate(() => actions.some((action) => (
+          action?.project?.id === "moonlit-trail:quiet-the-echo"
+            && action?.project?.strategy_id === "steady-beside-traveler"
+        )));
+        const projectBeforeSafeAction = await fetchCurrentState();
+        const progressBeforeSafeAction = Number((projectBeforeSafeAction.clocks || []).find(
+          (clock) => clock.id === "moonlit-trail.progress",
+        )?.filled || 0);
+        const stopForResidentProgress = projectAdvancedBeyond(progressBeforeSafeAction);
+        let safeProjectPrimary = null;
         if (legacyProjectHelpAvailable) {
-          const projectHelpPrimary = await drawPrimaryMatching(
-            "project safe help",
-            ["steady the trail together", "coach"],
-          );
-          assert(
-            projectHelpPrimary.toLowerCase().includes("quiet the echo"),
-            "fallback project help should retain the authored project card",
-          );
-          await clickPrimary("help project safely");
+          safeProjectPrimary = await drawMoonlitProjectStrategy("project safe help", {
+            strategyId: "steady-beside-traveler",
+            needles: ["steady the trail together", "coach"],
+            stopWhen: stopForResidentProgress,
+          });
         } else {
-          const projectInvestigatePrimary = await drawPrimaryMatching(
-            "project safe investigation",
-            ["investigate this place", "moonlit trail"],
-          );
-          assert(
-            projectInvestigatePrimary.toLowerCase().includes("choose an approach"),
-            "fallback project investigation should retain its authored approaches",
-          );
-          await clickPrimary("investigate project safely");
-          progressPrimer = "safe investigation";
+          safeProjectPrimary = await drawMoonlitProjectStrategy("project safe investigation", {
+            strategyId: "listen-for-echo",
+            needles: ["listen for where the echo catches"],
+            stopWhen: stopForResidentProgress,
+          });
+          if (safeProjectPrimary) {
+            assert(
+              safeProjectPrimary.toLowerCase().startsWith("listen for where the echo catches"),
+              "fallback project investigation should retain its exact authored card",
+            );
+            progressPrimer = "safe investigation";
+          }
         }
+        if (!safeProjectPrimary) {
+          const project = await moonlitProjectStatus();
+          assert(
+            project.completed || project.filled > progressBeforeSafeAction,
+            "project hand rotation should stop only for authoritative resident progress",
+          );
+          featureUseCommitted = true;
+          progressPrimer = "resident project contribution";
+          steps.push({
+            label: "resident primed project during hand rotation",
+            progress: `${project.filled}/4`,
+          });
+        } else {
+          const safeResult = await commitMoonlitProjectWithRetry(
+            legacyProjectHelpAvailable ? "help project safely" : "investigate project safely",
+            {
+              strategyId: legacyProjectHelpAvailable
+                ? "steady-beside-traveler"
+                : "listen-for-echo",
+              needles: legacyProjectHelpAvailable
+                ? ["steady the trail together", "coach"]
+                : ["listen for where the echo catches"],
+              stopWhen: stopForResidentProgress,
+            },
+          );
+          if (safeResult.ok) {
+            const project = await moonlitProjectStatus();
+            featureUseCommitted = project.completed || project.filled > progressBeforeSafeAction;
+            if (!featureUseCommitted) {
+              steps.push({
+                label: "project check made no headway",
+                strategy: safeResult.submission.strategyId,
+                progress: `${project.filled}/4`,
+              });
+            }
+          } else {
+            const project = await moonlitProjectStatus();
+            assert(
+              project.completed || project.filled > progressBeforeSafeAction,
+              "stale safe project action should coincide with authoritative progress",
+            );
+            featureUseCommitted = true;
+          }
+        }
+        if (!featureUseCommitted) {
+          const certainPrimer = await page.evaluate(() => {
+            const exact = (state?.action_offers || []).find((offer) => (
+              offer?.project?.id === "moonlit-trail:quiet-the-echo"
+                && ["steady-beside-traveler", "steady-trail"].includes(
+                  String(offer?.project?.strategy_id || ""),
+                )
+            ));
+            if (!exact) return null;
+            return {
+              strategyId: exact.project.strategy_id,
+              label: exact.project.strategy_id === "steady-beside-traveler"
+                ? "steady the trail together"
+                : "steady the trail",
+            };
+          });
+          if (certainPrimer) {
+            const certainCard = await drawMoonlitProjectStrategy("certain project primer", {
+              strategyId: certainPrimer.strategyId,
+              needles: [certainPrimer.label],
+              stopWhen: projectAdvancedBeyond(progressBeforeSafeAction),
+            });
+            if (certainCard) {
+              const certainResult = await commitMoonlitProjectWithRetry("advance project certainly", {
+                strategyId: certainPrimer.strategyId,
+                needles: [certainPrimer.label],
+                stopWhen: projectAdvancedBeyond(progressBeforeSafeAction),
+              });
+              if (certainResult.ok) {
+                const project = await moonlitProjectStatus();
+                featureUseCommitted = project.completed || project.filled > progressBeforeSafeAction;
+              }
+            }
+          }
+        }
+        if (!featureUseCommitted) {
+          const primerDeckSize = await page.evaluate(() => (
+            Math.max(1, Number(state?.action_hand?.deck_size || 1))
+          ));
+          for (let draw = 1; draw <= primerDeckSize && !featureUseCommitted; draw += 1) {
+            const beforePass = await moonlitProjectStatus();
+            featureUseCommitted = beforePass.completed
+              || beforePass.filled > progressBeforeSafeAction;
+            if (featureUseCommitted) break;
+            await passCertifiedHandForDraw(`wait for shared project primer ${draw}`);
+            const afterPass = await moonlitProjectStatus();
+            featureUseCommitted = afterPass.completed
+              || afterPass.filled > progressBeforeSafeAction;
+          }
+        }
+        assert(
+          featureUseCommitted,
+          "a failed project check should replan to certain or authoritative shared progress",
+        );
       }
     }
     await page.waitForFunction(() => {
@@ -13166,36 +14055,102 @@ async function main() {
           && !actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
       ));
       if (mustRestBeforePrepare) {
-        await drawPrimaryMatching("rest before project prepare", ["rest", "feel fresh"]);
-        await clickPrimary("rest before preparing project");
+        const restBeforePrepare = await drawPrimaryMatching(
+          "rest before project prepare",
+          ["rest", "feel fresh"],
+          async () => (await moonlitProjectStatus()).completed,
+        );
+        if (restBeforePrepare) await clickPrimary("rest before preparing project");
       }
-      const projectCanPrepare = await page.evaluate(() => (
-        actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
-      ));
+      const projectCanPrepare = !(await moonlitProjectStatus()).completed
+        && await page.evaluate(() => (
+          actions.some((action) => String(action.label || "").toLowerCase() === "prepare")
+        ));
       if (projectCanPrepare) {
-        const projectPreparePrimary = await drawPrimaryMatching("project prepare", [
-          "prepare",
-          "make the next try count",
-        ]);
-        assert(
-          projectPreparePrimary.includes("make the next try count"),
-          "used project feature should preview a strong prepared payoff without arithmetic",
-        );
-        assert(
-          !projectPreparePrimary.toLowerCase().includes("next project action"),
-          "prepared setup should not expose rules jargon in the primary button",
-        );
-        await clickPrimary("prepare informed project");
+        const progressBeforePrepare = (await moonlitProjectStatus()).filled;
+        const projectPreparePrimary = await drawMoonlitProjectStrategy("project prepare", {
+          strategyId: null,
+          needles: ["prepare", "make the next try count"],
+          stopWhen: projectAdvancedBeyond(progressBeforePrepare),
+        });
+        if (projectPreparePrimary) {
+          assert(
+            projectPreparePrimary.includes("make the next try count"),
+            "used project feature should preview a strong prepared payoff without arithmetic",
+          );
+          assert(
+            !projectPreparePrimary.toLowerCase().includes("next project action"),
+            "prepared setup should not expose rules jargon in the primary button",
+          );
+          const prepareStopped = async () => {
+            const preparedForActor = await page.evaluate(() => (
+              (state?.tags || []).some((tag) => (
+                tag.id === `actor:${Number(actorId)}:prepared:3`
+              ))
+            ));
+            return preparedForActor || projectAdvancedBeyond(progressBeforePrepare)();
+          };
+          const prepareResult = await commitMoonlitProjectWithRetry("prepare informed project", {
+            strategyId: null,
+            needles: ["prepare", "make the next try count"],
+            stopWhen: prepareStopped,
+          });
+          const preparedForActor = await page.evaluate(() => (
+            (state?.tags || []).some((tag) => (
+              tag.id === `actor:${Number(actorId)}:prepared:3`
+            ))
+          ));
+          if (prepareResult.ok) {
+            assert(preparedForActor, "successful project preparation should authoritatively prepare this actor");
+          } else {
+            const afterStalePrepare = await moonlitProjectStatus();
+            assert(
+              preparedForActor
+                || afterStalePrepare.completed
+                || afterStalePrepare.filled > progressBeforePrepare,
+              "stale project preparation should coincide with preparation or authoritative project progress",
+            );
+          }
+        }
       } else {
-        const projectStudyPrimary = await drawPrimaryMatching("project authored study", [
-          "quiet the echo",
-          "read the moonlit signs",
-        ]);
-        assert(
-          projectStudyPrimary.toLowerCase().includes("choose an approach"),
-          `the project card should keep its authored approaches together: ${projectStudyPrimary}`,
-        );
-        await clickPrimary("study informed project");
+        const progressBeforeStudy = (await moonlitProjectStatus()).filled;
+        const projectStudyPrimary = await drawMoonlitProjectStrategy("project authored study", {
+          strategyId: "read-moonlit-signs",
+          needles: ["read the moonlit signs"],
+          stopWhen: async () => (await moonlitProjectStatus()).completed,
+        });
+        if (!projectStudyPrimary) {
+          steps.push({ label: "shared project completed while drawing study", progress: "4/4" });
+        }
+        if (projectStudyPrimary) {
+          const currentProject = await moonlitProjectStatus();
+          if (currentProject.completed) {
+            steps.push({ label: "shared project completed before study", progress: "4/4" });
+          } else {
+            assert(
+              projectStudyPrimary.toLowerCase().startsWith("read the moonlit signs"),
+              `the remaining project study should retain its exact authored identity: ${projectStudyPrimary}`,
+            );
+            const studyResult = await commitMoonlitProjectWithRetry("study informed project", {
+              strategyId: "read-moonlit-signs",
+              needles: ["read the moonlit signs"],
+              stopWhen: projectAdvancedBeyond(progressBeforeStudy),
+            });
+            if (studyResult.ok) {
+              assert(
+                studyResult.submission.projectId === "moonlit-trail:quiet-the-echo"
+                  && studyResult.submission.strategyId === "read-moonlit-signs",
+                `project Study should resolve its exact authored strategy: ${JSON.stringify(studyResult.submission)}`,
+              );
+            } else {
+              const progressedProject = await moonlitProjectStatus();
+              assert(
+                progressedProject.completed || progressedProject.filled > progressBeforeStudy,
+                "stale project Study should coincide with authoritative progress",
+              );
+            }
+          }
+        }
       }
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         await page.waitForFunction(() => (
@@ -13230,18 +14185,28 @@ async function main() {
           await clickPrimary(`rest before project completion ${attempt}`);
           continue;
         }
-        const completionAction = await focusPrimaryMatchingAcrossShuffles(
-          `project completion ${attempt}`,
-          (text) => text.startsWith("finish") || text.startsWith("work") || text.includes("quiet the echo"),
-          8,
-          () => page.evaluate(() => {
+        const completionAction = await drawMoonlitProjectStrategy(`project completion ${attempt}`, {
+          strategyId: "steady-trail",
+          needles: ["steady the trail"],
+          stopWhen: () => page.evaluate(() => {
             const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
             const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
             return Number(progress?.filled || 0) === 4 && job?.status === "completed";
           }),
-        );
+        });
         if (!completionAction) break;
-        await clickPrimary(`complete project ${attempt}`);
+        const completionResult = await commitMoonlitProjectWithRetry(`complete project ${attempt}`, {
+          strategyId: "steady-trail",
+          needles: ["steady the trail"],
+          stopWhen: projectAdvancedBeyond(projectRecovery.progress),
+        });
+        if (!completionResult.ok) {
+          const progressedProject = await moonlitProjectStatus();
+          assert(
+            progressedProject.completed || progressedProject.filled > projectRecovery.progress,
+            "stale project completion should coincide with authoritative progress",
+          );
+        }
       }
     }
     await page.waitForFunction(() => {
@@ -13278,6 +14243,7 @@ async function main() {
       ),
       `resolving the project should apply its reward tag: ${JSON.stringify(completedProjectState.tags)}`,
     );
+    moonlitProjectObservedCompleted = true;
     const activeAvatarId = Number(await page.evaluate(() => actorId || 0));
     const projectLeftAvatarTired = (completedProjectState.tags || []).some((tag) => (
       tag.label === "tired"
@@ -13416,29 +14382,58 @@ async function main() {
         location: moonwoolResidentHolder.location,
       });
     } else {
-      await revealBySearchIfNeeded(
+      const moonwoolPlacement = await revealBySearchIfNeeded(
         "Moonwool Thread",
+        2004,
         ["thread"],
         "reveal Moonwool Thread",
       );
-      await takeItem("Moonwool Thread");
-      const ratiStillWantsMoonwool = await page.evaluate(async () => {
-        const currentActorId = localStorage.getItem("cosyworld.actorId");
-        const actorSession = localStorage.getItem("cosyworld.actorSession");
-        const params = new URLSearchParams({
-          actor_id: currentActorId,
-          actor_session: actorSession,
-          wallet_address: "dev-wallet",
+      let currentMoonwoolPlacement = moonwoolPlacement;
+      if (
+        currentMoonwoolPlacement.kind === "loose"
+          && currentMoonwoolPlacement.location
+          && currentMoonwoolPlacement.location !== await currentLocation()
+      ) {
+        await travelPathTo(currentMoonwoolPlacement.location);
+        currentMoonwoolPlacement = await worldItemPlacement("Moonwool Thread", 2004);
+      }
+      if (currentMoonwoolPlacement?.kind === "loose") {
+        assert(
+          !currentMoonwoolPlacement.location
+            || currentMoonwoolPlacement.location === await currentLocation(),
+          `Moonwool Thread moved before Take: ${JSON.stringify(currentMoonwoolPlacement)}`,
+        );
+        await takeItem("Moonwool Thread", { allowResidentClaim: true });
+        currentMoonwoolPlacement = await worldItemPlacement("Moonwool Thread", 2004);
+      }
+      if (currentMoonwoolPlacement?.kind === "resident") {
+        steps.push({
+          label: `${currentMoonwoolPlacement.holder} found Moonwool Thread during search`,
+          location: currentMoonwoolPlacement.location,
         });
-        const world = await fetch(`/world?${params}`).then((response) => response.json());
-        const rati = (world.locations || []).flatMap((location) => location.actors || [])
-          .find((actor) => actor.name === "Rati");
-        return Number(rati?.economy?.request?.item_id || 0) === 2004;
-      });
-      if (ratiStillWantsMoonwool) {
-        await giveHeldItemTo("Rati", "give Moonwool Thread");
       } else {
-        steps.push({ label: "Rati's Moonwool wish already changed", location: await currentLocation() });
+        assert(
+          currentMoonwoolPlacement?.kind === "player",
+          `Moonwool Thread should be held or resident-claimed before delivery: ${JSON.stringify(currentMoonwoolPlacement)}`,
+        );
+        const ratiStillWantsMoonwool = await page.evaluate(async () => {
+          const currentActorId = localStorage.getItem("cosyworld.actorId");
+          const actorSession = localStorage.getItem("cosyworld.actorSession");
+          const params = new URLSearchParams({
+            actor_id: currentActorId,
+            actor_session: actorSession,
+            wallet_address: "dev-wallet",
+          });
+          const world = await fetch(`/world?${params}`).then((response) => response.json());
+          const rati = (world.locations || []).flatMap((location) => location.actors || [])
+            .find((actor) => actor.name === "Rati");
+          return Number(rati?.economy?.request?.item_id || 0) === 2004;
+        });
+        if (ratiStillWantsMoonwool) {
+          await giveHeldItemTo("Rati", "give Moonwool Thread");
+        } else {
+          steps.push({ label: "Rati's Moonwool wish already changed", location: await currentLocation() });
+        }
       }
     }
     if ((await currentLocation()) !== "The Cosy Cottage") {
@@ -13455,6 +14450,7 @@ async function main() {
     }
   }
 
+  await Promise.all([...branchReceiptAudits]);
   const finalState = await page.evaluate(async () => {
     const actorId = localStorage.getItem("cosyworld.actorId");
     const actorSession = localStorage.getItem("cosyworld.actorSession");
@@ -13465,6 +14461,12 @@ async function main() {
       limit: "500",
     });
     const state = await fetch(`/state?${params}`).then((response) => response.json());
+    const worldParams = new URLSearchParams({
+      actor_id: actorId,
+      actor_session: actorSession,
+      wallet_address: "dev-wallet",
+    });
+    const world = await fetch(`/world?${worldParams}`).then((response) => response.json());
     const events = [];
     let after = 0;
     let replayCaughtUp = false;
@@ -13487,15 +14489,55 @@ async function main() {
       .filter((event) => (
         (event.type === "item.used" && event.actor_id !== Number(actorId))
         || (event.type === "item.given" && event.target_actor_id !== Number(actorId))
+        || (event.type === "bond.deepened" && event.target_actor_id !== Number(actorId))
         || event.type === "avatar.evolved"
       ))
       .map((event) => ({
         type: event.type,
-        resident: event.type === "item.given" || event.type === "avatar.evolved"
+        resident: ["item.given", "bond.deepened", "avatar.evolved"].includes(event.type)
           ? event.target_actor_name
           : event.actor_name,
         item: event.item_name,
       }));
+    const itemStoryMoments = events
+      .filter((event) => (
+        ["item.used", "item.given", "avatar.evolved"].includes(event.type)
+      ))
+      .map((event) => ({
+        type: event.type,
+        actor: event.actor_name,
+        resident: ["item.given", "avatar.evolved"].includes(event.type)
+          ? event.target_actor_name
+          : event.actor_name,
+        item: event.item_name,
+      }));
+    const residentKeepsakeState = [];
+    const expectedKeepsakes = [
+      { item: "Dewbright Button", itemId: 2002, resident: "Gust" },
+      { item: "Watch Bell", itemId: 2007, resident: "Skull" },
+    ];
+    for (const location of world.locations || []) {
+      for (const resident of location.actors || []) {
+        for (const keepsake of expectedKeepsakes) {
+          if (
+            resident.name === keepsake.resident
+              && (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
+          ) {
+            residentKeepsakeState.push({
+              type: "item.held",
+              resident: resident.name,
+              item: keepsake.item,
+              location: location.name,
+            });
+          }
+        }
+      }
+    }
+    const moonlitProgress = (state.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+    const moonlitJob = (state.jobs || []).find((job) => job.id === "moonlit-trail:quiet-the-echo");
+    const moonlitProjectCompleted = Number(moonlitProgress?.filled || 0) === 4
+      && moonlitJob?.status === "completed"
+      && (state.tags || []).some((tag) => tag.label === "quieted moonlight");
     const avatarMessages = events
       .filter((event) => event.type === "message.created" && event.actor_id === Number(actorId))
       .map((event) => event.content);
@@ -13518,6 +14560,9 @@ async function main() {
       replayCaughtUp,
       evolved,
       residentStoryMoments,
+      itemStoryMoments,
+      residentKeepsakeState,
+      moonlitProjectCompleted,
       avatarMessages,
       branchEvents,
       fleeEvents,
@@ -13528,31 +14573,57 @@ async function main() {
         .filter(Boolean),
     };
   });
+  finalState.livingItemEvidence = livingItemEvidence;
+  finalState.moonlitProjectObservedCompleted = moonlitProjectObservedCompleted;
+  finalState.playerSpeechEvidence = [...playerSpeechEvidence];
+  finalState.branchReceiptEvents = observedBranchEventReceipts;
   assert(finalState.replayCaughtUp, "final event replay should reach the current world sequence");
   if (runLivingWorldStress) {
-    const storyResidents = new Set(finalState.residentStoryMoments.map((moment) => moment.resident).filter(Boolean));
+    const residentStoryEvidence = [
+      ...finalState.residentStoryMoments,
+      ...finalState.residentKeepsakeState,
+      ...finalState.livingItemEvidence,
+    ];
+    const storyResidents = new Set(residentStoryEvidence.map((moment) => moment.resident).filter(Boolean));
     assert(
-      storyResidents.size >= 2,
-      `living items should shape stories for multiple residents: ${JSON.stringify(finalState.residentStoryMoments)}`,
+      storyResidents.has("Gust") && storyResidents.has("Skull"),
+      `living items should shape both Gust's and Skull's stories: ${JSON.stringify(residentStoryEvidence)}`,
     );
     assert(
-      finalState.residentStoryMoments.some((moment) => (
-        moment.type === "avatar.evolved"
+      finalState.itemStoryMoments.some((moment) => (
+        (moment.type === "avatar.evolved" && moment.resident === "Gust")
         || (moment.type === "item.used" && moment.item === "Wolfprint Charm")
-      )),
-      `the Wolfprint project clue should matter through resident use or evolution: ${JSON.stringify(finalState.residentStoryMoments)}`,
+      )) || finalState.moonlitProjectCompleted || finalState.moonlitProjectObservedCompleted,
+      `the Wolfprint clue should resolve through authored use, evolution, or its completed shared project: ${JSON.stringify({ itemStoryMoments: finalState.itemStoryMoments, moonlitProjectCompleted: finalState.moonlitProjectCompleted, moonlitProjectObservedCompleted: finalState.moonlitProjectObservedCompleted })}`,
     );
     assert(
-      finalState.residentStoryMoments.some((moment) => (
-        moment.type === "avatar.evolved"
-        || (["item.given", "item.used"].includes(moment.type) && moment.item === "Watch Bell")
+      finalState.itemStoryMoments.some((moment) => (
+        (moment.type === "avatar.evolved" && moment.resident === "Skull")
+        || (["item.given", "item.used"].includes(moment.type)
+          && moment.item === "Watch Bell"
+          && moment.resident === "Skull")
+      )) || finalState.livingItemEvidence.some((moment) => (
+        moment.item === "Watch Bell" && moment.resident === "Skull"
+      )) || finalState.residentKeepsakeState.some((moment) => (
+        moment.item === "Watch Bell" && moment.resident === "Skull"
       )),
-      `the Watch Bell should reach a resident, perform its authored use, or complete an evolution: ${JSON.stringify(finalState.residentStoryMoments)}`,
+      `the Watch Bell should reach Skull, perform its authored use, or complete an evolution: ${JSON.stringify({ itemStoryMoments: finalState.itemStoryMoments, residentKeepsakeState: finalState.residentKeepsakeState })}`,
     );
     assert(finalState.trailExitEvents.includes("Rain-Soft Garden"), "leaving Moonlit Trail should record a trail exit event");
   }
-  assert(finalState.avatarMessages.length >= 2, "moderated player speech should remain in the shared channel");
-  assert(finalState.branchEvents.length === 0, `normal play should not emit branch lifecycle events: ${JSON.stringify(finalState.branchEvents)}`);
+  const observedPlayerSpeech = new Set([
+    ...finalState.avatarMessages,
+    ...finalState.playerSpeechEvidence,
+  ]);
+  assert(
+    observedPlayerSpeech.size >= 2,
+    `moderated player speech should have authoritative shared-channel receipts: ${JSON.stringify([...observedPlayerSpeech])}`,
+  );
+  const allBranchEvents = [
+    ...finalState.branchEvents.map((type) => ({ type, source: "final replay" })),
+    ...finalState.branchReceiptEvents.map((event) => ({ ...event, source: "action receipt" })),
+  ];
+  assert(allBranchEvents.length === 0, `normal play should not emit branch lifecycle events: ${JSON.stringify(allBranchEvents)}`);
   assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 2, `the journey should finish with at most two action cards: ${JSON.stringify(finalState.buttons)}`);
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });
