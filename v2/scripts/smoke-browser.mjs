@@ -9702,7 +9702,7 @@ async function main() {
     });
     assert(
       noticeBefore.actorId > 0
-        && noticeBefore.focused?.label === "notice"
+        && noticeBefore.focused?.intention === "notice"
         && noticeBefore.focused?.isCertified === true,
       `Notice must remain an exact currently dealt hand action before it is played: ${JSON.stringify(noticeBefore)}`,
     );
