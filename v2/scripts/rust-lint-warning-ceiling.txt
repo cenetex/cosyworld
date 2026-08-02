@@ -12,4 +12,10 @@
 #
 # 254 -> 253: extracted finite-hand tests use a struct literal and internal
 # StateResponse projections are explicitly marked as Rust-test-only.
-253
+#
+# 253 -> 236: deleting the legacy Replicate avatar-art and generated-pathway
+# clusters from main.rs removed their never-used warnings. Both were dead in
+# production; the pathway sanitizers only called each other, and the resident
+# reply wrapper's test duplicated coverage that already lives in
+# ai-model-rust/src/lib.rs.
+236

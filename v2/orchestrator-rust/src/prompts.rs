@@ -1009,7 +1009,31 @@ pub(super) fn format_goal_lines(goals: &[String]) -> String {
 /// authored terminal period dropped, so the caller owns the sentence punctuation.
 fn continuity_thought(value: &str) -> String {
     let text = crate::compact_whitespace(value);
+    // Continuity artifacts written before action intents became prompt-safe may still
+    // contain the old machine projection, e.g. `propose pick_up; item 11453577331`.
+    // Collapse only that exact generated shape so restored state cannot reintroduce an
+    // entity id after the code path that created it has been fixed.
+    let text = prompt_safe_legacy_action_intent(&text).unwrap_or(text);
     text.trim().trim_end_matches('.').trim().to_string()
+}
+
+fn prompt_safe_legacy_action_intent(value: &str) -> Option<String> {
+    let (head, details) = value.split_once(';')?;
+    let kind = head.trim().strip_prefix("propose ")?;
+    let machine_details = details.split(';').all(|detail| {
+        let words = detail.split_whitespace().collect::<Vec<_>>();
+        match words.as_slice() {
+            ["item" | "destination", id] => id.chars().all(|ch| ch.is_ascii_digit()),
+            ["target", "actor", id] => id.chars().all(|ch| ch.is_ascii_digit()),
+            _ => false,
+        }
+    });
+    machine_details.then(|| {
+        format!(
+            "propose {}",
+            crate::compact_whitespace(&kind.replace('_', " ").replace('-', " "))
+        )
+    })
 }
 
 /// Renders durable notes as first-person thought instead of a scored bullet list.
@@ -1042,13 +1066,18 @@ pub(super) fn format_resident_continuity_for(
     relationship_actor_id: Option<u64>,
 ) -> String {
     let identity = continuity_thought(&continuity.stable_identity);
+    let pending_action_intent = continuity
+        .pending_action
+        .as_ref()
+        .and_then(resident_proposed_action_intent)
+        .map(|intent| continuity_thought(&intent));
     let mut lines = Vec::new();
     if !identity.is_empty() {
         lines.push(format!("i am {identity}."));
     }
     if let Some(intent) = continuity.current_intent.as_deref() {
         let intent = continuity_thought(intent);
-        if !intent.is_empty() {
+        if !intent.is_empty() && pending_action_intent.as_deref() != Some(intent.as_str()) {
             lines.push(format!("what i mean to do next: {intent}."));
         }
     }
@@ -1081,12 +1110,10 @@ pub(super) fn format_resident_continuity_for(
     lines.extend(continuity_fragments("i want", &continuity.desires));
     lines.extend(continuity_fragments("i promised", &continuity.promises));
     lines.extend(continuity_fragments("i refuse", &continuity.refusals));
-    if let Some(action) = continuity.pending_action.as_ref() {
-        if let Some(intent) = resident_proposed_action_intent(action) {
-            lines.push(format!(
-                "i am turning over: {intent}. only considered, not done."
-            ));
-        }
+    if let Some(intent) = pending_action_intent {
+        lines.push(format!(
+            "i am turning over: {intent}. only considered, not done."
+        ));
     }
     for atom in continuity.memory_atoms.iter().take(6) {
         let atom = continuity_thought(&atom.text);
@@ -1200,6 +1227,27 @@ mod publication_tests {
                 "{leak:?} leaked into the voice prompt:\n{rendered}"
             );
         }
+    }
+
+    #[test]
+    fn pending_action_ids_never_reach_the_resident_voice_prompt() {
+        let mut continuity = populated_continuity();
+        continuity.current_intent = Some("propose pick_up; item 11453577331".to_string());
+
+        let restored = format_resident_continuity(&continuity);
+        assert!(restored.contains("what i mean to do next: propose pick up."));
+        assert!(!restored.contains("11453577331"), "{restored}");
+
+        continuity.pending_action = Some(AvatarProposedAction {
+            kind: "pick_up".to_string(),
+            item_id: Some(11_453_577_331),
+            ..AvatarProposedAction::default()
+        });
+
+        let rendered = format_resident_continuity(&continuity);
+        assert!(rendered.contains("i am turning over: propose pick up."));
+        assert_eq!(rendered.matches("propose pick up").count(), 1);
+        assert!(!rendered.contains("11453577331"), "{rendered}");
     }
 
     #[test]

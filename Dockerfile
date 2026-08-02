@@ -25,7 +25,6 @@ COPY v2/content /app/v2/content
 COPY v2/media /app/v2/media
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
-COPY src/services/web/public/images/cosy-cottage.png /app/src/services/web/public/images/cosy-cottage.png
 
 RUN cargo build --release
 

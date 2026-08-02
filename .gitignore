@@ -15,8 +15,6 @@ dist/
 build/
 output/
 coverage/
-webpack-stats.json
-webpack-stats.txt
 
 # Logs
 *.log

@@ -9,7 +9,6 @@ Companion documents:
 - `ENG.md` — architecture and engineering priorities.
 - `ECONOMY.md` — Orbs, Boxes, packs, and the NFT bridge in detail.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
-- `GAP.md` — implementation status audit.
 - `docs/backlog/community-art-evolution.md` — shipped slice, production gaps, and acceptance invariants for the image-only Orb economy.
 
 ## What CosyWorld Is

@@ -6,11 +6,11 @@ model or agent implementation.
 
 ## Product and authority
 
-CosyWorld V2 is the canonical product: a shared browser MUD backed by a
-deterministic C kernel and a Rust HTTP/SSE orchestrator. The older Node service
-under `src/` remains a companion for inherited Discord, social, marketplace,
-media, and administration integrations. Unless an issue explicitly names that
-companion, gameplay work belongs under `v2/`.
+CosyWorld V2 is the canonical product and the only product: a shared browser MUD
+backed by a deterministic C kernel and a Rust HTTP/SSE orchestrator. The former
+Node companion under `src/`, which carried inherited Discord, social,
+marketplace, media, and administration integrations, has been removed. All work
+belongs under `v2/`.
 
 Authority is deliberately split:
 
@@ -40,8 +40,7 @@ validation and commitment through the normal world-event path.
 - `v2/content/official/`: generated runtime bundle; never edit it by hand.
 - `v2/scripts/`: worldpack compiler/validator and deployment smoke tests.
 - `v2/cli/`: terminal client.
-- `src/`: legacy Node companion and its service/container architecture.
-- `test/`: legacy Node and cross-surface Vitest coverage.
+- `test/`: cross-surface Vitest coverage.
 - `.github/workflows/`: CI, dual-app production Fly deployment, and tagged
   GitHub release notes.
 - `ENG.md`: current engineering invariants and priorities.
@@ -63,7 +62,6 @@ target.
 rustup target add wasm32-unknown-unknown
 npm ci
 npm run dev                 # canonical V2 browser runtime
-npm run dev:node            # legacy Node companion only
 ```
 
 Use the narrowest relevant checks while iterating:
@@ -143,8 +141,8 @@ in `package-lock.json`.
   owning command.
 - The full runtime has production-only requirements. Use the hermetic smoke
   scripts instead of weakening production validation for local convenience.
-- The root `index.js`, older Webpack UI, and much of `src/` are legacy surfaces;
-  the production Dockerfile launches the Rust V2 binary.
+- The production Dockerfile launches the Rust V2 binary; there is no other
+  runtime entry point.
 
 See `.github/AGENT.md` for PR formatting, required preflight checks, and the
 files that need special handling.

@@ -44,9 +44,8 @@ do not define V2 behavior.
 
 - **[Repository map](../readme.md)** and **[V2 runtime guide](../v2/README.md)**
   — setup, commands, architecture, and local operation.
-- **[Engineering direction](../ENG.md)** and **[implementation audit](../GAP.md)**
-  — architecture priorities and known gaps. Treat dated implementation counts
-  in `GAP.md` as an audit snapshot, not product law.
+- **[Engineering direction](../ENG.md)** — architecture priorities, the
+  non-negotiable invariants, and the current engineering queue.
 - **[Rules adapter](../v2/docs/rules-adapter.md)** — immutable reference imports,
   the active `cosyworld.srd5/1` profile, and the resolver authority boundary.
 - **[Worldpacks](../v2/docs/worldpacks.md)** — pack compilation, composition,
@@ -147,8 +146,6 @@ current PRD take precedence:
 - [Legacy service overview](overview/01-introduction.md)
 - [Legacy system overview](overview/02-system-overview.md)
 - [Legacy service documentation](services/)
-- [Legacy event system](events/)
-- [Historical fixes](fixes/)
-- [X402 agentic economy report](X402_AGENTIC_ECONOMY_REPORT.md)
+- [Deployment guide](deployment/07-deployment.md)
 
 Last reviewed: 2026-07-30.

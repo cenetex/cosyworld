@@ -5,7 +5,9 @@
       "label": "install dependencies",
       "type": "shell",
       "command": "npm",
-      "args": ["ci"],
+      "args": [
+        "ci"
+      ],
       "detail": "Install project dependencies using npm ci.",
       "problemMatcher": []
     },
@@ -13,41 +15,18 @@
       "label": "lint",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "lint"],
+      "args": [
+        "run",
+        "lint"
+      ],
       "group": {
         "kind": "test",
         "isDefault": true
       },
       "detail": "Run eslint across the project.",
-      "problemMatcher": ["$eslint-stylish"]
-    },
-    {
-      "label": "build:js",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "build:js"],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "detail": "Compile the production webpack bundle without docs.",
-      "problemMatcher": []
-    },
-    {
-      "label": "build",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "build"],
-      "detail": "Full build including docs generation.",
-      "problemMatcher": []
-    },
-    {
-      "label": "analyze bundle",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "analyze"],
-      "detail": "Produce webpack stats for bundle analysis.",
-      "problemMatcher": []
+      "problemMatcher": [
+        "$eslint-stylish"
+      ]
     }
   ]
 }

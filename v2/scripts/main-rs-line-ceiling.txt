@@ -174,4 +174,10 @@
 # state, journal mutation, boot configuration, and /meta boundary wiring.
 # 73827 -> 73822: move generated avatar persona regression coverage into its
 # owning avatar_identity.rs seam while integrating checked reflections.
-73822
+# 73822 -> 73319: delete the compiler-proven dead Replicate avatar-art cluster
+# and the legacy generated-pathway sanitizers. Both were unreachable from
+# production; the pathway helpers only called each other, and the resident
+# reply wrapper's only remaining caller went with them. Its test duplicated
+# coverage that already lives in ai-model-rust/src/lib.rs, so it moved out
+# rather than being copied again.
+73319

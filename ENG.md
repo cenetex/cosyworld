@@ -8,7 +8,6 @@ Companion documents:
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative RPG mechanics design, phase status, on-fill descriptor spec, claim-key spec, and ownership-chain design.
 - `AI.md` — AI gateway, payer modes, and media pipeline design detail.
 - `ECONOMY.md` — economy and NFT-bridge design detail.
-- `GAP.md` — per-surface implementation status audit.
 - `v2/README.md` — runtime operations guide: run, deploy, endpoints, environment.
 
 ## System Shape
@@ -63,7 +62,7 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
 
 ## Current State
 
-`GAP.md` is the detailed audit. The one-paragraph version: the kernel,
+The one-paragraph version: the kernel,
 orchestrator, avatar gate, advancement-backed Chat, moderated `say`, coalescing
 contextual room heartbeats, shared live rooms with room turns and ping/pong
 pacing, resident autonomy, transcript-rendered world feedback, items/evolution,
