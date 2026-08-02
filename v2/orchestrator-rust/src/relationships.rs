@@ -782,7 +782,12 @@ mod tests {
                 .dialogue_status,
             RELATIONSHIP_DIALOGUE_DELIVERED
         );
-        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        // Voice routing now certifies every planned candidate and ranks them
+        // before accepting one, so a two-attempt plan asks the provider twice
+        // and publishes the better line. The contract this test guards is that
+        // exactly one reply is delivered with no fallback, not that only one
+        // candidate was ever generated.
+        assert_eq!(requests.load(Ordering::SeqCst), 2);
         drop(runtime);
         server.abort();
     }

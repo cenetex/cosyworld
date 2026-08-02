@@ -127,8 +127,10 @@ cannot count as a content failure.
 
 The router is bounded by:
 
-- `COSYWORLD_AI_VOICE_MAX_ATTEMPTS` (1–3, default 2);
-- `COSYWORLD_AI_VOICE_HEDGE_WIDTH` (1–3 and no greater than attempts, default 1);
+- `COSYWORLD_AI_VOICE_MAX_ATTEMPTS` (1–10, default 2); this is also the
+  maximum response-pool size;
+- `COSYWORLD_AI_VOICE_HEDGE_WIDTH` (1–10 and no greater than attempts, default
+  1);
 - `COSYWORLD_AI_VOICE_LATENCY_CEILING_MS` (default 12000);
 - `COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS` (default 2000);
 - `COSYWORLD_AI_VOICE_UNKNOWN_COST_MICRODOLLARS` (default 250); and
@@ -136,13 +138,23 @@ The router is bounded by:
 
 Each generation is a durable leased job in the orchestrator SQLite store.
 Every provider request is pinned to one selected candidate with provider-local
-retries disabled. The first publication-gate pass wins an atomic compare-and-set
-and cancels remaining hedges. Duplicate or restarted work returns the accepted
-text and receipt without selecting again; an expired lease receives at most one
-named retry. Exhausted bounds return a stable typed unavailable code. Rejected
-candidates persist hashes, evidence, and decision metadata, never raw output
-bytes. The existing publication journal precondition remains the single writer
-for the final world-visible line.
+retries disabled. All responses completed inside the configured bounds pass
+through the hard publication gate. Certified responses are ranked
+deterministically by scene-anchor depth, novelty against recent dialogue, and
+lexical diversity; candidate ID is the stable final tie-break. The highest
+ranked response wins one atomic compare-and-set. Duplicate or restarted work
+returns the accepted text and receipt without selecting again; an expired lease
+receives at most one named retry. Exhausted bounds return a stable typed
+unavailable code. Rejected candidates persist hashes, evidence, and decision
+metadata, never raw output bytes. The existing publication journal precondition
+remains the single writer for the final world-visible line.
+
+A ten-response pool must opt in to both the attempt and spend limits. For
+example, set `COSYWORLD_AI_VOICE_MAX_ATTEMPTS=10` and size
+`COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS` for the selected model. Use
+`COSYWORLD_AI_VOICE_HEDGE_WIDTH` to choose how much of that pool may run
+concurrently. Production defaults remain conservative so enabling ranking does
+not silently jump every chat to ten provider calls.
 
 Resident intelligence uses the same bounded Voice router for public prose.
 Decision beats make one separate `intent_json` request containing only the
