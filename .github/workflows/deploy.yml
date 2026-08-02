@@ -110,7 +110,21 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Verify primary readiness and persistence
-        run: node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev
+        run: |
+          # A fresh process refreshes the remote ownership feed every 60 seconds.
+          # Allow one full refresh interval, its bounded 15-second request, and
+          # a small scheduling margin before declaring the release unhealthy.
+          for attempt in {1..13}; do
+            if node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 13 ]; then
+              echo "Primary readiness remained degraded after 120 seconds" >&2
+              exit 1
+            fi
+            echo "::warning::Primary readiness attempt $attempt failed; retrying in 10 seconds"
+            sleep 10
+          done
 
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
@@ -163,7 +177,17 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Build and deploy Lonely Forest
-        run: flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false --strategy rolling
+        run: |
+          for attempt in 1 2; do
+            if flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false --strategy rolling; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              exit 1
+            fi
+            echo "::warning::Lonely Forest deploy polling failed; retrying once in 15 seconds"
+            sleep 15
+          done
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
