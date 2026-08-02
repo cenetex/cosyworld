@@ -179,8 +179,8 @@ secure return chain. Keep retreat, Travel toward Home or an Anchor, a legal
 short rest, Camp with shelter, aid, recovery items, Defend, Flee, rescue,
 speech, inspection, coordination, Pass, and Need Time.
 
-This restriction applies to the complete legal set, not only the two
-suggestions.
+This restriction is applied to the internal legal candidate set before the
+server deals the two-card hand; it is not a client-side suggestion filter.
 
 ### The no-stranding invariant {#no-stranding}
 

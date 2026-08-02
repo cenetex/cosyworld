@@ -644,6 +644,15 @@ impl RuntimeWorld {
             .filter(action_offer_is_reachable)
             .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee"))
             .collect::<Vec<_>>();
+        let hand = self.action_hand_for(Some(actor_id), &offers);
+        let offers = offers
+            .into_iter()
+            .filter(|offer| {
+                hand.entries
+                    .iter()
+                    .any(|entry| entry.offer_id == offer.offer_id)
+            })
+            .collect::<Vec<_>>();
         let hp_base = i32::from(actor.stats.hp_base.max(1));
         let damage = i32::from(actor.damage.max(0));
         let preferred_kinds: &[&str] = if damage.saturating_mul(4) >= hp_base.saturating_mul(3) {
@@ -653,9 +662,43 @@ impl RuntimeWorld {
         } else {
             &["attack", "defend", "flee"]
         };
-        let offer = preferred_kinds
-            .iter()
-            .find_map(|kind| offers.iter().find(|offer| offer.kind == *kind))?;
+        let preferred_offer = offers.iter().find(|offer| offer.kind == preferred_kinds[0]);
+        if preferred_offer.is_none() && hand.draw_available {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_COMBAT_PASS,
+                    actor_id,
+                    content_id: encounter_id,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+            .into_actor_consequence(self.world.tick, caused_by_event_seq);
+            // Combat residents pass through the finite hand; they do not get a
+            // separate, free draw/redeal capability.
+            record.bind_offer_kind("pass");
+            record.source_location_id = Some(actor.location_id);
+            record
+                .projection_mutations
+                .push(ProjectionMutation::ShuffleHand {
+                    reason: "resident_combat_pass".to_string(),
+                });
+            return Some(
+                self.attach_resident_decision_trace(ResidentAutonomyCandidate {
+                    actor_id,
+                    rank: 89,
+                    score: 0,
+                    record,
+                })
+                .record,
+            );
+        }
+        let offer = preferred_offer.or_else(|| {
+            preferred_kinds
+                .iter()
+                .skip(1)
+                .find_map(|kind| offers.iter().find(|offer| offer.kind == *kind))
+        })?;
         let action = self.plan_combat_offer_action(actor_id, offer).ok()?;
         let (rank, score) = match offer.kind.as_str() {
             "flee" => (0, i16::try_from(damage).unwrap_or(i16::MAX)),

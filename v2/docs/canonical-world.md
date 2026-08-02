@@ -101,7 +101,7 @@ process cannot replace or infer the authenticated actor reference from a local
 session alone.
 
 The current `POST /commands` request carries this object under `envelope` and
-returns it as a top-level `receipt`. `/state` and `/world` expose `world_id`,
+returns it as a top-level `receipt`. `/state` exposes `world_id`,
 `world_epoch`, `world_seq`, canonical entity references, and entity versions;
 each public event carries its own `world_id`, `world_epoch`, and `seq` tuple;
 numeric ids remain compatibility handles for the in-process kernel. Authored
@@ -162,7 +162,7 @@ the ordinary shared player load balancer as a process route: it can select the
 wrong owner and recurse into an unavailable write.
 
 Durable projections poll the shared action journal every 100 ms and also catch
-up before `/state`, `/inspect`, `/world`, `/events`, `/stream`, `/profiles`,
+up before `/state`, `/events`, `/stream`, `/profiles`,
 invite, and command handling. Reconnect resumes from the caller's acknowledged
 event cursor. Stable actor lookups use `GET /profiles?actor_ref=...` and never
 derive identity from a process label.

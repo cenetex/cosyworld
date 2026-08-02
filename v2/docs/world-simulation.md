@@ -41,7 +41,7 @@ Public consequences use replayable world events:
 - `world.faction.influence_shifted`
 - `world.conflict.pressure_grew` / `world.conflict.pressure_eased` / `world.conflict.escalated`
 
-Each event carries the source world tick, the room whose committed action powered the pulse, and the causing event sequence when available. `/state` exposes the current room's simulation state. `/world` exposes faction momentum and the latest 48 history events. The browser's World Library renders the latest distant news, while room arrival copy turns local values into fiction such as weather, thin supplies, faction signs, and unease.
+Each event carries the source world tick, the room whose committed action powered the pulse, and the causing event sequence when available. `/state` exposes only the current room's visible simulation effects. Global faction momentum and distant history remain internal; the public browser and event APIs do not provide a graph-traversal or distant-news surface. Room arrival copy turns local values into fiction such as weather, thin supplies, faction signs, and unease.
 
 ## Safety and scope
 

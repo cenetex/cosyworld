@@ -430,6 +430,13 @@ async function assertModerationCanSuspendActor(probeAvatar) {
   const actorId = probeAvatar.actor?.id;
   const actorSession = probeAvatar.actor_session || "";
   assert(actorId && actorSession, `suspension probe needs an actor session: ${JSON.stringify(probeAvatar)}`);
+  const preSuspensionState = await fetch(
+    `${baseUrl}/state?actor_id=${actorId}&actor_session=${encodeURIComponent(actorSession)}`,
+  ).then((response) => response.json());
+  const dealtOfferIds = new Set((preSuspensionState.action_hand?.entries || []).map((entry) => entry.offer_id));
+  const suspendedProbeOffer = (preSuspensionState.action_offers || []).find((offer) =>
+    dealtOfferIds.has(offer.offer_id) && String(offer.command || "").trim());
+  assert(suspendedProbeOffer, `suspension probe needs a dealt command card: ${JSON.stringify(preSuspensionState.action_hand)}`);
 
   const unauthorized = await fetch(`${baseUrl}/moderation/actors/${actorId}/suspend`, {
     method: "POST",
@@ -452,14 +459,14 @@ async function assertModerationCanSuspendActor(probeAvatar) {
   assert(suspended.reason === "smoke suspension probe", `actor suspension reason should round-trip: ${JSON.stringify(suspended)}`);
   assert(typeof suspended.suspended_at_unix === "number" && suspended.suspended_at_unix > 0, `actor suspension should expose timestamp: ${JSON.stringify(suspended)}`);
 
-  const rejected = await fetch(`${baseUrl}/actions/check`, {
+  const rejected = await fetch(`${baseUrl}/commands`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       actor_id: actorId,
       actor_session: actorSession,
-      ability: "wisdom",
-      dc: 12,
+      command: suspendedProbeOffer.command,
+      offer_id: suspendedProbeOffer.offer_id,
     }),
   }).then((response) => response.json());
   assert(rejected.ok === false && rejected.status === 403, `suspended actor action should be rejected: ${JSON.stringify(rejected)}`);
@@ -525,7 +532,6 @@ async function main() {
   steps.push({ label: "moderation console", reportId: moderationConsole.reportId });
   await assertModerationCanSuspendActor(moderationProbeAvatar);
   let chatPendingChecked = false;
-  let reservedStoryButtonTake = null;
   let useFocusedActionOnNextClick = false;
 
   async function primaryText() {
@@ -564,7 +570,6 @@ async function main() {
 
   async function assertBrowserDrawReachesEveryLegalAction() {
     const handSnapshot = () => page.evaluate(() => ({
-      allKeys: [...validActionHandKeySet()],
       visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
         .filter((button) => button.id !== "shuffle" && getComputedStyle(button).display !== "none")
         .map((button) => button.dataset.handKey)
@@ -574,62 +579,27 @@ async function main() {
         .map((event) => Number(event.seq || 0))),
       drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
     }));
-    const drawOnce = async (previous) => {
-      const [response] = await Promise.all([
-        page.waitForResponse((candidate) => (
-          candidate.request().method() === "POST"
-          && new URL(candidate.url()).pathname === "/commands"
-          && String(candidate.request().postData() || "").includes("\"command\":\"shuffle\"")
-        )),
-        page.locator("#all-actions-draw").click(),
-      ]);
-      const receipt = await response.json();
-      const drawEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
-      assert(receipt.ok && Number(drawEvent?.seq || 0) > previous.eventSeq,
-        `drawing should commit one newer hand.shuffled event: ${JSON.stringify(receipt)}`);
-      await page.waitForFunction(() => document.querySelector("#all-actions-draw")?.disabled === false);
-      return handSnapshot();
-    };
-
     const initial = await handSnapshot();
-    assert(initial.allKeys.length > 2, `the opening scene should have actions beyond its first two cards: ${JSON.stringify(initial)}`);
-    assert(initial.drawVisible, "the all-actions control should appear whenever legal actions remain outside the two-card hand");
-    await page.locator("#shuffle").click();
-    await page.locator("#all-actions-modal:not([hidden])").waitFor();
-    await page.waitForFunction(() => document.activeElement?.hasAttribute?.("data-all-action-index"));
-    const completeSet = await page.evaluate(() => {
-      const buttons = [...document.querySelectorAll("[data-all-action-index]")];
-      return {
-        keys: [...new Set(buttons.map((button) => (
-          actionHandKey(actions[Number(button.dataset.allActionIndex)])
-        )).filter(Boolean))],
-        targetRows: buttons.filter((button) => button.hasAttribute("data-all-action-choice-index")).length,
-        dialogLabel: document.querySelector("#all-actions-title")?.textContent?.trim() || "",
-        focusedEntry: document.activeElement?.hasAttribute?.("data-all-action-index") || false,
-      };
-    });
     assert(
-      initial.allKeys.every((key) => completeSet.keys.includes(key))
-        && completeSet.dialogLabel === "all actions"
-        && completeSet.focusedEntry,
-      `the chooser should expose and focus every legal browser action: ${JSON.stringify({ initial, completeSet })}`,
+      initial.visibleKeys.length >= 1 && initial.visibleKeys.length <= 2 && initial.drawVisible,
+      `the opening scene should expose its finite hand and Think: ${JSON.stringify(initial)}`,
     );
-    const current = await drawOnce(initial);
-    const refreshedCompleteSet = await page.evaluate(() => ({
-      allKeys: [...validActionHandKeySet()],
-      chooserKeys: [...new Set([...document.querySelectorAll("[data-all-action-index]")].map((button) => (
-        actionHandKey(actions[Number(button.dataset.allActionIndex)])
-      )).filter(Boolean))],
-    }));
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => (
+        candidate.request().method() === "POST"
+        && new URL(candidate.url()).pathname === "/commands"
+        && String(candidate.request().postData() || "").includes("\"command\":\"pass\"")
+      )),
+      page.locator("#shuffle").click(),
+    ]);
+    const receipt = await response.json();
+    const drawEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
     assert(
-      refreshedCompleteSet.allKeys.every((key) => refreshedCompleteSet.chooserKeys.includes(key))
-        && current.visibleKeys.length <= 2
-        && current.eventSeq > initial.eventSeq,
-      `redeal should stay journaled and refresh the complete chooser without expanding the hand: ${JSON.stringify({ initial, current, refreshedCompleteSet })}`,
+      receipt.ok && Number(drawEvent?.seq || 0) > initial.eventSeq,
+      `Think should commit a newer hand.shuffled event: ${JSON.stringify(receipt)}`,
     );
-    await page.locator("[data-all-actions-close]").click();
-    await page.waitForFunction(() => document.querySelector("#all-actions-modal")?.hidden);
-
+    await page.waitForFunction(() => document.querySelector("#shuffle")?.disabled === false);
+    const current = await handSnapshot();
     const layout = await page.evaluate(() => {
       const prompt = document.querySelector("footer.prompt");
       const draw = document.querySelector("#shuffle");
@@ -641,13 +611,17 @@ async function main() {
       };
     });
     assert(
-      layout.promptFits && layout.drawFits && layout.journaled,
-      `two cards and their all-actions control should fit the mobile footer: ${JSON.stringify(layout)}`,
+      current.visibleKeys.length >= 1
+        && current.visibleKeys.length <= 2
+        && current.eventSeq > initial.eventSeq
+        && layout.promptFits
+        && layout.drawFits
+        && layout.journaled,
+      `Think should replace the finite hand without opening a full-deck chooser: ${JSON.stringify({ initial, current, layout })}`,
     );
     steps.push({
-      label: "browser chooser reaches every legal action",
-      actions: initial.allKeys.length,
-      targetRows: completeSet.targetRows,
+      label: "browser Think deals the next finite hand",
+      actions: current.visibleKeys.length,
       draws: 1,
     });
   }
@@ -861,18 +835,28 @@ async function main() {
         playerPromotedHandKey = "";
         authoritativeHandIdentity = "";
         result.restoredFocusHand = actionBarActions().map((action) => action.label);
+        actions = [
+          { ...syntheticTakeAction, offerIds: ["fresh-offer"] },
+          { ...syntheticListenAction, offerIds: ["notice-offer"] },
+        ];
         handKeys = ["item:2001", "check"];
         playerPromotedHandKey = "item:2001";
         authoritativeHandIdentity = "stale-offer";
-        state.action_hand = { entries: [{ offer_id: "fresh-offer", kind: "pick_up", state_revision: 2 }] };
+        state.action_hand = {
+          entries: [
+            { offer_id: "notice-offer", kind: "check", state_revision: 2 },
+            { offer_id: "fresh-offer", kind: "pick_up", state_revision: 2 },
+          ],
+        };
         result.playerFocusedHand = actionBarActions().map((action) => action.label);
         actions = [
-          syntheticListenAction,
+          { ...syntheticListenAction, offerIds: ["notice-offer"] },
           {
             label: "travel",
             focusKey: "travel:2|3",
             focusKeys: ["exit:2", "exit:3"],
             command: "go",
+            offerIds: ["regrouped-route-offer"],
             choices: [
               { label: "Mossy Verge", value: "2" },
               { label: "Rain-Silver Crossing", value: "3" },
@@ -884,7 +868,12 @@ async function main() {
         playerPromotedHandKey = "travel:2";
         handKeys = ["travel:2", "check"];
         authoritativeHandIdentity = "older-route-offer";
-        state.action_hand = { entries: [{ offer_id: "regrouped-route-offer", kind: "move", state_revision: 3 }] };
+        state.action_hand = {
+          entries: [
+            { offer_id: "notice-offer", kind: "check", state_revision: 3 },
+            { offer_id: "regrouped-route-offer", kind: "move", state_revision: 3 },
+          ],
+        };
         restoreFocusedAction();
         result.regroupedFocusedHand = actionBarActions().map((action) => action.label);
         result.regroupedFocusedChoice = actions[focusIndex]?.selectedChoice || "";
@@ -931,8 +920,15 @@ async function main() {
           ],
         };
         actions = [
-          { label: "chat", detail: "with Gust · use what you learned", focusKey: "bond:1002", command: "chat Gust", offerKinds: ["create_bond"] },
-          { ...travelAction, offerKinds: ["move"] },
+          {
+            label: "chat",
+            detail: "with Gust · use what you learned",
+            focusKey: "bond:1002",
+            command: "chat Gust",
+            offerIds: ["create-bond:gust"],
+            offerKinds: ["create_bond"],
+          },
+          { ...travelAction, offerIds: ["move:rain-soft-garden"], offerKinds: ["move"] },
         ];
         handKeys = ["bond:1002", "exit:2"];
         discardedHandKeys = [];
@@ -1042,77 +1038,83 @@ async function main() {
     );
     assert(
       guide.currentTurnBanner?.copy === "ordered combat — your turn"
-        && guide.currentTurnBanner?.controls?.join(",") === "draw,need time",
-      `the acting combat participant should reach draw-and-pass and need time from the banner, not the card row: ${JSON.stringify(guide.currentTurnBanner)}`,
+        && guide.currentTurnBanner?.controls?.join(",") === "need time",
+      `the acting combat participant should reach the certified Think control from the action bar and need time from the banner: ${JSON.stringify(guide.currentTurnBanner)}`,
     );
   }
 
-  async function assertOrderedDrawPassesAndRotatesOneCard() {
+  async function assertStalePassRefreshesAndRotatesReceipt() {
     const result = await page.evaluate(async () => {
       const previousState = state;
-      const previousActions = actions;
-      const previousHandKeys = handKeys;
-      const previousDiscardedHandKeys = discardedHandKeys;
-      const previousFocusIndex = focusIndex;
-      const previousFocusedKey = focusedKey;
-      const previousAuthoritativeHandIdentity = authoritativeHandIdentity;
-      const previousPlayerPromotedHandKey = playerPromotedHandKey;
-      const previousAction = action;
+      const previousActorId = actorId;
+      const previousActorSession = actorSession;
+      const previousSubmission = handPassSubmission;
+      const previousBusy = handShuffleBusy;
+      const previousPost = post;
+      const previousRefresh = refresh;
+      const previousRenderCommands = renderCommands;
+      const previousSetError = setError;
       const calls = [];
+      const errors = [];
       try {
         state = {
-          turn: {
-            enabled: true,
-            policy: "scene-turn",
-            is_current_actor: true,
-            can_pass: true,
-          },
+          world_seq: 19,
           primary_action: { kind: "check" },
+          action_hand: { pass: { offer_id: "pass:5000:19:1:ordinary" } },
         };
-        actions = [
-          { label: "notice", focusKey: "notice", command: "notice", handProvider: { priority: 1 } },
-          { label: "guard", focusKey: "guard", command: "guard", handProvider: { priority: 2 } },
-          { label: "step", focusKey: "step", command: "step", handProvider: { priority: 3 } },
-        ];
-        handKeys = ["notice", "guard"];
-        discardedHandKeys = [];
-        focusIndex = 0;
-        focusedKey = "notice";
-        playerPromotedHandKey = "";
-        authoritativeHandIdentity = JSON.stringify(
-          orderedActionIndexesForHand().map((index) => actionHandKey(actions[index])),
-        );
-        action = async (path, payload) => {
+        actorId = 5000;
+        actorSession = "stale-pass-test-session";
+        handPassSubmission = null;
+        handShuffleBusy = false;
+        post = async (path, payload) => {
           calls.push({ path, payload });
-          return { ok: true };
+          return calls.length === 1
+            ? { ok: false, status: 409, events: [] }
+            : { ok: true, status: 200, events: [] };
         };
-        const response = await drawAndPassOrderedSceneTurn();
+        refresh = async () => {
+          state = {
+            ...state,
+            world_seq: 20,
+            action_hand: { pass: { offer_id: "pass:5000:20:1:ordinary" } },
+          };
+        };
+        renderCommands = () => {};
+        setError = (message) => errors.push(message);
+
+        const stale = await passHand();
+        const submissionAfterStale = handPassSubmission;
+        const retry = await passHand();
         return {
-          ok: response?.ok === true,
+          stale,
+          retry,
           calls,
-          handKeys: [...handKeys],
-          discardedHandKeys: [...discardedHandKeys],
+          errors,
+          submissionAfterStale,
         };
       } finally {
-        action = previousAction;
+        post = previousPost;
+        refresh = previousRefresh;
+        renderCommands = previousRenderCommands;
+        setError = previousSetError;
         state = previousState;
-        actions = previousActions;
-        handKeys = previousHandKeys;
-        discardedHandKeys = previousDiscardedHandKeys;
-        focusIndex = previousFocusIndex;
-        focusedKey = previousFocusedKey;
-        authoritativeHandIdentity = previousAuthoritativeHandIdentity;
-        playerPromotedHandKey = previousPlayerPromotedHandKey;
+        actorId = previousActorId;
+        actorSession = previousActorSession;
+        handPassSubmission = previousSubmission;
+        handShuffleBusy = previousBusy;
         renderCommands();
       }
     });
     assert(
-      result.ok
-        && result.calls.length === 1
-        && result.calls[0]?.path === "/actions/pass"
-        && result.handKeys.join(",") === "guard,step"
-        && result.discardedHandKeys.join(",") === "notice",
-      "Drawing in an ordered scene must pass initiative and rotate only one suggestion: "
+      result.stale?.status === 409
+        && result.retry?.ok === true
+        && result.calls.length === 2
+        && result.calls.every((call) => call.path === "/commands")
+        && result.calls[0]?.payload?.offer_id === "pass:5000:19:1:ordinary"
+        && result.calls[1]?.payload?.offer_id === "pass:5000:20:1:ordinary"
+        && result.calls[0]?.payload?.envelope?.intent_id !== result.calls[1]?.payload?.envelope?.intent_id
+        && result.submissionAfterStale === null,
+      "A definitive stale Pass must refresh the hand and use a new certificate on retry: "
         + JSON.stringify(result),
     );
   }
@@ -1219,6 +1221,15 @@ async function main() {
         primary_action: {
           kind: "move",
           options: [{ kind: "chat" }, { kind: "move" }],
+        },
+        action_offers: [{
+          offer_id: "move:rain-soft-garden",
+          kind: "move",
+          target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+          provider: { kind: "location", id: "location:1", priority: 60 },
+        }],
+        action_hand: {
+          entries: [{ offer_id: "move:rain-soft-garden", kind: "move" }],
         },
         economy: {
           orbs: 0,
@@ -1341,6 +1352,20 @@ async function main() {
           { destination_location_id: 13, destination_location_name: "Cafeteria", accessible: true, locked: false, access_reason: "card locked" },
           { destination_location_id: 14, destination_location_name: "Greenhouse", accessible: true, locked: false, required_card_id: "location-greenhouse" },
           { destination_location_id: 15, destination_location_name: "Courtyard", accessible: true, locked: "true" },
+        ],
+        action_offers: [
+          {
+            offer_id: "move:cottage",
+            kind: "move",
+            target: { kind: "location", id: 1, label: "The Cosy Cottage" },
+            provider: { kind: "location", id: "location:11", label: "Homeroom" },
+          },
+          {
+            offer_id: "move:science-class",
+            kind: "move",
+            target: { kind: "location", id: 10, label: "Science Class" },
+            provider: { kind: "location", id: "location:11", label: "Homeroom" },
+          },
         ],
         cards: {
           actors: {},
@@ -1524,6 +1549,12 @@ async function main() {
           kind: "chat",
           options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
         },
+        action_offers: [{
+          offer_id: "move:rain-soft-garden",
+          kind: "move",
+          target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+          provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+        }],
         economy: { orbs: 1, can_chat_with_orbs: true, listen_cost_orbs: 0, listen_reward_claimable: true },
         search_available: true,
         room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
@@ -1996,6 +2027,294 @@ async function main() {
     assert(result.rows.some((row) => row[0] === "Choose" && /how you want to use/i.test(row[1])), `combined Use modal should describe an in-card choice: ${JSON.stringify(result)}`);
   }
 
+  async function assertExactTwoCardHandKeepsOfferAndPayloadBindings() {
+    const result = await page.evaluate(async () => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActorSession = actorSession;
+      const previousActions = actions;
+      const previousHandKeys = handKeys.slice();
+      const previousDiscardedHandKeys = discardedHandKeys.slice();
+      const previousFocusedKey = focusedKey;
+      const previousFocusIndex = focusIndex;
+      const previousAuthoritativeHandIdentity = authoritativeHandIdentity;
+      const previousPendingAction = pendingAction;
+      const previousFirstTaleCelebration = firstTaleCelebration;
+      const previousPlayerPromotedHandKey = playerPromotedHandKey;
+      const previousPost = post;
+      const previousRefresh = refresh;
+      const submissions = [];
+      const base = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        economy: { orbs: 0, can_chat_with_orbs: false, listen_attempted_here: true },
+        ledger: { unbanked_count: 0, banked_count: 0, advancement_points: 0 },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", hp: 4, stats: { hp_base: 6, level: 1 } },
+          { id: 1002, name: "Gust", kind: "npc", status: "active", hp: 4, stats: { hp_base: 6, level: 1 } },
+        ],
+        items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", holder_actor_id: 5000, charges: 2 }],
+        exits: [],
+        room_features: [],
+        cards: {
+          actors: {},
+          items: {
+            2001: { display_name: "Hearth Tonic", role: "item", aspect: "square", image_url: "" },
+            2004: { display_name: "Steady Light", role: "item", aspect: "square", image_url: "" },
+          },
+          locations: {},
+        },
+        access: {},
+      };
+      const capture = async (name, fakeState) => {
+        state = fakeState;
+        actions = buildActions(fakeState);
+        handKeys = [];
+        discardedHandKeys = [];
+        focusedKey = "";
+        focusIndex = 0;
+        authoritativeHandIdentity = "";
+        renderCommands();
+        const cards = actionBarActions();
+        const rendered = ["primary", "secondary"].map((id) => {
+          const button = document.querySelector(`#${id}`);
+          const action = actions[Number(button?.dataset?.actionIndex)];
+          return {
+            label: button?.querySelector(".cmd-label")?.textContent?.trim() || "",
+            detail: button?.querySelector(".detail")?.textContent?.trim() || "",
+            offerIds: action?.offerIds || [],
+          };
+        });
+        const start = submissions.length;
+        for (const card of cards) {
+          pendingAction = card;
+          await card.run();
+          pendingAction = null;
+        }
+        return { rendered, submissions: submissions.slice(start) };
+      };
+      try {
+        actorId = 5000;
+        actorSession = "exact-two-card-binding";
+        post = async (path, payload) => {
+          submissions.push({ path, payload });
+          return { ok: true, status: 200, events: [] };
+        };
+        refresh = async () => {};
+        return {
+          use: await capture("use", {
+            ...base,
+            primary_action: { kind: "use_item", options: [{ kind: "use_item" }] },
+            action_offers: [
+              { offer_id: "use-rati", kind: "use_item", provider: { kind: "item", id: "item:2001" }, target: { kind: "actor", id: 1001, label: "Rati" }, command: "use Hearth Tonic on Rati" },
+              { offer_id: "use-gust", kind: "use_item", provider: { kind: "item", id: "item:2001" }, target: { kind: "actor", id: 1002, label: "Gust" }, command: "use Hearth Tonic on Gust" },
+            ],
+            action_hand: { entries: [{ offer_id: "use-rati", kind: "use_item" }, { offer_id: "use-gust", kind: "use_item" }] },
+          }),
+          chat: await capture("chat", {
+            ...base,
+            primary_action: { kind: "chat", options: [{ kind: "chat" }] },
+            action_offers: [
+              { offer_id: "chat-rati", kind: "chat", provider: { kind: "rules", id: "chat-rati" }, target: { kind: "actor", id: 1001, label: "Rati" }, command: "chat Rati" },
+              { offer_id: "chat-gust", kind: "chat", provider: { kind: "rules", id: "chat-gust" }, target: { kind: "actor", id: 1002, label: "Gust" }, command: "chat Gust" },
+            ],
+            action_hand: { entries: [{ offer_id: "chat-rati", kind: "chat" }, { offer_id: "chat-gust", kind: "chat" }] },
+          }),
+          bond: await capture("bond", {
+            ...base,
+            ledger: { ...base.ledger, advancement_points: 1 },
+            primary_action: { kind: "create_bond", options: [{ kind: "create_bond" }] },
+            action_offers: [
+              { offer_id: "bond-rati", kind: "create_bond", provider: { kind: "rules", id: "bond-rati" }, target: { kind: "actor", id: 1001, label: "Rati" }, command: "bond Rati" },
+              { offer_id: "bond-gust", kind: "create_bond", provider: { kind: "rules", id: "bond-gust" }, target: { kind: "actor", id: 1002, label: "Gust" }, command: "bond Gust" },
+            ],
+            action_hand: { entries: [{ offer_id: "bond-rati", kind: "create_bond" }, { offer_id: "bond-gust", kind: "create_bond" }] },
+          }),
+          give: await capture("give", {
+            ...base,
+            primary_action: { kind: "give_item", options: [{ kind: "give_item" }] },
+            action_offers: [
+              { id: "give_item:2001:1001", offer_id: "give-rati", kind: "give_item", provider: { kind: "rules", id: "give-rati" }, target: { kind: "actor", id: 1001, label: "Rati" }, command: "give Hearth Tonic to Rati" },
+              { id: "give_item:2001:1002", offer_id: "give-gust", kind: "give_item", provider: { kind: "rules", id: "give-gust" }, target: { kind: "actor", id: 1002, label: "Gust" }, command: "give Hearth Tonic to Gust" },
+            ],
+            action_hand: { entries: [{ offer_id: "give-rati", kind: "give_item" }, { offer_id: "give-gust", kind: "give_item" }] },
+          }),
+          trade: await capture("trade", {
+            ...base,
+            primary_action: { kind: "trade_item", options: [{ kind: "trade_item" }] },
+            items: [...base.items, { id: 2005, name: "Story Button", kind: "item", holder_actor_id: 5000 }, { id: 2002, name: "Dewbright Button", kind: "item", holder_actor_id: 1001 }, { id: 2003, name: "Watch Bell", kind: "item", holder_actor_id: 1002 }],
+            action_offers: [
+              { id: "trade_item:2005:1001:2002", offer_id: "trade-rati", kind: "trade_item", provider: { kind: "rules", id: "trade-rati" }, target: { kind: "item", id: 2002, label: "Dewbright Button" }, command: "trade Story Button with Rati for Dewbright Button" },
+              { id: "trade_item:2005:1002:2003", offer_id: "trade-gust", kind: "trade_item", provider: { kind: "rules", id: "trade-gust" }, target: { kind: "item", id: 2003, label: "Watch Bell" }, command: "trade Story Button with Gust for Watch Bell" },
+            ],
+            action_hand: { entries: [{ offer_id: "trade-rati", kind: "trade_item" }, { offer_id: "trade-gust", kind: "trade_item" }] },
+          }),
+          theft: await capture("theft", {
+            ...base,
+            primary_action: { kind: "theft", options: [{ kind: "theft" }] },
+            items: [...base.items, { id: 2002, name: "Rati's Bell", kind: "item", holder_actor_id: 1001 }, { id: 2003, name: "Gust's Thread", kind: "item", holder_actor_id: 1002 }],
+            action_offers: [
+              { offer_id: "theft-rati", kind: "theft", provider: { kind: "rules", id: "theft-rati" }, target: { kind: "item", id: 2002, label: "Rati's Bell" } },
+              { offer_id: "theft-gust", kind: "theft", provider: { kind: "rules", id: "theft-gust" }, target: { kind: "item", id: 2003, label: "Gust's Thread" } },
+            ],
+            action_hand: { entries: [{ offer_id: "theft-rati", kind: "theft" }, { offer_id: "theft-gust", kind: "theft" }] },
+          }),
+          craft: await capture("craft", {
+            ...base,
+            primary_action: { kind: "craft", options: [{ kind: "craft" }] },
+            action_offers: [
+              { offer_id: "craft-lantern", kind: "craft", provider: { kind: "rules", id: "craft-lantern" }, target: { kind: "recipe", id: 71, label: "Pocket Lantern" }, command: "craft Pocket Lantern" },
+              { offer_id: "craft-charm", kind: "craft", provider: { kind: "rules", id: "craft-charm" }, target: { kind: "recipe", id: 72, label: "Rain Charm" }, command: "craft Rain Charm" },
+            ],
+            action_hand: { entries: [{ offer_id: "craft-lantern", kind: "craft" }, { offer_id: "craft-charm", kind: "craft" }] },
+          }),
+          attack: await capture("attack", {
+            ...base,
+            primary_action: { kind: "attack", options: [{ kind: "attack" }] },
+            action_offers: [
+              { offer_id: "attack-rati", kind: "attack", provider: { kind: "rules", id: "attack-rati" }, target: { kind: "actor", id: 1001, label: "Rati" } },
+              { offer_id: "attack-gust", kind: "attack", provider: { kind: "rules", id: "attack-gust" }, target: { kind: "actor", id: 1002, label: "Gust" } },
+            ],
+            action_hand: { entries: [{ offer_id: "attack-rati", kind: "attack" }, { offer_id: "attack-gust", kind: "attack" }] },
+          }),
+          influence: await capture("influence", {
+            ...base,
+            primary_action: { kind: "influence", options: [{ kind: "influence" }] },
+            action_offers: [
+              { offer_id: "influence-rati", kind: "influence", provider: { kind: "rules", id: "influence-rati" }, target: { kind: "actor", id: 1001, label: "Rati" }, command: "ask Rati" },
+              { offer_id: "influence-gust", kind: "influence", provider: { kind: "rules", id: "influence-gust" }, target: { kind: "actor", id: 1002, label: "Gust" }, command: "ask Gust" },
+            ],
+            action_hand: { entries: [{ offer_id: "influence-rati", kind: "influence" }, { offer_id: "influence-gust", kind: "influence" }] },
+          }),
+          cast: await capture("cast", {
+            ...base,
+            primary_action: { kind: "cast_spell", options: [{ kind: "cast_spell" }] },
+            action_offers: [
+              { offer_id: "cast-lantern", kind: "cast_spell", label: "cast lantern", provider: { kind: "item", id: "item:2001" }, target: { kind: "actor", id: 5000, label: "Lantern Stitch" }, source_collectible: { kind: "item", instance_id: 2001 } },
+              { offer_id: "cast-charm", kind: "cast_spell", label: "cast charm", provider: { kind: "item", id: "item:2004" }, target: { kind: "actor", id: 5000, label: "Lantern Stitch" }, source_collectible: { kind: "item", instance_id: 2004 } },
+            ],
+            action_hand: { entries: [{ offer_id: "cast-lantern", kind: "cast_spell" }, { offer_id: "cast-charm", kind: "cast_spell" }] },
+          }),
+          resolveBond: await capture("resolve bond", {
+            ...base,
+            bonds: [{ target_actor_id: 1001, strength: 2, status: "active" }, { target_actor_id: 1002, strength: 2, status: "active" }],
+            primary_action: { kind: "resolve_bond", options: [{ kind: "resolve_bond" }] },
+            action_offers: [
+              { offer_id: "remember-rati", kind: "resolve_bond", provider: { kind: "rules", id: "remember-rati" }, target: { kind: "actor", id: 1001, label: "Rati" } },
+              { offer_id: "remember-gust", kind: "resolve_bond", provider: { kind: "rules", id: "remember-gust" }, target: { kind: "actor", id: 1002, label: "Gust" } },
+            ],
+            action_hand: { entries: [{ offer_id: "remember-rati", kind: "resolve_bond" }, { offer_id: "remember-gust", kind: "resolve_bond" }] },
+          }),
+          contribution: await capture("contribution", {
+            ...base,
+            primary_action: { kind: "work", options: [{ kind: "work" }] },
+            action_offers: [
+              { offer_id: "work-steady", kind: "work", provider: { kind: "rules", id: "work-steady" }, target: { kind: "location", id: 1, label: "The Cosy Cottage" }, project: { id: "cottage-repair", label: "Cottage Repair", summary: "Mend the cottage together.", strategy_id: "steady", strategy_label: "Steady the beams" }, command: "work steady" },
+              { offer_id: "work-mend", kind: "work", provider: { kind: "rules", id: "work-mend" }, target: { kind: "location", id: 1, label: "The Cosy Cottage" }, project: { id: "cottage-repair", label: "Cottage Repair", summary: "Mend the cottage together.", strategy_id: "mend", strategy_label: "Mend the window" }, command: "work mend" },
+            ],
+            action_hand: { entries: [{ offer_id: "work-steady", kind: "work" }, { offer_id: "work-mend", kind: "work" }] },
+          }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actorSession = previousActorSession;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        discardedHandKeys = previousDiscardedHandKeys;
+        focusedKey = previousFocusedKey;
+        focusIndex = previousFocusIndex;
+        authoritativeHandIdentity = previousAuthoritativeHandIdentity;
+        pendingAction = previousPendingAction;
+        firstTaleCelebration = previousFirstTaleCelebration;
+        playerPromotedHandKey = previousPlayerPromotedHandKey;
+        post = previousPost;
+        refresh = previousRefresh;
+        render();
+      }
+    });
+    const exactCards = (family, expected) => {
+      assert(
+        JSON.stringify(family.rendered) === JSON.stringify(expected.map((entry) => ({
+          label: entry.label,
+          detail: entry.detail,
+          offerIds: [entry.offerId],
+        }))),
+        `two same-kind current offers must remain two distinct exact cards: ${JSON.stringify(family)}`,
+      );
+      assert(
+        JSON.stringify(family.submissions.map((submission) => ({
+          path: submission.path,
+          offerId: submission.payload.offer_id,
+          target: submission.payload.target,
+          payload: {
+            actor_id: submission.payload.payload.actor_id,
+            ...(submission.payload.payload.item_id !== undefined ? { item_id: submission.payload.payload.item_id } : {}),
+            ...(submission.payload.payload.target_actor_id !== undefined ? { target_actor_id: submission.payload.payload.target_actor_id } : {}),
+            ...(submission.payload.payload.target_item_id !== undefined ? { target_item_id: submission.payload.payload.target_item_id } : {}),
+            ...(submission.payload.payload.recipe_id !== undefined ? { recipe_id: submission.payload.payload.recipe_id } : {}),
+            ...(submission.payload.payload.job_id !== undefined ? { job_id: submission.payload.payload.job_id } : {}),
+            ...(submission.payload.payload.strategy_id !== undefined ? { strategy_id: submission.payload.payload.strategy_id } : {}),
+          },
+        }))) === JSON.stringify(expected.map((entry) => ({
+          path: entry.path,
+          offerId: entry.offerId,
+          target: entry.target,
+          payload: entry.payload,
+        }))),
+        `each exact card must submit its own certificate and payload target tuple: ${JSON.stringify(family)}`,
+      );
+    };
+    exactCards(result.use, [
+      { label: "use", detail: "Hearth Tonic on Rati", offerId: "use-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, item_id: 2001, target_actor_id: 1001 } },
+      { label: "use", detail: "Hearth Tonic on Gust", offerId: "use-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, item_id: 2001, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.chat, [
+      { label: "chat", detail: "with Rati · a short exchange", offerId: "chat-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, target_actor_id: 1001 } },
+      { label: "chat", detail: "with Gust · a short exchange", offerId: "chat-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.bond, [
+      { label: "befriend", detail: "with Rati · use what you learned", offerId: "bond-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, target_actor_id: 1001 } },
+      { label: "befriend", detail: "with Gust · use what you learned", offerId: "bond-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.give, [
+      { label: "give", detail: "Hearth Tonic to Rati", offerId: "give-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, item_id: 2001, target_actor_id: 1001 } },
+      { label: "give", detail: "Hearth Tonic to Gust", offerId: "give-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, item_id: 2001, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.trade, [
+      { label: "trade", detail: "Story Button for Dewbright Button with Rati", offerId: "trade-rati", path: "/actions/submit", target: { kind: "item", id: 2002, label: "Dewbright Button" }, payload: { actor_id: 5000, item_id: 2005, target_actor_id: 1001, target_item_id: 2002 } },
+      { label: "trade", detail: "Story Button for Watch Bell with Gust", offerId: "trade-gust", path: "/actions/submit", target: { kind: "item", id: 2003, label: "Watch Bell" }, payload: { actor_id: 5000, item_id: 2005, target_actor_id: 1002, target_item_id: 2003 } },
+    ]);
+    exactCards(result.theft, [
+      { label: "steal", detail: "Rati's Bell", offerId: "theft-rati", path: "/actions/submit", target: { kind: "item", id: 2002, label: "Rati's Bell" }, payload: { actor_id: 5000, item_id: 2002, target_actor_id: 1001, target_item_id: 2002 } },
+      { label: "steal", detail: "Gust's Thread", offerId: "theft-gust", path: "/actions/submit", target: { kind: "item", id: 2003, label: "Gust's Thread" }, payload: { actor_id: 5000, item_id: 2003, target_actor_id: 1002, target_item_id: 2003 } },
+    ]);
+    exactCards(result.craft, [
+      { label: "craft", detail: "Pocket Lantern", offerId: "craft-lantern", path: "/actions/submit", target: { kind: "recipe", id: 71, label: "Pocket Lantern" }, payload: { actor_id: 5000, recipe_id: 71 } },
+      { label: "craft", detail: "Rain Charm", offerId: "craft-charm", path: "/actions/submit", target: { kind: "recipe", id: 72, label: "Rain Charm" }, payload: { actor_id: 5000, recipe_id: 72 } },
+    ]);
+    exactCards(result.attack, [
+      { label: "attack", detail: "Rati · unarmed strike", offerId: "attack-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, target_actor_id: 1001 } },
+      { label: "attack", detail: "Gust · unarmed strike", offerId: "attack-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.influence, [
+      { label: "influence", detail: "Rati", offerId: "influence-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, target_actor_id: 1001 } },
+      { label: "influence", detail: "Gust", offerId: "influence-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.cast, [
+      { label: "cast lantern", detail: "Hearth Tonic", offerId: "cast-lantern", path: "/actions/submit", target: { kind: "actor", id: 5000, label: "Lantern Stitch" }, payload: { actor_id: 5000, item_id: 2001, target_actor_id: 5000 } },
+      { label: "cast charm", detail: "Steady Light", offerId: "cast-charm", path: "/actions/submit", target: { kind: "actor", id: 5000, label: "Lantern Stitch" }, payload: { actor_id: 5000, item_id: 2004, target_actor_id: 5000 } },
+    ]);
+    exactCards(result.resolveBond, [
+      { label: "remember", detail: "Rati, keep what mattered", offerId: "remember-rati", path: "/actions/submit", target: { kind: "actor", id: 1001, label: "Rati" }, payload: { actor_id: 5000, target_actor_id: 1001 } },
+      { label: "remember", detail: "Gust, keep what mattered", offerId: "remember-gust", path: "/actions/submit", target: { kind: "actor", id: 1002, label: "Gust" }, payload: { actor_id: 5000, target_actor_id: 1002 } },
+    ]);
+    exactCards(result.contribution, [
+      { label: "steady the beams", detail: "The Cosy Cottage", offerId: "work-steady", path: "/actions/submit", target: { kind: "location", id: 1, label: "The Cosy Cottage" }, payload: { actor_id: 5000, job_id: "cottage-repair", strategy_id: "steady" } },
+      { label: "mend the window", detail: "The Cosy Cottage", offerId: "work-mend", path: "/actions/submit", target: { kind: "location", id: 1, label: "The Cosy Cottage" }, payload: { actor_id: 5000, job_id: "cottage-repair", strategy_id: "mend" } },
+    ]);
+  }
+
   async function assertChatPrimaryUsesCompactActorDetail() {
     const result = await page.evaluate(() => {
       const previousState = state;
@@ -2124,12 +2443,11 @@ async function main() {
           ...baseState,
           action_offers: [{
             ...baseState.action_offers[1],
-            target: { kind: "actor", id: 1001, label: "Rati" },
-            command: "bond Rati: I bring small kindnesses to Rati.",
+            target: { kind: "actor", id: 8301, label: "Mara Wick" },
+            command: "bond Mara Wick: I keep watch with Mara Wick.",
           }],
           actors: [
             baseState.actors[0],
-            { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
             {
               id: 8301,
               name: "Mara Wick",
@@ -2152,8 +2470,6 @@ async function main() {
         openActionModal(action);
         const before = [...document.querySelectorAll("#action-modal-meta .action-row")]
           .map((node) => node.textContent.trim().replace(/\s+/g, " "));
-        const maraIndex = action.choices.findIndex((choice) => choice.label === "Mara Wick");
-        chooseActionModalChoice(maraIndex);
         const selected = [...document.querySelectorAll("#action-modal-meta .action-row")]
           .map((node) => ({
             label: node.querySelector(".action-row-key")?.textContent?.trim() || "",
@@ -2234,13 +2550,12 @@ async function main() {
     assert(result.claimed?.detail === "with Skull · a short exchange", `Chat should remain available after friendship begins: ${JSON.stringify(result)}`);
     assert(result.freshOrder?.some((action) => action.label === "chat"), `eligible Chat should stay available beside travel: ${JSON.stringify(result)}`);
     assert(result.claimedOrder?.some((action) => action.label === "chat"), `an existing friendship should not remove Chat: ${JSON.stringify(result)}`);
-    assert(result.multiResident?.length === 1, `nearby residents should share one choice-bearing Chat card: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.detail === "choose someone nearby", `multi-resident Chat should advertise its in-card target choice: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.title === "choose someone to chat with", `multi-resident Chat should open a clear target picker: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Choose someone nearby for a short back-and-forth conversation.", `multi-resident Chat should explain its bounded conversation: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.choices?.map((choice) => choice.label).join(",") === "Rati,Skull", `the Chat card should carry every eligible resident choice: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.alternateTargetId === 1003, `confirming an alternate Chat choice should address that resident: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.focusKeys?.includes("actor:1001") && result.multiResident[0]?.focusKeys?.includes("actor:1003"), `one Chat card should retain affinity for every resident it can reach: ${JSON.stringify(result)}`);
+    assert(result.multiResident?.length === 1, `one dealt Chat offer should render one card: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.detail === "with Rati · a short exchange", `a dealt Chat card must name its exact resident: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.title === "chat with Rati", `the exact Chat card should open a targeted confirmation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Your avatar and Rati will trade a few short lines.", `the exact Chat card should explain its bounded conversation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.choices?.length === 0 && result.multiResident[0]?.alternateTargetId === 0, `a Chat card must not expose undealt residents as failing choices: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.focusKeys?.join(",") === "actor:1001", `the dealt Chat card must bind only Rati's offer identity: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "chat with Skull", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.summary === "Your avatar and Skull will trade a few short lines.", `Chat confirmation should explain its bounded exchange: ${JSON.stringify(result)}`);
     assert(!result.serverPaid?.rows?.some((row) => row[0] === "Costs"), `chat confirmation should never display an Orb cost: ${JSON.stringify(result)}`);
@@ -2296,8 +2611,8 @@ async function main() {
     });
     assert(/connection begins forming/i.test(result.forming) && /friendship has not been claimed/i.test(result.forming), `forming Bond presentation must not claim friendship: ${JSON.stringify(result)}`);
     assert(result.beat.includes("empty key hook") && result.beat.includes("Keeper's Brass Key"), `the authored campaign consequence should remain visible without dialogue: ${JSON.stringify(result)}`);
-    assert(/Dialogue unavailable/i.test(result.unavailable) && /no substitute speech/i.test(result.unavailable), `provider-offline failure must be explicit and truthful: ${JSON.stringify(result)}`);
-    assert(result.unavailableStatus?.label === "dialogue unavailable", `typed dialogue failure should keep its visible event label: ${JSON.stringify(result)}`);
+    assert(/Reply unavailable/i.test(result.unavailable) && /no substitute reply/i.test(result.unavailable), `provider-offline failure must be explicit and truthful: ${JSON.stringify(result)}`);
+    assert(result.unavailableStatus?.label === "reply unavailable", `typed reply failure should keep its visible event label: ${JSON.stringify(result)}`);
   }
 
   async function assertGiftPrimaryUsesCompactVerb() {
@@ -2312,6 +2627,8 @@ async function main() {
           options: [{ kind: "give_item" }],
         },
         action_offers: [{
+          id: "give_item:2002:1002",
+          offer_id: "give-gust",
           kind: "give_item",
           target: { kind: "actor", id: 1002, label: "Gust" },
           effect: "Gust wants Dewbright Button; Gust hands you Story Button to make room",
@@ -2385,7 +2702,28 @@ async function main() {
           kind: "give_item",
           options: [{ kind: "give_item" }],
         },
-        action_offers: [{ kind: "give_item", effect: "gives Story Button to a resident who wants it" }],
+        action_offers: [
+          {
+            id: "give_item:2005:1040",
+            offer_id: "give-oak",
+            kind: "give_item",
+            target: { kind: "actor", id: 1040, label: "Oak" },
+            effect: "gives Story Button to a resident who wants it",
+          },
+          {
+            id: "give_item:2005:1001",
+            offer_id: "give-rati",
+            kind: "give_item",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            effect: "gives Story Button to a resident who wants it",
+          },
+        ],
+        action_hand: {
+          entries: [
+            { offer_id: "give-oak", kind: "give_item" },
+            { offer_id: "give-rati", kind: "give_item" },
+          ],
+        },
         economy: { orbs: 0, can_chat_with_orbs: false },
         ledger: { unbanked_count: 0, banked_count: 1, advancement_points: 0 },
         actors: [
@@ -2434,25 +2772,15 @@ async function main() {
       try {
         actions = buildActions(fakeState);
         const gifts = actions.filter((action) => action.label === "give");
-        const gift = gifts[0] || null;
-        if (gift) openActionModal(gift);
-        const modal = {
-          title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
-          summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
-          confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
-          choices: [...document.querySelectorAll("#action-modal-choices .action-choice")]
-            .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
-        };
-        if (gift?.choices?.length > 1) chooseActionModalChoice(1);
         return {
           count: gifts.length,
-          detail: gift?.detail || "",
-          command: gift?.command || "",
-          focusKeys: gift?.focusKeys || [],
-          choices: gift?.choices || [],
-          selectedChoice: gift?.selectedChoice || "",
-          selectedPayload: gift?.selectedPayload?.() || null,
-          modal,
+          cards: gifts.map((gift) => ({
+            detail: gift.detail || "",
+            command: gift.command || "",
+            offerIds: gift.offerIds || [],
+            focusKeys: gift.focusKeys || [],
+            choices: gift.choices || [],
+          })),
         };
       } finally {
         closeActionModal();
@@ -2461,26 +2789,23 @@ async function main() {
         actions = previousActions;
       }
     });
-    assert(result.count === 1, `multiple valid gifts should collapse into one card: ${JSON.stringify(result)}`);
-    assert(result.detail === "Story Button · choose who", `grouped gift should carry its choice without a numeric counter: ${JSON.stringify(result)}`);
-    assert(result.command === "give", `grouped gift should expose one generic card command: ${JSON.stringify(result)}`);
+    assert(result.count === 2, `two certified gifts should remain two exact cards: ${JSON.stringify(result)}`);
     assert(
-      ["Oak", "Rati"].every((name) => result.choices.some((choice) => choice.label === name)),
-      `grouped gift should carry both recipient choices: ${JSON.stringify(result)}`,
+      JSON.stringify(result.cards.map((card) => ({ detail: card.detail, offerIds: card.offerIds })))
+        === JSON.stringify([
+          { detail: "Story Button to Oak", offerIds: ["give-oak"] },
+          { detail: "Story Button to Rati", offerIds: ["give-rati"] },
+        ]),
+      `each certified gift should retain its exact recipient and offer: ${JSON.stringify(result)}`,
     );
-    assert(result.choices.every((choice) => choice.card?.card_id === "story-button"), `every gift choice should carry the item card shown by its selection: ${JSON.stringify(result)}`);
     assert(
-      ["actor:1040", "actor:1001", "item:2005"].every((key) => result.focusKeys.includes(key)),
-      `grouped gift should retain every resident and item focus anchor: ${JSON.stringify(result)}`,
+      result.cards.every((card) => card.choices.length === 0 && card.command.startsWith("give Story Button to ")),
+      `a certified gift card must not expose undealt recipients as choices: ${JSON.stringify(result)}`,
     );
-    assert(result.selectedChoice === result.choices[1]?.value, `gift choice selection should update the pending card: ${JSON.stringify(result)}`);
-    assert(result.selectedPayload?.target_actor_id === 1001 && result.selectedPayload?.item_id === 2005, `gift confirmation should use the selected recipient: ${JSON.stringify(result)}`);
-    assert(result.modal.title === "choose who receives it", `grouped gift should make the recipient choice clear: ${JSON.stringify(result)}`);
-    assert(result.modal.summary === "Choose who receives Story Button.", `grouped gift should explain the choice: ${JSON.stringify(result)}`);
-    assert(result.modal.confirm === "give", `grouped gift should use a Give confirmation: ${JSON.stringify(result)}`);
     assert(
-      ["Oak", "Rati"].every((name) => result.modal.choices.some((choice) => choice.includes(name) && choice.includes("Story Button"))),
-      `gift modal should render both carried choices: ${JSON.stringify(result)}`,
+      result.cards.some((card) => card.focusKeys.includes("actor:1040") && card.focusKeys.includes("item:2005"))
+        && result.cards.some((card) => card.focusKeys.includes("actor:1001") && card.focusKeys.includes("item:2005")),
+      `each certified gift should keep its recipient and carried-item focus anchors: ${JSON.stringify(result)}`,
     );
   }
 
@@ -2495,7 +2820,22 @@ async function main() {
           kind: "move",
           options: [{ kind: "move" }],
         },
-        action_offers: [{ kind: "move", effect: "moves to an accessible adjacent room" }],
+        action_offers: [
+          {
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+            effect: "moves to an accessible adjacent room",
+          },
+          {
+            offer_id: "move:homeroom",
+            kind: "move",
+            target: { kind: "location", id: 11, label: "Homeroom" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+            effect: "moves to an accessible adjacent room",
+          },
+        ],
         economy: { orbs: 0, can_chat_with_orbs: false },
         ledger: { unbanked_count: 0, banked_count: 0, advancement_points: 0 },
         actors: [
@@ -2834,10 +3174,10 @@ async function main() {
         };
         actorId = 5000;
         actions = [
-          { label: "rest", detail: "feel fresh", command: "rest", focusKey: "rest", offerKinds: ["rest"], handProvider: { priority: 0, reason: "Because you need to recover" } },
-          { label: "travel", detail: "choose a path", command: "go", focusKey: "travel:11", focusKeys: ["exit:11"], card: state.cards.locations[1], offerKinds: ["move"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
-          { label: "take", detail: "Hearth Tonic", command: "take Hearth Tonic", focusKey: "item:2001", card: tonic, offerKinds: ["pick_up"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
-          { label: "chat", detail: "Gust", command: "chat Gust", focusKey: "actor:1002", card: gust, offerKinds: ["chat"], handProvider: { priority: 20, reason: "Because Gust trusts you" } },
+          { label: "rest", detail: "feel fresh", command: "rest", focusKey: "rest", offerKinds: ["rest"], offerIds: ["rest:rest"], handProvider: { priority: 0, reason: "Because you need to recover" } },
+          { label: "travel", detail: "choose a path", command: "go", focusKey: "travel:11", focusKeys: ["exit:11"], card: state.cards.locations[1], offerKinds: ["move"], offerIds: ["move:go"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
+          { label: "take", detail: "Hearth Tonic", command: "take Hearth Tonic", focusKey: "item:2001", card: tonic, offerKinds: ["pick_up"], offerIds: ["pickup:tonic"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
+          { label: "chat", detail: "Gust", command: "chat Gust", focusKey: "actor:1002", card: gust, offerKinds: ["chat"], offerIds: ["chat:gust"], handProvider: { priority: 20, reason: "Because Gust trusts you" } },
         ];
         handKeys = [];
         discardedHandKeys = [];
@@ -3039,7 +3379,9 @@ async function main() {
           options: [{ kind: "pick_up" }],
         },
         action_offers: [{
+          offer_id: "pickup-story-button",
           kind: "pick_up",
+          target: { kind: "item", id: 2005, label: "Story Button" },
           effect: "adds the floor item to your carried deck",
         }],
         economy: {
@@ -3110,11 +3452,91 @@ async function main() {
             ...baseState,
             economy: { ...baseState.economy, inventory_count: 0 },
             items: twoFloorItems,
+            action_offers: [
+              { offer_id: "pickup-story-button", kind: "pick_up", target: { kind: "item", id: 2005, label: "Story Button" } },
+              { offer_id: "pickup-watch-bell", kind: "pick_up", target: { kind: "item", id: 2007, label: "Watch Bell" } },
+            ],
           }, "take"),
           multipleWhileCarrying: choiceSnapshot({
             ...baseState,
             items: [baseState.items[0], ...twoFloorItems],
+            action_offers: [
+              { offer_id: "pickup-story-button", kind: "pick_up", target: { kind: "item", id: 2005, label: "Story Button" } },
+              { offer_id: "pickup-watch-bell", kind: "pick_up", target: { kind: "item", id: 2007, label: "Watch Bell" } },
+            ],
           }, "take"),
+          projectedSingle: choiceSnapshot({
+            ...baseState,
+            economy: { ...baseState.economy, inventory_count: 0 },
+            items: twoFloorItems,
+            action_offers: [
+              { offer_id: "pickup-story-button", kind: "pick_up", target: { kind: "item", id: 2005, label: "Story Button" } },
+              { offer_id: "pickup-watch-bell", kind: "pick_up", target: { kind: "item", id: 2007, label: "Watch Bell" } },
+            ],
+            action_hand: {
+              entries: [{ offer_id: "pickup-watch-bell", kind: "pick_up" }],
+            },
+          }, "take"),
+          projectedDouble: (() => {
+            const projected = {
+              ...baseState,
+              economy: { ...baseState.economy, inventory_count: 0 },
+              items: twoFloorItems,
+              action_offers: [
+                { offer_id: "pickup-story-button", kind: "pick_up", target: { kind: "item", id: 2005, label: "Story Button" } },
+                { offer_id: "pickup-watch-bell", kind: "pick_up", target: { kind: "item", id: 2007, label: "Watch Bell" } },
+              ],
+              action_hand: {
+                entries: [
+                  { offer_id: "pickup-story-button", kind: "pick_up" },
+                  { offer_id: "pickup-watch-bell", kind: "pick_up" },
+                ],
+              },
+            };
+            state = projected;
+            actions = buildActions(projected);
+            handKeys = [];
+            discardedHandKeys = [];
+            authoritativeHandIdentity = "";
+            const visible = actionBarActions().filter((action) => action.label === "take");
+            return visible.map((action) => ({
+              detail: action.detail,
+              offerIds: action.offerIds,
+              itemId: action.selectedPayload().item_id,
+            }));
+          })(),
+          capacityExchange: (() => {
+            const atCapacity = {
+              ...baseState,
+              economy: {
+                ...baseState.economy,
+                inventory_count: 2,
+                carried_weight_tenths: 150,
+                carrying_capacity_tenths: 150,
+              },
+              items: [
+                { id: 2002, name: "Dewbright Button", kind: "evolution", holder_actor_id: 5000, weight_tenths: 75 },
+                { id: 2007, name: "Watch Bell", kind: "evolution", holder_actor_id: 5000, weight_tenths: 75 },
+                { id: 2005, name: "Story Button", kind: "evolution", location_id: 1, weight_tenths: 75 },
+              ],
+              action_offers: [{
+                offer_id: "pickup-story-button",
+                kind: "pick_up",
+                target: { kind: "item", id: 2005, label: "Story Button" },
+              }],
+              action_hand: {
+                entries: [{ offer_id: "pickup-story-button", kind: "pick_up" }],
+              },
+            };
+            state = atCapacity;
+            actorId = 5000;
+            const action = buildActions(atCapacity).find((candidate) => candidate.focusKey === "item:2005");
+            return {
+              label: action?.label || "",
+              detail: action?.detail || "",
+              payload: action?.selectedPayload?.() || null,
+            };
+          })(),
           searchConfirm: actionConfirmLabel({ label: "search", command: "search" }),
           travelConfirm: actionConfirmLabel({ label: "travel", command: "go Rain-Soft Garden" }),
         };
@@ -3136,6 +3558,30 @@ async function main() {
     assert(result.multiple.summary === "Take one of the room's keepsakes.", `multi-item Take should explain the choice warmly: ${JSON.stringify(result)}`);
     assert(result.multipleWhileCarrying.count === 1 && result.multipleWhileCarrying.label === "take", `carrying cards should not change the room picker into an implicit Swap card: ${JSON.stringify(result)}`);
     assert(result.multipleWhileCarrying.detail === "choose a keepsake" && result.multipleWhileCarrying.selectedItemId === 2007, `Take should preserve the chosen incoming card while other carried cards remain held: ${JSON.stringify(result)}`);
+    assert(
+      result.projectedSingle.label === "take"
+        && result.projectedSingle.detail === "Watch Bell"
+        && result.projectedSingle.choices.length === 0
+        && result.projectedSingle.selectedItemId === 2007,
+      `a dealt pickup card must render and submit only its exact offer target, without a client-side picker: ${JSON.stringify(result.projectedSingle)}`,
+    );
+    assert(
+      JSON.stringify(result.projectedDouble) === JSON.stringify([
+        { detail: "Story Button", offerIds: ["pickup-story-button"], itemId: 2005 },
+        { detail: "Watch Bell", offerIds: ["pickup-watch-bell"], itemId: 2007 },
+      ]),
+      `two distinct dealt pickup offers must render as two exact cards, not one chooser: ${JSON.stringify(result.projectedDouble)}`,
+    );
+    assert(
+      result.capacityExchange.label === "swap"
+        && result.capacityExchange.detail === "Dewbright Button for Story Button"
+        && JSON.stringify(result.capacityExchange.payload) === JSON.stringify({
+          actor_id: 5000,
+          item_id: 2005,
+          target_item_id: 2002,
+        }),
+      `a full carried deck must submit the exact deterministic exchange chosen by the Rust authority: ${JSON.stringify(result.capacityExchange)}`,
+    );
     assert(result.searchConfirm === "search" && result.travelConfirm === "go", `every card should confirm with its own verb: ${JSON.stringify(result)}`);
   }
 
@@ -3165,12 +3611,27 @@ async function main() {
           ],
         },
         action_offers: [
-          { offer_id: "give", kind: "give_item", rank: 10, provider: { kind: "rules", id: "give", priority: 10 } },
-          { offer_id: "trade", kind: "trade_item", rank: 20, provider: { kind: "rules", id: "trade", priority: 20 } },
+          {
+            id: "give_item:2005:1001",
+            offer_id: "give",
+            kind: "give_item",
+            rank: 10,
+            provider: { kind: "rules", id: "give", priority: 10 },
+            target: { kind: "actor", id: 1001, label: "Rati" },
+          },
+          {
+            id: "trade_item:2005:1001:2002",
+            offer_id: "trade",
+            kind: "trade_item",
+            rank: 20,
+            provider: { kind: "rules", id: "trade", priority: 20 },
+            target: { kind: "item", id: 2002, label: "Dewbright Button" },
+          },
           { offer_id: "check", kind: "check", verb: "Notice", rank: 30, provider: { kind: "rules", id: "check", priority: 30 } },
           { offer_id: "move", kind: "move", verb: "Travel", rank: 40, provider: { kind: "rules", id: "move", priority: 40 } },
         ],
         action_hand: {
+          pass: { offer_id: "pass:deck-test", label: "Think" },
           entries: [
             { offer_id: "give", kind: "give_item", provider: { kind: "rules", id: "give", priority: 10 } },
             { offer_id: "trade", kind: "trade_item", provider: { kind: "rules", id: "trade", priority: 20 } },
@@ -3280,21 +3741,29 @@ async function main() {
             ...fakeState.items,
             { id: 2007, name: "Watch Bell", kind: "evolution", holder_actor_id: 1002 },
           ],
+          action_offers: [
+            ...fakeState.action_offers,
+            {
+              id: "trade_item:2005:1002:2007",
+              offer_id: "trade-gust",
+              kind: "trade_item",
+              rank: 20,
+              provider: { kind: "rules", id: "trade-gust", priority: 20 },
+              target: { kind: "item", id: 2007, label: "Watch Bell" },
+            },
+          ],
         };
         state = multiTradeState;
         const multiTrades = buildActions(multiTradeState).filter((action) => action.label === "trade");
-        const multiTrade = multiTrades[0] || null;
-        if (multiTrade?.choices?.[1]) multiTrade.selectedChoice = multiTrade.choices[1].value;
-        const multiTradeSnapshot = multiTrade ? {
-          count: multiTrades.length,
-          detail: multiTrade.detail,
-          title: actionTitle(multiTrade),
-          summary: actionSummary(multiTrade),
-          rows: actionModalRows(multiTrade),
-          choices: multiTrade.choices.map((choice) => ({ label: choice.label, detail: choice.detail })),
-          focusKeys: multiTrade.focusKeys,
-          selectedPayload: multiTrade.selectedPayload(),
-        } : null;
+        const multiTradeSnapshot = multiTrades.map((trade) => ({
+          detail: trade.detail,
+          title: actionTitle(trade),
+          summary: actionSummary(trade),
+          choices: trade.choices || [],
+          offerIds: trade.offerIds || [],
+          focusKeys: trade.focusKeys || [],
+          payload: trade.selectedPayload?.() || null,
+        }));
 
         state = fakeState;
         actions = buildActions(fakeState);
@@ -3336,11 +3805,30 @@ async function main() {
     assert(result.tradeCopy?.detail === "Story Button for Dewbright Button with Rati", `trade card should name the whole exchange without willingness tags: ${JSON.stringify(result)}`);
     assert(result.tradeCopy?.title === "trade with Rati", `trade confirmation should name the resident: ${JSON.stringify(result)}`);
     assert(result.tradeCopy?.summary === "Swap Story Button with Rati for Dewbright Button.", `trade confirmation should explain the exchange plainly: ${JSON.stringify(result)}`);
-    assert(result.multiTrade?.count === 1 && result.multiTrade?.detail === "choose a trade", `multiple resident swaps should share one Trade card: ${JSON.stringify(result)}`);
-    assert(result.multiTrade?.title === "choose a trade" && result.multiTrade?.summary === "Choose a keepsake to swap.", `multi-resident Trade should open one clear picker: ${JSON.stringify(result)}`);
-    assert(result.multiTrade?.choices?.map((choice) => `${choice.label}:${choice.detail}`).join(",") === "Rati:Story Button for Dewbright Button,Gust:Story Button for Watch Bell", `Trade choices should preserve every exact give-and-receive pair: ${JSON.stringify(result)}`);
-    assert(result.multiTrade?.selectedPayload?.target_actor_id === 1002 && result.multiTrade?.selectedPayload?.item_id === 2005 && result.multiTrade?.selectedPayload?.target_item_id === 2007, `Trade should submit the resident and both keepsakes selected inside the card: ${JSON.stringify(result)}`);
-    assert(result.multiTrade?.rows?.some((row) => row[0] === "Then" && row[1] === "both keepsakes change hands"), `Trade should explain its atomic exchange in plain language: ${JSON.stringify(result)}`);
+    assert(result.multiTrade?.length === 2, `two certified resident swaps should remain two exact Trade cards: ${JSON.stringify(result)}`);
+    assert(
+      JSON.stringify(result.multiTrade.map((trade) => ({
+        detail: trade.detail,
+        offerIds: trade.offerIds,
+        payload: trade.payload,
+      }))) === JSON.stringify([
+        {
+          detail: "Story Button for Dewbright Button with Rati",
+          offerIds: ["trade"],
+          payload: { actor_id: 5000, item_id: 2005, target_actor_id: 1001, target_item_id: 2002 },
+        },
+        {
+          detail: "Story Button for Watch Bell with Gust",
+          offerIds: ["trade-gust"],
+          payload: { actor_id: 5000, item_id: 2005, target_actor_id: 1002, target_item_id: 2007 },
+        },
+      ]),
+      `each Trade card should preserve its exact certificate and exchange payload: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.multiTrade.every((trade) => trade.choices.length === 0 && trade.title.startsWith("trade with ")),
+      `a certified Trade card must not expose undealt swap choices: ${JSON.stringify(result)}`,
+    );
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
     assert(result.visibleHand.length === 2, `the authoritative browser hand should expose exactly two actions: ${JSON.stringify(result)}`);
     assert(!result.hasThirdCard && result.hasShuffleCard, `the browser hand should keep two action cards beside its draw control: ${JSON.stringify(result)}`);
@@ -3466,7 +3954,15 @@ async function main() {
           kind: "search",
           options: [{ kind: "search" }, { kind: "move" }],
         },
-        action_offers: [{ kind: "search", effect: "reveals a clue and keeps it in your Journal" }],
+        action_offers: [
+          { kind: "search", effect: "reveals a clue and keeps it in your Journal" },
+          {
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+          },
+        ],
         economy: { orbs: 1, can_chat_with_orbs: true, openrouter_connected: false },
         ledger: {
           unbanked_count: 0,
@@ -3663,8 +4159,8 @@ async function main() {
           '<button type="button" class="turn-banner-control">need time</button>',
         ].join("");
         banner.hidden = false;
-        // The widest hand ADR 0002 allows: three footer cards (combat capacity
-        // three, or two cards plus the draw).
+        // The exact hand caps play to two footer cards; the draw control stays
+        // separate from that authority-bound hand.
         prompt.classList.add("has-draw");
         shuffle.style.display = "flex";
         const promptRect = prompt.getBoundingClientRect();
@@ -3689,10 +4185,92 @@ async function main() {
       }
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
-    assert(result.cardCount >= 3, `the combat hand should present at least three footer cards for this fixture: ${JSON.stringify(result)}`);
+    assert(result.cardCount >= 1, `the combat hand should retain a usable footer card beneath the turn banner: ${JSON.stringify(result)}`);
     assert(result.bannerWidth >= result.promptWidth * 0.9, `the banner must span the footer, not sit beside the cards: ${JSON.stringify(result)}`);
     assert(result.bannerBottom <= result.highestCardTop + 1, `the banner must occupy its own row above the card grid: ${JSON.stringify(result)}`);
     assert(result.narrowestCard >= 60, `every combat card must stay at usable size beneath the banner: ${JSON.stringify(result)}`);
+  }
+
+  async function assertRecoveryPromotionRequiresDealtRest() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActions = actions;
+      const previousHandKeys = [...handKeys];
+      const previousDiscardedHandKeys = [...discardedHandKeys];
+      const previousFocusIndex = focusIndex;
+      const previousFocusedKey = focusedKey;
+      try {
+        const move = {
+          label: "travel",
+          detail: "to Rain-Soft Garden",
+          command: "go Rain-Soft Garden",
+          focusKey: "exit:2",
+          offerIds: ["move:rain-soft-garden"],
+          offerKinds: ["move"],
+          handProvider: { priority: 40 },
+        };
+        const rest = (offerId) => ({
+          label: "rest",
+          detail: "feel fresh",
+          command: "rest",
+          focusKey: "rest",
+          offerIds: [offerId],
+          offerKinds: ["rest"],
+          priority: 0,
+          handProvider: { priority: 0 },
+        });
+        state = {
+          action_hand: {
+            capacity: 2,
+            entries: [
+              { offer_id: "move:rain-soft-garden", kind: "move" },
+              { offer_id: "check:room", kind: "check" },
+            ],
+          },
+        };
+        actions = [rest("rest:undealt"), move];
+        handKeys = [actionHandKey(move)];
+        discardedHandKeys = [];
+        const undealtPromoted = promotePendingRecoveryAction();
+        const undealtHandKeys = [...handKeys];
+
+        state = {
+          action_hand: {
+            capacity: 2,
+            entries: [
+              { offer_id: "rest:dealt", kind: "rest" },
+              { offer_id: "move:rain-soft-garden", kind: "move" },
+            ],
+          },
+        };
+        actions = [rest("rest:dealt"), move];
+        handKeys = [actionHandKey(move)];
+        const dealtPromoted = promotePendingRecoveryAction();
+        return {
+          undealtPromoted,
+          undealtHandKeys,
+          dealtPromoted,
+          dealtHandKeys: [...handKeys],
+        };
+      } finally {
+        state = previousState;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        discardedHandKeys = previousDiscardedHandKeys;
+        focusIndex = previousFocusIndex;
+        focusedKey = previousFocusedKey;
+      }
+    });
+    assert(
+      result.undealtPromoted === false
+        && !result.undealtHandKeys.includes("offer:rest:undealt"),
+      `recovery promotion must not surface an undealt Rest: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.dealtPromoted === true
+        && result.dealtHandKeys[0] === "offer:rest:dealt",
+      `recovery promotion should focus a currently dealt Rest certificate: ${JSON.stringify(result)}`,
+    );
   }
 
   async function assertBondSurfacesAsCompactRelationshipAction() {
@@ -3705,12 +4283,23 @@ async function main() {
           kind: "create_bond",
           options: [{ kind: "create_bond" }, { kind: "move" }],
         },
-        action_offers: [{
-          kind: "create_bond",
-          command: "bond Rati: I bring small kindnesses to Rati.",
-          target: { kind: "actor", id: 1001, label: "Rati" },
-          effect: "a friendship with Rati begins",
-        }],
+        action_offers: [
+          {
+            id: "create_bond:1001",
+            offer_id: "bond-rati",
+            kind: "create_bond",
+            command: "bond Rati: I bring small kindnesses to Rati.",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            effect: "a friendship with Rati begins",
+          },
+          {
+            id: "move:rain-soft-garden",
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+          },
+        ],
         economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
         ledger: { unbanked_count: 0, advancement_points: 1 },
         skills: [],
@@ -3737,6 +4326,7 @@ async function main() {
             label: action.label,
             detail: action.detail || "",
             command: action.command,
+            offerIds: action.offerIds || [],
             focusKey: action.focusKey,
             focusKeys: action.focusKeys || [],
             effect: action.effect || "",
@@ -3754,6 +4344,24 @@ async function main() {
           single: snapshot(fakeState),
           multiple: snapshot({
             ...fakeState,
+            action_offers: [
+              fakeState.action_offers[0],
+              {
+                id: "create_bond:1002",
+                offer_id: "bond-gust",
+                kind: "create_bond",
+                command: "bond Gust: I bring small kindnesses to Gust.",
+                target: { kind: "actor", id: 1002, label: "Gust" },
+                effect: "a friendship with Gust begins",
+              },
+              fakeState.action_offers[1],
+            ],
+            action_hand: {
+              entries: [
+                { offer_id: "bond-rati", kind: "create_bond" },
+                { offer_id: "bond-gust", kind: "create_bond" },
+              ],
+            },
             actors: [
               ...fakeState.actors,
               { id: 1002, name: "Gust", kind: "npc", status: "active", stats: { level: 1 } },
@@ -3778,11 +4386,20 @@ async function main() {
     assert(actions[bondIndex]?.confirm === "befriend", `relationship confirmation should keep the Befriend verb: ${JSON.stringify(result)}`);
     assert(actions[bondIndex]?.command === "bond Rati: I bring small kindnesses to Rati.", `relationship action should keep the underlying command intact: ${JSON.stringify(result)}`);
     const multipleBonds = result.multiple.filter((action) => action.label === "befriend");
-    assert(multipleBonds.length === 1 && multipleBonds[0]?.detail === "choose someone · use what you learned", `several possible friends should share one Befriend card: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.title === "choose someone to befriend" && multipleBonds[0]?.summary === "Choose someone nearby. Befriending uses one advancement point.", `Befriend should make the promised friendship choice explicit: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.choices.join(",") === "Rati,Gust" && multipleBonds[0]?.alternatePayload?.target_actor_id === 1002, `Befriend should submit the resident selected inside the card: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.alternatePayload?.statement === "I bring small kindnesses to Gust.", `each friendship choice should carry its own warm statement: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.focusKeys.includes("actor:1001") && multipleBonds[0]?.focusKeys.includes("actor:1002"), `one Befriend card should retain affinity for every eligible friend: ${JSON.stringify(result)}`);
+    assert(
+      JSON.stringify(multipleBonds
+        .map((action) => ({ detail: action.detail, offerIds: action.offerIds }))
+        .sort((left, right) => left.offerIds[0].localeCompare(right.offerIds[0])))
+        === JSON.stringify([
+          { detail: "with Gust · use what you learned", offerIds: ["bond-gust"] },
+          { detail: "with Rati · use what you learned", offerIds: ["bond-rati"] },
+        ]),
+      `each dealt friendship offer should remain its own exact certified card: ${JSON.stringify(result)}`,
+    );
+    assert(
+      multipleBonds.every((action) => action.choices.length === 0),
+      `a certified Befriend card must not expose an undealt resident choice: ${JSON.stringify(result)}`,
+    );
     const visibleRelationshipCopy = {
       label: actions[bondIndex]?.label,
       detail: actions[bondIndex]?.detail,
@@ -3808,9 +4425,18 @@ async function main() {
         },
         action_offers: [
           {
+            id: "resolve_bond:1001",
+            offer_id: "remember-rati",
             kind: "resolve_bond",
             target: { kind: "actor", id: 1001, label: "Rati" },
             effect: "keeps what mattered with Rati; leaves you something to remember",
+          },
+          {
+            id: "move:rain-soft-garden",
+            offer_id: "move:rain-soft-garden",
+            kind: "move",
+            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
           },
         ],
         economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
@@ -3839,6 +4465,7 @@ async function main() {
             label: action.label,
             detail: action.detail || "",
             command: action.command,
+            offerIds: action.offerIds || [],
             focusKey: action.focusKey,
             focusKeys: action.focusKeys || [],
             effect: action.effect || "",
@@ -3855,6 +4482,23 @@ async function main() {
           mature: snapshot(baseState),
           multiple: snapshot({
             ...baseState,
+            action_offers: [
+              baseState.action_offers[0],
+              {
+                id: "resolve_bond:1002",
+                offer_id: "remember-gust",
+                kind: "resolve_bond",
+                target: { kind: "actor", id: 1002, label: "Gust" },
+                effect: "keeps what mattered with Gust; leaves you something to remember",
+              },
+              baseState.action_offers[1],
+            ],
+            action_hand: {
+              entries: [
+                { offer_id: "remember-rati", kind: "resolve_bond" },
+                { offer_id: "remember-gust", kind: "resolve_bond" },
+              ],
+            },
             bonds: [
               ...baseState.bonds,
               { id: "bond:5000:1002", actor_id: 5000, target_actor_id: 1002, target_actor_name: "Gust", strength: 3, status: "active", statement: "Gust always saves a little weather for me." },
@@ -3888,11 +4532,20 @@ async function main() {
     assert(result.mature[rememberIndex]?.detail === "Rati, keep what mattered", `remember detail should explain the choice plainly: ${JSON.stringify(result)}`);
     assert(result.mature[rememberIndex]?.command === "remember Rati", `remember should keep readable command copy: ${JSON.stringify(result)}`);
     const multipleRemember = result.multiple.filter((action) => action.label === "remember");
-    assert(multipleRemember.length === 1 && multipleRemember[0]?.detail === "choose a friendship · keep what mattered", `several mature friendships should share one Remember card: ${JSON.stringify(result)}`);
-    assert(multipleRemember[0]?.title === "choose a friendship to remember" && multipleRemember[0]?.summary === "Choose whose story to carry forward.", `Remember should open one clear shared-story picker: ${JSON.stringify(result)}`);
-    assert(multipleRemember[0]?.choices.join(",") === "Rati,Gust" && multipleRemember[0]?.alternatePayload?.target_actor_id === 1002, `Remember should submit the friendship selected inside the card: ${JSON.stringify(result)}`);
-    assert(multipleRemember[0]?.focusKeys.includes("actor:1001") && multipleRemember[0]?.focusKeys.includes("actor:1002"), `one Remember card should retain affinity for every mature friendship: ${JSON.stringify(result)}`);
-    assert(multipleRemember[0]?.rows.some((row) => row[0] === "Then" && row[1] === "what mattered stays with you"), `Remember should explain its outcome without settlement jargon: ${JSON.stringify(result)}`);
+    assert(
+      JSON.stringify(multipleRemember
+        .map((action) => ({ detail: action.detail, offerIds: action.offerIds }))
+        .sort((left, right) => left.offerIds[0].localeCompare(right.offerIds[0])))
+        === JSON.stringify([
+          { detail: "Gust, keep what mattered", offerIds: ["remember-gust"] },
+          { detail: "Rati, keep what mattered", offerIds: ["remember-rati"] },
+        ]),
+      `each dealt Remember offer should remain its own exact certified card: ${JSON.stringify(result)}`,
+    );
+    assert(
+      multipleRemember.every((action) => action.choices.length === 0),
+      `a certified Remember card must not expose an undealt friendship choice: ${JSON.stringify(result)}`,
+    );
     assert(!result.fresh.some((action) => action.label === "remember"), `fresh strength-1 Bonds should not resolve immediately: ${JSON.stringify(result)}`);
     assert(![...result.mature, ...result.multiple, ...result.fresh].some((action) => String(action.detail || "").includes(" / ")), `remember copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
   }
@@ -3930,6 +4583,8 @@ async function main() {
       const detailsFor = (tags, patches = {}) => {
         const actionOffers = [
           {
+            id: "work:moonlit:push",
+            offer_id: "work-moonlit-push",
             kind: "work",
             intention: "contribute",
             verb: "Push",
@@ -3938,6 +4593,8 @@ async function main() {
             ...patches.work,
           },
           {
+            id: "help:moonlit:echo",
+            offer_id: "help-moonlit-echo",
             kind: "help",
             intention: "contribute",
             verb: "Help",
@@ -3947,12 +4604,23 @@ async function main() {
             ...patches.help,
           },
         ];
-        const fakeState = { ...baseState, tags, action_offers: actionOffers };
+        const fakeState = {
+          ...baseState,
+          tags,
+          action_offers: actionOffers,
+          action_hand: {
+            entries: [
+              { offer_id: "work-moonlit-push", kind: "work" },
+              { offer_id: "help-moonlit-echo", kind: "help" },
+            ],
+          },
+        };
         state = fakeState;
         actorId = 5000;
         return buildActions(fakeState).filter((action) => action.intention === "contribute").map((action) => ({
           label: action.label,
           intention: action.intention,
+          offerIds: action.offerIds || [],
           focusKey: action.focusKey,
           detail: action.detail || "",
           summary: actionSummary(action),
@@ -3984,15 +4652,16 @@ async function main() {
         actorId = previousActorId;
       }
     });
-    assert(Object.values(result).every((cards) => cards.length === 1), `Work and Help should occupy one project hand slot: ${JSON.stringify(result)}`);
-    assert(result.stale[0]?.label === "quiet the echo" && result.stale[0]?.intention === "contribute", `the project card should use authored action copy and stable semantics: ${JSON.stringify(result)}`);
-    assert(result.stale[0]?.choices.length === 2, `the project card should expose both reachable strategies: ${JSON.stringify(result)}`);
-    assert(result.stale[0]?.choices[0]?.label === "Push Quiet the echo", `the fast strategy should name its project target: ${JSON.stringify(result)}`);
-    assert(result.stale[0]?.choices[0]?.detail.includes("+2 progress") && /worn out/i.test(result.stale[0]?.choices[0]?.detail || ""), `Push should expose progress and fatigue risk: ${JSON.stringify(result)}`);
-    assert(result.social[0]?.choices[1]?.label === "Help Moonlit Echo with Quiet the echo", `Help should name both resident and project targets: ${JSON.stringify(result)}`);
-    assert(/strengthens the relationship/i.test(result.social[0]?.choices[1]?.detail || ""), `Help should expose its relationship effect: ${JSON.stringify(result)}`);
-    assert(/tire you|worn out/i.test(result.repeatHelp[0]?.choices[1]?.detail || ""), `repeat Help should preserve fatigue risk: ${JSON.stringify(result)}`);
-    assert(result.tradeoff[0]?.summary === "Choose how to steady the Moonlit Trail.", `project confirmation should use authored summary copy: ${JSON.stringify(result)}`);
+    const projectCard = (scenario, offerId) => result[scenario]
+      .find((action) => action.offerIds.includes(offerId));
+    assert(Object.values(result).every((cards) => cards.length === 2), `Work and Help should occupy two exact project hand certificates: ${JSON.stringify(result)}`);
+    assert(Object.values(result).flat().every((action) => action.choices.length === 0), `each certified project action must not expose an undealt strategy picker: ${JSON.stringify(result)}`);
+    assert(projectCard("stale", "work-moonlit-push")?.label === "push quiet the echo" && projectCard("stale", "work-moonlit-push")?.intention === "contribute", `the Push card should use authored action copy and stable semantics: ${JSON.stringify(result)}`);
+    assert(projectCard("stale", "work-moonlit-push")?.detail.includes("+2 progress") && /worn out/i.test(projectCard("stale", "work-moonlit-push")?.detail || ""), `Push should expose progress and fatigue risk: ${JSON.stringify(result)}`);
+    assert(projectCard("social", "help-moonlit-echo")?.label === "help moonlit echo with quiet the echo", `Help should name both resident and project targets: ${JSON.stringify(result)}`);
+    assert(/strengthens the relationship/i.test(projectCard("social", "help-moonlit-echo")?.detail || ""), `Help should expose its relationship effect: ${JSON.stringify(result)}`);
+    assert(/tire you|worn out/i.test(projectCard("repeatHelp", "help-moonlit-echo")?.detail || ""), `repeat Help should preserve fatigue risk: ${JSON.stringify(result)}`);
+    assert(projectCard("tradeoff", "work-moonlit-push")?.summary === "Choose how to steady the Moonlit Trail.", `project confirmation should use authored summary copy: ${JSON.stringify(result)}`);
     assert(!JSON.stringify(result).includes("Risk:"), `project confirmations should not use a board-game Risk label: ${JSON.stringify(result)}`);
   }
 
@@ -4013,6 +4682,8 @@ async function main() {
             effect: "uses partial project evidence; sets up +2 progress",
           },
           {
+            id: "work:solar-abyss:push",
+            offer_id: "work-solar-abyss-push",
             kind: "work",
             intention: "contribute",
             verb: "Push",
@@ -4062,14 +4733,19 @@ async function main() {
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
+      const previousActions = actions;
+      const previousHandKeys = [...handKeys];
+      const previousDiscardedHandKeys = [...discardedHandKeys];
       const fakeState = {
         location: { id: 3, name: "Moonlit Trail" },
         primary_action: {
-          kind: "attack",
-          options: [{ kind: "attack" }, { kind: "defend" }, { kind: "work" }, { kind: "help" }],
+          kind: "work",
+          options: [{ kind: "work" }, { kind: "help" }],
         },
         action_offers: [
           {
+            id: "work:moonlit:push",
+            offer_id: "work-moonlit-push",
             kind: "work",
             intention: "contribute",
             verb: "Push",
@@ -4084,6 +4760,8 @@ async function main() {
             },
           },
           {
+            id: "help:moonlit:echo",
+            offer_id: "help-moonlit-echo",
             kind: "help",
             intention: "contribute",
             verb: "Help",
@@ -4114,24 +4792,35 @@ async function main() {
         ],
         items: [],
         exits: [],
+        action_hand: {
+          entries: [
+            { offer_id: "work-moonlit-push", kind: "work" },
+            { offer_id: "help-moonlit-echo", kind: "help" },
+          ],
+        },
         cards: { actors: {}, items: {}, locations: {} },
         access: {},
       };
       state = fakeState;
       actorId = 5000;
       try {
-        const actionSnapshot = (snapshot) => buildActions(snapshot).map((action) => ({
-          label: action.label,
-          detail: action.detail || "",
-          command: action.command,
-          intention: action.intention,
-          choices: (action.choices || []).map((choice) => ({ label: choice.label, detail: choice.detail })),
-        }));
+        const actionSnapshot = (snapshot) => {
+          state = snapshot;
+          actions = buildActions(snapshot);
+          return actionBarActions().map((action) => ({
+            label: action.label,
+            detail: action.detail || "",
+            command: action.command,
+            intention: action.intention,
+            offerIds: action.offerIds || [],
+            choices: (action.choices || []).map((choice) => ({ label: choice.label, detail: choice.detail })),
+          }));
+        };
         const preparedFinishState = {
           ...fakeState,
           primary_action: {
             kind: "work",
-            options: [{ kind: "work" }, { kind: "help" }, { kind: "attack" }],
+            options: [{ kind: "work" }, { kind: "help" }],
           },
           clocks: [{ id: "moonlit-trail.progress", label: "Quiet the echo", segments: 4, filled: 2 }],
           tags: [{
@@ -4153,16 +4842,21 @@ async function main() {
       } finally {
         state = previousState;
         actorId = previousActorId;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        discardedHandKeys = previousDiscardedHandKeys;
       }
     });
-    assert(result.spent[0]?.label === "quiet the echo" && result.spent[0]?.intention === "contribute", `spent preparation should promote one target-specific project card above combat: ${JSON.stringify(result)}`);
-    assert(result.spent[0]?.choices.length === 2, `the promoted project card should keep Push and Help inside one slot: ${JSON.stringify(result)}`);
-    assert(result.spent[0]?.choices[0]?.label === "Push Quiet the echo" && /finishes the project/.test(result.spent[0]?.choices[0]?.detail || ""), `final Push should name its project and completion: ${JSON.stringify(result)}`);
-    assert(!result.spent[0]?.detail.includes("/"), `final project card should avoid slash-heavy copy: ${JSON.stringify(result)}`);
-    assert(result.spent.some((action) => action.label === "attack"), `combat should remain reachable after project push promotion: ${JSON.stringify(result)}`);
-    assert(result.prepared[0]?.label === "quiet the echo", `prepared finish-ready work should retain authored project copy: ${JSON.stringify(result)}`);
-    assert(result.unprepared[0]?.label === "quiet the echo", `unprepared finish-ready work should still outrank attack through the shared project card: ${JSON.stringify(result)}`);
-    assert(!result.unprepared.some((action) => action.label === "help"), `Help should not consume a second hand slot: ${JSON.stringify(result)}`);
+    const contributionCard = (scenario, offerId) => result[scenario]
+      .find((action) => action.offerIds.includes(offerId));
+    assert(result.spent.filter((action) => action.intention === "contribute").length === 2, `spent preparation should show the two dealt target-specific project cards: ${JSON.stringify(result)}`);
+    assert(result.spent.filter((action) => action.intention === "contribute").every((action) => action.choices.length === 0), `certified project cards must preserve direct selection: ${JSON.stringify(result)}`);
+    assert(contributionCard("spent", "work-moonlit-push")?.label === "push quiet the echo" && /finishes the project/.test(contributionCard("spent", "work-moonlit-push")?.detail || ""), `final Push should name its project and completion: ${JSON.stringify(result)}`);
+    assert(!contributionCard("spent", "work-moonlit-push")?.detail.includes("/"), `final project card should avoid slash-heavy copy: ${JSON.stringify(result)}`);
+    assert(!result.spent.some((action) => action.label === "attack"), `an undealt Attack must not appear beside the exact project hand: ${JSON.stringify(result)}`);
+    assert(contributionCard("prepared", "work-moonlit-push")?.label === "push quiet the echo", `prepared finish-ready work should retain authored project copy: ${JSON.stringify(result)}`);
+    assert(contributionCard("unprepared", "work-moonlit-push")?.label === "push quiet the echo", `unprepared finish-ready work should still retain its exact project card: ${JSON.stringify(result)}`);
+    assert(contributionCard("unprepared", "help-moonlit-echo")?.label === "help moonlit echo with quiet the echo", `Help should remain its own exact dealt hand card: ${JSON.stringify(result)}`);
   }
 
   async function assertCombatPotionDoesNotDefaultToEnemyHealing() {
@@ -4199,7 +4893,13 @@ async function main() {
         cards: { actors: {}, items: {}, locations: {} },
         access: {},
       };
-      const actionsFor = (actorPatch, options = baseState.primary_action.options, extraActors = []) => {
+      const actionsFor = (
+        actorPatch,
+        options = baseState.primary_action.options,
+        extraActors = [],
+        handEntries = [],
+        extraOffers = [],
+      ) => {
         const fakeState = {
           ...baseState,
           primary_action: {
@@ -4210,6 +4910,8 @@ async function main() {
             ...baseState.actors.map((actor) => actor.id === 5000 ? { ...actor, ...actorPatch } : actor),
             ...extraActors,
           ],
+          action_offers: [...baseState.action_offers, ...extraOffers],
+          ...(handEntries.length ? { action_hand: { entries: handEntries } } : {}),
         };
         state = fakeState;
         actorId = 5000;
@@ -4222,6 +4924,7 @@ async function main() {
             label: action.label,
             detail: action.detail || "",
             command: action.command,
+            offerIds: action.offerIds || [],
             title: actionTitle(action),
             summary: actionSummary(action),
             rows: actionModalRows(action),
@@ -4236,11 +4939,27 @@ async function main() {
           enemyOnly: actionsFor({ hp: 10 }),
           selfAndEnemy: actionsFor({ hp: 4 }),
           quietedEnemy: actionsFor({ hp: 10 }, [{ kind: "use_item" }, { kind: "chat" }]),
-          multiCare: actionsFor({ hp: 4 }, [{ kind: "use_item" }, { kind: "chat" }]),
+          multiCare: actionsFor(
+            { hp: 4 },
+            [{ kind: "use_item" }, { kind: "chat" }],
+            [],
+            [
+              { offer_id: "use_item:2001:5000", kind: "use_item" },
+              { offer_id: "use_item:2001:1004", kind: "use_item" },
+            ],
+          ),
           multiAttack: actionsFor(
             { hp: 10 },
             [{ kind: "attack" }, { kind: "defend" }],
             [{ id: 1005, name: "Bramble Bear", kind: "npc", status: "active", hp: 7, stats: { hp_base: 7, level: 1 } }],
+            [
+              { offer_id: "attack-moonlit-echo", kind: "attack" },
+              { offer_id: "attack-bramble-bear", kind: "attack" },
+            ],
+            [
+              { offer_id: "attack-moonlit-echo", kind: "attack", target: { kind: "actor", id: 1004, label: "Moonlit Echo" } },
+              { offer_id: "attack-bramble-bear", kind: "attack", target: { kind: "actor", id: 1005, label: "Bramble Bear" } },
+            ],
           ),
         };
       } finally {
@@ -4258,17 +4977,29 @@ async function main() {
     assert(residentUse?.summary === "Use Hearth Tonic to help Moonlit Echo.", `resident-care confirmation should describe the gesture plainly: ${JSON.stringify(result)}`);
     assert(!result.quietedEnemy.some((action) => action.command === "attack Moonlit Echo"), `quieted healing state should not reintroduce attack affordances: ${JSON.stringify(result)}`);
     const multiUse = result.multiCare.filter((action) => action.label === "use");
-    assert(multiUse.length === 1 && multiUse[0]?.detail === "Hearth Tonic · choose who", `multiple care recipients should share one Use card: ${JSON.stringify(result)}`);
-    assert(multiUse[0]?.title === "choose who Hearth Tonic should help" && multiUse[0]?.summary === "Choose who Hearth Tonic should help.", `multi-recipient Use should open one clear care picker: ${JSON.stringify(result)}`);
-    assert(multiUse[0]?.choices.join(",") === "you,Moonlit Echo" && multiUse[0]?.alternateTargetId === 1004, `Use should submit the recipient chosen inside the card: ${JSON.stringify(result)}`);
-    assert(multiUse[0]?.focusKeys.includes("actor:5000") && multiUse[0]?.focusKeys.includes("actor:1004") && multiUse[0]?.focusKeys.includes("item:2001"), `one Use card should retain affinity for its item and every valid recipient: ${JSON.stringify(result)}`);
-    assert(multiUse[0]?.rows.some((row) => row[0] === "Choose" && row[1] === "who should receive the care"), `Use should describe its target choice without health arithmetic: ${JSON.stringify(result)}`);
+    assert(
+      JSON.stringify(multiUse
+        .map((action) => ({ detail: action.detail, offerIds: action.offerIds }))
+        .sort((left, right) => left.offerIds[0].localeCompare(right.offerIds[0])))
+        === JSON.stringify([
+          { detail: "Hearth Tonic on Moonlit Echo", offerIds: ["use_item:2001:1004"] },
+          { detail: "Hearth Tonic on Lantern Stitch", offerIds: ["use_item:2001:5000"] },
+        ]),
+      `each dealt care offer should remain its own exact Use card: ${JSON.stringify(result)}`,
+    );
+    assert(multiUse.every((action) => action.choices.length === 0), `certified care cards must not expose an undealt recipient picker: ${JSON.stringify(result)}`);
     const multiAttack = result.multiAttack.filter((action) => action.label === "attack");
-    assert(multiAttack.length === 1 && multiAttack[0]?.detail === "choose an opponent", `multiple opponents should share one Attack card: ${JSON.stringify(result)}`);
-    assert(multiAttack[0]?.title === "choose who to face" && multiAttack[0]?.summary === "Choose who to confront.", `multi-opponent Attack should open one clear target picker: ${JSON.stringify(result)}`);
-    assert(multiAttack[0]?.choices.join(",") === "Moonlit Echo,Bramble Bear" && multiAttack[0]?.alternateTargetId === 1005, `Attack should submit the opponent selected inside the card: ${JSON.stringify(result)}`);
-    assert(multiAttack[0]?.focusKeys.includes("actor:1004") && multiAttack[0]?.focusKeys.includes("actor:1005"), `one Attack card should retain affinity for every valid opponent: ${JSON.stringify(result)}`);
-    assert(multiAttack[0]?.rows.some((row) => row[0] === "Choose" && row[1] === "who you want to confront"), `Attack should describe target selection without combat arithmetic: ${JSON.stringify(result)}`);
+    assert(
+      JSON.stringify(multiAttack
+        .map((action) => ({ detail: action.detail, offerIds: action.offerIds }))
+        .sort((left, right) => left.offerIds[0].localeCompare(right.offerIds[0])))
+        === JSON.stringify([
+          { detail: "Bramble Bear · unarmed strike", offerIds: ["attack-bramble-bear"] },
+          { detail: "Moonlit Echo · unarmed strike", offerIds: ["attack-moonlit-echo"] },
+        ]),
+      `each dealt attack offer should remain its own exact Attack card: ${JSON.stringify(result)}`,
+    );
+    assert(multiAttack.every((action) => action.choices.length === 0), `certified Attack cards must not expose an undealt opponent picker: ${JSON.stringify(result)}`);
   }
 
   async function assertCombatProjectActionsUseCompactTradeoffCopy() {
@@ -4801,9 +5532,20 @@ async function main() {
               options: [{ kind: "pick_up" }, { kind: "chat" }, { kind: "rest" }, { kind: "move" }],
             },
             action_offers: [
-              { kind: "pick_up", rank: 30 },
-              { kind: "move", rank: 80 },
-              { kind: "rest", rank: 84 },
+              {
+                offer_id: "pickup:hearth-tonic",
+                kind: "pick_up",
+                rank: 30,
+                target: { kind: "item", id: 2001, label: "Hearth Tonic" },
+              },
+              {
+                offer_id: "move:rain-soft-garden",
+                kind: "move",
+                rank: 80,
+                target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
+                provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+              },
+              { offer_id: "rest:sanctuary", kind: "rest", rank: 84 },
             ],
             items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", location_id: 1, charges: 1 }],
           }),
@@ -4816,6 +5558,7 @@ async function main() {
               options: [{ kind: "rest" }, { kind: "move" }],
             },
             action_offers: [{
+              offer_id: "cosy:77:rest:rest",
               kind: "rest",
               rank: 84,
               effect: "restores one exhausted keepsake",
@@ -4848,7 +5591,7 @@ async function main() {
               kind: "rest",
               options: [{ kind: "rest" }, { kind: "move" }],
             },
-            action_offers: [{ kind: "rest", rank: 84 }],
+            action_offers: [{ offer_id: "cosy:78:rest:rest", kind: "rest", rank: 84 }],
             action_hand: {
               schema_version: 1,
               capacity: 2,
@@ -4869,6 +5612,7 @@ async function main() {
               options: [{ kind: "rest" }, { kind: "move" }],
             },
             action_offers: [{
+              offer_id: "cosy:79:rest:rest",
               kind: "rest",
               rank: 25,
               risk: "trouble may draw nearer while you rest",
@@ -7099,6 +7843,7 @@ async function main() {
           command: "use beacon tools",
           intention: "feature",
           offerKinds: ["use_feature"],
+          offerIds: [suggestedActions[0].offer_id],
           handProvider: { reason: suggestedActions[0].source, priority: 0 },
         },
         {
@@ -7111,6 +7856,7 @@ async function main() {
           command: "rest",
           intention: "rest",
           offerKinds: ["rest"],
+          offerIds: [suggestedActions[1].offer_id],
           handProvider: { reason: suggestedActions[1].source, priority: 1 },
         },
       ];
@@ -7358,6 +8104,7 @@ async function main() {
       const base = {
         ...state,
         turn: { ...(state?.turn || {}), enabled: false, is_current_actor: true },
+        action_hand: { entries: [] },
         economy: { ...(state?.economy || {}), listen_attempted_here: true },
         primary_action: { kind: "act", options: [{ kind: "move" }, { kind: "check" }] },
         search_available: false,
@@ -7383,6 +8130,12 @@ async function main() {
           label: "Great Library",
         },
       };
+      const moveOffer = (destinationId, destinationName) => ({
+        offer_id: `move:${destinationId}`,
+        kind: "move",
+        target: { kind: "location", id: destinationId, label: destinationName },
+        provider: { kind: "location", id: "location:804", label: "Lantern Tower" },
+      });
       const initial = buildActions({
         ...base,
         action_offers: [...nonScoutOffers, scoutOffer, libraryScoutOffer],
@@ -7458,6 +8211,7 @@ async function main() {
       const searching = searchingActions.find((action) => String(action.focusKey || "").startsWith("journey-search:"));
       const travellingActions = buildActions({
         ...base,
+        action_offers: [...nonScoutOffers, moveOffer(100001, "Foxglove Turn")],
         exits: [{
           destination_location_id: 100001,
           destination_location_name: "Foxglove Turn",
@@ -7496,6 +8250,7 @@ async function main() {
       const finalSearch = finalSearchActions.find((action) => String(action.focusKey || "").startsWith("journey-search:"));
       const finalTravelActions = buildActions({
         ...base,
+        action_offers: [...nonScoutOffers, moveOffer(3, "Moonlit Trail")],
         exits: [{
           destination_location_id: 3,
           destination_location_name: "Moonlit Trail",
@@ -7651,10 +8406,10 @@ async function main() {
       `an unrevealed adjacent segment should offer Scout without moving: ${JSON.stringify(result)}`,
     );
     assert(
-      result.travelling.label === "move"
+      result.travelling.label === "travel"
         && result.travelling.command === "go Foxglove Turn"
         && result.travellingActionCount > 1,
-      `a revealed adjacent interior segment should offer directional Move without replacing the hand: ${JSON.stringify(result)}`,
+      `a revealed adjacent interior segment should offer its certified Travel card: ${JSON.stringify(result)}`,
     );
     assert(
       result.scoutAfterFound === false,
@@ -7670,7 +8425,7 @@ async function main() {
       `the final destination edge should be found by Scout without moving: ${JSON.stringify(result)}`,
     );
     assert(
-      result.finalTravel.label === "move"
+      result.finalTravel.label === "travel"
         && /arrive in Moonlit Trail/i.test(result.finalTravel.effect),
       `the final adjacent Move should arrive at the destination: ${JSON.stringify(result)}`,
     );
@@ -7736,32 +8491,40 @@ async function main() {
     assert(result.pfpCount > 0, "resident chat rows should render character pfps");
   }
 
-  async function focusPrimaryMatching(label, predicate, attempts = 24) {
+  async function focusPrimaryMatching(label, predicate, attempts = 24, stopWhen = null) {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    const candidates = await page.evaluate(() => actions.map((action, index) => ({
-      index,
-      text: [
-        compactActionLabel(action),
-        friendlyActionText(action?.detail),
-        action?.command,
-      ].filter(Boolean).join(" "),
-    })));
-    const match = candidates.find((candidate) => predicate(candidate.text.toLowerCase()));
-    if (!match) throw new Error(`${label} was not reachable: ${JSON.stringify(candidates)}`);
-    await page.evaluate((index) => {
-      focusIndex = index;
-      focusedKey = actionHandKey(actions[index]);
-    }, match.index);
-    useFocusedActionOnNextClick = true;
-    return match.text;
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    let candidates = [];
+    for (let draw = 0; draw < Math.min(attempts, deckSize); draw += 1) {
+      if (stopWhen && await stopWhen()) return null;
+      candidates = await page.evaluate(() => actionBarActions().map((action) => ({
+        index: action.actionIndex,
+        text: [compactActionLabel(action), friendlyActionText(action?.detail), action?.command]
+          .filter(Boolean).join(" "),
+      })));
+      const match = candidates.find((candidate) => predicate(candidate.text.toLowerCase()));
+      if (match) {
+        await page.evaluate((index) => {
+          focusIndex = index;
+          focusedKey = actionHandKey(actions[index]);
+        }, match.index);
+        useFocusedActionOnNextClick = true;
+        return match.text;
+      }
+      if (draw + 1 < Math.min(attempts, deckSize)) {
+        await page.locator("#shuffle").click();
+        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null && document.querySelector("#shuffle")?.disabled === false);
+      }
+    }
+    throw new Error(`${label} was not dealt within one full hand rotation: ${JSON.stringify(candidates)}`);
   }
 
-  async function focusPrimaryMatchingAcrossShuffles(label, predicate, shuffles = 8) {
-    return focusPrimaryMatching(label, predicate, Math.max(64, shuffles));
+  async function focusPrimaryMatchingAcrossShuffles(label, predicate, shuffles = 8, stopWhen = null) {
+    return focusPrimaryMatching(label, predicate, Math.max(64, shuffles), stopWhen);
   }
 
   async function drawPrimaryMatching(label, needles) {
@@ -7771,7 +8534,10 @@ async function main() {
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-    const result = await page.evaluate((terms) => {
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    let result = null;
+    for (let draw = 0; draw < deckSize; draw += 1) {
+      result = await page.evaluate((terms) => {
       const actionText = (action) => [
         action?.label,
         action?.detail,
@@ -7784,30 +8550,38 @@ async function main() {
         action?.card?.blurb,
         ...(action?.choices || []).flatMap((choice) => [choice.label, choice.detail]),
       ].filter(Boolean).join(" ").toLowerCase();
-      const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
-      if (index < 0) {
+      const action = actionBarActions().find((candidate) => (
+        terms.every((term) => actionText(candidate).includes(term))
+      ));
+      if (!action) {
         return {
           ok: false,
-          actions: actions.slice(0, 16).map((action) => actionText(action)),
+          actions: actionBarActions().map((candidate) => actionText(candidate)),
         };
       }
-      const selectedChoice = (actions[index].choices || []).find((choice) => {
+      const selectedChoice = (action.choices || []).find((choice) => {
         const choiceText = [
-          actions[index].label,
-          actions[index].detail,
+          action.label,
+          action.detail,
           choice.label,
           choice.detail,
         ].filter(Boolean).join(" ").toLowerCase();
         return terms.every((term) => choiceText.includes(term));
       });
-      if (selectedChoice) actions[index].selectedChoice = selectedChoice.value;
+      if (selectedChoice) actions[action.actionIndex].selectedChoice = selectedChoice.value;
       return {
         ok: true,
-        index,
+        index: action.actionIndex,
         choiceMatched: Boolean(selectedChoice),
-        text: actionText(actions[index]),
+        text: actionText(action),
       };
     }, normalizedNeedles);
+      if (result.ok) break;
+      if (draw + 1 < deckSize) {
+        await page.locator("#shuffle").click();
+        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null && document.querySelector("#shuffle")?.disabled === false);
+      }
+    }
     assert(result.ok, `${label} card was not drawable from actions: ${JSON.stringify(result)}`);
     await page.evaluate((index) => {
       focusIndex = index;
@@ -7830,6 +8604,118 @@ async function main() {
     ));
   }
 
+  async function passCertifiedHandForDraw(label) {
+    const before = await page.evaluate(() => {
+      const pass = state?.action_hand?.pass || null;
+      const control = document.querySelector("#shuffle");
+      return {
+        offerId: String(pass?.offer_id || ""),
+        generation: Number(state?.action_hand?.generation || 0),
+        controlId: control?.id || "",
+        visible: Boolean(control && getComputedStyle(control).display !== "none"),
+        disabled: Boolean(control?.disabled),
+        ariaLabel: control?.getAttribute("aria-label") || "",
+      };
+    });
+    assert(
+      before.offerId
+        && before.controlId === "shuffle"
+        && before.visible
+        && !before.disabled
+        && /commit a pass/i.test(before.ariaLabel),
+      `${label} hand rotation must start from the certified Pass (Think) control: ${JSON.stringify(before)}`,
+    );
+    const responsePromise = page.waitForResponse((response) => (
+      response.request().method() === "POST"
+        && new URL(response.url()).pathname === "/commands"
+        && String(response.request().postData() || "").includes("\"command\":\"pass\"")
+    ));
+    await page.locator("#shuffle").click();
+    const response = await responsePromise;
+    const receipt = await response.json();
+    const request = response.request().postDataJSON();
+    const shuffleEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+    assert(
+      receipt.ok === true
+        && request?.command === "pass"
+        && request?.offer_id === before.offerId
+        && Number(shuffleEvent?.seq || 0) > 0,
+      `${label} hand rotation must commit the exact certified Pass, never an undealt action: ${JSON.stringify({ before, request, receipt })}`,
+    );
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && document.querySelector("#shuffle")?.disabled === false
+    ));
+  }
+
+  async function drawCertifiedGardenInspect(label) {
+    const inspectIsLegal = await page.evaluate(() => (
+      state?.search_available === true
+        || actions.some((action) => (
+          String(action?.intention || "").toLowerCase() === "inspect"
+            || String(action?.label || "").toLowerCase() === "inspect"
+        ))
+    ));
+    if (!inspectIsLegal) return null;
+
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    const drawLimit = Math.min(deckSize, 24);
+    let lastHand = [];
+    for (let draw = 0; draw < drawLimit; draw += 1) {
+      const dealt = await page.evaluate(() => {
+        const certifiedSearchOfferIds = new Set((state?.action_hand?.entries || [])
+          .filter((entry) => String(entry?.kind || "") === "search")
+          .map((entry) => String(entry?.offer_id || ""))
+          .filter(Boolean));
+        const visible = actionBarActions();
+        const action = visible.find((candidate) => (
+          (candidate.offerIds || []).some((offerId) => certifiedSearchOfferIds.has(String(offerId)))
+        ));
+        if (!action) {
+          return {
+            ok: false,
+            hand: visible.map((candidate) => ({
+              label: candidate.label,
+              detail: candidate.detail,
+              intention: candidate.intention,
+              offerIds: candidate.offerIds || [],
+            })),
+            certifiedSearchOfferIds: [...certifiedSearchOfferIds],
+          };
+        }
+        return {
+          ok: true,
+          index: action.actionIndex,
+          text: [compactActionLabel(action), friendlyActionText(action?.detail), action?.command]
+            .filter(Boolean)
+            .join(" "),
+          offerIds: action.offerIds || [],
+          certifiedSearchOfferIds: [...certifiedSearchOfferIds],
+        };
+      });
+      if (dealt.ok) {
+        assert(
+          dealt.offerIds.length === 1
+            && dealt.certifiedSearchOfferIds.includes(String(dealt.offerIds[0])),
+          `${label} must select a currently dealt Inspect certificate: ${JSON.stringify(dealt)}`,
+        );
+        await page.evaluate((index) => {
+          focusIndex = index;
+          focusedKey = actionHandKey(actions[index]);
+        }, dealt.index);
+        useFocusedActionOnNextClick = true;
+        await assertNoVisibleOverflow();
+        return dealt.text;
+      }
+      lastHand = dealt.hand;
+      if (draw + 1 < drawLimit) {
+        await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
+      }
+    }
+    throw new Error(`${label} remained legal but was not dealt within one bounded certified hand rotation: ${JSON.stringify({ deckSize, drawLimit, lastHand })}`);
+  }
+
   async function focusChip(text) {
     const needle = text.toLowerCase();
     const primary = await focusPrimaryMatching(`focus ${text}`, (candidate) => candidate.includes(needle), 64);
@@ -7845,7 +8731,8 @@ async function main() {
     ), null, { timeout: 35_000 });
     const needle = text.toLowerCase();
     const focus = async () => page.evaluate((destination) => {
-      const index = actions.findIndex((action) => {
+      const visible = actionBarActions();
+      const action = visible.find((action) => {
         const intention = String(action?.intention || "").toLowerCase();
         const label = String(action?.label || "").toLowerCase();
         if (!["move", "travel", "scout", "flee"].includes(intention) && label !== "flee") return false;
@@ -7862,34 +8749,34 @@ async function main() {
           `${choice.label || ""} ${choice.detail || ""}`.toLowerCase().includes(destination)
         ));
       });
-      if (index < 0) {
+      if (!action) {
         return {
           ok: false,
           location: state?.location?.name || "",
           journey: state?.journey || null,
           combat: state?.combat || null,
           tags: (state?.tags || []).map((tag) => tag.label || tag.id),
-          allActions: actions.map((action) => ({
+          allActions: visible.map((action) => ({
             label: action?.label || "",
             intention: action?.intention || "",
             detail: action?.detail || action?.command || "",
             disabled: Boolean(action?.disabled),
           })),
-          routes: actions
+          routes: visible
             .filter((action) => ["move", "travel", "scout", "flee"].includes(String(action?.intention || "").toLowerCase()) || String(action?.label || "").toLowerCase() === "flee")
             .map((action) => `${action.label} ${action.detail || action.command || ""} ${(action.choices || []).map((choice) => choice.label).join(" ")}`),
         };
       }
-      const route = actions[index];
+      const route = action;
       const choice = (route.choices || []).find((candidate) => (
         `${candidate.label || ""} ${candidate.detail || ""}`.toLowerCase().includes(destination)
       ));
       if (choice) route.selectedChoice = choice.value;
-      focusIndex = index;
+      focusIndex = route.actionIndex;
       focusedKey = choice ? `exit:${choice.value}` : actionHandKey(route);
       return {
         ok: true,
-        index,
+        index: route.actionIndex,
         choice: choice?.label || "",
         intention: String(route?.intention || "").toLowerCase(),
         text: [route?.label, route?.detail, route?.command, choice?.label, choice?.detail]
@@ -7900,7 +8787,8 @@ async function main() {
       };
     }, needle);
     let last = null;
-    for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
+    for (let attempt = 1; attempt <= deckSize; attempt += 1) {
       const result = await focus();
       const primary = String(result?.text || "");
       const routeVisible = ["move", "travel", "scout", "flee"].includes(result?.intention)
@@ -7917,6 +8805,10 @@ async function main() {
         return primary;
       }
       last = { result, primary };
+      if (attempt < deckSize) {
+        await page.locator("#shuffle").click();
+        await page.waitForFunction(() => actionBusy === false && refreshInFlight === null && document.querySelector("#shuffle")?.disabled === false);
+      }
     }
     if (
       runLivingWorldStress
@@ -8066,6 +8958,8 @@ async function main() {
   }
 
   async function clickActionMatching(label, needles) {
+    return clickDealtActionMatching(label, needles);
+
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
     let lastResult = null;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -8118,6 +9012,73 @@ async function main() {
       await page.evaluate(() => refresh());
     }
     throw new Error(`${label} stayed stale after three fresh offers: ${JSON.stringify(lastResult)}`);
+  }
+
+  async function clickDealtActionMatching(label, needles) {
+    const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
+    let lastHand = [];
+    let lastScene = {};
+    const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 8)));
+    for (let draw = 0; draw < deckSize; draw += 1) {
+      await page.waitForFunction(() => (
+        actionBusy === false
+          && refreshInFlight === null
+          && document.querySelector("#action-modal")?.hidden === true
+      ), null, { timeout: 35_000 });
+      const selected = await page.evaluate((terms) => {
+        const actionText = (action) => [
+          compactActionLabel(action),
+          action?.detail,
+          action?.command,
+          action?.cost,
+          action?.risk,
+          action?.effect,
+        ].filter(Boolean).join(" ").toLowerCase();
+        const visible = actionBarActions();
+        const action = visible.find((candidate) => terms.every((term) => actionText(candidate).includes(term)));
+        if (!action) {
+          return {
+            ok: false,
+            hand: visible.map(actionText),
+            allActions: actions.map(actionText),
+            items: (state?.items || []).map((item) => ({
+              name: item.name,
+              location_id: item.location_id,
+              holder_actor_id: item.holder_actor_id,
+            })),
+          };
+        }
+        focusIndex = action.actionIndex;
+        focusedKey = actionHandKey(action);
+        openActionModal(action);
+        return { ok: true, action: actionText(action) };
+      }, normalizedNeedles);
+      lastHand = selected.hand || lastHand;
+      lastScene = {
+        allActions: selected.allActions || lastScene.allActions || [],
+        items: selected.items || lastScene.items || [],
+      };
+      if (selected.ok) {
+        const responsePromise = page.waitForResponse((response) => (
+          response.request().method() === "POST"
+            && new URL(response.url()).pathname.startsWith("/actions/")
+        ));
+        await confirmActionModalIfOpen();
+        const response = await responsePromise;
+        const body = await response.json();
+        await page.waitForFunction(() => (
+          actionBusy === false
+            && refreshInFlight === null
+            && document.querySelector("#action-modal")?.hidden === true
+        ), null, { timeout: 35_000 });
+        if (body?.ok === true) return body;
+        const staleOffer = Number(body?.status || response.status()) === 409
+          && (body?.events || []).some((event) => String(event.content || "").includes("offer_id"));
+        assert(staleOffer, `${label} should commit or reject only as a stale dealt offer: ${JSON.stringify(body)}`);
+      }
+      await page.locator("#shuffle").click();
+    }
+    throw new Error(`${label} was not dealt within one complete hand rotation: ${JSON.stringify({ lastHand, ...lastScene })}`);
   }
 
   async function clickPrimaryAndAssertPending(label) {
@@ -8653,28 +9614,14 @@ async function main() {
     const nameLower = name.toLowerCase();
     let lastResult = null;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      let primary;
       try {
-        primary = await drawPrimaryMatching(`take ${name}`, [nameLower]);
+        const body = await clickDealtActionMatching(`take ${name}`, ["take", nameLower]);
+        lastResult = { httpStatus: Number(body?.status || 200), body };
       } catch (error) {
         if (allowResidentClaim) return false;
         throw error;
       }
-      steps.push({ label: `focus ${name}`, primary, attempt });
-      assert(/\b(take|swap)\b/.test(primary.toLowerCase()), `${name} selection should take or swap the item`);
-      const responsePromise = page.waitForResponse((response) => (
-        response.request().method() === "POST"
-          && ["/actions/submit", "/actions/pick-up"].includes(new URL(response.url()).pathname)
-      ));
-      await page.evaluate(() => openActionModal(focusedAction()));
-      useFocusedActionOnNextClick = false;
-      await page.waitForSelector("#action-modal:not([hidden])");
-      const itemChoice = page.locator("#action-modal-choices .action-choice").filter({ hasText: name });
-      if (await itemChoice.count() === 1) await itemChoice.click();
-      await page.locator("#action-modal-confirm").click();
-      const response = await responsePromise;
-      lastResult = { httpStatus: response.status(), body: await response.json() };
-      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
+      steps.push({ label: `take ${name}`, attempt });
       await page.evaluate(() => refresh());
       const holder = await page.evaluate((itemName) => {
         const item = (state?.items || []).find((candidate) => candidate.name === itemName);
@@ -8729,8 +9676,46 @@ async function main() {
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     await drawPrimaryMatching("current room Notice", ["notice"]);
+    const noticeBefore = await page.evaluate(() => {
+      const currentActorId = Number(actorId || 0);
+      const focused = actionBarActions().find((action) => action.actionIndex === focusIndex) || null;
+      const handOfferIds = new Set((state?.action_hand?.entries || [])
+        .map((entry) => String(entry?.offer_id || ""))
+        .filter(Boolean));
+      const previousRollSeq = Math.max(0, ...roomMemoryModel().recent
+        .filter((entry) => (
+          entry.kind === "roll"
+            && Number(entry.actorId || 0) === currentActorId
+        ))
+        .map((entry) => Number(entry.seq || 0)));
+      return {
+        actorId: currentActorId,
+        previousRollSeq,
+        focused: focused && {
+          label: compactActionLabel(focused),
+          intention: focused.intention,
+          offerIds: focused.offerIds || [],
+          isCertified: (focused.offerIds || []).length === 1
+            && handOfferIds.has(String(focused.offerIds[0])),
+        },
+      };
+    });
+    assert(
+      noticeBefore.actorId > 0
+        && noticeBefore.focused?.label === "notice"
+        && noticeBefore.focused?.isCertified === true,
+      `Notice must remain an exact currently dealt hand action before it is played: ${JSON.stringify(noticeBefore)}`,
+    );
     await clickPrimary("notice");
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
+    await page.waitForFunction(({ actorId: currentActorId, previousRollSeq }) => (
+      roomMemoryModel().recent.some((entry) => (
+        entry.kind === "roll"
+          && Number(entry.actorId || 0) === Number(currentActorId)
+          && Number(entry.seq || 0) > Number(previousRollSeq)
+          && String(entry.text || "").trim().length > 0
+      ))
+    ), noticeBefore);
     if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
       // A resident reply is asynchronous: intent inference, then dialogue
       // inference, then the authored chat delay. Re-enabling the primary button
@@ -8744,7 +9729,7 @@ async function main() {
         )), { timeout: 45000 })
         .catch(() => {});
     }
-    const scene = await page.evaluate(() => {
+    const scene = await page.evaluate(({ actorId: currentActorId, previousRollSeq }) => {
       const rows = [...document.querySelectorAll("#log > *")];
       // Chat rows are classified you/avatar/world; there is no longer an "npc"
       // class. A resident reply is any avatar row that is not the player's.
@@ -8753,16 +9738,36 @@ async function main() {
         && node.classList.contains("avatar")
         && !node.classList.contains("you")
       ));
+      const noticeRoll = roomMemoryModel().recent
+        .filter((entry) => (
+          entry.kind === "roll"
+            && Number(entry.actorId || 0) === Number(currentActorId)
+            && Number(entry.seq || 0) > Number(previousRollSeq)
+        ))
+        .sort((left, right) => Number(left.seq || 0) - Number(right.seq || 0))
+        .at(-1) || null;
       return {
         residentReply: reply?.textContent?.trim().replace(/\s+/g, " ") || "",
         roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        roomEntries: roomMemoryModel().recent.map((entry) => entry.text).join(" "),
+        noticeRoll: noticeRoll && {
+          seq: Number(noticeRoll.seq || 0),
+          actorId: Number(noticeRoll.actorId || 0),
+          kind: noticeRoll.kind,
+          label: noticeRoll.label,
+          text: noticeRoll.text,
+        },
         eventRows: document.querySelectorAll("#log .line.event, #log .roll-line").length,
         nonChatRows: rows.filter((node) => node.classList.contains("line") && !node.classList.contains("chat")).length,
       };
-    });
+    }, noticeBefore);
     assert(scene.eventRows === 0 && scene.nonChatRows === 0, `Notice outcomes should stay out of group chat: ${JSON.stringify(scene)}`);
-    assert(/listen|room answer|clue/i.test(scene.roomEntries), `the room Log should retain the Notice outcome even when a safety notice owns the headline: ${JSON.stringify(scene)}`);
+    assert(
+      scene.noticeRoll?.seq > noticeBefore.previousRollSeq
+        && scene.noticeRoll?.actorId === noticeBefore.actorId
+        && scene.noticeRoll?.kind === "roll"
+        && String(scene.noticeRoll?.text || "").trim().length > 0,
+      `the room Log should retain this actor's new Notice roll without depending on success or failure prose: ${JSON.stringify({ noticeBefore, scene })}`,
+    );
     if (!runLivingWorldStress && runtimeMeta.features?.ai_enabled) {
       assert(scene.residentReply.length > 0, `group chat should retain the resident's spoken reply: ${JSON.stringify(scene)}`);
     }
@@ -9076,16 +10081,12 @@ async function main() {
           steps.push({ label: "clear garden floor", item: blockingItem });
           continue;
         }
-        const roomSearchAvailable = await page.evaluate(() => actions.some((action) => (
-          String(action.label || "").toLowerCase() === "search"
-            && !String(action.command || "").toLowerCase().startsWith("search pathway")
-        )));
-        if (!roomSearchAvailable) {
+        const searchCard = await drawCertifiedGardenInspect("garden keepsake search");
+        if (!searchCard) {
           await travelPathTo("The Cosy Cottage");
-          steps.push({ label: "let the garden turn", attempt });
+          steps.push({ label: "let the garden turn without a legal Inspect", attempt });
           continue;
         }
-        const searchCard = await drawRoomSearch("garden keepsake search");
         steps.push({ label: "garden keepsake search", attempt, primary: searchCard });
         await clickSearchAndAssertProgress(`garden keepsake search ${attempt}`);
         continue;
@@ -9264,7 +10265,7 @@ async function main() {
   }
 
   async function assertMudCommandApiAvailable() {
-    const result = await page.evaluate(async (reservedTake) => {
+    const result = await page.evaluate(async () => {
       const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
       const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
       const run = async (command) => {
@@ -9280,131 +10281,46 @@ async function main() {
         });
         return response.json();
       };
-      const search = await run("search scarf");
-      const repeatSearch = await run("search scarf");
-      const searchedState = await fetch(`/state?actor_id=${actorId}&actor_session=${actorSession}&wallet_address=dev-wallet`).then((response) => response.json());
-      const searchedActionKeys = buildActions(searchedState).map((action) => action.focusKey);
-      const startingInventory = await run("inventory");
-      const alreadyHeld = startingInventory.output.includes("Story Button");
-      const takeButton = alreadyHeld ? reservedTake : await run("take Story Button");
-      const useScarfBasket = await run("use Story Button on scarf basket");
-      const inventory = await run("inventory");
-      const dropButton = await run("drop Story Button");
-      const retakeButton = await run("take Story Button");
-      const afterRetakeState = await fetch(`/state?actor_id=${actorId}&actor_session=${actorSession}&wallet_address=dev-wallet`).then((response) => response.json());
+      const mutationCommands = [
+        "search scarf",
+        "take Story Button",
+        "use Story Button on scarf basket",
+        "drop Story Button",
+        "shuffle",
+      ];
+      const mutations = Object.fromEntries(await Promise.all(
+        mutationCommands.map(async (command) => [command, await run(command)]),
+      ));
       return {
         currentActorId: actorId,
         look: await run("look"),
         lookEast: await run("look east"),
-        shuffle: await run("shuffle"),
-        search,
-        repeatSearch,
-        searchedFeature: (searchedState.room_features || []).find((feature) => feature.key === "scarf_basket") || null,
-        searchedActionKeys,
-        startingInventory,
+        inventory: await run("inventory"),
         who: await run("who"),
-        takeButton,
-        useScarfBasket,
-        inventory,
-        dropButton,
-        retakeButton,
-        storyButtonAfterRetake: (afterRetakeState.items || []).find((item) => item.name === "Story Button") || null,
+        mutations,
         say: await run("say hello room"),
         emote: await run("/me nods to the room"),
         primaryCommand: document.querySelector("#primary")?.dataset.command || "",
       };
-    }, reservedStoryButtonTake);
+    });
     assert(result.look.ok === true && result.look.output.includes("The Cosy Cottage"), `look command should describe the current room: ${JSON.stringify(result.look)}`);
     assert(result.look.output.includes("This place feels safe and welcoming"), `look should translate room safety into a feeling: ${JSON.stringify(result.look)}`);
     assert(!/\b(?:sanctuary|frontier)\b|Memory:\s*\d|growth left/i.test(result.look.output), `look should not expose zone or journal counters: ${JSON.stringify(result.look)}`);
     assert(result.look.output.includes("east: Rain-Soft Garden") && result.lookEast.ok === true && result.lookEast.output.includes("Rain-Soft Garden"), `directional look should inspect a compass exit: ${JSON.stringify(result)}`);
-    assert(
-      result.shuffle.ok === true
-        && result.shuffle.output === "You draw a new hand."
-        && result.shuffle.events.some((event) => event.type === "hand.shuffled")
-        && result.shuffle.events.some((event) => event.type === "action.receipt"),
-      `shuffle command should journal one free hand draw with its fresh state receipt: ${JSON.stringify(result.shuffle)}`,
-    );
-    const searchBlockedByFloorItem = result.search.ok === false
-      && result.search.status === 409
-      && result.search.output.includes("Something is already waiting here");
-    const repeatLeavesFeatureSearched = (
-      (result.repeatSearch.ok === false && result.repeatSearch.status === 409)
-        || (
-          result.repeatSearch.ok === true
-            && !result.repeatSearch.events.some((event) => event.type === "feature.searched")
-            && (
-              result.repeatSearch.output.includes("Search the whole room at once")
-                || result.repeatSearch.events.some((event) => event.type === "location.searched")
-            )
-        )
-    );
-    const searchMarkedFeature = result.search.ok === true
-      && result.search.output.includes("Scarf Basket")
-      && result.search.events.some((event) => event.type === "feature.searched")
-      && (result.searchedFeature === null || result.searchedFeature?.searched === true)
-      && !result.searchedActionKeys.includes("feature:scarf_basket")
-      && repeatLeavesFeatureSearched;
-    const searchMarkedLocation = result.search.ok === true
-      && result.search.events.some((event) => event.type === "location.searched")
-      && result.searchedFeature === null
-      && !result.searchedActionKeys.includes("feature:scarf_basket")
-      && (
-        (result.repeatSearch.ok === false && result.repeatSearch.status === 409)
-        || (
-          result.repeatSearch.ok === true
-          && result.repeatSearch.output.includes("Search the whole room at once")
-          && result.repeatSearch.output.includes("Try: search")
-          && result.repeatSearch.events.length === 0
-        )
-        || (
-          result.repeatSearch.ok === true
-          && result.repeatSearch.events.some((event) => event.type === "location.searched")
-          && !result.repeatSearch.events.some((event) => event.type === "feature.searched")
-        )
-      );
-    const searchRedirectedToRoom = result.search.ok === true
-      && result.search.output.includes("Search the whole room at once")
-      && result.repeatSearch.ok === true
-      && result.repeatSearch.output.includes("Try: search")
-      && result.search.events.length === 0;
-    assert(
-      searchMarkedFeature || searchMarkedLocation || searchBlockedByFloorItem || searchRedirectedToRoom,
-      `search command should use the room-wide search surface or explain its gate: ${JSON.stringify(result)}`,
-    );
     assert(result.who.ok === true && result.who.output.includes("(you)"), `who command should gently identify the player among room occupants: ${JSON.stringify(result.who)}`);
     assert(!/\((?:human|npc)\)/i.test(result.who.output), `who should name people without engine categories: ${JSON.stringify(result.who)}`);
-    assert(result.takeButton.ok === true && result.takeButton.output.includes("You take Story Button."), `take command should return terminal output: ${JSON.stringify(result.takeButton)}`);
     assert(
-      result.useScarfBasket.ok === true
-        && result.useScarfBasket.events.some((event) => event.type === "item.used" && event.item_name === "Story Button"),
-      `typed item use should commit its authored room-feature use: ${JSON.stringify(result.useScarfBasket)}`,
+      result.inventory.ok === true
+        && /You carry|You aren't carrying|Your carried deck is empty|Your carried deck:/i.test(result.inventory.output)
+        && result.inventory.events.length === 0,
+      `inventory should remain a read-only terminal view: ${JSON.stringify(result.inventory)}`,
     );
-    assert(result.inventory.ok === true && result.inventory.output.includes("You carry Story Button") && result.inventory.output.includes("lb"), `inventory should report the weighted carried deck: ${JSON.stringify(result.inventory)}`);
-    const dropLostRace = result.dropButton.ok === false
-      && result.dropButton.status === 409
-      && result.dropButton.output.includes("not carrying that anymore")
-      && result.dropButton.events.some((event) => event.type === "action.offer_rejected");
-    assert(
-      (
-        result.dropButton.ok === true
-          && result.dropButton.output.includes("You drop Story Button.")
-          && result.dropButton.events.some((event) => event.type === "item.dropped" && event.item_name === "Story Button")
-      ) || dropLostRace,
-      `drop command should emit item.dropped or reject a stale concurrent offer: ${JSON.stringify(result.dropButton)}`,
-    );
-    assert(
-      (
-        result.retakeButton.ok === true
-          && result.retakeButton.output.includes("You take Story Button.")
-          && result.retakeButton.events.some((event) => event.type === "item.picked_up" && event.item_name === "Story Button")
-      ) || (
-        result.retakeButton.ok === false
-          && [404, 409].includes(Number(result.retakeButton.status || 0))
-          && Number(result.storyButtonAfterRetake?.holder_actor_id || 0) !== 0
-      ),
-      `retake after drop should work unless the card is already durably carried: ${JSON.stringify({ retake: result.retakeButton, item: result.storyButtonAfterRetake })}`,
-    );
+    for (const [command, response] of Object.entries(result.mutations)) {
+      assert(
+        response.ok === false && [400, 404, 409].includes(Number(response.status || 0)),
+        `raw ${command} must not bypass a dealt card or Think: ${JSON.stringify(response)}`,
+      );
+    }
     assert(
       result.say.ok === true
         && result.say.output.includes("hello room")
@@ -9426,17 +10342,13 @@ async function main() {
     assert(
       await page.locator("#command-toggle, #command-palette, #command-input, #tertiary").count() === 0
         && await page.locator("#shuffle").count() === 1
-        && await page.locator("#all-actions-modal").count() === 1,
-      "the browser room should expose two world action cards and one compact all-actions control",
+        && await page.locator("#all-actions-modal, [data-all-action-index]").count() === 0,
+      "the browser room should expose only its dealt action hand and Think, without command entry or a full-deck chooser",
     );
-    await page.locator("#shuffle").click();
-    await page.locator("#all-actions-modal:not([hidden])").waitFor();
     assert(
-      await page.locator("#all-actions-modal [data-all-action-index]").count() >= before.length,
-      "the all-actions dialog should contain the legal action set",
+      before.length >= 1 && before.length <= 2,
+      `the browser room should show one or two dealt action cards: ${JSON.stringify(before)}`,
     );
-    await page.locator("[data-all-actions-close]").click();
-    await page.waitForFunction(() => document.querySelector("#all-actions-modal")?.hidden);
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.keyboard.press("Slash");
     await page.keyboard.press("KeyT");
@@ -9447,7 +10359,7 @@ async function main() {
       `speech and command shortcuts must not replace the action-only hand: ${JSON.stringify({ before, after })}`,
     );
     await assertNoComposerOrDebugChrome();
-    steps.push({ label: "action-only browser room", actions: after });
+    steps.push({ label: "finite-hand browser room", actions: after });
   }
 
   async function assertAvatarReportControlAvailable() {
@@ -9607,7 +10519,7 @@ async function main() {
       const afterFirstListen = await other.evaluate(() => ({
         currentActorId: Number(state?.turn?.current_actor_id || 0),
         isCurrentActor: state?.turn?.is_current_actor === true,
-        labels: actions.map((action) => action.label),
+        visibleLabels: actionBarActions().map((action) => action.label),
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
         economy: document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ") || "",
         guide: document.querySelector("#updates")?.textContent?.trim().replace(/\s+/g, " ") || "",
@@ -9616,9 +10528,10 @@ async function main() {
       }));
       assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
-        afterFirstListen.labels.includes("move")
-          && afterFirstListen.labels.every((label) => !/grow|expand bracelet/i.test(label)),
-        `the newcomer should receive the shared-world lead without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
+        afterFirstListen.visibleLabels.length >= 1
+          && afterFirstListen.visibleLabels.length <= 2
+          && afterFirstListen.visibleLabels.every((label) => !/grow|expand bracelet/i.test(label)),
+        `the newcomer should receive a dealt shared-world hand without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
       const sharedTurnOwner = firstTaleStart.currentActorId;
@@ -11106,7 +12019,7 @@ async function main() {
       const label = primary?.getAttribute("aria-label") || "";
       return !primary?.disabled && label.trim().toLowerCase().startsWith("begin,");
     });
-    await assertActionBarCapped("guest avatar gate", 2);
+    await assertActionBarCapped("guest avatar gate", 1);
     const openingPrimary = (await primaryText()).toLowerCase();
     assert(
       openingPrimary.includes("begin")
@@ -11131,51 +12044,9 @@ async function main() {
       `core arrival should keep its expanded description to one sentence: ${JSON.stringify(coreOpeningRows)}`,
     );
     await page.locator("#action-modal-cancel").click();
-    await focusPrimaryMatching(
-      "optional campaign rules",
-      (text) => text.startsWith("campaign rules"),
-      8,
-    );
-    await page.evaluate(() => openActionModal(focusedAction()));
-    useFocusedActionOnNextClick = false;
+    await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden])");
-    assert(await page.locator("#action-modal-title").innerText() === "What kind of traveler reaches the last light?", "opening modal should ask for the campaign species");
-    const campaignSummary = await page.locator("#action-modal-summary").innerText();
-    assert(
-      /optional rules/i.test(campaignSummary)
-        && /Calling, deeds, and emergent practice/i.test(campaignSummary),
-      `campaign modal should label its staged rules as optional and separate: ${campaignSummary}`,
-    );
-    const openingRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
-      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
-    ));
-    assert(
-      openingRows.length === 0,
-      `opening modal should stay to one sentence plus its choices: ${JSON.stringify(openingRows)}`,
-    );
-    const speciesChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
-      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
-    ));
-    assert(
-      speciesChoices.length === 3
-        && speciesChoices[0].toLowerCase().includes("human")
-        && speciesChoices[1].toLowerCase().includes("mouse")
-        && speciesChoices[2].toLowerCase().includes("badger"),
-      `guest avatar gate should expose campaign species first: ${JSON.stringify(speciesChoices)}`,
-    );
-    await page.locator("#action-modal-confirm").click();
-    assert(await page.locator("#action-modal-title").innerText() === "where did your traveler come from?", "the second creation stage should ask for an origin");
-    const originChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
-      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
-    ));
-    assert(
-      originChoices.length === 3
-        && originChoices[0].toLowerCase().includes("wayside inn")
-        && originChoices[1].toLowerCase().includes("open road")
-        && originChoices[2].toLowerCase().includes("old chapel"),
-      `guest avatar gate should expose campaign origins second: ${JSON.stringify(originChoices)}`,
-    );
-    assert(await page.locator("#action-modal-confirm").innerText() === "begin", "the origin stage should begin the classless traveler");
+    assert(await page.locator("#action-modal-confirm").innerText() === "begin", "the certified core arrival should begin the classless traveler");
     await page.locator("#action-modal-confirm").click();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -11207,7 +12078,7 @@ async function main() {
     await assertActionBarCapped("guest account inventory", 0);
     const guestSheetText = await page.locator(".account-panel").innerText();
     assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
-    assert(guestSheetText.includes("0 · classless"), `the account sheet should show staged classless creation: ${guestSheetText}`);
+    assert(/\blevel\s+1\b/i.test(guestSheetText) && !/\bclassless\b/i.test(guestSheetText), `the account sheet should show level 1 without a class label before class selection: ${guestSheetText}`);
     assert(
       guestSheetText.includes("journal") && guestSheetText.includes("relationships"),
       `avatar sheet should expose the journal and authored relationship state: ${guestSheetText}`,
@@ -11524,14 +12395,16 @@ async function main() {
   async function assertHumanActionRequiresActorSession() {
     const rejected = await page.evaluate(async () => {
       const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
-      const response = await fetch("/actions/chat", {
+      const pass = state?.action_hand?.pass;
+      if (!pass?.offer_id) return { ok: false, status: 0, events: [], missing: "pass certificate" };
+      const response = await fetch("/commands", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ actor_id: actorId, target_actor_id: 1001 }),
+        body: JSON.stringify({ actor_id: actorId, command: "pass", offer_id: pass.offer_id }),
       });
       return response.json();
     });
-    assert(rejected.ok === false && rejected.status === 403, `chat without actor session should be rejected: ${JSON.stringify(rejected)}`);
+    assert(rejected.ok === false && rejected.status === 403, `certified action without actor session should be rejected: ${JSON.stringify(rejected)}`);
     assert((rejected.events || []).length === 0, "rejected human action should not emit events");
 
     const gatedState = await page.evaluate(async () => {
@@ -11642,11 +12515,14 @@ async function main() {
             target_actor_id: targetActorId,
           }),
         });
-        return response.json();
+        return { httpStatus: response.status, body: await response.json() };
       }, targetActorId);
       assert(
-        duplicate.ok === true && (duplicate.events || []).length === 0,
-        `overlapping Chat should idempotently reuse the active exchange: ${JSON.stringify(duplicate)}`,
+        duplicate.httpStatus === 400
+          && duplicate.body?.ok === false
+          && duplicate.body?.status === 400
+          && (duplicate.body?.events || []).length === 0,
+        `legacy overlapping Chat should be refused without events: ${JSON.stringify(duplicate)}`,
       );
       await assertNoVisibleOverflow();
       chatPendingChecked = true;
@@ -11802,7 +12678,9 @@ async function main() {
   await assertNoVisibleOverflow();
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
-  await assertActionBarCapped("avatar gate", 2);
+  // Before an avatar exists there is one onboarding command, rather than a
+  // dealt action hand. The finite two-card cap begins with normal play.
+  await assertActionBarCapped("avatar gate", 1);
   assert((await primaryText()).toLowerCase().includes("begin"), "first command should begin avatar creation");
 
   await beginAvatarAndAssertArrival();
@@ -11840,7 +12718,7 @@ async function main() {
   // Chat, so the authoritative opening hand may contain one or two cards.
   await assertActionBarCapped("normal play");
   await assertFirstThreadGuide();
-  await assertOrderedDrawPassesAndRotatesOneCard();
+  await assertStalePassRefreshesAndRotatesReceipt();
   await assertBrowserDrawReachesEveryLegalAction();
   await assertNoComposerOrDebugChrome();
   const collectibleAvailable = await page.evaluate(() => actions.some((action) => (
@@ -11862,31 +12740,6 @@ async function main() {
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
   const legacyListChrome = await page.locator("#route-map,#presence,#features,.route-node,.chip,.feature-pill").count();
   assert(legacyListChrome === 0, `inline item/location/avatar lists should not render: ${legacyListChrome}`);
-  await revealBySearchIfNeeded("Story Button", ["scarf"], "reserve Story Button");
-  reservedStoryButtonTake = await page.evaluate(async () => {
-    const currentActorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
-    const currentActorSession = localStorage.getItem("cosyworld.actorSession") || "";
-    return fetch("/commands", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        actor_id: currentActorId,
-        actor_session: currentActorSession,
-        wallet_address: "dev-wallet",
-        command: "take Story Button",
-      }),
-    }).then((response) => response.json());
-  });
-  assert(
-    reservedStoryButtonTake?.ok === true
-      && reservedStoryButtonTake.output.includes("You take Story Button.")
-      && reservedStoryButtonTake.events.some((event) => event.type === "item.picked_up" && event.item_name === "Story Button"),
-    `typed take should reserve Story Button before resident autonomy can claim it: ${JSON.stringify(reservedStoryButtonTake)}`,
-  );
-  await page.evaluate(() => refresh());
-  await page.waitForFunction(() => (state?.items || []).some((item) => (
-    item.name === "Story Button" && Number(item.holder_actor_id || 0) === Number(actorId || 0)
-  )));
   await assertFreeActionsIgnoreOrbBalance();
   await assertEmptyActionSetFallsBackToLook();
   await assertLockedRoutesCollapseAndFooterVerbsFit();
@@ -11898,6 +12751,7 @@ async function main() {
   await assertProjectFeatureUseSurfacesBeforePrepare();
   await assertProjectFeatureUseRequiresServerEffect();
   await assertFeatureAndCareShareOneUseCard();
+  await assertExactTwoCardHandKeepsOfferAndPayloadBindings();
   await assertChatPrimaryUsesCompactActorDetail();
   await assertMaraRelationshipEventsStayTruthful();
   await assertGiftPrimaryUsesCompactVerb();
@@ -11919,6 +12773,7 @@ async function main() {
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
   await assertPlayerDefeatTransitionIsExplicit();
   await assertCombatTurnBannerOwnsFullRowAboveCardHand();
+  await assertRecoveryPromotionRequiresDealtRest();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();
   await assertServerEligibleRestPriorityFollowsRoomDanger();
@@ -12035,15 +12890,13 @@ async function main() {
     checkContribution,
     "the browser check choice should resolve through its exact authored strategy",
   );
-  await drawPrimaryMatching("first shared-world preparation", ["prepare"]);
-  await clickPrimary("prepare the garden work");
-  await drawPrimaryMatching(
-    "second shared-world contribution kind",
-    ["clear", "drain"],
+  await page.waitForFunction(
+    (eventSeq) => (
+      state?.first_tale?.phase === "complete"
+        && Number(state?.first_tale?.trace_event_seq || 0) === Number(eventSeq)
+    ),
+    Number(checkContribution.seq || 0),
   );
-  await clickPrimary("clear the garden drain");
-  await page.evaluate(() => refresh());
-  await page.waitForFunction(() => state?.first_tale?.phase === "complete");
   await finishFirstThreadIfReady();
   await assertActivationTracksFirstPublicTrace();
   await travelTo("The Cosy Cottage");
@@ -12056,52 +12909,52 @@ async function main() {
 
   const residentRoom = await joinNearbyResident();
   await page.evaluate(() => refresh());
-  const residentChatDiagnostic = await page.evaluate(() => ({
-    location: state?.location?.name || "",
-    residents: (state?.actors || [])
-      .filter((actor) => actor.kind === "npc" && actor.status === "active")
-      .map((actor) => actor.name),
-    advancement: Number(state?.ledger?.advancement_points || 0),
-    offers: (state?.action_offers || []).map((offer) => offer.kind),
-    actions: actions.map((action) => action.label),
-    turn: state?.turn || null,
-  }));
-  assert(
-    residentChatDiagnostic.advancement > 0
-      && residentChatDiagnostic.offers.includes("create_bond")
-      && residentChatDiagnostic.offers.includes("chat")
-      && residentChatDiagnostic.actions.includes("chat")
-      && residentChatDiagnostic.actions.includes("befriend"),
-    `Chat and Befriend should remain distinct while a friendship can begin: ${JSON.stringify(residentChatDiagnostic)}`,
-  );
-  await focusPrimaryMatching("focus Chat with a nearby resident", (text) => text.startsWith("chat"), 32);
-  await chatWithFocusedResident("Chat button starts a bounded exchange");
-  await focusPrimaryMatching("spend one advancement on Befriend", (text) => text.startsWith("befriend"), 32);
-  await clickPrimary("spend one advancement on Befriend");
-  await page.waitForFunction(
-    (before) => Number(state?.ledger?.advancement_points || 0) < before,
-    residentChatDiagnostic.advancement,
-  );
-  const spentChatDiagnostic = await page.evaluate(async () => {
-    await refresh();
-    return {
+  if (runLivingWorldStress) {
+    steps.push({ label: "living-world social card coverage", result: "covered by the deterministic browser pass" });
+  } else {
+    const residentChatDiagnostic = await page.evaluate(() => ({
+      location: state?.location?.name || "",
+      residents: (state?.actors || [])
+        .filter((actor) => actor.kind === "npc" && actor.status === "active")
+        .map((actor) => actor.name),
       advancement: Number(state?.ledger?.advancement_points || 0),
-      offers: (state?.action_offers || []).map((offer) => offer.kind),
-      actions: actions.map((action) => action.label),
-    };
-  });
-  assert(
-    spentChatDiagnostic.advancement === residentChatDiagnostic.advancement - 1,
-    `Befriend should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
-  );
-  if (spentChatDiagnostic.advancement === 0) {
+      visibleLabels: actionBarActions().map((action) => action.label),
+      turn: state?.turn || null,
+    }));
     assert(
-      !spentChatDiagnostic.offers.includes("create_bond")
-        && !spentChatDiagnostic.actions.includes("befriend"),
-      `Befriend should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+      residentChatDiagnostic.advancement > 0
+        && residentChatDiagnostic.residents.length > 0
+        && residentChatDiagnostic.visibleLabels.length >= 1
+        && residentChatDiagnostic.visibleLabels.length <= 2,
+      `the shared room should be ready to deal its distinct Chat and Befriend cards: ${JSON.stringify(residentChatDiagnostic)}`,
     );
+    await focusPrimaryMatching("focus Chat with a nearby resident", (text) => text.startsWith("chat"), 32);
+    await chatWithFocusedResident("Chat button starts a bounded exchange");
+    await focusPrimaryMatching("spend one advancement on Befriend", (text) => text.startsWith("befriend"), 32);
+    await clickPrimary("spend one advancement on Befriend");
+    await page.waitForFunction(
+      (before) => Number(state?.ledger?.advancement_points || 0) < before,
+      residentChatDiagnostic.advancement,
+    );
+    const spentChatDiagnostic = await page.evaluate(async () => {
+      await refresh();
+      return {
+        advancement: Number(state?.ledger?.advancement_points || 0),
+        visibleLabels: actionBarActions().map((action) => action.label),
+      };
+    });
+    assert(
+      spentChatDiagnostic.advancement === residentChatDiagnostic.advancement - 1,
+      `Befriend should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
+    );
+    if (spentChatDiagnostic.advancement === 0) {
+      assert(
+        !spentChatDiagnostic.visibleLabels.some((label) => /befriend/i.test(label)),
+        `Befriend should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+      );
+    }
+    steps.push({ label: "spent one advancement on friendship", location: residentChatDiagnostic.location });
   }
-  steps.push({ label: "spent one advancement on friendship", location: residentChatDiagnostic.location });
   if (residentRoom.destinationName !== "The Cosy Cottage") {
     await travelPathTo("The Cosy Cottage");
   }
@@ -12377,10 +13230,17 @@ async function main() {
           await clickPrimary(`rest before project completion ${attempt}`);
           continue;
         }
-        await focusPrimaryMatchingAcrossShuffles(
+        const completionAction = await focusPrimaryMatchingAcrossShuffles(
           `project completion ${attempt}`,
           (text) => text.startsWith("finish") || text.startsWith("work") || text.includes("quiet the echo"),
+          8,
+          () => page.evaluate(() => {
+            const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+            const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
+            return Number(progress?.filled || 0) === 4 && job?.status === "completed";
+          }),
         );
+        if (!completionAction) break;
         await clickPrimary(`complete project ${attempt}`);
       }
     }

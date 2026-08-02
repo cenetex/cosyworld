@@ -191,7 +191,7 @@ pub(super) struct FocusedEncounterView {
 }
 
 impl FocusedEncounterView {
-    fn handoff_key(&self) -> String {
+    pub(super) fn handoff_key(&self) -> String {
         format!(
             "{}:{}:{}:{}:{}",
             self.profile_id,
@@ -656,7 +656,7 @@ fn focused_job_encounter(runtime: &RuntimeWorld, actor_id: u64) -> Option<Focuse
     })
 }
 
-fn focused_encounter_for_actor(
+pub(super) fn focused_encounter_for_actor(
     runtime: &RuntimeWorld,
     actor_id: u64,
 ) -> Option<FocusedEncounterView> {
@@ -1288,14 +1288,40 @@ pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) ->
     ) {
         return false;
     }
-    !matches!(
+    let non_mutating_transfer_response = matches!(
         dispatch,
-        CommandDispatch::Read { .. }
-            | CommandDispatch::Disabled { .. }
-            | CommandDispatch::Say { .. }
+        CommandDispatch::ResolveTransferOffer { decision, .. }
+            if matches!(decision.as_str(), "decline" | "withdraw")
+    );
+    !non_mutating_transfer_response
+        && !matches!(
+            dispatch,
+            CommandDispatch::Read { .. }
+                | CommandDispatch::Disabled { .. }
+                | CommandDispatch::Say { .. }
+                | CommandDispatch::Emote { .. }
+                | CommandDispatch::Report { .. }
+                | CommandDispatch::SetActorSafety { .. }
+        )
+}
+
+/// Local controls, communication, and transfer-offer responses do not require
+/// one of the finite hand's two cards at the command boundary. Accepting an
+/// offer still consumes a room turn because it moves an item; declining or
+/// withdrawing remains available while a focused scene is locked.
+pub(super) fn command_dispatch_is_visible_room_control(dispatch: &CommandDispatch) -> bool {
+    matches!(
+        dispatch,
+        CommandDispatch::Say { .. }
             | CommandDispatch::Emote { .. }
+            | CommandDispatch::Disabled { .. }
             | CommandDispatch::Report { .. }
             | CommandDispatch::SetActorSafety { .. }
+            | CommandDispatch::SetCharmEquipped { .. }
+            | CommandDispatch::SetSpellPrepared { .. }
+            | CommandDispatch::SetItemEquipped { .. }
+            | CommandDispatch::SetItemContained { .. }
+            | CommandDispatch::ResolveTransferOffer { .. }
     )
 }
 
@@ -1492,8 +1518,19 @@ pub(super) async fn recover_available_focused_job_turns(
                 });
             let inference_record = if current_can_act && inference_controlled {
                 runtime.actor_by_id(current_actor_id).and_then(|actor| {
+                    let (_, offers) = runtime
+                        .legal_action_candidates(Some(current_actor_id), &AccessContext::default());
+                    let hand = runtime.action_hand_for(Some(current_actor_id), &offers);
                     runtime
                         .resident_job_autonomy_record(actor, runtime.next_seed_value())
+                        .filter(|record| {
+                            offers.iter().any(|offer| {
+                                hand.entries
+                                    .iter()
+                                    .any(|entry| entry.offer_id == offer.offer_id)
+                                    && runtime.resident_offer_matches_record(offer, record)
+                            })
+                        })
                         .map(|mut record| {
                             record = runtime
                                 .attach_resident_decision_trace(ResidentAutonomyCandidate {
@@ -1514,6 +1551,8 @@ pub(super) async fn recover_available_focused_job_turns(
             } else {
                 None
             };
+            let forced_certified_pass =
+                current_can_act && inference_controlled && inference_record.is_none();
             let record = if let Some(record) = inference_record {
                 record
             } else {
@@ -1528,15 +1567,38 @@ pub(super) async fn recover_available_focused_job_turns(
                         ..CwAction::default()
                     },
                     runtime.next_seed_value(),
-                )
-                .into_system();
+                );
+                record = if forced_certified_pass {
+                    record.into_player_card()
+                } else {
+                    record.into_system()
+                };
                 record.bind_offer_kind("pass");
                 record
                     .projection_mutations
                     .push(ProjectionMutation::FocusedControl {
                         control: "pass".to_string(),
                     });
-                record
+                if forced_certified_pass {
+                    // Recovery cannot play an undealt focused-work contribution.
+                    // It consumes the current certified Pass instead, rotating the
+                    // hand, spending one world tick, and handing off once.
+                    record
+                        .projection_mutations
+                        .push(ProjectionMutation::ShuffleHand {
+                            reason: "resident_focused_pass".to_string(),
+                        });
+                    runtime
+                        .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                            actor_id: current_actor_id,
+                            rank: 89,
+                            score: 0,
+                            record,
+                        })
+                        .record
+                } else {
+                    record
+                }
             };
             let (status, committed) = commit_journal_record(state, &mut runtime, record)?;
             events.extend(committed);
@@ -1544,6 +1606,13 @@ pub(super) async fn recover_available_focused_job_turns(
                 return Err(io::Error::other(format!(
                     "focused work {job_id} recovery failed with status {status}"
                 )));
+            }
+            // Do not let the recovery loop immediately spend the next
+            // inference participant after handing focus over.  A certified
+            // Pass is one bounded recovery decision, not a way to bypass the
+            // finite hand by searching the rest of the turn order.
+            if forced_certified_pass {
+                break;
             }
         }
     }
@@ -1720,27 +1789,234 @@ pub(super) async fn request_turn_timeout(
     })
 }
 
-pub(super) async fn pass_ordered_scene_turn(
+pub(super) async fn pass_action(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(payload): Json<ActorRequest>,
+    pass_offer_id: &str,
 ) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
         client_addr,
         payload.actor_id,
-        "turn-pass",
+        "action-pass",
         GENERAL_ACTION_LIMIT,
     ) {
         return action_rate_limited_response();
     }
-    apply_focused_control(
-        state,
+
+    let was_active = payload
+        .actor_session
+        .as_deref()
+        .and_then(|token| {
+            actor_session_active_for_actor(&state.actor_sessions, payload.actor_id, token)
+        })
+        .unwrap_or(false);
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
         payload.actor_id,
-        "pass",
         payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        drop(runtime);
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    if !RuntimeWorld::actor_can_act(actor) {
+        drop(runtime);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    if runtime
+        .action_hand_for(Some(payload.actor_id), &[])
+        .pass
+        .offer_id
+        != pass_offer_id
+    {
+        drop(runtime);
+        if let Some(path) = state.event_store_path.as_deref() {
+            if let Err(error) = record_stale_pass_rejection(path, payload.actor_id, pass_offer_id) {
+                warn!(
+                    "failed to record stale pass certificate metric for actor {}: {}",
+                    payload.actor_id, error
+                );
+            }
+        }
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    if ordered_scene_rejection_view(&runtime, payload.actor_id)
+        .is_some_and(|view| !view.is_current_actor)
+    {
+        let response = actor_ordered_scene_rejection(&runtime, payload.actor_id)
+            .expect("the ordered scene rejection remains current");
+        drop(runtime);
+        return response;
+    }
+    // Certificate and turn validation must be side-effect free. In particular,
+    // a stale or forged Pass cannot trigger unrelated inactive-inventory
+    // cleanup before it is refused.
+    let released_events = release_inactive_direct_inventory_locked(&state, &mut runtime);
+    let turn_location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id);
+    let focused = focused_encounter_for_actor(&runtime, payload.actor_id);
+    // A focused Pass is one authoritative action, not a hand shuffle followed
+    // by a second control mutation. Keeping both consequences in this record
+    // means the journal cannot retain a new hand if the focused scene rejects
+    // or fails to advance the pass.
+    let mut record = if let Some(focused) = focused.as_ref() {
+        if focused.profile_id == FOCUSED_COMBAT_PROFILE_ID {
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_COMBAT_PASS,
+                    actor_id: payload.actor_id,
+                    content_id: focused.encounter_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card()
+        } else {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: payload.actor_id,
+                    content_id: focused.encounter_id,
+                    location_id: turn_location_id.unwrap_or_default(),
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            record.bind_offer_kind("pass");
+            record
+                .projection_mutations
+                .push(ProjectionMutation::FocusedControl {
+                    control: "pass".to_string(),
+                });
+            bind_focused_encounter_context(&runtime, &mut record);
+            record
+        }
+    } else {
+        JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: payload.actor_id,
+                location_id: turn_location_id.unwrap_or_default(),
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+        .into_player_card()
+    };
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ShuffleHand {
+            reason: "player_pass".to_string(),
+        });
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    let mut status = status;
+    if status == CW_OK
+        && focused
+            .as_ref()
+            .is_some_and(|focused| focused.profile_id == FOCUSED_COMBAT_PROFILE_ID)
+    {
+        status = drive_available_combat_turns(
+            &state,
+            &mut runtime,
+            focused
+                .as_ref()
+                .expect("the checked combat focus remains available")
+                .encounter_id,
+            payload.actor_id,
+            &mut events,
+        )
+        .unwrap_or(500);
+    }
+    let observation = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        payload.actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+    broadcast_events(&state, &released_events);
+    broadcast_events(&state, &events);
+    if let Some(observation) = observation {
+        schedule_player_tick_observation(&state, observation);
+    }
+
+    if !was_active {
+        events.extend(commit_presence_event(&state, payload.actor_id, true).await);
+    }
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
+pub(super) async fn legacy_pass_requires_certificate(
+    payload: Json<ActorRequest>,
+) -> (StatusCode, Json<ActionResponse>) {
+    legacy_action_requires_certificate(payload).await
+}
+
+/// Legacy per-action transports cannot prove that the submitted mutation was
+/// dealt in the actor's current hand.  Keep the handler helpers available for
+/// trusted composition and direct unit tests, but require public clients to
+/// submit the versioned offer certificate through `/actions/submit`.
+pub(super) async fn legacy_action_requires_certificate(
+    Json(_payload): Json<ActorRequest>,
+) -> (StatusCode, Json<ActionResponse>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        }),
     )
-    .await
+}
+
+#[cfg(test)]
+pub(super) async fn draw_action(
+    client: ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    let offer_id = state
+        .inner
+        .lock()
+        .await
+        .action_hand_for(Some(payload.actor_id), &[])
+        .pass
+        .offer_id;
+    pass_action(client, State(state), Json(payload), &offer_id).await
 }
 
 async fn apply_focused_control(
@@ -2023,13 +2299,31 @@ mod tests {
             ConcurrencyPolicy::Concurrent
         );
         assert_eq!(
-            command_concurrency_policy(&CommandDispatch::PickUp { item_id: 2001 }),
+            command_concurrency_policy(&CommandDispatch::PickUp {
+                item_id: 2001,
+                exchange_item_id: None,
+            }),
             ConcurrencyPolicy::TargetSerialized
         );
         assert_eq!(
             command_concurrency_policy(&CommandDispatch::Defend),
             ConcurrencyPolicy::SceneTurn
         );
+    }
+
+    #[test]
+    fn transfer_offer_responses_are_card_exempt_and_only_non_mutating_choices_skip_turns() {
+        for decision in ["accept", "decline", "withdraw"] {
+            let dispatch = CommandDispatch::ResolveTransferOffer {
+                offer_id: "offer:test".to_string(),
+                decision: decision.to_string(),
+            };
+            assert!(command_dispatch_is_visible_room_control(&dispatch));
+            assert_eq!(
+                command_dispatch_consumes_room_turn(&dispatch),
+                decision == "accept"
+            );
+        }
     }
 
     #[test]
@@ -2638,6 +2932,10 @@ mod tests {
             actor_for_session(&state.actor_sessions, &session),
             Some(5001)
         );
+        let unavailable_hand_generation = {
+            let runtime = state.inner.lock().await;
+            runtime.hand_generations.get(&5000).copied()
+        };
         let recovery_events = recover_available_focused_job_turns(&state)
             .await
             .expect("focused work recovery succeeds");
@@ -2650,6 +2948,11 @@ mod tests {
                 .expect("available participant receives focus")
                 .current_actor_id,
             5001
+        );
+        assert_eq!(
+            runtime.hand_generations.get(&5000).copied(),
+            unavailable_hand_generation,
+            "an unavailable worker's system recovery must not rotate a hand"
         );
         drop(runtime);
 
@@ -2700,6 +3003,30 @@ mod tests {
                 .get_mut(&5001)
                 .expect("second worker controller")
                 .control_mode = ActorControlMode::LocalAi;
+            let actor = runtime.actor_by_id(5001).expect("focused inference actor");
+            let mut dealt_generation = None;
+            for generation in 0..64 {
+                runtime.hand_generations.insert(5001, generation);
+                let (_, offers) =
+                    runtime.legal_action_candidates(Some(5001), &AccessContext::default());
+                let hand = runtime.action_hand_for(Some(5001), &offers);
+                let preferred = runtime
+                    .resident_job_autonomy_record(actor, 82_199)
+                    .expect("focused worker has a preferred contribution");
+                if offers.iter().any(|offer| {
+                    hand.entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
+                        && runtime.resident_offer_matches_record(offer, &preferred)
+                }) {
+                    dealt_generation = Some(generation);
+                    break;
+                }
+            }
+            assert!(
+                dealt_generation.is_some(),
+                "a finite hand eventually deals the focused contribution"
+            );
             runtime.world.tick
         };
         let inference_events = recover_available_focused_job_turns(&state)
@@ -2740,6 +3067,100 @@ mod tests {
                 .current_actor_id,
             5000
         );
+
+        let (off_hand_generation, before_off_hand_tick, before_off_hand_progress, journal_len) = {
+            let mut runtime = state.inner.lock().await;
+            runtime
+                .actor_autonomy
+                .get_mut(&5000)
+                .expect("first worker controller")
+                .control_mode = ActorControlMode::LocalAi;
+            let actor = runtime.actor_by_id(5000).expect("focused inference actor");
+            let mut off_hand_generation = None;
+            for generation in 0..64 {
+                runtime.hand_generations.insert(5000, generation);
+                let (_, offers) =
+                    runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+                let hand = runtime.action_hand_for(Some(5000), &offers);
+                let preferred = runtime
+                    .resident_job_autonomy_record(actor, 82_200)
+                    .expect("focused worker has a preferred contribution");
+                let preferred_is_dealt = offers.iter().any(|offer| {
+                    hand.entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
+                        && runtime.resident_offer_matches_record(offer, &preferred)
+                });
+                if !preferred_is_dealt {
+                    off_hand_generation = Some(generation);
+                    break;
+                }
+            }
+            (
+                off_hand_generation.expect("a finite hand eventually excludes the preferred Work"),
+                runtime.world.tick,
+                runtime
+                    .clocks
+                    .get(FIRST_TALE_PROGRESS_CLOCK_ID)
+                    .expect("focused progress clock")
+                    .filled,
+                read_action_journal(&path)
+                    .expect("focused journal before off-hand recovery")
+                    .len(),
+            )
+        };
+        let off_hand_events = recover_available_focused_job_turns(&state)
+            .await
+            .expect("off-hand focused recovery chooses the certified Pass");
+        assert!(off_hand_events
+            .iter()
+            .any(|event| { event.type_name == "focused.pass" && event.actor_id == Some(5000) }));
+        assert!(
+            !off_hand_events
+                .iter()
+                .any(|event| event.type_name == "job.contribution.resolved"),
+            "an undealt preferred contribution must not bypass the current hand"
+        );
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.world.tick,
+            before_off_hand_tick + 1,
+            "an inference-controlled certified Pass spends one world tick"
+        );
+        assert_eq!(
+            runtime
+                .clocks
+                .get(FIRST_TALE_PROGRESS_CLOCK_ID)
+                .expect("focused progress clock")
+                .filled,
+            before_off_hand_progress,
+            "the certified focused Pass cannot advance project progress"
+        );
+        assert_eq!(
+            runtime.hand_generations.get(&5000).copied(),
+            Some(off_hand_generation + 1)
+        );
+        assert_eq!(
+            focused_job_encounter(&runtime, 5001)
+                .expect("off-hand Pass hands focus over once")
+                .current_actor_id,
+            5001
+        );
+        drop(runtime);
+        let journal = read_action_journal(&path).expect("focused journal after off-hand recovery");
+        assert_eq!(journal.len(), journal_len + 1);
+        assert!(journal.last().is_some_and(|record| {
+            record.action.actor_id == 5000
+                && record.origin == JournalOrigin::PlayerCard
+                && record.offer_kind.as_deref() == Some("pass")
+                && record.projection_mutations.iter().any(|mutation| {
+                    matches!(
+                        mutation,
+                        ProjectionMutation::ShuffleHand { reason }
+                            if reason == "resident_focused_pass"
+                    )
+                })
+        }));
         let _ = fs::remove_file(path);
     }
 

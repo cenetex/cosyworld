@@ -114,10 +114,10 @@ authority.
 
 ## Explicit non-decisions
 
-This ADR does not choose between redeal and a More Actions surface. That
-product-law conflict belongs to
-[#354](https://github.com/cenetex/cosyworld/issues/354) and must be resolved
-once, without coupling the rest ladder to either outcome.
+ADR 0002 now resolves the former redeal-versus-More product-law conflict:
+clients receive a finite two-card hand plus certified Think/Pass, while the
+complete legal candidate set remains internal. This rest ADR does not alter
+that action-surface contract.
 
 This ADR also does not tune danger-clock movement, define the shelter or
 lodging feature schemas, author an inn, change Rest offer ranking, or implement

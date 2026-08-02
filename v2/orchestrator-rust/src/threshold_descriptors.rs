@@ -3898,13 +3898,29 @@ mod tests {
             serde_json::to_value(planned).expect("planned action")
         );
 
+        let dealt_key_offer = (0..64)
+            .find_map(|generation| {
+                runtime.hand_generations.insert(5_100, generation);
+                let (_, candidates) = runtime.legal_action_candidates(Some(5_100), &access);
+                let hand = runtime.action_hand_for(Some(5_100), &candidates);
+                candidates.into_iter().find(|offer| {
+                    hand.entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
+                        && offer
+                            .threshold_method
+                            .as_ref()
+                            .is_some_and(|method| method.method_id == key_method_id)
+                })
+            })
+            .expect("exact key threshold offer is dealt within a bounded rotation");
         let api = runtime
             .resolve_command_submission(
                 &CommandRequest {
                     actor_id: 5_100,
                     actor_session: None,
                     command: String::new(),
-                    offer_id: Some(key_offer.offer_id.clone()),
+                    offer_id: Some(dealt_key_offer.offer_id.clone()),
                     wallet_address: None,
                     wallet: None,
                     wallet_session: None,

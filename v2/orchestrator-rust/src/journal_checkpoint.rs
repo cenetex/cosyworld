@@ -166,7 +166,12 @@ macro_rules! replay_action_journal_after {
             }
             validate_journal_rule_binding(&record)?;
 
-            let _ = $runtime.apply_journal_record(&record);
+            let (status, _) = $runtime.apply_journal_record(&record);
+            if status != CW_OK {
+                return Err(snapshot_error(format!(
+                    "action journal record {journal_seq} was rejected during replay with status {status}"
+                )));
+            }
             replayed_through_seq = journal_seq;
             if let Some(events) = canonical_natural_features.remove(&journal_seq) {
                 pending_natural_features.extend(events);
@@ -704,6 +709,23 @@ mod tests {
         ))
     }
 
+    fn valid_fixture_record(seed: u64) -> JournalRecord {
+        let content_id = 900_000 + seed;
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: RATI_ACTOR_ID,
+                content_id,
+                ..CwAction::default()
+            },
+            seed,
+        );
+        record
+            .content_upserts
+            .insert(content_id, format!("checkpoint fixture {seed}"));
+        record
+    }
+
     #[test]
     fn compacted_commit_range_pruning_uses_the_event_frontier_index() {
         let journal_path = temp_path("compacted-range-query-plan", "sqlite");
@@ -851,6 +873,37 @@ mod tests {
     }
 
     #[test]
+    fn rejected_suffix_record_fails_checkpoint_replay_closed() {
+        let journal_path = temp_path("journal-rejected-suffix", "sqlite");
+        let snapshot_path = temp_path("journal-rejected-suffix", "json");
+        let _ = fs::remove_file(&journal_path);
+        let _ = fs::remove_file(&snapshot_path);
+
+        append_action_journal(&journal_path, &valid_fixture_record(73_010))
+            .expect("append valid checkpoint record");
+        let checkpoint = RuntimeWorld::from_action_journal(&journal_path)
+            .expect("valid checkpoint record replays");
+        checkpoint
+            .save_snapshot(&snapshot_path)
+            .expect("save valid checkpoint");
+        append_action_journal(
+            &journal_path,
+            &JournalRecord::new(CwAction::default(), 73_011),
+        )
+        .expect("append structurally valid rejected suffix");
+
+        let error = RuntimeWorld::from_snapshot_and_action_journal(&snapshot_path, &journal_path)
+            .expect_err("rejected suffix must fail replay instead of advancing the cursor");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error
+            .to_string()
+            .contains("action journal record 2 was rejected during replay with status"));
+
+        let _ = fs::remove_file(journal_path);
+        let _ = fs::remove_file(snapshot_path);
+    }
+
+    #[test]
     fn durable_restore_dedupes_event_sequences_and_replayed_ledger_claims() {
         std::thread::Builder::new()
             .name("journal-event-dedupe".to_string())
@@ -867,11 +920,8 @@ mod tests {
         let _ = fs::remove_file(&journal_path);
         let _ = fs::remove_file(&snapshot_path);
 
-        append_action_journal(
-            &journal_path,
-            &JournalRecord::new(CwAction::default(), 73_100),
-        )
-        .expect("append durable checkpoint record");
+        append_action_journal(&journal_path, &valid_fixture_record(73_100))
+            .expect("append durable checkpoint record");
         let mut checkpoint =
             RuntimeWorld::from_action_journal(&journal_path).expect("replay checkpoint");
         checkpoint.action_journal_seq = 1;
@@ -981,11 +1031,8 @@ mod tests {
         let journal_path = temp_path("stale-snapshot-compaction", "sqlite");
         let _ = fs::remove_file(&journal_path);
         for seed in 1..=2 {
-            append_action_journal(
-                &journal_path,
-                &JournalRecord::new(CwAction::default(), seed),
-            )
-            .expect("append journal fixture");
+            append_action_journal(&journal_path, &valid_fixture_record(seed))
+                .expect("append journal fixture");
         }
 
         let compacted =
@@ -1140,7 +1187,7 @@ mod tests {
             .to_string()
             .contains("behind compacted journal floor 3"));
 
-        append_action_journal(&journal_path, &JournalRecord::new(CwAction::default(), 4))
+        append_action_journal(&journal_path, &valid_fixture_record(4))
             .expect("append post-checkpoint suffix");
         let restored =
             RuntimeWorld::from_snapshot_and_action_journal(&snapshot_path, &journal_path)

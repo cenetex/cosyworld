@@ -10,8 +10,9 @@ implementation of either SRD.
 
 An encounter has a stable numeric id, location, round, current participant,
 status, and initiative-sorted sides. Initiative is `d20 + Dexterity modifier`;
-higher totals act first and actor id breaks ties. The current participant gets
-one of three bounded choices:
+higher totals act first and actor id breaks ties. The encounter deck contains
+three bounded choice families, but the current participant sees at most two
+cards at once:
 
 - **Attack:** if the avatar has an equipped weapon Item, the action records that
   item instance and uses its validated damage die plus the authoritative attack
@@ -36,10 +37,10 @@ saves, and negative Hit Points are outside this profile.
 
 ## Action economy and exclusions
 
-During an active encounter, a participant may mechanically Attack, Dodge, or
-Escape. Brief room speech remains available but does not spend the combat
-turn. Normal movement and unrelated item, check, project, trade, search, and
-craft actions are rejected by the kernel or projection gate.
+During an active encounter, a participant may play a current Attack, Dodge, or
+Escape card, or Pass. Pass rotates to the next two combat cards and yields the
+turn; it does not grant Dodge. Arbitrary room speech and normal movement,
+unrelated item, check, project, trade, search, and craft actions are rejected.
 
 The profile does not implement tactical distance, speed, reach, ranged weapon
 bands, armor equipment, cover, grappling, combat Help/Ready, opportunity
@@ -58,11 +59,16 @@ exists, the orchestrator fails closed. A block in either direction also removes
 the target. Sanctuary rooms reject encounter creation regardless of pack
 reskins.
 
-The browser and terminal submit current action-offer envelopes through
-`POST /actions/submit`; compatibility endpoints remain `/actions/attack`,
-`/actions/defend`, and `/actions/flee`. `/state` exposes protocol, round,
-participants, current actor, and available choices. `/meta` advertises protocol
-and kernel versions.
+The browser and terminal submit current hand envelopes through
+`POST /actions/submit`; certificate-bound `POST /commands` is the only cycle/pass operation.
+There are no direct attack, defend, flee, or uncertified pass endpoints. `/state`
+exposes protocol, round, participants, current actor, and only the two current
+offers. `/meta` advertises protocol and kernel versions.
+
+The combat footer contains only those cards and Pass. Group chat renders
+speech and dice-call pills; outcomes such as hits, misses, defence, knockout,
+escape, and resolution remain in Journal and may appear as dismissible
+important alerts.
 
 Combat offer traces name the stable action, target, active profile, resolver,
 source location, and—when present—the equipped weapon's item/card/pack

@@ -9,4 +9,7 @@
 # rest.rs). The remaining 160 instances of that lint all live in main.rs and are
 # deliberately left alone while several branches are in flight there; fixing
 # them is mechanical and safe once main.rs is quieter.
-254
+#
+# 254 -> 253: extracted finite-hand tests use a struct literal and internal
+# StateResponse projections are explicitly marked as Rust-test-only.
+253

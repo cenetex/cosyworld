@@ -12,16 +12,16 @@ keep.
 
 1. Make an avatar and enter the shared world.
 2. Read the place, the people present, and the two suggested actions.
-3. Open **all actions** if neither suggestion interests you. Browsing or
-   redealing does not spend a turn.
+3. Choose one of the two cards, or **Think**. Thinking commits a Pass and deals
+   the next two cards from your current action deck.
 4. Open an action to see its target, cost, known risk, and expected effect.
 5. Commit one action. Everyone present sees the same result.
 6. Choose a Calling when the world asks what draws you.
 7. Before leaving, read the Journal. It keeps the deeds and relationships that
    can become growth.
 
-Speech and emotes do not consume the room's action turn. In a shared room,
-people otherwise take turns so one player cannot silently act over another.
+Chat is a dealt action rather than a free text channel. In a shared room,
+people take turns so one player cannot silently act over another.
 
 ## The Things To Know
 
@@ -264,10 +264,9 @@ Everyone present sees the same committed events. Residents follow the same
 legal action surface as human-controlled avatars; a different controller does
 not receive a private rules advantage.
 
-You may speak freely within moderation, but direct Chat that asks AI for a
-resident response is separate from deterministic action. When inference is
-unavailable, the world remains playable and no substitute character speech is
-invented.
+Chat asks an eligible nearby resident for a bounded exchange; players cannot
+publish arbitrary room speech through the API. When inference is unavailable,
+the world remains playable and no substitute character speech is invented.
 
 You can decline trades and requests. Mute and block prevent unwanted social
 contact; report sends an auditable record to an operator.
@@ -275,7 +274,8 @@ contact; report sends an auditable record to an operator.
 ## When You Are Unsure
 
 1. Read the current place and newest Journal entry.
-2. Open **all actions** and inspect the exact targets.
+2. Inspect either current card. If neither fits, Think and yield the turn to
+   commit a Pass and deal the next two cards.
 3. Notice for openly available context.
 4. Inspect or Study only when you can name the thing receiving your attention.
 5. Check whether the route says Scout or Travel.

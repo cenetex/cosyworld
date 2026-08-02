@@ -63,6 +63,9 @@ pub(crate) struct ResolvedCommand {
 
 #[derive(Clone, Debug)]
 pub(crate) enum CommandDispatch {
+    Pass {
+        offer_id: String,
+    },
     Read {
         output: String,
     },
@@ -101,6 +104,7 @@ pub(crate) enum CommandDispatch {
     },
     PickUp {
         item_id: u64,
+        exchange_item_id: Option<u64>,
     },
     Drop {
         item_id: u64,
@@ -314,7 +318,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "choose" | "select" => "choose",
         "delegate" => "delegate",
         "rest" | "breathe" | "catch" => "rest",
-        "shuffle" | "deal" | "more" | "redraw" => "shuffle",
+        "shuffle" | "deal" | "more" | "redraw" | "draw" => "redeal-retired",
         "grow" | "bank" | "review" | "advance" => "bank",
         "bracelet" => "bracelet",
         "wear" | "equip" => "wear",
@@ -465,63 +469,6 @@ pub(crate) fn command_action_response_with_events(
     command_action_response_with_prefix_and_events(resolved, response, None, leading_events)
 }
 
-pub(crate) async fn commit_shuffle_hand_command(
-    state: &AppState,
-    payload: &CommandRequest,
-    resolved: ResolvedCommand,
-    leading_events: Vec<EventView>,
-) -> Json<CommandResponse> {
-    let mut runtime = state.inner.lock().await;
-    let location_id = runtime
-        .actor_by_id(payload.actor_id)
-        .map(|actor| actor.location_id)
-        .unwrap_or_default();
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            location_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    )
-    .into_player_control();
-    record
-        .projection_mutations
-        .push(ProjectionMutation::ShuffleHand {
-            reason: "player_draw".to_string(),
-        });
-    let Ok((status, mut events)) = commit_journal_record(state, &mut runtime, record) else {
-        return Json(CommandResponse {
-            ok: false,
-            status: 500,
-            command: resolved.command,
-            verb: resolved.verb,
-            output: Some(
-                "That choice got lost before the room could answer. Try once more.".to_string(),
-            ),
-            error_kind: None,
-            action: resolved.action,
-            receipt: None,
-            events: leading_events,
-        });
-    };
-    if status == CW_OK && !events.is_empty() {
-        append_action_receipt(&runtime, payload.actor_id, &mut events);
-    }
-    drop(runtime);
-    broadcast_events(state, &events);
-    command_action_response_with_events(
-        resolved,
-        ActionResponse {
-            ok: status == CW_OK && !events.is_empty(),
-            status: if events.is_empty() { 409 } else { status },
-            events,
-        },
-        leading_events,
-    )
-}
-
 pub(crate) fn command_action_response_with_prefix_and_events(
     resolved: ResolvedCommand,
     mut response: ActionResponse,
@@ -561,6 +508,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         return "That choice got lost before the room could answer. Try once more.".to_string();
     }
     match &resolved.dispatch {
+        CommandDispatch::Pass { .. } => "That Pass is no longer current. Refresh the scene.",
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
         CommandDispatch::Scout { .. } => "That route can no longer be scouted from here.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
@@ -1385,7 +1333,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1957,7 +1905,10 @@ impl RuntimeWorld {
                     command: format!("take {item_name}"),
                     verb,
                     action: Some(command_action("pick_up", "Take", &format!("take {item_name}"))),
-                    dispatch: CommandDispatch::PickUp { item_id: item.id },
+                    dispatch: CommandDispatch::PickUp {
+                        item_id: item.id,
+                        exchange_item_id: None,
+                    },
                 })
             }
             "drop" => {
@@ -2771,12 +2722,13 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::Rest,
                 })
             }
-            "shuffle" => Ok(ResolvedCommand {
-                command: "shuffle".to_string(),
+            "redeal-retired" => Ok(ResolvedCommand {
+                command: "redeal retired".to_string(),
                 verb,
-                action: Some(command_action("shuffle_hand", "Shuffle", "shuffle")),
-                dispatch: CommandDispatch::Read {
-                    output: "You draw a new hand.".to_string(),
+                action: None,
+                dispatch: CommandDispatch::Disabled {
+                    status: 400,
+                    output: "Free redeal retired. Use the current Think/Pass certificate to commit this hand.".to_string(),
                 },
             }),
             "bank" => {
@@ -3469,7 +3421,7 @@ impl RuntimeWorld {
         }
 
         let (_, action_offers) = self.legal_action_candidates(Some(actor.id), access);
-        let action_hand = compose_action_hand(&action_offers);
+        let action_hand = self.action_hand_for(Some(actor.id), &action_offers);
         let shared_questions = self.shared_question_views_with_actions(
             location_id,
             Some(actor.id),

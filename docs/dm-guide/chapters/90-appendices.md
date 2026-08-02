@@ -18,7 +18,7 @@ short-rest limits apply only during their Playtest.
 2. Describe obvious sensory facts and Hazard Tells.
 3. Name present residents, objects, exits, and local pressure.
 4. Show two suggested actions.
-5. Keep the complete legal set reachable through All Actions.
+5. Offer certified Think/Pass when the player wants the next two cards; it yields the turn.
 
 ### Before commitment
 
@@ -391,7 +391,7 @@ true.
 | Term           | Meaning                                                | Status                                   |
 | -------------- | ------------------------------------------------------ | ---------------------------------------- |
 | Action         | A certified opportunity to change or inspect the world | Core                                     |
-| Action hand    | Two suggested actions plus a complete chooser          | Core                                     |
+| Action hand    | Two playable cards plus certified turn-consuming Think/Pass | Core                                |
 | Anchor         | A reliable navigation origin for a frontier foray      | Core descriptor; foray breadth Target    |
 | Bond           | A concrete relationship truth                          | Core                                     |
 | Cairn          | A durable return and branching mark, not shelter       | Accepted Target                          |

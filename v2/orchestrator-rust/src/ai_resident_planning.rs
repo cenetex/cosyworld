@@ -3,6 +3,7 @@ use super::*;
 const RESIDENT_PLANNER_PROMPT_VERSION: &str = "resident-intent-v1";
 const RESIDENT_PLANNER_ELIGIBILITY_POLICY: &str = "resident-planner-offers-v1";
 const RESIDENT_PLANNER_ELIGIBLE_KINDS: &[&str] = &[
+    "pass",
     "move",
     "pick_up",
     "drop_item",
@@ -30,6 +31,10 @@ pub(super) struct ResidentPlannerCandidate {
     pub(super) target_item_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) destination_location_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) hand_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) scene_key: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -174,11 +179,122 @@ impl RuntimeWorld {
 
     fn resident_planner_candidates(&self, actor_id: u64) -> Vec<ResidentPlannerCandidate> {
         let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
-        offers
-            .iter()
-            .filter(|offer| action_offer_is_reachable(offer))
+        let hand = self.action_hand_for(Some(actor_id), &offers);
+        let mut candidates = self
+            .current_action_hand_offers(actor_id, &offers)
+            .into_iter()
             .filter_map(|offer| self.resident_planner_candidate_from_offer(actor_id, offer))
-            .collect()
+            .collect::<Vec<_>>();
+        candidates.push(self.resident_planner_pass_candidate(actor_id, &hand));
+        candidates
+    }
+
+    fn resident_planner_pass_candidate(
+        &self,
+        _actor_id: u64,
+        hand: &ActionHandView,
+    ) -> ResidentPlannerCandidate {
+        ResidentPlannerCandidate {
+            candidate_id: hand.pass.offer_id.clone(),
+            // There is no ranked action offer for Think/Pass. Its synthetic
+            // composition id freezes the same focused-scene binding as the
+            // certificate without letting a model supply either value.
+            composition_id: format!("pass:{}", hand.pass.scene_key),
+            state_revision: hand.pass.state_revision,
+            kind: "pass".to_string(),
+            target_actor_id: None,
+            item_id: None,
+            target_item_id: None,
+            destination_location_id: None,
+            hand_generation: Some(hand.pass.generation),
+            scene_key: Some(hand.pass.scene_key.clone()),
+        }
+    }
+
+    pub(crate) fn resident_planner_pass_is_current(
+        &self,
+        actor_id: u64,
+        proposal: &AvatarProposedAction,
+    ) -> bool {
+        if proposal.kind != "pass"
+            || proposal.target_actor_id.is_some()
+            || proposal.item_id.is_some()
+            || proposal.target_item_id.is_some()
+            || proposal.destination_location_id.is_some()
+        {
+            return false;
+        }
+        let (Some(candidate_id), Some(composition_id), Some(state_revision)) = (
+            proposal.candidate_id.as_deref(),
+            proposal.composition_id.as_deref(),
+            proposal.state_revision,
+        ) else {
+            return false;
+        };
+        let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        let hand = self.action_hand_for(Some(actor_id), &offers);
+        let frozen_certificate = format!(
+            "pass:{actor_id}:{state_revision}:{}:{}",
+            hand.pass.generation, hand.pass.scene_key
+        );
+        if candidate_id != frozen_certificate
+            || composition_id != format!("pass:{}", hand.pass.scene_key)
+        {
+            return false;
+        }
+        if state_revision == hand.pass.state_revision {
+            return true;
+        }
+        // Publishing the accepted resident sentence appends exactly one SAY
+        // event before its selected consequence runs. That event changes the
+        // generic state revision but not the selected hand generation or
+        // scene. Permit only that tightly linked one-revision translation;
+        // every other intervening mutation expires the frozen certificate.
+        self.resident_continuities
+            .get(&actor_id)
+            .and_then(|continuity| continuity.pending_planning.as_ref())
+            .is_some_and(|planning| {
+                planning.status == ResidentPlanningStatus::Accepted
+                    && planning.candidate_id.as_deref() == Some(candidate_id)
+                    && planning.state_revision == state_revision
+                    && proposal.planning_generation_id.as_deref()
+                        == Some(planning.generation_id.as_str())
+                    && hand.pass.state_revision == state_revision.saturating_add(1)
+            })
+    }
+
+    pub(crate) fn resident_pending_planner_pass_record(
+        &self,
+        actor: CwActor,
+        seed: u64,
+        caused_by_event_seq: Option<u64>,
+    ) -> Option<JournalRecord> {
+        let proposal = self
+            .resident_continuities
+            .get(&actor.id)
+            .and_then(|continuity| continuity.pending_action.as_ref())?;
+        self.resident_planner_pass_is_current(actor.id, proposal)
+            .then(|| {
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: actor.id,
+                        location_id: actor.location_id,
+                        ..CwAction::default()
+                    },
+                    seed,
+                )
+                .into_actor_consequence(self.world.tick, caused_by_event_seq);
+                record.bind_offer_kind("pass");
+                record.source_location_id = Some(actor.location_id);
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::ShuffleHand {
+                        reason: "resident_planner_pass".to_string(),
+                    });
+                self.append_resident_autonomy_intent_projection(actor, &mut record);
+                record
+            })
     }
 
     fn resident_planner_candidate_from_offer(
@@ -199,6 +315,8 @@ impl RuntimeWorld {
             item_id: None,
             target_item_id: None,
             destination_location_id: None,
+            hand_generation: None,
+            scene_key: None,
         };
         match (offer.kind.as_str(), parts.as_slice()) {
             ("move", ["move", destination]) => {
@@ -596,6 +714,8 @@ mod tests {
             item_id: None,
             target_item_id: None,
             destination_location_id: Some(2),
+            hand_generation: None,
+            scene_key: None,
         }];
         plan
     }
@@ -812,17 +932,29 @@ mod tests {
         let runtime = RuntimeWorld::seeded();
         let (_, offers) =
             runtime.legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default());
-        let expected = offers
-            .iter()
-            .filter(|offer| action_offer_is_reachable(offer))
+        let hand = runtime.action_hand_for(Some(RATI_ACTOR_ID), &offers);
+        let expected = runtime
+            .current_action_hand_offers(RATI_ACTOR_ID, &offers)
+            .into_iter()
             .filter(|offer| resident_planner_offer_kind_is_eligible(&offer.kind))
             .map(|offer| {
                 runtime
                     .resident_planner_candidate_from_offer(RATI_ACTOR_ID, offer)
                     .expect("every seeded reachable offer in the closed policy is executable")
             })
+            .chain(std::iter::once(
+                runtime.resident_planner_pass_candidate(RATI_ACTOR_ID, &hand),
+            ))
             .collect::<Vec<_>>();
         assert_eq!(runtime.resident_planner_candidates(RATI_ACTOR_ID), expected);
+        assert_eq!(expected.len(), usize::from(hand.capacity) + 1);
+        assert!(expected.iter().any(|candidate| {
+            candidate.kind == "pass"
+                && candidate.candidate_id == hand.pass.offer_id
+                && candidate.state_revision == hand.pass.state_revision
+                && candidate.hand_generation == Some(hand.pass.generation)
+                && candidate.scene_key.as_deref() == Some(hand.pass.scene_key.as_str())
+        }));
         assert!(!resident_planner_offer_kind_is_eligible("search"));
         assert!(RESIDENT_PLANNER_ELIGIBLE_KINDS
             .iter()
@@ -842,6 +974,158 @@ mod tests {
                 .map(|kind| (*kind).to_string())
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn model_selected_pass_is_certificate_bound_and_commits_one_hand_rotation() {
+        let mut runtime = RuntimeWorld::seeded();
+        let plan = runtime
+            .resident_reply_plan_for_target(
+                SKULL_ACTOR_ID,
+                RATI_ACTOR_ID,
+                "Choose only from the exact current candidates.",
+            )
+            .expect("Rati can react")
+            .requesting_planner();
+        let plan = runtime.prepare_resident_planner_snapshot(plan);
+        let pass = plan
+            .planner_candidates
+            .iter()
+            .find(|candidate| candidate.kind == "pass")
+            .expect("planner receives the current certified Pass")
+            .clone();
+        assert!(pass.candidate_id.starts_with("pass:"));
+        assert!(pass.composition_id.starts_with("pass:"));
+        assert!(pass.hand_generation.is_some());
+        assert!(pass.scene_key.is_some());
+
+        let mut trace = ResidentPlanningTrace::absent(&plan);
+        let output = serde_json::json!({
+            "candidate_id": pass.candidate_id,
+            "state_revision": pass.state_revision,
+            "speech_act": "commit",
+            "reason": "I will take a moment to reconsider.",
+        })
+        .to_string();
+        let proposal = validate_resident_planner_output(&plan, &output, &mut trace)
+            .expect("model can select the frozen Pass candidate");
+        let mut forged = proposal.clone();
+        forged.item_id = Some(STORY_BUTTON_ITEM_ID);
+        assert!(
+            !runtime.resident_planner_proposal_is_current(&plan, &forged),
+            "a planner cannot add action fields to a Pass certificate"
+        );
+
+        let accepted = planning_speech_record(
+            &runtime,
+            trace.clone(),
+            Some(proposal),
+            "I will pause before I decide.",
+            392_200,
+        );
+        assert_eq!(runtime.apply_journal_record(&accepted).0, CW_OK);
+        let actor = runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("Rati remains active");
+        let before_tick = runtime.world.tick;
+        let before_generation = runtime
+            .hand_generations
+            .get(&RATI_ACTOR_ID)
+            .copied()
+            .unwrap_or_default();
+        let mut stale_runtime = runtime.clone();
+        let unrelated_content_id = stale_runtime.next_content_id_value();
+        let mut unrelated = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: SKULL_ACTOR_ID,
+                content_id: unrelated_content_id,
+                ..CwAction::default()
+            },
+            392_202,
+        );
+        unrelated.content_upserts.insert(
+            unrelated_content_id,
+            "The room changes before Rati can act.".to_string(),
+        );
+        assert_eq!(stale_runtime.apply_journal_record(&unrelated).0, CW_OK);
+        let stale_actor = stale_runtime
+            .actor_by_id(RATI_ACTOR_ID)
+            .expect("Rati remains active after the unrelated event");
+        assert!(
+            stale_runtime
+                .resident_pending_planner_pass_record(stale_actor, 392_203, None)
+                .is_none(),
+            "an unrelated public revision after the accepted SAY must expire the frozen Pass"
+        );
+        let record = runtime
+            .resident_economy_autonomy_record(actor, 392_201)
+            .expect("accepted Pass becomes the resident's only committed action");
+        let record = runtime
+            .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                actor_id: RATI_ACTOR_ID,
+                rank: 89,
+                score: 0,
+                record,
+            })
+            .record;
+        assert_eq!(record.origin, JournalOrigin::ActorConsequence);
+        assert!(record.projection_mutations.iter().any(|mutation| {
+            matches!(mutation, ProjectionMutation::ShuffleHand { reason }
+                if reason == "resident_planner_pass")
+        }));
+        let event_store_path = std::env::temp_dir().join(format!(
+            "cosyworld-resident-planner-pass-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&event_store_path);
+        let state = test_app_state(runtime.clone(), Some(event_store_path.clone()));
+        let (status, events) =
+            commit_journal_record(&state, &mut runtime, record).expect("Pass commits");
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(
+            |event| event.type_name == "hand.shuffled" && event.actor_id == Some(RATI_ACTOR_ID)
+        ));
+        assert_eq!(
+            runtime.world.tick, before_tick,
+            "an autonomous resident Pass does not add a second played-time tick"
+        );
+        assert_eq!(
+            runtime
+                .hand_generations
+                .get(&RATI_ACTOR_ID)
+                .copied()
+                .unwrap_or_default(),
+            before_generation + 1
+        );
+        let committed = read_action_journal(&event_store_path)
+            .expect("committed Pass journal reads")
+            .pop()
+            .expect("Pass is journaled");
+        let decision = committed
+            .resident_decision
+            .as_ref()
+            .expect("committed Pass retains its decision trace");
+        assert_eq!(decision.choice.offer_kind, "pass");
+        assert_eq!(
+            decision.choice.offer_id.as_deref(),
+            Some(pass.candidate_id.as_str())
+        );
+        assert!(decision
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "pass" && candidate.selected));
+        assert_eq!(
+            decision.planner_candidate_id.as_deref(),
+            Some(pass.candidate_id.as_str())
+        );
+        assert_eq!(
+            decision.outcome.as_ref().map(|outcome| outcome.status),
+            Some(CW_OK)
+        );
+        drop(state);
+        let _ = fs::remove_file(event_store_path);
     }
 
     #[test]

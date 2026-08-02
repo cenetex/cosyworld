@@ -122,7 +122,7 @@ deployment.
 At the table or in production, follow one invariant sequence:
 
 1. describe obvious facts;
-2. present the complete legal action set;
+2. present the authoritative two-card action hand and certified Think/Pass;
 3. receive intent, target, and method;
 4. clarify material cost and consequence;
 5. commit;

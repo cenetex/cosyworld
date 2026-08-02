@@ -2,9 +2,9 @@
 
 - Status: Accepted
 - Date: 2026-07-17
-- Amended: 2026-07-27 by #354; 2026-07-29 by #529
+- Amended: 2026-07-27 by #354; 2026-07-29 by #529; 2026-08-01 by #516 and #408
 - Decision owners: CosyWorld maintainers
-- Related: #20, #48, #94, #354, #529
+- Related: #20, #48, #94, #354, #529, #516, #408
 
 ## Context
 
@@ -22,14 +22,16 @@ make a small action hand feel personal.
 
 ## Decision
 
-`GET /state` projects both the complete ranked `action_offers` list and a
-deterministic `action_hand`:
+`GET /state` projects a deterministic `action_hand` and exposes only those
+same current offers through `action_offers`:
 
 ```json
 {
   "action_hand": {
     "schema_version": 1,
     "capacity": 2,
+    "deck_size": 7,
+    "draw_available": true,
     "entries": [
       {
         "offer_id": "check:listen",
@@ -64,61 +66,59 @@ order is:
 | 70 | foundation rules | a final rules fallback |
 
 An offer is eligible only when it is enabled and every required target or
-project reference is present. `work` and `help` for the same progress clock are
-one hand group; `use_item` and `use_feature` are one Use group. Candidates sort
-by provider priority, then existing action rank, then stable offer id. The
-composer fills the two ordinary hand slots in the same stable order, taking no
-more than two entries from one provider, and ensures that at least one
-generally useful action (Notice, Inspect, Travel, Chat, Rest, or Grow) is
-present when one is reachable.
+project reference is present. Every reachable exact `offer_id` occupies its own
+stable deck position, including same-kind work, help, use, gift, and trade
+offers. Candidates sort by provider priority, then existing action rank, then
+stable offer id. The composer fills the two ordinary hand slots in the same
+stable order. The former generally-useful-card
+guarantee is superseded: a hand may be awkward, and certified Think/Pass is
+the authoritative way to commit a turn and receive the next two cards.
 
 Clients use `action_hand.entries` for initial card order and use
 `provider.reason` on the card, accessible name, hover copy, and confirmation
-dialog. A client may merge equivalent offers into one choice-bearing card, but
-every merged target must remain an explicit choice. A client must not hash,
-randomize, silently re-rank the authoritative opening hand, or discard
-same-kind offers before rendering them. A change to the projected
-offer/provider ids is the signal to recompose it.
+dialog. Each projected entry renders one card bound to that exact offer; clients
+must not merge targets, reconstruct alternatives, hash, randomize, silently
+re-rank, or discard same-kind offers. A change to the projected offer/provider
+ids is the signal to recompose it.
 
-### Complete-offer reachability: two-card spotlight plus chooser
+### Finite hand: two cards and certified Think/Pass
 
-The resting surface remains exactly two suggested cards. Its compact
-**all actions** affordance opens a keyboard- and screen-reader-accessible
-rendering of the same current `action_offers` projection, grouped by intention
-with every legal target or strategy represented explicitly. Selecting a row
-opens the ordinary detail/confirm surface and submits the exact current offer.
-The chooser neither creates another legal set nor changes rank, cost, target,
-risk, effect, or resolver.
+The resting surface is exactly the current two-card hand. There is no complete
+offer chooser and clients never receive the internal legal superset. A player
+may play one current card or choose **Think** (named **Pass** during a focused
+turn). The projected `action_hand.pass` certificate contains an opaque offer
+id, actor-bound state revision, hand generation, and scene/focus key. The
+server re-derives and validates that certificate under the mutation lock.
 
-The free deterministic **redeal** remains available inside that chooser as an
-optional way to replace the two suggestions. It advances through the finite
-authoritative order, consumes no world turn, currency, item use, or
-progression, and records `hand.shuffled`. The browser-local page cursor is
-disposable presentation state; the complete chooser does not depend on that
-cursor for reachability.
+Pass records `hand.shuffled`, rotates by two through the deterministic deck,
+consumes exactly one current turn, and deals the next hand. A retry with the
+same canonical submission receipt is idempotent; a stale certificate mutates
+nothing. Snapshot v17 persists an authoritative per-actor hand-generation map
+updated by the replayable `ShuffleHand` mutation. Snapshot v16 migrates once
+from a bounded event projection; certificates are never subsequently derived
+from the event log or browser storage. Historic turn-exempt
+`hand.shuffled` records remain replayable, but legacy `draw`, `shuffle`,
+`deal`, `more`, and `redraw` inputs are version-refused rather than silently
+mapped to Pass.
 
-#529 supersedes #354's conclusion that redeal alone guarantees browser
-reachability. Playtest fixtures showed why: the client could merge same-kind
-Search or Scout offers before paging, so no number of redeals could restore
-the omitted targets. The accepted chooser is a complete rendering of the one
-authoritative offer set, not a parallel authority. Future transports may
-render that same set differently, but must preserve its full target
-cardinality and stale-offer guards.
+Inference-controlled avatars use the same hand. They select a playable current
+card or Pass; combat uses the same rule, so an AI avatar cannot reach around a
+bad hand to select its globally preferred attack, defence, or escape.
 
 ## Command submission
 
-`POST /commands` accepts an `offer_id` from the current `action_offers`
-projection as its authoritative action input. The server resolves that exact
+`POST /commands` accepts an `offer_id` from the current action projection as
+its authoritative action input. The server resolves that exact
 identifier under the same world-state lock that checks its embedded
 `state_revision`; it does not reparse the offer's display command. Malformed,
 stale, unknown, and disabled identifiers fail before presence, journal, event,
 seed, or world state can change and return distinct typed failure codes.
 
-The optional prose `command` field remains temporarily available for older
-clients and the command palette. It is a legacy convenience resolver, not the
-authoritative join between an offer and an action. When both fields are sent,
-`offer_id` wins. Retirement or stricter hand enforcement remains a separate
-decision alongside #354.
+The prose command surface keeps room inspection, reporting, moderation, and
+typed `say`/`/me` turn-exempt. State-changing scene actions require a current
+hand offer. `POST /commands` with the current Pass certificate is the sole
+hand-cycling route; the legacy `/actions/pass` endpoint explicitly refuses an
+uncertified request.
 
 Wallet keepsakes may supply matching art and an explicit cosmetic annotation.
 Equipping, removing, or owning one does not change action eligibility, order,
@@ -132,11 +132,11 @@ same snapshot therefore produces the same hand, and older snapshots acquire
 the projection on load without migration. `schema_version` allows a later
 client to recognize a deliberately changed composition contract.
 
-Property-style fixtures cover stable repeated responses, reachable targets,
-the generally useful fallback, Calling/Journal/friendship/held-item changes,
-and snapshot round trips. Browser smoke covers the visible two-card hand, the
-complete chooser, optional redeal, grouped same-kind targets, and verifies that
-kept-close cards remain cosmetic.
+Property-style fixtures cover stable repeated responses, certificate-bound
+hand-only submission, stale and duplicate Pass rejection/receipt replay,
+Calling/Journal/friendship/held-item changes, AI Pass, and snapshot round trips.
+Browser smoke covers the visible two-card hand, turn-consuming Think/Pass, and
+keeps kept-close cards cosmetic.
 
 ## Consequences
 
@@ -146,8 +146,7 @@ but cannot inject client-local priority. Debugging an unexpected hand starts
 from three inspectable values—offer, provider, tie-break—instead of browser
 storage or a deal nonce.
 
-The two-card spotlight remains small and learnable while the chooser makes
-reachability direct and auditable. Clients now own one additional grouping
-presentation, but it is tested against the authoritative legal superset and
-cannot manufacture or resolve offers. The `shuffle` and `more` command aliases,
-`hand.shuffled` event, and no-turn redeal semantics remain compatible.
+The two-card hand is small, learnable, and strategically finite. Clients cannot
+browse, manufacture, or submit cards outside it. `hand.shuffled` remains the
+durable replay signal; its old turn-exempt replay semantics are preserved, but
+new free-redeal inputs are intentionally retired.

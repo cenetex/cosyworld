@@ -694,7 +694,18 @@ mod tests {
             "controller mode cannot change Use enumeration or exact bindings"
         );
 
-        let item_offer = direct_offers
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                RuntimeWorld::use_offer_key(offer)
+                    == Some(UseOfferKey::Item {
+                        item_id: HEARTH_TONIC_ITEM_ID,
+                        target_actor_id: 5000,
+                    })
+            })
+            .expect("the self-healing Use card is dealt within a bounded rotation");
+        let item_offer = runtime
+            .legal_action_candidates(Some(5000), &access)
+            .1
             .iter()
             .find(|offer| {
                 RuntimeWorld::use_offer_key(offer)
@@ -734,7 +745,21 @@ mod tests {
             Some(item_offer.offer_id.as_str())
         );
 
-        let feature_offer = direct_offers
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                matches!(
+                    RuntimeWorld::use_offer_key(offer),
+                    Some(UseOfferKey::Feature {
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        location_id: COSY_COTTAGE_LOCATION_ID,
+                        ..
+                    })
+                )
+            })
+            .expect("the Story Button feature card is dealt within a bounded rotation");
+        let feature_offer = runtime
+            .legal_action_candidates(Some(5000), &access)
+            .1
             .iter()
             .find(|offer| {
                 matches!(
@@ -818,19 +843,25 @@ mod tests {
         let candidate = runtime
             .default_player_feature_use_candidate(5000)
             .expect("the held Story Button can target a room feature");
-        let offer = runtime
-            .legal_action_candidates(Some(5000), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|offer| {
-                RuntimeWorld::use_offer_matches_feature(
-                    offer,
-                    candidate.item_id,
-                    candidate.location_id,
-                    &candidate.feature_key,
-                )
+        let offer = (0..64)
+            .find_map(|generation| {
+                runtime.hand_generations.insert(5000, generation);
+                let (_, offers) =
+                    runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+                let hand = runtime.action_hand_for(Some(5000), &offers);
+                offers.into_iter().find(|offer| {
+                    hand.entries
+                        .iter()
+                        .any(|entry| entry.offer_id == offer.offer_id)
+                        && RuntimeWorld::use_offer_matches_feature(
+                            offer,
+                            candidate.item_id,
+                            candidate.location_id,
+                            &candidate.feature_key,
+                        )
+                })
             })
-            .expect("the exact room-feature offer is projected");
+            .expect("the exact room-feature offer is dealt within a bounded rotation");
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
 
@@ -865,6 +896,35 @@ mod tests {
                 Err("submitted feature binding does not match the authoritative offer")
             );
         }
+        let (before_snapshot, before_events) = {
+            let runtime = state.inner.lock().await;
+            (
+                serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
+                    .expect("snapshot before forged submit"),
+                serde_json::to_vec(&runtime.event_log).expect("event log before forged submit"),
+            )
+        };
+        let rejected = submit_action_offer(
+            ConnectInfo("127.0.0.1:44270".parse().expect("client address")),
+            State(state.clone()),
+            Json(forged_submission),
+        )
+        .await
+        .0;
+        assert!(!rejected.ok);
+        assert_eq!(rejected.status, 400);
+        assert!(rejected.events.is_empty());
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
+                .expect("snapshot after forged submit"),
+            before_snapshot
+        );
+        assert_eq!(
+            serde_json::to_vec(&runtime.event_log).expect("event log after forged submit"),
+            before_events
+        );
+        drop(runtime);
 
         let response = submit_action_offer(
             ConnectInfo("127.0.0.1:44270".parse().expect("client address")),
@@ -892,7 +952,7 @@ mod tests {
         )
         .await
         .0;
-        assert!(response.ok);
+        assert!(response.ok, "{response:?}");
         assert_eq!(response.status, CW_OK);
         assert!(response.events.iter().any(|event| {
             event.type_name == "item.used"

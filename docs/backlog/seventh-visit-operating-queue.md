@@ -49,9 +49,9 @@ red.
 ### Wave 1 — Authority correctness
 
 - Scout submits only the exact offered route.
-- Browser, `/commands`, and terminal players commit only a current legal
-  offer. The browser exposes two suggestions plus the complete grouped offer
-  set; free deterministic redeal changes only the suggestions.
+- Browser, `/commands`, and terminal players commit only a current dealt
+  offer. Every client receives exactly two cards plus certified Think/Pass;
+  the complete legal candidate set is internal and live redeal is refused.
 - Combat preview, equipment, resolution, and replay name the same
   authoritative method.
 - The persistent world has a replay-safe renewable healing supply.

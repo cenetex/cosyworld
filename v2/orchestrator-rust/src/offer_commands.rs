@@ -40,7 +40,7 @@ fn offer_error(
 fn select_current_offer(
     runtime: &RuntimeWorld,
     actor_id: u64,
-    access: &AccessContext,
+    offers: &[RankedActionOffer],
     offer_id: &str,
 ) -> Result<RankedActionOffer, CommandError> {
     let Some(parsed) = parse_offer_id(offer_id) else {
@@ -63,8 +63,11 @@ fn select_current_offer(
             ),
         ));
     }
-    let (_, offers) = runtime.legal_action_candidates(Some(actor_id), access);
-    let exact = offers.into_iter().find(|offer| offer.offer_id == offer_id);
+    let hand = runtime.action_hand_for(Some(actor_id), offers);
+    let exact = offers
+        .iter()
+        .find(|offer| offer.offer_id == offer_id)
+        .cloned();
     if let Some(offer) = exact.as_ref().filter(|offer| offer.disabled) {
         return Err(offer_error(
             offer_id,
@@ -76,7 +79,11 @@ fn select_current_offer(
             }),
         ));
     }
-    if let Some(offer) = exact {
+    if let Some(offer) = exact.filter(|offer| {
+        hand.entries
+            .iter()
+            .any(|entry| entry.offer_id == offer.offer_id)
+    }) {
         return Ok(offer);
     }
     Err(offer_error(
@@ -84,7 +91,7 @@ fn select_current_offer(
         CommandErrorKind::UnknownOffer,
         404,
         format!(
-            "That offer_id is not in the current action_offers for rules profile {}. Refresh the scene and choose a published offer.",
+            "That offer_id is not in the current two-card hand for rules profile {}. Think or refresh the scene and choose a published offer.",
             parsed.rules_profile
         ),
     ))
@@ -174,9 +181,16 @@ fn dispatch_for_offer(
                 target_actor_id: actor_id,
             })
         }
-        "pick_up" => Ok(CommandDispatch::PickUp {
-            item_id: required_target_id(offer, "item")?,
-        }),
+        "pick_up" => {
+            let item_id = required_target_id(offer, "item")?;
+            let exchange_item_id = runtime
+                .deterministic_pickup_exchange_item(actor_id, item_id)
+                .map_err(|_| invalid())?;
+            Ok(CommandDispatch::PickUp {
+                item_id,
+                exchange_item_id,
+            })
+        }
         "drop_item" => Ok(CommandDispatch::Drop {
             item_id: required_target_id(offer, "item")?,
         }),
@@ -305,7 +319,23 @@ impl RuntimeWorld {
         let Some(offer_id) = payload.offer_id.as_deref() else {
             return self.resolve_command_with_presence(payload, access, active_direct_actor_ids);
         };
-        let offer = select_current_offer(self, payload.actor_id, access, offer_id)?;
+        let (_, offers) = self.legal_action_candidates_with_presence(
+            Some(payload.actor_id),
+            access,
+            active_direct_actor_ids,
+        );
+        let hand = self.action_hand_for(Some(payload.actor_id), &offers);
+        if hand.pass.offer_id == offer_id {
+            return Ok(ResolvedCommand {
+                command: "pass".to_string(),
+                verb: "pass".to_string(),
+                action: Some(command_action("pass", &hand.pass.label, "pass")),
+                dispatch: CommandDispatch::Pass {
+                    offer_id: offer_id.to_string(),
+                },
+            });
+        }
+        let offer = select_current_offer(self, payload.actor_id, &offers, offer_id)?;
         let dispatch = dispatch_for_offer(self, payload.actor_id, &offer)?;
         Ok(ResolvedCommand {
             command: offer.command.clone(),
@@ -359,6 +389,28 @@ pub(crate) async fn resolve_command_submission_at_boundary(
             Ok((resolved, presence_events))
         }
         Err(error) => {
+            // A normal stale Think/Pass is refused before `pass_action` is
+            // reached, because the certificate no longer names the current
+            // hand. Record that canonical-boundary rejection exactly once;
+            // direct/internal `pass_action` calls retain their own hook.
+            if error.status == 409 {
+                if let Some(pass_offer_id) = payload
+                    .offer_id
+                    .as_deref()
+                    .filter(|offer_id| offer_id.starts_with("pass:"))
+                {
+                    if let Some(path) = state.event_store_path.as_deref() {
+                        if let Err(metric_error) =
+                            record_stale_pass_rejection(path, payload.actor_id, pass_offer_id)
+                        {
+                            warn!(
+                                "failed to record stale command pass certificate metric for actor {}: {}",
+                                payload.actor_id, metric_error
+                            );
+                        }
+                    }
+                }
+            }
             let presence_events = if was_active || payload.offer_id.is_some() {
                 Vec::new()
             } else {
@@ -505,7 +557,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn every_enabled_seeded_offer_crosses_the_real_command_boundary_by_id() {
+    async fn every_current_hand_offer_crosses_the_real_command_boundary_by_id() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -514,11 +566,15 @@ mod tests {
             "Offer Property",
         );
         let access = AccessContext::default();
-        let offers = runtime
-            .legal_action_candidates(Some(5_000), &access)
-            .1
+        let (_, all_offers) = runtime.legal_action_candidates(Some(5_000), &access);
+        let hand = runtime.action_hand_for(Some(5_000), &all_offers);
+        let offers = all_offers
             .into_iter()
-            .filter(|offer| !offer.disabled)
+            .filter(|offer| {
+                hand.entries
+                    .iter()
+                    .any(|entry| entry.offer_id == offer.offer_id)
+            })
             .collect::<Vec<_>>();
         assert!(!offers.is_empty());
         let initial = snapshot_bytes(&runtime);
@@ -550,6 +606,114 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn exact_full_capacity_pickup_command_exchanges_the_deterministic_legal_item() {
+        let actor_id = 5_000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Certified Exchange",
+        );
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == actor_id)
+            .expect("test actor exists")
+            .stats
+            .strength = 1;
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            item.location_id = 0;
+            item.holder_actor_id = 0;
+            item.zone = CW_CARD_ZONE_WORLD;
+            item.container_item_id = 0;
+            match item.id {
+                2001 => {
+                    item.holder_actor_id = actor_id;
+                    item.zone = CW_CARD_ZONE_CARRIED;
+                    item.weight_tenths = 150;
+                }
+                STORY_BUTTON_ITEM_ID => {
+                    item.location_id = COSY_COTTAGE_LOCATION_ID;
+                    item.weight_tenths = 1;
+                }
+                _ => {}
+            }
+        }
+        assert!(runtime.actor_inventory_full(actor_id));
+        let pickup_offer = runtime
+            .draw_until_test_offer(actor_id, &AccessContext::default(), |offer| {
+                offer.kind == "pick_up"
+                    && offer.target.as_ref().and_then(|target| target.id)
+                        == Some(STORY_BUTTON_ITEM_ID)
+            })
+            .expect("the exact Story Button offer is dealt");
+        assert!(matches!(
+            dispatch_for_offer(&runtime, actor_id, &pickup_offer),
+            Ok(CommandDispatch::PickUp {
+                item_id: STORY_BUTTON_ITEM_ID,
+                exchange_item_id: Some(2001),
+            })
+        ));
+
+        let (_, offers) =
+            runtime.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        let hand = runtime.action_hand_for(Some(actor_id), &offers);
+        let undealt_offer_id = offers
+            .iter()
+            .find(|offer| {
+                !hand
+                    .entries
+                    .iter()
+                    .any(|entry| entry.offer_id == offer.offer_id)
+            })
+            .map(|offer| offer.offer_id.clone())
+            .expect("fixture has an offer outside the two-card hand");
+
+        let state = test_app_state(runtime, None);
+        let (session, _) = issue_actor_session(&state, actor_id);
+        assert_atomic_offer_rejection(
+            &state,
+            actor_id,
+            &session,
+            &undealt_offer_id,
+            CommandErrorKind::UnknownOffer,
+        )
+        .await;
+
+        let response = command(
+            ConnectInfo("127.0.0.1:44094".parse().expect("client address")),
+            State(state.clone()),
+            Json(request(actor_id, &session, &pickup_offer.offer_id)),
+        )
+        .await
+        .0;
+        assert!(response.ok, "exact pickup command succeeds: {response:?}");
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "item.picked_up" && event.item_id == Some(STORY_BUTTON_ITEM_ID)
+        }));
+        {
+            let runtime = state.inner.lock().await;
+            assert!(runtime
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .is_some_and(|item| item.holder_actor_id == actor_id));
+            assert!(runtime.item_by_id(2001).is_some_and(|item| {
+                item.location_id == COSY_COTTAGE_LOCATION_ID && item.holder_actor_id == 0
+            }));
+        }
+        assert_atomic_offer_rejection(
+            &state,
+            actor_id,
+            &session,
+            &pickup_offer.offer_id,
+            CommandErrorKind::StaleOffer,
+        )
+        .await;
+    }
+
+    #[tokio::test]
     async fn valid_offer_reactivates_inactive_actor_and_still_executes() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -559,10 +723,9 @@ mod tests {
             "Returning Offer",
         );
         let offer = runtime
-            .legal_action_candidates(Some(5_000), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|offer| !offer.disabled && offer.kind == "influence")
+            .draw_until_test_offer(5_000, &AccessContext::default(), |offer| {
+                !offer.disabled && offer.kind == "influence"
+            })
             .expect("seeded Cottage projects an executable influence offer");
         let state = test_app_state(runtime, None);
         let (session, _) = issue_actor_session(&state, 5_000);
@@ -757,10 +920,7 @@ mod tests {
             "Context Caller",
         );
         let offer = runtime
-            .legal_action_candidates(Some(5_000), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|offer| {
+            .draw_until_test_offer(5_000, &AccessContext::default(), |offer| {
                 offer.kind == "influence"
                     && offer
                         .composition_trace
@@ -814,10 +974,9 @@ mod tests {
             }
         }
         let offer = runtime
-            .legal_action_candidates(Some(5_000), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|offer| offer.kind == "use_feature")
+            .draw_until_test_offer(5_000, &AccessContext::default(), |offer| {
+                offer.kind == "use_feature"
+            })
             .expect("#370 structured feature-use offer");
         let state = test_app_state(runtime, None);
         let (session, _) = issue_actor_session(&state, 5_000);

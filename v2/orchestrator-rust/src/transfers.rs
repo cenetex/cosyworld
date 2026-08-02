@@ -8,6 +8,45 @@ struct TransferOfferKey {
 }
 
 impl RuntimeWorld {
+    /// An active authored bond may disclose one exact held item for its
+    /// resident request, even if dialogue made the resident unavailable as a
+    /// generic chat target.
+    fn authored_player_gift_requests(&self, actor_id: u64) -> Vec<(CwItem, CwActor)> {
+        let Some(actor) = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_can_act(*actor))
+        else {
+            return Vec::new();
+        };
+        let mut requests = Vec::new();
+        for target in self.world.actors[..self.world.actor_count].iter().copied() {
+            let Some(relationship) = self.relationship_contract(target.id) else {
+                continue;
+            };
+            let Some(request) = self.resident_request_for_holder(target, actor_id) else {
+                continue;
+            };
+            let Some(item) = self.item_by_id(request.item_id) else {
+                continue;
+            };
+            if target.id == actor_id
+                || !Self::actor_can_act(target)
+                || target.location_id != actor.location_id
+                || self.actors_blocked(actor_id, target.id)
+                || relationship.active_on_gift_item_id != item.id
+                || self.active_bond(actor_id, target.id).is_none()
+                || self
+                    .actor_gift_is_legal(actor_id, target.id, item.id)
+                    .is_err()
+            {
+                continue;
+            }
+            requests.push((item, target));
+        }
+        requests.sort_by_key(|(item, target)| (target.id, item.id));
+        requests
+    }
+
     pub(super) fn gift_request_is_valid(
         &self,
         recipient_actor_id: u64,
@@ -38,6 +77,13 @@ impl RuntimeWorld {
     pub(super) fn actor_give_candidate(&self, actor_id: u64) -> Option<(CwItem, CwActor)> {
         let actor = self.actor_by_id(actor_id)?;
         Self::actor_can_act(actor).then_some(())?;
+        if let Some(request) = self
+            .authored_player_gift_requests(actor_id)
+            .into_iter()
+            .next()
+        {
+            return Some(request);
+        }
         self.default_actor_gift_candidate(actor_id)
             .map(|candidate| (candidate.offered_item, candidate.target))
             .or_else(|| {
@@ -80,9 +126,24 @@ impl RuntimeWorld {
         let preferred = self
             .actor_give_candidate(actor_id)
             .map(|(item, target)| (item.id, target.id));
-        let mut choices = Vec::new();
+        let exact_requests = self.authored_player_gift_requests(actor.id);
+        let mut choices = exact_requests.clone();
         for item in self.actor_held_items(actor.id) {
             for target in self.active_chat_targets(actor.id) {
+                // An authored request discloses only that one requested item.
+                // Do not turn it into a general view of a resident's economy.
+                if !self.economy_known_by(actor.id, target.id)
+                    && exact_requests
+                        .iter()
+                        .any(|(_, recipient)| recipient.id == target.id)
+                {
+                    continue;
+                }
+                if exact_requests.iter().any(|(requested, recipient)| {
+                    requested.id == item.id && recipient.id == target.id
+                }) {
+                    continue;
+                }
                 if self
                     .actor_gift_is_legal(actor.id, target.id, item.id)
                     .is_ok()
@@ -547,17 +608,22 @@ mod tests {
                     .any(|source| source.kind == "item" && source.instance_id == key.item_id)
         }));
         let action_hand = compose_action_hand(&direct_offers);
-        for kind in ["give_item", "trade_item"] {
-            assert!(
-                action_hand
-                    .entries
-                    .iter()
-                    .filter(|entry| entry.kind == kind)
-                    .count()
-                    <= 1,
-                "exact choices stay available without duplicating a verb in the action hand"
-            );
-        }
+        assert!(
+            action_hand.entries.iter().all(|entry| direct_offers
+                .iter()
+                .any(|offer| offer.offer_id == entry.offer_id)),
+            "every dealt transfer card must retain its exact offer binding"
+        );
+        assert_eq!(
+            action_hand
+                .entries
+                .iter()
+                .map(|entry| &entry.offer_id)
+                .collect::<BTreeSet<_>>()
+                .len(),
+            action_hand.entries.len(),
+            "the two-card hand cannot collapse or duplicate exact transfer offers"
+        );
 
         runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
         let inference_offers = runtime
@@ -572,7 +638,19 @@ mod tests {
             "controller mode cannot change transfer enumeration or exact bindings"
         );
 
-        let direct_gift_offer = direct_offers
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                RuntimeWorld::transfer_offer_key(offer)
+                    == Some(TransferOfferKey {
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        target_actor_id: 5001,
+                        target_item_id: 0,
+                    })
+            })
+            .expect("the exact player Gift card is dealt within a bounded rotation");
+        let direct_gift_offer = runtime
+            .legal_action_candidates(Some(5000), &access)
+            .1
             .iter()
             .find(|offer| {
                 RuntimeWorld::transfer_offer_key(offer)
@@ -591,7 +669,19 @@ mod tests {
         assert_eq!(direct_gift.item_id, STORY_BUTTON_ITEM_ID);
         assert_eq!(direct_gift.target_actor_id, 5001);
 
-        let direct_trade_offer = direct_offers
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                RuntimeWorld::transfer_offer_key(offer)
+                    == Some(TransferOfferKey {
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        target_actor_id: 5001,
+                        target_item_id: WATCH_BELL_ITEM_ID,
+                    })
+            })
+            .expect("the exact player Trade card is dealt within a bounded rotation");
+        let direct_trade_offer = runtime
+            .legal_action_candidates(Some(5000), &access)
+            .1
             .iter()
             .find(|offer| {
                 RuntimeWorld::transfer_offer_key(offer)
@@ -625,6 +715,29 @@ mod tests {
             "an inferred controller cannot bypass a direct target's trade decision"
         );
 
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                RuntimeWorld::transfer_offer_key(offer)
+                    == Some(TransferOfferKey {
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        target_actor_id: 5001,
+                        target_item_id: 0,
+                    })
+            })
+            .expect("the player Gift card remains reachable for its decision trace");
+        let gift_trace_offer = runtime
+            .legal_action_candidates(Some(5000), &access)
+            .1
+            .into_iter()
+            .find(|offer| {
+                RuntimeWorld::transfer_offer_key(offer)
+                    == Some(TransferOfferKey {
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        target_actor_id: 5001,
+                        target_item_id: 0,
+                    })
+            })
+            .expect("the dealt Gift card remains exact in its trace");
         let gift_trace = runtime.resident_decision_trace(&ResidentAutonomyCandidate {
             actor_id: 5000,
             rank: 20,
@@ -634,7 +747,7 @@ mod tests {
         });
         assert_eq!(
             gift_trace.choice.offer_id.as_deref(),
-            Some(direct_gift_offer.offer_id.as_str())
+            Some(gift_trace_offer.offer_id.as_str())
         );
         assert!(gift_trace.candidates.iter().any(|candidate| {
             candidate.selected
@@ -651,7 +764,19 @@ mod tests {
             .plan_transfer_offer_action(5000, &forged_offer)
             .is_err());
 
-        let inferred_gift_offer = inference_offers
+        runtime
+            .draw_until_test_offer(5000, &access, |offer| {
+                RuntimeWorld::transfer_offer_key(offer)
+                    == Some(TransferOfferKey {
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        target_actor_id: RATI_ACTOR_ID,
+                        target_item_id: 0,
+                    })
+            })
+            .expect("the exact resident Gift card is dealt within a bounded rotation");
+        let inferred_gift_offer = runtime
+            .legal_action_candidates(Some(5000), &access)
+            .1
             .iter()
             .find(|offer| {
                 RuntimeWorld::transfer_offer_key(offer)

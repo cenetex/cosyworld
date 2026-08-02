@@ -9,6 +9,12 @@ remain the acceptance record and dependency history. Marketing compatibility
 claims remain blocked on the independent license/product-name review required
 by SAF-0.
 
+**Current baseline (supersedes the older projection language below):** the
+playable scene hand is two certified action offers plus a certified Think/Pass
+offer. Playing Think/Pass consumes a turn and rotates the hand; the server
+never exposes a free `More` or command fallback. Historical three-card and
+free-fallback proposals remain below as ticket and spike history only.
+
 **Implementation ledger**: `cosyworld.srd5/1` is the selected profile under the
 `cosyworld.rules/2` adapter. Its twelve-action conformance matrix explicitly
 marks Attack, Dodge, Help, Influence, Magic, Ready, Search, Study, and Utilize
@@ -17,7 +23,7 @@ checker, runtime startup, `/meta`, and inspector all fail closed on missing or
 conflicting bindings.
 
 Action offers are authoritative rules-bound envelopes with deterministic legal
-sets, ranked three-card hands, contribution traces, targets, source
+sets, ranked two-card hands with certified Think/Pass rotation, contribution traces, targets, source
 collectibles, and stale/tamper rejection. Core and Ruby High demonstrate
 reskins and contextual offers; variants/extensions require explicit deltas,
 fixtures, precedence, provenance, and compatible resolver contracts.
@@ -50,8 +56,9 @@ non-shipping deck-gated design spike are checked in with the implementation.
 
 1. SRD 5.2.1 supplies stable rule identities; CosyWorld and expansion packs
    may reskin them without hiding semantic changes.
-2. Cards wrap legal actions. The default hand is a projection and never the
-   complete authority or a random gate on ordinary legal actions.
+2. Cards carry the finite authority for ordinary scene actions. The default
+   hand is a certified, deterministic two-card gate; Think/Pass is its
+   turn-consuming, replayable rotation path.
 3. The C kernel or a narrowly validated journaled reducer remains the source
    of state truth; neither pack prose nor the browser resolves mechanics.
 4. Reskins and contextual offers compose freely. Variants and extensions are
@@ -90,8 +97,10 @@ non-shipping deck-gated design spike are checked in with the implementation.
 - Record SRD 5.2.1 as the default rules source and define
   `cosyworld.srd5/1` as a bounded compatibility profile rather than a claim of
   full Dungeons & Dragons compatibility.
-- Record projection CCG as the default: the hand suggests legal action offers;
-  More/commands keep all legal core actions reachable.
+- **Superseded historical proposal:** record projection CCG as the default:
+  the hand suggests legal action offers; More/commands keep all legal core
+  actions reachable. **Current baseline:** two certified offers plus paid
+  Think/Pass; no free fallback or command bypass exists.
 - Decide the official-shard mechanical collectible policy. Adopt the proposed
   rule: cosmetic, access key, or earned/equip-budgeted item card; no purchased
   slots or exclusive best-in-slot power.
@@ -238,8 +247,10 @@ non-shipping deck-gated design spike are checked in with the implementation.
 - Renaming “Search” to “Listen closely” changes no request or outcome semantics.
 - Tampering with rules action, target, cost, or availability in the browser is
   rejected server-side.
-- Every legal core action remains reachable when it is not in the top-ranked
-  hand.
+- **Superseded historical acceptance:** every legal core action remains
+  reachable when it is not in the top-ranked hand. **Current baseline:** only
+  the current two certified offers are playable; Think/Pass consumes the turn
+  to rotate the finite hand.
 
 ---
 
@@ -430,8 +441,11 @@ non-shipping deck-gated design spike are checked in with the implementation.
 - Implement deterministic scene composition from the rules profile, active
   location/feature/condition cards, visible actor and world-item cards, the
   player's carried/equipped/spell cards, and valid access/pack contributions.
-- Produce an authoritative legal-action superset and a separately ranked
-  three-card action hand. Keep legal core actions reachable when not suggested.
+- **Superseded historical implementation note:** produce an authoritative
+  legal-action superset and a separately ranked three-card action hand while
+  keeping legal core actions reachable when not suggested. **Current
+  baseline:** rank a two-card certified action hand; certified Think/Pass is
+  the only turn-consuming rotation path.
 - Record a composition trace on every offer: rules and pack versions, source
   card instances, target, applied variants, resolver, and state revision.
 - Recompose on location, visibility, zone, loadout, condition, clock, access,
