@@ -238,6 +238,11 @@ impl CertifiedSpeech {
 pub(crate) struct PublicationRejection {
     pub(crate) receipt: AiPublicationReceipt,
     pub(crate) failure_code: PublicationCheckCode,
+    /// The normalized run of words that tripped the recent-duplicate check, so
+    /// a retry can be told which phrase to drop. Deliberately kept off the
+    /// receipt: the receipt is persisted, and only this in-memory hint is
+    /// allowed to carry wording from a rejected candidate.
+    pub(crate) repeated_phrase: Option<String>,
 }
 
 impl std::fmt::Display for PublicationRejection {
@@ -266,6 +271,11 @@ pub(crate) fn certify_speech(
     let publication_id = sha256_hex(format!("{}\0{}", generation_id, output_hash).as_bytes());
 
     let checks = evaluate_checks(&text, candidate_text, &completion.finish_reason, &context);
+    let repeated_phrase = checks
+        .iter()
+        .any(|check| check.code == PublicationCheckCode::VoiceRecentDuplicate && !check.passed)
+        .then(|| duplicated_phrase(&text, &context))
+        .flatten();
     let prompt_adapter_id = completion
         .model_attribution
         .as_ref()
@@ -315,6 +325,7 @@ pub(crate) fn certify_speech(
         return Err(Box::new(PublicationRejection {
             receipt,
             failure_code,
+            repeated_phrase,
         }));
     }
     Ok(CertifiedSpeech {
@@ -462,6 +473,10 @@ pub(crate) fn record_rejected_ai_publication(
             feature = %rejection.receipt.feature,
             failure_code = rejection.failure_code.as_str(),
             candidate_round = rejection.receipt.candidate_round,
+            // Which run tripped the gate, so a duplicate storm is diagnosable
+            // from logs alone. Normalized tokens from a line no player saw, and
+            // only ever on the rejection path.
+            repeated_phrase = rejection.repeated_phrase.as_deref().unwrap_or("-"),
             "AI voice candidate rejected by publication gate"
         );
     }
@@ -806,17 +821,96 @@ pub(crate) fn voice_signature_shingle_hashes(value: &str) -> Vec<u64> {
 }
 
 fn shares_recent_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> bool {
+    shared_speaker_phrase(value, recent_shingle_hashes).is_some()
+}
+
+/// The speaker's own wording that the candidate reused, as the run of words the
+/// shared shingles cover. Adjacent shingles overlap by `width - 1` words, so a
+/// run of `VOICE_SIGNATURE_MIN_SHARED_SHINGLES` adjacent shingles covers
+/// `VOICE_SIGNATURE_MIN_SHARED_SHINGLES + VOICE_SIGNATURE_SHINGLE_WIDTH - 1` words.
+fn shared_speaker_phrase(value: &str, recent_shingle_hashes: &[u64]) -> Option<String> {
     if recent_shingle_hashes.is_empty() {
-        return false;
+        return None;
     }
     let recent = recent_shingle_hashes
         .iter()
         .copied()
         .collect::<BTreeSet<_>>();
-    let candidate_hashes = voice_signature_shingle_hashes(value);
-    candidate_hashes
+    let start = voice_signature_shingle_hashes(value)
         .windows(VOICE_SIGNATURE_MIN_SHARED_SHINGLES)
-        .any(|window| window.iter().all(|hash| recent.contains(hash)))
+        .position(|window| window.iter().all(|hash| recent.contains(hash)))?;
+    let words = normalized_words(value)
+        .into_iter()
+        .take(VOICE_SIGNATURE_WORD_LIMIT)
+        .collect::<Vec<_>>();
+    let end = (start + VOICE_SIGNATURE_MIN_SHARED_SHINGLES + VOICE_SIGNATURE_SHINGLE_WIDTH - 1)
+        .min(words.len());
+    Some(words[start..end].join(" "))
+}
+
+/// The concrete wording behind a `VoiceRecentDuplicate` verdict, checked along
+/// the same two paths `evaluate_checks` uses to fail it. A retry that is told
+/// which phrase to drop can keep the rest of an otherwise good line, where a
+/// bare "use fresh wording" leaves the model guessing — and with one pinned
+/// model it usually guesses the same way twice.
+fn duplicated_phrase(text: &str, context: &SpeechGateContext) -> Option<String> {
+    shared_speaker_phrase(text, &context.recent_speaker_shingle_hashes)
+        .or_else(|| repeated_dialogue_phrase(text, context))
+}
+
+/// The run `repeats_recent_dialogue` matched against, found the same way it
+/// attributes a recent line: a verbatim echo of another speaker, or a
+/// near-duplicate of the candidate's own prior words.
+fn repeated_dialogue_phrase(text: &str, context: &SpeechGateContext) -> Option<String> {
+    let candidate_key = normalized_resident_speech_key(text);
+    context
+        .recent_lines
+        .iter()
+        .find_map(|recent| match attributed_recent_line(recent, context) {
+            Some(spoken) => (candidate_key == normalized_resident_speech_key(spoken))
+                .then(|| longest_shared_run(text, spoken))
+                .flatten(),
+            None => {
+                let spoken = spoken_words_of(recent, context);
+                near_duplicate(text, spoken)
+                    .then(|| longest_shared_run(text, spoken))
+                    .flatten()
+            }
+        })
+}
+
+/// The longest run of words a duplicate candidate shares with the recent line
+/// it duplicated. `near_duplicate` compares token sets, so a reordered
+/// restatement can have no long contiguous run at all; the caller then keeps
+/// the generic instruction.
+fn longest_shared_run(candidate: &str, recent: &str) -> Option<String> {
+    const MIN_SHARED_RUN_WORDS: usize = 3;
+
+    let candidate = normalized_words(candidate);
+    let recent = normalized_words(recent);
+    if candidate.is_empty() || recent.is_empty() {
+        return None;
+    }
+    let mut previous = vec![0usize; recent.len() + 1];
+    let mut current = vec![0usize; recent.len() + 1];
+    let mut best_len = 0usize;
+    let mut best_end = 0usize;
+    for (row, word) in candidate.iter().enumerate() {
+        for (column, other) in recent.iter().enumerate() {
+            current[column + 1] = if word == other {
+                previous[column] + 1
+            } else {
+                0
+            };
+            if current[column + 1] > best_len {
+                best_len = current[column + 1];
+                best_end = row + 1;
+            }
+        }
+        std::mem::swap(&mut previous, &mut current);
+        current.iter_mut().for_each(|cell| *cell = 0);
+    }
+    (best_len >= MIN_SHARED_RUN_WORDS).then(|| candidate[best_end - best_len..best_end].join(" "))
 }
 
 fn has_multiple_speakers(value: &str, context: &SpeechGateContext) -> bool {
@@ -1827,6 +1921,32 @@ mod tests {
         );
     }
 
+    /// Production rejected eight of nine generations in an hour with
+    /// `voice_recent_duplicate`, and with a single pinned voice model the
+    /// retry only asked for "fresh wording" and resampled the same phrase. The
+    /// rejection now carries the run that tripped it so a retry can be told
+    /// exactly what to drop.
+    #[test]
+    fn a_reused_speaker_phrase_is_named_on_the_rejection() {
+        let prior = "Bethlehem at last! My biscuit survived the journey, though my knees are filing a formal complaint.";
+        let candidate = "Bethlehem at last—my biscuit survived the journey, though it now has the structural integrity of damp parchment.";
+        let mut gate = context(&["Bethlehem".to_string()], &[]);
+        gate.max_words = 30;
+        gate.recent_speaker_shingle_hashes = voice_signature_shingle_hashes(prior);
+
+        let rejection = certify_speech(None, completion(candidate), candidate, gate)
+            .expect_err("a reused run of shared shingles is a repeated phrase");
+
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceRecentDuplicate
+        );
+        assert_eq!(
+            rejection.repeated_phrase.as_deref(),
+            Some("bethlehem at last my biscuit")
+        );
+    }
+
     #[test]
     fn voice_recent_duplicate_does_not_reject_a_three_word_coincidence() {
         let prior = "My boots filed a formal complaint beside the Bethlehem gate.";
@@ -1920,6 +2040,10 @@ mod tests {
             rejection.failure_code,
             PublicationCheckCode::VoiceRecentDuplicate
         );
+        assert_eq!(
+            rejection.repeated_phrase.as_deref(),
+            Some("the marker keeps its own slow warmth")
+        );
     }
 
     #[test]
@@ -1941,6 +2065,30 @@ mod tests {
             rejection.failure_code,
             PublicationCheckCode::VoiceRecentDuplicate
         );
+        assert_eq!(
+            rejection.repeated_phrase.as_deref(),
+            Some("the marker keeps its own slow warmth")
+        );
+    }
+
+    /// A rejection unrelated to duplication carries no phrase, so the retry
+    /// keeps its generic instruction rather than quoting an innocent line back.
+    #[test]
+    fn a_non_duplicate_rejection_names_no_phrase() {
+        let anchors = vec!["teapot".to_string()];
+        let rejection = certify_speech(
+            None,
+            completion("I hate you, teapot"),
+            "I hate you, teapot",
+            context(&anchors, &[]),
+        )
+        .expect_err("an unsafe line is rejected");
+
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceUnsafeTone
+        );
+        assert_eq!(rejection.repeated_phrase, None);
     }
 
     #[test]

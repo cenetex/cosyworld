@@ -30,6 +30,11 @@ pub(crate) const VOICE_EXPLORATION_FLOOR_BPS_ENV: &str = "COSYWORLD_AI_VOICE_EXP
 const MAX_VOICE_ATTEMPTS: u8 = 10;
 const MAX_JOB_LEASE_RETRIES: u32 = 1;
 const VOICE_RETRY_FEEDBACK_RESERVE_TOKENS: u32 = 96;
+/// Production runs up to ten attempts against one pinned model, so a blocklist
+/// of two throws away most of what the earlier rounds proved. Four normalized
+/// phrases cost roughly a third of the retry feedback reserve and still leave
+/// room for the shape and register clauses.
+const MAX_NAMED_REPEATED_PHRASES: usize = 4;
 
 #[derive(Clone, Debug)]
 pub(crate) struct VoiceRoutingConfig {
@@ -664,7 +669,32 @@ fn retry_instruction(
             PublicationCheckCode::VoiceRepeatedNgram | PublicationCheckCode::VoiceRecentDuplicate
         )
     }) {
-        clauses.push("fresh wording · no repeated phrase".to_string());
+        // Naming the offending run is the whole point of this clause: with one
+        // pinned voice model every retry is a resample of the same model, and a
+        // generic "fresh wording" reliably resamples the same phrase. Only the
+        // normalized token run crosses over — never the rejected line itself.
+        // Newest first: with up to ten attempts the early rounds are stale, and
+        // slicing a sorted set would pin the blocklist to whatever happened to
+        // sort first rather than to what the model just did. The set only dedupes.
+        let mut seen = BTreeSet::new();
+        let reused = rejections
+            .iter()
+            .rev()
+            .filter_map(|rejection| rejection.repeated_phrase.as_deref())
+            .filter(|phrase| seen.insert(*phrase))
+            .take(MAX_NAMED_REPEATED_PHRASES)
+            .collect::<Vec<_>>();
+        clauses.push(match reused.is_empty() {
+            true => "fresh wording · no repeated phrase".to_string(),
+            false => format!(
+                "fresh wording · do not reuse {}",
+                reused
+                    .into_iter()
+                    .map(|phrase| format!("\"{phrase}\""))
+                    .collect::<Vec<_>>()
+                    .join(" or ")
+            ),
+        });
     }
     if failed.contains(&PublicationCheckCode::VoiceMultipleSpeakers) {
         clauses.push("one voice · no speaker labels".to_string());
@@ -2269,6 +2299,116 @@ mod tests {
             .iter()
             .chain(&users)
             .all(|prompt| !prompt.contains(rejected)));
+    }
+
+    /// The retry now names the run that tripped the duplicate check. This is
+    /// the one place a rejected candidate's wording is allowed to reach a
+    /// later prompt, and only as normalized tokens — never the rejected line, and
+    /// never anywhere a player can see.
+    #[tokio::test]
+    async fn a_duplicate_retry_names_the_phrase_to_drop() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 1,
+            ..VoiceRoutingConfig::default()
+        });
+        let rejected = "White moths crowd the cold lamp cages again.";
+        let backend = MockBackend::with_outputs([
+            ("provider/tiny-a", rejected, 0),
+            ("provider/tiny-a", "Teapot ready.", 0),
+        ]);
+        let mut publication_gate = gate("duplicate-beat");
+        publication_gate.anchors = vec!["teapot".to_string(), "moths".to_string()];
+        publication_gate.recent_speaker_shingle_hashes =
+            crate::ai_publication::voice_signature_shingle_hashes(
+                "White moths crowd the cold lamp cages tonight.",
+            );
+
+        let certified = route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            publication_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the corrected retry certifies");
+
+        assert_eq!(certified.text(), "Teapot ready.");
+        let (systems, users) = backend.rendered_prompts();
+        assert_eq!(
+            systems[1],
+            "Write one short anchored line.\nagain · fresh wording · do not reuse \"white moths crowd the cold\"",
+        );
+        assert!(
+            systems
+                .iter()
+                .chain(&users)
+                .all(|prompt| !prompt.contains(rejected)),
+            "the rejected line itself still never reaches a prompt",
+        );
+    }
+
+    /// Production rejected eight consecutive rounds against one pinned model,
+    /// so every later retry must carry what the earlier ones proved rather
+    /// than repeating a single stale hint.
+    #[tokio::test]
+    async fn a_duplicate_blocklist_accumulates_across_rounds() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 3,
+            hedge_width: 1,
+            spend_ceiling_microdollars: u64::MAX,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_outputs([
+            (
+                "provider/tiny-a",
+                "White moths crowd the cold lamp cages again.",
+                0,
+            ),
+            (
+                "provider/tiny-a",
+                "I keep my small plans close beside the teapot.",
+                0,
+            ),
+            ("provider/tiny-a", "Teapot ready.", 0),
+        ]);
+        let mut publication_gate = gate("accumulating-beat");
+        publication_gate.anchors = vec!["teapot".to_string(), "moths".to_string()];
+        publication_gate.recent_speaker_shingle_hashes = [
+            crate::ai_publication::voice_signature_shingle_hashes(
+                "White moths crowd the cold lamp cages tonight.",
+            ),
+            crate::ai_publication::voice_signature_shingle_hashes(
+                "I keep my small plans close until morning.",
+            ),
+        ]
+        .concat();
+
+        let certified = route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            publication_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the third attempt certifies");
+
+        assert_eq!(certified.text(), "Teapot ready.");
+        let (systems, _) = backend.rendered_prompts();
+        assert!(
+            systems[1].ends_with("do not reuse \"white moths crowd the cold\""),
+            "the first retry names only what round one proved: {}",
+            systems[1]
+        );
+        assert!(
+            systems[2].ends_with(
+                "do not reuse \"i keep my small plans\" or \"white moths crowd the cold\""
+            ),
+            "the second retry carries both rounds, newest first: {}",
+            systems[2]
+        );
     }
 
     #[tokio::test]
