@@ -1106,8 +1106,11 @@ fn repeats_recent_dialogue(text: &str, context: &SpeechGateContext) -> bool {
             // because a reply is supposed to reuse the words it answers.
             Some(spoken) => candidate_key == normalized_resident_speech_key(spoken),
             // The candidate's own line, or one this gate cannot attribute.
-            // Hold the stricter word-overlap bar in both cases.
-            None => near_duplicate(text, recent),
+            // Hold the stricter word-overlap bar in both cases, but compare
+            // against the words that were spoken rather than the `"Name: "`
+            // label in front of them: the speaker's own name is not evidence
+            // that they repeated themselves.
+            None => near_duplicate(text, spoken_words_of(recent, context)),
         }
     })
 }
@@ -1130,6 +1133,37 @@ fn attributed_recent_line<'a>(recent: &'a str, context: &SpeechGateContext) -> O
         .then_some(spoken)
 }
 
+/// The words of a recent room line, without the `"{Name}: "` label.
+///
+/// Only strips a label this gate recognises, so a line whose content happens to
+/// contain a colon keeps all of its words.
+fn spoken_words_of<'a>(recent: &'a str, context: &SpeechGateContext) -> &'a str {
+    let Some((speaker, spoken)) = recent.split_once(':') else {
+        return recent;
+    };
+    let speaker = speaker.trim();
+    let is_known_speaker = speaker.eq_ignore_ascii_case(context.speaker_name.trim())
+        || context
+            .other_speaker_names
+            .iter()
+            .any(|name| name.trim().eq_ignore_ascii_case(speaker));
+    if is_known_speaker {
+        spoken.trim_start()
+    } else {
+        recent
+    }
+}
+
+/// The smallest number of shared distinct words that can evidence a repetition.
+///
+/// Word-set overlap alone is order-blind and dominated by function words on a
+/// short line: "I watch the door." against "I watch the door again." shares
+/// only `i`, `watch`, `the`, `door` and still scores the eighty percent that
+/// used to reject it. Below this floor only an exact repetition counts, which
+/// leaves catchphrase detection to the shingle check, where adjacency is
+/// actually measured.
+const VOICE_NEAR_DUPLICATE_MIN_SHARED_WORDS: usize = 5;
+
 fn near_duplicate(left: &str, right: &str) -> bool {
     let left_key = normalized_resident_speech_key(left);
     let right_key = normalized_resident_speech_key(right);
@@ -1147,7 +1181,7 @@ fn near_duplicate(left: &str, right: &str) -> bool {
     }
     let overlap = left.intersection(&right).count();
     let union = left.union(&right).count();
-    union > 0 && overlap * 5 >= union * 4
+    overlap >= VOICE_NEAR_DUPLICATE_MIN_SHARED_WORDS && union > 0 && overlap * 5 >= union * 4
 }
 
 fn contains_unsafe_tone(value: &str) -> bool {
@@ -1825,6 +1859,47 @@ mod tests {
             gate,
         )
         .expect("answering a question may reuse the words of the question");
+    }
+
+    /// A short line shares function words with almost anything the speaker
+    /// said before. Rejecting on that silenced residents in small rooms, where
+    /// there is little to talk about and every line is short.
+    #[test]
+    fn a_short_line_is_not_a_duplicate_for_sharing_function_words() {
+        let recent = vec!["Morph: I watch the door.".to_string()];
+        let mut gate = context(&["door".to_string()], &recent);
+        gate.speaker_name = "Morph".to_string();
+        gate.max_words = 12;
+
+        certify_speech(
+            None,
+            completion("I watch the door again."),
+            "I watch the door again.",
+            gate,
+        )
+        .expect("one added word is not a repeated line");
+    }
+
+    /// The speaker's own name sits in front of every line they said, so
+    /// comparing against the unstripped row counted it as shared evidence.
+    #[test]
+    fn a_speaker_name_label_is_not_evidence_of_repetition() {
+        let spoken = "The lantern gutters low against the cold slate step.";
+        let mut bare = context(&["lantern".to_string()], &[spoken.to_string()]);
+        bare.speaker_name = "Morph".to_string();
+        bare.max_words = 16;
+        let bare_verdict = certify_speech(None, completion(spoken), spoken, bare);
+
+        let mut labelled = context(&["lantern".to_string()], &[format!("Morph: {spoken}")]);
+        labelled.speaker_name = "Morph".to_string();
+        labelled.max_words = 16;
+        let labelled_verdict = certify_speech(None, completion(spoken), spoken, labelled);
+
+        assert_eq!(
+            bare_verdict.is_err(),
+            labelled_verdict.is_err(),
+            "the same repetition must be judged the same with or without a label"
+        );
     }
 
     #[test]
