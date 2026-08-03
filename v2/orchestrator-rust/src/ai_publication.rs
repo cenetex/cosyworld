@@ -600,10 +600,7 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceRecentDuplicate,
-            !context
-                .recent_lines
-                .iter()
-                .any(|recent| near_duplicate(text, recent))
+            !repeats_recent_dialogue(text, context)
                 && !shares_recent_speaker_phrase(text, &context.recent_speaker_shingle_hashes),
         ),
         (
@@ -1090,6 +1087,47 @@ fn anchor_words_match(candidate: &str, anchor: &str) -> bool {
         (anchor, candidate)
     };
     shorter.len() >= MIN_SHARED_PREFIX && longer.starts_with(shorter)
+}
+
+/// Whether a candidate repeats dialogue the room has already heard.
+///
+/// `recent_lines` holds every speaker's recent lines as `"{Name}: {content}"`,
+/// so the word-overlap test only applies to the candidate speaker's own lines.
+/// A reply necessarily reuses the vocabulary of the line it answers — in a
+/// two-person exchange that pushed set overlap past the threshold on almost
+/// every turn, and both candidate rounds were rejected until the conversation
+/// ended early. Repeating *another* speaker verbatim is still caught, because
+/// echoing someone's exact words back at them is never the intended reply.
+fn repeats_recent_dialogue(text: &str, context: &SpeechGateContext) -> bool {
+    let candidate_key = normalized_resident_speech_key(text);
+    context.recent_lines.iter().any(|recent| {
+        match attributed_recent_line(recent, context) {
+            // Another speaker said it. Only a verbatim echo is a duplicate,
+            // because a reply is supposed to reuse the words it answers.
+            Some(spoken) => candidate_key == normalized_resident_speech_key(spoken),
+            // The candidate's own line, or one this gate cannot attribute.
+            // Hold the stricter word-overlap bar in both cases.
+            None => near_duplicate(text, recent),
+        }
+    })
+}
+
+/// The words of `recent` when some *other* speaker said them.
+///
+/// Room lines arrive as `"{Name}: {content}"`. An unprefixed line carries no
+/// attribution, so it is treated as the candidate speaker's own and held to the
+/// stricter bar rather than assumed to belong to someone else.
+fn attributed_recent_line<'a>(recent: &'a str, context: &SpeechGateContext) -> Option<&'a str> {
+    let (speaker, spoken) = recent.split_once(':')?;
+    let speaker = speaker.trim();
+    if speaker.is_empty() || speaker.eq_ignore_ascii_case(context.speaker_name.trim()) {
+        return None;
+    }
+    context
+        .other_speaker_names
+        .iter()
+        .any(|name| name.trim().eq_ignore_ascii_case(speaker))
+        .then_some(spoken)
 }
 
 fn near_duplicate(left: &str, right: &str) -> bool {
@@ -1764,6 +1802,70 @@ mod tests {
 
         certify_speech(None, completion(candidate), candidate, gate)
             .expect("a shared phrase shorter than four words remains eligible");
+    }
+
+    /// A resident answering a player reuses the player's words. Comparing the
+    /// candidate against every speaker's recent lines therefore rejected almost
+    /// every reply in a two-person exchange, exhausted both candidate rounds,
+    /// and ended the conversation early. Chatting with Morph in Void 231 failed
+    /// this way in production.
+    #[test]
+    fn a_reply_may_reuse_the_words_of_the_line_it_answers() {
+        let recent =
+            vec!["Traveller: Is the marker in this cell still warm to the touch?".to_string()];
+        let mut gate = context(&["marker".to_string()], &recent);
+        gate.speaker_name = "Morph".to_string();
+        gate.other_speaker_names = vec!["Traveller".to_string()];
+        gate.max_words = 16;
+
+        certify_speech(
+            None,
+            completion("The marker in this cell is still warm to the touch."),
+            "The marker in this cell is still warm to the touch.",
+            gate,
+        )
+        .expect("answering a question may reuse the words of the question");
+    }
+
+    #[test]
+    fn a_speaker_still_may_not_repeat_their_own_recent_line() {
+        let recent = vec!["Morph: The marker keeps its own slow warmth.".to_string()];
+        let mut gate = context(&["marker".to_string()], &recent);
+        gate.speaker_name = "Morph".to_string();
+        gate.max_words = 16;
+
+        let rejection = certify_speech(
+            None,
+            completion("The marker keeps its own slow warmth."),
+            "The marker keeps its own slow warmth.",
+            gate,
+        )
+        .expect_err("a speaker repeating themselves is still a duplicate");
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceRecentDuplicate
+        );
+    }
+
+    #[test]
+    fn echoing_another_speaker_verbatim_is_still_a_duplicate() {
+        let recent = vec!["Traveller: The marker keeps its own slow warmth.".to_string()];
+        let mut gate = context(&["marker".to_string()], &recent);
+        gate.speaker_name = "Morph".to_string();
+        gate.other_speaker_names = vec!["Traveller".to_string()];
+        gate.max_words = 16;
+
+        let rejection = certify_speech(
+            None,
+            completion("The marker keeps its own slow warmth."),
+            "The marker keeps its own slow warmth.",
+            gate,
+        )
+        .expect_err("parroting another speaker word for word is never a reply");
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceRecentDuplicate
+        );
     }
 
     #[test]
