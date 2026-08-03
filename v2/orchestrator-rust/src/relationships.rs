@@ -753,7 +753,8 @@ mod tests {
                     && event.actor_id == Some(MARA_ACTOR_ID)
             })
             .collect();
-        assert_eq!(replies.len(), 1);
+        let all_after: Vec<_> = runtime.event_log.iter().filter(|event| event.seq > beat_seq).map(|e| (e.seq, e.type_name.clone(), e.actor_id, e.content.clone())).collect();
+        assert_eq!(replies.len(), 1, "events after beat_seq: {all_after:?}");
         assert!(
             replies[0]
                 .content
