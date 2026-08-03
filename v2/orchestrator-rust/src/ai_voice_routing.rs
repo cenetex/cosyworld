@@ -359,13 +359,12 @@ async fn route_certified_voice_with(
     let mut certified_candidates = Vec::new();
     'generation: while next_candidate < planned.len() {
         let remaining_candidates = planned.len() - next_candidate;
-        // Hedges are peers, not retries. Keep one bounded attempt in reserve so
-        // every multi-attempt configuration can act on a publication-gate verdict.
-        let available_to_batch = if first_batch && remaining_candidates > 1 {
-            remaining_candidates - 1
-        } else {
-            remaining_candidates
-        };
+        let available_to_batch =
+            if first_batch && (config.voice_routing.hedge_width as usize) < remaining_candidates {
+                remaining_candidates - 1
+            } else {
+                remaining_candidates
+            };
         let batch_width = (config.voice_routing.hedge_width as usize)
             .min(available_to_batch)
             .max(1);
@@ -517,6 +516,9 @@ async fn route_certified_voice_with(
                     }
                 }
             }
+        }
+        if !certified_candidates.is_empty() {
+            break 'generation;
         }
     }
 
@@ -2229,7 +2231,7 @@ mod tests {
     async fn rejection_feedback_reaches_only_later_attempts() {
         let config = single_candidate(VoiceRoutingConfig {
             max_attempts: 2,
-            hedge_width: 2,
+            hedge_width: 1,
             ..VoiceRoutingConfig::default()
         });
         let rejected = "Gust: Teapot plan:";
@@ -2303,7 +2305,7 @@ mod tests {
     async fn raw_retry_keeps_feedback_in_the_single_user_envelope() {
         let config = single_candidate(VoiceRoutingConfig {
             max_attempts: 2,
-            hedge_width: 2,
+            hedge_width: 1,
             ..VoiceRoutingConfig::default()
         });
         let backend = MockBackend::with_outputs([
@@ -2349,7 +2351,7 @@ mod tests {
     async fn raw_length_retry_uses_a_conservative_word_cap() {
         let config = single_candidate(VoiceRoutingConfig {
             max_attempts: 2,
-            hedge_width: 2,
+            hedge_width: 1,
             ..VoiceRoutingConfig::default()
         });
         let backend = MockBackend::with_finished_outputs([
@@ -2392,7 +2394,7 @@ mod tests {
     async fn retry_shape_feedback_respects_emoji_mode() {
         let config = single_candidate(VoiceRoutingConfig {
             max_attempts: 2,
-            hedge_width: 2,
+            hedge_width: 1,
             ..VoiceRoutingConfig::default()
         });
         let backend = MockBackend::with_outputs([
@@ -2445,8 +2447,8 @@ mod tests {
         assert!(certified.text().contains("Teapot"));
         assert_eq!(
             backend.call_count(),
-            3,
-            "all bounded candidates are compared before the durable winner is accepted"
+            2,
+            "both hedged candidates are compared before the durable winner is accepted"
         );
         let cached_backend = MockBackend::default();
         let cached = route_certified_voice_with(
