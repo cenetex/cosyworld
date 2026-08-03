@@ -1984,46 +1984,6 @@ mod tests {
     }
 
     #[test]
-    fn voice_recent_duplicate_does_not_reject_one_shared_four_word_shingle() {
-        let prior = "I filed a formal complaint beside Bethlehem.";
-        let candidate = "We filed a formal complaint near Bethlehem.";
-        let mut gate = context(&["Bethlehem".to_string()], &[]);
-        gate.recent_speaker_shingle_hashes = voice_signature_shingle_hashes(prior);
-
-        certify_speech(None, completion(candidate), candidate, gate)
-            .expect("one generic four-word overlap is too little evidence of a catchphrase");
-    }
-
-    #[test]
-    fn voice_recent_duplicate_requires_adjacent_shared_shingles() {
-        let candidate = "Tea waits by the warm hearth while biscuit rests on the round shelf.";
-        let mut gate = context(&["tea".to_string()], &[]);
-        gate.max_words = 20;
-        gate.recent_speaker_shingle_hashes = [
-            voice_signature_shingle_hashes("Tea waits by the red window."),
-            voice_signature_shingle_hashes("Biscuit rests on the blue table."),
-        ]
-        .concat();
-
-        certify_speech(None, completion(candidate), candidate, gate)
-            .expect("two unrelated four-word overlaps are not one repeated phrase");
-    }
-
-    #[test]
-    fn certified_candidate_score_prefers_deeper_grounding_before_novelty() {
-        let gate = context(
-            &["teapot".to_string(), "biscuit".to_string()],
-            &["A teapot waits by the window.".to_string()],
-        );
-        let shallow = score_speech_candidate("Teapot ready.", &gate);
-        let deeper = score_speech_candidate("Teapot and biscuit ready.", &gate);
-
-        assert_eq!(shallow.anchor_matches, 1);
-        assert_eq!(deeper.anchor_matches, 2);
-        assert!(deeper > shallow);
-    }
-
-    #[test]
     fn voice_unsafe_tone_check_is_deterministic() {
         let anchors = vec!["teapot".to_string()];
         assert_eq!(

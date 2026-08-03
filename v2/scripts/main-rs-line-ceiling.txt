@@ -180,4 +180,4 @@
 # reply wrapper's only remaining caller went with them. Its test duplicated
 # coverage that already lives in ai-model-rust/src/lib.rs, so it moved out
 # rather than being copied again.
-73319
+72090
