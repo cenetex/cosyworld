@@ -1,5 +1,7 @@
 use std::{
     collections::{BTreeMap, VecDeque},
+    fmt,
+    net::SocketAddr,
     time::{Duration, Instant},
 };
 
@@ -59,6 +61,16 @@ pub(super) const PUBLIC_MUTATION_LIMIT: RateLimit = RateLimit {
     max_hits: 240,
     window: Duration::from_secs(60),
 };
+pub(super) const RATE_LIMITED_STATUS: u32 = 429;
+
+pub(super) fn client_ip_key(client_addr: SocketAddr) -> String {
+    client_addr.ip().to_string()
+}
+
+pub(super) fn rate_limit_key(scope: &str, subject: impl fmt::Display) -> String {
+    format!("{scope}:{subject}")
+}
+
 pub(super) const WALLET_AUTH_LIMIT: RateLimit = RateLimit {
     max_hits: 30,
     window: Duration::from_secs(60),
