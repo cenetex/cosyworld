@@ -29,6 +29,7 @@ mod community_art;
 #[cfg(test)]
 mod community_art_tests;
 mod composition;
+mod config;
 mod content_load;
 mod content_packs;
 mod content_policy;
@@ -73,6 +74,7 @@ mod rules_context;
 mod semantic_receipts;
 mod settlement_buildings;
 mod snapshot_persistence;
+mod solana;
 mod story_metrics;
 #[cfg(test)]
 mod test_support;
@@ -80,6 +82,7 @@ mod topology;
 mod transfers;
 mod turns;
 mod uses;
+mod util;
 mod views;
 mod world_causality;
 mod world_simulation;
@@ -103,7 +106,6 @@ use axum::{
     },
     Json,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use canonical_journal::*;
 use canonical_world::*;
 use card_policy_objective::*;
@@ -113,6 +115,14 @@ use combat::*;
 use communal_governance::*;
 use community_art::*;
 use composition::*;
+pub(crate) use config::{
+    canonical_recovery_config_from_env, canonical_region_id_from_env,
+    canonical_route_heartbeat_expiry, canonical_routing_config_from_env, deployment_config_error,
+    CanonicalCommandCommitContext, CanonicalHandoffRequest, CanonicalPresenceRelay,
+    CanonicalRecoveryConfig, CanonicalRecoveryPromotionRequest, CanonicalRoutingConfig,
+    DeploymentConfig, ForwardedCanonicalCommand, RegionalPresence, CANONICAL_INVITE_TTL,
+    CANONICAL_WORLD_PARTITION, DEFAULT_CANONICAL_CONVERGENCE_POLL, DEFAULT_CANONICAL_LEASE_TTL,
+};
 use content_load::*;
 use content_packs::*;
 use content_policy::*;
@@ -121,7 +131,6 @@ use contributions::*;
 use cosyworld_orchestrator::card_policy::CardPolicyAction;
 use crafting::*;
 use discovery_pipeline::*;
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use first_tale::*;
 use generated_places::*;
 use generation_policy::*;
@@ -143,7 +152,6 @@ use prompts::*;
 use proxim8::*;
 use qrcode::{render::svg, QrCode};
 use quest_loot::*;
-use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
 use relationships::*;
 use resident_image::*;
@@ -156,11 +164,16 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use settlement_buildings::*;
 use snapshot_persistence::*;
+pub(crate) use solana::*;
+
+#[cfg(test)]
+pub(crate) use config::{
+    canonical_routing_config, resolve_process_id, DeploymentProfile, DEFAULT_CANONICAL_REGION_ID,
+};
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
     convert::Infallible,
-    ffi::CStr,
     fs, io,
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -186,9 +199,14 @@ use topology::*;
 use tracing::{error, info, warn};
 use turns::*;
 use uses::*;
+pub(crate) use util::*;
 use views::*;
 use world_causality::*;
 use world_simulation::*;
+tokio::task_local! {
+    static CANONICAL_COMMAND_COMMIT_CONTEXT: Arc<CanonicalCommandCommitContext>;
+}
+
 #[derive(Clone)]
 struct AppState {
     inner: Arc<Mutex<RuntimeWorld>>,
@@ -249,96 +267,6 @@ struct AppState {
     last_checkpoint_rejection: Option<String>,
     allow_unsigned_wallet_claims: bool,
 }
-const CANONICAL_WORLD_PARTITION: &str = "world";
-const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
-const DEFAULT_CANONICAL_CONVERGENCE_POLL: Duration = Duration::from_millis(100);
-const DEFAULT_CANONICAL_REGION_ID: &str = "local";
-const CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER: u32 = 3;
-const CANONICAL_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
-#[derive(Clone, Debug, Default)]
-struct CanonicalRoutingConfig {
-    base_url: Option<String>,
-    token: Option<String>,
-}
-#[derive(Clone, Debug)]
-struct CanonicalRecoveryConfig {
-    replica_path: PathBuf,
-    region_id: String,
-}
-impl CanonicalRoutingConfig {
-    fn enabled(&self) -> bool {
-        self.base_url.is_some() && self.token.is_some()
-    }
-}
-#[derive(Clone, Debug)]
-struct RegionalPresence {
-    active: bool,
-    last_seen_at: Instant,
-}
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct CanonicalPresenceRelay {
-    source_owner_id: String,
-    events: Vec<EventView>,
-}
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct ForwardedCanonicalCommand {
-    source_process_id: String,
-    client_addr: String,
-    payload: CommandRequest,
-}
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CanonicalHandoffRequest {
-    partition_keys: Vec<String>,
-    target_owner_id: String,
-    expected_world_seq: u64,
-    reason: String,
-}
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CanonicalRecoveryPromotionRequest {
-    source_region_id: String,
-    expected_promotion_epoch: u64,
-    expected_prefix_hash: String,
-}
-
-struct CanonicalCommandCommitContext {
-    envelope: CanonicalCommandEnvelope,
-    request_hash: String,
-    normalized_command: String,
-    compatibility_envelope: bool,
-    leases: BTreeMap<String, AuthorityLease>,
-    phase: AtomicU8,
-}
-
-impl CanonicalCommandCommitContext {
-    fn try_begin_commit(&self) -> bool {
-        self.phase
-            .compare_exchange(0, 1, AtomicOrdering::AcqRel, AtomicOrdering::Acquire)
-            .is_ok()
-    }
-
-    fn abort_commit(&self) {
-        self.phase.store(0, AtomicOrdering::Release);
-    }
-
-    fn finish_commit(&self) {
-        self.phase.store(2, AtomicOrdering::Release);
-    }
-
-    fn committed(&self) -> bool {
-        self.phase.load(AtomicOrdering::Acquire) == 2
-    }
-
-    fn owner_fencing_epoch(&self) -> Option<u64> {
-        self.leases.values().map(|lease| lease.fencing_epoch).max()
-    }
-}
-
-tokio::task_local! {
-    static CANONICAL_COMMAND_COMMIT_CONTEXT: Arc<CanonicalCommandCommitContext>;
-}
-
 #[derive(Clone, Debug, Default)]
 struct EventStoreHealth {
     last_append_success_at_unix: Option<u64>,
@@ -422,25 +350,6 @@ struct AmbientConfig {
     quiet_after: Duration,
 }
 
-#[derive(Clone, Debug)]
-struct BoxBurnVerifierConfig {
-    rpc_url: String,
-    collection_address: String,
-}
-
-#[derive(Clone, Debug)]
-struct BoxBurnVerification {
-    verification_status: &'static str,
-}
-
-#[derive(Clone, Debug)]
-struct PreparedBoxBurnTransaction {
-    transaction_base64: String,
-    message_base58: String,
-    recent_blockhash: String,
-    last_valid_block_height: u64,
-}
-
 #[derive(Clone, Copy)]
 struct FeatureBondTarget {
     location_id: u64,
@@ -453,7 +362,6 @@ struct FeatureBondTarget {
 const QR_WALLET_LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 const QR_WALLET_COMPLETE_GRACE: Duration = Duration::from_secs(60);
 
-const RATE_LIMITED_STATUS: u32 = 429;
 const CALLING_REVISION_COST: u8 = 1;
 const BOND_SLOT_COST: u8 = 1;
 const BOND_REVISION_COST: u8 = 1;
@@ -469,9 +377,6 @@ const MAX_EVENT_STORE_SCAN: usize = 1000;
 const DEFAULT_RETAINED_WORLD_EVENTS: usize = 25_000;
 const RECENT_ROOM_LINE_CAPACITY: usize = 16;
 const STARTING_ORBS: i32 = 3;
-const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
-const SOLANA_SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
-const SPL_NOOP_PROGRAM_ID: &str = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
 const LISTEN_ORB_REWARD: i32 = 1;
 const LISTEN_ABILITY: u8 = 4;
 const LISTEN_DC: u16 = 12;
@@ -3234,8 +3139,7 @@ struct ActionProjectView {
     claim_key: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 struct ActionTargetView {
     kind: String,
     id: Option<u64>,
@@ -3363,7 +3267,7 @@ fn validate_persisted_content_context_for_replay(
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum WorldpackReplayCompatibility {
     LegacyUnversioned,
     Exact,
@@ -3537,13 +3441,6 @@ struct NarrativeMoveDelegation {
     issued_at_unix: u64,
     expires_at_unix: u64,
     signature: WalletSignatureInput,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-enum WalletSignatureInput {
-    Bytes(Vec<u8>),
-    Base58(String),
 }
 
 #[derive(Debug, Deserialize)]
@@ -3885,253 +3782,6 @@ struct ActorSessions {
 struct ActorSuspension {
     reason: String,
     created_at_unix: u64,
-}
-
-impl DeploymentProfile {
-    fn parse(value: &str) -> io::Result<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "" | "local" | "dev" | "development" => Ok(Self::Local),
-            "prod" | "production" => Ok(Self::Production),
-            other => Err(deployment_config_error(format!(
-                "unsupported COSYWORLD_DEPLOY_PROFILE={other}; expected local or production"
-            ))),
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Local => "local",
-            Self::Production => "production",
-        }
-    }
-
-    fn is_production(self) -> bool {
-        matches!(self, Self::Production)
-    }
-}
-
-fn requires_remote_entitlement_feed() -> bool {
-    active_content().manifest.packs.iter().any(|pack| {
-        pack.entitlements.as_ref().is_some_and(|entitlements| {
-            entitlements
-                .authorities
-                .iter()
-                .any(|authority| authority.kind == "asset_feed")
-        })
-    })
-}
-
-impl DeploymentConfig {
-    #[cfg(test)]
-    fn local() -> Self {
-        Self {
-            profile: DeploymentProfile::Local,
-            world_id: OFFICIAL_WORLD_ID.to_string(),
-            process_id: "local".to_string(),
-        }
-    }
-
-    fn from_env() -> io::Result<Self> {
-        let profile = std::env::var("COSYWORLD_DEPLOY_PROFILE")
-            .ok()
-            .as_deref()
-            .map(DeploymentProfile::parse)
-            .transpose()?
-            .unwrap_or(DeploymentProfile::Local);
-        let default_process_id = if profile.is_production() {
-            "public-1"
-        } else {
-            "local"
-        };
-        let configured_process_id = std::env::var("COSYWORLD_PROCESS_ID").ok();
-        let legacy_shard_id = std::env::var("COSYWORLD_V2_SHARD_ID").ok();
-        let process_id = resolve_process_id(
-            configured_process_id.as_deref(),
-            legacy_shard_id.as_deref(),
-            default_process_id,
-        )?;
-        Ok(Self {
-            profile,
-            world_id: OFFICIAL_WORLD_ID.to_string(),
-            process_id,
-        })
-    }
-
-    fn validate_runtime_options(
-        &self,
-        ownership_feed: &OwnershipFeedConfig,
-        trust_client_card_ids: bool,
-        dev_reset_enabled: bool,
-        allow_unsigned_wallet_claims: bool,
-        avatar_chat_delay: Duration,
-        event_store_enabled: bool,
-        moderation_enabled: bool,
-        _box_burn_verifier_configured: bool,
-    ) -> io::Result<()> {
-        if !self.profile.is_production() {
-            return Ok(());
-        }
-
-        if requires_remote_entitlement_feed() && ownership_feed.remote_url.is_none() {
-            return Err(deployment_config_error(
-                "production profile requires COSYWORLD_ENTITLEMENT_FEED_URL for the active entitlement provider",
-            ));
-        }
-        if requires_remote_entitlement_feed() && ownership_feed.remote_bearer.is_none() {
-            return Err(deployment_config_error(
-                "production profile requires COSYWORLD_ENTITLEMENT_FEED_BEARER for the active entitlement provider",
-            ));
-        }
-        if trust_client_card_ids {
-            return Err(deployment_config_error(
-                "production profile cannot enable COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS",
-            ));
-        }
-        if dev_reset_enabled {
-            return Err(deployment_config_error(
-                "production profile cannot enable COSYWORLD_ENABLE_DEV_RESET",
-            ));
-        }
-        if allow_unsigned_wallet_claims {
-            return Err(deployment_config_error(
-                "production profile cannot enable COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET",
-            ));
-        }
-        if avatar_chat_delay > Duration::ZERO {
-            return Err(deployment_config_error(
-                "production profile cannot enable COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS",
-            ));
-        }
-        if !event_store_enabled {
-            return Err(deployment_config_error(
-                "production profile requires the SQLite event store; unset COSYWORLD_V2_EVENT_DB_PATH=off",
-            ));
-        }
-        if !moderation_enabled {
-            return Err(deployment_config_error(
-                "production profile requires COSYWORLD_MODERATION_TOKEN",
-            ));
-        }
-        Ok(())
-    }
-}
-
-fn resolve_process_id(
-    configured_process_id: Option<&str>,
-    legacy_shard_id: Option<&str>,
-    default_process_id: &str,
-) -> io::Result<String> {
-    match (configured_process_id, legacy_shard_id) {
-        (Some(process_id), Some(shard_id)) => {
-            let process_id = normalize_process_id(process_id, "COSYWORLD_PROCESS_ID")?;
-            let shard_id = normalize_process_id(shard_id, "COSYWORLD_V2_SHARD_ID")?;
-            if process_id != shard_id {
-                return Err(deployment_config_error(
-                    "COSYWORLD_PROCESS_ID and compatibility alias COSYWORLD_V2_SHARD_ID must match when both are set",
-                ));
-            }
-            Ok(process_id)
-        }
-        (Some(process_id), None) => normalize_process_id(process_id, "COSYWORLD_PROCESS_ID"),
-        (None, Some(shard_id)) => normalize_process_id(shard_id, "COSYWORLD_V2_SHARD_ID"),
-        (None, None) => normalize_process_id(default_process_id, "default process id"),
-    }
-}
-
-fn deployment_config_error(message: impl Into<String>) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidInput, message.into())
-}
-
-fn canonical_routing_config_from_env() -> io::Result<CanonicalRoutingConfig> {
-    let base_url = std::env::var("COSYWORLD_CANONICAL_ROUTE_URL")
-        .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_string())
-        .filter(|value| !value.is_empty());
-    let token = std::env::var("COSYWORLD_CANONICAL_ROUTER_TOKEN")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    canonical_routing_config(base_url, token)
-}
-
-fn canonical_recovery_config_from_env(
-    event_store_path: Option<&Path>,
-) -> io::Result<Option<CanonicalRecoveryConfig>> {
-    let replica_path = std::env::var("COSYWORLD_CANONICAL_RECOVERY_DB_PATH")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from);
-    let region_id = std::env::var("COSYWORLD_CANONICAL_RECOVERY_REGION_ID")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    if replica_path.is_some() != region_id.is_some() {
-        return Err(deployment_config_error(
-            "COSYWORLD_CANONICAL_RECOVERY_DB_PATH and COSYWORLD_CANONICAL_RECOVERY_REGION_ID must be configured together",
-        ));
-    }
-    let (Some(replica_path), Some(region_id)) = (replica_path, region_id) else {
-        return Ok(None);
-    };
-    let region_id = normalize_process_id(&region_id, "COSYWORLD_CANONICAL_RECOVERY_REGION_ID")?;
-    if event_store_path.is_some_and(|primary| primary == replica_path.as_path()) {
-        return Err(deployment_config_error(
-            "COSYWORLD_CANONICAL_RECOVERY_DB_PATH must differ from COSYWORLD_V2_EVENT_DB_PATH",
-        ));
-    }
-    Ok(Some(CanonicalRecoveryConfig {
-        replica_path,
-        region_id,
-    }))
-}
-
-fn canonical_routing_config(
-    base_url: Option<String>,
-    token: Option<String>,
-) -> io::Result<CanonicalRoutingConfig> {
-    if base_url.is_some() != token.is_some() {
-        return Err(deployment_config_error(
-            "COSYWORLD_CANONICAL_ROUTE_URL and COSYWORLD_CANONICAL_ROUTER_TOKEN must be configured together",
-        ));
-    }
-    if let Some(base_url) = base_url.as_deref() {
-        let parsed = reqwest::Url::parse(base_url).map_err(|error| {
-            deployment_config_error(format!("COSYWORLD_CANONICAL_ROUTE_URL is invalid: {error}"))
-        })?;
-        if !matches!(parsed.scheme(), "http" | "https")
-            || parsed.host_str().is_none()
-            || !parsed.username().is_empty()
-            || parsed.password().is_some()
-            || parsed.query().is_some()
-            || parsed.fragment().is_some()
-            || parsed.path() != "/"
-        {
-            return Err(deployment_config_error(
-                "COSYWORLD_CANONICAL_ROUTE_URL must be an http(s) origin without credentials, path, query, or fragment",
-            ));
-        }
-    }
-    if token.as_deref().is_some_and(|token| token.len() < 16) {
-        return Err(deployment_config_error(
-            "COSYWORLD_CANONICAL_ROUTER_TOKEN must contain at least 16 characters",
-        ));
-    }
-    Ok(CanonicalRoutingConfig { base_url, token })
-}
-
-fn canonical_route_heartbeat_expiry(now_ms: u64, lease_ttl: Duration) -> u64 {
-    let ttl_ms = u64::try_from(lease_ttl.as_millis()).unwrap_or(u64::MAX);
-    now_ms.saturating_add(ttl_ms.saturating_mul(u64::from(CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER)))
-}
-
-fn canonical_region_id_from_env() -> io::Result<String> {
-    std::env::var("COSYWORLD_CANONICAL_REGION_ID")
-        .ok()
-        .as_deref()
-        .map(|value| normalize_process_id(value, "COSYWORLD_CANONICAL_REGION_ID"))
-        .transpose()
-        .map(|region| region.unwrap_or_else(|| DEFAULT_CANONICAL_REGION_ID.to_string()))
 }
 
 fn character_creation_views() -> Vec<CharacterCreationProfileView> {
@@ -4985,14 +4635,6 @@ fn client_actor_authorized(
             == Some(actor_id)
 }
 
-fn client_ip_key(client_addr: SocketAddr) -> String {
-    client_addr.ip().to_string()
-}
-
-fn rate_limit_key(scope: &str, subject: impl std::fmt::Display) -> String {
-    format!("{scope}:{subject}")
-}
-
 fn allow_actor_mutation(
     state: &AppState,
     client_addr: SocketAddr,
@@ -5149,319 +4791,6 @@ fn schedule_avatar_identity_refinement(
         };
         broadcast_events(&state, &events);
     });
-}
-
-fn wallet_challenge_message(wallet_address: &str, nonce: &str, issued_at_unix: u64) -> String {
-    format!(
-        "CosyWorld wallet access\nWallet: {wallet_address}\nNonce: {nonce}\nIssued: {issued_at_unix}\nPurpose: resolve pack-provided entitlements"
-    )
-}
-
-fn narrative_move_signature_message(
-    wallet_address: &str,
-    session_id: &str,
-    character_id: u64,
-    command: &str,
-    nonce: &str,
-    issued_at_unix: u64,
-) -> String {
-    format!(
-        "CosyWorld narrative move\nWallet: {wallet_address}\nSession: {session_id}\nCharacter: {character_id}\nCommand: {command}\nNonce: {nonce}\nIssued: {issued_at_unix}"
-    )
-}
-
-fn narrative_move_delegation_message(
-    wallet_address: &str,
-    delegate_address: &str,
-    session_id: &str,
-    character_id: u64,
-    issued_at_unix: u64,
-    expires_at_unix: u64,
-) -> String {
-    format!(
-        "CosyWorld narrative move delegation\nWallet: {wallet_address}\nDelegate: {delegate_address}\nSession: {session_id}\nCharacter: {character_id}\nIssued: {issued_at_unix}\nExpires: {expires_at_unix}"
-    )
-}
-
-fn delegated_narrative_move_signature_message(
-    wallet_address: &str,
-    delegate_address: &str,
-    session_id: &str,
-    character_id: u64,
-    command: &str,
-    nonce: &str,
-    issued_at_unix: u64,
-) -> String {
-    format!(
-        "CosyWorld delegated narrative move\nWallet: {wallet_address}\nDelegate: {delegate_address}\nSession: {session_id}\nCharacter: {character_id}\nCommand: {command}\nNonce: {nonce}\nIssued: {issued_at_unix}"
-    )
-}
-
-impl WalletSignatureInput {
-    fn bytes(&self) -> Option<Vec<u8>> {
-        match self {
-            Self::Bytes(bytes) => Some(bytes.clone()),
-            Self::Base58(value) => bs58::decode(value.trim()).into_vec().ok(),
-        }
-    }
-}
-
-fn verify_solana_wallet_signature(wallet_address: &str, message: &str, signature: &[u8]) -> bool {
-    let Ok(public_key_bytes) = bs58::decode(wallet_address).into_vec() else {
-        return false;
-    };
-    let Ok(public_key_bytes) = <[u8; 32]>::try_from(public_key_bytes.as_slice()) else {
-        return false;
-    };
-    let Ok(verifying_key) = VerifyingKey::from_bytes(&public_key_bytes) else {
-        return false;
-    };
-    let Ok(signature) = Signature::from_slice(signature) else {
-        return false;
-    };
-    verifying_key.verify(message.as_bytes(), &signature).is_ok()
-}
-
-fn normalize_asset_id(value: &str) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty()
-        || trimmed.chars().count() > 160
-        || trimmed
-            .chars()
-            .any(|ch| ch.is_control() || ch.is_whitespace())
-    {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn normalize_burn_signature(value: &str) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty()
-        || trimmed.chars().count() > 160
-        || !trimmed
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
-    {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn clean_solana_address(value: &str, label: &str) -> Result<String, String> {
-    let clean = value.trim();
-    if clean.len() < 32 || clean.len() > 44 || !clean.chars().all(is_base58_char) {
-        Err(format!("{label} is invalid"))
-    } else {
-        Ok(clean.to_string())
-    }
-}
-
-fn clean_solana_signature(value: &str, label: &str) -> Result<String, String> {
-    let clean = value.trim();
-    if clean.len() < 64 || clean.len() > 96 || !clean.chars().all(is_base58_char) {
-        Err(format!("{label} is invalid"))
-    } else {
-        Ok(clean.to_string())
-    }
-}
-
-fn is_base58_char(ch: char) -> bool {
-    matches!(
-        ch,
-        '1'..='9'
-            | 'A'..='H'
-            | 'J'..='N'
-            | 'P'..='Z'
-            | 'a'..='k'
-            | 'm'..='z'
-    )
-}
-
-fn decode_solana_32(value: &str, label: &str) -> Result<[u8; 32], String> {
-    let clean = clean_solana_address(value, label)?;
-    let bytes = bs58::decode(&clean)
-        .into_vec()
-        .map_err(|_| format!("{label} is invalid"))?;
-    bytes
-        .try_into()
-        .map_err(|_| format!("{label} must decode to 32 bytes"))
-}
-
-fn push_solana_shortvec(output: &mut Vec<u8>, mut value: usize) {
-    loop {
-        let mut byte = (value & 0x7f) as u8;
-        value >>= 7;
-        if value != 0 {
-            byte |= 0x80;
-        }
-        output.push(byte);
-        if value == 0 {
-            break;
-        }
-    }
-}
-
-fn compile_core_burn_transaction(
-    owner_wallet_address: &str,
-    box_asset_address: &str,
-    collection_address: &str,
-    recent_blockhash: &str,
-    last_valid_block_height: u64,
-) -> Result<PreparedBoxBurnTransaction, String> {
-    let owner = decode_solana_32(owner_wallet_address, "Owner wallet address")?;
-    let asset = decode_solana_32(box_asset_address, "Box asset address")?;
-    let collection = decode_solana_32(collection_address, "Box collection address")?;
-    let system_program = decode_solana_32(SOLANA_SYSTEM_PROGRAM_ID, "System program")?;
-    let log_wrapper = decode_solana_32(SPL_NOOP_PROGRAM_ID, "SPL Noop program")?;
-    let core_program = decode_solana_32(CORE_PROGRAM_ID, "Metaplex Core program")?;
-    let blockhash = decode_solana_32(recent_blockhash, "Recent blockhash")?;
-
-    if owner == asset || owner == collection || asset == collection {
-        return Err("Box burn owner, asset, and collection addresses must be distinct".to_string());
-    }
-
-    // Legacy Solana message. The owner is both fee payer and BurnV1 authority, so it appears once
-    // as the writable signer. BurnV1 account order follows the generated Metaplex Core SDK:
-    // asset, collection, payer, authority, system program, SPL Noop log wrapper.
-    let account_keys = [
-        owner,
-        asset,
-        collection,
-        system_program,
-        log_wrapper,
-        core_program,
-    ];
-    let mut message = Vec::with_capacity(256);
-    message.extend_from_slice(&[
-        1, // num_required_signatures
-        0, // num_readonly_signed_accounts
-        3, // system, log wrapper, and Core are readonly unsigned accounts
-    ]);
-    push_solana_shortvec(&mut message, account_keys.len());
-    for key in account_keys {
-        message.extend_from_slice(&key);
-    }
-    message.extend_from_slice(&blockhash);
-    push_solana_shortvec(&mut message, 1); // one BurnV1 instruction
-    message.push(5); // Core program account index
-    let burn_accounts = [1_u8, 2, 0, 0, 3, 4];
-    push_solana_shortvec(&mut message, burn_accounts.len());
-    message.extend_from_slice(&burn_accounts);
-    let burn_data = [12_u8, 0_u8]; // BurnV1 discriminator + None compression proof
-    push_solana_shortvec(&mut message, burn_data.len());
-    message.extend_from_slice(&burn_data);
-
-    // A legacy wire transaction is a shortvec signature count, one empty 64-byte signature for
-    // the owner, then the compiled message. Wallets replace the empty signature before sending.
-    let mut transaction = Vec::with_capacity(message.len() + 65);
-    push_solana_shortvec(&mut transaction, 1);
-    transaction.extend_from_slice(&[0_u8; 64]);
-    transaction.extend_from_slice(&message);
-
-    Ok(PreparedBoxBurnTransaction {
-        transaction_base64: BASE64_STANDARD.encode(transaction),
-        message_base58: bs58::encode(message).into_string(),
-        recent_blockhash: recent_blockhash.to_string(),
-        last_valid_block_height,
-    })
-}
-
-fn transaction_burns_core_asset_from_owner(
-    transaction: &serde_json::Value,
-    asset_address: &str,
-    owner_wallet_address: &str,
-    collection_address: &str,
-) -> bool {
-    let mut instructions = Vec::new();
-    collect_parsed_instructions(
-        transaction
-            .pointer("/transaction/message/instructions")
-            .unwrap_or(&serde_json::Value::Null),
-        &mut instructions,
-    );
-    collect_parsed_instructions(
-        transaction
-            .pointer("/meta/innerInstructions")
-            .unwrap_or(&serde_json::Value::Null),
-        &mut instructions,
-    );
-
-    instructions.into_iter().any(|instruction| {
-        let program_id = instruction
-            .get("programId")
-            .and_then(|value| value.as_str());
-        if program_id != Some(CORE_PROGRAM_ID) {
-            return false;
-        }
-        let Some(accounts) = instruction
-            .get("accounts")
-            .and_then(|value| value.as_array())
-        else {
-            return false;
-        };
-        let account_strings = accounts
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>();
-        if account_strings.first().copied() != Some(asset_address)
-            || account_strings.get(1).copied() != Some(collection_address)
-            || !account_strings.contains(&owner_wallet_address)
-        {
-            return false;
-        }
-        let Some(data) = instruction.get("data").and_then(|value| value.as_str()) else {
-            return false;
-        };
-        bs58::decode(data)
-            .into_vec()
-            .ok()
-            .and_then(|bytes| bytes.first().copied())
-            == Some(12)
-    })
-}
-
-fn collect_parsed_instructions<'a>(
-    value: &'a serde_json::Value,
-    out: &mut Vec<&'a serde_json::Value>,
-) {
-    let Some(entries) = value.as_array() else {
-        return;
-    };
-    for entry in entries {
-        if let Some(nested) = entry.get("instructions") {
-            collect_parsed_instructions(nested, out);
-        } else {
-            out.push(entry);
-        }
-    }
-}
-
-fn stable_hash_u64(parts: &[&str]) -> u64 {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for part in parts {
-        for byte in part.as_bytes().iter().copied().chain([0xff]) {
-            hash ^= byte as u64;
-            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        }
-    }
-    hash
-}
-
-fn stable_hash_hex(parts: &[&str]) -> String {
-    format!("{:016x}", stable_hash_u64(parts))
-}
-
-fn random_hex(byte_count: usize) -> String {
-    let mut bytes = vec![0_u8; byte_count];
-    OsRng.fill_bytes(&mut bytes);
-    let mut out = String::with_capacity(byte_count * 2);
-    for byte in bytes {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
 }
 
 #[tokio::main]
@@ -6037,201 +5366,6 @@ impl AppState {
             .lock()
             .map(|mut limiter| limiter.allow(key.into(), limit, Instant::now()))
             .unwrap_or(false)
-    }
-}
-
-impl BoxBurnVerifierConfig {
-    fn from_env() -> io::Result<Option<Self>> {
-        let rpc_url = std::env::var("COSYWORLD_BOX_BURN_SOLANA_RPC_URL")
-            .ok()
-            .or_else(|| std::env::var("COSYWORLD_SOLANA_RPC_URL").ok())
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let collection_address = std::env::var("COSYWORLD_BOX_CORE_COLLECTION_ADDRESS")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-
-        match (rpc_url, collection_address) {
-            (None, None) => Ok(None),
-            (Some(rpc_url), Some(collection_address)) => {
-                if !rpc_url.starts_with("http://") && !rpc_url.starts_with("https://") {
-                    return Err(deployment_config_error(
-                        "COSYWORLD_BOX_BURN_SOLANA_RPC_URL must be an HTTP(S) URL",
-                    ));
-                }
-                let collection_address = clean_solana_address(
-                    &collection_address,
-                    "COSYWORLD_BOX_CORE_COLLECTION_ADDRESS",
-                )
-                .map_err(deployment_config_error)?;
-                Ok(Some(Self {
-                    rpc_url,
-                    collection_address,
-                }))
-            }
-            (Some(_), None) => Err(deployment_config_error(
-                "COSYWORLD_BOX_BURN_SOLANA_RPC_URL requires COSYWORLD_BOX_CORE_COLLECTION_ADDRESS",
-            )),
-            (None, Some(_)) => Err(deployment_config_error(
-                "COSYWORLD_BOX_CORE_COLLECTION_ADDRESS requires COSYWORLD_BOX_BURN_SOLANA_RPC_URL",
-            )),
-        }
-    }
-
-    async fn prepare_box_burn(
-        &self,
-        owner_wallet_address: &str,
-        box_asset_address: &str,
-    ) -> Result<PreparedBoxBurnTransaction, String> {
-        let owner_wallet_address =
-            clean_solana_address(owner_wallet_address, "Owner wallet address")?;
-        let box_asset_address = clean_solana_address(box_asset_address, "Box asset address")?;
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|error| error.to_string())?;
-        let body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": "cosyworld-box-burn-prepare",
-            "method": "getLatestBlockhash",
-            "params": [{ "commitment": "confirmed" }]
-        });
-        let response = client
-            .post(&self.rpc_url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|error| error.to_string())?;
-        if !response.status().is_success() {
-            return Err(format!(
-                "Solana RPC failed with status {}",
-                response.status().as_u16()
-            ));
-        }
-        let payload: serde_json::Value =
-            response.json().await.map_err(|error| error.to_string())?;
-        if let Some(error) = payload.get("error") {
-            return Err(error
-                .get("message")
-                .and_then(|value| value.as_str())
-                .unwrap_or("Solana RPC returned an error")
-                .to_string());
-        }
-        let blockhash = payload
-            .pointer("/result/value/blockhash")
-            .and_then(|value| value.as_str())
-            .ok_or_else(|| "Solana RPC did not return a recent blockhash".to_string())?;
-        let last_valid_block_height = payload
-            .pointer("/result/value/lastValidBlockHeight")
-            .and_then(|value| value.as_u64())
-            .ok_or_else(|| "Solana RPC did not return a last valid block height".to_string())?;
-        compile_core_burn_transaction(
-            &owner_wallet_address,
-            &box_asset_address,
-            &self.collection_address,
-            blockhash,
-            last_valid_block_height,
-        )
-    }
-
-    async fn verify_box_burn(
-        &self,
-        owner_wallet_address: &str,
-        box_asset_address: &str,
-        burn_signature: &str,
-    ) -> Result<BoxBurnVerification, String> {
-        let owner_wallet_address =
-            clean_solana_address(owner_wallet_address, "Owner wallet address")?;
-        let box_asset_address = clean_solana_address(box_asset_address, "Box asset address")?;
-        let burn_signature = clean_solana_signature(burn_signature, "Solana burn signature")?;
-
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|error| error.to_string())?;
-        let mut transaction = serde_json::Value::Null;
-        for attempt in 0..4 {
-            if attempt > 0 {
-                tokio::time::sleep(Duration::from_millis(1000 + attempt * 500)).await;
-            }
-            let body = serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": "cosyworld-box-burn",
-                "method": "getTransaction",
-                "params": [
-                    burn_signature,
-                    {
-                        "encoding": "jsonParsed",
-                        "maxSupportedTransactionVersion": 0,
-                        "commitment": "confirmed"
-                    }
-                ]
-            });
-            let response = client
-                .post(&self.rpc_url)
-                .json(&body)
-                .send()
-                .await
-                .map_err(|error| error.to_string())?;
-            if !response.status().is_success() {
-                return Err(format!(
-                    "Solana RPC failed with status {}",
-                    response.status().as_u16()
-                ));
-            }
-            let payload: serde_json::Value =
-                response.json().await.map_err(|error| error.to_string())?;
-            if let Some(error) = payload.get("error") {
-                return Err(error
-                    .get("message")
-                    .and_then(|value| value.as_str())
-                    .unwrap_or("Solana RPC returned an error")
-                    .to_string());
-            }
-            transaction = payload
-                .get("result")
-                .cloned()
-                .unwrap_or(serde_json::Value::Null);
-            if !transaction.is_null() {
-                break;
-            }
-        }
-
-        if transaction.is_null() {
-            return Err("Solana burn transaction was not found yet".to_string());
-        }
-        if !transaction
-            .pointer("/meta/err")
-            .is_none_or(|value| value.is_null())
-        {
-            return Err("Solana burn transaction failed on-chain".to_string());
-        }
-        let signatures = transaction
-            .pointer("/transaction/signatures")
-            .and_then(|value| value.as_array())
-            .map(|values| {
-                values
-                    .iter()
-                    .filter_map(|value| value.as_str())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        if !signatures.contains(&burn_signature.as_str()) {
-            return Err("Solana RPC returned a different burn transaction".to_string());
-        }
-        if !transaction_burns_core_asset_from_owner(
-            &transaction,
-            &box_asset_address,
-            &owner_wallet_address,
-            &self.collection_address,
-        ) {
-            return Err("Solana transaction does not burn this CosyWorld Box".to_string());
-        }
-
-        Ok(BoxBurnVerification {
-            verification_status: "solana_core_burn_verified",
-        })
     }
 }
 
@@ -23423,177 +22557,6 @@ fn evolution_item_belongs_to_another_resident(item_id: u64, actor_id: u64) -> bo
 
 fn placement_rotation_index_for_runtime(runtime: &RuntimeWorld) -> u64 {
     runtime.world.tick / RESIDENT_PLACEMENT_ROTATION_TICKS.max(1)
-}
-
-fn now_unix_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0)
-}
-
-fn env_flag(name: &str) -> bool {
-    std::env::var(name)
-        .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
-        .unwrap_or(false)
-}
-
-fn env_duration_millis(name: &str) -> Duration {
-    std::env::var(name)
-        .ok()
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .map(|millis| Duration::from_millis(millis.min(5_000)))
-        .unwrap_or_default()
-}
-
-fn generated_asset_dir_from_env() -> PathBuf {
-    std::env::var("COSYWORLD_GENERATED_ASSET_DIR")
-        .ok()
-        .or_else(|| std::env::var("COSYWORLD_V2_GENERATED_ASSET_DIR").ok())
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(".runtime/generated"))
-}
-
-fn generated_avatar_dir(root: &Path) -> PathBuf {
-    root.join("avatars")
-}
-
-fn stored_avatar_image_path(root: &Path, actor_id: u64) -> PathBuf {
-    generated_avatar_dir(root).join(format!("{actor_id}.png"))
-}
-
-fn stored_avatar_content_type_path(root: &Path, actor_id: u64) -> PathBuf {
-    generated_avatar_dir(root).join(format!("{actor_id}.content-type"))
-}
-
-fn stored_avatar_content_type(root: &Path, actor_id: u64) -> String {
-    fs::read_to_string(stored_avatar_content_type_path(root, actor_id))
-        .ok()
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| is_safe_image_content_type(value))
-        .unwrap_or_else(|| "image/png".to_string())
-}
-
-fn is_safe_image_content_type(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 96
-        && value.starts_with("image/")
-        && value
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '+' | '-' | '.'))
-}
-
-fn generated_avatar_flavor(actor_id: u64, name: &str) -> (String, String) {
-    const TITLES: [&str; 6] = [
-        "Hearth-Touched Traveler",
-        "Rain-Window Listener",
-        "Button-Seeking Guest",
-        "Moonlit Errand-Bearer",
-        "Quiet Doorway Scout",
-        "Story-Spark Wanderer",
-    ];
-    const TRAITS: [&str; 6] = [
-        "arrived with a pocket full of warm lint and unanswered questions",
-        "notices small sounds before anyone names them",
-        "keeps one hand near the hearth and one eye on the low door",
-        "carries the look of someone who remembers rain from another place",
-        "has the careful posture of a guest learning the room's rules",
-        "seems ready to trade a found thing for a better story",
-    ];
-    let index = (actor_id as usize) % TITLES.len();
-    (
-        TITLES[index].to_string(),
-        format!("{name} {trait_text}.", trait_text = TRAITS[index]),
-    )
-}
-
-fn generated_avatar_image_url(actor_id: u64) -> String {
-    format!("/assets/generated/avatars/{actor_id}.png")
-}
-
-fn generated_avatar_svg(actor_id: u64) -> String {
-    const PALETTES: [(&str, &str, &str); 6] = [
-        ("#163926", "#65e68a", "#efc96b"),
-        ("#1b2f4a", "#8bb7ff", "#f6d879"),
-        ("#3b263f", "#d897ff", "#65e68a"),
-        ("#3b2f1a", "#efc96b", "#8bb7ff"),
-        ("#173b3b", "#75e5d6", "#f29c9c"),
-        ("#2f253f", "#bca1ff", "#efc96b"),
-    ];
-    let hash = actor_id.wrapping_mul(0x9e37_79b9_7f4a_7c15);
-    let (bg, cloak, accent) = PALETTES[(hash as usize) % PALETTES.len()];
-    let skin = if hash & 1 == 0 { "#d8f7dc" } else { "#c5e3ce" };
-    let eye = if hash & 2 == 0 { "#080b09" } else { "#203047" };
-    let sigil = match (hash >> 8) % 4 {
-        0 => format!(
-            "<path d='M160 58l18 35 38 6-28 27 7 38-35-18-35 18 7-38-28-27 38-6z' fill='{accent}' opacity='.95'/>"
-        ),
-        1 => format!(
-            "<circle cx='160' cy='88' r='34' fill='none' stroke='{accent}' stroke-width='10'/><circle cx='160' cy='88' r='9' fill='{accent}'/>"
-        ),
-        2 => format!(
-            "<path d='M118 108c28-52 56-52 84 0M128 82h64M142 56h36' fill='none' stroke='{accent}' stroke-width='10' stroke-linecap='round'/>"
-        ),
-        _ => format!(
-            "<path d='M160 48c30 27 45 54 45 81 0 20-16 35-45 45-29-10-45-25-45-45 0-27 15-54 45-81z' fill='{accent}' opacity='.9'/>"
-        ),
-    };
-
-    format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='480' viewBox='0 0 320 480' role='img' aria-label='Generated CosyWorld avatar'><defs><radialGradient id='glow' cx='50%' cy='16%' r='55%'><stop offset='0' stop-color='{accent}' stop-opacity='.38'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><linearGradient id='cloak' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='{cloak}'/><stop offset='1' stop-color='{bg}'/></linearGradient></defs><rect width='320' height='480' rx='22' fill='{bg}'/><rect x='11' y='11' width='298' height='458' rx='18' fill='none' stroke='{accent}' stroke-width='4' opacity='.72'/><rect width='320' height='260' fill='url(#glow)'/>{sigil}<path d='M72 421c15-112 52-171 88-171s73 59 88 171z' fill='url(#cloak)' stroke='{accent}' stroke-width='5'/><circle cx='160' cy='173' r='64' fill='{skin}' stroke='{accent}' stroke-width='6'/><path d='M104 162c20-54 91-71 119-16 7 14 8 31 5 48-16-30-41-47-72-47-22 0-39 6-52 15z' fill='{cloak}'/><circle cx='137' cy='184' r='7' fill='{eye}'/><circle cx='183' cy='184' r='7' fill='{eye}'/><path d='M138 216c16 12 30 12 45 0' fill='none' stroke='{eye}' stroke-width='5' stroke-linecap='round'/><path d='M160 260v145' stroke='{accent}' stroke-width='4' opacity='.65'/><circle cx='160' cy='312' r='13' fill='{accent}'/><path d='M112 356h96' stroke='{accent}' stroke-width='7' stroke-linecap='round' opacity='.78'/><text x='160' y='452' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='22' font-weight='800' fill='{accent}'>#{actor_id}</text></svg>"
-    )
-}
-
-fn event_visible_in_location(event: &EventView, location_id: u64) -> bool {
-    event.location_id == Some(location_id) || event.destination_location_id == Some(location_id)
-}
-
-fn required_health_urls_from_env() -> Vec<String> {
-    std::env::var("COSYWORLD_REQUIRED_HEALTH_URLS")
-        .unwrap_or_default()
-        .split(',')
-        .map(str::trim)
-        .filter(|url| !url.is_empty())
-        .map(str::to_string)
-        .collect()
-}
-
-async fn required_processes_ready(urls: &[String]) -> Result<(), String> {
-    if urls.is_empty() {
-        return Ok(());
-    }
-    let client = reqwest::Client::builder()
-        .no_proxy()
-        .timeout(Duration::from_secs(2))
-        .build()
-        .map_err(|error| format!("readiness client unavailable: {error}"))?;
-    let checks = urls.iter().map(|url| {
-        let client = client.clone();
-        let url = url.clone();
-        async move {
-            let response = client
-                .get(&url)
-                .send()
-                .await
-                .map_err(|error| format!("{url}: {error}"))?;
-            if response.status().is_success() {
-                Ok(())
-            } else {
-                Err(format!("{url}: HTTP {}", response.status()))
-            }
-        }
-    });
-    let mut tasks = checks.map(|check| tokio::spawn(check)).collect::<Vec<_>>();
-    for task in tasks.drain(..) {
-        match task.await {
-            Ok(Ok(())) => {}
-            Ok(Err(error)) => return Err(error),
-            Err(error) => return Err(format!("tenant readiness check failed: {error}")),
-        }
-    }
-    Ok(())
 }
 
 fn event_store_readiness(state: &AppState) -> Result<(), String> {
@@ -40921,139 +39884,6 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
         economy_reconciliations,
         error: None,
     })
-}
-
-fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
-    format!("{world_id}\u{0}{intent_id}")
-}
-
-fn purge_expired_command_receipts(
-    path: &Path,
-    retention: CommandReceiptRetention,
-) -> io::Result<usize> {
-    init_event_store(path)?;
-    purge_expired_command_receipts_for_retention(path, retention, now_millis())
-}
-
-fn snapshot_error(message: impl Into<String>) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, message.into())
-}
-
-fn sqlite_error(error: rusqlite::Error) -> io::Error {
-    io::Error::other(error)
-}
-
-fn event_store_error_code(error: &io::Error) -> &'static str {
-    match error.kind() {
-        io::ErrorKind::NotFound => "not_found",
-        io::ErrorKind::PermissionDenied => "permission_denied",
-        io::ErrorKind::OutOfMemory => "out_of_memory",
-        io::ErrorKind::InvalidData => "invalid_data",
-        io::ErrorKind::StorageFull => "storage_full",
-        io::ErrorKind::ReadOnlyFilesystem => "read_only_filesystem",
-        _ => "sqlite_io_error",
-    }
-}
-
-fn event_type_name(type_: u8) -> String {
-    unsafe {
-        let ptr = cw_event_type_name(type_);
-        if ptr.is_null() {
-            "unknown".to_string()
-        } else {
-            CStr::from_ptr(ptr).to_string_lossy().into_owned()
-        }
-    }
-}
-
-fn actor_kind(kind: u8) -> &'static str {
-    match kind {
-        CW_ACTOR_HUMAN => "human",
-        CW_ACTOR_NPC => "npc",
-        _ => "unknown",
-    }
-}
-
-fn actor_status(status: u8) -> &'static str {
-    match status {
-        CW_ACTOR_ACTIVE => "active",
-        CW_ACTOR_KNOCKED_OUT => "knocked_out",
-        CW_ACTOR_DEAD => "dead",
-        _ => "unknown",
-    }
-}
-
-fn item_kind(kind: u8) -> &'static str {
-    match kind {
-        CW_ITEM_POTION => "potion",
-        CW_ITEM_EVOLUTION => "evolution",
-        CW_ITEM_KEEPSAKE => "keepsake",
-        _ => "unknown",
-    }
-}
-
-fn item_role(role: u8) -> &'static str {
-    match role {
-        CW_ITEM_ROLE_CONSUMABLE => "consumable",
-        CW_ITEM_ROLE_WEAPON => "weapon",
-        CW_ITEM_ROLE_SKILL_CHARM => "skill_charm",
-        CW_ITEM_ROLE_SPELL => "spell",
-        CW_ITEM_ROLE_CONTAINER => "container",
-        CW_ITEM_ROLE_TOOL => "tool",
-        CW_ITEM_ROLE_RELIC => "relic",
-        _ => "generic",
-    }
-}
-
-fn item_size(size_class: u8) -> &'static str {
-    match size_class {
-        CW_ITEM_SIZE_TINY => "tiny",
-        CW_ITEM_SIZE_MEDIUM => "medium",
-        CW_ITEM_SIZE_LARGE => "large",
-        _ => "small",
-    }
-}
-
-fn effective_item_weight_tenths(item: CwItem) -> u16 {
-    if item.weight_tenths == 0 {
-        CW_ITEM_DEFAULT_WEIGHT_TENTHS
-    } else {
-        item.weight_tenths
-    }
-}
-
-fn actor_base_carrying_capacity_tenths(actor: CwActor) -> u32 {
-    u32::from(actor.stats.strength.max(1) as u8) * 150
-}
-
-fn opt_id(value: u64) -> Option<u64> {
-    if value == 0 {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn opt_i16(value: i16) -> Option<i16> {
-    if value == 0 {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn now_seed() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos() as u64)
-        .unwrap_or(0xC051_0002)
-}
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -72087,58 +70917,6 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    #[test]
-    fn core_burn_transaction_compiles_expected_metaplex_message() {
-        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES";
-        let asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
-        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
-        let blockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
-        let prepared = compile_core_burn_transaction(owner, asset, collection, blockhash, 777)
-            .expect("compile Core BurnV1 transaction");
-
-        assert_eq!(prepared.recent_blockhash, blockhash);
-        assert_eq!(prepared.last_valid_block_height, 777);
-        let transaction = BASE64_STANDARD
-            .decode(&prepared.transaction_base64)
-            .expect("decode transaction wire bytes");
-        let message = bs58::decode(&prepared.message_base58)
-            .into_vec()
-            .expect("decode compiled message");
-        assert_eq!(transaction[0], 1, "one required signature slot");
-        assert!(transaction[1..65].iter().all(|byte| *byte == 0));
-        assert_eq!(&transaction[65..], message.as_slice());
-
-        assert_eq!(&message[..4], &[1, 0, 3, 6]);
-        let expected_keys = [
-            owner,
-            asset,
-            collection,
-            SOLANA_SYSTEM_PROGRAM_ID,
-            SPL_NOOP_PROGRAM_ID,
-            CORE_PROGRAM_ID,
-        ];
-        for (index, address) in expected_keys.into_iter().enumerate() {
-            let start = 4 + index * 32;
-            assert_eq!(
-                &message[start..start + 32],
-                decode_solana_32(address, "expected address")
-                    .expect("decode expected address")
-                    .as_slice()
-            );
-        }
-        assert_eq!(
-            &message[196..228],
-            decode_solana_32(blockhash, "expected blockhash")
-                .expect("decode expected blockhash")
-                .as_slice()
-        );
-        assert_eq!(
-            &message[228..],
-            &[1, 5, 6, 1, 2, 0, 0, 3, 4, 2, 12, 0],
-            "one Core BurnV1 instruction with a None compression proof"
-        );
-    }
-
     #[tokio::test]
     async fn production_box_burn_prepare_fails_closed_when_rpc_cannot_build_transaction() {
         let rpc_app = Router::new().route(
@@ -73303,17 +72081,4 @@ struct MetaDeployment {
     canonical_store_id: String,
     shard_id: String,
     shard_model: &'static str,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DeploymentProfile {
-    Local,
-    Production,
-}
-
-#[derive(Clone, Debug)]
-struct DeploymentConfig {
-    profile: DeploymentProfile,
-    world_id: String,
-    process_id: String,
 }
