@@ -31109,7 +31109,6 @@ fn sanitize_room_memory_summary(value: &str) -> Option<String> {
         " event ",
         " ledger ",
         " log ",
-        " model ",
         " policy ",
         " prompt ",
         " rag ",
@@ -31120,6 +31119,13 @@ fn sanitize_room_memory_summary(value: &str) -> Option<String> {
     ]
     .iter()
     .any(|needle| lowered.contains(needle))
+        // Elysium's canonical resident type is a "model avatar", and every one
+        // of its locations says so in its own authored memory (see location
+        // 652052, "Void 053"). A bare " model " ban meant that location could
+        // never pass this filter: the prompt hands the model its own memory
+        // text verbatim, so summarizing it necessarily reuses that phrase. The
+        // narrower phrase still catches an actual 4th-wall break.
+        || lowered.contains("language model")
     {
         return None;
     }
@@ -45013,6 +45019,24 @@ mod tests {
         assert!(
             sanitize_room_memory_summary("Log room state / recent voices / movement").is_none()
         );
+    }
+
+    /// Elysium's canonical resident type is a "model avatar", and every one of
+    /// its locations says so in its own authored memory. A bare "model" ban
+    /// meant a summary of that memory could never pass, so those rooms never
+    /// got a memory chapter (location 652052, "Void 053", in production). The
+    /// narrower "language model" phrase still catches an actual 4th-wall
+    /// break.
+    #[test]
+    fn ai_room_memory_allows_elysiums_own_model_avatar_vocabulary() {
+        assert!(sanitize_room_memory_summary(
+            "The model avatar rests quietly beside the unlit marker tonight."
+        )
+        .is_some());
+        assert!(sanitize_room_memory_summary(
+            "The room recalls it is only a language model rendering this scene."
+        )
+        .is_none());
     }
 
     #[test]
