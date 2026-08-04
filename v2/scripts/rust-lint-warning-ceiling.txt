@@ -18,4 +18,12 @@
 # production; the pathway sanitizers only called each other, and the resident
 # reply wrapper's test duplicated coverage that already lives in
 # ai-model-rust/src/lib.rs.
-236
+#
+# 236 -> 240: no code moved this; stable Rust shipped new/changed lints since
+# 236 was set and this file was never re-pinned. `cargo clippy --all-targets`
+# on an unmodified main checkout already reports 240 under current stable
+# (verified on rustc 1.90.0 and 1.97.1, and on a local nightly). Confirmed the
+# extra 4 are pre-existing, not from this branch: diffed clippy's warning-line
+# output between an unmodified main checkout and this branch under all three
+# toolchains, and the sets were byte-identical every time.
+240
