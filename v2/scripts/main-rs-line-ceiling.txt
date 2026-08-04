@@ -180,4 +180,9 @@
 # reply wrapper's only remaining caller went with them. Its test duplicated
 # coverage that already lives in ai-model-rust/src/lib.rs, so it moved out
 # rather than being copied again.
-71729
+#
+# 71729 -> 71753: narrow one leakage-word entry in the existing
+# sanitize_room_memory_summary filter (bare "model" -> the phrase "language
+# model") plus its regression. Existing function, no new system; the same
+# collision was already fixed in the voice publication gate by #698.
+71753
