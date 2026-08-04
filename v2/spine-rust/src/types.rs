@@ -25,11 +25,8 @@ pub enum ActionKind {
     Drop {
         item: u64,
     },
-    /// Deterministic seeded search for a specific (possibly hidden) item;
-    /// exercises seed fidelity across replay.
-    Search {
-        item: u64,
-    },
+    /// Deterministic seeded check; exercises seed fidelity across replay.
+    Search,
     /// Commits the turn and rotates the room; never a free redeal.
     Pass,
 }
@@ -171,14 +168,8 @@ pub enum Rejection {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommitOutcome {
-    /// Journaled history. `kernel_status` distinguishes an accepted action
-    /// from a rule rejection: both commit a journal record and broadcast
-    /// their public events (the kernel's append-only `rule.rejected`
-    /// transparency), but a rejection applies no projection mutations and
-    /// does not advance the room turn.
     Committed {
         journal_seq: u64,
-        kernel_status: KernelStatus,
         events: Vec<WorldEvent>,
         intents: Vec<PostCommitIntent>,
     },

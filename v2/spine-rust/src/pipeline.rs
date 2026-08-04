@@ -62,10 +62,6 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         &self.registry
     }
 
-    pub fn kernel(&self) -> &K {
-        &self.kernel
-    }
-
     pub fn journal(&self) -> &J {
         &self.journal
     }
@@ -121,17 +117,11 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         let seed = self.next_seed;
         self.next_seed = self.next_seed.saturating_add(1);
         let outcome = self.kernel.apply(action, seed, true);
-        if !outcome.status.is_ok() && outcome.events.is_empty() {
-            // Invalid-input class: no public event, no journal record.
+        if !outcome.status.is_ok() {
             return CommitOutcome::Rejected(Rejection::Kernel {
                 status: outcome.status,
             });
         }
-        // Accepted, or rule-rejected with a public rejection event: both are
-        // journaled history. A rejection applies no projection mutations and
-        // does not advance the room turn or played time (the kernel rolls
-        // its tick back on non-OK status).
-        let succeeded = outcome.status.is_ok();
 
         // 5. Sequence events and journal the record. If the append fails the
         //    commit fails loudly; recovery is snapshot + replay, the same
@@ -161,12 +151,8 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
             action: action.clone(),
             seed,
             advance_tick: true,
-            turn_room: turn_room.filter(|_| succeeded),
-            mutations: if succeeded {
-                envelope.mutations.clone()
-            } else {
-                Vec::new()
-            },
+            turn_room,
+            mutations: envelope.mutations.clone(),
             status: outcome.status,
             events: events.clone(),
         };
@@ -177,19 +163,15 @@ impl<K: KernelPort, J: Journal> Pipeline<K, J> {
         }
         self.journal_seq = journal_seq;
 
-        // 6. Projection apply (claim-key idempotent), then turn advance —
-        //    accepted actions only.
-        if succeeded {
-            self.registry.apply_all(&envelope.mutations, ctx);
-            if let Some(room_id) = turn_room {
-                let occupants = self.kernel.room_occupants(room_id);
-                self.turns.advance(room_id, occupants.len());
-            }
+        // 6. Projection apply (claim-key idempotent), then turn advance.
+        self.registry.apply_all(&envelope.mutations, ctx);
+        if let Some(room_id) = turn_room {
+            let occupants = self.kernel.room_occupants(room_id);
+            self.turns.advance(room_id, occupants.len());
         }
 
         CommitOutcome::Committed {
             journal_seq,
-            kernel_status: outcome.status,
             events,
             intents: envelope.intents,
         }
@@ -289,9 +271,7 @@ mod tests {
     use crate::journal::SqliteJournal;
     use crate::kernel::{FakeKernel, Holder};
     use crate::projection::{ClocksProjection, LedgerProjection};
-    use crate::types::{
-        Action, ActionKind, AuthContext, KernelStatus, ProjectionMutation, TurnContext,
-    };
+    use crate::types::{Action, ActionKind, AuthContext, ProjectionMutation, TurnContext};
 
     fn registry() -> ProjectionRegistry {
         let mut r = ProjectionRegistry::default();
@@ -355,46 +335,9 @@ mod tests {
     }
 
     #[test]
-    fn kernel_rule_rejection_journals_public_rejection() {
+    fn kernel_rejection_leaves_no_trace() {
         let mut p = pipeline();
         let outcome = p.commit(envelope(7, ActionKind::PickUp { item: 999 }));
-        match outcome {
-            CommitOutcome::Committed {
-                kernel_status,
-                events,
-                ..
-            } => {
-                assert_eq!(kernel_status, KernelStatus::NotFound);
-                assert_eq!(events[0].kind, "rule.rejected");
-            }
-            other => panic!("expected journaled rejection, got {other:?}"),
-        }
-        // The rejection is history: journaled, but no tick, no turn advance,
-        // no mutations.
-        assert_eq!(p.journal.latest_seq().unwrap(), 1);
-        assert_eq!(p.kernel.tick(), 0);
-        let record = &p.journal.read_from(0, 10).unwrap()[0];
-        assert_eq!(record.status, KernelStatus::NotFound);
-        assert!(record.mutations.is_empty());
-        assert_eq!(record.turn_room, None);
-        // It is still actor 7's turn: a failed play does not consume it.
-        assert!(p.commit(envelope(7, ActionKind::Pass)).is_committed());
-    }
-
-    #[test]
-    fn invalid_input_leaves_no_trace() {
-        let mut p = pipeline();
-        // Actor 999 does not exist: invalid-input class, no public event.
-        // (Say is turn-exempt, so the commit reaches the kernel.)
-        let mut env = envelope(
-            999,
-            ActionKind::Say {
-                text: "ghost".to_string(),
-            },
-        );
-        env.turn = None;
-        env.auth.actor_id = 999;
-        let outcome = p.commit(env);
         assert!(matches!(
             outcome,
             CommitOutcome::Rejected(Rejection::Kernel { .. })
@@ -414,12 +357,7 @@ mod tests {
         env.turn = None; // speech carries no turn context
         let outcome = p.commit(env);
         match outcome {
-            CommitOutcome::Committed {
-                kernel_status,
-                events,
-                ..
-            } => {
-                assert_eq!(kernel_status, KernelStatus::Ok);
+            CommitOutcome::Committed { events, .. } => {
                 assert_eq!(events[0].kind, "speech");
             }
             other => panic!("expected commit, got {other:?}"),
@@ -464,7 +402,7 @@ mod tests {
         let mut p = pipeline();
         let commits = vec![
             envelope(7, ActionKind::PickUp { item: 50 }),
-            envelope(8, ActionKind::Search { item: 60 }),
+            envelope(8, ActionKind::Search),
             {
                 let mut e = envelope(7, ActionKind::Move { destination: 2 });
                 e.mutations.push(mint(7, 5, "mint:search"));
