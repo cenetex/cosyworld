@@ -73,11 +73,7 @@ fn media_profile_from_pack_extension(
         .profiles
         .into_iter()
         .find(|candidate| {
-            candidate
-                .operations
-                .iter()
-                .any(|value| *value == operation_key)
-                && candidate.intents.iter().any(|value| *value == intent_key)
+            candidate.operations.contains(&operation_key) && candidate.intents.contains(&intent_key)
         })
         .map(|candidate| candidate.profile)
 }
