@@ -528,17 +528,20 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
 
   const searched = await command(baseUrl, actorId, actorSession, "search");
   assert(
-    searched.events?.some((event) => event.type === "feature.searched")
-      && searched.events?.some((event) => event.type === "class.selection_ready"),
-    `Lantern Keeper first search did not reveal the failing-lantern lead and Class choice: ${JSON.stringify(searched)}`,
+    searched.events?.some((event) => event.type === "feature.searched"),
+    `Lantern Keeper first search did not reveal the failing-lantern lead: ${JSON.stringify(searched)}`,
   );
-  const ready = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+
+  // The class.selection_ready event may have been triggered earlier by a
+  // Think pass (ability_check.rolled qualifies as a meaningful action), so
+  // check the current identity state rather than the search response events.
+  const afterSearch = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
   assert(
-    ready.character_identity?.class_selection_ready === true
-      && ready.character_identity?.class_recommendation?.class_id === "mothwood-guide",
-    `Lantern Keeper first committed action did not freeze its Class evidence: ${JSON.stringify(lanternJourneySummary(ready))}`,
+    afterSearch.character_identity?.class_selection_ready === true
+      && afterSearch.character_identity?.class_recommendation?.class_id === "mothwood-guide",
+    `Lantern Keeper first committed action did not freeze its Class evidence: ${JSON.stringify(lanternJourneySummary(afterSearch))}`,
   );
-  traceLantern("lantern first action", ready);
+  traceLantern("lantern first action", afterSearch);
 
   const chosen = await postJson(`${baseUrl}/avatar/class`, {
     actor_id: actorId,

@@ -8,11 +8,13 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
+    active_content,
     community_art::{community_art_generation_key, DownloadedReplicateImage},
     is_safe_image_content_type,
     media_evolution::{
         FrozenCommunityArtEvolutionJob, EVOLUTION_CANARY_MODEL_REVISION, EVOLUTION_CANARY_RECIPE,
     },
+    seed_pack_id_for_actor, seed_pack_id_for_item, seed_pack_id_for_location,
 };
 
 #[allow(dead_code)]
@@ -31,6 +33,105 @@ pub(super) use self::assets::{
 const EMBEDDED_MEDIA_RECIPE_REGISTRY: &str = include_str!("../../media/recipes.json");
 pub(super) const BASE_COMMUNITY_ART_PROFILE: &str = "cosyworld.community-art.base/1";
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
+const PACK_MEDIA_EXTENSION: &str = "x-cosyworld-media";
+
+#[derive(Deserialize)]
+struct PackMediaExtensionProfile {
+    profile: String,
+    #[serde(default)]
+    operations: Vec<String>,
+    #[serde(default)]
+    intents: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct PackMediaExtension {
+    #[serde(default)]
+    profiles: Vec<PackMediaExtensionProfile>,
+}
+
+fn media_key(value: &(impl Serialize + ?Sized)) -> Option<String> {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+}
+
+/// A pack may declare its own media profile (world-specific model, LoRA, and
+/// prompt trigger) via the `x-cosyworld-media` extension in its manifest.
+/// Community art for that pack's actors, items, and locations should use it
+/// instead of the generic cross-world default.
+fn media_profile_from_pack_extension(
+    extensions: &serde_json::Value,
+    operation: MediaOperation,
+    intent: MediaIntent,
+) -> Option<String> {
+    let operation_key = media_key(&operation)?;
+    let intent_key = media_key(&intent)?;
+    let extension: PackMediaExtension =
+        serde_json::from_value(extensions.get(PACK_MEDIA_EXTENSION)?.clone()).ok()?;
+    extension
+        .profiles
+        .into_iter()
+        .find(|candidate| {
+            candidate
+                .operations
+                .iter()
+                .any(|value| *value == operation_key)
+                && candidate.intents.iter().any(|value| *value == intent_key)
+        })
+        .map(|candidate| candidate.profile)
+}
+
+fn pack_declared_media_profile(
+    pack_id: &str,
+    operation: MediaOperation,
+    intent: MediaIntent,
+) -> Option<String> {
+    let pack = active_content()
+        .manifest
+        .packs
+        .iter()
+        .find(|pack| pack.id == pack_id)?;
+    media_profile_from_pack_extension(&pack.extensions, operation, intent)
+}
+
+fn community_art_media_profile(subject_kind: &str, subject_id: u64, intent: MediaIntent) -> String {
+    let pack_id = match subject_kind {
+        "actor" => seed_pack_id_for_actor(subject_id),
+        "item" => seed_pack_id_for_item(subject_id),
+        "location" => seed_pack_id_for_location(subject_id),
+        _ => None,
+    };
+    pack_id
+        .and_then(|pack_id| {
+            pack_declared_media_profile(&pack_id, MediaOperation::BaseGeneration, intent)
+        })
+        .unwrap_or_else(|| BASE_COMMUNITY_ART_PROFILE.to_string())
+}
+
+/// A pack-declared profile can require a fixed prompt trigger (e.g. a LoRA
+/// activation phrase). Community art prompts are built generically and don't
+/// know about world-specific triggers, so add it here rather than teach every
+/// prompt builder about every pack's recipe.
+fn with_required_prompt_prefix(
+    registry: &MediaRecipeRegistry,
+    profile_id: &str,
+    prompt: String,
+) -> String {
+    let Some(prefix) = registry
+        .profiles
+        .get(profile_id)
+        .and_then(|profile| registry.recipes.get(&profile.default_recipe))
+        .and_then(|recipe| recipe.required_prompt_prefix.as_deref())
+    else {
+        return prompt;
+    };
+    if prompt.starts_with(prefix) {
+        prompt
+    } else {
+        format!("{prefix} {prompt}")
+    }
+}
 
 #[derive(Clone, Debug)]
 pub(super) struct ReplicateAvatarArtConfig {
@@ -1026,11 +1127,13 @@ pub(super) fn prepare_replicate_art(
     };
     let registry = MediaRecipeRegistry::embedded()?;
     let controls = MediaRecipeRuntimeControls::from_env()?;
+    let profile = community_art_media_profile(subject_kind, subject_id, intent);
+    let prompt = with_required_prompt_prefix(&registry, &profile, prompt);
     let resolved = registry.resolve(
         &controls,
         MediaJobRequest {
             job_key: community_art_generation_key(subject_kind, subject_id, level),
-            profile: BASE_COMMUNITY_ART_PROFILE.to_string(),
+            profile,
             operation: MediaOperation::BaseGeneration,
             intent,
             prompt,
@@ -1443,6 +1546,97 @@ mod tests {
             output_format: "png".to_string(),
             provider_defaults: serde_json::Map::new(),
         }
+    }
+
+    fn project89_pack_extensions() -> serde_json::Value {
+        serde_json::json!({
+            "x-cosyworld-media": {
+                "schema_version": 1,
+                "profiles": [
+                    {
+                        "profile": "project89.world-art.base/1",
+                        "operations": ["base_generation"],
+                        "intents": ["avatar_card_art", "item_card_art", "location_card_art"],
+                        "reference_slots": [],
+                        "maximum_references": 0
+                    },
+                    {
+                        "profile": "project89.world-art.refinement/1",
+                        "operations": ["single_reference", "multi_reference"],
+                        "intents": [
+                            "avatar_card_art",
+                            "item_card_art",
+                            "location_card_art",
+                            "room_scene"
+                        ],
+                        "reference_slots": ["location", "actor", "item", "style"],
+                        "maximum_references": 4
+                    }
+                ]
+            }
+        })
+    }
+
+    #[test]
+    fn pack_extension_selects_the_owning_pack_base_generation_profile() {
+        let extensions = project89_pack_extensions();
+        assert_eq!(
+            media_profile_from_pack_extension(
+                &extensions,
+                MediaOperation::BaseGeneration,
+                MediaIntent::Location,
+            ),
+            Some("project89.world-art.base/1".to_string())
+        );
+        assert_eq!(
+            media_profile_from_pack_extension(
+                &extensions,
+                MediaOperation::BaseGeneration,
+                MediaIntent::Avatar,
+            ),
+            Some("project89.world-art.base/1".to_string())
+        );
+    }
+
+    #[test]
+    fn pack_extension_is_absent_for_worlds_without_a_declared_media_profile() {
+        assert_eq!(
+            media_profile_from_pack_extension(
+                &serde_json::json!({}),
+                MediaOperation::BaseGeneration,
+                MediaIntent::Location,
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn required_prompt_prefix_is_injected_once_for_a_pack_declared_profile() {
+        let registry = MediaRecipeRegistry::embedded().expect("registry parses");
+        let prompt = with_required_prompt_prefix(
+            &registry,
+            "project89.world-art.base/1",
+            "location Threshold Interface — The Custody Door. Level 1.".to_string(),
+        );
+        assert_eq!(
+            prompt,
+            "P89, anime style, location Threshold Interface — The Custody Door. Level 1."
+        );
+        // Already-prefixed prompts are left alone rather than double-stamped.
+        assert_eq!(
+            with_required_prompt_prefix(&registry, "project89.world-art.base/1", prompt.clone()),
+            prompt
+        );
+    }
+
+    #[test]
+    fn required_prompt_prefix_is_a_no_op_for_the_generic_profile() {
+        let registry = MediaRecipeRegistry::embedded().expect("registry parses");
+        let prompt = "location Cosy Cottage — a warm hearth. Level 1.".to_string();
+        assert_eq!(
+            with_required_prompt_prefix(&registry, BASE_COMMUNITY_ART_PROFILE, prompt.clone()),
+            prompt
+        );
     }
 
     #[test]
