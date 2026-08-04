@@ -1486,6 +1486,15 @@ async fn request_completion(
                 .unwrap_or("vision-config"),
             attempts = attempt,
             latency_ms = started_at.elapsed().as_millis() as u64,
+            // A completion that reaches this line is not necessarily one the
+            // publication gate accepts: finish_reason "length" is a truncated
+            // completion, and voice_finish_incomplete rejects it downstream.
+            // Without these, distinguishing a token budget that is really too
+            // tight from a model that stops cleanly but fails the structural
+            // check meant reproducing the failure locally.
+            finish_reason = %finish_reason,
+            requested_max_tokens = max_tokens,
+            completion_tokens = usage.completion_tokens.unwrap_or(0),
             "CosyWorld AI inference completed"
         );
         return Ok(AiCompletion {
