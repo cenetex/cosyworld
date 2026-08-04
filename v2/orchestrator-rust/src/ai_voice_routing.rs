@@ -425,12 +425,31 @@ async fn route_certified_voice_with(
             };
             let Ok((candidate, result)) = joined else {
                 provider_failures += 1;
+                tracing::warn!(
+                    generation_id = %generation_id,
+                    feature = request.feature,
+                    "AI voice attempt task did not complete (panicked or was aborted)"
+                );
                 continue;
             };
             completed_ordinals.insert(candidate.decision.ordinal);
             match result {
                 Err(error) => {
                     provider_failures += 1;
+                    // The aggregate `voice_provider_unavailable`/`voice_candidates_exhausted`
+                    // codes logged by the caller say a generation failed, not why. Without
+                    // this, diagnosing a real outage versus a client-side bug means
+                    // reproducing the failure locally instead of reading a log line.
+                    tracing::warn!(
+                        generation_id = %generation_id,
+                        feature = request.feature,
+                        candidate_round = candidate.decision.ordinal,
+                        provider = %candidate.decision.provider,
+                        requested_model = %candidate.decision.requested_model_id,
+                        error_code = error.code(),
+                        error = %error,
+                        "AI voice attempt failed at the provider"
+                    );
                     if error.affects_provider_health() {
                         record_provider_failure(
                             store_path,
