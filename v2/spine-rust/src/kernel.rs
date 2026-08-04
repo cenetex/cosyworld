@@ -173,22 +173,30 @@ impl KernelPort for FakeKernel {
                     serde_json::json!({}),
                 ),
             },
-            ActionKind::Search => {
+            ActionKind::Search { item } => {
                 // The seed is the only source of randomness; journaling it
                 // makes the outcome replayable bit-for-bit.
                 let found = seed.is_multiple_of(2);
                 (
                     KernelStatus::Ok,
                     "search",
-                    serde_json::json!({ "found": found }),
+                    serde_json::json!({ "found": found, "item": item }),
                 )
             }
             ActionKind::Pass => (KernelStatus::Ok, "pass", serde_json::json!({})),
         };
         if !status.is_ok() {
+            // Mirror the C kernel's reject(): a rule violation produces a
+            // public rejection event (the append-only rejection contract);
+            // played time does not advance.
             return KernelOutcome {
                 status,
-                events: Vec::new(),
+                events: vec![KernelEvent {
+                    kind: "rule.rejected".to_string(),
+                    actor_id,
+                    location_id,
+                    content: serde_json::json!({ "reason": kind }),
+                }],
             };
         }
         if advance_tick {
@@ -292,7 +300,7 @@ mod tests {
     }
 
     #[test]
-    fn out_of_reach_pickup_is_rule_rejection_without_events() {
+    fn out_of_reach_pickup_is_public_rule_rejection() {
         let mut k = kernel();
         let out = k.apply(
             &Action {
@@ -303,8 +311,27 @@ mod tests {
             true,
         );
         assert_eq!(out.status, KernelStatus::NotFound);
-        assert!(out.events.is_empty());
+        assert_eq!(out.events.len(), 1);
+        assert_eq!(out.events[0].kind, "rule.rejected");
         assert_eq!(k.tick(), 0, "rejected actions never advance played time");
+    }
+
+    #[test]
+    fn unknown_actor_is_invalid_class_without_events() {
+        let mut k = kernel();
+        let out = k.apply(
+            &Action {
+                actor_id: 999,
+                kind: ActionKind::Pass,
+            },
+            1,
+            true,
+        );
+        assert_eq!(out.status, KernelStatus::NotFound);
+        assert!(
+            out.events.is_empty(),
+            "invalid input produces no public event"
+        );
     }
 
     #[test]
@@ -313,7 +340,7 @@ mod tests {
         let mut b = kernel();
         let act = Action {
             actor_id: 7,
-            kind: ActionKind::Search,
+            kind: ActionKind::Search { item: 60 },
         };
         let ra = a.apply(&act, 41, true);
         let rb = b.apply(&act, 41, true);

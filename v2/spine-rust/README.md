@@ -13,7 +13,7 @@ the Rust layer around them.
 | Seam | Here | Replaces in `main.rs` |
 | --- | --- | --- |
 | One commit pipeline | `pipeline.rs`: `commit()` runs authorize → turn preflight → projection preflight → kernel apply → journal append → projection apply → turn advance → publish | the `apply_and_broadcast_*` wrapper family (`_with_resident_reply`, `_with_hosted_access`, `_with_mutations`, …). Cross-cutting concerns are fields on `CommitEnvelope`, not function-name suffixes. |
-| Kernel port | `kernel.rs`: `KernelPort` mirrors `cw_world_apply` semantics — action + caller-supplied seed in, status + events out | the direct FFI calls at the mutation site. A production adapter wraps the real C kernel; `FakeKernel` proves the pipeline against a deterministic world. |
+| Kernel port | `kernel.rs`: `KernelPort` mirrors `cw_world_apply` semantics — action + caller-supplied seed in, status + events out. `kernel_ffi.rs` (`FfiKernel`) drives the real C kernel through FFI; `FakeKernel` is a small deterministic world for fast pipeline tests | the direct FFI calls at the mutation site. Struct layouts hand-mirror `cosy_kernel.h` exactly as `v2/orchestrator-rust/src/kernel.rs` does, guarded by C-side `sizeof()` asserts and the kernel version constant. |
 | Projection registry | `projection.rs`: each projection owns `check` / `apply` / `snapshot` / `restore` / `schema_version`; claim keys are registry-level and journaled | the ~60 `BTreeMap` fields on `RuntimeWorld`. `check` runs before the kernel commits, so a projection can never contradict it after. |
 | Journal trait | `journal.rs`: `append` / `read_from` / `latest_seq` / `health`, SQLite-backed, append-only by construction | the free functions over paths (`append_action_journal(path, …)`, `read_event_store_*`). Health/degraded policy attaches to the trait. |
 | World loop | `world.rs`: one tokio task owns the pipeline; commands arrive over mpsc, events fan out over broadcast | `Arc<Mutex<RuntimeWorld>>` plus the satellite mutexes on `AppState`. Linearizability comes from singular ownership, so there is no lock-held-across-await. |
@@ -37,9 +37,14 @@ the Rust layer around them.
 - **AI stays outside commit.** Post-commit work (resident observations, AI
   jobs) is returned as `PostCommitIntent`s and scheduled by the world loop's
   consumers; no inference runs inside the pipeline.
-- **Rejections leave no trace.** Auth, turn, projection-preflight, and kernel
-  rejections produce no journal record and no broadcast event, each proven by
-  a dedicated test.
+- **Rejection semantics match the production kernel.** Auth, turn, and
+  projection-preflight rejections — and invalid input the kernel cannot
+  classify — produce no journal record and no events. A kernel *rule*
+  rejection is different: it journals a public `rule.rejected` event (the
+  append-only `cw_event.reason` contract), never advances played time (the
+  kernel rolls its tick back), applies no projection mutations, and does not
+  consume the room turn. Each class has a dedicated test, through both
+  `FakeKernel` and the real C kernel.
 
 ## The proof
 
@@ -47,6 +52,12 @@ the Rust layer around them.
 sequence (item pickup, seeded search, move + claim-keyed mint, pass), then
 rebuild a fresh pipeline from nothing but the journal and assert identical
 kernel state, projection state, claim set, and turn rotation.
+
+`kernel_ffi::tests::golden_replay_through_real_kernel`: the same proof
+through the production C kernel — commit say/pickup/search/move/pass through
+the FFI adapter, rebuild from journal alone, assert byte-identical kernel
+snapshots and turn rotation. `mirrored_layouts_match_c` guards the ABI
+against header drift.
 
 ## Run
 
@@ -56,9 +67,10 @@ cargo clippy      # zero warnings
 cargo fmt --check
 ```
 
-## Non-goals (per issue #706)
+## Non-goals (per issues #706 and #707)
 
-No route surface, no FFI adapter for the real kernel, no migration of live
-state, no changes to `v2/orchestrator-rust` or `v2/core-c`. If the seams
-prove out, adoption is a series of extraction PRs against #61's queue, each
-moving one subsystem behind the registry/pipeline interface shown here.
+No route surface, no worldpack content-load parity (the FFI adapter boots
+`cw_seed_cosy_cottage`), no migration of live state, no changes to
+`v2/orchestrator-rust` or `v2/core-c`. If the seams prove out, adoption is a
+series of extraction PRs against #61's queue, each moving one subsystem
+behind the registry/pipeline interface shown here.
