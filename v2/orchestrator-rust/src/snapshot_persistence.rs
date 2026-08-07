@@ -118,9 +118,47 @@ impl SnapshotJob {
         }
     }
 
+    /// Is the captured cursor backed by the durable commit point?
+    ///
+    /// A checkpoint whose `next_event_seq` leads `committed_seq` is not a valid
+    /// checkpoint: every boot restores that lead, and the first commit then
+    /// proposes a sequence the journal must reject. Keeping the previous good
+    /// checkpoint is strictly better than freezing a torn cursor, and skipping
+    /// the write also skips compaction, so nothing is discarded behind it.
+    fn checkpoint_cursor_is_durable(&self) -> bool {
+        let (Some(path), Some(snapshot)) =
+            (self.event_store_path.as_deref(), self.snapshot.as_ref())
+        else {
+            return true;
+        };
+        let committed_seq = match open_event_store(path)
+            .and_then(|conn| current_world_seq(&conn, OFFICIAL_WORLD_ID))
+        {
+            Ok(committed_seq) => committed_seq,
+            // The commit point is unreadable, so there is nothing to contradict
+            // the capture. Let the write proceed rather than stall checkpoints.
+            Err(_) => return true,
+        };
+        // A store with no commit point yet still carries a freshly seeded world's
+        // bootstrap events in memory only, so there is nothing to contradict.
+        if committed_seq == 0 || snapshot.next_event_seq <= committed_seq.saturating_add(1) {
+            return true;
+        }
+        error!(
+            "refusing to checkpoint CosyWorld snapshot: captured event cursor {} leads the durable \
+             commit point {}; keeping the previous checkpoint",
+            snapshot.next_event_seq, committed_seq
+        );
+        false
+    }
+
     fn write(self) -> io::Result<()> {
+        // Resident continuity is independent of the world cursor, so a rejected
+        // checkpoint must not stall it. Gating `snapshot_saved` also gates
+        // compaction, which must never run behind a checkpoint we refused.
+        let cursor_is_durable = self.checkpoint_cursor_is_durable();
         let snapshot_saved = match (self.snapshot_path.as_deref(), self.snapshot.as_ref()) {
-            (Some(path), Some(snapshot)) => {
+            (Some(path), Some(snapshot)) if cursor_is_durable => {
                 write_json_atomically(path, snapshot, snapshot_temp_path(path))?;
                 true
             }
@@ -298,5 +336,59 @@ mod tests {
         let restored = RuntimeWorld::load_snapshot(&snapshot_path).expect("latest snapshot loads");
         assert_eq!(restored.world.tick, runtime.world.tick);
         let _ = fs::remove_file(snapshot_path);
+    }
+
+    /// A checkpoint whose cursor leads the commit point is not a checkpoint:
+    /// every later boot restores that lead and the first commit is rejected.
+    /// Keeping the previous good checkpoint is strictly better than freezing a
+    /// torn cursor into the only file a compacted journal can be rebuilt from.
+    #[test]
+    fn a_checkpoint_that_leads_the_commit_point_is_refused() {
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-torn-cursor-snapshot-{}-{}.json",
+            std::process::id(),
+            now_millis()
+        ));
+        let store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-torn-cursor-store-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&snapshot_path);
+        let _ = fs::remove_file(&store_path);
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(store_path.clone()));
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        state.snapshot_writer = Some(Arc::new(SnapshotWriter::spawn().expect("snapshot writer")));
+        append_event_store(
+            &store_path,
+            &[EventView {
+                seq: 1,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some("active".to_string()),
+                ..EventView::default()
+            }],
+        )
+        .expect("append durable event");
+
+        // A cursor level with the commit point checkpoints normally.
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.next_event_seq = 2;
+        runtime.world.tick = 11;
+        persist_runtime_now(&state, &runtime);
+        let durable = RuntimeWorld::load_snapshot(&snapshot_path).expect("durable snapshot loads");
+        assert_eq!(durable.world.tick, 11);
+
+        // A cursor that leads it must not overwrite that checkpoint.
+        runtime.world.next_event_seq = 5;
+        runtime.world.tick = 22;
+        persist_runtime_now(&state, &runtime);
+        let kept = RuntimeWorld::load_snapshot(&snapshot_path).expect("previous snapshot survives");
+        assert_eq!(kept.world.tick, 11);
+
+        let _ = fs::remove_file(snapshot_path);
+        let _ = fs::remove_file(store_path);
     }
 }

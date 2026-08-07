@@ -37231,7 +37231,9 @@ fn commit_journal_record(
                     "canonical journal commit failed for actor {} action {}: {}",
                     record.action.actor_id, record.action.kind, error
                 );
-                state.record_event_store_append_failure(&error);
+                if canonical_commit_error_is_store_fault(&error) {
+                    state.record_event_store_append_failure(&error);
+                }
                 return Err(error);
             }
         };
@@ -37355,6 +37357,27 @@ fn rebuild_runtime_from_durable_state(
         restored.apply_wallet_overlap_placements(&ownership, placement_rotation);
     }
     Ok(Box::new(restored))
+}
+
+/// Does a failed canonical commit mean the event store itself is unwell?
+///
+/// Only a real persistence fault may degrade event-store health. A rejected
+/// proposal - a stale sequence, a lost lease, a duplicate event, a malformed
+/// payload - says nothing about whether the store can be written to, and
+/// `sqlite_error` reports genuine faults as `Other`. Conflating the two is what
+/// turned a single rejected write into a total outage on 2026-08-05: the
+/// rejection marked the store degraded, `/health` began answering 503, Fly took
+/// the machine out of the load balancer, and because only a *successful* append
+/// clears the counter the process could never earn its way back.
+fn canonical_commit_error_is_store_fault(error: &io::Error) -> bool {
+    !matches!(
+        error.kind(),
+        io::ErrorKind::InvalidData
+            | io::ErrorKind::InvalidInput
+            | io::ErrorKind::AlreadyExists
+            | io::ErrorKind::PermissionDenied
+            | io::ErrorKind::WouldBlock
+    )
 }
 
 fn journal_commit_recovery_error(
@@ -38777,13 +38800,49 @@ fn max_event_store_seq(path: &Path) -> io::Result<u64> {
     Ok(max_seq.unwrap_or(0).max(0) as u64)
 }
 
+/// Reconcile the restored event cursor with the durable commit point.
+///
+/// Proposals are minted from `next_event_seq`, but `validate_next_world_sequence`
+/// accepts them only against `canonical_world_state.committed_seq`. Raising the
+/// cursor to the last stored row is therefore not enough: a checkpoint written
+/// while the runtime led the commit point freezes that lead into every later
+/// boot, so the first commit proposes a sequence the journal can never accept
+/// and the world becomes permanently unwritable. Reconcile in both directions.
 fn advance_runtime_next_event_seq_from_store(
     runtime: &mut RuntimeWorld,
     path: &Path,
 ) -> io::Result<()> {
     let max_seq = max_event_store_seq(path)?;
-    if runtime.world.next_event_seq <= max_seq {
-        runtime.world.next_event_seq = max_seq.saturating_add(1);
+    let committed_seq = current_world_seq(&open_event_store(path)?, OFFICIAL_WORLD_ID)?;
+    let durable_tip = max_seq.max(committed_seq);
+    if runtime.world.next_event_seq <= durable_tip {
+        runtime.world.next_event_seq = durable_tip.saturating_add(1);
+        return Ok(());
+    }
+    if max_seq != committed_seq {
+        // The stored rows and the commit cursor disagree, so neither is
+        // authoritative. Leave the restored cursor alone and let the commit
+        // path keep failing loudly rather than guess which one to believe.
+        warn!(
+            "CosyWorld event store is inconsistent: world_events ends at {} but the canonical \
+             commit cursor is {}; leaving the restored event cursor {} untouched",
+            max_seq, committed_seq, runtime.world.next_event_seq
+        );
+        return Ok(());
+    }
+    if durable_tip > 0 {
+        // An empty store still carries its seeded event log in memory, so only
+        // lower the cursor once something durable exists to lower it to.
+        let restored = runtime.world.next_event_seq;
+        runtime.world.next_event_seq = durable_tip.saturating_add(1);
+        warn!(
+            "restored CosyWorld event cursor {} leads the durable commit point {}; reconciled to \
+             {} ({} uncommitted event(s) are absent from durable history)",
+            restored,
+            durable_tip,
+            runtime.world.next_event_seq,
+            restored.saturating_sub(durable_tip).saturating_sub(1)
+        );
     }
     Ok(())
 }
@@ -48246,6 +48305,201 @@ mod tests {
         advance_runtime_next_event_seq_from_store(&mut replayed, &path)
             .expect("advance runtime sequence");
         assert_eq!(replayed.world.next_event_seq, replay_next_seq + 8);
+
+        let _ = fs::remove_file(path);
+    }
+
+    /// A checkpoint written while the runtime led the commit point used to
+    /// freeze that lead into every later boot, so the first commit proposed a
+    /// sequence the journal could never accept and the world became
+    /// permanently unwritable.
+    #[test]
+    fn a_restored_event_cursor_reconciles_down_to_the_durable_commit_point() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-cursor-reconcile-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize event store");
+        append_event_store(
+            &path,
+            &[EventView {
+                seq: 1,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some("active".to_string()),
+                ..EventView::default()
+            }],
+        )
+        .expect("append durable event");
+
+        let conn = open_event_store(&path).expect("open event store");
+        assert_eq!(
+            current_world_seq(&conn, OFFICIAL_WORLD_ID).expect("commit cursor"),
+            1
+        );
+        drop(conn);
+        assert_eq!(max_event_store_seq(&path).expect("stored tip"), 1);
+
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.next_event_seq = 4;
+        advance_runtime_next_event_seq_from_store(&mut runtime, &path)
+            .expect("reconcile runtime sequence");
+        assert_eq!(runtime.world.next_event_seq, 2);
+
+        let _ = fs::remove_file(path);
+    }
+
+    /// An empty store still carries its seeded event log in memory, so there is
+    /// no durable tip to reconcile against and the cursor must be left alone.
+    #[test]
+    fn an_empty_event_store_never_lowers_the_seeded_event_cursor() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-cursor-empty-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize event store");
+
+        let mut runtime = RuntimeWorld::seeded();
+        let seeded = runtime.world.next_event_seq;
+        advance_runtime_next_event_seq_from_store(&mut runtime, &path)
+            .expect("reconcile runtime sequence");
+        assert_eq!(runtime.world.next_event_seq, seeded);
+
+        let _ = fs::remove_file(path);
+    }
+
+    /// Stored rows disagreeing with the commit cursor is real corruption, and
+    /// guessing which one to believe could reuse a sequence that already has a
+    /// row. Leave the cursor alone so the commit path keeps failing loudly.
+    #[test]
+    fn an_inconsistent_event_store_leaves_the_restored_cursor_untouched() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-cursor-inconsistent-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize event store");
+        append_event_store(
+            &path,
+            &[EventView {
+                seq: 1,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some("active".to_string()),
+                ..EventView::default()
+            }],
+        )
+        .expect("append durable event");
+
+        // Rewind only the commit cursor, leaving the stored row behind.
+        let conn = open_event_store(&path).expect("open event store");
+        conn.execute(
+            "UPDATE canonical_world_state SET committed_seq = 0 WHERE world_id = ?1",
+            params![OFFICIAL_WORLD_ID],
+        )
+        .expect("rewind commit cursor");
+        drop(conn);
+
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.next_event_seq = 9;
+        advance_runtime_next_event_seq_from_store(&mut runtime, &path)
+            .expect("reconcile runtime sequence");
+        assert_eq!(runtime.world.next_event_seq, 9);
+
+        let _ = fs::remove_file(path);
+    }
+
+    /// A rejected proposal says nothing about whether the store can be written
+    /// to. Counting it as an append failure degraded event-store health, which
+    /// failed `/health`, which took the machine out of the load balancer - and
+    /// because only a *successful* append clears the counter, no traffic could
+    /// ever reach the process to restore it.
+    #[test]
+    fn a_rejected_commit_leaves_event_store_health_untouched() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-rejected-commit-health-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize event store");
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        {
+            let mut runtime = state.inner.blocking_lock();
+            let mut create_record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id: 5000,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                17632,
+            );
+            create_record.actor_meta_upserts.insert(
+                5000,
+                ActorMeta {
+                    name: "Health Baseline".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Health Tester".to_string(),
+                    description: "A test avatar committed before the rejection.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create_record)
+                    .expect("commit health test baseline")
+                    .0,
+                CW_OK
+            );
+            restore_runtime_from_durable_state(&state, &mut runtime, &path)
+                .expect("normalize the baseline from durable state");
+            {
+                let health = state.event_store_health.lock().expect("health lock");
+                assert_eq!(health.status(true), "healthy");
+            }
+
+            // Lead the durable commit point exactly as a checkpoint written
+            // mid-flight does on boot.
+            runtime.world.next_event_seq = runtime.world.next_event_seq.saturating_add(2);
+            let mut stale_record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id: 5001,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                17633,
+            );
+            stale_record.actor_meta_upserts.insert(
+                5001,
+                ActorMeta {
+                    name: "Stale Cursor".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Rejection Tester".to_string(),
+                    description: "A test avatar proposed from a stale cursor.".to_string(),
+                },
+            );
+            assert!(
+                commit_journal_record(&state, &mut runtime, stale_record).is_err(),
+                "a proposal that leads the commit point must be rejected"
+            );
+
+            // Recovery reconciles the cursor, so the world stays writable.
+            let conn = open_event_store(&path).expect("open event store");
+            let committed = current_world_seq(&conn, OFFICIAL_WORLD_ID).expect("commit cursor");
+            drop(conn);
+            assert_eq!(runtime.world.next_event_seq, committed.saturating_add(1));
+        }
+
+        let health = state.event_store_health.lock().expect("health lock");
+        assert_eq!(health.consecutive_append_failures, 0);
+        assert_eq!(health.status(true), "healthy");
 
         let _ = fs::remove_file(path);
     }
