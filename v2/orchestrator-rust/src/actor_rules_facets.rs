@@ -381,15 +381,36 @@ impl RuntimeWorld {
             let Some(identity) = self.character_identities.get_mut(&action.actor_id) else {
                 return Vec::new();
             };
-            if identity.class_id.is_some() || identity.class_selection_ready {
+            if identity.class_id.is_some() {
                 return Vec::new();
             }
-            identity.qualifying_world_actions = identity.qualifying_world_actions.saturating_add(1);
-            identity
-                .class_readiness_evidence
-                .get_or_insert(evidence.clone());
-            identity.class_selection_ready = identity.qualifying_world_actions >= 1;
-            identity.class_selection_ready
+            // Every qualifying action counts toward readiness, but evidence
+            // freezes only on an action the profile can recommend from. The
+            // recommendation offer-kind vocabulary is closed (work/help/
+            // search) by the worldpack validator, so freezing on an
+            // unrecommendable kind (e.g. a Think pass, offer_kind "draw")
+            // could never resolve a recommendation — and because readiness
+            // may already be set, the freeze window must stay open after the
+            // readiness transition. Unrecommendable actions use the designed
+            // fallback copy ("That evidence does not point to one Class").
+            let recommendable =
+                character_creation_profile(Some(&identity.profile_id)).is_some_and(|profile| {
+                    profile
+                        .class_recommendations
+                        .iter()
+                        .any(|candidate| candidate.offer_kind == evidence.offer_kind)
+                });
+            if recommendable && identity.class_readiness_evidence.is_none() {
+                identity.class_readiness_evidence = Some(evidence.clone());
+            }
+            if identity.class_selection_ready {
+                false
+            } else {
+                identity.qualifying_world_actions =
+                    identity.qualifying_world_actions.saturating_add(1);
+                identity.class_selection_ready = identity.qualifying_world_actions >= 1;
+                identity.class_selection_ready
+            }
         };
         if !became_ready {
             return Vec::new();
@@ -805,6 +826,84 @@ mod tests {
                 runtime.character_identities[&RATI_ACTOR_ID].class_readiness_evidence
             );
         }
+    }
+
+    #[test]
+    fn unrecommendable_first_action_readies_without_freezing_evidence() {
+        // A Think pass (offer_kind "draw") qualifies toward readiness but is
+        // outside the closed recommendation vocabulary (work/help/search), so
+        // it must not freeze class evidence; the first recommendation-bearing
+        // action freezes it instead. This is the composition-smoke flake:
+        // whether a pass or the search froze first depended on the dealt hand.
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.character_identities.insert(
+            RATI_ACTOR_ID,
+            AvatarIdentityState {
+                actor_id: RATI_ACTOR_ID,
+                profile_id: "the-lantern-keeper".to_string(),
+                species_id: "human".to_string(),
+                origin_id: "wayside-inn".to_string(),
+                physical_description: String::new(),
+                class_id: None,
+                class_selection_ready: false,
+                qualifying_world_actions: 0,
+                class_source_event_seq: None,
+                class_readiness_evidence: None,
+            },
+        );
+        let action = CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: RATI_ACTOR_ID,
+            ..CwAction::default()
+        };
+        let record = JournalRecord::new(action, 1).into_player_card();
+
+        let readiness = runtime.apply_class_readiness_projection(
+            &record,
+            &action,
+            &[qualifying_contribution(RATI_ACTOR_ID, "draw", 41)],
+        );
+        assert_eq!(readiness.len(), 1);
+        assert_eq!(readiness[0].type_name, "class.selection_ready");
+        let identity = runtime
+            .character_identities
+            .get(&RATI_ACTOR_ID)
+            .expect("campaign identity");
+        assert!(identity.class_selection_ready);
+        assert_eq!(identity.qualifying_world_actions, 1);
+        assert_eq!(
+            identity.class_readiness_evidence, None,
+            "an unrecommendable draw must not freeze class evidence"
+        );
+
+        // Readiness already set: no second event, but the recommendable
+        // search freezes evidence and resolves the authored recommendation.
+        let second = runtime.apply_class_readiness_projection(
+            &record,
+            &action,
+            &[qualifying_contribution(RATI_ACTOR_ID, "search", 42)],
+        );
+        assert!(second.is_empty());
+        let identity = runtime
+            .character_identities
+            .get(&RATI_ACTOR_ID)
+            .expect("campaign identity");
+        assert_eq!(
+            identity
+                .class_readiness_evidence
+                .as_ref()
+                .map(|evidence| (evidence.offer_kind.as_str(), evidence.source_event_seq)),
+            Some(("search", 42))
+        );
+        let view = runtime
+            .character_identity_view(RATI_ACTOR_ID)
+            .expect("campaign identity view");
+        assert_eq!(
+            view.class_recommendation
+                .as_ref()
+                .map(|recommendation| recommendation.class_id.as_str()),
+            Some("mothwood-guide")
+        );
     }
 
     #[test]
