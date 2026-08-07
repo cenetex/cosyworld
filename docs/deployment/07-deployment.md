@@ -141,6 +141,53 @@ NODE_OPTIONS="--max-old-space-size=4096"
 
 ---
 
+## Recovery when the primary app is already unavailable
+
+The pre-deploy bundle gate reads the live `/meta` and fails closed, which is
+correct for a stale-checkout deploy but deadlocks the case that matters most:
+`cosyworld.fly.dev` is unreachable *because* it needs the deploy. That blocked
+recovery twice — the failed v557 release on 2026-08-05 and again on 2026-08-07,
+a ~2.5 day outage.
+
+Do not bypass the guard and do not blank a persisted bundle hash.
+
+1. Obtain the app's persisted identity from the running process or its volume.
+   The orchestrator serves `/meta` internally even while the Fly proxy has
+   removed the machine from rotation, so
+   `fly ssh console --app cosyworld -C "curl -s http://127.0.0.1:3000/meta"`
+   usually still works. Never infer the hash from the candidate image.
+2. Store a capture with this exact shape and review it with the recovery change:
+
+   ```json
+   {
+     "schema_version": 1,
+     "source": "app-volume",
+     "captured_at": "2026-08-07T18:40:00Z",
+     "meta": { "worldpack": { "bundle_hash": "sha256:<64 lowercase hex>" } }
+   }
+   ```
+
+   `source` may instead be `operator-capture`, but it must still contain the
+   unmodified observed `/meta` identity and a reviewable timestamp. The capture
+   must be committed: the guard refuses an untracked file or any path outside
+   the checkout.
+3. Run `Deploy` via `workflow_dispatch` with `target: primary` and
+   `primary_recovery_capture` set to the committed capture path. The guard
+   records the capture path, source, and time, then applies the normal
+   exact/declaration comparison — a genuine mismatch still fails closed.
+4. Preserve the workflow log and capture with the incident record, then verify
+   `/meta` after recovery before the next release.
+
+If GitHub Actions itself is unavailable, the same two steps the workflow runs
+can be performed directly, and they keep the rollback snapshot:
+
+```sh
+bash scripts/backup-fly-v2.sh cosyworld primary
+flyctl deploy --remote-only --config fly.toml --strategy rolling
+```
+
+---
+
 ## Monitoring
 
 - V2 health endpoints: `/health`, `/meta`
