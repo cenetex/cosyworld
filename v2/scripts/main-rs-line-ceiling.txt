@@ -185,4 +185,18 @@
 # sanitize_room_memory_summary filter (bare "model" -> the phrase "language
 # model") plus its regression. Existing function, no new system; the same
 # collision was already fixed in the voice publication gate by #698.
-71753
+# 71753 -> 72007: reconcile the restored event cursor against the durable commit
+# point, and stop a rejected proposal from degrading event-store health. A
+# checkpoint written while the runtime led the commit point froze that lead into
+# every later boot, so the first commit proposed a sequence the journal could
+# never accept; the rejection was then counted as an append failure, which
+# failed /health, which took the machine out of the load balancer, and only a
+# successful append clears that counter. Production was unreachable for ~19h on
+# 2026-08-05. Both fixes sit on functions main.rs already owns
+# (advance_runtime_next_event_seq_from_store and the journal commit path), so
+# relocating them would be an unrelated extraction inside a behavior change.
+# ~215 of the 254 lines are the four regressions that pin the reconciliation in
+# both directions, the empty-store and inconsistent-store boundaries, and the
+# health contract; the checkpoint-refusal half lives in snapshot_persistence.rs
+# beside the writer that owns it.
+72007
