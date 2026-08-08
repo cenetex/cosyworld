@@ -26,10 +26,17 @@
  *   node v2/scripts/check-deploy-worldpack.mjs <fly-app | https://base-url>
  *     [--registry v2/content/official/registry.json]
  *     [--meta-file captured-meta.json]   # read /meta from disk instead of HTTP
+ *     [--recovery-capture ops/capture.json]  # audited stand-in for an
+ *                                            # unreachable /meta; see below
  *     [--timeout-ms 15000]
  *
  * Exit codes: 0 compatible; 1 incompatible or live identity unreadable
  * (fail closed); 2 usage or local registry error.
+ *
+ * When the target app is unreachable, failing closed blocks the deploy that
+ * would fix it. `--recovery-capture` accepts a committed, reviewable capture of
+ * the last known /meta so recovery stays possible without weakening the gate:
+ * the captured hash is evaluated exactly like a live identity.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -180,7 +187,74 @@ function currentCommit() {
   return result.status === 0 ? result.stdout.trim() : "unknown";
 }
 
-const VALUE_OPTIONS = new Set(["--registry", "--meta-file", "--timeout-ms"]);
+const VALUE_OPTIONS = new Set([
+  "--registry",
+  "--meta-file",
+  "--recovery-capture",
+  "--timeout-ms",
+]);
+
+const CAPTURE_SOURCES = new Set(["app-volume", "operator-capture"]);
+
+/**
+ * Read the audited recovery capture that stands in for an unreachable /meta.
+ *
+ * Failing closed on an unreachable app is correct for a stale-checkout deploy,
+ * but it deadlocks the case that matters most: the app is unreachable *because*
+ * it needs the deploy. That blocked production recovery twice (v557 on
+ * 2026-08-05 and again on 2026-08-07, a ~2.5 day outage) because the primary
+ * app had no recovery path while Lonely Forest did.
+ *
+ * This is an audited recovery path, not a bypass. The capture must be a
+ * committed, reviewable file recording its source, timestamp, and the
+ * unmodified /meta response, and the hash it carries is evaluated against the
+ * candidate registry exactly like a live identity — a genuine mismatch still
+ * fails. Mirrors `--recovery-capture` in check-lonelyforest-worldpacks.mjs.
+ */
+function recoveryCaptureHash(capturePath) {
+  const absolutePath = path.resolve(repoRoot, capturePath);
+  const relativePath = path.relative(repoRoot, absolutePath);
+  if (!relativePath || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) {
+    throw new UsageError(
+      `--recovery-capture must be a reviewed file inside the committed checkout, got ${capturePath}`,
+    );
+  }
+  const tracked = spawnSync("git", ["ls-files", "--error-unmatch", "--", relativePath], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (tracked.status !== 0) {
+    throw new UsageError(
+      `--recovery-capture must be committed and reviewable at ${relativePath} before a production deploy`,
+    );
+  }
+  let capture;
+  try {
+    capture = JSON.parse(fs.readFileSync(absolutePath, "utf8"));
+  } catch (error) {
+    throw new UsageError(`cannot read --recovery-capture ${capturePath}: ${error.message}`);
+  }
+  if (capture?.schema_version !== 1
+    || !CAPTURE_SOURCES.has(capture?.source)
+    || typeof capture?.captured_at !== "string"
+    || Number.isNaN(Date.parse(capture.captured_at))) {
+    throw new UsageError(
+      `--recovery-capture ${relativePath} must contain schema_version: 1, source `
+      + "('app-volume' or 'operator-capture'), and an ISO captured_at",
+    );
+  }
+  const liveHash = capture?.meta?.worldpack?.bundle_hash;
+  if (typeof liveHash !== "string" || !SHA256_PATTERN.test(liveHash)) {
+    throw new UsageError(
+      `--recovery-capture ${relativePath} has no sha256 meta.worldpack.bundle_hash`,
+    );
+  }
+  console.log(
+    `::notice::using audited recovery capture ${relativePath} `
+    + `(source=${capture.source}, captured_at=${capture.captured_at}) instead of a live /meta read`,
+  );
+  return liveHash;
+}
 
 function positionalTarget(args) {
   for (let index = 0; index < args.length; index += 1) {
@@ -198,6 +272,10 @@ async function main(args) {
   const target = positionalTarget(args);
   const registryPath = option(args, "--registry") ?? DEFAULT_REGISTRY_PATH;
   const metaFile = option(args, "--meta-file");
+  const recoveryCapture = option(args, "--recovery-capture");
+  if (metaFile && recoveryCapture) {
+    throw new UsageError("--meta-file and --recovery-capture are mutually exclusive");
+  }
   const timeoutOption = option(args, "--timeout-ms");
   const timeoutMs = timeoutOption === undefined
     ? DEFAULT_TIMEOUT_MS
@@ -218,7 +296,9 @@ async function main(args) {
   const candidate = candidateFromRegistry(registry);
 
   let liveHash;
-  if (metaFile) {
+  if (recoveryCapture) {
+    liveHash = recoveryCaptureHash(recoveryCapture);
+  } else if (metaFile) {
     try {
       const body = JSON.parse(fs.readFileSync(path.resolve(metaFile), "utf8"));
       const reported = body?.worldpack?.bundle_hash;
@@ -268,7 +348,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(scriptPath
       if (error instanceof UsageError) {
         console.error(
           "usage: check-deploy-worldpack.mjs <fly-app | https://base-url> "
-          + "[--registry registry.json] [--meta-file meta.json] [--timeout-ms N]",
+          + "[--registry registry.json] [--meta-file meta.json] "
+          + "[--recovery-capture ops/capture.json] [--timeout-ms N]",
         );
         process.exit(2);
       }

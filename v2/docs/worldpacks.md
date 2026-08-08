@@ -343,6 +343,15 @@ older bundle cannot declare a newer hash. The gate never mutates the journal,
 the snapshot, or the recorded hashes; the remedy for a blocked deploy is the
 declared migration path above, never a hand-edited hash.
 
+Failing closed on an unreachable app would otherwise block the very deploy that
+recovers it. Both release targets therefore accept a reviewed, committed capture
+of the last observed `/meta` in place of a live read: `primary_recovery_capture`
+for the primary app and `lonelyforest_recovery_capture` for a Lonely Forest
+tenant. This is an audited recovery path, not a bypass — the captured hash runs
+through the same exact/declaration comparison, an untracked capture or one
+outside the checkout is refused, and a genuine mismatch still fails closed. See
+[the primary recovery procedure](../../docs/deployment/07-deployment.md#recovery-when-the-primary-app-is-already-unavailable).
+
 Lonely Forest is one Fly Machine containing several isolated world processes.
 Its release gate applies this same proof to every required tenant registry and
 public `/meta` identity, rather than treating the root host as evidence for

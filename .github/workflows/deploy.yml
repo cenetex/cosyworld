@@ -20,6 +20,11 @@ on:
         required: false
         default: ""
         type: string
+      primary_recovery_capture:
+        description: Reviewed committed capture path, only when the primary app's live /meta is unavailable
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: deploy-${{ github.repository }}
@@ -96,8 +101,20 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      # An unreachable primary app fails this gate closed, which blocks the very
+      # deploy that would fix it. Supply a reviewed committed capture of the
+      # last known /meta to recover; the captured hash is still evaluated
+      # against the candidate registry exactly like a live identity.
       - name: Guard primary worldpack bundle compatibility
-        run: node v2/scripts/check-deploy-worldpack.mjs https://cosyworld.fly.dev
+        run: |
+          if [ -n "$COSYWORLD_PRIMARY_RECOVERY_CAPTURE" ]; then
+            node v2/scripts/check-deploy-worldpack.mjs https://cosyworld.fly.dev \
+              --recovery-capture "$COSYWORLD_PRIMARY_RECOVERY_CAPTURE"
+          else
+            node v2/scripts/check-deploy-worldpack.mjs https://cosyworld.fly.dev
+          fi
+        env:
+          COSYWORLD_PRIMARY_RECOVERY_CAPTURE: ${{ inputs.primary_recovery_capture }}
 
       - name: Create rollback backup
         run: scripts/backup-fly-v2.sh cosyworld primary
