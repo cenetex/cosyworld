@@ -7,7 +7,6 @@
 
 pub mod journal;
 pub mod kernel;
-pub mod kernel_ffi;
 pub mod pipeline;
 pub mod projection;
 pub mod turns;
