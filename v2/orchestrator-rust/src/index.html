@@ -976,6 +976,41 @@
       border-left-color: rgba(239, 201, 107, 0.4);
       background: linear-gradient(90deg, rgba(239, 201, 107, 0.05), transparent 58%);
     }
+    .line.model-output {
+      display: grid;
+      grid-template-columns: 36px minmax(10ch, 22ch) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      border-left: 2px solid rgba(199, 155, 255, 0.42);
+      padding: 5px 0 5px 9px;
+      background: linear-gradient(90deg, rgba(199, 155, 255, 0.06), transparent 58%);
+    }
+    .line.model-output .text,
+    .model-output-image,
+    .model-output-media,
+    .model-output-semantic {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+    .model-output-media audio,
+    .model-output-media video { max-width: min(100%, 640px); }
+    .model-output-semantic {
+      width: fit-content;
+      padding: 10px 12px;
+      border: 1px solid rgba(199, 155, 255, 0.28);
+      border-radius: 10px;
+      background: rgba(16, 12, 22, 0.42);
+    }
+    .model-output-summary {
+      display: grid;
+      gap: 3px;
+    }
+    .model-output-summary > span { color: var(--dim); }
+    .model-output-semantic small,
+    .model-output-transcript { color: var(--dim); }
+    .line.model-output.pending { opacity: 0.78; }
+    .line.model-output.pending .text { display: inline-flex; }
     .line.chat.reflection .speaker::after {
       display: block;
       margin-top: 2px;
@@ -4413,6 +4448,7 @@
       "inspect",
       "scout",
       "chat",
+      "illustrate",
       "bond",
       "listen",
       "train",
@@ -4489,6 +4525,9 @@
     let pendingAction = null;
     let pendingChats = [];
     let nextPendingChatId = 1;
+    let pendingModelInteractions = [];
+    let nextPendingModelInteractionId = 1;
+    let pendingModelInteractionRehydrationRequired = false;
     const chatExchangeTurnCount = 4;
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
@@ -4958,8 +4997,9 @@
         stopPresenceHeartbeat();
       }
       const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
-      if (logEvents.length === 0 || locationChanged || timelineRewound) {
-        rebuildLog([...(state.recent_events || [])].reverse());
+      if (logEvents.length === 0 || locationChanged || timelineRewound
+          || pendingModelInteractionRehydrationRequired) {
+        rebuildLogFromAuthoritativeState(state);
       }
       if (locationChanged) {
         handKeys = [];
@@ -5262,6 +5302,151 @@
         return "Wallet signing prompt is not available in this browser. Open the QR page inside Phantom or Solflare and try again.";
       }
       return message ? `${fallback}: ${message}` : fallback;
+    }
+
+    const modelInteractionPresentations = {
+      image: {
+        profile: "image",
+        intention: "illustrate",
+        label: "illustrate",
+        commandVerb: "illustrate",
+        cardType: "illustrate",
+        focus: "illustrate",
+        detail: "one visual interpretation",
+        modalTitle: "illustrate with",
+        modalSummary: (targetName) => `${targetName}'s exact image model will interpret the current world scene. There is no typed prompt or spoken line.`,
+        effect: (targetName) => `${targetName} publishes one moderated visual interpretation of this place`,
+        busyLabel: "illustrating",
+        busyDetail: "reading the current scene…",
+        pending: {
+          queued: "reading the current scene…",
+          generating: "illustrating the current scene…",
+          retrying: "trying the image route again…",
+        },
+        pendingAria: (speaker, stage) => `${speaker}'s image model is working from the current world scene. ${stage}`,
+        resultLabel: "visual interpretation",
+        failure: "The visual interpretation could not finish. Try Illustrate again.",
+      },
+      embeddings: {
+        profile: "embeddings",
+        intention: "find_resonance",
+        label: "find resonance",
+        commandVerb: "find resonance",
+        cardType: "listen",
+        focus: "resonance",
+        detail: "three neighboring model resonances",
+        modalTitle: "find resonance with",
+        modalSummary: (targetName) => `${targetName}'s exact embedding model will compare its authoritative model descriptor with neighboring model descriptors. There is no typed prompt or spoken line.`,
+        effect: (targetName) => `${targetName} publishes three resonant neighboring model profiles`,
+        busyLabel: "finding resonance",
+        busyDetail: "comparing neighboring model profiles…",
+        pending: {
+          queued: "gathering neighboring model descriptors…",
+          generating: "finding resonant model profiles…",
+          retrying: "trying the resonance route again…",
+        },
+        pendingAria: (speaker, stage) => `${speaker}'s embedding model is comparing authoritative neighboring model descriptors. ${stage}`,
+        resultLabel: "model resonances found",
+        failure: "The neighboring model resonances could not be found this time. Try Find resonance again.",
+      },
+      rerank: {
+        profile: "rerank",
+        intention: "rank_echoes",
+        label: "rank echoes",
+        commandVerb: "rank echoes",
+        cardType: "inspect",
+        focus: "echoes",
+        detail: "three ranked model echoes",
+        modalTitle: "rank echoes with",
+        modalSummary: (targetName) => `${targetName}'s exact rerank model will order neighboring model descriptors against its own authoritative descriptor. There is no typed prompt or spoken line.`,
+        effect: (targetName) => `${targetName} publishes three provider-ranked neighboring model echoes`,
+        busyLabel: "ranking echoes",
+        busyDetail: "ordering neighboring model profiles…",
+        pending: {
+          queued: "gathering neighboring model descriptors…",
+          generating: "ranking neighboring model echoes…",
+          retrying: "trying the ranking route again…",
+        },
+        pendingAria: (speaker, stage) => `${speaker}'s rerank model is ordering authoritative neighboring model descriptors. ${stage}`,
+        resultLabel: "model echoes ranked",
+        failure: "The neighboring model echoes could not be ranked this time. Try Rank echoes again.",
+      },
+      speech: {
+        profile: "speech",
+        intention: "speak",
+        label: "speak",
+        commandVerb: "speak",
+        cardType: "chat",
+        focus: "speak",
+        detail: "one server-authored spoken line",
+        modalTitle: "speak with",
+        modalSummary: (targetName) => `${targetName}'s exact speech model and voice will speak one short line derived only from frozen target and location details. There is no typed prompt or player-authored line.`,
+        effect: (targetName) => `${targetName} publishes one server-authored spoken line as audio`,
+        busyLabel: "speaking",
+        busyDetail: "preparing one server-authored line…",
+        pending: {
+          queued: "preparing one server-authored line…",
+          generating: "synthesizing the line with the exact voice…",
+          retrying: "trying the exact speech route again…",
+        },
+        pendingAria: (speaker, stage) => `${speaker}'s exact speech model is voicing a server-authored line from frozen world details. ${stage}`,
+        resultLabel: "spoken line",
+        failure: "The spoken line could not finish. Try Speak again.",
+      },
+      generic: {
+        profile: "generic",
+        intention: "model_interaction",
+        label: "interact",
+        commandVerb: "interact",
+        cardType: "utility",
+        focus: "model",
+        detail: "one grounded result",
+        modalTitle: "interact with",
+        modalSummary: (targetName) => `${targetName}'s exact model will use server-authored world context. There is no typed prompt or spoken line.`,
+        effect: (targetName) => `${targetName} publishes one typed model result`,
+        busyLabel: "working",
+        busyDetail: "reading authoritative context…",
+        pending: {
+          queued: "reading authoritative context…",
+          generating: "running the exact model route…",
+          retrying: "trying the model route again…",
+        },
+        pendingAria: (speaker, stage) => `${speaker}'s exact model route is using server-authored context. ${stage}`,
+        resultLabel: "model result",
+        failure: "The model interaction could not finish. Try the action again.",
+      },
+    };
+
+    function normalizeModelInteractionProfile(value) {
+      const normalized = String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      if (normalized === "illustrate" || normalized === "image" || normalized.startsWith("illustrate_")) return "image";
+      if (normalized === "find_resonance" || normalized === "embeddings" || normalized.startsWith("find_resonance_")) return "embeddings";
+      if (normalized === "rank_echoes" || normalized === "rerank" || normalized.startsWith("rank_echoes_")) return "rerank";
+      if (normalized === "speak" || normalized === "speech" || normalized.startsWith("speak_")) return "speech";
+      return "";
+    }
+
+    function modelInteractionPresentation(source) {
+      if (source && typeof source === "object") {
+        const authoredIntention = String(source.intention || "").trim();
+        if (authoredIntention) {
+          const exactProfile = normalizeModelInteractionProfile(authoredIntention);
+          return modelInteractionPresentations[exactProfile || "generic"];
+        }
+        const explicitProfile = normalizeModelInteractionProfile(source.modelInteractionProfile || source.profile);
+        if (explicitProfile) return modelInteractionPresentations[explicitProfile];
+        for (const fallback of [source.verb, source.label, source.command]) {
+          const fallbackProfile = normalizeModelInteractionProfile(fallback);
+          if (fallbackProfile) return modelInteractionPresentations[fallbackProfile];
+        }
+        return modelInteractionPresentations.generic;
+      }
+      const profile = normalizeModelInteractionProfile(source);
+      return modelInteractionPresentations[profile || "generic"];
     }
 
     function buildActions(view) {
@@ -5570,6 +5755,49 @@
         });
         chatAction.run = () => action("/actions/chat", chatAction.selectedPayload());
         return chatAction;
+      };
+      const buildModelInteractionAction = (offer = offerFor("model_interaction")) => {
+        if (!options.has("model_interaction") || !offer) return null;
+        const targetActorId = Number(offer?.target?.id || 0);
+        const target = actorTargets.find((actor) => (
+          Number(actor.id) === targetActorId
+          && actor.control_mode !== "direct_input"
+          && !actor.blocked_by_you
+          && !actor.muted_by_you
+        ));
+        if (!target) return null;
+        const targetName = target.name || actorLabel(target);
+        const presentation = modelInteractionPresentation(offer);
+        const interactionAction = {
+          ...semanticAction(offer, presentation.intention),
+          kind: "model-interaction",
+          cardType: presentation.cardType,
+          label: presentation.label,
+          detail: `with ${actorLabel(target)} · ${presentation.detail}`,
+          command: offer.command || `${presentation.commandVerb} ${targetName}`,
+          focusKey: `${presentation.focus}:${target.id}`,
+          focusKeys: [`actor:${target.id}`],
+          card: cardForActor(target.id),
+          shape: "avatar",
+          priority: Number(offer.rank || 71),
+          targetName,
+          targetActorId: Number(target.id),
+          modelInteractionProfile: presentation.profile,
+          modalTitle: `${presentation.modalTitle} ${targetName}`,
+          modalSummary: presentation.modalSummary(targetName),
+          effect: presentation.effect(targetName),
+          busyLabel: presentation.busyLabel,
+          busyDetail: presentation.busyDetail,
+        };
+        interactionAction.selectedPayload = () => ({
+          actor_id: actorId,
+          target_actor_id: interactionAction.targetActorId,
+        });
+        interactionAction.run = () => action(
+          "/actions/model-interaction",
+          interactionAction.selectedPayload(),
+        );
+        return interactionAction;
       };
       const buildBondAction = (chatOffer = offerFor("create_bond")) => {
         if (!options.has("create_bond") || Number(ledger.advancement_points || 0) <= 0) return null;
@@ -6085,6 +6313,10 @@
       for (const offer of exactOfferVariants("chat")) {
         const chatAction = buildChatAction(offer);
         if (chatAction) built.push(chatAction);
+      }
+      for (const offer of exactOfferVariants("model_interaction")) {
+        const interactionAction = buildModelInteractionAction(offer);
+        if (interactionAction) built.push(interactionAction);
       }
       for (const offer of exactOfferVariants("create_bond")) {
         const bondAction = buildBondAction(offer);
@@ -7133,6 +7365,7 @@
       if (label === "flee" || command.startsWith("flee") || risk.includes("danger")) return "danger";
       if (label === "travel" || command.startsWith("go ")) return "travel";
       if (label === "chat" || command.startsWith("chat ")) return "chat";
+      if (label === "illustrate" || command.startsWith("illustrate ")) return "illustrate";
       if (label === "grow closer" || label === "bond" || label === "remember" || focusKey.includes("bond")) return "bond";
       if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command === "search" || command.startsWith("search ")) return "listen";
       if (label === "evolve" || command === "evolve") return "evolve";
@@ -7471,6 +7704,7 @@
     function offerKindsForPath(path, actionCard = pendingAction) {
       const byPath = {
         "/actions/chat": ["chat"],
+        "/actions/model-interaction": ["model_interaction"],
         "/actions/move": ["move"],
         "/actions/explore-path": ["explore_path"],
         "/actions/flee": ["flee"],
@@ -7513,6 +7747,7 @@
 
     const offerBoundPaths = new Set([
       "/actions/chat",
+      "/actions/model-interaction",
       "/actions/move",
       "/actions/explore-path",
       "/actions/flee",
@@ -7554,7 +7789,7 @@
         return Number(payload.item_id || 0);
       }
       if (["/actions/trade-item", "/actions/theft"].includes(path) && targetKind === "item") return Number(payload.target_item_id || 0);
-      if (["/actions/chat", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
+      if (["/actions/chat", "/actions/model-interaction", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
@@ -7847,7 +8082,7 @@
     }
 
     function messageActorUsesInference(event) {
-      if (!["message.created", "image.created"].includes(event?.type)) return false;
+      if (!["message.created", "image.created", "model_interaction.output"].includes(event?.type)) return false;
       const numericActorId = Number(event.actor_id || 0);
       const actor = actorForId(numericActorId);
       return event.source_world_tick != null
@@ -7879,7 +8114,7 @@
         const event = events[index];
         const eventLocationId = Number(event?.location_id || 0);
         if (currentLocationId && eventLocationId && eventLocationId !== currentLocationId) continue;
-        if (["message.created", "image.created"].includes(event?.type)) {
+        if (["message.created", "image.created", "model_interaction.output"].includes(event?.type)) {
           visible.push(event);
           continue;
         }
@@ -7991,6 +8226,7 @@
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
       pendingChats = [];
+      pendingModelInteractions = [];
       seenSeq.clear();
       streamReplayFloorSeq = 0;
       if (event?.seq !== undefined && event?.seq !== null) seenSeq.add(event.seq);
@@ -8073,7 +8309,7 @@
         const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
         if (locationChanged) {
           pendingChats = [];
-          rebuildLog([...(state.recent_events || [])].reverse());
+          rebuildLogFromAuthoritativeState(state);
           connectStream();
         }
         actions = buildActions(state);
@@ -8120,7 +8356,9 @@
     function pushEvents(events) {
       let changed = false;
       const pendingChatCountBefore = pendingChats.length;
+      const pendingInteractionCountBefore = pendingModelInteractions.length;
       let chatProgressChanged = false;
+      let modelInteractionProgressChanged = false;
       for (const event of events) {
         if (captureDefeatTransition(event)) changed = true;
         if (applyActionReceipt(event)) {
@@ -8138,13 +8376,19 @@
           changed = true;
           chatProgressChanged = true;
         }
+        if (resolvePendingModelInteraction(event)) {
+          changed = true;
+          modelInteractionProgressChanged = true;
+        }
         if (eventIsHiddenContext(event)) continue;
         enqueueImportantNotification(event);
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
       }
       logEvents = logEvents.slice(-90);
-      if (pendingChats.length !== pendingChatCountBefore || chatProgressChanged) renderCommands();
+      if (pendingChats.length !== pendingChatCountBefore
+          || pendingModelInteractions.length !== pendingInteractionCountBefore
+          || chatProgressChanged || modelInteractionProgressChanged) renderCommands();
       return changed;
     }
 
@@ -8331,7 +8575,195 @@
       return false;
     }
 
+    function beginPendingModelInteraction(action) {
+      if (!actorId || action?.kind !== "model-interaction") return null;
+      const targetActorId = Number(action.targetActorId || action.selectedPayload?.()?.target_actor_id || 0);
+      const target = actorForId(targetActorId);
+      if (!targetActorId || !target) return null;
+      const existing = pendingModelInteractions.find((pending) => (
+        Number(pending.targetActorId) === targetActorId
+      ));
+      if (existing) return { id: existing.id, created: false };
+      const pending = {
+        id: nextPendingModelInteractionId++,
+        targetActorId,
+        targetName: actorLabel(target),
+        profile: modelInteractionPresentation(action).profile,
+        afterSeq: latestSeenSeq(),
+        stage: "queued",
+      };
+      pendingModelInteractions.push(pending);
+      window.setTimeout(() => {
+        if (!pendingModelInteractions.some((candidate) => candidate.id === pending.id)) return;
+        pendingModelInteractionRehydrationRequired = true;
+        queueRefresh();
+      }, 180000);
+      return { id: pending.id, created: true };
+    }
+
+    function cancelPendingModelInteraction(pending) {
+      if (!pending || pending.created === false) return;
+      const id = Number(pending.id || pending || 0);
+      if (!id) return;
+      pendingModelInteractions = pendingModelInteractions.filter((candidate) => candidate.id !== id);
+    }
+
+    function modelInteractionProfileForTarget(targetActorId, view = state) {
+      const offer = (view?.action_offers || []).find((candidate) => (
+        candidate?.kind === "model_interaction"
+        && Number(candidate?.target?.id || 0) === Number(targetActorId || 0)
+      ));
+      return modelInteractionPresentation(offer || "").profile;
+    }
+
+    function modelInteractionLifecycleSnapshot(events, view = state, existingPending = []) {
+      const viewerActorId = Number(actorId || 0);
+      const activeByQueue = new Map();
+      const terminalQueueSeqs = new Set();
+      let sawWorldReset = false;
+      if (!viewerActorId) return { pending: [], terminalQueueSeqs, sawWorldReset };
+      const chronological = [...(events || [])].sort((left, right) => (
+        Number(left?.seq || 0) - Number(right?.seq || 0)
+      ));
+      const pendingFor = (queueEventSeq, targetActorId, event) => {
+        const existing = existingPending.find((candidate) => (
+          Number(candidate.queueEventSeq || 0) === queueEventSeq
+          || (!candidate.queueEventSeq
+            && Number(candidate.targetActorId || 0) === targetActorId)
+        ));
+        const target = (view?.actors || []).find((actor) => Number(actor.id) === targetActorId);
+        const targetName = String(
+          event?.target_actor_name
+          || target?.name
+          || existing?.targetName
+          || `Resident ${targetActorId}`,
+        );
+        return {
+          id: existing?.id || nextPendingModelInteractionId++,
+          targetActorId,
+          targetName,
+          profile: existing?.profile
+            || modelInteractionProfileForTarget(targetActorId, view),
+          afterSeq: Math.max(0, queueEventSeq - 1),
+          queueEventSeq,
+          stage: "queued",
+          lastEventSeq: queueEventSeq,
+          rehydrated: true,
+        };
+      };
+      for (const event of chronological) {
+        const type = String(event?.type || "");
+        if (type === "world.reset") {
+          activeByQueue.clear();
+          terminalQueueSeqs.clear();
+          sawWorldReset = true;
+          continue;
+        }
+        if (!type.startsWith("model_interaction.")) continue;
+        const queued = type === "model_interaction.queued";
+        const output = type === "model_interaction.output";
+        const activeStage = queued
+          || type === "model_interaction.generating"
+          || type === "model_interaction.retrying";
+        const terminal = output
+          || type === "model_interaction.completed"
+          || type === "model_interaction.failed";
+        if (!activeStage && !terminal) continue;
+        const eventActorId = Number(event.actor_id || 0);
+        const eventTargetActorId = Number(event.target_actor_id || 0);
+        const targetActorId = output ? eventActorId : eventTargetActorId;
+        const belongsToViewer = output
+          ? eventTargetActorId === viewerActorId
+          : eventActorId === viewerActorId;
+        if (!belongsToViewer || !targetActorId || targetActorId === viewerActorId) continue;
+        const queueEventSeq = queued
+          ? Number(event.seq || 0)
+          : Number(event.caused_by_event_seq || 0);
+        if (!Number.isSafeInteger(queueEventSeq) || queueEventSeq < 1) continue;
+        if (terminal) {
+          const lifecycle = activeByQueue.get(queueEventSeq)
+            || existingPending.find((candidate) => (
+              Number(candidate.queueEventSeq || 0) === queueEventSeq
+              && Number(candidate.targetActorId || 0) === targetActorId
+            ));
+          if (lifecycle && Number(lifecycle.targetActorId || 0) !== targetActorId) continue;
+          terminalQueueSeqs.add(queueEventSeq);
+          if (lifecycle) {
+            if (type === "model_interaction.failed") {
+              event.clientModelInteractionProfile = lifecycle.profile;
+            }
+            activeByQueue.delete(queueEventSeq);
+          }
+          continue;
+        }
+        if (terminalQueueSeqs.has(queueEventSeq)) continue;
+        let lifecycle = activeByQueue.get(queueEventSeq);
+        if (!lifecycle) {
+          lifecycle = pendingFor(queueEventSeq, targetActorId, event);
+          activeByQueue.set(queueEventSeq, lifecycle);
+        }
+        if (Number(lifecycle.targetActorId || 0) !== targetActorId) continue;
+        lifecycle.stage = queued ? "queued" : type.slice("model_interaction.".length);
+        lifecycle.lastEventSeq = Math.max(
+          Number(lifecycle.lastEventSeq || 0),
+          Number(event.seq || queueEventSeq),
+        );
+      }
+      const pending = [...activeByQueue.values()]
+        .sort((left, right) => Number(left.lastEventSeq || 0) - Number(right.lastEventSeq || 0))
+        .slice(-1);
+      return { pending, terminalQueueSeqs, sawWorldReset };
+    }
+
+    function pendingModelInteractionMatchesEvent(pending, event) {
+      const eventSeq = Number(event?.seq || 0);
+      if (!eventSeq || eventSeq <= Number(pending.afterSeq || 0)) return false;
+      const pairMatches = (
+        (Number(event.actor_id || 0) === Number(actorId)
+          && Number(event.target_actor_id || 0) === Number(pending.targetActorId))
+        || (Number(event.actor_id || 0) === Number(pending.targetActorId)
+          && Number(event.target_actor_id || 0) === Number(actorId))
+      );
+      if (!pairMatches) return false;
+      const queueSeq = Number(pending.queueEventSeq || 0);
+      const eventQueueSeq = event.type === "model_interaction.queued"
+        ? eventSeq
+        : Number(event.caused_by_event_seq || 0);
+      return !queueSeq || !eventQueueSeq || queueSeq === eventQueueSeq;
+    }
+
+    function resolvePendingModelInteraction(event) {
+      if (!event || !pendingModelInteractions.length) return false;
+      if (!String(event.type || "").startsWith("model_interaction.")) return false;
+      const index = pendingModelInteractions.findIndex((pending) => (
+        pendingModelInteractionMatchesEvent(pending, event)
+      ));
+      if (index < 0) return false;
+      const pending = pendingModelInteractions[index];
+      if (event.type === "model_interaction.queued") {
+        pending.queueEventSeq = Number(event.seq || 0);
+        pending.stage = "queued";
+      } else if (event.type === "model_interaction.generating") {
+        pending.stage = "generating";
+      } else if (event.type === "model_interaction.retrying") {
+        pending.stage = "retrying";
+      } else if ([
+        "model_interaction.output",
+        "model_interaction.completed",
+        "model_interaction.failed",
+      ].includes(event.type)) {
+        if (event.type === "model_interaction.failed") {
+          event.clientModelInteractionProfile = pending.profile;
+        }
+        pendingModelInteractions.splice(index, 1);
+      }
+      return true;
+    }
+
     function rebuildLog(events) {
+      const previousPendingModelInteractions = pendingModelInteractions.map((pending) => ({
+        ...pending,
+      }));
       logEvents = [];
       seenSeq.clear();
       for (const event of events) {
@@ -8341,6 +8773,7 @@
         }
         if (!event || eventIsMuted(event)) continue;
         resolvePendingChat(event);
+        resolvePendingModelInteraction(event);
         if (eventIsHiddenContext(event)) continue;
         if (event.seq !== undefined && event.seq !== null) {
           if (seenSeq.has(event.seq)) continue;
@@ -8349,6 +8782,25 @@
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
       }
       logEvents = logEvents.slice(-90);
+      const lifecycle = modelInteractionLifecycleSnapshot(
+        events,
+        state,
+        previousPendingModelInteractions,
+      );
+      const preserved = lifecycle.sawWorldReset
+        ? []
+        : previousPendingModelInteractions.filter((pending) => (
+          !pending.queueEventSeq
+          || !lifecycle.terminalQueueSeqs.has(Number(pending.queueEventSeq || 0))
+        ));
+      pendingModelInteractions = lifecycle.pending.length
+        ? lifecycle.pending
+        : preserved.slice(-1);
+    }
+
+    function rebuildLogFromAuthoritativeState(view = state) {
+      rebuildLog([...(view?.recent_events || [])].reverse());
+      pendingModelInteractionRehydrationRequired = false;
     }
 
     function eventIsMuted(event) {
@@ -8359,6 +8811,7 @@
     const chatEventTypes = new Set([
       "message.created",
       "image.created",
+      "model_interaction.output",
       "avatar.thought",
       "avatar.dream",
     ]);
@@ -8391,6 +8844,7 @@
       "pathway.discovered",
       "pathway.familiarized",
       "chat.failed",
+      "model_interaction.failed",
       "dialogue.unavailable",
       "relationship.beat",
       "relationship.advanced",
@@ -8731,6 +9185,10 @@
         || event.type === "chat.typing"
         || event.type === "chat.retrying"
         || event.type === "chat.completed"
+        || event.type === "model_interaction.queued"
+        || event.type === "model_interaction.generating"
+        || event.type === "model_interaction.retrying"
+        || event.type === "model_interaction.completed"
         || event.type === "dialogue.delivered"
         || event.type === "avatar.refined"
         || event.type === "pathway.refined";
@@ -8760,6 +9218,8 @@
         || event.type === "turn.timeout_passed"
         || event.type === "message.created"
         || event.type === "image.created"
+        || event.type === "model_interaction.output"
+        || event.type === "model_interaction.failed"
         || event.type === "chat.failed"
         || event.type === "dialogue.unavailable"
         || event.type === "dialogue.delivered"
@@ -8824,6 +9284,7 @@
         }
         if (event.type === "world.reset") {
           seenSeq.clear();
+          pendingModelInteractionRehydrationRequired = true;
           rebuildLog([event]);
           renderTimelines();
           queueRefresh();
@@ -8851,9 +9312,7 @@
           streamReplayFloorSeq,
           Number(gap?.through_seq || message.lastEventId || 0),
         );
-        pendingChats = [];
-        logEvents = [];
-        seenSeq.clear();
+        prepareForStreamGapRehydration();
         renderTimelines();
         recoveryRefreshAttemptId = Math.max(
           recoveryRefreshAttemptId,
@@ -8867,6 +9326,14 @@
       });
       stream.onerror = () => setTransientStatus("stream", "The live room is reconnecting.");
       startPresenceHeartbeat();
+    }
+
+    function prepareForStreamGapRehydration() {
+      pendingChats = [];
+      pendingModelInteractions = [];
+      logEvents = [];
+      seenSeq.clear();
+      pendingModelInteractionRehydrationRequired = true;
     }
 
     function render() {
@@ -10016,14 +10483,16 @@
       const visibleEvents = sharedRoomTranscriptEvents(logEvents);
       const pendingConversation = pendingConversationHtml();
       const pendingChatReplies = pendingChatsHtml();
+      const pendingModelOutputs = pendingModelInteractionsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
       const hasTranscript = visibleEvents.length > 0
         || Boolean(pendingConversation)
         || Boolean(pendingChatReplies)
+        || Boolean(pendingModelOutputs)
         || Boolean(defeatScene);
       const inferredOnly = visibleEvents.length > 0 && visibleEvents.every((event) => (
-        ["message.created", "image.created"].includes(event.type) && messageActorUsesInference(event)
+        ["message.created", "image.created", "model_interaction.output"].includes(event.type) && messageActorUsesInference(event)
       ));
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
@@ -10076,7 +10545,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${pendingConversation}${pendingChatReplies}`;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -10325,6 +10794,17 @@
       }).join("");
     }
 
+    function pendingModelInteractionsHtml() {
+      return pendingModelInteractions.map((pending) => {
+        const actor = actorForId(pending.targetActorId);
+        const speaker = pending.targetName || (actor ? actorLabel(actor) : "A resident");
+        const presentation = modelInteractionPresentation(pending.profile);
+        const stage = presentation.pending[pending.stage] || presentation.pending.queued;
+        const aria = presentation.pendingAria(speaker, stage);
+        return `<div class="line model-output pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: pending.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>${escapeHtml(stage)}</span></div>`;
+      }).join("");
+    }
+
     function pendingAvatarArrivalHtml() {
       if (!actionBusy || pendingAction?.kind !== "avatar-arrival") return "";
       const creationProfile = pendingAction.creationProfile || null;
@@ -10366,12 +10846,13 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return ["message.created", "image.created", "avatar.thought", "avatar.dream"].includes(event?.type);
+      return ["message.created", "image.created", "model_interaction.output", "avatar.thought", "avatar.dream"].includes(event?.type);
     }
 
     function transcriptEventHtml(event) {
       if (event?.type === "message.created") return messageHtml(event);
       if (event?.type === "image.created") return residentImageHtml(event);
+      if (event?.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event?.type)) return avatarReflectionHtml(event);
       if (event?.type === "combat.attack.attempt") return combatAttackTranscriptBeatHtml(event);
       return sceneCardEventHtml(event);
@@ -10720,6 +11201,7 @@
     function timelineEventHtml(event) {
       if (event.type === "message.created") return messageHtml(event);
       if (event.type === "image.created") return residentImageHtml(event);
+      if (event.type === "model_interaction.output") return modelInteractionOutputHtml(event);
       if (["avatar.thought", "avatar.dream"].includes(event.type)) return avatarReflectionHtml(event);
       if (isRollEvent(event)) return rollHtml(event);
       return sceneCardEventHtml(event);
@@ -10750,6 +11232,9 @@
       }
       if (type === "chat.failed") {
         return "The conversation slipped away before it could begin. Try talking again.";
+      }
+      if (type === "model_interaction.failed") {
+        return modelInteractionPresentation(event.clientModelInteractionProfile).failure;
       }
       if (type === "dialogue.unavailable") {
         return "Reply unavailable: the resident's promised reply could not run. The authored relationship beat still stands, and no substitute reply was created.";
@@ -10992,6 +11477,10 @@
       } catch {
         return null;
       }
+      return residentImageValueMetadata(value, event);
+    }
+
+    function residentImageValueMetadata(value, event = {}) {
       if (!value || Number(value.schema_version) !== 1) return null;
       const assetId = String(value.asset_id || "");
       const url = String(value.url || "");
@@ -11018,6 +11507,163 @@
       const kind = event.actor_id === actorId ? "you" : event.actor_id ? "avatar" : "world";
       const aria = `${speaker}: ${meta.alt}`;
       return `<div class="line chat image-reply ${kind}" aria-label="${escapeAttr(aria)}">${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text"><img class="resident-reply-image" src="${escapeAttr(meta.url)}" alt="${escapeAttr(meta.alt)}" width="${meta.width}" height="${meta.height}" loading="lazy" decoding="async"><span class="resident-image-alt" aria-hidden="true">${escapeHtml(meta.alt)}</span></span></div>`;
+    }
+
+    function modelInteractionContainsForbiddenPayload(value) {
+      if (!value || typeof value !== "object") return false;
+      if (Array.isArray(value)) return value.some(modelInteractionContainsForbiddenPayload);
+      return Object.entries(value).some(([key, child]) => (
+        ["prompt", "vector", "embedding", "embeddings"].includes(String(key).toLowerCase())
+        || modelInteractionContainsForbiddenPayload(child)
+      ));
+    }
+
+    function modelInteractionMediaMetadata(part, mediaKind) {
+      const assetId = String(part?.asset_id || "");
+      const digest = String(part?.digest || "");
+      const url = String(part?.url || "");
+      const mimeType = String(part?.mime_type || "");
+      if (!/^[a-f0-9]{64}$/.test(assetId) || !/^[a-f0-9]{64}$/.test(digest)) return null;
+      const description = typeof part?.description === "string"
+        ? cleanStatusText(part.description)
+        : "";
+      if (!description || description.length > 280) return null;
+      if (mediaKind === "audio") {
+        const expectedUrl = `/assets/generated/model-audio/${digest}.mp3`;
+        if (assetId !== digest || mimeType !== "audio/mpeg" || url !== expectedUrl) return null;
+        const hasDuration = part.duration_ms !== undefined && part.duration_ms !== null;
+        const durationMs = hasDuration ? part.duration_ms : null;
+        if (hasDuration && (typeof durationMs !== "number"
+            || !Number.isInteger(durationMs) || durationMs < 1 || durationMs > 600000)) return null;
+        const transcript = typeof part.transcript === "string"
+          ? cleanStatusText(part.transcript)
+          : "";
+        if (transcript.length > 280) return null;
+        return { modality: "audio", assetId, digest, url, mimeType, durationMs, description, transcript };
+      }
+      if (!url.startsWith("/assets/generated/") || url.includes("..")) return null;
+      if (!["video/mp4", "video/webm"].includes(mimeType)) return null;
+      const durationMs = Number(part.duration_ms || 0);
+      if (!Number.isInteger(durationMs) || durationMs < 1 || durationMs > 600000) return null;
+      const width = Number(part.width || 0);
+      const height = Number(part.height || 0);
+      if (!Number.isInteger(width) || !Number.isInteger(height)
+          || width < 1 || height < 1 || width > 4096 || height > 4096) return null;
+      return { modality: "video", assetId, digest, url, mimeType, durationMs, description, width, height };
+    }
+
+    function modelInteractionPartMetadata(part, event) {
+      const modality = String(part?.modality || "");
+      if (modality === "text") {
+        const text = cleanStatusText(part.text);
+        return text && text.length <= 8000 ? { modality, text } : null;
+      }
+      if (modality === "image") {
+        const image = residentImageValueMetadata(part.image, event);
+        return image ? { modality, image } : null;
+      }
+      if (modality === "audio" || modality === "video") {
+        return modelInteractionMediaMetadata(part, modality);
+      }
+      if (modality === "semantic_match") {
+        const source = String(part.source || "");
+        const scoreBand = String(part.score_band || "");
+        const label = cleanStatusText(part.label);
+        const relation = cleanStatusText(part.relation);
+        if (!["embeddings", "rerank"].includes(source)
+            || !["low", "moderate", "high"].includes(scoreBand)
+            || !label || !relation) return null;
+        return {
+          modality,
+          source,
+          scoreBand,
+          entityKind: String(part.entity_kind || ""),
+          entityId: String(part.entity_id || ""),
+          label,
+          relation,
+        };
+      }
+      return null;
+    }
+
+    function modelInteractionPartsMatchProfile(profile, parts) {
+      if (profile === "image") {
+        return parts.length === 1 && parts[0].modality === "image";
+      }
+      if (profile === "speech") {
+        return parts.length === 1
+          && parts[0].modality === "audio"
+          && Boolean(parts[0].transcript);
+      }
+      if (profile === "embeddings" || profile === "rerank") {
+        return parts.length >= 1 && parts.length <= 3 && parts.every((part) => (
+          part.modality === "semantic_match" && part.source === profile
+        ));
+      }
+      return false;
+    }
+
+    function modelInteractionMetadata(event) {
+      if (event?.type !== "model_interaction.output") return null;
+      let value;
+      try {
+        value = JSON.parse(String(event.content || ""));
+      } catch {
+        return null;
+      }
+      if (!value || Number(value.schema_version) !== 1
+          || modelInteractionContainsForbiddenPayload(value)) return null;
+      const interactionId = String(value.interaction_id || "");
+      const contextHash = String(value.context_hash || "");
+      const profile = String(value.profile || "");
+      const summary = cleanStatusText(value.summary);
+      const promptVersion = String(value.prompt_version || "");
+      const parts = Array.isArray(value.output_parts)
+        ? value.output_parts.map((part) => modelInteractionPartMetadata(part, event))
+        : [];
+      if (!/^[a-f0-9]{64}$/.test(interactionId)
+          || !/^[a-f0-9]{64}$/.test(contextHash)
+          || !["image", "embeddings", "rerank", "speech"].includes(profile)
+          || !summary || summary.length > 280 || !promptVersion
+          || !parts.length || parts.length > 8 || parts.some((part) => !part)
+          || !modelInteractionPartsMatchProfile(profile, parts)) return null;
+      return { interactionId, contextHash, profile, summary, parts };
+    }
+
+    function modelInteractionPartHtml(part) {
+      if (part.modality === "text") {
+        return `<span class="model-output-text">${escapeHtml(part.text)}</span>`;
+      }
+      if (part.modality === "image") {
+        const image = part.image;
+        return `<span class="model-output-image"><img class="resident-reply-image" src="${escapeAttr(image.url)}" alt="${escapeAttr(image.alt)}" width="${image.width}" height="${image.height}" loading="lazy" decoding="async"><span class="resident-image-alt" aria-hidden="true">${escapeHtml(image.alt)}</span></span>`;
+      }
+      if (part.modality === "audio") {
+        const transcript = part.transcript
+          ? `<span class="model-output-transcript">${escapeHtml(part.transcript)}</span>`
+          : "";
+        return `<span class="model-output-media"><audio controls preload="metadata" aria-label="${escapeAttr(part.description)}"><source src="${escapeAttr(part.url)}" type="${escapeAttr(part.mimeType)}"></audio><span class="resident-image-alt">${escapeHtml(part.description)}</span>${transcript}</span>`;
+      }
+      if (part.modality === "video") {
+        return `<span class="model-output-media"><video controls preload="metadata" width="${part.width}" height="${part.height}" aria-label="${escapeAttr(part.description)}"><source src="${escapeAttr(part.url)}" type="${escapeAttr(part.mimeType)}"></video><span class="resident-image-alt">${escapeHtml(part.description)}</span></span>`;
+      }
+      const sourceLabel = part.source === "rerank" ? "ranked echo" : "resonance";
+      return `<span class="model-output-semantic"><strong>${escapeHtml(part.label)}</strong><span>${escapeHtml(part.relation)}</span><small>${escapeHtml(sourceLabel)} · ${escapeHtml(part.scoreBand)} match</small></span>`;
+    }
+
+    function modelInteractionOutputHtml(event) {
+      const speaker = event.actor_name || "A resident";
+      const meta = modelInteractionMetadata(event);
+      if (!meta) {
+        return `<div class="line event scene-card warning" data-event-row><span class="event-label" aria-hidden="true">✦</span><span class="text">A model result could not be displayed safely.</span></div>`;
+      }
+      const kind = event.actor_id === actorId ? "you" : event.actor_id ? "avatar" : "world";
+      const presentation = modelInteractionPresentation(meta.profile);
+      const resultSummary = meta.profile === "image"
+        ? ""
+        : `<span class="model-output-summary"><strong>${escapeHtml(presentation.resultLabel)}</strong><span>${escapeHtml(meta.summary)}</span></span>`;
+      const aria = `${speaker}, ${presentation.resultLabel}: ${meta.summary}`;
+      return `<div class="line model-output ${kind}" data-interaction-profile="${escapeAttr(meta.profile)}" aria-label="${escapeAttr(aria)}">${chatPfpHtml(event, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text">${resultSummary}${meta.parts.map(modelInteractionPartHtml).join("")}</span></div>`;
     }
 
     function chatPfpHtml(event, speaker) {
@@ -12405,7 +13051,7 @@
 
     function actionEmoji(action) {
       const byType = {
-        travel: "🥾", notice: "👁️", inspect: "🔎", scout: "🧭", chat: "💬", bond: "💞", listen: "👂", train: "🎯", trade: "🤝",
+        travel: "🥾", notice: "👁️", inspect: "🔎", scout: "🧭", chat: "💬", illustrate: "🖼️", bond: "💞", listen: "👂", train: "🎯", trade: "🤝",
         evolve: "🌱", bank: "✨", craft: "🛠️", project: "🧩", item: "🎒", combat: "⚔️", danger: "⚠️",
         shuffle: "🔄", utility: "🪄",
       };
@@ -12422,6 +13068,7 @@
         inspect: "inspect",
         scout: "scout",
         chat: "chat",
+        illustrate: "craft",
         bond: "bond",
         listen: "listen",
         train: "train",
@@ -13112,7 +13759,7 @@
 
       const shape = shapeForCard(card);
       const type = actionCardType(action);
-      if (shape === "avatar" && ["chat", "bond", "trade"].includes(type)) return 1;
+      if (shape === "avatar" && ["chat", "illustrate", "bond", "trade"].includes(type)) return 1;
       if (shape === "item" && ["item", "craft", "trade", "project"].includes(type)) return 1;
       if (shape === "location" && ["travel", "notice", "inspect", "scout", "listen", "project"].includes(type)) return 1;
       return 0;
@@ -13426,6 +14073,15 @@
           busyDetail: "current exchange unfolding…",
         };
       }
+      if (action.kind === "model-interaction" && pendingModelInteractions.length) {
+        const pending = pendingModelInteractions[0];
+        const presentation = modelInteractionPresentation(pending.profile);
+        action = {
+          ...action,
+          busy: true,
+          busyDetail: presentation.pending[pending.stage] || presentation.pending.queued,
+        };
+      }
       button.disabled = Boolean(action.busy);
       if (action.busy) button.setAttribute("aria-busy", "true");
       else button.removeAttribute("aria-busy");
@@ -13714,6 +14370,11 @@
         render();
         return;
       }
+      if (action?.kind === "model-interaction" && pendingModelInteractions.length) {
+        setError("Let the current model interaction finish before starting another.");
+        render();
+        return;
+      }
       actionBusy = true;
       actionSlow = false;
       pendingAction = action;
@@ -13725,15 +14386,18 @@
       }, 3000);
       const pendingChat = beginPendingChat(action);
       if (pendingChat?.id) action.pendingChatId = pendingChat.id;
+      const pendingInteraction = beginPendingModelInteraction(action);
       renderCommands();
       renderLog();
       try {
         const result = await action.run();
         if (result?.ok === false) {
           cancelPendingChat(pendingChat);
+          cancelPendingModelInteraction(pendingInteraction);
         }
       } catch (error) {
         cancelPendingChat(pendingChat);
+        cancelPendingModelInteraction(pendingInteraction);
         setError(String(error.message || error));
       } finally {
         clearTimeout(actionSlowTimer);

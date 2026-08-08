@@ -41,10 +41,33 @@ const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 const IMAGE_GENERATION_MAX_BYTES: usize = 8 * 1024 * 1024;
 const IMAGE_GENERATION_MAX_RESPONSE_BYTES: u64 = 12 * 1024 * 1024;
 const IMAGE_GENERATION_MAX_PROMPT_BYTES: usize = 16 * 1024;
-// Raw actor bindings get one compact response budget. Reserve it for visible
-// speech instead of letting a reasoning-capable model spend it on hidden work
-// and return finish_reason "length" with little or no message content.
-const RAW_DIALOGUE_REASONING_EFFORT: &str = "none";
+const EMBEDDING_MAX_BATCH: usize = 128;
+const EMBEDDING_MAX_INPUT_BYTES: usize = 32 * 1024;
+const EMBEDDING_MAX_TOTAL_INPUT_BYTES: usize = 512 * 1024;
+const EMBEDDING_MAX_DIMENSIONS: usize = 16_384;
+const EMBEDDING_MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+const RERANK_MAX_DOCUMENTS: usize = 128;
+const RERANK_MAX_QUERY_BYTES: usize = 16 * 1024;
+const RERANK_MAX_DOCUMENT_BYTES: usize = 32 * 1024;
+const RERANK_MAX_TOTAL_INPUT_BYTES: usize = 512 * 1024;
+const RERANK_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+const SPEECH_SYNTHESIS_MAX_TEXT_BYTES: usize = 32 * 1024;
+const SPEECH_SYNTHESIS_MAX_VOICE_BYTES: usize = 128;
+const SPEECH_SYNTHESIS_MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+const SPEECH_SYNTHESIS_GENERATION_ID_MAX_BYTES: usize = 256;
+// The exact-bound STT gateway is intentionally dormant until a server-authored
+// transcription action owns its input provenance and publication contract.
+#[allow(dead_code)]
+const TRANSCRIPTION_MAX_AUDIO_BYTES: usize = 8 * 1024 * 1024;
+#[allow(dead_code)]
+const TRANSCRIPTION_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+// When a raw actor's catalog entry explicitly advertises the unified reasoning
+// parameter, prefer visible speech over hidden work. This must never be sent to
+// every raw model: some endpoints reject reasoning controls, while mandatory-
+// reasoning endpoints need the bounded compatibility fallback below.
+const RAW_DIALOGUE_DISABLED_REASONING_EFFORT: &str = "none";
+const REASONING_MANDATORY_ERROR: &str =
+    "reasoning is mandatory for this endpoint and cannot be disabled";
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum CardPolicyRolloutMode {
@@ -427,6 +450,75 @@ impl AiConfig {
         }
         PinnedModelSelection::from_actor_image_binding(binding, self.data_policy_mode)
     }
+
+    pub(crate) fn pin_actor_embedding_model(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let configured_provider = ai_provider_name(Some(self));
+        let local_development_adapter = self.data_policy_mode == DataPolicyMode::Development
+            && local_ai_base_url(&self.base_url);
+        if configured_provider != "openrouter" && !local_development_adapter {
+            return Err(RegistryError::ProviderMismatch {
+                model: binding.requested_model_id.clone(),
+                declared: "openrouter".to_string(),
+                discovered: configured_provider.to_string(),
+            });
+        }
+        PinnedModelSelection::from_actor_embedding_binding(binding, self.data_policy_mode)
+    }
+
+    pub(crate) fn pin_actor_rerank_model(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let configured_provider = ai_provider_name(Some(self));
+        let local_development_adapter = self.data_policy_mode == DataPolicyMode::Development
+            && local_ai_base_url(&self.base_url);
+        if configured_provider != "openrouter" && !local_development_adapter {
+            return Err(RegistryError::ProviderMismatch {
+                model: binding.requested_model_id.clone(),
+                declared: "openrouter".to_string(),
+                discovered: configured_provider.to_string(),
+            });
+        }
+        PinnedModelSelection::from_actor_rerank_binding(binding, self.data_policy_mode)
+    }
+
+    pub(crate) fn pin_actor_speech_synthesis_model(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let configured_provider = ai_provider_name(Some(self));
+        let local_development_adapter = self.data_policy_mode == DataPolicyMode::Development
+            && local_ai_base_url(&self.base_url);
+        if configured_provider != "openrouter" && !local_development_adapter {
+            return Err(RegistryError::ProviderMismatch {
+                model: binding.requested_model_id.clone(),
+                declared: "openrouter".to_string(),
+                discovered: configured_provider.to_string(),
+            });
+        }
+        PinnedModelSelection::from_actor_speech_synthesis_binding(binding, self.data_policy_mode)
+    }
+
+    #[allow(dead_code)] // Reserved for the exact-bound, server-authored STT action.
+    pub(crate) fn pin_actor_transcription_model(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        let configured_provider = ai_provider_name(Some(self));
+        let local_development_adapter = self.data_policy_mode == DataPolicyMode::Development
+            && local_ai_base_url(&self.base_url);
+        if configured_provider != "openrouter" && !local_development_adapter {
+            return Err(RegistryError::ProviderMismatch {
+                model: binding.requested_model_id.clone(),
+                declared: "openrouter".to_string(),
+                discovered: configured_provider.to_string(),
+            });
+        }
+        PinnedModelSelection::from_actor_transcription_binding(binding, self.data_policy_mode)
+    }
 }
 
 fn enabled_ai_api_key(api_key: Option<String>, base_url: &str) -> Option<String> {
@@ -546,7 +638,7 @@ fn parse_capability_models(
         Some(value) => serde_json::from_str::<BTreeMap<ModelCapability, String>>(value)
             .map_err(|error| {
                 format!(
-                    "{AI_CAPABILITY_MODELS_ENV} must map voice, intent_json, world_content, or image_generation to model ids: {error}"
+                    "{AI_CAPABILITY_MODELS_ENV} must map voice, intent_json, world_content, image_generation, speech_synthesis, transcription, embeddings, or rerank to model ids: {error}"
                 )
             })?,
     };
@@ -713,6 +805,131 @@ pub(crate) struct AiGeneratedImage {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub(crate) struct EmbeddingRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) inputs: &'a [String],
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AiEmbeddings {
+    /// Vectors are ordered to match the request inputs, even if the provider
+    /// sends its indexed response entries out of order.
+    pub(crate) vectors: Vec<Vec<f32>>,
+    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
+    pub(crate) model_attribution: ModelAttribution,
+    #[allow(dead_code)] // Retained for publication accounting once token ledgers consume it.
+    pub(crate) usage: AiTokenUsage,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RerankRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) query: &'a str,
+    pub(crate) documents: &'a [String],
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RerankScore {
+    pub(crate) index: usize,
+    pub(crate) relevance_score: f64,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AiRerankResult {
+    /// Provider ranking order, with each original document index represented
+    /// exactly once.
+    pub(crate) scores: Vec<RerankScore>,
+    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
+    pub(crate) model_attribution: ModelAttribution,
+    #[allow(dead_code)] // Retained for publication accounting once token ledgers consume it.
+    pub(crate) usage: AiTokenUsage,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct SpeechSynthesisRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) text: &'a str,
+    /// Exact provider voice id chosen by the caller; the gateway never
+    /// substitutes a default voice behind the caller's back.
+    pub(crate) voice: &'a str,
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AiSynthesizedSpeech {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) content_type: String,
+    #[allow(dead_code)] // Preserved for provider generation audit correlation.
+    pub(crate) generation_id: Option<String>,
+    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
+    pub(crate) model_attribution: ModelAttribution,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[allow(dead_code)] // Awaiting a server-authored STT action with bounded provenance.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct TranscriptionRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) input_audio: &'a [u8],
+    pub(crate) input_audio_format: TranscriptionAudioFormat,
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+}
+
+#[allow(dead_code)] // Awaiting the same exact-bound STT action as TranscriptionRequest.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum TranscriptionAudioFormat {
+    Mp3,
+    Wav,
+}
+
+#[allow(dead_code)]
+impl TranscriptionAudioFormat {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Mp3 => "mp3",
+            Self::Wav => "wav",
+        }
+    }
+}
+
+#[allow(dead_code)] // Complete result contract retained until STT publication is wired.
+#[derive(Clone, Debug)]
+pub(crate) struct AiTranscription {
+    pub(crate) text: String,
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
+    pub(crate) model_attribution: ModelAttribution,
+    pub(crate) usage: AiTokenUsage,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct ImagePolicyRequest<'a> {
     pub(crate) feature: &'static str,
     pub(crate) image_url: &'a str,
@@ -761,7 +978,11 @@ pub(crate) async fn request_chat_completion(
         request.response_format,
         selection.requested_model_id(),
         if raw_mode {
-            Some(RAW_DIALOGUE_REASONING_EFFORT)
+            selection
+                .candidate()
+                .supported_parameters()
+                .reasoning
+                .then_some(RAW_DIALOGUE_DISABLED_REASONING_EFFORT)
         } else {
             config.reasoning_effort.as_deref()
         },
@@ -792,7 +1013,11 @@ pub(crate) async fn request_chat_completion_with_selection(
         request.response_format,
         selection.requested_model_id(),
         if raw_mode {
-            Some(RAW_DIALOGUE_REASONING_EFFORT)
+            selection
+                .candidate()
+                .supported_parameters()
+                .reasoning
+                .then_some(RAW_DIALOGUE_DISABLED_REASONING_EFFORT)
         } else {
             config.reasoning_effort.as_deref()
         },
@@ -801,6 +1026,925 @@ pub(crate) async fn request_chat_completion_with_selection(
         Some(selection),
     )
     .await
+}
+
+pub(crate) async fn request_embeddings_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: EmbeddingRequest<'_>,
+) -> Result<AiEmbeddings, AiGatewayError> {
+    let started_at = Instant::now();
+    let invalid_input = request.inputs.is_empty()
+        || request.inputs.len() > EMBEDDING_MAX_BATCH
+        || request
+            .inputs
+            .iter()
+            .any(|input| input.trim().is_empty() || input.len() > EMBEDDING_MAX_INPUT_BYTES);
+    let total_input_bytes = request
+        .inputs
+        .iter()
+        .fold(0usize, |total, input| total.saturating_add(input.len()));
+    if invalid_input || total_input_bytes > EMBEDDING_MAX_TOTAL_INPUT_BYTES {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} embedding inputs were empty or exceeded their batch or byte limits",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
+    let selection = config
+        .pin_actor_embedding_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let context_hash = exact_endpoint_context_hash(
+        request.feature,
+        request.prompt_version,
+        None,
+        request.inputs,
+    );
+    let mut payload = json!({
+        "model": selection.requested_model_id(),
+        "input": request.inputs,
+        "encoding_format": "float",
+    });
+    add_exact_binding_zdr_constraint(&mut payload, &selection);
+    let (body, attempt) = post_bounded_exact_json(
+        config,
+        request.feature,
+        "embeddings",
+        request.referer,
+        &payload,
+        request.timeout,
+        request.max_attempts,
+        EMBEDDING_MAX_RESPONSE_BYTES,
+        &started_at,
+    )
+    .await?;
+
+    let data = body
+        .get("data")
+        .and_then(Value::as_array)
+        .filter(|data| data.len() == request.inputs.len())
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!(
+                "{} response did not include one embedding per input",
+                request.feature
+            ),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?;
+    let mut vectors = vec![None::<Vec<f32>>; request.inputs.len()];
+    let mut expected_dimensions = None::<usize>;
+    for item in data {
+        let index = item
+            .get("index")
+            .and_then(Value::as_u64)
+            .and_then(|index| usize::try_from(index).ok())
+            .filter(|index| *index < request.inputs.len())
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response contained an invalid embedding index",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        if vectors[index].is_some() {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} response repeated an embedding index", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let raw_vector = item
+            .get("embedding")
+            .and_then(Value::as_array)
+            .filter(|vector| !vector.is_empty() && vector.len() <= EMBEDDING_MAX_DIMENSIONS)
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response contained an empty or oversized embedding",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        if expected_dimensions.is_some_and(|dimensions| dimensions != raw_vector.len()) {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response contained inconsistent embedding dimensions",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        expected_dimensions = Some(raw_vector.len());
+        let vector = raw_vector
+            .iter()
+            .map(|value| {
+                let value = value.as_f64()?;
+                let compact = value as f32;
+                (value.is_finite() && compact.is_finite()).then_some(compact)
+            })
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response contained a non-finite embedding value",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        vectors[index] = Some(vector);
+    }
+    let vectors = vectors
+        .into_iter()
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{} response omitted an embedding index", request.feature),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?;
+    let model_attribution =
+        exact_endpoint_model_attribution(request.feature, &selection, &body, attempt, &started_at)?;
+    let usage = token_usage(&body);
+    tracing::info!(
+        feature = request.feature,
+        provider = %model_attribution.provider,
+        requested_model = %model_attribution.requested_model_id,
+        resolved_model = %model_attribution.resolved_model_id,
+        batch_size = vectors.len(),
+        dimensions = expected_dimensions.unwrap_or_default(),
+        attempts = attempt,
+        latency_ms = started_at.elapsed().as_millis() as u64,
+        "CosyWorld AI embedding inference completed"
+    );
+    Ok(AiEmbeddings {
+        vectors,
+        attempts: attempt,
+        latency: started_at.elapsed(),
+        model_attribution,
+        usage,
+        context_hash,
+        prompt_version: request.prompt_version.to_string(),
+    })
+}
+
+pub(crate) async fn request_rerank_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: RerankRequest<'_>,
+) -> Result<AiRerankResult, AiGatewayError> {
+    let started_at = Instant::now();
+    let invalid_query =
+        request.query.trim().is_empty() || request.query.len() > RERANK_MAX_QUERY_BYTES;
+    let invalid_documents = request.documents.is_empty()
+        || request.documents.len() > RERANK_MAX_DOCUMENTS
+        || request.documents.iter().any(|document| {
+            document.trim().is_empty() || document.len() > RERANK_MAX_DOCUMENT_BYTES
+        });
+    let total_input_bytes = request
+        .documents
+        .iter()
+        .fold(request.query.len(), |total, document| {
+            total.saturating_add(document.len())
+        });
+    if invalid_query || invalid_documents || total_input_bytes > RERANK_MAX_TOTAL_INPUT_BYTES {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} rerank inputs were empty or exceeded their batch or byte limits",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
+    let selection = config
+        .pin_actor_rerank_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let context_hash = exact_endpoint_context_hash(
+        request.feature,
+        request.prompt_version,
+        Some(request.query),
+        request.documents,
+    );
+    let mut payload = json!({
+        "model": selection.requested_model_id(),
+        "query": request.query,
+        "documents": request.documents,
+    });
+    add_exact_binding_zdr_constraint(&mut payload, &selection);
+    let (body, attempt) = post_bounded_exact_json(
+        config,
+        request.feature,
+        "rerank",
+        request.referer,
+        &payload,
+        request.timeout,
+        request.max_attempts,
+        RERANK_MAX_RESPONSE_BYTES,
+        &started_at,
+    )
+    .await?;
+
+    let results = body
+        .get("results")
+        .and_then(Value::as_array)
+        .filter(|results| results.len() == request.documents.len())
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{} response did not rank every document", request.feature),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?;
+    let mut seen = vec![false; request.documents.len()];
+    let mut scores = Vec::with_capacity(results.len());
+    let mut previous_score = None::<f64>;
+    for result in results {
+        let index = result
+            .get("index")
+            .and_then(Value::as_u64)
+            .and_then(|index| usize::try_from(index).ok())
+            .filter(|index| *index < request.documents.len())
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response contained an invalid rerank index",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        if seen[index] {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{} response repeated a rerank index", request.feature),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        seen[index] = true;
+        let relevance_score = result
+            .get("relevance_score")
+            .and_then(Value::as_f64)
+            .filter(|score| score.is_finite() && (0.0..=1.0).contains(score))
+            .ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response contained an invalid relevance score",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        if previous_score.is_some_and(|previous| relevance_score > previous) {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} response was not sorted by relevance score",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        previous_score = Some(relevance_score);
+        scores.push(RerankScore {
+            index,
+            relevance_score,
+        });
+    }
+    if seen.iter().any(|seen| !seen) {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{} response omitted a rerank index", request.feature),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        });
+    }
+    let model_attribution =
+        exact_endpoint_model_attribution(request.feature, &selection, &body, attempt, &started_at)?;
+    let usage = token_usage(&body);
+    tracing::info!(
+        feature = request.feature,
+        provider = %model_attribution.provider,
+        requested_model = %model_attribution.requested_model_id,
+        resolved_model = %model_attribution.resolved_model_id,
+        document_count = scores.len(),
+        attempts = attempt,
+        latency_ms = started_at.elapsed().as_millis() as u64,
+        "CosyWorld AI rerank inference completed"
+    );
+    Ok(AiRerankResult {
+        scores,
+        attempts: attempt,
+        latency: started_at.elapsed(),
+        model_attribution,
+        usage,
+        context_hash,
+        prompt_version: request.prompt_version.to_string(),
+    })
+}
+
+pub(crate) async fn request_speech_synthesis_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: SpeechSynthesisRequest<'_>,
+) -> Result<AiSynthesizedSpeech, AiGatewayError> {
+    let started_at = Instant::now();
+    let voice = request.voice.trim();
+    if request.text.trim().is_empty()
+        || request.text.len() > SPEECH_SYNTHESIS_MAX_TEXT_BYTES
+        || voice.is_empty()
+        || voice.len() > SPEECH_SYNTHESIS_MAX_VOICE_BYTES
+        || voice != request.voice
+        || voice.chars().any(char::is_control)
+    {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} speech text or caller-pinned voice was empty or exceeded its byte limit",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
+    let selection = config
+        .pin_actor_speech_synthesis_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let context_hash = exact_endpoint_binary_context_hash(
+        request.feature,
+        request.prompt_version,
+        &[voice.as_bytes(), request.text.as_bytes()],
+    );
+    let mut payload = json!({
+        "model": selection.requested_model_id(),
+        "input": request.text,
+        "voice": voice,
+        "response_format": "mp3",
+    });
+    add_exact_binding_zdr_constraint(&mut payload, &selection);
+    let (bytes, generation_id, attempt) = post_bounded_exact_audio(
+        config,
+        request.feature,
+        "audio/speech",
+        request.referer,
+        &payload,
+        request.timeout,
+        request.max_attempts,
+        &started_at,
+    )
+    .await?;
+    let model_attribution = selection.attribute_response(None).map_err(|error| {
+        let mut error = AiGatewayError::registry(request.feature, error);
+        error.attempts = attempt;
+        error.latency = started_at.elapsed();
+        error
+    })?;
+    tracing::info!(
+        feature = request.feature,
+        provider = %model_attribution.provider,
+        requested_model = %model_attribution.requested_model_id,
+        resolved_model = %model_attribution.resolved_model_id,
+        audio_bytes = bytes.len(),
+        attempts = attempt,
+        latency_ms = started_at.elapsed().as_millis() as u64,
+        "CosyWorld AI speech synthesis completed"
+    );
+    Ok(AiSynthesizedSpeech {
+        bytes,
+        content_type: "audio/mpeg".to_string(),
+        generation_id,
+        attempts: attempt,
+        latency: started_at.elapsed(),
+        model_attribution,
+        context_hash,
+        prompt_version: request.prompt_version.to_string(),
+    })
+}
+
+#[allow(dead_code)] // Safe primitive is held dormant until input provenance is enforced.
+pub(crate) async fn request_transcription_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: TranscriptionRequest<'_>,
+) -> Result<AiTranscription, AiGatewayError> {
+    let started_at = Instant::now();
+    if request.input_audio.is_empty() || request.input_audio.len() > TRANSCRIPTION_MAX_AUDIO_BYTES {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} transcription audio was empty or exceeded its byte limit",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
+    let selection = config
+        .pin_actor_transcription_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let context_hash = exact_endpoint_binary_context_hash(
+        request.feature,
+        request.prompt_version,
+        &[
+            request.input_audio_format.as_str().as_bytes(),
+            request.input_audio,
+        ],
+    );
+    let mut payload = json!({
+        "model": selection.requested_model_id(),
+        "input_audio": {
+            "data": BASE64_STANDARD.encode(request.input_audio),
+            "format": request.input_audio_format.as_str(),
+        },
+    });
+    add_exact_binding_zdr_constraint(&mut payload, &selection);
+    let (body, attempt) = post_bounded_exact_json(
+        config,
+        request.feature,
+        "audio/transcriptions",
+        request.referer,
+        &payload,
+        request.timeout,
+        request.max_attempts,
+        TRANSCRIPTION_MAX_RESPONSE_BYTES,
+        &started_at,
+    )
+    .await?;
+    let text = body
+        .get("text")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!(
+                "{} response omitted a non-empty transcript",
+                request.feature
+            ),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?
+        .to_string();
+    let model_attribution = exact_endpoint_optional_model_attribution(
+        request.feature,
+        &selection,
+        &body,
+        attempt,
+        &started_at,
+    )?;
+    let usage = token_usage(&body);
+    tracing::info!(
+        feature = request.feature,
+        provider = %model_attribution.provider,
+        requested_model = %model_attribution.requested_model_id,
+        resolved_model = %model_attribution.resolved_model_id,
+        input_audio_bytes = request.input_audio.len(),
+        transcript_bytes = text.len(),
+        attempts = attempt,
+        latency_ms = started_at.elapsed().as_millis() as u64,
+        "CosyWorld AI transcription completed"
+    );
+    Ok(AiTranscription {
+        text,
+        attempts: attempt,
+        latency: started_at.elapsed(),
+        model_attribution,
+        usage,
+        context_hash,
+        prompt_version: request.prompt_version.to_string(),
+    })
+}
+
+fn add_exact_binding_zdr_constraint(payload: &mut Value, selection: &PinnedModelSelection) {
+    if selection.enforces_zero_data_retention() {
+        payload["provider"] = json!({
+            "data_collection": "deny",
+            "zdr": true,
+        });
+    }
+}
+
+fn exact_endpoint_context_hash(
+    feature: &str,
+    prompt_version: &str,
+    query: Option<&str>,
+    values: &[String],
+) -> String {
+    let mut hasher = Sha256::new();
+    for component in [feature, prompt_version].into_iter().chain(query) {
+        hasher.update(component.len().to_be_bytes());
+        hasher.update(component.as_bytes());
+    }
+    for value in values {
+        hasher.update(value.len().to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn exact_endpoint_binary_context_hash(
+    feature: &str,
+    prompt_version: &str,
+    values: &[&[u8]],
+) -> String {
+    let mut hasher = Sha256::new();
+    for component in [feature.as_bytes(), prompt_version.as_bytes()]
+        .into_iter()
+        .chain(values.iter().copied())
+    {
+        hasher.update(component.len().to_be_bytes());
+        hasher.update(component);
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn token_usage(body: &Value) -> AiTokenUsage {
+    let usage = body.get("usage");
+    AiTokenUsage {
+        prompt_tokens: usage
+            .and_then(|usage| usage.get("prompt_tokens"))
+            .and_then(Value::as_u64)
+            .or_else(|| {
+                usage
+                    .and_then(|usage| usage.get("input_tokens"))
+                    .and_then(Value::as_u64)
+            }),
+        completion_tokens: usage
+            .and_then(|usage| usage.get("completion_tokens"))
+            .and_then(Value::as_u64)
+            .or_else(|| {
+                usage
+                    .and_then(|usage| usage.get("output_tokens"))
+                    .and_then(Value::as_u64)
+            }),
+        total_tokens: usage
+            .and_then(|usage| usage.get("total_tokens"))
+            .and_then(Value::as_u64),
+    }
+}
+
+fn exact_endpoint_model_attribution(
+    feature: &str,
+    selection: &PinnedModelSelection,
+    body: &Value,
+    attempt: u8,
+    started_at: &Instant,
+) -> Result<ModelAttribution, AiGatewayError> {
+    let provider_model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|model| !model.trim().is_empty())
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{feature} response omitted model attribution"),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?;
+    let requested_model = selection.requested_model_id();
+    let concrete_model = selection
+        .candidate()
+        .concrete_model()
+        .map(|identity| identity.model_id.as_str());
+    if provider_model != requested_model && Some(provider_model) != concrete_model {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{feature} provider attributed the response to an unexpected model"),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        });
+    }
+    selection
+        .attribute_response(Some(provider_model))
+        .map_err(|error| {
+            let mut error = AiGatewayError::registry(feature, error);
+            error.attempts = attempt;
+            error.latency = started_at.elapsed();
+            error
+        })
+}
+
+#[allow(dead_code)] // STT permits omitted response model while pinning the request model.
+fn exact_endpoint_optional_model_attribution(
+    feature: &str,
+    selection: &PinnedModelSelection,
+    body: &Value,
+    attempt: u8,
+    started_at: &Instant,
+) -> Result<ModelAttribution, AiGatewayError> {
+    match body.get("model") {
+        None | Some(Value::Null) => selection.attribute_response(None).map_err(|error| {
+            let mut error = AiGatewayError::registry(feature, error);
+            error.attempts = attempt;
+            error.latency = started_at.elapsed();
+            error
+        }),
+        Some(Value::String(model)) if model.trim().is_empty() => {
+            selection.attribute_response(None).map_err(|error| {
+                let mut error = AiGatewayError::registry(feature, error);
+                error.attempts = attempt;
+                error.latency = started_at.elapsed();
+                error
+            })
+        }
+        Some(Value::String(_)) => {
+            exact_endpoint_model_attribution(feature, selection, body, attempt, started_at)
+        }
+        Some(_) => Err(AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{feature} response contained invalid model attribution"),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        }),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn post_bounded_exact_json(
+    config: &AiConfig,
+    feature: &str,
+    endpoint: &str,
+    referer: &str,
+    payload: &Value,
+    timeout: Duration,
+    max_attempts: u8,
+    response_limit: usize,
+    started_at: &Instant,
+) -> Result<(Value, u8), AiGatewayError> {
+    let client = reqwest::Client::builder()
+        .timeout(timeout)
+        .build()
+        .map_err(|error| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{feature} client setup failed: {error}"),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let url = format!("{}/{endpoint}", config.base_url);
+    let max_attempts = max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        let response = client
+            .post(&url)
+            .bearer_auth(&config.api_key)
+            .header("HTTP-Referer", referer)
+            .header("X-OpenRouter-Title", "CosyWorld v2")
+            .header("X-Title", "CosyWorld v2")
+            .json(payload)
+            .send()
+            .await;
+        let mut response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                let kind = if error.is_timeout() {
+                    AiFailureKind::Timeout
+                } else {
+                    AiFailureKind::Transport
+                };
+                let retryable = error.is_timeout() || error.is_connect();
+                if retryable && attempt < max_attempts {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+                return Err(AiGatewayError {
+                    kind,
+                    message: format!("{feature} request failed: {error}"),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+        };
+        let status = response.status();
+        if !status.is_success() {
+            // Request-shape and other deterministic 4xx failures are terminal.
+            // Rate limiting is transient and retains the ordinary bounded retry.
+            let retryable = status.as_u16() == 429 || status.is_server_error();
+            if retryable && attempt < max_attempts {
+                sleep(retry_delay(attempt)).await;
+                continue;
+            }
+            let detail = provider_error_detail(response).await;
+            return Err(AiGatewayError {
+                kind: AiFailureKind::Provider,
+                message: format!(
+                    "{feature} provider returned HTTP {status}{}",
+                    detail
+                        .as_deref()
+                        .map(|detail| format!(": {detail}"))
+                        .unwrap_or_default()
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > response_limit as u64)
+        {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response exceeded its byte limit"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let mut response_bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|error| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{feature} response body could not be read: {error}"),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })? {
+            if response_bytes.len().saturating_add(chunk.len()) > response_limit {
+                return Err(AiGatewayError {
+                    kind: AiFailureKind::InvalidResponse,
+                    message: format!("{feature} response exceeded its byte limit"),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+            response_bytes.extend_from_slice(&chunk);
+        }
+        let body =
+            serde_json::from_slice::<Value>(&response_bytes).map_err(|error| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response was not valid JSON: {error}"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+        return Ok((body, attempt));
+    }
+    unreachable!("the bounded exact-endpoint attempt loop always returns")
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn post_bounded_exact_audio(
+    config: &AiConfig,
+    feature: &str,
+    endpoint: &str,
+    referer: &str,
+    payload: &Value,
+    timeout: Duration,
+    max_attempts: u8,
+    started_at: &Instant,
+) -> Result<(Vec<u8>, Option<String>, u8), AiGatewayError> {
+    let client = reqwest::Client::builder()
+        .timeout(timeout)
+        .build()
+        .map_err(|error| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{feature} client setup failed: {error}"),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let url = format!("{}/{endpoint}", config.base_url);
+    let max_attempts = max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        let response = client
+            .post(&url)
+            .bearer_auth(&config.api_key)
+            .header("HTTP-Referer", referer)
+            .header("X-OpenRouter-Title", "CosyWorld v2")
+            .header("X-Title", "CosyWorld v2")
+            .json(payload)
+            .send()
+            .await;
+        let mut response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                let kind = if error.is_timeout() {
+                    AiFailureKind::Timeout
+                } else {
+                    AiFailureKind::Transport
+                };
+                let retryable = error.is_timeout() || error.is_connect();
+                if retryable && attempt < max_attempts {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+                return Err(AiGatewayError {
+                    kind,
+                    message: format!("{feature} request failed: {error}"),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+        };
+        let status = response.status();
+        if !status.is_success() {
+            let retryable = status.as_u16() == 429 || status.is_server_error();
+            if retryable && attempt < max_attempts {
+                sleep(retry_delay(attempt)).await;
+                continue;
+            }
+            let detail = provider_error_detail(response).await;
+            return Err(AiGatewayError {
+                kind: AiFailureKind::Provider,
+                message: format!(
+                    "{feature} provider returned HTTP {status}{}",
+                    detail
+                        .as_deref()
+                        .map(|detail| format!(": {detail}"))
+                        .unwrap_or_default()
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(';').next())
+            .map(str::trim);
+        if !content_type.is_some_and(|value| value.eq_ignore_ascii_case("audio/mpeg")) {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response content type was not audio/mpeg"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let generation_id = response
+            .headers()
+            .get("X-Generation-Id")
+            .map(|value| {
+                let value = value.to_str().map_err(|_| AiGatewayError {
+                    kind: AiFailureKind::InvalidResponse,
+                    message: format!("{feature} response contained an invalid generation id"),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                })?;
+                let trimmed = value.trim();
+                if trimmed.is_empty()
+                    || trimmed.len() > SPEECH_SYNTHESIS_GENERATION_ID_MAX_BYTES
+                    || trimmed.chars().any(char::is_control)
+                {
+                    return Err(AiGatewayError {
+                        kind: AiFailureKind::InvalidResponse,
+                        message: format!(
+                            "{feature} response generation id was empty or exceeded its byte limit"
+                        ),
+                        attempts: attempt,
+                        latency: started_at.elapsed(),
+                    });
+                }
+                Ok(trimmed.to_string())
+            })
+            .transpose()?;
+        if response
+            .content_length()
+            .is_some_and(|length| length > SPEECH_SYNTHESIS_MAX_RESPONSE_BYTES as u64)
+        {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response exceeded its byte limit"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let mut response_bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|error| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{feature} response body could not be read: {error}"),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })? {
+            if response_bytes.len().saturating_add(chunk.len())
+                > SPEECH_SYNTHESIS_MAX_RESPONSE_BYTES
+            {
+                return Err(AiGatewayError {
+                    kind: AiFailureKind::InvalidResponse,
+                    message: format!("{feature} response exceeded its byte limit"),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+            response_bytes.extend_from_slice(&chunk);
+        }
+        if response_bytes.is_empty() {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!("{feature} response contained empty audio"),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        return Ok((response_bytes, generation_id, attempt));
+    }
+    unreachable!("the bounded exact-audio attempt loop always returns")
 }
 
 pub(crate) async fn request_image_generation_with_binding(
@@ -850,9 +1994,7 @@ pub(crate) async fn request_image_generation_with_binding(
             "prompt": request.prompt,
             "n": 1,
         });
-        if selection.enforces_zero_data_retention() {
-            payload["provider"] = json!({ "zdr": true });
-        }
+        add_exact_binding_zdr_constraint(&mut payload, &selection);
         if selection.candidate().supported_parameters().seed {
             let digest = Sha256::digest(context_hash.as_bytes());
             payload["seed"] = json!(u32::from_be_bytes(
@@ -1235,6 +2377,55 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
     })
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ReasoningCompatibilityFallback {
+    Enable,
+    Omit,
+}
+
+impl ReasoningCompatibilityFallback {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Enable => "enable",
+            Self::Omit => "omit",
+        }
+    }
+}
+
+/// OpenRouter's catalog tells us whether a model accepts the unified reasoning
+/// object, but it does not say whether reasoning is mandatory. Some provider
+/// endpoints also lag the catalog and reject that object. Retry exactly once
+/// with the compatible shape; the normal provider retry loop must not multiply
+/// a deterministic request-shape error across every voice candidate round.
+fn reasoning_compatibility_fallback(
+    status: reqwest::StatusCode,
+    detail: Option<&str>,
+    current_reasoning: Option<&Value>,
+) -> Option<ReasoningCompatibilityFallback> {
+    if status != reqwest::StatusCode::BAD_REQUEST {
+        return None;
+    }
+    let detail = detail?
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_ascii_lowercase();
+    if detail.trim_end_matches(['.', ' ']) == REASONING_MANDATORY_ERROR {
+        let already_enabled = current_reasoning
+            .and_then(|reasoning| reasoning.get("enabled"))
+            .and_then(Value::as_bool)
+            == Some(true);
+        return (!already_enabled).then_some(ReasoningCompatibilityFallback::Enable);
+    }
+    let rejects_reasoning_control = detail.contains("reasoning")
+        && (detail.contains("not supported")
+            || detail.contains("unsupported")
+            || detail.contains("unknown parameter")
+            || detail.contains("unrecognized parameter"));
+    (current_reasoning.is_some() && rejects_reasoning_control)
+        .then_some(ReasoningCompatibilityFallback::Omit)
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn request_completion(
     config: &AiConfig,
@@ -1304,7 +2495,7 @@ async fn request_completion(
     let url = format!("{}/chat/completions", config.base_url);
     let max_attempts = max_attempts.max(1);
 
-    for attempt in 1..=max_attempts {
+    'attempts: for attempt in 1..=max_attempts {
         let candidate_output_cap = selection
             .map(|selection| {
                 let candidate = selection.candidate();
@@ -1370,46 +2561,76 @@ async fn request_completion(
                 payload["stop"] = json!(defaults.stop);
             }
         }
-        let response = client
-            .post(&url)
-            .bearer_auth(&config.api_key)
-            .header("HTTP-Referer", referer)
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
-            .json(&payload)
-            .send()
-            .await;
+        let mut reasoning_compatibility_retried = false;
+        let response = loop {
+            let response = client
+                .post(&url)
+                .bearer_auth(&config.api_key)
+                .header("HTTP-Referer", referer)
+                .header("X-OpenRouter-Title", "CosyWorld v2")
+                .header("X-Title", "CosyWorld v2")
+                .json(&payload)
+                .send()
+                .await;
 
-        let response = match response {
-            Ok(response) => response,
-            Err(error) => {
-                let kind = if error.is_timeout() {
-                    AiFailureKind::Timeout
-                } else {
-                    AiFailureKind::Transport
-                };
-                let retryable = error.is_timeout() || error.is_connect();
-                if retryable && attempt < max_attempts {
-                    sleep(retry_delay(attempt)).await;
-                    continue;
+            let response = match response {
+                Ok(response) => response,
+                Err(error) => {
+                    let kind = if error.is_timeout() {
+                        AiFailureKind::Timeout
+                    } else {
+                        AiFailureKind::Transport
+                    };
+                    let retryable = error.is_timeout() || error.is_connect();
+                    if retryable && attempt < max_attempts {
+                        sleep(retry_delay(attempt)).await;
+                        continue 'attempts;
+                    }
+                    return Err(AiGatewayError {
+                        kind,
+                        message: format!("{feature} request failed: {error}"),
+                        attempts: attempt,
+                        latency: started_at.elapsed(),
+                    });
                 }
-                return Err(AiGatewayError {
-                    kind,
-                    message: format!("{feature} request failed: {error}"),
-                    attempts: attempt,
-                    latency: started_at.elapsed(),
-                });
-            }
-        };
+            };
 
-        let status = response.status();
-        if !status.is_success() {
+            let status = response.status();
+            if status.is_success() {
+                break response;
+            }
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
                 sleep(retry_delay(attempt)).await;
-                continue;
+                continue 'attempts;
             }
             let detail = provider_error_detail(response).await;
+            if raw_mode && !reasoning_compatibility_retried {
+                if let Some(fallback) = reasoning_compatibility_fallback(
+                    status,
+                    detail.as_deref(),
+                    payload.get("reasoning"),
+                ) {
+                    match fallback {
+                        ReasoningCompatibilityFallback::Enable => {
+                            payload["reasoning"] = json!({ "enabled": true, "exclude": true });
+                        }
+                        ReasoningCompatibilityFallback::Omit => {
+                            if let Some(body) = payload.as_object_mut() {
+                                body.remove("reasoning");
+                            }
+                        }
+                    }
+                    reasoning_compatibility_retried = true;
+                    tracing::info!(
+                        feature,
+                        requested_model = model,
+                        fallback = fallback.as_str(),
+                        "retrying one AI request with a compatible reasoning shape"
+                    );
+                    continue;
+                }
+            }
             return Err(AiGatewayError {
                 kind: AiFailureKind::Provider,
                 message: format!(
@@ -1422,7 +2643,7 @@ async fn request_completion(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             });
-        }
+        };
 
         let body: serde_json::Value = response.json().await.map_err(|error| AiGatewayError {
             kind: AiFailureKind::InvalidResponse,
@@ -2044,6 +3265,74 @@ mod tests {
         }
     }
 
+    fn embedding_actor_model_binding(
+        zero_data_retention: bool,
+    ) -> crate::content_load::SeedActorModelBinding {
+        let mut binding = image_actor_model_binding(zero_data_retention);
+        binding.id = "baai/bge-base-en-v1.5".to_string();
+        binding.actor_id = 436_500_960_082;
+        binding.actor_ref = "pack://cosyworld.elysium/actor/436500960082".to_string();
+        binding.requested_model_id = binding.id.clone();
+        binding.canonical_slug = "baai/bge-base-en-v1.5-20251117".to_string();
+        binding.display_name = "BAAI: bge-base-en-v1.5".to_string();
+        binding.input_modalities = vec!["text".to_string()];
+        binding.output_modalities = vec!["embeddings".to_string()];
+        binding.context_length = Some(512);
+        binding.supported_parameters.clear();
+        binding
+    }
+
+    fn rerank_actor_model_binding(
+        zero_data_retention: bool,
+    ) -> crate::content_load::SeedActorModelBinding {
+        let mut binding = image_actor_model_binding(zero_data_retention);
+        binding.id = "cohere/rerank-4-fast".to_string();
+        binding.actor_id = 692_772_004_841;
+        binding.actor_ref = "pack://cosyworld.elysium/actor/692772004841".to_string();
+        binding.requested_model_id = binding.id.clone();
+        binding.canonical_slug = binding.id.clone();
+        binding.display_name = "Cohere: Rerank 4 Fast".to_string();
+        binding.input_modalities = vec!["text".to_string()];
+        binding.output_modalities = vec!["rerank".to_string()];
+        binding.context_length = Some(32_768);
+        binding.supported_parameters.clear();
+        binding
+    }
+
+    fn speech_synthesis_actor_model_binding(
+        zero_data_retention: bool,
+    ) -> crate::content_load::SeedActorModelBinding {
+        let mut binding = image_actor_model_binding(zero_data_retention);
+        binding.id = "openai/gpt-4o-mini-tts".to_string();
+        binding.actor_id = 711_004_200_001;
+        binding.actor_ref = "pack://cosyworld.elysium/actor/711004200001".to_string();
+        binding.requested_model_id = binding.id.clone();
+        binding.canonical_slug = "openai/gpt-4o-mini-tts-20260731".to_string();
+        binding.display_name = "OpenAI: GPT-4o mini TTS".to_string();
+        binding.input_modalities = vec!["text".to_string()];
+        binding.output_modalities = vec!["speech".to_string()];
+        binding.context_length = Some(16_384);
+        binding.supported_parameters.clear();
+        binding
+    }
+
+    fn transcription_actor_model_binding(
+        zero_data_retention: bool,
+    ) -> crate::content_load::SeedActorModelBinding {
+        let mut binding = image_actor_model_binding(zero_data_retention);
+        binding.id = "openai/gpt-4o-mini-transcribe".to_string();
+        binding.actor_id = 711_004_200_002;
+        binding.actor_ref = "pack://cosyworld.elysium/actor/711004200002".to_string();
+        binding.requested_model_id = binding.id.clone();
+        binding.canonical_slug = "openai/gpt-4o-mini-transcribe-20260731".to_string();
+        binding.display_name = "OpenAI: GPT-4o mini Transcribe".to_string();
+        binding.input_modalities = vec!["audio".to_string()];
+        binding.output_modalities = vec!["transcription".to_string()];
+        binding.context_length = Some(16_384);
+        binding.supported_parameters.clear();
+        binding
+    }
+
     async fn capture_raw_actor_request(zero_data_retention: bool) -> (Value, AiCompletion) {
         let request_body = Arc::new(std::sync::Mutex::new(None::<Value>));
         let app = Router::new().route(
@@ -2054,6 +3343,20 @@ mod tests {
                     let request_body = request_body.clone();
                     async move {
                         *request_body.lock().expect("capture raw request") = Some(body);
+                        let body = request_body
+                            .lock()
+                            .expect("read captured raw request")
+                            .clone()
+                            .expect("captured raw request exists");
+                        if body.get("reasoning").is_some() {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "error": { "message": "reasoning is not supported" }
+                                })),
+                            )
+                                .into_response();
+                        }
                         Json(json!({
                             "model": "anthropic/claude-fable-20260731",
                             "choices": [{
@@ -2061,6 +3364,7 @@ mod tests {
                                 "message": { "content": "I am the selected model." }
                             }]
                         }))
+                        .into_response()
                     }
                 }
             }),
@@ -2275,30 +3579,753 @@ mod tests {
         server.abort();
     }
 
-    #[tokio::test]
-    async fn production_image_binding_without_zdr_is_rejected_before_network_io() {
+    #[test]
+    fn production_image_binding_without_zdr_is_selectable_and_truthfully_attributed() {
         let config = AiConfig {
             api_key: "test".to_string(),
             base_url: "https://openrouter.ai/api/v1".to_string(),
             data_policy_mode: DataPolicyMode::Production,
             ..AiConfig::default()
         };
-        let error = request_image_generation_with_binding(
+        let selection = config
+            .pin_actor_image_model(&image_actor_model_binding(false))
+            .expect("server-authored exact image binding may be non-ZDR");
+
+        assert!(!selection.enforces_zero_data_retention());
+        assert_eq!(
+            selection
+                .attribute_response(None)
+                .expect("exact image attribution")
+                .data_policy,
+            DataPolicyEligibility::default()
+        );
+    }
+
+    #[tokio::test]
+    async fn embedding_request_uses_exact_binding_zdr_and_reorders_indexed_vectors() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/embeddings",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture embedding request") = Some(body);
+                    Json(json!({
+                        "model": "baai/bge-base-en-v1.5-20251117",
+                        "data": [
+                            { "index": 1, "embedding": [0.3, 0.4] },
+                            { "index": 0, "embedding": [0.1, 0.2] }
+                        ],
+                        "usage": { "prompt_tokens": 7, "total_tokens": 7 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind embedding gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("embedding gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let inputs = vec!["first passage".to_string(), "second passage".to_string()];
+        let embedded = request_embeddings_with_binding(
             &config,
-            &image_actor_model_binding(false),
-            ImageGenerationRequest {
-                feature: "image_privacy_test",
-                prompt_version: "image-privacy-test-v1",
-                prompt: "must not reach the network",
-                timeout: Duration::from_millis(10),
-                max_attempts: 1,
-                referer: "https://cosy.world/",
+            &embedding_actor_model_binding(true),
+            EmbeddingRequest {
+                feature: "embedding_test",
+                prompt_version: "embedding-test-v1",
+                inputs: &inputs,
+                timeout: Duration::from_secs(2),
+                max_attempts: 3,
+                referer: "http://127.0.0.1",
             },
         )
         .await
-        .expect_err("non-ZDR image binding must fail closed in production");
-        assert_eq!(error.code(), "inference_privacy_rejected");
-        assert_eq!(error.attempts, 0);
+        .expect("bound embedding request");
+
+        let body = request_body
+            .lock()
+            .expect("read embedding request")
+            .clone()
+            .expect("embedding request captured");
+        assert_eq!(body["model"], "baai/bge-base-en-v1.5");
+        assert_eq!(body["input"], json!(inputs));
+        assert_eq!(body["encoding_format"], "float");
+        assert_eq!(
+            body.pointer("/provider/data_collection")
+                .and_then(Value::as_str),
+            Some("deny")
+        );
+        assert_eq!(
+            body.pointer("/provider/zdr").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(embedded.vectors, vec![vec![0.1, 0.2], vec![0.3, 0.4]]);
+        assert_eq!(embedded.attempts, 1);
+        assert_eq!(embedded.usage.prompt_tokens, Some(7));
+        assert_eq!(
+            embedded.model_attribution.capability,
+            ModelCapability::Embeddings
+        );
+        assert_eq!(
+            embedded.model_attribution.resolved_model_id,
+            "baai/bge-base-en-v1.5-20251117"
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn embedding_response_rejects_values_that_overflow_finite_vectors() {
+        let app = Router::new().route(
+            "/embeddings",
+            post(|| async {
+                Json(json!({
+                    "model": "baai/bge-base-en-v1.5-20251117",
+                    "data": [{ "index": 0, "embedding": [1.0e100] }]
+                }))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind invalid embedding gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("invalid embedding gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let inputs = vec!["one passage".to_string()];
+        let error = request_embeddings_with_binding(
+            &config,
+            &embedding_actor_model_binding(false),
+            EmbeddingRequest {
+                feature: "embedding_invalid_test",
+                prompt_version: "embedding-invalid-test-v1",
+                inputs: &inputs,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect_err("f64 values that overflow f32 must be rejected");
+
+        assert_eq!(error.code(), "inference_invalid_response");
+        assert_eq!(error.attempts, 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn rerank_request_allows_non_zdr_exact_binding_and_validates_ranking() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/rerank",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture rerank request") = Some(body);
+                    Json(json!({
+                        "model": "cohere/rerank-4-fast",
+                        "results": [
+                            { "index": 1, "relevance_score": 0.9 },
+                            { "index": 0, "relevance_score": 0.2 }
+                        ],
+                        "usage": { "total_tokens": 18 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind rerank gateway test server");
+        let address = listener.local_addr().expect("rerank gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let documents = vec![
+            "Berlin is in Germany.".to_string(),
+            "Paris is in France.".to_string(),
+        ];
+        let ranked = request_rerank_with_binding(
+            &config,
+            &rerank_actor_model_binding(false),
+            RerankRequest {
+                feature: "rerank_test",
+                prompt_version: "rerank-test-v1",
+                query: "capital of France",
+                documents: &documents,
+                timeout: Duration::from_secs(2),
+                max_attempts: 3,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect("bound rerank request");
+
+        let body = request_body
+            .lock()
+            .expect("read rerank request")
+            .clone()
+            .expect("rerank request captured");
+        assert_eq!(body["model"], "cohere/rerank-4-fast");
+        assert_eq!(body["query"], "capital of France");
+        assert_eq!(body["documents"], json!(documents));
+        assert!(body.get("provider").is_none());
+        assert_eq!(
+            ranked.scores,
+            vec![
+                RerankScore {
+                    index: 1,
+                    relevance_score: 0.9,
+                },
+                RerankScore {
+                    index: 0,
+                    relevance_score: 0.2,
+                }
+            ]
+        );
+        assert_eq!(ranked.usage.total_tokens, Some(18));
+        assert_eq!(ranked.model_attribution.capability, ModelCapability::Rerank);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn rerank_rejects_duplicate_indices_and_out_of_range_scores() {
+        let app = Router::new().route(
+            "/rerank",
+            post(|Json(body): Json<Value>| async move {
+                let results = if body.get("query").and_then(Value::as_str) == Some("bad index") {
+                    json!([
+                        { "index": 0, "relevance_score": 0.9 },
+                        { "index": 0, "relevance_score": 0.2 }
+                    ])
+                } else {
+                    json!([
+                        { "index": 0, "relevance_score": 1.1 },
+                        { "index": 1, "relevance_score": 0.2 }
+                    ])
+                };
+                Json(json!({
+                    "model": "cohere/rerank-4-fast",
+                    "results": results
+                }))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind invalid rerank gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("invalid rerank gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let documents = vec!["first".to_string(), "second".to_string()];
+        for query in ["bad index", "bad score"] {
+            let error = request_rerank_with_binding(
+                &config,
+                &rerank_actor_model_binding(false),
+                RerankRequest {
+                    feature: "rerank_invalid_test",
+                    prompt_version: "rerank-invalid-test-v1",
+                    query,
+                    documents: &documents,
+                    timeout: Duration::from_secs(2),
+                    max_attempts: 1,
+                    referer: "http://127.0.0.1",
+                },
+            )
+            .await
+            .expect_err("malformed rerank response must fail closed");
+            assert_eq!(error.code(), "inference_invalid_response");
+            assert_eq!(error.attempts, 1);
+        }
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn speech_synthesis_uses_exact_binding_voice_mp3_zdr_and_retries_transient_statuses() {
+        use std::sync::Mutex;
+
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed_requests = Arc::clone(&requests);
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured_body = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/audio/speech",
+            post(move |Json(body): Json<Value>| {
+                let observed_requests = Arc::clone(&observed_requests);
+                let captured_body = Arc::clone(&captured_body);
+                async move {
+                    *captured_body.lock().expect("capture speech request") = Some(body);
+                    match observed_requests.fetch_add(1, Ordering::SeqCst) {
+                        0 => {
+                            return (
+                                StatusCode::TOO_MANY_REQUESTS,
+                                Json(json!({ "error": { "message": "try later" } })),
+                            )
+                                .into_response();
+                        }
+                        1 => {
+                            return (
+                                StatusCode::SERVICE_UNAVAILABLE,
+                                Json(json!({ "error": { "message": "temporarily unavailable" } })),
+                            )
+                                .into_response();
+                        }
+                        _ => {}
+                    }
+                    (
+                        [
+                            ("content-type", "audio/mpeg"),
+                            ("x-generation-id", "speech-gen-42"),
+                        ],
+                        b"ID3\x04synthetic-mp3".to_vec(),
+                    )
+                        .into_response()
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind speech gateway test server");
+        let address = listener.local_addr().expect("speech gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let speech = request_speech_synthesis_with_binding(
+            &config,
+            &speech_synthesis_actor_model_binding(true),
+            SpeechSynthesisRequest {
+                feature: "speech_test",
+                prompt_version: "speech-test-v1",
+                text: "Welcome home.",
+                voice: "coral",
+                timeout: Duration::from_secs(2),
+                max_attempts: 3,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect("bound speech synthesis request");
+
+        let body = request_body
+            .lock()
+            .expect("read speech request")
+            .clone()
+            .expect("speech request captured");
+        assert_eq!(body["model"], "openai/gpt-4o-mini-tts");
+        assert_eq!(body["input"], "Welcome home.");
+        assert_eq!(body["voice"], "coral");
+        assert_eq!(body["response_format"], "mp3");
+        assert_eq!(
+            body.pointer("/provider/data_collection")
+                .and_then(Value::as_str),
+            Some("deny")
+        );
+        assert_eq!(
+            body.pointer("/provider/zdr").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(requests.load(Ordering::SeqCst), 3);
+        assert_eq!(speech.attempts, 3);
+        assert_eq!(speech.content_type, "audio/mpeg");
+        assert_eq!(speech.generation_id.as_deref(), Some("speech-gen-42"));
+        assert_eq!(speech.bytes, b"ID3\x04synthetic-mp3");
+        assert_eq!(
+            speech.model_attribution.capability,
+            ModelCapability::SpeechSynthesis
+        );
+        assert_eq!(
+            speech.model_attribution.resolved_model_id,
+            "openai/gpt-4o-mini-tts-20260731"
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn speech_synthesis_rejects_wrong_mime_empty_and_oversized_audio() {
+        let app = Router::new().route(
+            "/audio/speech",
+            post(|Json(body): Json<Value>| async move {
+                match body.get("input").and_then(Value::as_str) {
+                    Some("wrong mime") => {
+                        ([(("content-type"), "application/octet-stream")], vec![1u8])
+                            .into_response()
+                    }
+                    Some("empty") => {
+                        ([("content-type", "audio/mpeg")], Vec::<u8>::new()).into_response()
+                    }
+                    _ => (
+                        [("content-type", "audio/mpeg")],
+                        vec![0u8; SPEECH_SYNTHESIS_MAX_RESPONSE_BYTES + 1],
+                    )
+                        .into_response(),
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind invalid speech gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("invalid speech gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        for text in ["wrong mime", "empty", "oversized"] {
+            let error = request_speech_synthesis_with_binding(
+                &config,
+                &speech_synthesis_actor_model_binding(false),
+                SpeechSynthesisRequest {
+                    feature: "speech_invalid_test",
+                    prompt_version: "speech-invalid-test-v1",
+                    text,
+                    voice: "coral",
+                    timeout: Duration::from_secs(2),
+                    max_attempts: 3,
+                    referer: "http://127.0.0.1",
+                },
+            )
+            .await
+            .expect_err("invalid speech response must fail closed");
+            assert_eq!(error.code(), "inference_invalid_response");
+            assert_eq!(error.attempts, 1);
+        }
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn speech_synthesis_request_shape_4xx_is_terminal() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&requests);
+        let app = Router::new().route(
+            "/audio/speech",
+            post(move |Json(_): Json<Value>| {
+                let observed = Arc::clone(&observed);
+                async move {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "error": { "message": "invalid voice" } })),
+                    )
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind terminal speech 4xx test server");
+        let address = listener
+            .local_addr()
+            .expect("terminal speech 4xx test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let error = request_speech_synthesis_with_binding(
+            &config,
+            &speech_synthesis_actor_model_binding(false),
+            SpeechSynthesisRequest {
+                feature: "speech_4xx_test",
+                prompt_version: "speech-4xx-test-v1",
+                text: "hello",
+                voice: "coral",
+                timeout: Duration::from_secs(2),
+                max_attempts: 4,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect_err("deterministic speech 400 must be terminal");
+
+        assert_eq!(error.code(), "inference_provider_error");
+        assert_eq!(error.attempts, 1);
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn transcription_uses_bounded_base64_exact_binding_and_attribution() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/audio/transcriptions",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture transcription request") = Some(body);
+                    Json(json!({
+                        "text": "  A lantern is glowing.  ",
+                        "usage": {
+                            "input_tokens": 9,
+                            "output_tokens": 5,
+                            "total_tokens": 14
+                        }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind transcription gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("transcription gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let audio = [0_u8, 1, 2, 3, 254, 255];
+        let transcription = request_transcription_with_binding(
+            &config,
+            &transcription_actor_model_binding(false),
+            TranscriptionRequest {
+                feature: "transcription_test",
+                prompt_version: "transcription-test-v1",
+                input_audio: &audio,
+                input_audio_format: TranscriptionAudioFormat::Wav,
+                timeout: Duration::from_secs(2),
+                max_attempts: 2,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect("bound transcription request");
+
+        let body = request_body
+            .lock()
+            .expect("read transcription request")
+            .clone()
+            .expect("transcription request captured");
+        assert_eq!(body["model"], "openai/gpt-4o-mini-transcribe");
+        assert_eq!(
+            body["input_audio"]["data"],
+            Value::String(BASE64_STANDARD.encode(audio))
+        );
+        assert_eq!(body["input_audio"]["format"], "wav");
+        assert!(body.get("response_format").is_none());
+        assert!(body.get("provider").is_none());
+        assert_eq!(transcription.text, "A lantern is glowing.");
+        assert_eq!(transcription.usage.prompt_tokens, Some(9));
+        assert_eq!(transcription.usage.completion_tokens, Some(5));
+        assert_eq!(transcription.usage.total_tokens, Some(14));
+        assert_eq!(
+            transcription.model_attribution.capability,
+            ModelCapability::Transcription
+        );
+        assert_eq!(
+            transcription.model_attribution.resolved_model_id,
+            "openai/gpt-4o-mini-transcribe-20260731"
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn transcription_rejects_empty_transcript_and_mismatched_model_attribution() {
+        let empty_audio = BASE64_STANDARD.encode(b"empty");
+        let app = Router::new().route(
+            "/audio/transcriptions",
+            post(move |Json(body): Json<Value>| {
+                let empty_audio = empty_audio.clone();
+                async move {
+                    if body.pointer("/input_audio/data").and_then(Value::as_str)
+                        == Some(empty_audio.as_str())
+                    {
+                        Json(json!({
+                            "model": "openai/gpt-4o-mini-transcribe-20260731",
+                            "text": "  "
+                        }))
+                    } else {
+                        Json(json!({
+                            "model": "other/provider-model",
+                            "text": "attribution mismatched"
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind invalid transcription gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("invalid transcription gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        for audio in [&b"empty"[..], &b"mismatched-model"[..]] {
+            let error = request_transcription_with_binding(
+                &config,
+                &transcription_actor_model_binding(true),
+                TranscriptionRequest {
+                    feature: "transcription_invalid_test",
+                    prompt_version: "transcription-invalid-test-v1",
+                    input_audio: audio,
+                    input_audio_format: TranscriptionAudioFormat::Mp3,
+                    timeout: Duration::from_secs(2),
+                    max_attempts: 1,
+                    referer: "http://127.0.0.1",
+                },
+            )
+            .await
+            .expect_err("malformed transcription response must fail closed");
+            assert_eq!(error.code(), "inference_invalid_response");
+            assert_eq!(error.attempts, 1);
+        }
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn exact_endpoint_request_shape_4xx_is_terminal_without_retry_amplification() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&requests);
+        let app = Router::new().route(
+            "/rerank",
+            post(move || {
+                let observed = Arc::clone(&observed);
+                async move {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "error": { "message": "invalid documents shape" } })),
+                    )
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind terminal 4xx gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("terminal 4xx gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let documents = vec!["first".to_string()];
+        let error = request_rerank_with_binding(
+            &config,
+            &rerank_actor_model_binding(false),
+            RerankRequest {
+                feature: "rerank_4xx_test",
+                prompt_version: "rerank-4xx-test-v1",
+                query: "query",
+                documents: &documents,
+                timeout: Duration::from_secs(2),
+                max_attempts: 4,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect_err("deterministic 400 must be terminal");
+
+        assert_eq!(error.code(), "inference_provider_error");
+        assert_eq!(error.attempts, 1);
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        server.abort();
+    }
+
+    #[test]
+    fn exact_non_chat_bindings_preserve_non_zdr_metadata_in_production() {
+        for selection in [
+            PinnedModelSelection::from_actor_embedding_binding(
+                &embedding_actor_model_binding(false),
+                DataPolicyMode::Production,
+            )
+            .expect("server-authored embeddings may be non-ZDR"),
+            PinnedModelSelection::from_actor_rerank_binding(
+                &rerank_actor_model_binding(false),
+                DataPolicyMode::Production,
+            )
+            .expect("server-authored rerank may be non-ZDR"),
+            PinnedModelSelection::from_actor_speech_synthesis_binding(
+                &speech_synthesis_actor_model_binding(false),
+                DataPolicyMode::Production,
+            )
+            .expect("server-authored speech synthesis may be non-ZDR"),
+            PinnedModelSelection::from_actor_transcription_binding(
+                &transcription_actor_model_binding(false),
+                DataPolicyMode::Production,
+            )
+            .expect("server-authored transcription may be non-ZDR"),
+        ] {
+            assert!(!selection.enforces_zero_data_retention());
+            assert_eq!(
+                selection
+                    .attribute_response(None)
+                    .expect("exact binding attribution")
+                    .data_policy,
+                DataPolicyEligibility::default()
+            );
+        }
     }
 
     #[test]
@@ -2722,7 +4749,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn raw_actor_request_is_one_exact_unadapted_zdr_message() {
+    async fn ordinary_raw_actor_request_omits_reasoning_and_preserves_zdr() {
         let (body, completion) = capture_raw_actor_request(true).await;
         assert_eq!(
             body.get("model").and_then(Value::as_str),
@@ -2738,10 +4765,7 @@ mod tests {
             Some("Which model are you?")
         );
         assert!(body.get("temperature").is_none());
-        assert_eq!(
-            body.pointer("/reasoning/effort").and_then(Value::as_str),
-            Some("none")
-        );
+        assert!(body.get("reasoning").is_none());
         assert!(body.get("response_format").is_none());
         assert_eq!(
             body.pointer("/provider/data_collection")
@@ -2761,6 +4785,131 @@ mod tests {
             attribution.resolved_model_id,
             "anthropic/claude-fable-20260731"
         );
+    }
+
+    #[tokio::test]
+    async fn mandatory_reasoning_raw_actor_uses_one_bounded_shape_fallback() {
+        use std::sync::Mutex;
+
+        let request_bodies = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_bodies = Arc::clone(&request_bodies);
+                move |Json(body): Json<Value>| {
+                    let request_bodies = Arc::clone(&request_bodies);
+                    async move {
+                        let ordinal = {
+                            let mut bodies = request_bodies.lock().expect("capture raw requests");
+                            bodies.push(body.clone());
+                            bodies.len()
+                        };
+                        if ordinal == 1 {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({
+                                    "error": {
+                                        "message": "Reasoning is mandatory for this endpoint and cannot be disabled."
+                                    }
+                                })),
+                            )
+                                .into_response();
+                        }
+                        Json(json!({
+                            "model": "arcee-ai/trinity-large-thinking",
+                            "choices": [{
+                                "finish_reason": "stop",
+                                "message": { "content": "Reasoning is enabled, and I can answer." }
+                            }]
+                        }))
+                        .into_response()
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mandatory reasoning gateway test server");
+        let addr = listener
+            .local_addr()
+            .expect("mandatory reasoning gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "global/model-must-not-run".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            reasoning_effort: Some("high".to_string()),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+        let mut binding = raw_actor_model_binding(true);
+        binding.id = "arcee-ai/trinity-large-thinking".to_string();
+        binding.requested_model_id = binding.id.clone();
+        binding.canonical_slug = binding.id.clone();
+        binding.display_name = "Arcee AI: Trinity Large Thinking".to_string();
+        binding.supported_parameters.push("reasoning".to_string());
+        let selection =
+            PinnedModelSelection::from_actor_binding(&binding, DataPolicyMode::Production)
+                .expect("mandatory reasoning actor model pins");
+
+        let completion = request_chat_completion_with_selection(
+            &config,
+            ChatCompletionRequest {
+                feature: "dialogue_resident_raw",
+                prompt_version: "dialogue-resident-raw-v2",
+                capability: ModelCapability::Voice,
+                system: "",
+                user: "Can you answer?",
+                temperature: 0.0,
+                max_tokens: 160,
+                timeout: Duration::from_secs(2),
+                // Even with a larger ordinary retry budget, compatibility is an
+                // inner one-shot fallback and must not amplify across attempts.
+                max_attempts: 4,
+                referer: "http://127.0.0.1",
+                response_format: None,
+            },
+            &selection,
+        )
+        .await
+        .expect("mandatory reasoning fallback succeeds");
+
+        assert_eq!(completion.attempts, 1);
+        let bodies = request_bodies.lock().expect("read raw requests");
+        assert_eq!(bodies.len(), 2, "one 400 gets exactly one shape fallback");
+        assert_eq!(
+            bodies[0]
+                .pointer("/reasoning/effort")
+                .and_then(Value::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            bodies[1]
+                .pointer("/reasoning/enabled")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            bodies[1]
+                .pointer("/reasoning/exclude")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        for body in bodies.iter() {
+            assert_eq!(
+                body.pointer("/provider/data_collection")
+                    .and_then(Value::as_str),
+                Some("deny")
+            );
+            assert_eq!(
+                body.pointer("/provider/zdr").and_then(Value::as_bool),
+                Some(true)
+            );
+        }
+        server.abort();
     }
 
     #[tokio::test]

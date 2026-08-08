@@ -1,8 +1,8 @@
 # AI capability registry
 
-CosyWorld selects text and image inference through immutable, versioned
-capability facts. The operator registry snapshot is execution metadata, never
-kernel authority. It may
+CosyWorld selects operator-registry inference and pack-bound exact model
+interactions through immutable, versioned capability facts. The registry and
+interaction snapshots are execution metadata, never kernel authority. They may
 contain hundreds of candidates, while each generation pins exactly one
 candidate and sends only that model ID to the provider.
 
@@ -178,35 +178,71 @@ into projected action state or promoted to world truth. Matching execution
 durably records committed or rejected disposition; a newer accepted generation
 supersedes the prior one, while a rejected new attempt does not mutate it.
 
-## Pack-bound exact models and raw speech
+## Pack-bound exact models and interaction profiles
 
 AI cast worldpacks may bind a resident directly to one OpenRouter model through
-the compiled `actor_model_bindings` resource. This is separate from the
-operator registry pools. A text-output resident enters the voice router with an
-immutable selection from the checked-in binding. A text-input, image-output
-resident enters the image-generation route with that same exact-binding rule
-and publishes an `image.created` event after bounded decoding and vision
-review. Provider-side resolution remains visible in self-contained attribution.
-Other non-text bindings fail unavailable instead of borrowing the global Voice
-model.
+the compiled `actor_model_bindings` resource. The separate checked-in
+`actor_interaction_profiles` snapshot gives every binding one or more explicit
+interaction profiles. Each profile pins its endpoint, accepted inputs, outputs,
+required parameters, defaults, provider availability, endpoint ZDR fact, and
+runtime-adapter status. An offer requires both `provider_available` and
+`runtime_adapter_supported`, the exact configured route, and the applicable
+runtime policy gates. It always sends the binding's requested model ID; an
+unsupported model never borrows the global Voice model or masquerades as Talk.
 
-Raw speech deliberately removes CosyWorld's character prompt and resident
-planner. The request contains the bounded preceding server-generated dialogue
-line as its sole message; it omits system text, sampling defaults, tools, and
-response formats, and explicitly disables hidden reasoning so the compact
-completion budget remains available for visible speech. Bindings whose catalog
-snapshot confirms a zero-data-retention endpoint send OpenRouter
-`provider.data_collection: "deny"` and `provider.zdr: true`. Other exact text
-bindings add no privacy routing constraint.
+`Talk` backs the existing bounded Chat exchange. Raw Talk deliberately removes
+CosyWorld's character prompt and resident planner. Its sole message is the
+bounded preceding server-generated dialogue line; it omits system text, tools,
+response formats, and player input. If the catalog says the model accepts the
+unified reasoning parameter, the first request asks for reasoning effort
+`none`; other raw models receive no reasoning object. A precise HTTP 400 saying
+that reasoning is mandatory gets one compatibility retry with reasoning enabled
+but excluded from the visible response. A reasoning-control unsupported or
+unrecognized HTTP 400 gets one retry with the reasoning object omitted. No
+other provider error activates these shape fallbacks, and the normal retry loop
+does not multiply them.
 
-Image output uses OpenRouter's dedicated `POST /images` route. The candidate is
-stored outside public asset routes, decoded with byte and dimension limits, and
-reviewed from visible pixels. Only an approved candidate is copied to immutable
-public storage and journaled. The event keeps its asset digest, URL, dimensions,
-MIME type, provider/model attribution, prompt version, and context hash, but not
-the raw prompt or rejected bytes. Production still rejects a pack-bound image
-model that lacks the required no-retention/no-training declaration before
-network I/O.
+The other ready native profiles are:
+
+- `Illustrate` calls the exact image route with a prompt derived only from the
+  frozen resident, location, and scene. The candidate is stored outside public
+  asset routes, decoded with byte and dimension limits, and reviewed from
+  visible pixels. Only an approved raster image is copied to immutable public
+  storage and journaled. The event keeps its asset digest, URL, dimensions,
+  MIME type, provider/model attribution, prompt version, and context hash, but
+  not the prompt or rejected bytes.
+- `Speak` is offered only when the snapshot pins an authoritative provider
+  voice and MP3 output. Its input is a server-authored line of at most 280
+  characters derived from frozen resident and location facts. The resulting
+  content-addressed audio is durably recovered and published with its digest,
+  MIME type, exact attribution, and transcript.
+- `Find resonance` sends one frozen model descriptor and eight deterministic
+  neighboring descriptors to the exact embeddings endpoint, computes cosine
+  similarity locally, and publishes only the top three coarse matches.
+- `Rank echoes` sends the same server-authored descriptor set to the exact
+  rerank endpoint and publishes the provider's top three matches. Neither
+  semantic action journals its prompt, embedding vectors, or raw scores.
+
+There is no player-authored speech or model prompt in any of these paths. The
+browser sends only the acting avatar and target resident certified by the
+current offer. It exposes no microphone, audio upload, arbitrary text, or
+prompt field.
+
+Every other advertised modality still has a truthful profile and an explicit
+reason it is withheld. `Transcribe` has a bounded exact STT gateway primitive,
+but its action adapter stays dormant because CosyWorld accepts no human speech
+or audio upload. Asynchronous video, mixed audio/text voice chat, and music
+composition remain unavailable until their persistence and streaming adapters
+exist. Vector-only image models remain unavailable until a safe SVG rasterizer
+exists. These profiles are not rerouted through Chat.
+
+Exact interactions carry only server-authored world text. Production therefore
+allows both ZDR and non-ZDR exact bindings. A profile whose snapshot says its
+endpoint is ZDR sends OpenRouter `provider.data_collection: "deny"` and
+`provider.zdr: true`; a non-ZDR profile sends no false privacy constraint. The
+profile metadata preserves that truthful fact and does not turn it into an
+eligibility claim. The stricter no-retention/no-training gate for
+operator-registry pools remains unchanged.
 
 Publication remains mandatory but uses a thin raw gate: envelope integrity,
 non-empty and bounded output, terminal provider finish, repetition/duplicate
@@ -220,14 +256,6 @@ Raw mode does not remove the ordinary spatial observation model; it only keeps
 that state out of the provider prompt. Elysium gives every exact-model avatar
 one private void and one local void token, so the normal room boundary limits
 belief observation and exchange without a provider-specific engine shortcut.
-
-Production preserves the ordinary privacy boundary for operator-registry model
-pools. Exact text bindings are exempt because their dialogue inputs are
-server-generated rather than authored directly by a player. Their catalog
-retention status remains intact in model attribution and determines whether the
-request adds provider privacy constraints; it is not a dialogue eligibility
-gate. Exact image bindings still require snapshot-confirmed
-zero-data-retention eligibility before network I/O.
 
 ## Privacy and attribution
 

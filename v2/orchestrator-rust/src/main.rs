@@ -2,8 +2,10 @@ mod account_auth;
 mod activation;
 #[cfg(test)]
 mod actor_autonomy_tests;
+mod actor_interaction_profiles;
 #[cfg(test)]
 mod actor_job_contention_tests;
+mod actor_jobs;
 mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
@@ -51,6 +53,8 @@ mod legacy_import;
 mod local_leads;
 mod media_evolution;
 mod media_recipes;
+mod model_audio;
+mod model_interaction;
 mod moderation;
 mod movement;
 mod mud;
@@ -89,6 +93,8 @@ mod world_causality;
 mod world_simulation;
 use account_auth::*;
 use activation::*;
+use actor_interaction_profiles::*;
+use actor_jobs::*;
 use actor_practice::*;
 use actor_rules_facets::*;
 use ai_context::*;
@@ -143,6 +149,8 @@ use legacy_import::*;
 use local_leads::*;
 use media_evolution::*;
 use media_recipes::*;
+use model_audio::*;
+use model_interaction::*;
 use moderation::*;
 use movement::*;
 use mud::*;
@@ -932,6 +940,9 @@ enum ProjectionMutation {
         target_actor_id: u64,
         status: String,
         reason: String,
+    },
+    ModelInteraction {
+        projection: Box<ModelInteractionProjection>,
     },
     PublishResidentImage {
         publication: Box<ResidentImagePublication>,
@@ -2245,44 +2256,6 @@ struct PlayerTickObservation {
     relationship_reply: Option<RelationshipReplyExpectation>,
 }
 
-#[derive(Clone, Debug)]
-struct ActorJob {
-    id: i64,
-    kind: String,
-    actor_id: u64,
-    attempts: u32,
-    payload: ActorJobPayload,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(tag = "payload_kind", content = "payload", rename_all = "snake_case")]
-enum ActorJobPayload {
-    PlayerTick(PlayerTickObservation),
-    OrbChat(OrbChatJob),
-    AvatarReflection(AvatarReflectionJob),
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct OrbChatJob {
-    actor_id: u64,
-    target_actor_id: u64,
-    plan: AvatarChatPlan,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    queue_event_id: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    source_world_tick: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    observed_through_seq: Option<u64>,
-}
-
-const ACTOR_JOB_KIND_PLAYER_TICK: &str = "player_tick_observation";
-const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
-const ACTOR_JOB_KIND_AVATAR_REFLECTION: &str = "avatar_reflection";
-const ACTOR_JOB_LEASE_MS: u64 = 120_000;
-const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
-const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
-const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 3_000;
-
 impl RippleBudget {
     fn for_zone_and_action(zone: &str, source_action_kind: u8) -> Self {
         if matches!(source_action_kind, CW_ACTION_NONE | CW_ACTION_CREATE_ACTOR) {
@@ -2577,7 +2550,6 @@ struct ResetResponse {
     status: u32,
     events: Vec<EventView>,
 }
-
 #[derive(Debug, Deserialize)]
 struct StateQuery {
     actor_id: Option<u64>,
@@ -2587,6 +2559,7 @@ struct StateQuery {
     wallet_session: Option<String>,
     owned_card_ids: Option<String>,
     cards: Option<String>,
+    #[allow(dead_code)] // Legacy query; server AI configuration is authoritative.
     openrouter_connected: Option<String>,
 }
 
@@ -5395,10 +5368,6 @@ impl AppState {
     }
 }
 
-fn query_openrouter_connected(_value: Option<&str>) -> bool {
-    false
-}
-
 fn active_rules_bundle() -> &'static SeedRuleBundle {
     active_content()
         .rules
@@ -5417,6 +5386,7 @@ fn active_rules_bundle() -> &'static SeedRuleBundle {
 fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
     let canonical_kind = match kind {
         "travel" => "move",
+        "model_interaction" => "chat",
         "explore_path" | DISCOVERY_SCOUT_OFFER_KIND | DISCOVERY_SEARCH_OFFER_KIND => "search",
         FOCUSED_NOTICE_OFFER_KIND => "check",
         DISCOVERY_STUDY_OFFER_KIND => "study",
@@ -9932,6 +9902,9 @@ impl RuntimeWorld {
                         Some(*target_actor_id),
                         Some(reason.clone()),
                     ));
+                }
+                ProjectionMutation::ModelInteraction { projection } => {
+                    events.extend(self.apply_model_interaction_projection(action, projection));
                 }
                 ProjectionMutation::PublishResidentImage {
                     publication,
@@ -18734,6 +18707,9 @@ The relationship statement they are preserving is: {statement}"
                 command,
             });
         }
+        if let Some(option) = self.default_model_interaction_action_option(actor_id) {
+            options.push(option);
+        }
         if can_create_bond {
             let command = self
                 .default_bond_command(actor_id)
@@ -18758,7 +18734,6 @@ The relationship statement they are preserving is: {statement}"
             .map(|option| (option.kind.clone(), option.command.clone()))
             .unwrap_or_else(|| ("act".to_string(), "look".to_string()));
         let selected_kind = selected_kind.as_str();
-
         PrimaryAction {
             kind: match selected_kind {
                 "move" => "travel",
@@ -18768,6 +18743,7 @@ The relationship statement they are preserving is: {statement}"
             .to_string(),
             label: match selected_kind {
                 "chat" => "Chat",
+                "model_interaction" => self.model_interaction_offer_label(actor_id),
                 "influence" => "Influence",
                 "move" => "Travel",
                 "flee" => "Flee",
@@ -19600,6 +19576,7 @@ The relationship statement they are preserving is: {statement}"
                 event.success
                     && event.type_name != "message.created"
                     && event.type_name != "image.created"
+                    && !event.type_name.starts_with("model_interaction.")
                     && event_visible_in_location(event, location_id)
             })
             .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
@@ -20063,17 +20040,8 @@ The relationship statement they are preserving is: {statement}"
             .unwrap_or_else(|| "The visitor".to_string());
         let reaction_event = self.card_reaction_event(speaker_actor_id, events)?;
         let action_text = self.card_reaction_action_text(&actor_name, reaction_event);
-        let mut responders = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| {
-                Self::actor_can_act(*actor)
-                    && actor.location_id == speaker.location_id
-                    && (self.actor_uses_inference(actor.id)
-                        || active_direct_actor_ids
-                            .is_none_or(|active_ids| active_ids.contains(&actor.id)))
-            })
-            .collect::<Vec<_>>();
+        let mut responders =
+            native_reaction_responders(self, speaker.location_id, active_direct_actor_ids);
         responders.sort_by_key(|actor| {
             let dex = active_content()
                 .cards
@@ -20116,6 +20084,7 @@ The relationship statement they are preserving is: {statement}"
         if !Self::actor_can_act(speaker)
             || !Self::actor_can_act(responder)
             || speaker.location_id != responder.location_id
+            || !resident_reply_target_available(self, responder.id)
         {
             return None;
         }
@@ -23706,11 +23675,11 @@ async fn state_view(
         record_daily_visit(&state, actor_id);
     }
     let active_direct_actors = active_actor_ids_for_state(&state);
-    let mut response = runtime.state_response_with_presence(
+    let mut response = runtime.state_response_configured(
         actor_id,
         &access,
         Some(&active_direct_actors),
-        query_openrouter_connected(query.openrouter_connected.as_deref()),
+        state.ai_config.as_ref().as_ref(),
     );
     let turn_humans = active_actor_ids_for_state(&state);
     response.turn = room_turn_view_for_runtime(
@@ -23986,11 +23955,11 @@ async fn inspect_view(
         )
     });
     let active_direct_actors = active_actor_ids_for_state(&state);
-    let response = runtime.state_response_with_presence(
+    let response = runtime.state_response_configured(
         actor_id,
         &access,
         Some(&active_direct_actors),
-        query_openrouter_connected(query.openrouter_connected.as_deref()),
+        state.ai_config.as_ref().as_ref(),
     );
     drop(runtime);
     Json(response.inspector)
@@ -24830,53 +24799,12 @@ fn invalid_offer_submission() -> Json<ActionResponse> {
     })
 }
 
-fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
-    match path {
-        "/actions/chat" => kind == "chat",
-        "/actions/move" => kind == "move",
-        "/actions/explore-path" => kind == "explore_path",
-        "/actions/discover" => matches!(
-            kind,
-            FOCUSED_NOTICE_OFFER_KIND
-                | DISCOVERY_SEARCH_OFFER_KIND
-                | DISCOVERY_STUDY_OFFER_KIND
-                | DISCOVERY_SCOUT_OFFER_KIND
-        ),
-        "/actions/flee" => kind == "flee",
-        "/actions/check" => kind == "check",
-        "/actions/study" => kind == "study",
-        "/actions/influence" => kind == "influence",
-        "/actions/cast-spell" => kind == "cast_spell",
-        "/actions/pick-up" => kind == "pick_up",
-        "/actions/drop" => kind == "drop_item",
-        "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
-        "/actions/give-item" => kind == "give_item",
-        "/actions/trade-item" => kind == "trade_item",
-        "/actions/theft" => kind == "theft",
-        "/actions/craft" => kind == "craft",
-        "/actions/attack" => kind == "attack",
-        "/actions/defend" => kind == "defend",
-        "/actions/prepare" => kind == "prepare",
-        "/actions/contribute" => {
-            matches!(kind, "work" | "help" | "check" | "study" | "use_item")
-        }
-        "/actions/work" => kind == "work",
-        "/actions/help" => kind == "help",
-        "/actions/rest" => kind == "rest",
-        "/actions/bank-ledger" => kind == "bank_ledger",
-        "/actions/unlock-charm-slot" => kind == "unlock_charm_slot",
-        "/actions/create-bond" => kind == "create_bond",
-        "/actions/resolve-bond" => kind == "resolve_bond",
-        _ => false,
-    }
-}
-
 async fn submit_action_offer(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(submission): Json<ActionOfferSubmissionRequest>,
 ) -> Json<ActionResponse> {
-    if !action_path_accepts_kind(&submission.path, &submission.kind) {
+    if !routes::action_path_accepts_kind(&submission.path, &submission.kind) {
         return invalid_offer_submission();
     }
     let Some(actor_id) = submission
@@ -24928,9 +24856,10 @@ async fn submit_action_offer(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let active_direct_actors = active_actor_ids_for_state(&state);
+    let active = active_actor_ids_for_state(&state);
     let runtime = state.inner.lock().await;
-    let validation = runtime.validate_offer(actor_id, &access, &submission, &active_direct_actors);
+    let ai = state.ai_config.as_ref().as_ref();
+    let validation = runtime.validate_offer(actor_id, &access, &submission, &active, ai);
     drop(runtime);
     if let Err(reason) = validation {
         if matches!(
@@ -24957,6 +24886,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(ChatRequest)),
+            )
+            .await
+        }
+        "/actions/model-interaction" => {
+            model_interaction(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ModelInteractionRequest)),
             )
             .await
         }
@@ -28155,6 +28092,19 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
+        CommandDispatch::ModelInteraction { target_actor_id } => {
+            let Json(response) = model_interaction(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ModelInteractionRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
         CommandDispatch::Influence { target_actor_id } => {
             let Json(response) = influence(
                 ConnectInfo(client_addr),
@@ -29576,11 +29526,15 @@ fn start_actor_job_worker(state: AppState) {
     }
     let gameplay_state = state.clone();
     let reflection_state = state.clone();
+    let interaction_state = state.clone();
     tokio::spawn(async move {
         run_actor_job_worker(gameplay_state, ACTOR_JOB_KIND_PLAYER_TICK).await;
     });
     tokio::spawn(async move {
         run_actor_job_worker(state, ACTOR_JOB_KIND_ORB_CHAT).await;
+    });
+    tokio::spawn(async move {
+        run_actor_job_worker(interaction_state, ACTOR_JOB_KIND_MODEL_INTERACTION).await;
     });
     tokio::spawn(async move {
         run_actor_job_worker(reflection_state, ACTOR_JOB_KIND_AVATAR_REFLECTION).await;
@@ -29765,6 +29719,18 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                             chat.queue_event_id,
                             chat.source_world_tick,
                             chat.observed_through_seq,
+                            job.attempts,
+                        )
+                        .await
+                        .map(|_| true)
+                    }
+                    (
+                        ACTOR_JOB_KIND_MODEL_INTERACTION,
+                        ActorJobPayload::ModelInteraction(interaction),
+                    ) if job.actor_id == interaction.actor_id => {
+                        complete_model_interaction_attempt(
+                            &state,
+                            interaction.clone(),
                             job.attempts,
                         )
                         .await
@@ -30390,22 +30356,24 @@ fn room_memory_entry_for_event_at_location(
     event: &EventView,
     location_id: u64,
 ) -> Option<RoomMemoryEntryView> {
-    if matches!(
-        event.type_name.as_str(),
-        "world.reset"
-            | "world.bootstrapped"
-            | "actor.presence"
-            | "message.created"
-            | "image.created"
-            | "combat.participant.joined"
-            | "combat.initiative.rolled"
-            | "combat.turn.started"
-            | "combat.turn.ended"
-    ) || (event.type_name == "tag.applied"
-        && matches!(
-            event.content.as_deref(),
-            Some("search_location") | Some("search_feature")
-        ))
+    if event.type_name.starts_with("model_interaction.")
+        || matches!(
+            event.type_name.as_str(),
+            "world.reset"
+                | "world.bootstrapped"
+                | "actor.presence"
+                | "message.created"
+                | "image.created"
+                | "combat.participant.joined"
+                | "combat.initiative.rolled"
+                | "combat.turn.started"
+                | "combat.turn.ended"
+        )
+        || (event.type_name == "tag.applied"
+            && matches!(
+                event.content.as_deref(),
+                Some("search_location") | Some("search_feature")
+            ))
     {
         return None;
     }
@@ -37104,6 +37072,15 @@ fn commit_journal_record(
                             .map(|event| event.seq);
                         insert_orb_chat_job(&tx, job, runtime.world.tick, queue_event_id)?
                     }
+                    Some(ActorJobPayload::ModelInteraction(job)) => {
+                        let queue_event_id = events
+                            .iter()
+                            .find(|event| {
+                                event.type_name == "model_interaction.queued" && event.success
+                            })
+                            .map(|event| event.seq);
+                        insert_model_interaction_job(&tx, job, runtime.world.tick, queue_event_id)?
+                    }
                     Some(ActorJobPayload::AvatarReflection(job)) => {
                         insert_avatar_reflection_job(&tx, job, &events)?
                     }
@@ -43544,13 +43521,22 @@ mod tests {
 
     #[test]
     fn semantic_offer_paths_use_the_authoritative_offer_kind() {
-        assert!(action_path_accepts_kind(
+        assert!(routes::action_path_accepts_kind(
             "/actions/explore-path",
             "explore_path"
         ));
-        assert!(!action_path_accepts_kind("/actions/explore-path", "search"));
-        assert!(action_path_accepts_kind("/actions/use-item", "use_item"));
-        assert!(action_path_accepts_kind("/actions/use-item", "use_feature"));
+        assert!(!routes::action_path_accepts_kind(
+            "/actions/explore-path",
+            "search"
+        ));
+        assert!(routes::action_path_accepts_kind(
+            "/actions/use-item",
+            "use_item"
+        ));
+        assert!(routes::action_path_accepts_kind(
+            "/actions/use-item",
+            "use_feature"
+        ));
     }
 
     #[test]
@@ -46881,10 +46867,10 @@ mod tests {
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains("const visibleEvents = sharedRoomTranscriptEvents(logEvents);"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${pendingConversation}${pendingChatReplies}`;"
+            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
         assert!(INDEX_HTML.contains(
-            "return [\"message.created\", \"image.created\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
+            "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
         ));
         assert!(INDEX_HTML.contains("function avatarReflectionHtml"));
         assert!(INDEX_HTML.contains("function renderJournalLog"));
@@ -46899,7 +46885,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function resolvePendingChat"));
         assert!(INDEX_HTML.contains("event.type === \"chat.typing\""));
         assert!(INDEX_HTML
-            .contains("pendingChats.length !== pendingChatCountBefore || chatProgressChanged"));
+            .contains("pendingModelInteractions.length !== pendingInteractionCountBefore"));
         assert!(INDEX_HTML.contains("typing…"));
         assert!(INDEX_HTML.contains("if (!actorId || action?.kind !== \"orb-chat\") return 0;"));
         assert!(!INDEX_HTML.contains("reacting to your card…"));
@@ -46991,7 +46977,7 @@ mod tests {
         assert!(INDEX_HTML.contains("enqueueImportantNotification"));
         assert!(INDEX_HTML.contains("function combatAttackEventsShareBeat"));
         assert!(
-            INDEX_HTML.contains("[\"message.created\", \"image.created\"].includes(event?.type)")
+            INDEX_HTML.contains("[\"message.created\", \"image.created\", \"model_interaction.output\"].includes(event?.type)")
         );
         assert!(INDEX_HTML.contains("combatTranscriptEventTypes.has(event?.type)"));
         assert!(INDEX_HTML.contains("return visible.slice(-40);"));

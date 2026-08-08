@@ -33,7 +33,15 @@ Relevant implementation points:
 - There is no player-authored speech endpoint or command. `Chat` and contextual heartbeats derive dialogue only from server-authored actions and world state.
 - Successful card commits atomically enqueue a delayed, durable room heartbeat. One pending/running heartbeat per room coalesces later cards.
 - Resident replies are one-to-many world events. Their inference context includes the current card event and recent channel log, not only the latest spoken line.
-- An image-only cast binding receives the same grounded heartbeat as a visual prompt. The gateway calls the exact bound OpenRouter model through `POST /images`, buffers and decodes one bounded image, runs a fail-closed vision publication review, and journals an `image.created` event only after approval. The original prompt and rejected bytes never enter the public event.
+- Every Elysium binding has explicit per-model interaction profiles. Ready
+  models use native `Talk`, `Illustrate`, `Speak`, `Find resonance`, or
+  `Rank echoes` routes with the exact checked-in model; unavailable modalities
+  are withheld instead of falling through to Chat. An image-only binding can
+  receive a grounded heartbeat as a visual prompt or be targeted by the
+  certified Illustrate action. The gateway buffers and decodes one bounded
+  raster image, runs a fail-closed vision publication review, and journals an
+  image event only after approval. The server-authored prompt and rejected
+  bytes never enter the public event.
 - Chat has no Orb affordability check or ledger mutation; its authoritative cost is one advancement point.
 - Generated cards use deterministic/local art as a safe fallback. Eligible avatars, runtime items, and familiar generated locations can replace it through a community-funded Replicate image job.
 - The C kernel already has combat primitives for safe-room rejection, attack, defend, flee, and potion use.
@@ -137,7 +145,38 @@ Community image generation is different: the server validates a level-scoped sha
 
 ## AI Gateway
 
-The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Selection uses versioned immutable capability facts: `voice`, `intent_json`, `world_content`, and `image_generation` require compatible declared modalities, and each request pins one candidate plus its prompt-adapter and catalog versions. Elysium image replies use the actor's exact checked-in binding rather than a fallback model. Avatar voice publication adds durable, weighted selection without replacement, bounded attempts/hedges/latency/spend, separately dimensioned content and provider-health evidence, and exactly one publication-gated winner; replay returns the accepted receipt without rerunning selection. Resident `intent_json` composition is intentionally unchanged pending the voice/intent split. Mutable aliases require the provider response's concrete model for attribution. Production operator-registry and image routes require explicit no-retention/no-training declarations; exact actor text bindings may retain server-authored dialogue and preserve that fact in attribution. Persisted attribution is self-contained so refreshes cannot rewrite in-flight or historical identity. The capability contract is in `v2/docs/ai-capability-registry.md`; visibility-aware, context-dominant prompt assembly is in `v2/docs/context-dominant-prompting.md`.
+The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and
+requests, structured response formats, per-feature timeouts, bounded transient
+retries, stable failure codes, and provider/model/attempt/latency tracing. It
+supports text, exact raster-image, embeddings, rerank, and speech-synthesis
+requests; the bounded transcription primitive remains dormant because the
+product has no player speech, microphone, or audio-upload surface. Selection
+uses versioned immutable capability facts, and each request pins one candidate
+plus its prompt-adapter and catalog versions. Elysium interactions also require
+an exact checked-in binding and a provider-available, runtime-ready interaction
+profile instead of a fallback model. Asynchronous video, mixed audio/music, and
+vector-only SVG output remain withheld until dedicated safe adapters exist.
+
+Raw Talk sends reasoning effort `none` only when the exact model advertises the
+reasoning parameter. One precise HTTP 400 may retry with mandatory reasoning
+enabled but excluded from visible output, or with an unsupported reasoning
+object omitted. Production operator-registry pools retain the strict
+no-retention/no-training gate. Exact Elysium Talk, Illustrate, Speak, Find
+resonance, and Rank echoes carry only server-authored world or catalog facts,
+so both ZDR and non-ZDR bindings are eligible. ZDR profiles add the provider
+privacy constraint; non-ZDR profiles remain truthfully non-ZDR. No path accepts
+player-authored speech or a free-form model prompt.
+
+Avatar voice publication adds durable, weighted selection without replacement,
+bounded attempts/hedges/latency/spend, separately dimensioned content and
+provider-health evidence, and exactly one publication-gated winner; replay
+returns the accepted receipt without rerunning selection. Resident
+`intent_json` composition is intentionally unchanged pending the voice/intent
+split. Mutable aliases require the provider response's concrete model for
+attribution. Persisted attribution is self-contained so refreshes cannot
+rewrite in-flight or historical identity. The capability contract is in
+`v2/docs/ai-capability-registry.md`; visibility-aware, context-dominant prompt
+assembly is in `v2/docs/context-dominant-prompting.md`.
 
 Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
 
@@ -148,7 +187,8 @@ Responsibilities:
 - Select provider and payer for each AI feature.
 - Accept a transient player OpenRouter key only for explicit player actions.
 - Verify user key state through `/api/v1/key`.
-- Route text, structured, image, and image-composition calls.
+- Route text, structured, raster-image, embeddings, rerank, speech-synthesis,
+  and dormant transcription calls through their exact adapters.
 - Discover model capabilities through OpenRouter's Models API.
 - Record usage without secrets.
 - Normalize OpenRouter errors into product decisions.

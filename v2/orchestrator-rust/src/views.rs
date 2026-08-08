@@ -2544,12 +2544,46 @@ impl RuntimeWorld {
         self.state_response_with_presence(actor_id, access, None, false)
     }
 
+    #[cfg(test)]
     pub(super) fn state_response_with_presence(
         &self,
         actor_id: Option<u64>,
         access: &AccessContext,
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
+        openrouter_connected: bool,
+    ) -> StateResponse {
+        self.state_response_with_presence_inner(
+            actor_id,
+            access,
+            active_direct_actor_ids,
+            openrouter_connected,
+            None,
+        )
+    }
+
+    pub(super) fn state_response_configured(
+        &self,
+        actor_id: Option<u64>,
+        access: &AccessContext,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+        model_config: Option<&AiConfig>,
+    ) -> StateResponse {
+        self.state_response_with_presence_inner(
+            actor_id,
+            access,
+            active_direct_actor_ids,
+            false,
+            Some(model_config),
+        )
+    }
+
+    fn state_response_with_presence_inner(
+        &self,
+        actor_id: Option<u64>,
+        access: &AccessContext,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
         _openrouter_connected: bool,
+        model_config: Option<Option<&AiConfig>>,
     ) -> StateResponse {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_observe(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
@@ -2602,11 +2636,18 @@ impl RuntimeWorld {
         let chat_bond_claimed_target_ids = client_actor_id
             .map(|id| self.chat_bond_claimed_target_ids(id, location_id))
             .unwrap_or_default();
-        let (primary_action, action_offers) = self.legal_action_candidates_with_presence(
+        let (mut primary_action, mut action_offers) = self.legal_action_candidates_with_presence(
             client_actor_id,
             access,
             active_direct_actor_ids,
         );
+        if let Some(config) = model_config {
+            retain_configured_model_interaction_offers(
+                &mut primary_action,
+                &mut action_offers,
+                config,
+            );
+        }
         let action_hand = self.action_hand_for(client_actor_id, &action_offers);
         let visible_action_offers = action_hand
             .entries

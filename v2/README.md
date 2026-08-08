@@ -16,7 +16,10 @@ For free public Chat, community-funded evolving card art, combat rewards, and se
 - `core-c/`: deterministic C rules kernel.
 - `ai-model-rust/`: deterministic local AI generation model with native and WASM exports.
 - `orchestrator-rust/`: Rust HTTP/SSE host that compiles and calls the C kernel through FFI.
-- `orchestrator-rust/src/ai_gateway.rs`: OpenAI-compatible/OpenRouter text and exact-bound image inference, bounded retries and response sizes, timeouts, typed failures, and request telemetry.
+- `orchestrator-rust/src/ai_gateway.rs`: OpenAI-compatible/OpenRouter text,
+  image, embeddings, rerank, speech-synthesis, and dormant transcription
+  primitives with exact-model binding, bounded retries and responses, typed
+  failures, and request telemetry.
 - `orchestrator-rust/src/routes.rs`: HTTP route table extracted from the runtime bootstrap.
 - `orchestrator-rust/src/world_simulation.rs`: deterministic played-time weather, trade, faction, and conflict reducer.
 - `orchestrator-rust/src/index.html`: one-button browser MUD shell served by the Rust host.
@@ -392,10 +395,26 @@ COSYWORLD_AI_CAPABILITY_MODELS_JSON='{"voice":"provider/tiny-chat","intent_json"
 The immutable snapshot may retain hundreds of candidates, but a request pins
 and sends only one. Provider discovery never grants eligibility by itself,
 mutable aliases require concrete returned-model attribution, and production
-text inference fails closed unless the selected declaration explicitly
-prohibits retention and training. See
+operator-registry inference fails closed unless the selected declaration
+explicitly prohibits retention and training. Pack-bound exact interactions are
+separate: their inputs contain only server-authored world and catalog facts, so
+both ZDR and non-ZDR endpoints are eligible while profile metadata preserves
+the truthful policy. A ZDR profile adds the provider privacy constraint; a
+non-ZDR profile does not pretend otherwise. See
 [`docs/ai-capability-registry.md`](docs/ai-capability-registry.md) for the
 schema, capability boundaries, privacy contract, and replay provenance.
+
+Elysium's checked-in per-model interaction snapshot distinguishes provider
+availability from implemented runtime support. Ready exact models use native
+`Talk`, `Illustrate`, `Speak`, `Find resonance`, or `Rank echoes` paths. Raw
+Talk sends no blanket reasoning control: only models advertising the parameter
+start with effort `none`, and one precise HTTP 400 may retry with mandatory
+reasoning enabled-and-excluded or with an unsupported reasoning object omitted.
+Unsupported modalities are withheld rather than misrouted as Chat.
+Transcription remains dormant because there is no microphone, upload, or
+player-authored speech surface; asynchronous video, mixed audio/music, and
+vector-only SVG output await dedicated safe adapters. Players choose only a
+certified actor and target—there is no arbitrary speech or prompt input.
 
 Server-side generative world content is separately controlled and defaults to
 off. Enable only reviewed features, or run them in shadow mode to validate and

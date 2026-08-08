@@ -11,6 +11,7 @@ fn submitted_payload_target_key(path: &str, target: &ActionTargetView) -> Option
         ("/actions/use-item", "feature") => "location_id",
         (
             "/actions/chat"
+            | "/actions/model-interaction"
             | "/actions/attack"
             | "/actions/give-item"
             | "/actions/create-bond"
@@ -152,7 +153,14 @@ fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Optio
 fn action_offer_kind_requires_actor_target(kind: &str) -> bool {
     matches!(
         kind,
-        "chat" | "influence" | "attack" | "defend" | "give_item" | "create_bond" | "resolve_bond"
+        "chat"
+            | "model_interaction"
+            | "influence"
+            | "attack"
+            | "defend"
+            | "give_item"
+            | "create_bond"
+            | "resolve_bond"
     )
 }
 
@@ -215,7 +223,9 @@ impl RuntimeWorld {
         access: &AccessContext,
         submission: &ActionOfferSubmissionRequest,
     ) -> Result<(), &'static str> {
-        self.validate_action_offer_submission_with_presence(actor_id, access, submission, None)
+        self.validate_action_offer_submission_with_presence(
+            actor_id, access, submission, None, None,
+        )
     }
 
     pub(super) fn validate_action_offer_submission_with_presence(
@@ -224,12 +234,14 @@ impl RuntimeWorld {
         access: &AccessContext,
         submission: &ActionOfferSubmissionRequest,
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
+        model_config: Option<&AiConfig>,
     ) -> Result<(), &'static str> {
-        let (_, offers) = self.legal_action_candidates_with_presence(
+        let (mut primary_action, mut offers) = self.legal_action_candidates_with_presence(
             Some(actor_id),
             access,
             active_direct_actor_ids,
         );
+        retain_configured_model_interaction_offers(&mut primary_action, &mut offers, model_config);
         let exact_offer = offers
             .iter()
             .find(|offer| offer.offer_id == submission.offer_id);
@@ -574,7 +586,14 @@ impl RuntimeWorld {
                     option.command.clone()
                 };
                 let project = self.action_offer_project(&option.kind, &command, actor_id);
-                let intention = action_offer_intention(&option.kind).to_string();
+                let intention = if option.kind == "model_interaction" {
+                    self.model_interaction_offer_profile(actor_id)
+                        .map(|profile| profile.intention())
+                        .unwrap_or("model_interaction")
+                } else {
+                    action_offer_intention(&option.kind)
+                }
+                .to_string();
                 let verb = self.action_offer_verb(&option.kind, actor_id);
                 let label = self.action_offer_label(
                     &option.kind,
@@ -866,6 +885,9 @@ impl RuntimeWorld {
         if kind == "chat" {
             return 83;
         }
+        if kind == "model_interaction" {
+            return 71;
+        }
         if kind == "rest"
             && (!self.rest_has_recovery_target(actor_id)
                 || self
@@ -1009,7 +1031,7 @@ impl RuntimeWorld {
 
         if matches!(
             kind,
-            "chat" | "help" | "give_item" | "trade_item" | "resolve_bond"
+            "chat" | "model_interaction" | "help" | "give_item" | "trade_item" | "resolve_bond"
         ) {
             if let Some(target_actor_id) = target.and_then(|target| target.id) {
                 if let Some(bond) = self.active_bond(actor_id, target_actor_id) {
@@ -1153,6 +1175,13 @@ impl RuntimeWorld {
     }
 
     pub(super) fn action_offer_verb(&self, kind: &str, actor_id: u64) -> String {
+        if kind == "model_interaction" {
+            return self
+                .model_interaction_offer_profile(actor_id)
+                .map(|profile| profile.label())
+                .unwrap_or("Model interaction")
+                .to_string();
+        }
         let vocabulary = self.action_vocabulary_for_actor(actor_id);
         let authored = match action_offer_intention(kind) {
             "notice" => vocabulary.map(|value| value.notice.as_str()),
@@ -1552,6 +1581,13 @@ impl RuntimeWorld {
                     id: Some(target.id),
                     label: self.actor_name(target.id),
                 }),
+            "model_interaction" => self
+                .default_model_interaction_target(actor_id)
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
             "influence" => self
                 .default_chat_target(actor_id)
                 .map(|target| ActionTargetView {
@@ -1835,6 +1871,7 @@ impl RuntimeWorld {
                 .default_chat_target(actor_id)
                 .and_then(|target| self.actor_name(target.id))
                 .map(|name| format!("opens a small exchange with {name}")),
+            "model_interaction" => self.model_interaction_offer_effect(actor_id),
             "influence" => self
                 .default_chat_target(actor_id)
                 .and_then(|target| self.actor_name(target.id))
@@ -2158,6 +2195,7 @@ pub(super) fn action_offer_requires_target(kind: &str) -> bool {
     matches!(
         kind,
         "chat"
+            | "model_interaction"
             | "influence"
             | "attack"
             | "defend"
@@ -2218,6 +2256,7 @@ pub(super) fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> boo
             | DISCOVERY_SCOUT_OFFER_KIND
             | "move"
             | "chat"
+            | "model_interaction"
             | "rest"
     )
 }
@@ -2418,6 +2457,7 @@ pub(super) fn action_offer_rank(kind: &str) -> u16 {
         "study" => 61,
         "cast_spell" => 22,
         "chat" => 70,
+        "model_interaction" => 71,
         "trade_item" => 74,
         "train_skill" => 76,
         "create_bond" => 77,
@@ -2444,7 +2484,10 @@ pub(super) fn practice_category_matches_offer(category: &str, kind: &str) -> boo
         "delivery" => matches!(kind, "move" | "give_item" | "trade_item"),
         "stewardship" => matches!(kind, "prepare" | "work" | "help"),
         "care" => matches!(kind, "defend" | "use_item" | "rest"),
-        "mediation" => matches!(kind, "influence" | "chat" | "create_bond" | "resolve_bond"),
+        "mediation" => matches!(
+            kind,
+            "influence" | "chat" | "model_interaction" | "create_bond" | "resolve_bond"
+        ),
         "lore" => matches!(
             kind,
             "study"
@@ -2468,6 +2511,7 @@ pub(super) fn action_offer_intention(kind: &str) -> &str {
         DISCOVERY_STUDY_OFFER_KIND => "study",
         DISCOVERY_SCOUT_OFFER_KIND => "scout",
         "move" => "travel",
+        "model_interaction" => "illustrate",
         "open" => "open",
         "work" | "help" => "contribute",
         _ => kind,
@@ -2492,6 +2536,7 @@ pub(super) fn default_action_offer_verb(kind: &str) -> &str {
         DISCOVERY_STUDY_OFFER_KIND => "Study",
         DISCOVERY_SCOUT_OFFER_KIND => "Scout",
         "move" => "Travel",
+        "model_interaction" => "Illustrate",
         "open" => "Open",
         "work" => "Push",
         "help" => "Help",
@@ -2551,7 +2596,7 @@ pub(super) fn action_offer_category(kind: &str) -> &'static str {
         "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item"
         | "open" => "inventory",
         "craft" => "craft",
-        "chat" | "help" | "create_bond" | "resolve_bond" => "social",
+        "chat" | "model_interaction" | "help" | "create_bond" | "resolve_bond" => "social",
         "check"
         | "search"
         | FOCUSED_NOTICE_OFFER_KIND

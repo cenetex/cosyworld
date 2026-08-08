@@ -7,6 +7,48 @@ use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLay
 
 use super::*;
 
+pub(super) fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
+    match path {
+        "/actions/chat" => kind == "chat",
+        "/actions/model-interaction" => kind == "model_interaction",
+        "/actions/move" => kind == "move",
+        "/actions/explore-path" => kind == "explore_path",
+        "/actions/discover" => matches!(
+            kind,
+            FOCUSED_NOTICE_OFFER_KIND
+                | DISCOVERY_SEARCH_OFFER_KIND
+                | DISCOVERY_STUDY_OFFER_KIND
+                | DISCOVERY_SCOUT_OFFER_KIND
+        ),
+        "/actions/flee" => kind == "flee",
+        "/actions/check" => kind == "check",
+        "/actions/study" => kind == "study",
+        "/actions/influence" => kind == "influence",
+        "/actions/cast-spell" => kind == "cast_spell",
+        "/actions/pick-up" => kind == "pick_up",
+        "/actions/drop" => kind == "drop_item",
+        "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
+        "/actions/give-item" => kind == "give_item",
+        "/actions/trade-item" => kind == "trade_item",
+        "/actions/theft" => kind == "theft",
+        "/actions/craft" => kind == "craft",
+        "/actions/attack" => kind == "attack",
+        "/actions/defend" => kind == "defend",
+        "/actions/prepare" => kind == "prepare",
+        "/actions/contribute" => {
+            matches!(kind, "work" | "help" | "check" | "study" | "use_item")
+        }
+        "/actions/work" => kind == "work",
+        "/actions/help" => kind == "help",
+        "/actions/rest" => kind == "rest",
+        "/actions/bank-ledger" => kind == "bank_ledger",
+        "/actions/unlock-charm-slot" => kind == "unlock_charm_slot",
+        "/actions/create-bond" => kind == "create_bond",
+        "/actions/resolve-bond" => kind == "resolve_bond",
+        _ => false,
+    }
+}
+
 pub(super) fn app_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
@@ -34,6 +76,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route(
             "/assets/generated/resident-images/{asset_file}",
             get(generated_resident_image_asset),
+        )
+        .route(
+            "/assets/generated/model-audio/{asset_file}",
+            get(generated_model_audio_asset),
         )
         .route(
             "/assets/generated/avatars/{avatar_file}",
@@ -166,6 +212,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/pass", post(legacy_pass_requires_certificate))
         .route("/actions/narrative-move", post(submit_narrative_move))
         .route("/actions/chat", post(legacy_action_requires_certificate))
+        .route(
+            "/actions/model-interaction",
+            post(legacy_action_requires_certificate),
+        )
         .route("/actions/fund-image", post(fund_community_image))
         .route("/media/room-scenes", post(create_room_scene))
         .route("/media/room-scenes/{job_id}", get(room_scene_status))
@@ -283,4 +333,21 @@ pub(super) fn app_router(state: AppState) -> Router {
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_interaction_has_its_own_certificate_bound_path() {
+        assert!(action_path_accepts_kind(
+            "/actions/model-interaction",
+            "model_interaction"
+        ));
+        assert!(!action_path_accepts_kind(
+            "/actions/model-interaction",
+            "chat"
+        ));
+    }
 }

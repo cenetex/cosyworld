@@ -40,6 +40,10 @@ pub(crate) enum ModelCapability {
     IntentJson,
     WorldContent,
     ImageGeneration,
+    SpeechSynthesis,
+    Transcription,
+    Embeddings,
+    Rerank,
 }
 
 impl ModelCapability {
@@ -49,6 +53,10 @@ impl ModelCapability {
             Self::IntentJson => "intent_json",
             Self::WorldContent => "world_content",
             Self::ImageGeneration => "image_generation",
+            Self::SpeechSynthesis => "speech_synthesis",
+            Self::Transcription => "transcription",
+            Self::Embeddings => "embeddings",
+            Self::Rerank => "rerank",
         }
     }
 }
@@ -65,7 +73,11 @@ pub(crate) enum ModelModality {
     Text,
     Image,
     Audio,
+    Speech,
+    Transcription,
     Video,
+    Embeddings,
+    Rerank,
 }
 
 impl ModelModality {
@@ -74,7 +86,11 @@ impl ModelModality {
             Self::Text => "text",
             Self::Image => "image",
             Self::Audio => "audio",
+            Self::Speech => "speech",
+            Self::Transcription => "transcription",
             Self::Video => "video",
+            Self::Embeddings => "embeddings",
+            Self::Rerank => "rerank",
         }
     }
 }
@@ -169,6 +185,12 @@ pub(crate) struct SupportedParameters {
     pub(crate) seed: bool,
     #[serde(default)]
     pub(crate) stop: bool,
+    /// The provider catalog says this model accepts OpenRouter's unified
+    /// `reasoning` request object. Raw actor bindings preserve this separately
+    /// from ordinary sampling controls because some endpoints reject the object
+    /// outright while reasoning-only endpoints reject an attempt to disable it.
+    #[serde(default)]
+    pub(crate) reasoning: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -411,20 +433,43 @@ impl ModelCandidate {
 
     fn supports(&self, capability: ModelCapability) -> bool {
         self.declared_capabilities.contains(&capability)
-            && self.input_modalities.contains(&ModelModality::Text)
             && match capability {
-                ModelCapability::Voice => self.output_modalities.contains(&ModelModality::Text),
+                ModelCapability::Voice => {
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Text)
+                }
                 ModelCapability::IntentJson => {
-                    self.output_modalities.contains(&ModelModality::Text)
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Text)
                         && (self.supported_parameters.json_mode
                             || self.supported_parameters.structured_output)
                 }
                 ModelCapability::WorldContent => {
-                    self.output_modalities.contains(&ModelModality::Text)
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Text)
                         && self.supported_parameters.structured_output
                 }
                 ModelCapability::ImageGeneration => {
-                    self.output_modalities.contains(&ModelModality::Image)
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Image)
+                }
+                ModelCapability::SpeechSynthesis => {
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Speech)
+                }
+                ModelCapability::Transcription => {
+                    self.input_modalities.contains(&ModelModality::Audio)
+                        && self
+                            .output_modalities
+                            .contains(&ModelModality::Transcription)
+                }
+                ModelCapability::Embeddings => {
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Embeddings)
+                }
+                ModelCapability::Rerank => {
+                    self.input_modalities.contains(&ModelModality::Text)
+                        && self.output_modalities.contains(&ModelModality::Rerank)
                 }
             }
     }
@@ -511,6 +556,10 @@ impl CapabilityRegistrySnapshot {
                 ModelCapability::IntentJson,
                 ModelCapability::WorldContent,
                 ModelCapability::ImageGeneration,
+                ModelCapability::SpeechSynthesis,
+                ModelCapability::Transcription,
+                ModelCapability::Embeddings,
+                ModelCapability::Rerank,
             ] {
                 if candidate.supports(capability) {
                     pools.entry(capability).or_default().push(key.clone());
@@ -558,6 +607,7 @@ impl CapabilityRegistrySnapshot {
                     tools: false,
                     seed: false,
                     stop: true,
+                    reasoning: false,
                 },
                 data_policy: DataPolicyEligibility::default(),
                 prompt_adapter: PromptAdapterRef::default(),
@@ -897,7 +947,11 @@ fn missing_parameters(
             ),
         ModelCapability::WorldContent => (!parameters.structured_output)
             .then_some("\"supported_parameters\":{\"structured_output\":true}"),
-        ModelCapability::ImageGeneration => None,
+        ModelCapability::ImageGeneration
+        | ModelCapability::SpeechSynthesis
+        | ModelCapability::Transcription
+        | ModelCapability::Embeddings
+        | ModelCapability::Rerank => None,
     }
 }
 
@@ -928,6 +982,16 @@ pub(crate) struct PinnedModelSelection {
     snapshot_version: String,
     capability: ModelCapability,
     candidate: Arc<ModelCandidate>,
+}
+
+#[derive(Clone, Copy)]
+struct ActorExactEndpointContract {
+    capability: ModelCapability,
+    input_modality: ModelModality,
+    input_name: &'static str,
+    output_modality: ModelModality,
+    output_name: &'static str,
+    prompt_adapter_id: &'static str,
 }
 
 impl PinnedModelSelection {
@@ -970,7 +1034,9 @@ impl PinnedModelSelection {
                 .filter_map(|value| match value.as_str() {
                     "text" => Some(ModelModality::Text),
                     "image" => Some(ModelModality::Image),
-                    "audio" | "speech" | "transcription" => Some(ModelModality::Audio),
+                    "audio" => Some(ModelModality::Audio),
+                    "speech" => Some(ModelModality::Speech),
+                    "transcription" => Some(ModelModality::Transcription),
                     "video" => Some(ModelModality::Video),
                     _ => None,
                 })
@@ -1013,6 +1079,7 @@ impl PinnedModelSelection {
                 tools: parameter(&["tools", "tool_choice"]),
                 seed: parameter(&["seed"]),
                 stop: parameter(&["stop"]),
+                reasoning: parameter(&["reasoning", "reasoning_effort"]),
             },
             data_policy,
             prompt_adapter: PromptAdapterRef {
@@ -1042,7 +1109,7 @@ impl PinnedModelSelection {
 
     pub(crate) fn from_actor_image_binding(
         binding: &crate::content_load::SeedActorModelBinding,
-        policy_mode: DataPolicyMode,
+        _policy_mode: DataPolicyMode,
     ) -> Result<Self, RegistryError> {
         let requested_model_id =
             normalize_model_id(&binding.requested_model_id, "requested model id")?;
@@ -1064,11 +1131,10 @@ impl PinnedModelSelection {
                 capability: ModelCapability::ImageGeneration,
             });
         }
-        if policy_mode == DataPolicyMode::Production && !binding.zero_data_retention {
-            return Err(RegistryError::PrivacyRejected {
-                model: requested_model_id,
-            });
-        }
+        // Exact image bindings, like exact dialogue/embedding/rerank bindings,
+        // are used for server-authored world activity. Preserve the binding's
+        // actual policy metadata without turning non-ZDR into an eligibility
+        // rejection; the gateway only sends ZDR routing when this flag is true.
         let catalog_snapshot_version = normalize_token(
             &binding.catalog_snapshot_version,
             "registry snapshot version",
@@ -1081,7 +1147,9 @@ impl PinnedModelSelection {
                 .filter_map(|value| match value.as_str() {
                     "text" => Some(ModelModality::Text),
                     "image" => Some(ModelModality::Image),
-                    "audio" | "speech" | "transcription" => Some(ModelModality::Audio),
+                    "audio" => Some(ModelModality::Audio),
+                    "speech" => Some(ModelModality::Speech),
+                    "transcription" => Some(ModelModality::Transcription),
                     "video" => Some(ModelModality::Video),
                     _ => None,
                 })
@@ -1138,6 +1206,188 @@ impl PinnedModelSelection {
         Ok(Self {
             snapshot_version: catalog_snapshot_version,
             capability: ModelCapability::ImageGeneration,
+            candidate: Arc::new(candidate),
+        })
+    }
+
+    pub(crate) fn from_actor_embedding_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Self, RegistryError> {
+        Self::from_actor_exact_endpoint_binding(
+            binding,
+            policy_mode,
+            ActorExactEndpointContract {
+                capability: ModelCapability::Embeddings,
+                input_modality: ModelModality::Text,
+                input_name: "text",
+                output_modality: ModelModality::Embeddings,
+                output_name: "embeddings",
+                prompt_adapter_id: "openrouter-embeddings",
+            },
+        )
+    }
+
+    pub(crate) fn from_actor_rerank_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Self, RegistryError> {
+        Self::from_actor_exact_endpoint_binding(
+            binding,
+            policy_mode,
+            ActorExactEndpointContract {
+                capability: ModelCapability::Rerank,
+                input_modality: ModelModality::Text,
+                input_name: "text",
+                output_modality: ModelModality::Rerank,
+                output_name: "rerank",
+                prompt_adapter_id: "openrouter-rerank",
+            },
+        )
+    }
+
+    pub(crate) fn from_actor_speech_synthesis_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Self, RegistryError> {
+        Self::from_actor_exact_endpoint_binding(
+            binding,
+            policy_mode,
+            ActorExactEndpointContract {
+                capability: ModelCapability::SpeechSynthesis,
+                input_modality: ModelModality::Text,
+                input_name: "text",
+                output_modality: ModelModality::Speech,
+                output_name: "speech",
+                prompt_adapter_id: "openrouter-audio-speech",
+            },
+        )
+    }
+
+    #[allow(dead_code)] // Reserved for the exact-bound, server-authored STT action.
+    pub(crate) fn from_actor_transcription_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        policy_mode: DataPolicyMode,
+    ) -> Result<Self, RegistryError> {
+        Self::from_actor_exact_endpoint_binding(
+            binding,
+            policy_mode,
+            ActorExactEndpointContract {
+                capability: ModelCapability::Transcription,
+                input_modality: ModelModality::Audio,
+                input_name: "audio",
+                output_modality: ModelModality::Transcription,
+                output_name: "transcription",
+                prompt_adapter_id: "openrouter-audio-transcriptions",
+            },
+        )
+    }
+
+    /// Builds an exact actor-bound selection for a server-authored, non-chat
+    /// endpoint. These requests may intentionally use a catalog binding that
+    /// is not ZDR; preserve that fact in attribution and let the gateway add a
+    /// provider privacy constraint only when the binding explicitly is ZDR.
+    fn from_actor_exact_endpoint_binding(
+        binding: &crate::content_load::SeedActorModelBinding,
+        _policy_mode: DataPolicyMode,
+        contract: ActorExactEndpointContract,
+    ) -> Result<Self, RegistryError> {
+        let requested_model_id =
+            normalize_model_id(&binding.requested_model_id, "requested model id")?;
+        let provider = normalize_provider(&binding.provider)?;
+        if provider != "openrouter" {
+            return Err(RegistryError::InvalidField {
+                field: "provider",
+                detail: "actor exact-model bindings must use openrouter".to_string(),
+            });
+        }
+        let expected_input = binding
+            .input_modalities
+            .iter()
+            .any(|value| value == contract.input_name);
+        let expected_output = binding
+            .output_modalities
+            .iter()
+            .any(|value| value == contract.output_name);
+        if binding.speech_mode != "unavailable" || !expected_input || !expected_output {
+            return Err(RegistryError::CapabilityMismatch {
+                model: requested_model_id,
+                capability: contract.capability,
+            });
+        }
+        let catalog_snapshot_version = normalize_token(
+            &binding.catalog_snapshot_version,
+            "registry snapshot version",
+            128,
+        )?;
+        let concrete_model_id = normalize_model_id(&binding.canonical_slug, "concrete model id")?;
+        let modalities = |values: &[String]| {
+            values
+                .iter()
+                .filter_map(|value| match value.as_str() {
+                    "text" => Some(ModelModality::Text),
+                    "image" => Some(ModelModality::Image),
+                    "audio" => Some(ModelModality::Audio),
+                    "speech" => Some(ModelModality::Speech),
+                    "transcription" => Some(ModelModality::Transcription),
+                    "video" => Some(ModelModality::Video),
+                    "embeddings" => Some(ModelModality::Embeddings),
+                    "rerank" => Some(ModelModality::Rerank),
+                    _ => None,
+                })
+                .collect::<BTreeSet<_>>()
+        };
+        let data_policy = if binding.zero_data_retention {
+            DataPolicyEligibility {
+                retention: DataRetention::None,
+                training: TrainingUse::Prohibited,
+            }
+        } else {
+            DataPolicyEligibility::default()
+        };
+        let family = requested_model_id
+            .split_once('/')
+            .map(|(provider, _)| provider.to_string());
+        let candidate = ModelCandidate {
+            requested_model_id,
+            provider,
+            concrete_model: Some(ConcreteModelIdentity {
+                model_id: concrete_model_id,
+                revision: None,
+            }),
+            mutable_alias: false,
+            family,
+            size_class: None,
+            input_modalities: modalities(&binding.input_modalities),
+            output_modalities: modalities(&binding.output_modalities),
+            context_limit: binding.context_length,
+            output_limit: binding.max_completion_tokens,
+            supported_parameters: SupportedParameters::default(),
+            data_policy,
+            prompt_adapter: PromptAdapterRef {
+                id: contract.prompt_adapter_id.to_string(),
+                version: "1".to_string(),
+            },
+            sampling: SamplingDefaults::default(),
+            declared_capabilities: BTreeSet::from([contract.capability]),
+            discovered_capabilities: BTreeSet::new(),
+            observations: CandidateObservations {
+                input_cost_per_million: binding.input_cost_per_million,
+                output_cost_per_million: binding.output_cost_per_million,
+                ..CandidateObservations::default()
+            },
+            declared: true,
+            discovered: true,
+        };
+        debug_assert!(candidate
+            .input_modalities
+            .contains(&contract.input_modality));
+        debug_assert!(candidate
+            .output_modalities
+            .contains(&contract.output_modality));
+        Ok(Self {
+            snapshot_version: catalog_snapshot_version,
+            capability: contract.capability,
             candidate: Arc::new(candidate),
         })
     }
@@ -1661,6 +1911,7 @@ mod tests {
                 tools: false,
                 seed: true,
                 stop: true,
+                reasoning: false,
             },
             data_policy: DataPolicyEligibility {
                 retention: DataRetention::None,

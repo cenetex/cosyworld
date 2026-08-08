@@ -51,18 +51,27 @@ struct StoredResidentImage {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ResidentImagePublication {
-    schema_version: u8,
-    asset_id: String,
-    url: String,
-    mime_type: String,
-    width: u32,
-    height: u32,
-    alt: String,
-    digest: String,
+    pub(super) schema_version: u8,
+    pub(super) asset_id: String,
+    pub(super) url: String,
+    pub(super) mime_type: String,
+    pub(super) width: u32,
+    pub(super) height: u32,
+    pub(super) alt: String,
+    pub(super) digest: String,
+    pub(super) provider: String,
+    pub(super) model: String,
+    pub(super) prompt_version: String,
+    pub(super) context_hash: String,
+}
+
+pub(super) struct GeneratedResidentImage {
+    pub(super) publication: ResidentImagePublication,
+    feature: &'static str,
+    actor_id: u64,
     provider: String,
     model: String,
-    prompt_version: String,
-    context_hash: String,
+    latency_ms: u64,
 }
 
 impl ResidentImagePublication {
@@ -101,24 +110,88 @@ pub(super) fn resident_uses_image_reply(actor_id: u64) -> bool {
     resident_image_binding(actor_id).is_some()
 }
 
+pub(super) fn resident_supports_native_reply(actor_id: u64) -> bool {
+    resident_supports_text_reply(actor_id) || resident_uses_image_reply(actor_id)
+}
+
+pub(super) fn resident_reply_target_available(runtime: &RuntimeWorld, actor_id: u64) -> bool {
+    !runtime.actor_uses_inference(actor_id) || resident_supports_native_reply(actor_id)
+}
+
+pub(super) fn card_reaction_responder_available(
+    runtime: &RuntimeWorld,
+    actor: CwActor,
+    location_id: u64,
+    active_direct_actor_ids: Option<&BTreeSet<u64>>,
+) -> bool {
+    RuntimeWorld::actor_can_act(actor)
+        && actor.location_id == location_id
+        && if runtime.actor_uses_inference(actor.id) {
+            resident_supports_native_reply(actor.id)
+        } else {
+            active_direct_actor_ids.is_none_or(|active_ids| active_ids.contains(&actor.id))
+        }
+}
+
+pub(super) fn native_reaction_responders(
+    runtime: &RuntimeWorld,
+    location_id: u64,
+    active_direct_actor_ids: Option<&BTreeSet<u64>>,
+) -> Vec<CwActor> {
+    runtime.world.actors[..runtime.world.actor_count]
+        .iter()
+        .copied()
+        .filter(|actor| {
+            card_reaction_responder_available(runtime, *actor, location_id, active_direct_actor_ids)
+        })
+        .collect()
+}
+
 pub(super) fn resident_supports_text_reply(actor_id: u64) -> bool {
-    active_content()
+    let binding = active_content()
         .actor_model_bindings
         .iter()
-        .find(|binding| binding.actor_id == actor_id)
-        .is_none_or(|binding| {
-            binding
-                .output_modalities
-                .iter()
-                .any(|value| value == "text")
+        .find(|binding| binding.actor_id == actor_id);
+    let Some(binding) = binding else {
+        return true;
+    };
+    binding_supports_text_reply(binding)
+}
+
+pub(super) fn binding_supports_text_reply(binding: &SeedActorModelBinding) -> bool {
+    exact_actor_interaction_profile_for_actor(binding.actor_id, ActorInteractionKind::Talk)
+        .ok()
+        .flatten()
+        .is_some_and(|exact| {
+            exact.profile.ready_before_policy()
+                && exact.binding.requested_model_id == binding.requested_model_id
+                && exact.binding.canonical_slug == binding.canonical_slug
         })
+        && PinnedModelSelection::from_actor_binding(binding, DataPolicyMode::Development).is_ok()
 }
 
 fn resident_image_binding(actor_id: u64) -> Option<&'static SeedActorModelBinding> {
     active_content()
         .actor_model_bindings
         .iter()
-        .find(|binding| binding.actor_id == actor_id && binding_uses_image_reply(binding))
+        .find(|binding| {
+            binding.actor_id == actor_id
+                && binding_uses_image_reply(binding)
+                && binding_supports_image_interaction(binding)
+        })
+}
+
+pub(super) fn binding_supports_image_interaction(binding: &SeedActorModelBinding) -> bool {
+    exact_actor_interaction_profile_for_actor(binding.actor_id, ActorInteractionKind::Illustrate)
+        .ok()
+        .flatten()
+        .is_some_and(|exact| {
+            exact.profile.ready_before_policy()
+                && exact.binding.requested_model_id == binding.requested_model_id
+                && exact.binding.canonical_slug == binding.canonical_slug
+        })
+        && PinnedModelSelection::from_actor_image_binding(binding, DataPolicyMode::Development)
+            .is_ok()
 }
 
 fn binding_uses_image_reply(binding: &SeedActorModelBinding) -> bool {
@@ -141,26 +214,80 @@ pub(super) async fn complete_resident_image_reply(
     let binding = resident_image_binding(plan.speaker_actor_id)
         .ok_or_else(|| "resident has no compatible image-model binding".to_string())?;
     let job_id = resident_image_job_id(plan);
+    let generated = generate_moderated_resident_image(
+        state,
+        binding,
+        plan.speaker_actor_id,
+        &job_id,
+        &resident_image_prompt(plan),
+        &format!(
+            "{} shares a visual reply.",
+            compact_whitespace(&plan.speaker_name)
+        ),
+        RESIDENT_IMAGE_FEATURE,
+    )
+    .await?;
+    let Some(generated) = generated else {
+        return Ok(false);
+    };
+    let events = {
+        let mut runtime = state.inner.lock().await;
+        commit_resident_image_record(
+            state,
+            &mut runtime,
+            plan,
+            generated.publication.clone(),
+            relationship_reply,
+        )?
+    };
+    let Some(events) = events else {
+        return Ok(false);
+    };
+    if events.is_empty() {
+        return Ok(true);
+    }
+    let source_event_id = events
+        .iter()
+        .find(|event| event.type_name == "image.created")
+        .map(|event| event.seq);
+    broadcast_events(state, &events);
+    generated.record_published(state, source_event_id);
+    Ok(true)
+}
 
-    let stored = match load_published_resident_image(&state.generated_asset_dir, &job_id)? {
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn generate_moderated_resident_image(
+    state: &AppState,
+    binding: &SeedActorModelBinding,
+    actor_id: u64,
+    job_id: &str,
+    prompt: &str,
+    alt: &str,
+    feature: &'static str,
+) -> Result<Option<GeneratedResidentImage>, String> {
+    validate_resident_image_id(job_id)?;
+    let stored = match load_published_resident_image(&state.generated_asset_dir, job_id)? {
         Some(stored) => stored,
         None => {
-            let config =
-                state.ai_config.as_ref().as_ref().ok_or_else(|| {
-                    AiGatewayError::unconfigured(RESIDENT_IMAGE_FEATURE).to_string()
-                })?;
+            let config = state
+                .ai_config
+                .as_ref()
+                .as_ref()
+                .ok_or_else(|| AiGatewayError::unconfigured(feature).to_string())?;
+            config
+                .pin_actor_image_model(binding)
+                .map_err(|error| error.to_string())?;
             let mut candidate =
-                match load_resident_image_candidate(&state.generated_asset_dir, &job_id)? {
+                match load_resident_image_candidate(&state.generated_asset_dir, job_id)? {
                     Some(candidate) => candidate,
                     None => {
-                        let prompt = resident_image_prompt(plan);
                         let generated = request_image_generation_with_binding(
                             config,
                             binding,
                             ImageGenerationRequest {
-                                feature: RESIDENT_IMAGE_FEATURE,
+                                feature,
                                 prompt_version: RESIDENT_IMAGE_PROMPT_VERSION,
-                                prompt: &prompt,
+                                prompt,
                                 timeout: Duration::from_secs(90),
                                 max_attempts: 2,
                                 referer: "https://cosy.world/",
@@ -170,8 +297,8 @@ pub(super) async fn complete_resident_image_reply(
                         .map_err(|error| {
                             record_ai_usage_for_provider(
                                 state,
-                                Some(plan.speaker_actor_id),
-                                RESIDENT_IMAGE_FEATURE,
+                                Some(actor_id),
+                                feature,
                                 "server",
                                 &binding.provider,
                                 &binding.requested_model_id,
@@ -189,8 +316,8 @@ pub(super) async fn complete_resident_image_reply(
                         )?;
                         let candidate = StoredResidentImage {
                             schema_version: RESIDENT_IMAGE_SCHEMA_VERSION,
-                            job_id: job_id.clone(),
-                            actor_id: plan.speaker_actor_id,
+                            job_id: job_id.to_string(),
+                            actor_id,
                             content_type: generated.content_type,
                             width,
                             height,
@@ -213,12 +340,14 @@ pub(super) async fn complete_resident_image_reply(
                         candidate
                     }
                 };
-
+            if candidate.actor_id != actor_id {
+                return Err("resident image actor does not match its durable job".to_string());
+            }
             if candidate.review_status == "rejected" {
-                return Ok(false);
+                return Ok(None);
             }
             let bytes = load_validated_resident_image_bytes(
-                &resident_image_candidate_asset_path(&state.generated_asset_dir, &job_id),
+                &resident_image_candidate_asset_path(&state.generated_asset_dir, job_id),
                 &candidate,
             )?;
             let image_url = format!(
@@ -242,7 +371,7 @@ pub(super) async fn complete_resident_image_reply(
             .map_err(|error| {
                 record_ai_usage_for_provider(
                     state,
-                    Some(plan.speaker_actor_id),
+                    Some(actor_id),
                     RESIDENT_IMAGE_POLICY_FEATURE,
                     "server",
                     ai_provider_name(Some(config)),
@@ -257,7 +386,7 @@ pub(super) async fn complete_resident_image_reply(
             })?;
             record_ai_usage_for_provider(
                 state,
-                Some(plan.speaker_actor_id),
+                Some(actor_id),
                 RESIDENT_IMAGE_POLICY_FEATURE,
                 "server",
                 ai_provider_name(Some(config)),
@@ -279,8 +408,8 @@ pub(super) async fn complete_resident_image_reply(
                 store_resident_image_candidate_metadata(&state.generated_asset_dir, &candidate)?;
                 record_ai_usage_for_provider(
                     state,
-                    Some(plan.speaker_actor_id),
-                    RESIDENT_IMAGE_FEATURE,
+                    Some(actor_id),
+                    feature,
                     "server",
                     &candidate.attribution.provider,
                     &candidate.attribution.resolved_model_id,
@@ -290,44 +419,43 @@ pub(super) async fn complete_resident_image_reply(
                     Some("image_policy_rejected"),
                     Duration::from_millis(candidate.latency_ms),
                 );
-                return Ok(false);
+                return Ok(None);
             }
             candidate.review_status = "approved".to_string();
             publish_resident_image(&state.generated_asset_dir, &candidate, &bytes)?;
             candidate
         }
     };
-
-    let publication = resident_image_publication(plan, &stored)?;
-    let events = {
-        let mut runtime = state.inner.lock().await;
-        commit_resident_image_record(state, &mut runtime, plan, publication, relationship_reply)?
-    };
-    let Some(events) = events else {
-        return Ok(false);
-    };
-    if events.is_empty() {
-        return Ok(true);
+    if stored.actor_id != actor_id {
+        return Err("resident image actor does not match its durable job".to_string());
     }
-    let source_event_id = events
-        .iter()
-        .find(|event| event.type_name == "image.created")
-        .map(|event| event.seq);
-    broadcast_events(state, &events);
-    record_ai_usage_for_provider(
-        state,
-        Some(plan.speaker_actor_id),
-        RESIDENT_IMAGE_FEATURE,
-        "server",
-        &stored.attribution.provider,
-        &stored.attribution.resolved_model_id,
-        "published",
-        source_event_id,
-        0,
-        None,
-        Duration::from_millis(stored.latency_ms),
-    );
-    Ok(true)
+    let publication = resident_image_publication(&stored, alt)?;
+    Ok(Some(GeneratedResidentImage {
+        publication,
+        feature,
+        actor_id,
+        provider: stored.attribution.provider,
+        model: stored.attribution.resolved_model_id,
+        latency_ms: stored.latency_ms,
+    }))
+}
+
+impl GeneratedResidentImage {
+    pub(super) fn record_published(&self, state: &AppState, source_event_id: Option<u64>) {
+        record_ai_usage_for_provider(
+            state,
+            Some(self.actor_id),
+            self.feature,
+            "server",
+            &self.provider,
+            &self.model,
+            "published",
+            source_event_id,
+            0,
+            None,
+            Duration::from_millis(self.latency_ms),
+        );
+    }
 }
 
 fn resident_image_prompt(plan: &AvatarReplyPlan) -> String {
@@ -365,8 +493,8 @@ fn resident_image_job_id(plan: &AvatarReplyPlan) -> String {
 }
 
 fn resident_image_publication(
-    plan: &AvatarReplyPlan,
     stored: &StoredResidentImage,
+    alt: &str,
 ) -> Result<ResidentImagePublication, String> {
     let publication = ResidentImagePublication {
         schema_version: RESIDENT_IMAGE_SCHEMA_VERSION,
@@ -375,10 +503,7 @@ fn resident_image_publication(
         mime_type: stored.content_type.clone(),
         width: stored.width,
         height: stored.height,
-        alt: format!(
-            "{} shares a visual reply.",
-            compact_whitespace(&plan.speaker_name)
-        ),
+        alt: compact_whitespace(alt),
         digest: stored.digest.clone(),
         provider: stored.attribution.provider.clone(),
         model: stored.attribution.resolved_model_id.clone(),
@@ -721,6 +846,31 @@ mod tests {
             .output_modalities
             .iter()
             .any(|value| value == "text"));
+    }
+
+    #[test]
+    fn recraft_vector_bindings_wait_for_safe_svg_rasterization() {
+        let bindings = serde_json::from_str::<Vec<SeedActorModelBinding>>(include_str!(
+            "../../content/elysium/actor_model_bindings.json"
+        ))
+        .expect("Elysium actor model bindings");
+        let vector_bindings = bindings
+            .iter()
+            .filter(|binding| {
+                binding.requested_model_id.starts_with("recraft/recraft-v4")
+                    && binding.requested_model_id.ends_with("vector")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(vector_bindings.len(), 4);
+        assert!(vector_bindings.iter().all(|binding| {
+            let exact = exact_actor_interaction_profile_for_actor(
+                binding.actor_id,
+                ActorInteractionKind::Illustrate,
+            )
+            .expect("profile registry")
+            .expect("vector illustrate profile");
+            !exact.profile.ready_before_policy() && !binding_supports_image_interaction(binding)
+        }));
     }
 
     #[test]

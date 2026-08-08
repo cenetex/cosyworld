@@ -180,6 +180,7 @@ pub(super) async fn chat(
 
     let mut runtime = state.inner.lock().await;
     let target_is_available = runtime.actor_uses_inference(payload.target_actor_id)
+        && resident_supports_text_reply(payload.target_actor_id)
         && !runtime.actors_blocked(payload.actor_id, payload.target_actor_id)
         && !runtime.actor_muted(payload.actor_id, payload.target_actor_id);
     let Some(plan) = target_is_available

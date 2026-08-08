@@ -501,6 +501,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         | CommandDispatch::Work
         | CommandDispatch::Help
         | CommandDispatch::Chat { .. }
+        | CommandDispatch::ModelInteraction { .. }
         | CommandDispatch::CreateBond { .. }
         | CommandDispatch::ReviseBond { .. }
         | CommandDispatch::ResolveBond { .. }

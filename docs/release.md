@@ -4,15 +4,20 @@ Deployments are handled by `.github/workflows/deploy.yml`.
 
 ## Continuous deploys
 
-Pushes to `main` and version tags deploy the current repository state to Fly.
-The workflow requires this GitHub secret:
+Pushes to `main` run the production gate and deploy only the primary
+`cosyworld` Fly app. Tags matching `v*` rerun the production gate, deploy both
+the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
+a GitHub release only after both deployments succeed.
 
-- `FLY_API_TOKEN`
+The workflow requires these app-scoped GitHub secrets:
 
-The workflow deploys `fly.toml` to `cosyworld`, resolves that deployment's
-immutable registry digest, then deploys the same digest with
-`fly.lonelyforest.toml`. The two apps run identical code with independent
-volumes and WebAuthn relying-party domains.
+- `FLY_API_TOKEN` for the primary app
+- `FLY_LONELYFOREST_API_TOKEN` for Lonely Forest
+
+The workflow deploys `fly.toml` to the primary app and
+`fly.lonelyforest.toml` to Lonely Forest in separate jobs. The two apps run the
+same committed release with independent volumes and WebAuthn relying-party
+domains.
 
 ## Volume headroom
 
@@ -42,11 +47,11 @@ The Terraform state remains stored in:
 
 ## Cutting a Release
 
-Use a version tag:
+Use the next version tag, replacing `vX.Y.Z` with the release tag being cut:
 
 ```sh
-git tag v0.0.13
-git push origin v0.0.13
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 The workflow deploys both Fly apps, then creates GitHub release notes.

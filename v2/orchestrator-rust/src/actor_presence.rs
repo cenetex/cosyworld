@@ -111,12 +111,14 @@ impl RuntimeWorld {
         access: &AccessContext,
         submission: &ActionOfferSubmissionRequest,
         active_direct_actor_ids: &BTreeSet<u64>,
+        model_config: Option<&AiConfig>,
     ) -> Result<(), &'static str> {
         self.validate_action_offer_submission_with_presence(
             actor_id,
             access,
             submission,
             Some(active_direct_actor_ids),
+            model_config,
         )
     }
 

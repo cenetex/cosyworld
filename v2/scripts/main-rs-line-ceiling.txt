@@ -199,4 +199,4 @@
 # both directions, the empty-store and inconsistent-store boundaries, and the
 # health contract; the checkpoint-refusal half lives in snapshot_persistence.rs
 # beside the writer that owns it.
-71901
+71887

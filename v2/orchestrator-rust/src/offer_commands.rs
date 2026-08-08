@@ -292,6 +292,9 @@ fn dispatch_for_offer(
         "chat" => Ok(CommandDispatch::Chat {
             target_actor_id: required_target_id(offer, "actor")?,
         }),
+        "model_interaction" => Ok(CommandDispatch::ModelInteraction {
+            target_actor_id: required_target_id(offer, "actor")?,
+        }),
         "create_bond" => {
             let target_actor_id = required_target_id(offer, "actor")?;
             let target_name = runtime

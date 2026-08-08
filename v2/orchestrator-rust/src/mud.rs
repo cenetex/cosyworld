@@ -95,6 +95,9 @@ pub(crate) enum CommandDispatch {
     Chat {
         target_actor_id: u64,
     },
+    ModelInteraction {
+        target_actor_id: u64,
+    },
     Influence {
         target_actor_id: u64,
     },
@@ -257,6 +260,15 @@ pub(crate) fn command_verb_and_rest(command: &str) -> (String, &str) {
         .unwrap_or_else(|| (command.to_lowercase(), ""))
 }
 
+fn strip_ascii_command_prefix<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
+    let head = value.get(..prefix.len())?;
+    let tail = value.get(prefix.len()..)?;
+    head.eq_ignore_ascii_case(prefix)
+        .then_some(tail)
+        .filter(|tail| tail.is_empty() || tail.starts_with(char::is_whitespace))
+        .map(str::trim)
+}
+
 pub(crate) fn canonical_command_verb(verb: &str) -> String {
     if canonical_direction(verb).is_some() {
         return "go".to_string();
@@ -284,7 +296,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "steal" | "pilfer" => "steal",
         "craft" | "make" | "combine" => "craft",
         "use" | "drink" | "ring" => "use",
-        "talk" | "chat" | "speak" => "chat",
+        "talk" | "chat" => "chat",
         "influence" | "persuade" => "influence",
         "cast" | "magic" => "cast",
         "prepare-spell" => "prepare-spell",
@@ -550,6 +562,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         }
         CommandDispatch::ReviseCalling { .. } => "That purpose cannot change just now.",
         CommandDispatch::Chat { .. } => "That conversation is no longer within reach.",
+        CommandDispatch::ModelInteraction { .. } => {
+            "That model interaction is no longer within reach."
+        }
         CommandDispatch::CreateBond { .. } => "There is not a friendship ready to grow just now.",
         CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
         CommandDispatch::TrainSkill { .. } => {
@@ -1293,16 +1308,32 @@ impl RuntimeWorld {
             ));
         }
         let (raw_verb, rest) = command_verb_and_rest(&command);
+        let (model_interaction_profile, interaction_rest) = match raw_verb.as_str() {
+            "illustrate" => (Some(ModelInteractionProfile::Image), Some(rest)),
+            "speak" => (Some(ModelInteractionProfile::Speech), Some(rest)),
+            "find" => strip_ascii_command_prefix(rest, "resonance")
+                .map(|tail| (Some(ModelInteractionProfile::Embeddings), Some(tail)))
+                .unwrap_or((None, None)),
+            "rank" => strip_ascii_command_prefix(rest, "echoes")
+                .map(|tail| (Some(ModelInteractionProfile::Rerank), Some(tail)))
+                .unwrap_or((None, None)),
+            _ => (None, None),
+        };
         let direction_verb = canonical_direction(&raw_verb);
-        let verb = if raw_verb == "revise"
+        let verb = if model_interaction_profile.is_some() {
+            "model-interaction".to_string()
+        } else if raw_verb == "revise"
             && rest.trim_start().strip_prefix("bond").is_some_and(|tail| {
                 tail.is_empty() || tail.chars().next().is_some_and(char::is_whitespace)
-            }) {
+            })
+        {
             "bond".to_string()
         } else {
             canonical_command_verb(&raw_verb)
         };
-        let rest = if verb == "go" && rest.is_empty() {
+        let rest = if let Some(interaction_rest) = interaction_rest {
+            interaction_rest
+        } else if verb == "go" && rest.is_empty() {
             direction_verb.unwrap_or(rest)
         } else {
             rest
@@ -2416,6 +2447,7 @@ impl RuntimeWorld {
                 let target_name = self.actor_view(target).name;
                 let chat_command = format!("chat {target_name}");
                 if !self.actor_uses_inference(target.id)
+                    || !resident_supports_text_reply(target.id)
                     || self.actors_blocked(actor.id, target.id)
                     || self.actor_muted(actor.id, target.id)
                 {
@@ -2436,6 +2468,55 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action("chat", "Chat", &chat_command)),
                     dispatch: CommandDispatch::Chat {
+                        target_actor_id: target.id,
+                    },
+                })
+            }
+            "model-interaction" => {
+                let profile = model_interaction_profile
+                    .expect("model-interaction verb has an exact requested profile");
+                let target = self
+                    .resolve_room_actor(
+                        actor,
+                        rest,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
+                    )
+                    .map_err(|output| {
+                        command_error(&command, "model-interaction", 404, output)
+                    })?;
+                let target_name = self.actor_view(target).name;
+                let interaction_command = format!(
+                    "{} {target_name}",
+                    profile.intention().replace('_', " ")
+                );
+                if self.model_interaction_profile_for(actor.id, target.id) != Some(profile) {
+                    return Ok(ResolvedCommand {
+                        command: interaction_command.clone(),
+                        verb,
+                        action: Some(command_action(
+                            "model_interaction",
+                            profile.label(),
+                            &interaction_command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!(
+                                "{} is not available for {target_name}'s exact model route.",
+                                profile.label()
+                            ),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: interaction_command.clone(),
+                    verb,
+                    action: Some(command_action(
+                        "model_interaction",
+                        profile.label(),
+                        &interaction_command,
+                    )),
+                    dispatch: CommandDispatch::ModelInteraction {
                         target_actor_id: target.id,
                     },
                 })
@@ -3941,5 +4022,22 @@ mod tests {
             }
             other => panic!("help should be read-only, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn semantic_model_commands_consume_case_insensitive_phrases_without_losing_target_case() {
+        assert_eq!(
+            strip_ascii_command_prefix("Resonance Echo Prime", "resonance"),
+            Some("Echo Prime")
+        );
+        assert_eq!(
+            strip_ascii_command_prefix("ECHOES Model Seven", "echoes"),
+            Some("Model Seven")
+        );
+        assert_eq!(
+            strip_ascii_command_prefix("resonances Echo", "resonance"),
+            None
+        );
+        assert_eq!(canonical_command_verb("speak"), "speak");
     }
 }

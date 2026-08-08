@@ -2621,6 +2621,396 @@ async function main() {
     assert(result.renderedMara?.payload?.target_actor_id === 8301 && result.renderedMara?.payload?.statement === result.mara?.payload?.statement, `the DOM-selected Mara payload must keep the authored relationship statement: ${JSON.stringify(result.renderedMara)}`);
   }
 
+  async function assertModelInteractionProfilesStayModalityTruthful() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousPending = pendingModelInteractions;
+      const baseState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "model_interaction",
+          options: [{ kind: "model_interaction" }],
+        },
+        economy: {},
+        ledger: {},
+        bonds: [],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [],
+        room_features: [],
+        cards: {
+          actors: {
+            1001: {
+              display_name: "Echo",
+              role: "resident",
+              aspect: "portrait",
+              title: "Exact Model",
+              image_url: "",
+            },
+          },
+          items: {},
+          locations: {},
+        },
+        access: {},
+      };
+      const actionFor = (intention, label, command, includeIntention = true) => {
+        const offer = {
+          kind: "model_interaction",
+          offer_id: `model-interaction-${intention || label}`,
+          verb: label,
+          label,
+          accessible_label: label,
+          command,
+          target: { kind: "actor", id: 1001, label: "Echo" },
+        };
+        if (includeIntention) offer.intention = intention;
+        const fakeState = { ...baseState, action_offers: [offer] };
+        state = fakeState;
+        actorId = 5000;
+        const entry = buildActions(fakeState).find((action) => action.kind === "model-interaction");
+        return entry ? {
+          label: entry.label,
+          intention: entry.intention,
+          detail: entry.detail,
+          command: entry.command,
+          cardType: entry.cardType,
+          title: actionTitle(entry),
+          summary: actionSummary(entry),
+          effect: entry.effect,
+          busyLabel: entry.busyLabel,
+          busyDetail: entry.busyDetail,
+          offerIds: entry.offerIds,
+          choices: (entry.choices || []).length,
+          payload: entry.selectedPayload?.() || null,
+        } : null;
+      };
+      const semanticEvent = (profile, source) => ({
+        type: "model_interaction.output",
+        actor_id: 1001,
+        actor_name: "Echo",
+        target_actor_id: 5000,
+        content: JSON.stringify({
+          schema_version: 1,
+          interaction_id: "a".repeat(64),
+          profile,
+          summary: profile === "rerank" ? "Echo ranked three neighboring model echoes." : "Echo found three resonant neighboring model profiles.",
+          output_parts: [{
+            modality: "semantic_match",
+            source,
+            entity_kind: "actor_model",
+            entity_id: "1002",
+            label: "Neighboring Exact Model",
+            relation: source === "rerank" ? "was ranked as a neighboring model echo" : "resonates with this neighboring model descriptor",
+            score_band: "high",
+          }],
+          attribution: { provider: "openrouter", model: "exact-model" },
+          prompt_version: "grounded-semantic-v1",
+          context_hash: "b".repeat(64),
+        }),
+      });
+      const speechDigest = "c".repeat(64);
+      const speechEvent = (partOverrides = {}, valueOverrides = {}) => ({
+        type: "model_interaction.output",
+        actor_id: 1001,
+        actor_name: "Echo",
+        target_actor_id: 5000,
+        content: JSON.stringify({
+          schema_version: 1,
+          interaction_id: "d".repeat(64),
+          profile: "speech",
+          summary: "Echo spoke one server-authored line about The Cosy Cottage.",
+          output_parts: [{
+            modality: "audio",
+            asset_id: speechDigest,
+            digest: speechDigest,
+            url: `/assets/generated/model-audio/${speechDigest}.mp3`,
+            mime_type: "audio/mpeg",
+            description: "Echo speaks from The Cosy Cottage.",
+            transcript: "From The Cosy Cottage, Echo offers this place a voice.",
+            ...partOverrides,
+          }],
+          attribution: { provider: "openrouter", model: "exact-speech-model" },
+          prompt_version: "grounded-speech-v1",
+          context_hash: "e".repeat(64),
+          ...valueOverrides,
+        }),
+      });
+      try {
+        const visibleText = (html) => {
+          const container = document.createElement("div");
+          container.innerHTML = html;
+          return container.textContent || "";
+        };
+        const image = actionFor("illustrate", "Illustrate", "illustrate Echo");
+        const embeddings = actionFor("find_resonance", "Find resonance", "find resonance Echo");
+        const rerank = actionFor("rank_echoes", "Rank echoes", "rank echoes Echo");
+        const speech = actionFor("speak", "Speak", "speak Echo");
+        const explicitUnknown = actionFor("future_profile", "Illustrate", "illustrate Echo");
+        const legacyFallback = actionFor("", "Find resonance", "find resonance Echo", false);
+        state = baseState;
+        actorId = 5000;
+        pendingModelInteractions = [{ targetActorId: 1001, targetName: "Echo", profile: "image", stage: "generating" }];
+        const imagePending = pendingModelInteractionsHtml();
+        pendingModelInteractions = [{ targetActorId: 1001, targetName: "Echo", profile: "embeddings", stage: "generating" }];
+        const embeddingsPending = pendingModelInteractionsHtml();
+        pendingModelInteractions = [{ targetActorId: 1001, targetName: "Echo", profile: "rerank", stage: "retrying" }];
+        const rerankPending = pendingModelInteractionsHtml();
+        pendingModelInteractions = [{ targetActorId: 1001, targetName: "Echo", profile: "speech", stage: "generating" }];
+        const speechPending = pendingModelInteractionsHtml();
+        const embeddingsResult = modelInteractionOutputHtml(semanticEvent("embeddings", "embeddings"));
+        const rerankResult = modelInteractionOutputHtml(semanticEvent("rerank", "rerank"));
+        const speechOutput = speechEvent();
+        const speechMetadata = modelInteractionMetadata(speechOutput);
+        const speechResult = modelInteractionOutputHtml(speechOutput);
+        const escapedTranscript = modelInteractionOutputHtml(speechEvent({
+          transcript: "<img src=x onerror=window.__modelAudioXss=true>",
+        }));
+        const semanticParts = JSON.parse(semanticEvent("embeddings", "embeddings").content).output_parts;
+        return {
+          image,
+          embeddings,
+          rerank,
+          speech,
+          explicitUnknown,
+          legacyFallback,
+          imagePending,
+          imagePendingText: visibleText(imagePending),
+          embeddingsPending,
+          embeddingsPendingText: visibleText(embeddingsPending),
+          rerankPending,
+          rerankPendingText: visibleText(rerankPending),
+          speechPending,
+          speechPendingText: visibleText(speechPending),
+          embeddingsResult,
+          embeddingsResultText: visibleText(embeddingsResult),
+          rerankResult,
+          rerankResultText: visibleText(rerankResult),
+          speechResult,
+          speechMetadata,
+          speechWithDuration: modelInteractionMetadata(speechEvent({ duration_ms: 1200 })),
+          rejectedSpeech: {
+            mismatchedAsset: modelInteractionMetadata(speechEvent({ asset_id: "f".repeat(64) })) === null,
+            wrongRoute: modelInteractionMetadata(speechEvent({ url: `/assets/generated/model-audio/${speechDigest}.wav` })) === null,
+            wrongMime: modelInteractionMetadata(speechEvent({ mime_type: "audio/wav" })) === null,
+            zeroDuration: modelInteractionMetadata(speechEvent({ duration_ms: 0 })) === null,
+            oversizedDuration: modelInteractionMetadata(speechEvent({ duration_ms: 600001 })) === null,
+            stringDuration: modelInteractionMetadata(speechEvent({ duration_ms: "1200" })) === null,
+            missingTranscript: modelInteractionMetadata(speechEvent({ transcript: "" })) === null,
+            audioUnderEmbeddings: modelInteractionMetadata(speechEvent({}, { profile: "embeddings" })) === null,
+            semanticUnderSpeech: modelInteractionMetadata(speechEvent({}, { output_parts: semanticParts })) === null,
+          },
+          escapedTranscript,
+          embeddingsFailure: sceneCardEventText({
+            type: "model_interaction.failed",
+            clientModelInteractionProfile: "embeddings",
+          }),
+          rerankFailure: sceneCardEventText({
+            type: "model_interaction.failed",
+            clientModelInteractionProfile: "rerank",
+          }),
+          speechFailure: sceneCardEventText({
+            type: "model_interaction.failed",
+            clientModelInteractionProfile: "speech",
+          }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        pendingModelInteractions = previousPending;
+      }
+    });
+    assert(result.image?.label === "illustrate" && result.image?.detail.endsWith("one visual interpretation"), `image interaction should remain explicitly visual: ${JSON.stringify(result)}`);
+    assert(result.image?.summary.includes("exact image model") && result.image?.busyLabel === "illustrating", `image confirmation and pending copy should remain visual: ${JSON.stringify(result.image)}`);
+    assert(result.embeddings?.label === "find resonance" && result.embeddings?.title === "find resonance with Echo", `embedding interaction should render Find resonance: ${JSON.stringify(result.embeddings)}`);
+    assert(result.embeddings?.detail.endsWith("three neighboring model resonances") && result.embeddings?.busyLabel === "finding resonance", `embedding interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.embeddings)}`);
+    assert(/authoritative model descriptor/i.test(result.embeddings?.summary || "") && !/current scene|this place/i.test(result.embeddings?.summary || ""), `embedding confirmation must describe exact model descriptors, not scene similarity: ${JSON.stringify(result.embeddings)}`);
+    assert(result.rerank?.label === "rank echoes" && result.rerank?.title === "rank echoes with Echo", `rerank interaction should render Rank echoes: ${JSON.stringify(result.rerank)}`);
+    assert(result.rerank?.detail.endsWith("three ranked model echoes") && result.rerank?.busyLabel === "ranking echoes", `rerank interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.rerank)}`);
+    assert(/authoritative descriptor/i.test(result.rerank?.summary || "") && !/current scene|this place/i.test(result.rerank?.summary || ""), `rerank confirmation must describe exact model descriptors, not scene similarity: ${JSON.stringify(result.rerank)}`);
+    assert(result.speech?.label === "speak" && result.speech?.title === "speak with Echo", `speech interaction should render Speak: ${JSON.stringify(result.speech)}`);
+    assert(result.speech?.detail.endsWith("one server-authored spoken line") && result.speech?.busyLabel === "speaking", `speech interaction should promise exactly one authored audio result: ${JSON.stringify(result.speech)}`);
+    assert(/exact speech model and voice/i.test(result.speech?.summary || "")
+      && /frozen target and location details/i.test(result.speech?.summary || "")
+      && /no typed prompt or player-authored line/i.test(result.speech?.summary || ""), `Speak confirmation must describe its authoritative, input-free source: ${JSON.stringify(result.speech)}`);
+    for (const action of [result.image, result.embeddings, result.rerank, result.speech]) {
+      assert(action?.choices === 0, `model interactions must not expose player input choices: ${JSON.stringify(action)}`);
+      assert(Object.keys(action?.payload || {}).sort().join(",") === "actor_id,target_actor_id", `model interaction payload must remain actor-and-target only: ${JSON.stringify(action)}`);
+      assert(action?.offerIds?.length === 1, `model interaction must retain its exact offer certificate: ${JSON.stringify(action)}`);
+    }
+    for (const action of [result.image, result.embeddings, result.rerank]) {
+      assert(action?.summary.includes("There is no typed prompt or spoken line."), `model interaction confirmation must explain its server-authored input: ${JSON.stringify(action)}`);
+    }
+    assert(result.explicitUnknown?.label === "interact", `an explicit unknown intention must not be inferred as Image from its generic label: ${JSON.stringify(result.explicitUnknown)}`);
+    assert(result.legacyFallback?.label === "find resonance", `label fallback should apply only when the offer intention is absent: ${JSON.stringify(result.legacyFallback)}`);
+    assert(/illustrating the current scene/i.test(result.imagePendingText), `image pending output should stay visual: ${result.imagePending}`);
+    assert(/finding resonant model profiles/i.test(result.embeddingsPendingText) && !/image|visual|illustrat|current scene|this place/i.test(result.embeddingsPendingText), `embedding pending output should stay model-semantic: ${result.embeddingsPending}`);
+    assert(/trying the ranking route again/i.test(result.rerankPendingText) && !/image|visual|illustrat/i.test(result.rerankPendingText), `rerank pending output should stay semantic: ${result.rerankPending}`);
+    assert(/synthesizing the line with the exact voice/i.test(result.speechPendingText) && !/typing|player-authored|prompt/i.test(result.speechPendingText), `speech pending output should stay exact-voice and server-authored: ${result.speechPending}`);
+    assert(/model resonances found/i.test(result.embeddingsResultText) && !/image|visual|illustrat|current scene|this place/i.test(result.embeddingsResultText), `embedding result should stay model-semantic: ${result.embeddingsResult}`);
+    assert(/model echoes ranked/i.test(result.rerankResultText) && !/image|visual|illustrat|current scene|this place/i.test(result.rerankResultText), `rerank result should stay model-semantic: ${result.rerankResult}`);
+    assert(/spoken line/i.test(result.speechResult) && /<audio controls/.test(result.speechResult)
+      && /From The Cosy Cottage, Echo offers this place a voice\./.test(result.speechResult), `speech output should render one audio player and its transcript: ${result.speechResult}`);
+    assert(result.speechMetadata?.parts?.[0]?.durationMs === null, `speech duration must be optional rather than fabricated: ${JSON.stringify(result.speechMetadata)}`);
+    assert(result.speechMetadata?.parts?.[0]?.assetId === "c".repeat(64)
+      && result.speechMetadata?.parts?.[0]?.digest === "c".repeat(64)
+      && result.speechMetadata?.parts?.[0]?.mimeType === "audio/mpeg"
+      && result.speechMetadata?.parts?.[0]?.url === `/assets/generated/model-audio/${"c".repeat(64)}.mp3`, `speech audio must retain its exact content-addressed identity: ${JSON.stringify(result.speechMetadata)}`);
+    assert(result.speechWithDuration?.parts?.[0]?.durationMs === 1200, `a bounded authoritative duration should remain usable when provided: ${JSON.stringify(result.speechWithDuration)}`);
+    assert(Object.values(result.rejectedSpeech || {}).every(Boolean), `unsafe or profile-incoherent speech output must be rejected: ${JSON.stringify(result.rejectedSpeech)}`);
+    assert(result.escapedTranscript.includes("&lt;img src=x onerror=window.__modelAudioXss=true&gt;")
+      && !result.escapedTranscript.includes("<img src=x onerror=window.__modelAudioXss=true>"), `speech transcripts must be escaped before rendering: ${result.escapedTranscript}`);
+    assert(/Try Find resonance again/.test(result.embeddingsFailure)
+      && /Try Rank echoes again/.test(result.rerankFailure)
+      && /Try Speak again/.test(result.speechFailure), `model interactions should retain their profile-specific retry action: ${JSON.stringify(result)}`);
+  }
+
+  async function assertModelInteractionLifecycleRehydratesAfterReloadAndGap() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousPending = pendingModelInteractions;
+      const previousLogEvents = logEvents;
+      const previousSeenSeq = [...seenSeq];
+      const previousRehydrationRequired = pendingModelInteractionRehydrationRequired;
+      const previousNextPendingId = nextPendingModelInteractionId;
+      const baseState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        action_offers: [{
+          kind: "model_interaction",
+          intention: "speak",
+          verb: "Speak",
+          label: "Speak",
+          command: "speak Echo",
+          target: { kind: "actor", id: 1001, label: "Echo" },
+        }],
+        cards: { actors: {}, items: {}, locations: {} },
+        safety: {},
+      };
+      const queued = {
+        seq: 410,
+        type: "model_interaction.queued",
+        actor_id: 5000,
+        actor_name: "Lantern Stitch",
+        target_actor_id: 1001,
+        target_actor_name: "Echo",
+        location_id: 1,
+      };
+      const generating = {
+        ...queued,
+        seq: 411,
+        type: "model_interaction.generating",
+        caused_by_event_seq: 410,
+      };
+      const retrying = {
+        ...queued,
+        seq: 412,
+        type: "model_interaction.retrying",
+        caused_by_event_seq: 410,
+      };
+      const terminalEvent = (type) => type === "model_interaction.output"
+        ? {
+            seq: 413,
+            type,
+            actor_id: 1001,
+            actor_name: "Echo",
+            target_actor_id: 5000,
+            target_actor_name: "Lantern Stitch",
+            location_id: 1,
+            caused_by_event_seq: 410,
+          }
+        : {
+            ...queued,
+            seq: 413,
+            type,
+            caused_by_event_seq: 410,
+          };
+      try {
+        actorId = 5000;
+        state = { ...baseState, recent_events: [generating, queued] };
+        pendingModelInteractions = [];
+        logEvents = [];
+        seenSeq.clear();
+        rebuildLogFromAuthoritativeState(state);
+        const reloadPending = pendingModelInteractions.map((pending) => ({ ...pending }));
+        renderButton("primary", {
+          kind: "model-interaction",
+          label: "speak",
+          command: "speak Echo",
+          cardType: "chat",
+          detail: "with Echo · one server-authored spoken line",
+        });
+        const duplicateCard = {
+          disabled: $("primary").disabled,
+          busy: $("primary").getAttribute("aria-busy"),
+          text: $("primary").textContent.replace(/\s+/g, " ").trim(),
+        };
+
+        prepareForStreamGapRehydration();
+        const gapPrepared = pendingModelInteractionRehydrationRequired
+          && pendingModelInteractions.length === 0
+          && logEvents.length === 0
+          && seenSeq.size === 0;
+        state = { ...baseState, recent_events: [retrying] };
+        rebuildLogFromAuthoritativeState(state);
+        const gapPending = pendingModelInteractions.map((pending) => ({ ...pending }));
+        const gapRehydrationCleared = pendingModelInteractionRehydrationRequired === false;
+
+        const terminalClears = Object.fromEntries([
+          "model_interaction.failed",
+          "model_interaction.completed",
+          "model_interaction.output",
+        ].map((type) => [
+          type,
+          modelInteractionLifecycleSnapshot(
+            [queued, retrying, terminalEvent(type)],
+            baseState,
+            [],
+          ).pending.length === 0,
+        ]));
+        return {
+          reloadPending,
+          duplicateCard,
+          gapPrepared,
+          gapPending,
+          gapRehydrationCleared,
+          terminalClears,
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        pendingModelInteractions = previousPending;
+        logEvents = previousLogEvents;
+        seenSeq.clear();
+        previousSeenSeq.forEach((seq) => seenSeq.add(seq));
+        pendingModelInteractionRehydrationRequired = previousRehydrationRequired;
+        nextPendingModelInteractionId = previousNextPendingId;
+        renderCommands();
+      }
+    });
+    assert(result.reloadPending?.length === 1
+      && result.reloadPending[0].queueEventSeq === 410
+      && result.reloadPending[0].targetActorId === 1001
+      && result.reloadPending[0].profile === "speech"
+      && result.reloadPending[0].stage === "generating", `reload must reconstruct the latest unmatched model interaction: ${JSON.stringify(result.reloadPending)}`);
+    assert(result.duplicateCard?.disabled === true
+      && result.duplicateCard?.busy === "true"
+      && /synthesizing the line with the exact voice/i.test(result.duplicateCard?.text || ""), `a rehydrated durable interaction must keep its duplicate action disabled: ${JSON.stringify(result.duplicateCard)}`);
+    assert(result.gapPrepared === true && result.gapRehydrationCleared === true, `the SSE gap path must require and complete authoritative rehydration: ${JSON.stringify(result)}`);
+    assert(result.gapPending?.length === 1
+      && result.gapPending[0].queueEventSeq === 410
+      && result.gapPending[0].profile === "speech"
+      && result.gapPending[0].stage === "retrying", `an SSE gap must recover from a caused-by stage even when the queue event aged out: ${JSON.stringify(result.gapPending)}`);
+    assert(Object.values(result.terminalClears || {}).every(Boolean), `failed, completed, and output events must each clear reconstructed lifecycle state: ${JSON.stringify(result.terminalClears)}`);
+  }
+
   async function assertMaraRelationshipEventsStayTruthful() {
     const result = await page.evaluate(() => {
       const forming = {
@@ -13302,6 +13692,8 @@ async function main() {
   await assertFeatureAndCareShareOneUseCard();
   await assertExactTwoCardHandKeepsOfferAndPayloadBindings();
   await assertChatPrimaryUsesCompactActorDetail();
+  await assertModelInteractionProfilesStayModalityTruthful();
+  await assertModelInteractionLifecycleRehydratesAfterReloadAndGap();
   await assertMaraRelationshipEventsStayTruthful();
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
