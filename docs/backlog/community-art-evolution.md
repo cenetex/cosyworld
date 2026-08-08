@@ -1,6 +1,8 @@
 # Community Art Evolution
 
-Status: first vertical slice shipped in the Rust/browser implementation; production hardening remains.
+Status: planning document. The first vertical slice shipped in the Rust/browser
+implementation; immediate production hardening is tracked in GitHub, currently
+[#683](https://github.com/cenetex/cosyworld/issues/683).
 
 The follow-on epic — [Reference-Composed World
 Scenes](#follow-on-epic-reference-composed-world-scenes) — was groomed
@@ -39,9 +41,15 @@ The generated image belongs to the public card. Its prompt uses the card identit
 - Funding and status survive snapshots and action-journal replay. In-flight job de-duplication is currently process-local.
 - The existing keepsake modal shows pooled progress and provides the contribution/retry action; no separate currency UI was added.
 
-## Groomed backlog
+## Planning horizons
 
-### P0 — production safety
+These horizons preserve product and architecture direction; they are not a
+live task list. When a bounded slice becomes immediate, its GitHub issue owns
+scope, acceptance, dependencies, milestone, delivery labels, and status. This
+document keeps only the durable rationale and sequencing that future issues
+should reference.
+
+### Production-hardening horizon
 
 - Move generation into a durable `media_jobs` queue with leases, retries, dead-letter state, and startup recovery for fully funded jobs.
 - Store assets in durable object storage and retain immutable `{subject, level, revision}` provenance instead of replacing one local file.
@@ -49,7 +57,7 @@ The generated image belongs to the public card. Its prompt uses the card identit
 - Add moderator reject/replace controls. Rejection and replacement must never charge the community again.
 - Record provider/model/prompt version, history range, contributor totals, source funding event, output digest, and moderation status in the media asset record.
 
-### P1 — complete the collectible model
+### Collectible-model horizon
 
 - Make level authoritative for generated items and locations, not just avatars. Define the gameplay event that advances each type; Orb funding must never advance it.
 - Decide whether one level unlock applies per card identity, per shard-local instance, or per canonical collectible. Default: canonical shared subject for locations/avatars; instance for materially distinct crafted items.
@@ -57,7 +65,7 @@ The generated image belongs to the public card. Its prompt uses the card identit
 - Add optional reference-image composition from the prior ready level to preserve recognizability across evolution.
 - Let contributors inspect the public history summary and cost before contributing, without exposing raw prompts or private/moderation data.
 
-### P2 — community and operations
+### Community and operations horizon
 
 - Show contributor attribution and funding completion in the public Journal/chronicle without turning the room transcript into a transaction feed.
 - Add operator views for funding funnels, provider failures, generation latency, retry count, cost per ready image, and abandoned partial pools.
@@ -69,7 +77,7 @@ The generated image belongs to the public card. Its prompt uses the card identit
 1. A zero-Orb avatar can Say, Listen, Help, travel, fight, grow, and manage cards; it can Chat whenever banked advancement makes that friendship action available.
 2. For subject `S` at level `L`, accepted contributions total at most `L` Orbs and at most one image becomes ready.
 3. Concurrent/replayed contribution requests cannot overfund, double-debit, or create multiple generation jobs.
-4. A provider outage, invalid subject, invisible card, completed level, or retry after full funding debits zero Orbs.
+4. A provider or reviewer outage, invalid subject, invisible card, completed level, failed media-storage/quarantine preflight, or retry after full funding debits zero Orbs. Actor, item, and location preflight failures expose stable subject-neutral error codes.
 5. The prompt is derived only from committed public history through a recorded sequence.
 6. A ready image changes presentation only; mechanics and ownership are byte-for-byte unaffected.
 7. Reaching level `L+1` creates a fresh pool of `L+1` Orbs while preserving the prior level's provenance.

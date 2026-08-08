@@ -3308,6 +3308,39 @@ struct ActionResponse {
     events: Vec<EventView>,
 }
 
+#[derive(Debug, Serialize)]
+struct FundCommunityImageResponse {
+    ok: bool,
+    status: u32,
+    events: Vec<EventView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error_code: Option<String>,
+}
+
+impl FundCommunityImageResponse {
+    fn action(ok: bool, status: u32, events: Vec<EventView>) -> Json<Self> {
+        Json(Self {
+            ok,
+            status,
+            events,
+            error_code: None,
+        })
+    }
+
+    fn failure(status: u32, error_code: &str) -> Json<Self> {
+        Json(Self {
+            ok: false,
+            status,
+            events: Vec::new(),
+            error_code: Some(error_code.to_string()),
+        })
+    }
+
+    fn from_action(response: Json<ActionResponse>) -> Json<Self> {
+        Self::action(response.0.ok, response.0.status, response.0.events)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct ActionOfferSubmissionRequest {
     path: String,
@@ -25180,7 +25213,7 @@ async fn fund_community_image(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(payload): Json<FundCommunityImageRequest>,
-) -> Json<ActionResponse> {
+) -> Json<FundCommunityImageResponse> {
     if !allow_actor_mutation(
         &state,
         client_addr,
@@ -25188,14 +25221,15 @@ async fn fund_community_image(
         "community-image-actor",
         CHAT_ACTION_LIMIT,
     ) {
-        return action_rate_limited_response();
+        return FundCommunityImageResponse::from_action(action_rate_limited_response());
     }
     if state.avatar_art_config.as_ref().is_none() {
-        return Json(ActionResponse {
-            ok: false,
-            status: 503,
-            events: Vec::new(),
-        });
+        warn!(
+            failure_stage = "provider",
+            failure_code = "community_art_provider_unavailable",
+            "community art funding preflight failed: Replicate is not configured"
+        );
+        return FundCommunityImageResponse::failure(503, "community_art_provider_unavailable");
     }
     let intent_id = payload.intent_id.trim();
     if intent_id.is_empty()
@@ -25204,11 +25238,7 @@ async fn fund_community_image(
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.'))
     {
-        return Json(ActionResponse {
-            ok: false,
-            status: 400,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(false, 400, Vec::new());
     }
 
     let (initial_plan, initial_generation_fingerprint) = {
@@ -25219,7 +25249,7 @@ async fn fund_community_image(
             payload.actor_id,
             payload.actor_session.as_deref(),
         ) {
-            return client_actor_rejected_response();
+            return FundCommunityImageResponse::from_action(client_actor_rejected_response());
         }
         let plan = match runtime.community_art_plan(
             payload.actor_id,
@@ -25228,11 +25258,7 @@ async fn fund_community_image(
         ) {
             Ok(plan) => plan,
             Err(_) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 404,
-                    events: Vec::new(),
-                });
+                return FundCommunityImageResponse::action(false, 404, Vec::new());
             }
         };
         let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
@@ -25260,7 +25286,7 @@ async fn fund_community_image(
             payload.actor_id,
             payload.actor_session.as_deref(),
         ) {
-            return client_actor_rejected_response();
+            return FundCommunityImageResponse::from_action(client_actor_rejected_response());
         }
         let mut plan = match runtime.community_art_plan(
             payload.actor_id,
@@ -25269,19 +25295,11 @@ async fn fund_community_image(
         ) {
             Ok(plan) => plan,
             Err(_) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 404,
-                    events: Vec::new(),
-                });
+                return FundCommunityImageResponse::action(false, 404, Vec::new());
             }
         };
         if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(false, 409, Vec::new());
         }
         let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
         let existing = runtime.community_art_generations.get(&key);
@@ -25312,21 +25330,13 @@ async fn fund_community_image(
             if working && retry_generation {
                 schedule_community_art_generation(&state, payload.actor_id, plan);
             }
-            return Json(ActionResponse {
-                ok: true,
-                status: CW_OK,
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
         }
         if existing.is_some_and(|generation| {
             generation.funding_intent_ids.contains(intent_id)
                 && generation.funded_orbs < generation.required_orbs
         }) {
-            return Json(ActionResponse {
-                ok: true,
-                status: CW_OK,
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
         }
         if existing.is_some_and(|generation| {
             generation
@@ -25335,74 +25345,69 @@ async fn fund_community_image(
                 .is_some_and(|amount| *amount > 0)
                 && generation.funded_orbs < generation.required_orbs
         }) {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(false, 409, Vec::new());
         }
         if working {
             drop(runtime);
             if retry_generation {
                 schedule_community_art_generation(&state, payload.actor_id, plan);
             }
-            return Json(ActionResponse {
-                ok: true,
-                status: CW_OK,
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
         }
         if existing.is_some_and(|generation| generation.status == "ready") {
-            return Json(ActionResponse {
-                ok: same_intent,
-                status: if same_intent { CW_OK } else { 409 },
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(
+                same_intent,
+                if same_intent { CW_OK } else { 409 },
+                Vec::new(),
+            );
         }
         if existing.is_some_and(|generation| {
             generation.funded_orbs >= generation.required_orbs && !retry_generation
         }) {
-            return Json(ActionResponse {
-                ok: same_intent,
-                status: if same_intent { CW_OK } else { 409 },
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(
+                same_intent,
+                if same_intent { CW_OK } else { 409 },
+                Vec::new(),
+            );
         }
         plan
     };
 
-    if let Some(policy) = preflight_plan.image_policy {
-        let started_at = Instant::now();
-        if let Err(error) =
-            preflight_community_art_policy(state.ai_config.as_ref().as_ref(), policy).await
-        {
-            warn!(
-                "community art policy preflight failed for {}: {}",
-                community_art_generation_key(
-                    &preflight_plan.subject_kind,
-                    preflight_plan.subject_id,
-                    preflight_plan.level
-                ),
-                error.message()
-            );
-            record_ai_usage(
-                &state,
-                Some(payload.actor_id),
-                "community_image_policy_preflight",
-                "cosyworld_system",
-                state.ai_config.as_ref().as_ref(),
-                "failed",
-                None,
-                0,
-                Some(error.code()),
-                started_at.elapsed(),
-            );
-            return Json(ActionResponse {
-                ok: false,
-                status: 503,
-                events: Vec::new(),
-            });
-        }
+    let started_at = Instant::now();
+    if let Err(error) = preflight_community_art_funding(
+        state
+            .avatar_art_config
+            .as_ref()
+            .as_ref()
+            .expect("community-art provider was checked before planning"),
+        state.ai_config.as_ref().as_ref(),
+        &state.generated_asset_dir,
+        &preflight_plan,
+    )
+    .await
+    {
+        warn!(
+            failure_stage = error.stage(),
+            failure_code = error.code(),
+            subject_kind = preflight_plan.subject_kind,
+            subject_id = preflight_plan.subject_id,
+            level = preflight_plan.level,
+            "community art funding preflight failed: {}",
+            error.message()
+        );
+        record_ai_usage(
+            &state,
+            Some(payload.actor_id),
+            "community_image_publication_preflight",
+            "cosyworld_system",
+            state.ai_config.as_ref().as_ref(),
+            "failed",
+            None,
+            0,
+            Some(error.code()),
+            started_at.elapsed(),
+        );
+        return FundCommunityImageResponse::failure(503, error.code());
     }
 
     let mut runtime = state.inner.lock().await;
@@ -25412,7 +25417,7 @@ async fn fund_community_image(
         payload.actor_id,
         payload.actor_session.as_deref(),
     ) {
-        return client_actor_rejected_response();
+        return FundCommunityImageResponse::from_action(client_actor_rejected_response());
     }
     let mut plan = match runtime.community_art_plan(
         payload.actor_id,
@@ -25421,19 +25426,11 @@ async fn fund_community_image(
     ) {
         Ok(plan) => plan,
         Err(_) => {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
+            return FundCommunityImageResponse::action(false, 404, Vec::new());
         }
     };
     if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
-        return Json(ActionResponse {
-            ok: false,
-            status: 409,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(false, 409, Vec::new());
     }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
@@ -25447,11 +25444,7 @@ async fn fund_community_image(
         if retry_generation {
             schedule_community_art_generation(&state, payload.actor_id, plan);
         }
-        return Json(ActionResponse {
-            ok: true,
-            status: CW_OK,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
     }
     if existing.is_some_and(|generation| {
         generation
@@ -25460,39 +25453,23 @@ async fn fund_community_image(
             .is_some_and(|amount| *amount > 0)
             && generation.funded_orbs < generation.required_orbs
     }) {
-        return Json(ActionResponse {
-            ok: false,
-            status: 409,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(false, 409, Vec::new());
     }
     if existing.is_some_and(|generation| generation.status == "ready") {
-        return Json(ActionResponse {
-            ok: false,
-            status: 409,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(false, 409, Vec::new());
     }
     if existing.is_some_and(|generation| {
         generation.funded_orbs >= generation.required_orbs
             && !plan.generation_retryable(generation, candidate_retry_path)
     }) {
-        return Json(ActionResponse {
-            ok: false,
-            status: 409,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(false, 409, Vec::new());
     }
     let funded_orbs = existing
         .map(|generation| generation.funded_orbs)
         .unwrap_or(0);
     let contribution = plan.required_orbs.saturating_sub(funded_orbs).min(1);
     if contribution > 0 && runtime.orb_balance(payload.actor_id) < contribution {
-        return Json(ActionResponse {
-            ok: false,
-            status: 402,
-            events: Vec::new(),
-        });
+        return FundCommunityImageResponse::action(false, 402, Vec::new());
     }
 
     let events = if contribution > 0 {
@@ -25525,18 +25502,10 @@ async fn fund_community_image(
         match commit_journal_record(&state, &mut runtime, record) {
             Ok((CW_OK, events)) => events,
             Ok((status, events)) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status,
-                    events,
-                });
+                return FundCommunityImageResponse::action(false, status, events);
             }
             Err(_) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: 500,
-                    events: Vec::new(),
-                });
+                return FundCommunityImageResponse::action(false, 500, Vec::new());
             }
         }
     } else {
@@ -25553,11 +25522,7 @@ async fn fund_community_image(
     if fully_funded {
         schedule_community_art_generation(&state, payload.actor_id, plan);
     }
-    Json(ActionResponse {
-        ok: true,
-        status: CW_OK,
-        events,
-    })
+    FundCommunityImageResponse::action(true, CW_OK, events)
 }
 
 async fn commit_chat_status(

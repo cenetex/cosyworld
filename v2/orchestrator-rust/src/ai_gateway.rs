@@ -723,6 +723,8 @@ pub(crate) struct ImagePolicyDecision {
     pub(crate) allowed: bool,
     pub(crate) violations: Vec<String>,
     pub(crate) summary: String,
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1168,12 +1170,16 @@ pub(crate) async fn request_image_policy_decision(
         None,
     )
     .await?;
-    parse_image_policy_decision(&completion.text).map_err(|message| AiGatewayError {
-        kind: AiFailureKind::InvalidResponse,
-        message,
-        attempts: completion.attempts,
-        latency: completion.latency,
-    })
+    let mut decision =
+        parse_image_policy_decision(&completion.text).map_err(|message| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message,
+            attempts: completion.attempts,
+            latency: completion.latency,
+        })?;
+    decision.attempts = completion.attempts;
+    decision.latency = completion.latency;
+    Ok(decision)
 }
 
 fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, String> {
@@ -1220,6 +1226,8 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
         allowed: raw.allowed,
         violations: raw.violations,
         summary,
+        attempts: 0,
+        latency: Duration::ZERO,
     })
 }
 

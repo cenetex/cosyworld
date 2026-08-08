@@ -487,17 +487,21 @@ Avatar art prompts start with the configured LoRA trigger and combine a stable,
 persisted physical description with the avatar's current species, origin,
 class or classless state, level, calling, location, and carried/equipped items.
 Item and location generations likewise include their authoritative card and
-world details plus committed public history. Location images are withheld until
-the configured vision model confirms that they contain no people, characters,
-creatures, text, logos, or watermarks. Before funding can complete, the server
-checks that the configured reviewer accepts the exact base64-image and strict
-JSON-schema request. Each downloaded candidate is stored before review, so a
-review outage or restart retries the saved bytes without another Replicate
-prediction. Policy-rejected candidates may be replaced, but provider attempts
-are journaled and capped at three for that card level; after the cap, the
-browser disables retry and states that no more provider credits will be used.
-Unavailable or invalid review leaves the deterministic landscape fallback
-visible.
+world details plus committed public history. Every actor, item, and location
+candidate is withheld until the configured vision model approves its frozen
+subject-specific publication policy; locations additionally forbid people,
+characters, creatures, text, logos, and watermarks. Before any Orb contribution
+commits, the server resolves that exact frozen brief and media recipe, checks the
+provider route, probes candidate/quarantine/publication and verdict storage, and
+passes a known-safe base64 fixture plus the real policy through the strict
+JSON-schema reviewer. Failures return a stable subject-neutral `error_code` with
+zero debit. Each downloaded candidate is stored before review, so a review
+outage or restart retries the saved bytes without another Replicate prediction.
+Policy-rejected candidates may be replaced, but provider attempts are journaled
+and capped at three for that card level; after the cap, the browser disables
+retry and states that no more provider credits will be used. Persisted verdicts
+retain actual reviewer attempts and latency. Unavailable or invalid review
+leaves deterministic fallback art visible.
 
 `Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
 

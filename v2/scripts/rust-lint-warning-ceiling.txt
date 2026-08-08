@@ -26,4 +26,4 @@
 # extra 4 are pre-existing, not from this branch: diffed clippy's warning-line
 # output between an unmodified main checkout and this branch under all three
 # toolchains, and the sets were byte-identical every time.
-240
+238
