@@ -371,19 +371,24 @@ a separate future media-job concern.
 - A contribution buys no ownership, access, power, or private control over the prompt.
 - Each `{subject kind, subject id, level}` generation is unique and replay-safe. Multiple avatars may pool its exact level-sized cost.
 - The prompt captures public card history through a committed sequence. When the card reaches a later level, its one newly unlocked image can evolve in response to everything that happened since.
-- Fully funded jobs may be retried without another Orb debit. A location job
-  first runs a known-safe solid-color base64 fixture through a matching
-  capability policy and the strict-schema review path, so a missing or
-  incompatible reviewer fails before either funding or a billable Replicate
-  request. The generated image still receives the full landscape publication
-  policy below.
-- Location art is published only after a strict vision-policy review finds no
-  people, characters, creatures, text, logos, or watermarks. The downloaded
-  candidate is durably stored before review; reviewer outages and restarts
-  reuse those bytes rather than purchasing another image. Actual provider
+- Fully funded jobs may be retried without another Orb debit. Before any actor,
+  item, or location contribution is journaled, the server resolves the exact
+  frozen media brief and recipe, proves candidate/quarantine/publication and
+  verdict storage, checks the provider route, and runs a known-safe solid-color
+  base64 fixture through the configured strict-schema reviewer. That capability
+  request carries the real frozen publication policy, while explicitly exempting
+  the synthetic fixture from subject-identity and environment matching. Missing
+  or incompatible reviewers therefore fail before either funding or a billable
+  Replicate request.
+- Every community-art candidate is published only after a strict vision-policy
+  review. Actor and item reviews enforce their frozen subject identity; location
+  reviews additionally reject people, characters, creatures, text, logos, and
+  watermarks. The downloaded candidate is durably stored before review; reviewer
+  outages and restarts reuse those bytes rather than purchasing another image.
+  Actual reviewer attempts and latency are retained in the verdict audit. Provider
   generation attempts are journal-counted and capped at three per
   `{subject kind, subject id, level}`. Rejection, review failure, and missing
-  review configuration all leave the deterministic landscape fallback visible.
+  review configuration all leave deterministic fallback art visible.
 - Location generation keeps the configured CosyWorld style LoRA but replaces
   the avatar portrait/card prefix with a landscape-only prefix and reduces
   public history to environmental traces without actor names or dialogue.

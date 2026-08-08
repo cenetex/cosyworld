@@ -27,8 +27,8 @@ fn test_art_config() -> ReplicateAvatarArtConfig {
     }
 }
 
-fn gate_png() -> Vec<u8> {
-    let pixels = ImageBuffer::from_fn(16, 9, |x, y| {
+fn gate_png_with_dimensions(width: u32, height: u32) -> Vec<u8> {
+    let pixels = ImageBuffer::from_fn(width, height, |x, y| {
         Rgba([
             (x as u8).wrapping_mul(17),
             (y as u8).wrapping_mul(29),
@@ -41,6 +41,14 @@ fn gate_png() -> Vec<u8> {
         .write_to(&mut bytes, ImageFormat::Png)
         .expect("encode gate PNG");
     bytes.into_inner()
+}
+
+fn gate_png() -> Vec<u8> {
+    gate_png_with_dimensions(16, 9)
+}
+
+fn square_gate_png() -> Vec<u8> {
+    gate_png_with_dimensions(16, 16)
 }
 
 /// Mirrors the production location plan: `community_art_plan` joins the
@@ -346,12 +354,264 @@ async fn location_art_funding_fails_before_debit_without_policy_review() {
 
     assert!(!response.ok);
     assert_eq!(response.status, 503);
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("community_art_reviewer_unavailable")
+    );
     assert!(response.events.is_empty());
     let runtime = state.inner.lock().await;
     assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
     assert!(!runtime
         .community_art_generations
         .contains_key(&community_art_generation_key("location", waypoint_id, 1)));
+}
+
+#[tokio::test]
+async fn actor_and_item_funding_fail_before_debit_without_publication_reviewer() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-art-preflight-ledger-{nonce}.sqlite"));
+    let generated_dir =
+        std::env::temp_dir().join(format!("cosyworld-art-preflight-assets-{nonce}"));
+    let _ = fs::remove_file(&event_store_path);
+    let _ = fs::remove_dir_all(&generated_dir);
+
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Universal Preflight Patron",
+    );
+    let item = runtime.world.items[..runtime.world.item_count]
+        .iter_mut()
+        .find(|item| item.id == 8403)
+        .expect("pending-art item is mounted");
+    item.holder_actor_id = 5000;
+    item.location_id = 0;
+
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    assert!(state.ai_config.as_ref().is_none());
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+
+    for (subject_kind, subject_id) in [("actor", 5000), ("item", 8403)] {
+        let response = fund_community_image(
+            ConnectInfo("127.0.0.1:44994".parse().expect("client address")),
+            State(state.clone()),
+            Json(FundCommunityImageRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+                subject_kind: subject_kind.to_string(),
+                subject_id,
+                intent_id: format!("test-{subject_kind}-reviewer-unavailable"),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(!response.ok, "{subject_kind} funding must fail closed");
+        assert_eq!(response.status, 503);
+        assert_eq!(
+            response.error_code.as_deref(),
+            Some("community_art_reviewer_unavailable")
+        );
+        assert!(response.events.is_empty());
+    }
+
+    let runtime = state.inner.lock().await;
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+    assert!(!runtime
+        .community_art_generations
+        .contains_key(&community_art_generation_key("actor", 5000, 1)));
+    assert!(!runtime
+        .community_art_generations
+        .contains_key(&community_art_generation_key("item", 8403, 1)));
+    drop(runtime);
+
+    let conn = open_event_store(&event_store_path).expect("open preflight usage ledger");
+    let failures: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM ai_usage_ledger
+             WHERE feature = 'community_image_publication_preflight'
+               AND status = 'failed'
+               AND orb_delta = 0
+               AND error_code = 'community_art_reviewer_unavailable'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count typed publication-preflight failures");
+    assert_eq!(failures, 2);
+
+    let _ = fs::remove_dir_all(generated_dir);
+    let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
+async fn candidate_storage_preflight_fails_before_orb_debit() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let generated_root =
+        std::env::temp_dir().join(format!("cosyworld-unwritable-art-root-{nonce}"));
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-storage-preflight-{nonce}.sqlite"));
+    let _ = fs::remove_file(&generated_root);
+    let _ = fs::remove_file(&event_store_path);
+    fs::write(
+        &generated_root,
+        b"this file blocks generated-media directories",
+    )
+    .expect("create blocked generated-media root");
+
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Storage Preflight Patron",
+    );
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig {
+        api_key: "test".to_string(),
+        base_url: "http://127.0.0.1:1".to_string(),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+        vision_reasoning_effort: None,
+        ..AiConfig::default()
+    }));
+    state.generated_asset_dir = Arc::new(generated_root.clone());
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+
+    let response = fund_community_image(
+        ConnectInfo("127.0.0.1:44997".parse().expect("client address")),
+        State(state.clone()),
+        Json(FundCommunityImageRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            intent_id: "test-storage-preflight".to_string(),
+        }),
+    )
+    .await
+    .0;
+
+    assert!(!response.ok);
+    assert_eq!(response.status, 503);
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some("community_art_storage_failed")
+    );
+    assert!(response.events.is_empty());
+    let runtime = state.inner.lock().await;
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+    assert!(!runtime
+        .community_art_generations
+        .contains_key(&community_art_generation_key("actor", 5000, 1)));
+    drop(runtime);
+
+    let conn = open_event_store(&event_store_path).expect("open storage-preflight ledger");
+    let failures: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM ai_usage_ledger
+             WHERE feature = 'community_image_publication_preflight'
+               AND error_code = 'community_art_storage_failed'
+               AND orb_delta = 0",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count typed storage-preflight failure");
+    assert_eq!(failures, 1);
+
+    let _ = fs::remove_file(generated_root);
+    let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
+async fn incomplete_candidate_quarantine_fails_before_orb_debit() {
+    let nonce = format!("{}-{}", std::process::id(), now_seed());
+    let generated_dir =
+        std::env::temp_dir().join(format!("cosyworld-quarantine-preflight-assets-{nonce}"));
+    let event_store_path =
+        std::env::temp_dir().join(format!("cosyworld-quarantine-preflight-{nonce}.sqlite"));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let _ = fs::remove_file(&event_store_path);
+
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Quarantine Preflight Patron",
+    );
+    let plan = runtime
+        .community_art_plan(5000, "actor", 5000)
+        .expect("visible avatar has a community-art plan");
+    let marker = test_candidate_quarantine_marker(&generated_dir, &plan);
+    fs::create_dir_all(marker.parent().expect("quarantine marker parent"))
+        .expect("create candidate directory");
+    fs::write(&marker, b"incomplete quarantine transaction")
+        .expect("stage incomplete quarantine marker");
+
+    let mut state = test_app_state(runtime, Some(event_store_path.clone()));
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig {
+        api_key: "test".to_string(),
+        base_url: "http://127.0.0.1:1".to_string(),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+        vision_reasoning_effort: None,
+        ..AiConfig::default()
+    }));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+
+    let response = fund_community_image(
+        ConnectInfo("127.0.0.1:44998".parse().expect("client address")),
+        State(state.clone()),
+        Json(FundCommunityImageRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            subject_kind: "actor".to_string(),
+            subject_id: 5000,
+            intent_id: "test-quarantine-preflight".to_string(),
+        }),
+    )
+    .await
+    .0;
+
+    assert!(!response.ok);
+    assert_eq!(response.status, 503);
+    assert_eq!(
+        response.error_code.as_deref(),
+        Some(COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE)
+    );
+    assert!(response.events.is_empty());
+    let runtime = state.inner.lock().await;
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+    assert!(!runtime
+        .community_art_generations
+        .contains_key(&community_art_generation_key("actor", 5000, 1)));
+    drop(runtime);
+
+    let conn = open_event_store(&event_store_path).expect("open quarantine-preflight ledger");
+    let failures: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM ai_usage_ledger
+             WHERE feature = 'community_image_publication_preflight'
+               AND error_code = 'community_art_candidate_quarantine_failed'
+               AND orb_delta = 0",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count typed quarantine-preflight failure");
+    assert_eq!(failures, 1);
+
+    let _ = fs::remove_dir_all(generated_dir);
+    let _ = fs::remove_file(event_store_path);
 }
 
 #[tokio::test]
@@ -466,7 +726,195 @@ async fn concurrent_location_funding_coalesces_policy_preflight_and_orb_debit() 
 }
 
 #[tokio::test]
+async fn item_funding_reaches_reviewed_publication_without_a_second_orb_debit() {
+    let review_requests = Arc::new(AtomicUsize::new(0));
+    let app = Router::new().route(
+        "/chat/completions",
+        post({
+            let review_requests = review_requests.clone();
+            move |Json(body): Json<serde_json::Value>| {
+                let review_requests = review_requests.clone();
+                async move {
+                    review_requests.fetch_add(1, Ordering::SeqCst);
+                    let image_url = body
+                        .pointer("/messages/1/content/1/image_url/url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    assert!(image_url.starts_with("data:image/png;base64,"));
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                    Json(serde_json::json!({
+                        "choices": [{
+                            "message": {
+                                "content": r#"{"allowed":true,"violations":[],"summary":"The item candidate satisfies the frozen publication brief."}"#
+                            }
+                        }]
+                    }))
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind item publication reviewer");
+    let address = listener.local_addr().expect("item reviewer address");
+    let server = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-item-publication-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Item Art Patron",
+    );
+    let item = runtime.world.items[..runtime.world.item_count]
+        .iter_mut()
+        .find(|item| item.id == 8403)
+        .expect("pending-art item is mounted");
+    item.holder_actor_id = 5000;
+    item.location_id = 0;
+    let plan = runtime
+        .community_art_plan(5000, "item", 8403)
+        .expect("held pending-art item can be funded");
+    let candidate_bytes = square_gate_png();
+    let prediction_id = "saved-item-candidate";
+    store_community_art_candidate(
+        &generated_dir,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: candidate_bytes.clone(),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/item-candidate.png".to_string(),
+            prediction_id: Some(prediction_id.to_string()),
+        },
+    )
+    .expect("store paid item candidate before funding recovery");
+
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig {
+        api_key: "test".to_string(),
+        base_url: format!("http://{address}"),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+        vision_reasoning_effort: None,
+        ..AiConfig::default()
+    }));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    let (actor_session, _) = issue_actor_session(&state, 5000);
+
+    let response = fund_community_image(
+        ConnectInfo("127.0.0.1:44995".parse().expect("client address")),
+        State(state.clone()),
+        Json(FundCommunityImageRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session),
+            subject_kind: "item".to_string(),
+            subject_id: 8403,
+            intent_id: "test-item-reviewed-publication".to_string(),
+        }),
+    )
+    .await
+    .0;
+
+    assert!(response.ok, "item funding should be accepted: {response:?}");
+    assert_eq!(response.status, CW_OK);
+    assert!(response.error_code.is_none());
+    assert_eq!(
+        response
+            .events
+            .iter()
+            .filter(|event| event.type_name == "community_art.funded")
+            .count(),
+        1
+    );
+
+    let key = community_art_generation_key("item", 8403, 1);
+    let generation = wait_for_community_art_status(&state, &key, "ready").await;
+    assert_eq!(generation.funded_orbs, 1);
+    assert_eq!(generation.provider_attempts, 0);
+    assert_eq!(
+        generation.last_prediction_id.as_deref(),
+        Some(prediction_id)
+    );
+    assert_eq!(review_requests.load(Ordering::SeqCst), 2);
+    let runtime = state.inner.lock().await;
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+    drop(runtime);
+
+    let mut canonical = None;
+    for _ in 0..100 {
+        canonical = canonical_community_media_asset_bytes(
+            &generated_dir,
+            "item",
+            8403,
+            1,
+            Some(prediction_id),
+        )
+        .ok();
+        if canonical.is_some() && !community_art_candidate_exists(&generated_dir, &plan) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let (published_bytes, published_type) = canonical.expect("item asset becomes canonical");
+    assert_eq!(published_bytes, candidate_bytes);
+    assert_eq!(published_type, "image/png");
+    assert!(!community_art_candidate_exists(&generated_dir, &plan));
+
+    let record_id = format!("{:x}", Sha256::digest(key.as_bytes()));
+    let verdict: serde_json::Value = serde_json::from_slice(
+        &fs::read(
+            generated_dir
+                .join("media-verdicts/v1")
+                .join(record_id)
+                .join("record.json"),
+        )
+        .expect("read persisted item verdict"),
+    )
+    .expect("parse persisted item verdict");
+    assert!(
+        verdict["candidates"][0]["visual"]["latency_ms"]
+            .as_u64()
+            .is_some_and(|latency| latency > 0),
+        "review latency must survive into the verdict audit"
+    );
+
+    let _ = fs::remove_dir_all(generated_dir);
+    server.abort();
+}
+
+#[tokio::test]
 async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() {
+    let app = Router::new().route(
+        "/chat/completions",
+        post(|| async {
+            Json(serde_json::json!({
+                "choices": [{
+                    "message": {
+                        "content": r#"{"allowed":true,"violations":[],"summary":"Known-safe publication preflight accepted."}"#
+                    }
+                }]
+            }))
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind evolution publication preflight fixture");
+    let address = listener
+        .local_addr()
+        .expect("evolution publication preflight address");
+    let server = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Patron");
     runtime.world.actors[..runtime.world.actor_count]
@@ -478,6 +926,15 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
     let before_tick = runtime.world.tick;
     let mut state = test_app_state(runtime, None);
     state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.ai_config = Arc::new(Some(AiConfig {
+        api_key: "test".to_string(),
+        base_url: format!("http://{address}"),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+        vision_reasoning_effort: None,
+        ..AiConfig::default()
+    }));
     let prior_bytes = BASE64_STANDARD
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC")
         .expect("decode prior-level PNG");
@@ -565,10 +1022,11 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
         evolution.prior_asset_digest,
         format!("{:x}", Sha256::digest(&prior_bytes))
     );
+    server.abort();
 }
 
 #[tokio::test]
-async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
+async fn community_art_preflight_uses_the_frozen_publication_policy_with_a_safe_fixture() {
     let capability_contract_seen = Arc::new(AtomicBool::new(false));
     let app = Router::new().route(
         "/chat/completions",
@@ -594,7 +1052,9 @@ async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
                                 == Some("cosyworld_image_policy")
                             && image_url == POLICY_PREFLIGHT_IMAGE_URL
                             && review.contains("uniform solid-green square")
-                            && !review.contains("Publish only a landscape"),
+                            && review.contains("Production policy:")
+                            && review.contains("Publish only a landscape")
+                            && review.contains("Foxglove Turn"),
                         Ordering::SeqCst,
                     );
                     Json(serde_json::json!({
@@ -627,11 +1087,19 @@ async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
         ..AiConfig::default()
     };
 
-    preflight_community_art_policy(Some(&config), CommunityArtImagePolicy::LocationLandscape)
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-capability-preflight-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let plan = location_art_plan(181_727, "16:9", "chalk lanes and reed beds");
+    preflight_community_art_funding(&test_art_config(), Some(&config), &generated_dir, &plan)
         .await
         .expect("known-safe preflight fixture is accepted");
 
     assert!(capability_contract_seen.load(Ordering::SeqCst));
+    let _ = fs::remove_dir_all(generated_dir);
     server.abort();
 }
 
@@ -1999,7 +2467,7 @@ async fn scheduler_candidate_review_retry_records_no_provider_attempt_or_usage()
     );
     assert_eq!(
         generation.last_error_code.as_deref(),
-        Some("community_art_policy_unconfigured")
+        Some("community_art_reviewer_unavailable")
     );
     assert!(
         community_art_candidate_exists(&generated_dir, &plan),
@@ -2013,6 +2481,78 @@ async fn scheduler_candidate_review_retry_records_no_provider_attempt_or_usage()
 
     let _ = fs::remove_dir_all(generated_dir);
     let _ = fs::remove_file(event_store_path);
+}
+
+#[tokio::test]
+async fn fully_funded_candidate_retry_never_debits_or_calls_the_provider_again() {
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-funded-candidate-endpoint-retry-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let actor_id = 5000;
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        actor_id,
+        COSY_COTTAGE_LOCATION_ID,
+        "Already Funded Patron",
+    );
+    let plan = runtime
+        .community_art_plan(actor_id, "actor", actor_id)
+        .expect("visible avatar has a community-art plan");
+    let key = community_art_generation_key("actor", actor_id, plan.level);
+    fund_test_community_art(&mut runtime, actor_id, &plan, "already-funded-intent", 7084);
+    store_community_art_candidate(
+        &generated_dir,
+        &plan,
+        &DownloadedReplicateImage {
+            bytes: gate_png_with_dimensions(16, 24),
+            content_type: "image/png".to_string(),
+            source_url: "https://replicate.delivery/pbxt/already-funded.png".to_string(),
+            prediction_id: Some("already-funded-prediction".to_string()),
+        },
+    )
+    .expect("store the recoverable paid candidate");
+
+    let mut state = test_app_state(runtime, None);
+    state.avatar_art_config = Arc::new(Some(test_art_config()));
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
+    let (actor_session, _) = issue_actor_session(&state, actor_id);
+    let balance_before = state.inner.lock().await.orb_balance(actor_id);
+
+    let response = fund_community_image(
+        ConnectInfo("127.0.0.1:44996".parse().expect("client address")),
+        State(state.clone()),
+        Json(FundCommunityImageRequest {
+            actor_id,
+            actor_session: Some(actor_session),
+            subject_kind: "actor".to_string(),
+            subject_id: actor_id,
+            intent_id: "retry-must-not-fund-again".to_string(),
+        }),
+    )
+    .await
+    .0;
+
+    assert!(response.ok);
+    assert_eq!(response.status, CW_OK);
+    assert!(response.events.is_empty());
+    assert!(response.error_code.is_none());
+    let generation = wait_for_community_art_status(&state, &key, "review_unavailable").await;
+    assert_eq!(generation.provider_attempts, 0);
+    assert_eq!(generation.funded_orbs, generation.required_orbs);
+    assert!(!generation
+        .funding_intent_ids
+        .contains("retry-must-not-fund-again"));
+    assert_eq!(
+        state.inner.lock().await.orb_balance(actor_id),
+        balance_before
+    );
+    assert!(community_art_candidate_exists(&generated_dir, &plan));
+
+    let _ = fs::remove_dir_all(generated_dir);
 }
 
 #[test]

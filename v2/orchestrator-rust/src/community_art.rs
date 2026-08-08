@@ -20,9 +20,10 @@ use tracing::warn;
 use crate::media_recipes::media_verdict::{
     bounded_brief_constraints, make_visual_verdict, media_candidate_approved,
     media_candidate_digest, media_candidate_violations, media_provider_route_available,
-    prepare_media_candidate, prepare_rejected_media_candidate_replacement,
-    record_media_provider_failure, record_media_review_unavailable, record_media_visual_verdict,
-    FrozenMediaBrief, MediaCandidateInput, MediaVerdictDisposition, MediaViolation,
+    preflight_media_verdict_storage, prepare_media_candidate,
+    prepare_rejected_media_candidate_replacement, record_media_provider_failure,
+    record_media_review_unavailable, record_media_visual_verdict, FrozenMediaBrief,
+    MediaCandidateInput, MediaVerdictDisposition, MediaViolation,
 };
 use crate::{
     active_content, backfill_legacy_community_asset, broadcast_events,
@@ -222,14 +223,6 @@ impl CommunityArtImagePolicy {
         }
     }
 
-    fn preflight_review(self) -> &'static str {
-        match self {
-            Self::LocationLandscape => {
-                "Allow this image only if it is a uniform solid-green square with no visible person, character, creature, text, logo, or watermark."
-            }
-        }
-    }
-
     fn generation_prompt_prefix(self) -> &'static str {
         match self {
             Self::LocationLandscape => LOCATION_LANDSCAPE_PROMPT_PREFIX,
@@ -291,10 +284,23 @@ impl CommunityArtGenerationError {
             Self::Preflight(_) => "community_art_preflight_failed",
             Self::BriefInvalid(_) => COMMUNITY_ART_BRIEF_INVALID_CODE,
             Self::CandidateQuarantine(_) => COMMUNITY_ART_CANDIDATE_QUARANTINE_FAILED_CODE,
-            Self::PolicyUnavailable => "community_art_policy_unconfigured",
+            Self::PolicyUnavailable => "community_art_reviewer_unavailable",
             Self::PolicyReview(_) => "community_art_policy_review_failed",
             Self::PolicyRejected(_) => "community_art_policy_rejected",
             Self::Storage(_) => "community_art_storage_failed",
+        }
+    }
+
+    pub(super) fn stage(&self) -> &'static str {
+        match self {
+            Self::Provider(_) | Self::ProviderUnavailable(_) => "provider",
+            Self::Preflight(_) => "recipe",
+            Self::BriefInvalid(_) => "brief",
+            Self::CandidateQuarantine(_) => "quarantine",
+            Self::PolicyUnavailable => "reviewer",
+            Self::PolicyReview(_) => "review",
+            Self::PolicyRejected(_) => "policy",
+            Self::Storage(_) => "storage",
         }
     }
 
@@ -314,7 +320,7 @@ impl CommunityArtGenerationError {
                 format!("invalid community-art candidate could not be quarantined: {error}")
             }
             Self::PolicyUnavailable => {
-                "location art policy review is not configured; output withheld".to_string()
+                "community-art publication reviewer is not configured; output withheld".to_string()
             }
             Self::PolicyReview(error) => format!("image policy review failed: {error}"),
             Self::PolicyRejected(violations) => format!(
@@ -980,17 +986,32 @@ impl RuntimeWorld {
     }
 }
 
-pub(super) async fn preflight_community_art_policy(
-    config: Option<&AiConfig>,
-    policy: CommunityArtImagePolicy,
+pub(super) async fn preflight_community_art_funding(
+    generation_config: &ReplicateAvatarArtConfig,
+    policy_config: Option<&AiConfig>,
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
 ) -> Result<(), CommunityArtGenerationError> {
-    let config = config.ok_or(CommunityArtGenerationError::PolicyUnavailable)?;
+    let policy_config = policy_config.ok_or(CommunityArtGenerationError::PolicyUnavailable)?;
+    let media_brief = community_art_media_brief(plan);
+    media_brief
+        .validate()
+        .map_err(CommunityArtGenerationError::BriefInvalid)?;
+    preflight_community_art_storage(generated_asset_dir, plan)?;
+    preflight_media_verdict_storage(generated_asset_dir, &media_brief)
+        .map_err(CommunityArtGenerationError::Storage)?;
+    // This performs the same media-registry resolution, provider request
+    // construction, route/cooldown check, saved-candidate validation, and
+    // quarantine recovery as the funded worker, but never calls Replicate.
+    prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
+    let review_policy = community_art_review_policy(&media_brief, plan);
+    let capability_policy = community_art_reviewer_capability_policy(&review_policy);
     let decision = request_image_policy_decision(
-        config,
+        policy_config,
         ImagePolicyRequest {
-            feature: "media.location_image_policy_preflight",
+            feature: "media.community_art_publication_preflight",
             image_url: POLICY_PREFLIGHT_IMAGE_URL,
-            policy: policy.preflight_review(),
+            policy: &capability_policy,
             timeout: Duration::from_secs(10),
             max_attempts: 1,
             referer: "https://cosyworld.fly.dev",
@@ -1007,6 +1028,86 @@ pub(super) async fn preflight_community_art_policy(
                 decision.violations.join(", ")
             }
         )));
+    }
+    Ok(())
+}
+
+fn community_art_review_policy(media_brief: &FrozenMediaBrief, plan: &CommunityArtPlan) -> String {
+    let mut review_policy = media_brief.review_policy();
+    if let Some(policy) = plan.image_policy {
+        review_policy.push(' ');
+        review_policy.push_str(policy.review());
+    }
+    review_policy
+}
+
+fn community_art_reviewer_capability_policy(review_policy: &str) -> String {
+    format!(
+        "This is a publication-reviewer capability check, not a candidate verdict. Allow the known-safe fixture only if it is a uniform solid-green square with no visible person, character, creature, text, logo, watermark, or UI chrome. Confirm that you can receive and evaluate the production policy below, but do not apply its subject-identity or environment requirements to this synthetic fixture. Production policy: {review_policy}"
+    )
+}
+
+fn preflight_community_art_storage(
+    generated_asset_dir: &Path,
+    plan: &CommunityArtPlan,
+) -> Result<(), CommunityArtGenerationError> {
+    let candidate_path = community_art_candidate_image_path(generated_asset_dir, plan);
+    let candidate_parent = candidate_path.parent().ok_or_else(|| {
+        CommunityArtGenerationError::Storage(
+            "community-art candidate path has no parent".to_string(),
+        )
+    })?;
+    let public_path =
+        stored_community_art_image_path(generated_asset_dir, &plan.subject_kind, plan.subject_id);
+    let public_parent = public_path.parent().ok_or_else(|| {
+        CommunityArtGenerationError::Storage(
+            "community-art publication path has no parent".to_string(),
+        )
+    })?;
+    let quarantine_root = community_art_candidate_quarantine_root(generated_asset_dir, plan);
+    for (directory, label) in [
+        (candidate_parent, "candidate"),
+        (quarantine_root.as_path(), "quarantine"),
+        (public_parent, "publication"),
+    ] {
+        preflight_community_art_directory(directory, label)
+            .map_err(CommunityArtGenerationError::Storage)?;
+    }
+    Ok(())
+}
+
+fn preflight_community_art_directory(directory: &Path, label: &str) -> Result<(), String> {
+    fs::create_dir_all(directory).map_err(|error| {
+        format!(
+            "failed to create community-art {label} directory {}: {error}",
+            directory.display()
+        )
+    })?;
+    let probe = directory.join(format!(
+        ".preflight-{label}-{}-{}-{}",
+        std::process::id(),
+        now_millis(),
+        crate::random_hex(6)
+    ));
+    let renamed = probe.with_extension("ready");
+    let result = (|| -> io::Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&probe)?;
+        file.write_all(b"cosyworld-community-art-preflight")?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&probe, &renamed)?;
+        fs::remove_file(&renamed)
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_file(&probe);
+        let _ = fs::remove_file(&renamed);
+        return Err(format!(
+            "community-art {label} storage probe failed in {}: {error}",
+            directory.display()
+        ));
     }
     Ok(())
 }
@@ -1340,11 +1441,7 @@ async fn generate_and_store_prepared_community_art(
             MediaVerdictDisposition::ReviewPending => {
                 let policy_config =
                     policy_config.ok_or(CommunityArtGenerationError::PolicyUnavailable)?;
-                let mut review_policy = media_brief.review_policy();
-                if let Some(policy) = plan.image_policy {
-                    review_policy.push(' ');
-                    review_policy.push_str(policy.review());
-                }
+                let review_policy = community_art_review_policy(&media_brief, plan);
                 let image_url = community_art_candidate_data_url(&image)?;
                 let decision = request_image_policy_decision(
                     policy_config,
@@ -1380,8 +1477,8 @@ async fn generate_and_store_prepared_community_art(
                     decision.allowed,
                     violations,
                     decision.summary,
-                    1,
-                    0,
+                    decision.attempts,
+                    decision.latency.as_millis() as u64,
                     0,
                 )
                 .map_err(CommunityArtGenerationError::Storage)?;
@@ -1798,6 +1895,8 @@ pub(super) fn schedule_community_art_generation(
                     provider_attempt,
                     reused_candidate = outcome.reused_candidate,
                     prediction_id = outcome.prediction_id.as_deref().unwrap_or("unknown"),
+                    failure_stage = error.stage(),
+                    failure_code = error.code(),
                     "community art generation failed for {}: {}",
                     key,
                     error.message()

@@ -75,7 +75,7 @@ do not define V2 behavior.
 - **[Deployment](deployment/07-deployment.md)** and
   **[release process](release.md)** — operating and shipping the repository.
 
-## Groomed local backlogs
+## Planning documents
 
 - **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
   account-owned Species, Class, and Origin cards, classless level-zero arrival,
@@ -123,19 +123,25 @@ do not define V2 behavior.
 
 ## How design and execution are split
 
-**Design lives in markdown. GitHub Issues are only what we are actively
-doing.**
+**Planning lives in markdown. Immediate work lives in GitHub Issues.**
 
-- A contract, a rule, an invariant, an acceptance gate, or a shape we have
-  argued ourselves into belongs in one of the documents above — where it can be
-  read whole, revised in a diff, and linked to.
-- An issue is a unit of work someone could pick up this week. It carries a
-  milestone or it does not exist.
+- Planning documents own product rationale, durable contracts, invariants,
+  architectural shape, sequencing constraints, and possible future horizons.
+  They are not a second execution queue.
+- A GitHub issue owns every immediate implementation slice: its current scope,
+  acceptance checklist, dependencies, delivery labels, milestone, and status.
+  If someone could pick the work up now, track it in an issue and link back to
+  the relevant planning section instead of duplicating the checklist here.
+- An active issue carries a milestone and exactly one priority, horizon, and
+  state label. Work without those fields is not in the delivery queue.
 - `state:parked` and `horizon:later` are not a filing system for design. If work
-  is not being done, its thinking belongs in a backlog document and the issue
+  is not being done, its thinking belongs in a planning document and the issue
   should close with a pointer to that section.
 - Closing an issue into a document is not cancellation. The design survives; the
   queue stops pretending it is scheduled.
+- When work lands, close the issue and update the canonical product or system
+  documentation. Keep the planning document only for rationale and work that
+  has not yet been activated.
 
 ## Legacy service archive
 

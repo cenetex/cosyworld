@@ -155,7 +155,7 @@ Update existing flows:
 
 - `/state` returns compact economy state plus level-scoped `community_art` funding on eligible generated cards. Legacy Chat-cost fields remain zero-valued for client compatibility.
 - `/actions/create-bond` is presented as `Chat` and requires avatar session, room access, an eligible nearby resident, turn legality, rate limit, and one advancement point. Legacy `/actions/chat` delegates to that contract. Neither path checks or spends Orbs.
-- `/actions/fund-image` validates the session, visible eligible card, current level, provider availability, remaining pooled cost, and contributor balance before atomically journaling one Orb.
+- `/actions/fund-image` validates the session, visible eligible card, current level, remaining pooled cost, and contributor balance, then proves the exact frozen media recipe, provider route, candidate/quarantine/publication storage, verdict store, and vision-review capability before atomically journaling one Orb. Preflight failures return a stable `error_code` and record zero Orb delta.
 - Community generation completion/failure is journaled separately; the image asset becomes the card's current art only after the ready event commits.
 - `/world` and room state include newly granted avatar cards through the same card projection map.
 - `/meta` exposes economy feature flags without secrets.

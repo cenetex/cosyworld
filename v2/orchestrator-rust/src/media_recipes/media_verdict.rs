@@ -420,6 +420,25 @@ pub(crate) fn prepare_media_candidate(
     Ok(disposition)
 }
 
+/// Proves that the exact verdict identity for a frozen brief is compatible
+/// with any existing record and that both record and candidate directories can
+/// complete the atomic-write lifecycle used after a paid provider response.
+/// The probe leaves no verdict record or candidate behind.
+pub(crate) fn preflight_media_verdict_storage(
+    root: &Path,
+    brief: &FrozenMediaBrief,
+) -> Result<(), String> {
+    brief.validate()?;
+    let brief_digest = brief.digest()?;
+    let _guard = media_verdict_lock()?;
+    let record = load_or_create_record(root, brief.clone(), &brief_digest)?;
+    preflight_atomic_write_directory(&record_dir(root, &record.record_id), "record")?;
+    preflight_atomic_write_directory(
+        &record_dir(root, &record.record_id).join("candidates"),
+        "candidate",
+    )
+}
+
 /// Retires a rejected candidate's immutable review record when a legacy retry
 /// must adopt a newly frozen brief. Approved or still-pending work remains
 /// fail-closed: only an explicitly rejected active candidate may be replaced.
@@ -1183,6 +1202,28 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     ));
     fs::write(&temporary, bytes).map_err(|error| error.to_string())?;
     fs::rename(&temporary, path).map_err(|error| error.to_string())
+}
+
+fn preflight_atomic_write_directory(directory: &Path, label: &str) -> Result<(), String> {
+    fs::create_dir_all(directory).map_err(|error| {
+        format!(
+            "failed to create media verdict {label} directory {}: {error}",
+            directory.display()
+        )
+    })?;
+    let probe = directory.join(format!(
+        ".preflight-{label}-{}-{}-{}",
+        std::process::id(),
+        crate::now_millis(),
+        crate::random_hex(6)
+    ));
+    atomic_write(&probe, b"cosyworld-media-verdict-preflight")?;
+    fs::remove_file(&probe).map_err(|error| {
+        format!(
+            "failed to remove media verdict {label} probe {}: {error}",
+            probe.display()
+        )
+    })
 }
 
 fn record_dir(root: &Path, record_id: &str) -> PathBuf {
