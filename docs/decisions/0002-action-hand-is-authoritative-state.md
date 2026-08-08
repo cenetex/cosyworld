@@ -114,8 +114,8 @@ identifier under the same world-state lock that checks its embedded
 stale, unknown, and disabled identifiers fail before presence, journal, event,
 seed, or world state can change and return distinct typed failure codes.
 
-The prose command surface keeps room inspection, reporting, moderation, and
-typed `say`/`/me` turn-exempt. State-changing scene actions require a current
+The prose command surface keeps room inspection, reporting, and moderation
+turn-exempt. State-changing scene actions require a current
 hand offer. `POST /commands` with the current Pass certificate is the sole
 hand-cycling route; the legacy `/actions/pass` endpoint explicitly refuses an
 uncertified request.

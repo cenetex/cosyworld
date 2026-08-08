@@ -191,19 +191,22 @@ Other non-text bindings fail unavailable instead of borrowing the global Voice
 model.
 
 Raw speech deliberately removes CosyWorld's character prompt and resident
-planner. The request contains the bounded incoming user line as its sole
-message; it omits system text, configured reasoning effort, sampling defaults,
-tools, and response formats. OpenRouter requests set
-`provider.data_collection: "deny"` and add `provider.zdr: true` for bindings
-whose catalog snapshot confirms a zero-data-retention endpoint.
+planner. The request contains the bounded preceding server-generated dialogue
+line as its sole message; it omits system text, sampling defaults, tools, and
+response formats, and explicitly disables hidden reasoning so the compact
+completion budget remains available for visible speech. Bindings whose catalog
+snapshot confirms a zero-data-retention endpoint send OpenRouter
+`provider.data_collection: "deny"` and `provider.zdr: true`. Other exact text
+bindings add no privacy routing constraint.
 
 Image output uses OpenRouter's dedicated `POST /images` route. The candidate is
 stored outside public asset routes, decoded with byte and dimension limits, and
 reviewed from visible pixels. Only an approved candidate is copied to immutable
 public storage and journaled. The event keeps its asset digest, URL, dimensions,
 MIME type, provider/model attribution, prompt version, and context hash, but not
-the raw prompt or rejected bytes. Production still rejects a pack binding that
-lacks the required no-retention/no-training declaration before network I/O.
+the raw prompt or rejected bytes. Production still rejects a pack-bound image
+model that lacks the required no-retention/no-training declaration before
+network I/O.
 
 Publication remains mandatory but uses a thin raw gate: envelope integrity,
 non-empty and bounded output, terminal provider finish, repetition/duplicate
@@ -218,18 +221,22 @@ that state out of the provider prompt. Elysium gives every exact-model avatar
 one private void and one local void token, so the normal room boundary limits
 belief observation and exchange without a provider-specific engine shortcut.
 
-Production preserves the ordinary privacy boundary. A pack-bound model without
-snapshot-confirmed zero-data-retention eligibility is rejected before network
-I/O; development may exercise it while still requesting data-collection
-denial.
+Production preserves the ordinary privacy boundary for operator-registry model
+pools. Exact text bindings are exempt because their dialogue inputs are
+server-generated rather than authored directly by a player. Their catalog
+retention status remains intact in model attribution and determines whether the
+request adds provider privacy constraints; it is not a dialogue eligibility
+gate. Exact image bindings still require snapshot-confirmed
+zero-data-retention eligibility before network I/O.
 
 ## Privacy and attribution
 
-In `COSYWORLD_DEPLOY_PROFILE=production`, a text candidate is eligible only
-when its declaration explicitly says `retention: "none"` and training is
-`"prohibited"` or `"contractual_opt_out"`. Missing or provider-default policy
-fails before an HTTP client or prompt payload is constructed. Local development
-permits unknown policy so provider fixtures and local sidecars remain usable.
+In `COSYWORLD_DEPLOY_PROFILE=production`, an operator-registry text candidate
+is eligible only when its declaration explicitly says `retention: "none"` and
+training is `"prohibited"` or `"contractual_opt_out"`. Missing or
+provider-default policy fails before an HTTP client or prompt payload is
+constructed. Local development permits unknown policy so provider fixtures and
+local sidecars remain usable.
 
 Mutable aliases set `"mutable_alias": true` and omit `concrete_model`. The
 provider response must then contain a different, concrete `model` value.

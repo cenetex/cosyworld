@@ -22,7 +22,7 @@ The product should feel like living in a small fantasy world that remembers you 
 CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
 
 - CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with compiled cards and complete room sheets validated by the content gate. Release counts are generated from the compiled worldpack rather than maintained in this prose.
-- The full verb surface: advancement-backed Chat (begin a friendship), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
+- The full verb surface: advancement-backed Chat (begin a friendship), Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
 - The card-hand control surface: exactly two dealt action cards with art and labels plus a certified **Think**/**Pass** control. Pass commits the turn and deals the next deterministic hand; it is never a free redeal.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.
 - Resident autonomy on played time: residents wander, remember, and hunt the items they desire — a resident reclaiming her own lost keepsake is now an observed, emergent story beat.
@@ -41,7 +41,7 @@ Every feature must serve at least one of these; a feature that serves none does 
 2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
 3. **The world runs on played time.** World time advances only through committed player turns — never on a wall clock. A quiet world is still, not rotting; a busy world is alive because people are in it. "The world moved while you were away" is always true in a populated shard, and it always means other players moved it.
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
-5. **One meaningful action hand.** The resting UI is exactly two labeled, server-authored actions and a certified **Think**/**Pass** control. Pass binds the actor, current scene/focus, state revision, and hand generation; it commits one turn and deals the next deterministic hand. Each selected action shows its target, cost, and risk before commit. Speech (`say`, `/me`), inspection, and moderation remain turn-exempt. The small hand is a focus mechanism, not an inventory limit.
+5. **One meaningful action hand.** The resting UI is exactly two labeled, server-authored actions and a certified **Think**/**Pass** control. Pass binds the actor, current scene/focus, state revision, and hand generation; it commits one turn and deals the next deterministic hand. Each selected action shows its target, cost, and risk before commit. Inspection and moderation remain turn-exempt. The small hand is a focus mechanism, not an inventory limit.
 6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Core world actions remain playable without inference. Dialogue is never fabricated from canned text: an explicit dialogue action fails visibly and without charge when inference is unavailable, while incidental resident speech is skipped.
 7. **Progression is earned, never bought.** Orbs buy only shared images — never Chat, power, access, success, or growth. Every ordinary world verb has a zero-Orb path.
 8. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
@@ -131,10 +131,10 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - Sanctuary rooms reject combat and never receive autonomous pressure or decay.
 - Every reward, mint, spend, and one-shot effect is claim-key gated and idempotent.
 - The core loop is playable with zero Orbs and with AI generation unavailable.
-- In shared rooms, one human commits one card per turn; `say` and emotes are turn-exempt; waiting players can always see whose turn it is and can pace it (ping/pong) — a present player is never hostage to an absent one.
+- In shared rooms, one human commits one card per turn; waiting players can always see whose turn it is and can pace it (ping/pong) — a present player is never hostage to an absent one.
 - Resident speech contracts hold: Rati prose, Whiskerwind emoji-only (with accessible labels), Skull emote-only; at most one room heartbeat is armed, rapid card plays do not stack replies, and the next speaker follows authored resident priority.
 - Resident inference sees the triggering card, recent room-log/card history, recent speech, current cast/location, and durable continuity before proposing a public reply.
-- `Chat` appears only when advancement can create a friendship, spends no Orbs, and never takes player text. Typed player speech (`say`, `/me`) is moderated and sanitized before it reaches the journal.
+- `Chat` appears only when advancement can create a friendship, spends no Orbs, and never takes player text. There is no free-form player speech command or endpoint.
 - Content safety: cozy, non-explicit, no harassment, no gore escalation; engine-owned facts override character improvisation; residents never mention models, prompts, or system internals.
 
 ### P1 — current build targets

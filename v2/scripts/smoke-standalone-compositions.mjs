@@ -36,7 +36,6 @@ const worldCases = [
     capability: "cosyworld.core/rules",
     offerVerb: "Notice",
     firstTaleQuestionIncludes: "washed garden path",
-    marker: "core-only journal loop",
   },
   {
     label: "Bethlehem",
@@ -56,7 +55,6 @@ const worldCases = [
     capability: "cosyworld.core/rules",
     offerVerb: null,
     firstTaleAbsent: true,
-    marker: "Bethlehem journal loop",
   },
   {
     label: "Lantern Keeper",
@@ -77,7 +75,6 @@ const worldCases = [
     capability: "cosyworld.core/rules",
     offerVerb: null,
     firstTaleAbsent: true,
-    marker: "Lantern Keeper journal loop",
     characterCreation: {
       character_creation_id: "the-lantern-keeper",
       species_id: "human",
@@ -100,7 +97,6 @@ const worldCases = [
     capability: "ruby-high.first-bell/rules",
     offerVerb: "Tune in",
     firstTaleAbsent: true,
-    marker: "ruby-only journal loop",
   },
   {
     label: "Project89 three rings",
@@ -120,7 +116,6 @@ const worldCases = [
     capability: null,
     offerVerb: null,
     firstTaleQuestionIncludes: "convergence protocol",
-    marker: "project89 journal loop",
   },
   {
     label: "Elysium",
@@ -137,7 +132,6 @@ const worldCases = [
     capability: "cosyworld.rules-profile-srd5/rules",
     offerVerb: "Scout",
     firstTaleAbsent: true,
-    marker: "elysium journal loop",
     seedActorCount: 485,
     seedItemCount: 485,
     seedLocationCount: 485,
@@ -434,7 +428,7 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
 }
 
 async function command(baseUrl, actorId, actorSession, value) {
-  const turnExempt = /^(say|emote|\/me|wield|unwield|prepare-spell|unprepare-spell|stow|unstow)\b/i.test(value);
+  const turnExempt = /^(wield|unwield|prepare-spell|unprepare-spell|stow|unstow)\b/i.test(value);
   const requestedKind = value.trim().toLowerCase();
   const matchesRequestedOffer = (candidate) =>
     candidate.command === value
@@ -464,6 +458,25 @@ async function command(baseUrl, actorId, actorSession, value) {
     assert(result.ok === true, `${value} failed: ${JSON.stringify(result)}`);
     return result;
   }
+}
+
+async function passCurrentHand(baseUrl, actorId, actorSession) {
+  const state = await fetchJson(stateUrl(baseUrl, actorId, actorSession));
+  const passOffer = state.action_hand?.pass;
+  assert(passOffer?.offer_id, `a bounded deal must expose Think: ${JSON.stringify(state.action_hand)}`);
+  const passed = await postJsonWithStatus(`${baseUrl}/commands`, {
+    actor_id: actorId,
+    actor_session: actorSession,
+    wallet_address: walletAddress,
+    command: "pass",
+    offer_id: passOffer.offer_id,
+    envelope: offerEnvelope(state, actorId, passOffer.offer_id),
+  });
+  assert(
+    passed.status >= 200 && passed.status < 300 && passed.body.ok === true,
+    `Think failed while committing the replay marker: ${JSON.stringify(passed)}`,
+  );
+  return passed.body;
 }
 
 function lanternJourneySummary(state) {
@@ -1204,7 +1217,9 @@ async function runWorldLoop(spec) {
         `${spec.label} Listen produced no committed events: ${JSON.stringify(listened)}`,
       );
     }
-    await command(first.baseUrl, actorId, actorSession, `say ${spec.marker}`);
+    const replayMarker = await passCurrentHand(first.baseUrl, actorId, actorSession);
+    const replayMarkerSeq = Math.max(...(replayMarker.events || []).map((event) => Number(event.seq) || 0));
+    assert(replayMarkerSeq > 0, `${spec.label} Think produced no durable replay marker`);
     const committed = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
     assert(
       committed.world_seq > initial.world_seq,
@@ -1265,11 +1280,7 @@ async function runWorldLoop(spec) {
     );
     const events = await fetchAllActorEvents(restarted.baseUrl, actorId, actorSession);
     const durableEvents = readDurableWorldEvents(eventDbPath);
-    assert(
-      events.some((event) =>
-        event.type === "message.created" && event.content === spec.marker),
-      `${spec.label} restart lost ${spec.marker}`,
-    );
+    assert(events.some((event) => event.seq === replayMarkerSeq), `${spec.label} restart lost event ${replayMarkerSeq}`);
     if (spec.scoutDestination) {
       assert(
         events.filter(routeDiscoveryEvent).length === 1,

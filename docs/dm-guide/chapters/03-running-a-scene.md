@@ -62,8 +62,8 @@ frame.
 
 The two cards are **Follow the small print** and **Help Rowan cover the cold
 frame**. Travel, Study, and Take remain elsewhere in the deck. Rowan can play
-one current card or Think/Pass and yield the turn. Moderated `say` and `/me`
-remain turn-exempt room speech; they do not replace a card mutation.
+one current card or Think/Pass and yield the turn. The system exposes no
+player-authored room-speech command alongside those cards.
 
 Before the print action is confirmed, its detail says: target, the print
 beneath the wall; cost, one turn; risk, rain may blur the trail; likely

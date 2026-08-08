@@ -99,7 +99,6 @@ print(
     f"world={deployment.get('world_id')} "
     f"process={deployment.get('process_id')} "
     f"chat={'server' if features.get('server_authored_chat') else 'unknown'} "
-    f"client_speech={'on' if features.get('client_authored_speech') else 'off'} "
     f"actors={world.get('actor_count')} events={world.get('event_count')} "
     f"wallets={ownership.get('wallet_count')}"
 )
@@ -284,9 +283,9 @@ run_cli_smoke() {
 
   actor_info="$(create_cli_smoke_actor "Terminal Command Smoke")"
   read -r actor_id actor_session <<<"$actor_info"
-  command_output="$(printf 'say terminal smoke\nevents 0\nq\n' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
-  grep -q "terminal smoke" <<<"$command_output"
-  if [ "$(grep -c "terminal smoke" <<<"$command_output")" -lt 2 ]; then
+  command_output="$(printf 'look\nsay terminal smoke\nevents 0\nq\n' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
+  grep -q "HTTP Error 404: Not Found" <<<"$command_output"
+  if grep -q "terminal smoke" <<<"$command_output"; then
     echo "$command_output" >&2
     return 1
   fi

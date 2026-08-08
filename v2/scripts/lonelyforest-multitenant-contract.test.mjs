@@ -124,6 +124,8 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.equal((fly.match(/\[\[mounts\]\]/g) ?? []).length, 1);
   assert.match(fly, /source = "lonelyforest_data"/);
   assert.match(fly, /app = "\/app\/deploy\/lonelyforest\/run-multitenant\.sh"/);
+  assert.match(fly, /^\s*COSYWORLD_AI_VOICE_MAX_ATTEMPTS = "4"$/m);
+  assert.match(fly, /^\s*COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS = "650000"$/m);
   assert.match(dockerfile, /apt-get install[^\\\n]*ca-certificates curl gosu nginx/);
   assert.match(dockerfile, /COPY deploy\/lonelyforest \/app\/deploy\/lonelyforest/);
   assert.match(dockerfile, /COPY deploy\/entrypoint\.sh \/app\/entrypoint\.sh/);

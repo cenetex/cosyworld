@@ -265,20 +265,10 @@ for ((episode = START_EPISODE; episode < OBJECTIVE_COUNT; episode += 1)); do
     exit 1
   fi
 
-  action_index=0
   for action_kind in "${ACTIONS[@]}"; do
     before="$(resident_message_count)"
     submit_offer "$actor_id" "$actor_session" "$action_kind"
     wait_for_resident_message "$before"
-    action_index=$((action_index + 1))
-    if ((action_index < ${#ACTIONS[@]})); then
-      reset_line="$(jq -cn \
-        --argjson actor "$actor_id" \
-        --arg session "$actor_session" \
-        --arg content "I keep looking carefully, round ${episode}, step ${action_index}." \
-        '{actor_id:$actor,actor_session:$session,content:$content}')"
-      post_json /actions/say "$reset_line" >/dev/null
-    fi
   done
 
   episode_labeled="$(objective_labeled_count "$objective_id")"

@@ -1298,23 +1298,19 @@ pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) ->
             dispatch,
             CommandDispatch::Read { .. }
                 | CommandDispatch::Disabled { .. }
-                | CommandDispatch::Say { .. }
-                | CommandDispatch::Emote { .. }
                 | CommandDispatch::Report { .. }
                 | CommandDispatch::SetActorSafety { .. }
         )
 }
 
-/// Local controls, communication, and transfer-offer responses do not require
+/// Local configuration, moderation, and transfer-offer responses do not require
 /// one of the finite hand's two cards at the command boundary. Accepting an
 /// offer still consumes a room turn because it moves an item; declining or
 /// withdrawing remains available while a focused scene is locked.
 pub(super) fn command_dispatch_is_visible_room_control(dispatch: &CommandDispatch) -> bool {
     matches!(
         dispatch,
-        CommandDispatch::Say { .. }
-            | CommandDispatch::Emote { .. }
-            | CommandDispatch::Disabled { .. }
+        CommandDispatch::Disabled { .. }
             | CommandDispatch::Report { .. }
             | CommandDispatch::SetActorSafety { .. }
             | CommandDispatch::SetCharmEquipped { .. }

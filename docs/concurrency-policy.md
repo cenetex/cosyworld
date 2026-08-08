@@ -5,7 +5,7 @@ more controllers are present. Controller mode and legacy actor kind do not chang
 
 Every operation belongs to one concurrency policy:
 
-- **concurrent** — chat, emote, inspection, personal reflection, independent movement,
+- **concurrent** — chat, inspection, personal reflection, independent movement,
   exploration, and compatible contributions commit in canonical journal order without waiting for
   another avatar;
 - **target-serialized** — writes to the same item, slot, offer, or decision commit under the world

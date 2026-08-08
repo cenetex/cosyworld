@@ -7,8 +7,9 @@ CosyWorld should use AI as a world actor, not as a private chatbot.
 `Chat` is the player-facing friendship action. It appears only when the avatar
 has banked advancement and a nearby resident is eligible for a new Bond; playing
 it spends one advancement point, creates that friendship, and passes the room
-turn. It never accepts text or spends Orbs. Moderated player-authored room speech
-uses the separate turn-exempt `say` action.
+turn. It never accepts text or spends Orbs. Player-authored room speech is not
+a supported input surface; dialogue is generated from server-authored
+actions and world state.
 
 Every successful scene-card play arms one room dialogue heartbeat about three
 seconds later. At most one heartbeat can be pending per room, so rapid card plays
@@ -29,7 +30,7 @@ Relevant implementation points:
 - `AiConfig` reads `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`.
 - OpenRouter defaults to `https://openrouter.ai/api/v1` and `x-ai/grok-4.5`.
 - `POST /actions/create-bond` is projected as `Chat` only when advancement and an eligible nearby resident are available. The legacy `/actions/chat` endpoint delegates to the same advancement-backed behavior.
-- `POST /actions/say` is a separate, non-AI route: it takes player-typed `content` directly, moderates/sanitizes it, and commits it as a `message.created` room event with no LLM call involved. This is the human-typed room-speech path that `Chat` intentionally does not provide.
+- There is no player-authored speech endpoint or command. `Chat` and contextual heartbeats derive dialogue only from server-authored actions and world state.
 - Successful card commits atomically enqueue a delayed, durable room heartbeat. One pending/running heartbeat per room coalesces later cards.
 - Resident replies are one-to-many world events. Their inference context includes the current card event and recent channel log, not only the latest spoken line.
 - An image-only cast binding receives the same grounded heartbeat as a visual prompt. The gateway calls the exact bound OpenRouter model through `POST /images`, buffers and decodes one bounded image, runs a fail-closed vision publication review, and journals an `image.created` event only after approval. The original prompt and rejected bytes never enter the public event.
@@ -136,7 +137,7 @@ Community image generation is different: the server validates a level-scoped sha
 
 ## AI Gateway
 
-The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Selection uses versioned immutable capability facts: `voice`, `intent_json`, `world_content`, and `image_generation` require compatible declared modalities, and each request pins one candidate plus its prompt-adapter and catalog versions. Elysium image replies use the actor's exact checked-in binding rather than a fallback model. Avatar voice publication adds durable, weighted selection without replacement, bounded attempts/hedges/latency/spend, separately dimensioned content and provider-health evidence, and exactly one publication-gated winner; replay returns the accepted receipt without rerunning selection. Resident `intent_json` composition is intentionally unchanged pending the voice/intent split. Mutable aliases require the provider response's concrete model for attribution. Production data policy permits a prompt to leave CosyWorld only after an explicit no-retention/no-training declaration passes. Persisted attribution is self-contained so refreshes cannot rewrite in-flight or historical identity. The capability contract is in `v2/docs/ai-capability-registry.md`; visibility-aware, context-dominant prompt assembly is in `v2/docs/context-dominant-prompting.md`.
+The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Selection uses versioned immutable capability facts: `voice`, `intent_json`, `world_content`, and `image_generation` require compatible declared modalities, and each request pins one candidate plus its prompt-adapter and catalog versions. Elysium image replies use the actor's exact checked-in binding rather than a fallback model. Avatar voice publication adds durable, weighted selection without replacement, bounded attempts/hedges/latency/spend, separately dimensioned content and provider-health evidence, and exactly one publication-gated winner; replay returns the accepted receipt without rerunning selection. Resident `intent_json` composition is intentionally unchanged pending the voice/intent split. Mutable aliases require the provider response's concrete model for attribution. Production operator-registry and image routes require explicit no-retention/no-training declarations; exact actor text bindings may retain server-authored dialogue and preserve that fact in attribution. Persisted attribution is self-contained so refreshes cannot rewrite in-flight or historical identity. The capability contract is in `v2/docs/ai-capability-registry.md`; visibility-aware, context-dominant prompt assembly is in `v2/docs/context-dominant-prompting.md`.
 
 Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
 
@@ -214,8 +215,8 @@ For every successful scene-card commit:
 9. Complete the heartbeat only after the reply attempt, so cards played while
    inference is running still cannot stack another reply.
 
-The human operator is never impersonated by this path. Human dialogue is the
-moderated `say` action. Planner reason text exists only in the resident-planning
+The human operator is never impersonated by this path, and no player-authored
+dialogue surface exists. Planner reason text exists only in the resident-planning
 trace, never in the projected pending action, a belief, or a world fact. The
 speech journal stores the planning status and accepted publication receipt;
 eventual action decision traces carry the same generation, candidate, revision,

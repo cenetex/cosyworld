@@ -173,7 +173,6 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/moderation/room-scenes/{job_id}/review",
             post(review_room_scene),
         )
-        .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))
         .route("/actions/move", post(legacy_action_requires_certificate))
         .route(

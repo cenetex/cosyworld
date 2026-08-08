@@ -77,7 +77,7 @@ keep separate domains so that a friendly label never silently changes rules:
 | --- | --- | --- |
 | Rules actions | Search, Study, Utilize, Help, Attack | Resolve through the selected rules profile. |
 | Movement | Travel, ordinary movement, crossing an exit | Use movement and access rules; Dash and Disengage may modify it. |
-| Communication | Bounded Chat card, moderated client `say`/`/me`, and server-authored resident speech | Chat is a turn-consuming current-hand action; typed speech is moderated, journaled, and turn-exempt. |
+| Communication | Bounded Chat card and server-authored resident speech | Chat is a turn-consuming current-hand action; no player-authored speech surface exists. |
 | Object transfer | Take, Give, Trade | Inventory and ownership operations, not Utilize by default. |
 | Procedures | Rest, initiative, equipping a loadout | Rest and initiative are scene procedures; authenticated loadout configuration (equip, prepare, contain) is an explicit turn-neutral typed procedure, not a hidden scene-action chooser. |
 | Cosy advancement | Chat, Remember, Evolve, bank a Visit Ledger | CosyWorld progression outside the SRD action economy. Chat spends advancement to begin a friendship. |

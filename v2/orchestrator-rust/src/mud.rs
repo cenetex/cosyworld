@@ -204,12 +204,6 @@ pub(crate) enum CommandDispatch {
     ResolveBond {
         target_actor_id: u64,
     },
-    Say {
-        content: String,
-    },
-    Emote {
-        content: String,
-    },
     Report {
         target_actor_id: u64,
         reason: String,
@@ -254,18 +248,6 @@ pub(crate) fn command_submission_identity(payload: &CommandRequest) -> String {
         .map(str::trim)
         .map(|offer_id| format!("offer_id:{offer_id}"))
         .unwrap_or_else(|| normalize_command_text(&payload.command))
-}
-
-fn normalize_emote_message(input: &str) -> Option<String> {
-    let mut content = normalize_human_message(input)?;
-    let has_terminal_punctuation = content
-        .chars()
-        .last()
-        .is_some_and(|ch| matches!(ch, '.' | '!' | '?' | ')' | ']' | '}'));
-    if !has_terminal_punctuation && content.chars().count() < MAX_HUMAN_MESSAGE_CHARS {
-        content.push('.');
-    }
-    Some(content)
 }
 
 pub(crate) fn command_verb_and_rest(command: &str) -> (String, &str) {
@@ -334,8 +316,6 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "hit" | "attack" | "strike" => "attack",
         "guard" | "defend" => "defend",
         "run" | "flee" | "escape" => "flee",
-        "say" => "say",
-        "emote" | "me" => "emote",
         "report" | "flag" => "report",
         "drop" => "drop",
         "help" | "?" => "help",
@@ -574,9 +554,6 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
         CommandDispatch::TrainSkill { .. } => {
             "Earn advancement through play, then you can practice that knack."
-        }
-        CommandDispatch::Say { .. } | CommandDispatch::Emote { .. } => {
-            "The room did not hear that. Try once more."
         }
         CommandDispatch::Report { .. } => "That report did not reach us. Try once more.",
         CommandDispatch::Read { .. }
@@ -1353,7 +1330,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag-or-camp-shelter>, unwield <weapon-or-bag-or-camp-shelter>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, open <threshold> with <method>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, think, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -3136,48 +3113,6 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::Defend,
                 })
             }
-            "say" => {
-                let Some(content) = normalize_active_human_message(rest) else {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action("say", "Say", &payload.command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 400,
-                            output: format!(
-                                "Use: say <message>. Keep it cozy and under {MAX_HUMAN_MESSAGE_CHARS} characters."
-                            ),
-                        },
-                    });
-                };
-                Ok(ResolvedCommand {
-                    command: format!("say {content}"),
-                    verb,
-                    action: Some(command_action("say", "Say", &format!("say {content}"))),
-                    dispatch: CommandDispatch::Say { content },
-                })
-            }
-            "emote" => {
-                let Some(content) = normalize_emote_message(rest) else {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action("emote", "Emote", &payload.command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 400,
-                            output: format!(
-                                "Use: emote <action>. Keep it cozy and under {MAX_HUMAN_MESSAGE_CHARS} characters."
-                            ),
-                        },
-                    });
-                };
-                Ok(ResolvedCommand {
-                    command: format!("emote {content}"),
-                    verb,
-                    action: Some(command_action("emote", "Emote", &format!("emote {content}"))),
-                    dispatch: CommandDispatch::Emote { content },
-                })
-            }
             "report" => {
                 let (target_query, reason) = rest
                     .split_once(':')
@@ -3226,7 +3161,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that one yet. Try help, look, search, who, go, say, take, give, chat, listen, practice, purpose, friendship, remember, rest, pass, need time, or more.",
+                "I do not know that one yet. Try help, look, search, who, go, take, give, chat, listen, practice, purpose, friendship, remember, rest, pass, need time, or more.",
             )),
         }
     }

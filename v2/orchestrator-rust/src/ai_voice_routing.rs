@@ -1938,6 +1938,49 @@ mod tests {
     }
 
     #[test]
+    fn lonely_forest_ceiling_covers_four_attempts_for_the_priciest_raw_binding() {
+        const LONELY_FOREST_SPEND_CEILING: u64 = 650_000;
+        let config = config(
+            vec![priced_candidate(
+                "provider/priciest-raw",
+                "provider-a",
+                150.0,
+                600.0,
+            )],
+            VoiceRoutingConfig {
+                max_attempts: 4,
+                spend_ceiling_microdollars: LONELY_FOREST_SPEND_CEILING,
+                ..VoiceRoutingConfig::default()
+            },
+        );
+        let mut raw_request = request("dialogue_resident_raw");
+        raw_request.max_tokens = 160;
+        raw_request.prompt = PromptEnvelope::default().user(
+            "x".repeat(1_200),
+            PromptSegmentKind::UniqueEvidence,
+            100,
+            true,
+        );
+
+        let (planned, _) = build_voice_plan(
+            None,
+            "generation-priciest-raw",
+            5_000,
+            "raw",
+            &raw_request,
+            &config.voice_routing,
+            config.pin_models(ModelCapability::Voice).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(planned.len(), 4);
+        assert!(
+            planned_spend_microdollars(&planned, config.voice_routing.hedge_width)
+                <= LONELY_FOREST_SPEND_CEILING
+        );
+    }
+
+    #[test]
     fn weighted_plan_is_deterministic_without_replacement_and_keeps_a_floor() {
         let config = three_candidates(VoiceRoutingConfig {
             max_attempts: 3,

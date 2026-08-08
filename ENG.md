@@ -54,7 +54,7 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
 4. **Events are append-only and replayable.** The journal is the source of truth; snapshots are disposable. Every visible dice roll carries die, roll, modifier, total, and DC/AC.
 5. **Every mint, spend, ledger mark, and one-shot effect is claim-key gated.** Keys are pure functions of authoritative facts — never wall-clock time or RNG. Review checks key granularity in both directions (too coarse swallows legitimate repeats; too fine lets retries double-mint). This applies to NPC behavior too: resident ambient lines and autonomous acts carry cooldown/claim discipline like player rewards.
 6. **The client is untrusted.** Affordability, access, ownership, outcomes, and primary-action state are server-derived. Client-supplied card ids are ignored outside explicit local dev flags.
-7. **Turn discipline has a fixed taxonomy.** Committed cards consume a room turn; `say`, `/me`, `report`, and reads never do; browsing the hand is free. A present player is never hostage to an absent one — ping/pong (or its successor) must always provide a bounded path past an unresponsive turn-holder.
+7. **Turn discipline has a fixed taxonomy.** Committed cards consume a room turn; reports and reads never do; browsing the hand is free. A present player is never hostage to an absent one — ping/pong (or its successor) must always provide a bounded path past an unresponsive turn-holder.
 8. **Core world actions do not depend on AI.** Travel, Listen, Search, item actions, growth, projects, and conflict keep deterministic kernel paths. Dialogue is an explicit inference capability: when unavailable it fails visibly before charging or committing speech, and incidental replies are skipped.
 9. **The kernel stays wallet-blind and IO-free.** Stable numeric ids, type flags, and rule fields only. Ownership feeds, card metadata, signatures, and money are Rust concerns.
 10. **One shard per process.** A process owns one world, one store, one stream. Horizontal scale is more processes with isolated state; cross-shard routing is out of scope this era.
@@ -63,7 +63,7 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
 ## Current State
 
 The one-paragraph version: the kernel,
-orchestrator, avatar gate, advancement-backed Chat, moderated `say`, coalescing
+orchestrator, avatar gate, advancement-backed Chat, coalescing
 contextual room heartbeats, shared live rooms with room turns and ping/pong
 pacing, resident autonomy, transcript-rendered world feedback, items/evolution,
 card projection, wallet-gated expansion access, economy MVP (Orbs, claim keys,

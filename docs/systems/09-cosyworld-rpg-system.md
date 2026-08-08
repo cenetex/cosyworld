@@ -48,7 +48,7 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
 - **The core loop is free.** A player with zero currency can always do the meaningful thing — listen, help, bond, travel — without paying.
 - **Chat is visible growth.** `Chat` appears only when banked advancement can
   begin a friendship with an eligible nearby resident. It spends advancement,
-  never Orbs; ordinary player speech remains the separate `say` action.
+  never Orbs, and it never accepts player text.
 - **Cards invite one contextual room voice.** A successful scene card arms one
   delayed resident heartbeat per room. Rapid cards coalesce, resident priority
   follows authored card order, and the reply sees recent card/log history.

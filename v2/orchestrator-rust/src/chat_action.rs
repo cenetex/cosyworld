@@ -2,6 +2,107 @@ use super::*;
 
 static CHAT_ACTION_LOCKS: OnceLock<StdMutex<BTreeMap<String, Weak<Mutex<()>>>>> = OnceLock::new();
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct CommittedOrbChatLine {
+    pub(super) seq: u64,
+    pub(super) speaker_actor_id: u64,
+    pub(super) content: String,
+}
+
+pub(super) fn orb_chat_attempt_stage(stage: &str, attempt: u32) -> String {
+    format!("{stage}:attempt:{}", attempt.max(1))
+}
+
+fn orb_chat_event_matches_job(
+    event: &EventView,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    location_id: u64,
+) -> bool {
+    let cause_matches = match queue_event_id {
+        Some(queue_event_id) => event.caused_by_event_seq == Some(queue_event_id),
+        None => {
+            event.caused_by_event_seq.is_none()
+                && event.seq > observed_through_seq.unwrap_or_default()
+        }
+    };
+    cause_matches
+        && source_world_tick.is_none_or(|tick| event.source_world_tick == Some(tick))
+        && event.source_location_id == Some(location_id)
+}
+
+pub(super) fn committed_orb_chat_lines(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    location_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+) -> Result<Vec<CommittedOrbChatLine>, String> {
+    let mut lines = runtime
+        .event_log
+        .iter()
+        .filter(|event| {
+            event.type_name == "message.created"
+                && event.success
+                && matches!(event.actor_id, Some(id) if id == actor_id || id == target_actor_id)
+                && orb_chat_event_matches_job(
+                    event,
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    location_id,
+                )
+        })
+        .filter_map(|event| {
+            Some(CommittedOrbChatLine {
+                seq: event.seq,
+                speaker_actor_id: event.actor_id?,
+                content: event.content.clone()?,
+            })
+        })
+        .collect::<Vec<_>>();
+    lines.sort_by_key(|line| line.seq);
+    let expected_speakers = [actor_id, target_actor_id, actor_id, target_actor_id];
+    if lines.len() > expected_speakers.len()
+        || lines
+            .iter()
+            .zip(expected_speakers)
+            .any(|(line, expected)| line.speaker_actor_id != expected)
+    {
+        return Err("the durable Chat transcript has an invalid turn sequence".to_string());
+    }
+    Ok(lines)
+}
+
+pub(super) fn orb_chat_status_already_committed(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    status: &str,
+    location_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+) -> bool {
+    let event_type = format!("chat.{status}");
+    runtime.event_log.iter().any(|event| {
+        event.type_name == event_type
+            && event.success
+            && event.actor_id == Some(actor_id)
+            && event.target_actor_id == Some(target_actor_id)
+            && orb_chat_event_matches_job(
+                event,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                location_id,
+            )
+    })
+}
+
 pub(super) async fn chat(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -151,7 +252,7 @@ pub(super) async fn chat(
         } else {
             let chat_state = state.clone();
             tokio::spawn(async move {
-                complete_queued_orb_chat(
+                if let Err(error) = complete_queued_orb_chat(
                     &chat_state,
                     payload.actor_id,
                     payload.target_actor_id,
@@ -160,7 +261,10 @@ pub(super) async fn chat(
                     Some(source_world_tick),
                     Some(observed_through_seq),
                 )
-                .await;
+                .await
+                {
+                    warn!("in-memory Chat job failed: {error}");
+                }
             });
         }
     }
@@ -537,7 +641,7 @@ mod tests {
                 .expect("co-present inference resident is a Chat target")
         };
 
-        complete_queued_orb_chat(
+        let result = complete_queued_orb_chat(
             &state,
             5000,
             RATI_ACTOR_ID,
@@ -547,6 +651,10 @@ mod tests {
             Some(40),
         )
         .await;
+        assert!(
+            result.is_err(),
+            "unconfigured inference must fail the Chat job"
+        );
 
         let runtime = state.inner.lock().await;
         assert!(runtime.event_log.iter().any(|event| {
@@ -659,7 +767,8 @@ mod tests {
             Some(8),
             Some(50),
         )
-        .await;
+        .await
+        .expect("the scripted bounded Chat completes");
 
         let runtime = state.inner.lock().await;
         let speakers = runtime
@@ -740,5 +849,239 @@ mod tests {
             .contains("Kindly enough, though the kettle has opinions about punctuality."));
         assert!(!followup_prompt.contains("i am Rati"));
         server.abort();
+    }
+
+    #[test]
+    fn orb_chat_provider_retry_waits_out_the_voice_health_cooldown_only_for_chat() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-chat-retry-floor-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Retry Timer");
+        let plan = runtime
+            .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
+            .expect("co-present inference resident is a Chat target");
+        let mut state = test_app_state(runtime, Some(path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig::default()));
+        let queued = OrbChatJob {
+            actor_id: 5000,
+            target_actor_id: RATI_ACTOR_ID,
+            plan,
+            queue_event_id: Some(71),
+            source_world_tick: Some(10),
+            observed_through_seq: Some(70),
+        };
+        let conn = open_event_store(&path).expect("open Chat retry store");
+        assert!(insert_orb_chat_job(&conn, &queued, 10, Some(71)).expect("queue Chat job"));
+        let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ORB_CHAT)
+            .expect("claim Chat job")
+            .expect("queued Chat job exists");
+
+        let retry_floor = actor_job_retry_floor_ms(&state, &claimed, "voice_provider_unavailable");
+        assert_eq!(retry_floor, 2_250);
+        let mut unrelated = claimed.clone();
+        unrelated.kind = ACTOR_JOB_KIND_PLAYER_TICK.to_string();
+        assert_eq!(
+            actor_job_retry_floor_ms(&state, &unrelated, "voice_provider_unavailable"),
+            0,
+            "provider cooldown must not slow unrelated actor jobs"
+        );
+
+        let before = now_millis();
+        fail_or_retry_actor_job(&path, &claimed, "voice_provider_unavailable", retry_floor)
+            .expect("persist Chat retry");
+        let (status, available_at_ms, last_error): (String, i64, Option<String>) = conn
+            .query_row(
+                "SELECT status, available_at_ms, last_error FROM actor_jobs WHERE id = ?1",
+                params![claimed.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("read persisted Chat retry");
+        assert_eq!(status, "pending");
+        assert_eq!(last_error.as_deref(), Some("voice_provider_unavailable"));
+        assert!(available_at_ms as u64 >= before.saturating_add(2_000));
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn retry_resumes_after_the_last_committed_line_without_replaying_it() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-chat-resume-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let fail_after_opening = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let fail_after_opening = fail_after_opening.clone();
+                let calls = calls.clone();
+                move |Json(request): Json<serde_json::Value>| {
+                    calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let payload = request.to_string();
+                    let index = CHAT_SCRIPT
+                        .iter()
+                        .rposition(|line| payload.contains(line))
+                        .map(|position| position + 1)
+                        .unwrap_or_default();
+                    let fail =
+                        index > 0 && fail_after_opening.load(std::sync::atomic::Ordering::SeqCst);
+                    async move {
+                        if fail {
+                            return Json(serde_json::json!({
+                                "model": "test-chat-model",
+                                "choices": []
+                            }));
+                        }
+                        Json(serde_json::json!({
+                            "model": "test-chat-model",
+                            "choices": [{
+                                "finish_reason": "stop",
+                                "message": {
+                                    "content": CHAT_SCRIPT
+                                        .get(index)
+                                        .copied()
+                                        .unwrap_or("The conversation has already settled.")
+                                }
+                            }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind resumable Chat inference server");
+        let address = listener
+            .local_addr()
+            .expect("resumable Chat inference server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
+        let plan = {
+            let mut runtime = state.inner.lock().await;
+            create_test_human(
+                &mut runtime,
+                5000,
+                COSY_COTTAGE_LOCATION_ID,
+                "Inference Tester",
+            );
+            runtime
+                .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
+                .expect("co-present inference resident is a Chat target")
+        };
+
+        let first = complete_queued_orb_chat_attempt(
+            &state,
+            5000,
+            RATI_ACTOR_ID,
+            plan.clone(),
+            Some(61),
+            Some(9),
+            Some(60),
+            1,
+        )
+        .await;
+        assert!(
+            first.is_err(),
+            "the injected resident outage ends attempt one"
+        );
+        {
+            let runtime = state.inner.lock().await;
+            let messages = runtime
+                .event_log
+                .iter()
+                .filter(|event| event.type_name == "message.created")
+                .collect::<Vec<_>>();
+            assert_eq!(messages.len(), 1);
+            assert_eq!(messages[0].actor_id, Some(5000));
+            assert_eq!(messages[0].content.as_deref(), Some(CHAT_SCRIPT[0]));
+            assert!(runtime.event_log.iter().any(|event| {
+                event.type_name == "chat.retrying"
+                    && event.caused_by_event_seq == Some(61)
+                    && event
+                        .content
+                        .as_deref()
+                        .is_some_and(|content| content.contains("retrying"))
+            }));
+        }
+
+        fail_after_opening.store(false, std::sync::atomic::Ordering::SeqCst);
+        // The failed resident route opened the model's two-second health
+        // cooldown. The durable worker uses the same cooldown-sized retry
+        // floor; wait it out here before invoking the next attempt directly.
+        tokio::time::sleep(Duration::from_millis(2_100)).await;
+        complete_queued_orb_chat_attempt(
+            &state,
+            5000,
+            RATI_ACTOR_ID,
+            plan.clone(),
+            Some(61),
+            Some(9),
+            Some(60),
+            2,
+        )
+        .await
+        .expect("attempt two resumes and completes the durable transcript");
+        let calls_after_completion = calls.load(std::sync::atomic::Ordering::SeqCst);
+        complete_queued_orb_chat_attempt(
+            &state,
+            5000,
+            RATI_ACTOR_ID,
+            plan,
+            Some(61),
+            Some(9),
+            Some(60),
+            3,
+        )
+        .await
+        .expect("reclaim after completion is idempotent");
+
+        let runtime = state.inner.lock().await;
+        let messages = runtime
+            .event_log
+            .iter()
+            .filter(|event| event.type_name == "message.created")
+            .collect::<Vec<_>>();
+        assert_eq!(messages.len(), 4);
+        assert_eq!(
+            messages
+                .iter()
+                .filter(|event| event.content.as_deref() == Some(CHAT_SCRIPT[0]))
+                .count(),
+            1,
+            "the committed opening must not be generated or published twice"
+        );
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| event.type_name == "chat.completed")
+                .count(),
+            1,
+            "a reclaimed completed job must not duplicate its terminal event"
+        );
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            calls_after_completion,
+            "a reclaimed completed job must not call inference again"
+        );
+        drop(runtime);
+        server.abort();
+        let _ = fs::remove_file(path);
     }
 }

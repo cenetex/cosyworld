@@ -147,19 +147,6 @@ class SemanticStoryReceiptTests(unittest.TestCase):
         self.assertIn("Dialogue unavailable with Mara Wick", unavailable)
         self.assertIn("no substitute speech", unavailable)
 
-    def test_cli_routes_turn_exempt_say_and_emotes_through_commands(self) -> None:
-        game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
-        commands: list[str] = []
-        game.run_command = commands.append  # type: ignore[method-assign]
-
-        for command in ("say hello room", '" shorthand hello', "emote waves", "me nods", "/me smiles"):
-            self.assertFalse(game.handle(command))
-
-        self.assertEqual(
-            commands,
-            ["say hello room", "say shorthand hello", "emote waves", "me nods", "/me smiles"],
-        )
-
     def test_cli_act_lists_and_runs_only_the_dealt_offer(self) -> None:
         game = Game(CosyClient("http://127.0.0.1:3102"), 42, "session")
         state = {

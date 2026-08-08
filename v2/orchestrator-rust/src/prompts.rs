@@ -263,10 +263,6 @@ impl AvatarChatPlan {
         self
     }
 
-    pub(super) fn with_reply_beat(self, stage: &str, reply: &AvatarReplyPlan) -> Self {
-        self.with_publication_beat(stage, reply.caused_by_event_seq, reply.source_world_tick)
-    }
-
     pub(super) fn with_exchange_turns(mut self, exchange_turns: Vec<DirectedDialogueTurn>) -> Self {
         self.exchange_turns = exchange_turns;
         self

@@ -8265,7 +8265,11 @@
       if (!event || !pendingChats.length) return false;
       const eventSeq = Number(event.seq || 0);
       const matchingChatIndex = pendingChats.findIndex((chat) => pendingChatMatchesEvent(chat, event));
-      if (event.type === "chat.queued" || event.type === "chat.typing") {
+      if (
+        event.type === "chat.queued"
+        || event.type === "chat.typing"
+        || event.type === "chat.retrying"
+      ) {
         if (matchingChatIndex >= 0) {
           const matchingChat = pendingChats[matchingChatIndex];
           pendingChats = pendingChats.filter((chat, index) => (
@@ -8274,7 +8278,7 @@
           matchingChat.queueEventSeq = event.type === "chat.queued"
             ? eventSeq
             : Number(matchingChat.queueEventSeq || event.caused_by_event_seq || 0);
-          if (event.type === "chat.queued") return true;
+          if (event.type === "chat.queued" || event.type === "chat.retrying") return true;
           const speakerId = Number(event.actor_id || 0);
           const speaker = actorForId(speakerId);
           matchingChat.typingActorId = speakerId;
@@ -8725,6 +8729,7 @@
         || event.type === "actor.presence"
         || event.type === "chat.queued"
         || event.type === "chat.typing"
+        || event.type === "chat.retrying"
         || event.type === "chat.completed"
         || event.type === "dialogue.delivered"
         || event.type === "avatar.refined"

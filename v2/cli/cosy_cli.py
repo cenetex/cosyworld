@@ -316,9 +316,7 @@ class Game:
                 self.run_command(command)
             else:
                 self.chat(rest)
-        elif verb in {"say", "\""}:
-            self.run_command(f"say {rest}" if verb == "\"" else command)
-        elif verb in {"emote", "me", "/me", "report", "drop", "give", "trade", "steal", "bond", "resolve", "skill", "calling", "bank", "listen", "study", "influence", "prepare", "work", "assist", "rest", "search", "deck", "wear", "remove", "wield", "sling", "stow", "unstow", "cast", "bracelet"}:
+        elif verb in {"report", "drop", "give", "trade", "steal", "bond", "resolve", "skill", "calling", "bank", "listen", "study", "influence", "prepare", "work", "assist", "rest", "search", "deck", "wear", "remove", "wield", "sling", "stow", "unstow", "cast", "bracelet"}:
             self.run_command(command)
         elif verb in {"move", "go"}:
             if rest and not first_token_int(rest):
@@ -1131,10 +1129,10 @@ class Game:
 
     def help(self, short: bool = False) -> None:
         if short:
-            print("Type 'act' for your two cards, 'think' to pass, 'say <message>', 'look', or 'help'.")
+            print("Type 'act' for your two cards, 'think' to pass, 'look', or 'help'.")
             return
         print(
-            "Commands: act, think, look, who, deck, inventory, say <message>, /me <action>, "
+            "Commands: act, think, look, who, deck, inventory, "
             "report <actor>: <reason>, events/watch [after_seq], quit. Scene actions must be "
             "one of the two cards shown by act; Think skips your turn and deals two new cards."
         )

@@ -933,7 +933,7 @@ pub(crate) struct PinnedModelSelection {
 impl PinnedModelSelection {
     pub(crate) fn from_actor_binding(
         binding: &crate::content_load::SeedActorModelBinding,
-        policy_mode: DataPolicyMode,
+        _policy_mode: DataPolicyMode,
     ) -> Result<Self, RegistryError> {
         let requested_model_id =
             normalize_model_id(&binding.requested_model_id, "requested model id")?;
@@ -955,11 +955,9 @@ impl PinnedModelSelection {
                 capability: ModelCapability::Voice,
             });
         }
-        if policy_mode == DataPolicyMode::Production && !binding.zero_data_retention {
-            return Err(RegistryError::PrivacyRejected {
-                model: requested_model_id,
-            });
-        }
+        // Exact actor bindings drive server-authored world dialogue. Keep the
+        // catalog's retention status for attribution and provider routing, but
+        // do not use it as a production eligibility gate.
         let catalog_snapshot_version = normalize_token(
             &binding.catalog_snapshot_version,
             "registry snapshot version",

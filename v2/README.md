@@ -152,7 +152,7 @@ The Rust orchestrator currently owns:
   or combat targets without durable consent, blocks fail closed, and private
   economy details are visible only to the controlling avatar.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
-- Bounded avatar-to-resident `Chat` exchanges and advancement-backed `Befriend`; authenticated human `say` and `/me` text is separately moderated, journaled, and turn-exempt.
+- Bounded avatar-to-resident `Chat` exchanges and advancement-backed `Befriend`, with no player-authored speech surface.
 - OpenAI-compatible contextual resident replies with no deterministic dialogue substitute when inference is unavailable.
 - Event projection.
 - Snapshot persistence.
@@ -336,7 +336,7 @@ living-world journey. Together they verify runtime metadata, signed wallet
 challenge/session access and avatar recovery, avatar creation, actor-session
 continuity, walletless `connect wallet`, one-button normal play, zero-Orb
 earning-action priority, no-typing `listen`, bounded Chat, advancement-backed Befriend,
-contextual resident heartbeats, moderated room speech and `/me` emotes, moderation/report flows, two-browser
+contextual resident heartbeats, moderation/report flows, two-browser
 fanout and presence leave, compass/typed command behavior, weighted-deck item
 take/drop/retake behavior, multiple loose cards at one location, reload
 continuity, contextual verb labels, viewport fit, seed-card art, card-gated
@@ -503,7 +503,7 @@ retry and states that no more provider credits will be used. Persisted verdicts
 retain actual reviewer attempts and latency. Unavailable or invalid review
 leaves deterministic fallback art visible.
 
-`Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
+`Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. No human-authored room-speech command or endpoint is exposed.
 
 Every successful scene-card play atomically arms one delayed room heartbeat. Roughly three seconds later, the next active resident in authored card order may answer. A room can have only one pending or running heartbeat, so rapid plays coalesce rather than building a reply queue. The resident prompt includes the triggering event, recent played-card/log entries, recent room lines, cast, location memory, current goals, and resident continuity. Accepted speech is validated against the resident's prose, emoji, or emote contract, committed through `CW_ACTION_SAY`, and broadcast as a shared world event.
 
@@ -581,7 +581,7 @@ The default client is JRPG-style button mode:
 [Q]     quit
 ```
 
-The client presents the two dealt certified cards in server order, including every authored action kind. Playing a card or choosing the certificate-bound Think/Pass control consumes one turn and deals the next hand. `/commands` remains a narrow text convenience for room inspection, reporting, safety, and turn-exempt speech; state-changing scene play requires a current offered certificate.
+The client presents the two dealt certified cards in server order, including every authored action kind. Playing a card or choosing the certificate-bound Think/Pass control consumes one turn and deals the next hand. `/commands` remains a narrow text convenience for room inspection, reporting, and safety; state-changing scene play requires a current offered certificate.
 
 Normal play prefers concrete room verbs such as `Take`, `Use`, `Notice`, `Inspect`, `Scout`, `Travel`, `Contribute`, `Flee`, or `Chat` from the ranked action-offer list. Notice receives an ambient lead, Inspect names the thing being examined, Scout names a destination while revealing only its next route segment, Travel moves there, and Contribute groups every authored Work, Help, Check, Study, or Use Item strategy in one project slot. Every choice submits its exact strategy ID through the same route; the server derives the ability, DC, or item from worldpack content. Each offer carries typed metadata for UI/tooling: semantic intention, pack-authored verb, target, accessible label, project and progress-clock identity, category, cost, risk, effect, claim key, source, zone, rank, and disabled-state. Packs may replace the displayed vocabulary without changing those stable semantic roles. Empty group chats render a quiet room vignette instead of a debug placeholder or synthetic log row.
 
@@ -813,12 +813,11 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /stream`
 - `POST /dev/reset` when `COSYWORLD_ENABLE_DEV_RESET=1`
 - `POST /avatar`
-- `POST /commands` for read controls, moderated turn-exempt `say`/`/me`, and certified Think/Pass
+- `POST /commands` for read controls and certified Think/Pass
 - `POST /presence/ping`
 - `POST /presence/leave`
 - `POST /story/world-beat-exposures`
 - `POST /actions/submit`
-- `POST /actions/say`
 - `POST /actions/report`
 - `POST /actions/timeout`
 - `POST /actions/unlock-charm-slot`
@@ -851,8 +850,7 @@ The identifier's embedded state revision is checked while resolving the exact
 projected offer, and the server rejects offers outside the current hand.
 Failures expose `invalid_offer_id`, `stale_offer`, `unknown_offer`, or
 `disabled_offer` without world mutation. `/commands` remains limited to
-inspection, reporting, actor safety, and moderated turn-exempt `say`/`/me`
-speech; movement, item, social, work, and combat mutations cannot use it as a
+inspection, reporting, and actor safety; movement, item, social, work, and combat mutations cannot use it as a
 second API around the hand.
 
 The response includes a durable `receipt` with the same world/intent/actor,
@@ -899,7 +897,7 @@ through `/state.combat`, advertised by `/meta.combat`, journaled as append-only
 lifecycle events, and persisted in snapshots. See
 [`docs/combat-system.md`](docs/combat-system.md) for the exact surface.
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret dialogue and client-authored-speech feature flags, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
+`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret dialogue feature flags, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 
@@ -908,7 +906,7 @@ ready generated art, removes its served bytes, restores the deterministic
 fallback, and preserves full funding so the community can retry without
 spending another Orb.
 
-Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can commit resident speech internally for contextual heartbeat replies and audited resident beats. Authenticated human `say` and `/me` commands are separately moderated, journaled speech controls and do not consume a scene card or turn.
+Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can commit resident speech internally for contextual heartbeat replies and audited resident beats. It exposes no authenticated human speech command or endpoint.
 
 `POST /actions/report` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "target_actor_id": 1001, "reason": "..." }`. The reporter and target must both be in the same room, and human targets must be visible in active room presence. Success returns `200` plus a durable report id for moderator review; reports do not broadcast into the room timeline.
 
