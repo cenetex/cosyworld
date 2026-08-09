@@ -419,6 +419,23 @@ fn journal_world_beat_exposure_id(event: &EventView) -> Option<String> {
     .then(|| format!("world-beat:v1:{}", event.seq))
 }
 
+fn journal_world_beat_prose_candidate(event: &EventView, value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    let normalized =
+        value.trim_end_matches(|character: char| matches!(character, '.' | '!' | '?' | '…'));
+    let internal_identifier = normalized.starts_with("world.")
+        && normalized
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_'));
+    if normalized.eq_ignore_ascii_case(&event.type_name) || internal_identifier {
+        return None;
+    }
+    Some(value.to_string())
+}
+
 fn journal_world_beat_authored_prose(event: &EventView) -> Option<String> {
     let content = event.content.as_deref()?.trim();
     if content.is_empty() {
@@ -428,16 +445,9 @@ fn journal_world_beat_authored_prose(event: &EventView) -> Option<String> {
         return value
             .get("summary")
             .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|summary| !summary.is_empty())
-            .map(str::to_string);
+            .and_then(|summary| journal_world_beat_prose_candidate(event, summary));
     }
-    let normalized =
-        content.trim_end_matches(|character: char| matches!(character, '.' | '!' | '?' | '…'));
-    if normalized.eq_ignore_ascii_case(&event.type_name) {
-        return None;
-    }
-    Some(content.to_string())
+    journal_world_beat_prose_candidate(event, content)
 }
 
 fn journal_world_beat_fallback(event: &EventView) -> Option<String> {
@@ -5069,5 +5079,38 @@ mod tests {
             "Marnie Bramble carried a needed parcel to Cosy Cottage."
         );
         assert!(beats.iter().all(|beat| !beat.headline.contains("world.")));
+    }
+
+    #[test]
+    fn journal_faction_shift_replaces_legacy_summary_key_with_prose() {
+        let event = EventView {
+            seq: 44,
+            type_name: "world.faction.influence_shifted".to_string(),
+            location_id: Some(7),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            destination_location_id: Some(8),
+            destination_location_name: Some("Cosy Cottage".to_string()),
+            content: Some(
+                serde_json::json!({
+                    "schema_version": 1,
+                    "summary": "world.faction.influence_shifted"
+                })
+                .to_string(),
+            ),
+            ..EventView::default()
+        };
+
+        let beats = journal_beat_views(&[event], 7);
+
+        assert_eq!(beats.len(), 1);
+        assert_eq!(
+            beats[0].headline,
+            "Influence shifted from Rain-Soft Garden toward Cosy Cottage."
+        );
+        assert_eq!(
+            beats[0].world_beat_exposure_id.as_deref(),
+            Some("world-beat:v1:44")
+        );
+        assert!(!beats[0].headline.contains("world."));
     }
 }

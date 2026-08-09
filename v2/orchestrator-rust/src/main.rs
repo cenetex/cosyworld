@@ -25281,8 +25281,12 @@ async fn fund_community_image(
                 return FundCommunityImageResponse::action(false, 404, Vec::new());
             }
         };
-        if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
-            return FundCommunityImageResponse::action(false, 409, Vec::new());
+        if let Err(error) = freeze_community_art_evolution(&state.generated_asset_dir, &mut plan) {
+            warn_community_art_evolution_reference_failure(&plan, &error);
+            return FundCommunityImageResponse::failure(
+                409,
+                "community_art_evolution_reference_unavailable",
+            );
         }
         let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
         let existing = runtime.community_art_generations.get(&key);
@@ -25320,15 +25324,6 @@ async fn fund_community_image(
                 && generation.funded_orbs < generation.required_orbs
         }) {
             return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
-        }
-        if existing.is_some_and(|generation| {
-            generation
-                .contributions
-                .get(&payload.actor_id)
-                .is_some_and(|amount| *amount > 0)
-                && generation.funded_orbs < generation.required_orbs
-        }) {
-            return FundCommunityImageResponse::action(false, 409, Vec::new());
         }
         if working {
             drop(runtime);
@@ -25412,8 +25407,12 @@ async fn fund_community_image(
             return FundCommunityImageResponse::action(false, 404, Vec::new());
         }
     };
-    if freeze_community_art_evolution(&state.generated_asset_dir, &mut plan).is_err() {
-        return FundCommunityImageResponse::action(false, 409, Vec::new());
+    if let Err(error) = freeze_community_art_evolution(&state.generated_asset_dir, &mut plan) {
+        warn_community_art_evolution_reference_failure(&plan, &error);
+        return FundCommunityImageResponse::failure(
+            409,
+            "community_art_evolution_reference_unavailable",
+        );
     }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
@@ -25428,15 +25427,6 @@ async fn fund_community_image(
             schedule_community_art_generation(&state, payload.actor_id, plan);
         }
         return FundCommunityImageResponse::action(true, CW_OK, Vec::new());
-    }
-    if existing.is_some_and(|generation| {
-        generation
-            .contributions
-            .get(&payload.actor_id)
-            .is_some_and(|amount| *amount > 0)
-            && generation.funded_orbs < generation.required_orbs
-    }) {
-        return FundCommunityImageResponse::action(false, 409, Vec::new());
     }
     if existing.is_some_and(|generation| generation.status == "ready") {
         return FundCommunityImageResponse::action(false, 409, Vec::new());
@@ -37241,7 +37231,7 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
 /// Schema version stamped into `PRAGMA user_version` once the event-store
 /// DDL has run. Bump it when the DDL batch below gains a table so existing
 /// stores self-heal exactly once on the next initialize.
-const EVENT_STORE_SCHEMA_VERSION: i64 = 2;
+const EVENT_STORE_SCHEMA_VERSION: i64 = 3;
 
 /// Ensures the event-store schema exists. The DDL batch is idempotent but
 /// takes the write lock, so steady-state command commits skip it: a store
@@ -46731,6 +46721,10 @@ mod tests {
         assert!(!INDEX_HTML.contains("one Orb for the whole exchange"));
         assert!(INDEX_HTML.contains("/actions/fund-image"));
         assert!(INDEX_HTML.contains("fund community images only"));
+        assert!(INDEX_HTML.contains("error.payload = payload && typeof payload === \"object\""));
+        assert!(INDEX_HTML.contains("result = error.payload"));
+        assert!(!INDEX_HTML.contains("!viewerContributed && balance >= 1"));
+        assert!(INDEX_HTML.contains("The saved image job needs repair before it can start."));
         assert!(INDEX_HTML.contains("retry the saved image review"));
         assert!(INDEX_HTML.contains("no new image will be bought while review is unavailable"));
         assert!(INDEX_HTML.contains("no more provider credits will be used"));
@@ -51794,7 +51788,7 @@ mod tests {
     }
 
     #[test]
-    fn community_art_funding_is_once_per_level_and_costs_that_level() {
+    fn community_art_funding_accepts_repeat_presses_and_costs_that_level() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Subject");
         let actor = runtime.world.actors[..runtime.world.actor_count]
@@ -51803,7 +51797,8 @@ mod tests {
             .expect("test avatar exists");
         actor.stats.level = 2;
 
-        for (contributor_actor_id, seed) in [(5000, 7041), (5001, 7042)] {
+        for seed in [7041, 7042] {
+            let contributor_actor_id = 5000;
             let mut record = JournalRecord::new(
                 CwAction {
                     kind: CW_ACTION_NONE,
@@ -51836,8 +51831,7 @@ mod tests {
         assert_eq!(generation.required_orbs, 2);
         assert_eq!(generation.funded_orbs, 2);
         assert_eq!(generation.status, "funded");
-        assert_eq!(generation.contributions.get(&5000), Some(&1));
-        assert_eq!(generation.contributions.get(&5001), Some(&1));
+        assert_eq!(generation.contributions.get(&5000), Some(&2));
 
         let mut ready = JournalRecord::new(
             CwAction {

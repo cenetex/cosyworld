@@ -1,5 +1,7 @@
 use super::*;
-use crate::media_recipes::media_verdict::MEDIA_BRIEF_CONSTRAINT_LIMIT;
+use crate::media_recipes::media_verdict::{
+    record_media_provider_failure, MEDIA_BRIEF_CONSTRAINT_LIMIT,
+};
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
@@ -87,6 +89,89 @@ fn location_art_plan(
 
 fn long_reviewed_landscape_brief() -> String {
     "chalk lanes climb between reed beds and river stones under a wide pale sky, ".repeat(6)
+}
+
+#[test]
+fn higher_level_without_prior_art_uses_a_base_generation_catch_up() {
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-community-art-base-catch-up-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
+    let mut plan = location_art_plan(8901, "16:9", "a lantern-lit forest inn");
+    plan.level = 2;
+    plan.required_orbs = 2;
+
+    freeze_community_art_evolution(&generated_dir, &mut plan)
+        .expect("missing prior art should use a base generation at the funded level");
+    assert!(
+        plan.evolution_job.is_none(),
+        "catch-up generation must not invent a prior-level lineage"
+    );
+    let _ = fs::remove_dir_all(generated_dir);
+}
+
+#[test]
+fn actor_item_profile_reopens_paid_policy_exhaustion_with_stronger_typography_guards() {
+    let exhausted = CommunityArtGenerationState {
+        subject_kind: "actor".to_string(),
+        subject_id: 9030,
+        level: 1,
+        generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+        generation_policy: GeneratedPolicyBinding::default(),
+        required_orbs: 1,
+        funded_orbs: 1,
+        contributions: BTreeMap::from([(9030, 1)]),
+        funding_intent_ids: BTreeSet::from(["project89-paid-image".to_string()]),
+        status: "policy_rejected".to_string(),
+        history_through_seq: 1_041,
+        revision: 3,
+        provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
+        last_prediction_id: Some("third-policy-rejected-candidate".to_string()),
+        last_error_code: Some("community_art_policy_rejected".to_string()),
+        status_event_seq: Some(1_041),
+        evolution_job: None,
+        frozen_plan: None,
+    };
+    assert!(!community_art_generation_retryable(&exhausted, false));
+    assert_eq!(
+        community_art_generation_profile_version("actor"),
+        ACTOR_ITEM_GENERATION_PROFILE_VERSION
+    );
+    assert_eq!(
+        community_art_generation_profile_version("item"),
+        ACTOR_ITEM_GENERATION_PROFILE_VERSION
+    );
+    assert!(community_art_generation_retryable_for_profile(
+        &exhausted,
+        false,
+        ACTOR_ITEM_GENERATION_PROFILE_VERSION
+    ));
+
+    let prompt = build_community_art_prompt(
+        "actor",
+        "Project 89",
+        "World Traveler",
+        "A stable public portrait.",
+        1,
+        "Established identity and clothing.",
+        "No recent visual changes.",
+        None,
+    );
+    for guard in [
+        "No words",
+        "lettering",
+        "signatures",
+        "artist marks",
+        "logo",
+        "brand mark",
+        "watermark",
+        "typography-like shapes",
+        "text-like marks",
+    ] {
+        assert!(prompt.contains(guard), "missing {guard}: {prompt}");
+    }
 }
 
 fn fund_test_community_art(
@@ -1011,18 +1096,24 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
     assert!(duplicate.ok);
     assert!(duplicate.events.is_empty());
     let repeated_contributor = fund(actor_session, "test-community-endpoint-2").await.0;
-    assert!(!repeated_contributor.ok);
-    assert_eq!(repeated_contributor.status, 409);
-    assert!(repeated_contributor.events.is_empty());
+    assert!(
+        repeated_contributor.ok,
+        "one patron with enough Orbs may complete the pool: {repeated_contributor:?}"
+    );
+    assert!(repeated_contributor
+        .events
+        .iter()
+        .any(|event| event.type_name == "community_art.funded"));
 
     let runtime = state.inner.lock().await;
-    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 2);
     assert_eq!(runtime.world.tick, before_tick);
     let generation =
         &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
-    assert_eq!(generation.funded_orbs, 1);
+    assert_eq!(generation.funded_orbs, 2);
     assert_eq!(generation.required_orbs, 2);
-    assert_eq!(generation.status, "funding");
+    assert_eq!(generation.contributions.get(&5000), Some(&2));
+    assert_ne!(generation.status, "funding");
     let evolution = generation
         .evolution_job
         .as_ref()
@@ -1105,11 +1196,25 @@ async fn community_art_preflight_uses_the_frozen_publication_policy_with_a_safe_
     ));
     let _ = fs::remove_dir_all(&generated_dir);
     let plan = location_art_plan(181_727, "16:9", "chalk lanes and reed beds");
+    let mut stale_plan = plan.clone();
+    stale_plan.generation_profile_version = plan.generation_profile_version.saturating_sub(1);
+    let stale_brief = community_art_media_brief(&stale_plan);
+    record_media_provider_failure(&generated_dir, stale_brief.clone(), "primary")
+        .expect("persist obsolete provider-failure record");
     preflight_community_art_funding(&test_art_config(), Some(&config), &generated_dir, &plan)
         .await
-        .expect("known-safe preflight fixture is accepted");
+        .expect("known-safe preflight migrates the obsolete record and is accepted");
 
     assert!(capability_contract_seen.load(Ordering::SeqCst));
+    let retired = generated_dir
+        .join("media-verdicts/v1")
+        .join(format!(
+            "{:x}",
+            Sha256::digest(stale_brief.job_key.as_bytes())
+        ))
+        .join("retired")
+        .join(format!("{}.json", stale_brief.digest().unwrap()));
+    assert!(retired.is_file(), "obsolete frozen brief remains auditable");
     let _ = fs::remove_dir_all(generated_dir);
     server.abort();
 }

@@ -204,4 +204,4 @@
 # retain bounded readable model reasoning as private thought memory after a
 # certified reply. The owned logic and tests live in entity_context.rs and the
 # AI publication modules; main.rs keeps only runtime/persistence boundary glue.
-71508
+71502

@@ -439,9 +439,10 @@ pub(crate) fn preflight_media_verdict_storage(
     )
 }
 
-/// Retires a rejected candidate's immutable review record when a legacy retry
-/// must adopt a newly frozen brief. Approved or still-pending work remains
-/// fail-closed: only an explicitly rejected active candidate may be replaced.
+/// Retires an immutable review record when a legacy retry must adopt a newly
+/// frozen brief. Approved or still-pending work remains fail-closed: only an
+/// explicitly rejected active candidate or a candidate-free provider-failure
+/// record may move to the new brief.
 ///
 /// The retired record is preserved beside the live record for audit. Returning
 /// `true` tells the community-art pipeline to remove its staged candidate before
@@ -473,11 +474,13 @@ pub(crate) fn prepare_rejected_media_candidate_replacement(
                 MediaVerdictDisposition::Rejected | MediaVerdictDisposition::ReplaceRequested
             )
         });
-    if !active_rejected || record.disabled {
+    let candidate_free_provider_failure =
+        record.candidates.is_empty() && record.provider_failures > 0;
+    if record.disabled {
         return Ok(false);
     }
     if record.brief_digest == brief_digest && record.brief == brief {
-        return Ok(true);
+        return Ok(active_rejected);
     }
     if record.candidates.iter().any(|candidate| {
         matches!(
@@ -486,6 +489,9 @@ pub(crate) fn prepare_rejected_media_candidate_replacement(
         )
     }) {
         return Err("generated-image frozen brief changed for an existing job".to_string());
+    }
+    if !active_rejected && !candidate_free_provider_failure {
+        return Ok(false);
     }
     retire_record(root, &record)?;
     store_record(root, &new_record(brief, &brief_digest))?;

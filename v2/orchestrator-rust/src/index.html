@@ -1306,6 +1306,10 @@
       object-fit: contain;
       object-position: left top;
     }
+    .model-output-image .resident-reply-image {
+      width: min(100%, 640px);
+      max-width: 100%;
+    }
     .resident-image-alt {
       color: var(--dim);
       font-size: 11px;
@@ -4983,7 +4987,12 @@
       const response = await fetch(path, options);
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || `${response.status} ${response.statusText}`);
+        const error = new Error(payload?.error || payload?.error_code || `${response.status} ${response.statusText}`);
+        error.status = response.status;
+        error.payload = payload && typeof payload === "object"
+          ? { ...payload, status: Number(payload.status || response.status) }
+          : { ok: false, status: response.status, events: [] };
+        throw error;
       }
       return payload;
     }
@@ -8317,22 +8326,30 @@
         void queueRefresh();
         return result;
       }
-      const result = offer
-        ? await post("/actions/submit", {
-            path,
-            offer_id: offer.offer_id,
-            composition_id: offer.composition_id,
-            kind: offer.kind,
-            rules_action: offer.rules_action,
-            operation: offer.operation,
-            rules_profile: offer.rules_profile,
-            state_revision: offer.state_revision,
-            route: offer.route,
-            target: offer.target,
-            cost: offer.cost,
-            payload: authoritativePayload,
-          })
-        : await post(path, authoritativePayload);
+      let result;
+      try {
+        result = offer
+          ? await post("/actions/submit", {
+              path,
+              offer_id: offer.offer_id,
+              composition_id: offer.composition_id,
+              kind: offer.kind,
+              rules_action: offer.rules_action,
+              operation: offer.operation,
+              rules_profile: offer.rules_profile,
+              state_revision: offer.state_revision,
+              route: offer.route,
+              target: offer.target,
+              cost: offer.cost,
+              payload: authoritativePayload,
+            })
+          : await post(path, authoritativePayload);
+      } catch (error) {
+        if (!error?.payload || typeof error.payload !== "object" || !Number(error.status || 0)) {
+          throw error;
+        }
+        result = error.payload;
+      }
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
@@ -8369,6 +8386,15 @@
       }
       if (status === 402 && path.includes("fund-image")) {
         return "You need one Orb to add to this community image.";
+      }
+      if (path.includes("fund-image") && result.error_code === "community_art_evolution_reference_unavailable") {
+        return "The earlier portrait is not available for a safe evolution, so no Orb was taken.";
+      }
+      if (path.includes("fund-image") && result.error_code === "community_art_storage_failed") {
+        return "The saved image job needs repair before it can start. No Orb was taken.";
+      }
+      if (status === 502 && path.includes("fund-image")) {
+        return "The image workshop could not be reached. Check the current status and try again.";
       }
       if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
       if (status === 503 && path === "/actions/model-interaction") {
@@ -13297,11 +13323,8 @@
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const needsOrb = remaining > 0;
-      const awaitingCommunity = needsOrb && viewerContributed;
       const working = status === "generating" || status === "reviewing";
-      const buttonLabel = awaitingCommunity
-        ? ""
-        : (needsOrb
+      const buttonLabel = needsOrb
         ? `add one Orb · ${funded}/${required}`
         : (working
           ? (status === "reviewing" ? "check the saved image review" : "check the image workshop")
@@ -13311,21 +13334,19 @@
               ? (retryableWithoutOrbs ? "try a different image" : "image withheld")
               : (status === "failed"
                 ? (retryableWithoutOrbs ? "try the image again" : "image workshop unavailable")
-                : "start the image workshop")))));
+                : "start the image workshop"))));
       const canAct = needsOrb
-        ? !viewerContributed && balance >= 1
+        ? balance >= 1
         : retryableWithoutOrbs;
-      const detail = awaitingCommunity
-        ? `your Orb is already helping; ${remaining} ${remaining === 1 ? "more is" : "more are"} still needed from other players`
-        : (needsOrb
-        ? `${remaining} ${remaining === 1 ? "Orb" : "Orbs"} still needed from the community`
+      const detail = needsOrb
+        ? `${viewerContributed ? "your Orb is already helping; " : ""}${remaining} ${remaining === 1 ? "Orb is" : "Orbs are"} still needed from the community`
         : (working
           ? "fully funded; the saved job is still in progress"
           : (status === "review_failed" || status === "review_unavailable"
             ? "candidate saved; no new image will be bought while review is unavailable"
             : (!retryableWithoutOrbs && providerAttempts >= maxProviderAttempts
               ? `stopped after ${providerAttempts} image ${providerAttempts === 1 ? "attempt" : "attempts"}; no more provider credits will be used`
-              : "fully funded; no more Orbs will be taken"))));
+              : "fully funded; no more Orbs will be taken")));
       const action = canAct
         ? `<button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}">${escapeHtml(buttonLabel)}</button>`
         : "";

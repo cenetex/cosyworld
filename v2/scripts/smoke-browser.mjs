@@ -6593,7 +6593,7 @@ async function main() {
         && pathwayContract.label === "add one Orb · 0/1"
         && pathwayContract.disabled === false
         && pathwayContract.live === "polite"
-        && pathwayContract.copy.includes("1 Orb still needed from the community"),
+        && pathwayContract.copy.includes("1 Orb is still needed from the community"),
       `a revealed generated pathway keepsake should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
 
@@ -6694,14 +6694,14 @@ async function main() {
     });
     assert(
       communityArtStates.noEarnedOrbs.button === ""
-        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs still needed from the community"),
+        && communityArtStates.noEarnedOrbs.copy.includes("2 Orbs are still needed from the community"),
       `players without an earned Orb should see image funding state without a contribution CTA: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
-      communityArtStates.contributedPending.button === ""
+      communityArtStates.contributedPending.button === "add one Orb · 1/2"
         && communityArtStates.contributedPending.copy.toLowerCase().includes("your orb is already helping")
-        && communityArtStates.contributedPending.copy.includes("still needed from other players"),
-      `a player who already contributed should see pending state instead of another invitation: ${JSON.stringify(communityArtStates)}`,
+        && communityArtStates.contributedPending.copy.includes("1 Orb is still needed from the community"),
+      `a player who already contributed should be able to finish funding the community image: ${JSON.stringify(communityArtStates)}`,
     );
     assert(
       communityArtStates.failed.button === ""

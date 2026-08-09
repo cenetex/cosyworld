@@ -1879,6 +1879,41 @@ mod tests {
         ))
     }
 
+    #[test]
+    fn version_two_event_store_migrates_the_reasoning_trace_column() {
+        let path = test_path("reasoning-trace-migration");
+        let _ = fs::remove_file(&path);
+        let conn = Connection::open(&path).expect("create a version-two event store");
+        conn.execute_batch(
+            "CREATE TABLE ai_voice_jobs (
+                generation_id TEXT PRIMARY KEY,
+                accepted_text TEXT,
+                accepted_receipt_json TEXT
+            );
+            PRAGMA user_version = 2;",
+        )
+        .expect("create the legacy voice-job schema");
+        drop(conn);
+
+        crate::init_event_store(&path).expect("migrate the voice-job schema");
+        let conn = crate::open_event_store(&path).expect("open the migrated event store");
+        let columns = conn
+            .prepare("PRAGMA table_info(ai_voice_jobs)")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, String>(1))?
+                    .collect::<Result<BTreeSet<_>, _>>()
+            })
+            .expect("read the migrated voice-job columns");
+        assert!(columns.contains("accepted_reasoning_trace"));
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("read the migrated schema version");
+        assert_eq!(version, crate::EVENT_STORE_SCHEMA_VERSION);
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
     fn single_candidate(routing: VoiceRoutingConfig) -> AiConfig {
         config(
             vec![candidate(

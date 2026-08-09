@@ -43,6 +43,7 @@ use crate::{
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
 pub(super) const LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION: u8 = 1;
+pub(super) const ACTOR_ITEM_GENERATION_PROFILE_VERSION: u8 = 2;
 pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 5;
 pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
     "MRQ, cozy storybook landscape, wide environment establishing view";
@@ -65,7 +66,7 @@ pub(super) fn community_art_generation_profile_version(subject_kind: &str) -> u8
     if subject_kind == "location" {
         LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION
     } else {
-        LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION
+        ACTOR_ITEM_GENERATION_PROFILE_VERSION
     }
 }
 
@@ -151,6 +152,17 @@ impl CommunityArtPlan {
     }
 }
 
+pub(super) fn warn_community_art_evolution_reference_failure(plan: &CommunityArtPlan, error: &str) {
+    warn!(
+        failure_stage = "evolution_reference",
+        failure_code = "community_art_evolution_reference_unavailable",
+        subject_kind = plan.subject_kind,
+        subject_id = plan.subject_id,
+        level = plan.level,
+        "community art funding could not freeze the prior-level reference: {error}"
+    );
+}
+
 pub(super) fn freeze_community_art_evolution(
     generated_asset_dir: &Path,
     plan: &mut CommunityArtPlan,
@@ -162,13 +174,28 @@ pub(super) fn freeze_community_art_evolution(
         return job.validate();
     }
     let prior_level = plan.level.saturating_sub(1);
-    let prior = freeze_approved_community_media_reference(
+    let prior = match freeze_approved_community_media_reference(
         generated_asset_dir,
         &plan.subject_kind,
         plan.subject_id,
         prior_level,
         plan.history_through_seq,
-    )?;
+    ) {
+        Ok(prior) => prior,
+        Err(error) if error.starts_with("no approved canonical media asset for ") => {
+            warn!(
+                event = "community_art_evolution_base_catch_up",
+                subject_kind = plan.subject_kind,
+                subject_id = plan.subject_id,
+                target_level = plan.level,
+                prior_level,
+                history_through_seq = plan.history_through_seq,
+                "prior-level art does not exist; generating a safe base image at the funded level"
+            );
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
     plan.evolution_job = Some(FrozenCommunityArtEvolutionJob::freeze(
         &plan.subject_kind,
         plan.subject_id,
@@ -454,7 +481,9 @@ pub(super) fn build_community_art_prompt(
 ) -> String {
     let image_constraints = image_policy
         .map(CommunityArtImagePolicy::prompt)
-        .unwrap_or("No words, logo, watermark, UI, gore, or photorealism.");
+        .unwrap_or(
+            "No words, lettering, captions, signage, signatures, artist marks, logo, emblem, brand mark, watermark, UI, gore, or photorealism. Do not render typography-like shapes or text-like marks anywhere in the image.",
+        );
     let prompt = if image_policy == Some(CommunityArtImagePolicy::LocationLandscape) {
         format!(
             "{name} — {blurb}. {subject_details}. Public visual traces: {history}. Wide uninhabited level {level} environment; established geography. {image_constraints}"
@@ -1013,12 +1042,14 @@ pub(super) async fn preflight_community_art_funding(
         .validate()
         .map_err(CommunityArtGenerationError::BriefInvalid)?;
     preflight_community_art_storage(generated_asset_dir, plan)?;
+    // This performs the same media-registry resolution, provider request
+    // construction, stale-brief migration, route/cooldown check,
+    // saved-candidate validation, and quarantine recovery as the funded worker,
+    // but never calls Replicate. It must run before the exact-brief storage
+    // probe so an auditable legacy provider-failure record can be retired.
+    prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
     preflight_media_verdict_storage(generated_asset_dir, &media_brief)
         .map_err(CommunityArtGenerationError::Storage)?;
-    // This performs the same media-registry resolution, provider request
-    // construction, route/cooldown check, saved-candidate validation, and
-    // quarantine recovery as the funded worker, but never calls Replicate.
-    prepare_community_art_generation(generation_config, generated_asset_dir, plan)?;
     let review_policy = community_art_review_policy(&media_brief, plan);
     let capability_policy = community_art_reviewer_capability_policy(&review_policy);
     let decision = request_image_policy_decision(
@@ -1170,6 +1201,12 @@ pub(super) fn prepare_community_art_generation(
     if prepare_rejected_media_candidate_replacement(generated_asset_dir, media_brief.clone())
         .map_err(CommunityArtGenerationError::Storage)?
     {
+        warn!(
+            event = "community_art_media_brief_migrated",
+            job_key,
+            generation_profile_version = plan.generation_profile_version,
+            "retired an obsolete media verdict record before retrying generation"
+        );
         remove_community_art_candidate(generated_asset_dir, plan)
             .map_err(CommunityArtGenerationError::Storage)?;
     }
@@ -1484,6 +1521,21 @@ async fn generate_and_store_prepared_community_art(
                     .iter()
                     .map(|violation| media_violation_from_policy(violation))
                     .collect::<Vec<_>>();
+                if !decision.allowed {
+                    warn!(
+                        event = "community_art_candidate_policy_rejected",
+                        job_key,
+                        subject_kind = plan.subject_kind,
+                        subject_id = plan.subject_id,
+                        level = plan.level,
+                        candidate_digest,
+                        reviewer_model = policy_config.vision_model,
+                        reviewer_attempts = decision.attempts,
+                        reviewer_latency_ms = decision.latency.as_millis() as u64,
+                        violations = ?decision.violations,
+                        "generated image candidate was withheld by publication policy"
+                    );
+                }
                 let verdict = make_visual_verdict(
                     &media_brief,
                     candidate_digest.clone(),

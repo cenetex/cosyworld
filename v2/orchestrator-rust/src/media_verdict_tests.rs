@@ -467,6 +467,32 @@ fn rejected_candidate_can_be_replaced_under_a_new_frozen_brief_with_audit_retain
 }
 
 #[test]
+fn provider_failure_record_can_adopt_a_new_frozen_brief_with_audit_retained() {
+    let root = root("provider-failure-brief-replacement");
+    let original = brief("provider-failure-brief-job");
+    record_media_provider_failure(&root, original.clone(), "primary").unwrap();
+
+    let mut replacement_brief = original.clone();
+    replacement_brief.recipe = "cosyworld.test-recipe/2".to_string();
+    replacement_brief.crop = "wide environment view, subject centered".to_string();
+    assert!(
+        prepare_rejected_media_candidate_replacement(&root, replacement_brief.clone()).unwrap(),
+        "a candidate-free provider failure may move to a newly frozen retry brief"
+    );
+    let retired = root
+        .join("media-verdicts/v1")
+        .join(sha256_hex(b"provider-failure-brief-job"))
+        .join("retired")
+        .join(format!("{}.json", original.digest().unwrap()));
+    assert!(
+        retired.is_file(),
+        "the obsolete provider-failure record is retained for audit"
+    );
+    preflight_media_verdict_storage(&root, &replacement_brief)
+        .expect("the new frozen brief passes storage preflight");
+}
+
+#[test]
 fn reviewer_outage_reuses_one_candidate_and_provider_failures_enter_cooldown() {
     let root = root("outage");
     let frozen = brief("outage-job");
