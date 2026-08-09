@@ -1578,6 +1578,7 @@ pub(super) async fn request_resident_plan(
             max_attempts: 1,
             referer: "http://127.0.0.1:3102",
             response_format: Some(&response_format),
+            room_id: Some(plan.location_id),
         },
     )
     .await;

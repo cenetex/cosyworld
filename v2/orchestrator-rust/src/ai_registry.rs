@@ -105,17 +105,6 @@ pub(crate) enum DataRetention {
     Unknown,
 }
 
-impl DataRetention {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Limited => "limited",
-            Self::ProviderDefault => "provider_default",
-            Self::Unknown => "unknown",
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum TrainingUse {
@@ -126,17 +115,6 @@ pub(crate) enum TrainingUse {
     Unknown,
 }
 
-impl TrainingUse {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Prohibited => "prohibited",
-            Self::ContractualOptOut => "contractual_opt_out",
-            Self::Permitted => "permitted",
-            Self::Unknown => "unknown",
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct DataPolicyEligibility {
@@ -144,16 +122,6 @@ pub(crate) struct DataPolicyEligibility {
     pub(crate) retention: DataRetention,
     #[serde(default)]
     pub(crate) training: TrainingUse,
-}
-
-impl DataPolicyEligibility {
-    fn production_eligible(self) -> bool {
-        self.retention == DataRetention::None
-            && matches!(
-                self.training,
-                TrainingUse::Prohibited | TrainingUse::ContractualOptOut
-            )
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -474,12 +442,11 @@ impl ModelCandidate {
             }
     }
 
-    /// Mirrors what `pin` will accept: pool membership plus the production
-    /// data-policy gate. A pool that is non-empty but entirely privacy rejected
-    /// is just as dead as an empty one, so the startup audit uses this.
-    fn eligible(&self, capability: ModelCapability, policy_mode: DataPolicyMode) -> bool {
+    /// Mirrors what `pin` will accept. Data-policy facts remain part of the
+    /// pinned attribution and provider request shape, but server-authored model
+    /// input does not make non-ZDR routes ineligible in production.
+    fn eligible(&self, capability: ModelCapability, _policy_mode: DataPolicyMode) -> bool {
         self.supports(capability)
-            && (policy_mode != DataPolicyMode::Production || self.data_policy.production_eligible())
     }
 }
 
@@ -647,7 +614,7 @@ impl CapabilityRegistrySnapshot {
         &self,
         capability: ModelCapability,
         requested_model: Option<&str>,
-        policy_mode: DataPolicyMode,
+        _policy_mode: DataPolicyMode,
     ) -> Result<PinnedModelSelection, RegistryError> {
         let pool = self.pools.get(&capability);
         let key = match requested_model
@@ -677,12 +644,6 @@ impl CapabilityRegistrySnapshot {
             .get(key)
             .cloned()
             .ok_or_else(|| RegistryError::UnknownCandidate(key.to_string()))?;
-        if policy_mode == DataPolicyMode::Production && !candidate.data_policy.production_eligible()
-        {
-            return Err(RegistryError::PrivacyRejected {
-                model: key.to_string(),
-            });
-        }
         Ok(PinnedModelSelection {
             snapshot_version: self.snapshot_version.clone(),
             capability,
@@ -701,11 +662,7 @@ impl CapabilityRegistrySnapshot {
             .get(&capability)
             .ok_or(RegistryError::EmptyCapabilityPool(capability))?
         {
-            match self.pin(capability, Some(model), policy_mode) {
-                Ok(selection) => pinned.push(selection),
-                Err(RegistryError::PrivacyRejected { .. }) => {}
-                Err(error) => return Err(error),
-            }
+            pinned.push(self.pin(capability, Some(model), policy_mode)?);
         }
         if pinned.is_empty() {
             return Err(RegistryError::EmptyCapabilityPool(capability));
@@ -834,7 +791,7 @@ impl fmt::Display for CapabilityCoverageReport {
         }
         writeln!(
             formatter,
-            "{AI_REGISTRY_ENV} has no usable candidate for {} of the {} model capabilities this build always uses (snapshot_version={:?}, data policy mode {}, {} configured candidate(s)). Each uncovered subsystem fails every call while the process still boots and reports healthy.",
+            "{AI_REGISTRY_ENV} has no usable candidate for {} of the {} model capabilities this build always uses (snapshot_version={:?}, deploy profile {}, {} configured candidate(s)). Each uncovered subsystem fails every call while the process still boots and reports healthy.",
             self.gaps.len(),
             REQUIRED_CAPABILITIES.len(),
             self.snapshot_version,
@@ -871,7 +828,7 @@ impl fmt::Display for CapabilityCoverageReport {
         }
         write!(
             formatter,
-            "Fix the {AI_REGISTRY_ENV} value (for a Fly deployment it is the [env] entry in fly.toml): for each capability above, add its name to one declared candidate's \"capabilities\" array, set the \"supported_parameters\" flags named above, keep \"input_modalities\" and \"output_modalities\" containing \"text\", and in production keep \"data_policy\":{{\"retention\":\"none\",\"training\":\"prohibited\"}}. One candidate may cover all {} capabilities. Publish the edit under a new \"snapshot_version\" so the change is traceable.",
+            "Fix the {AI_REGISTRY_ENV} value (for a Fly deployment it is the [env] entry in fly.toml): for each capability above, add its name to one declared candidate's \"capabilities\" array, set the \"supported_parameters\" flags named above, and keep \"input_modalities\" and \"output_modalities\" containing \"text\". One candidate may cover all {} capabilities. Publish the edit under a new \"snapshot_version\" so the change is traceable.",
             REQUIRED_CAPABILITIES.len()
         )?;
         if self.is_fatal() {
@@ -893,7 +850,7 @@ impl fmt::Display for CapabilityCoverageReport {
 fn exclusion_reason(
     candidate: &ModelCandidate,
     capability: ModelCapability,
-    policy_mode: DataPolicyMode,
+    _policy_mode: DataPolicyMode,
 ) -> Option<String> {
     if !candidate.input_modalities.contains(&ModelModality::Text)
         || !candidate.output_modalities.contains(&ModelModality::Text)
@@ -919,13 +876,6 @@ fn exclusion_reason(
     }
     if let Some(required) = missing_parameters(candidate, capability) {
         return Some(format!("declares \"{capability}\" without {required}"));
-    }
-    if policy_mode == DataPolicyMode::Production && !candidate.data_policy.production_eligible() {
-        return Some(format!(
-            "privacy rejected: production needs \"data_policy\" retention \"none\" and training \"prohibited\" or \"contractual_opt_out\", but it declares retention {:?} and training {:?}",
-            candidate.data_policy.retention.as_str(),
-            candidate.data_policy.training.as_str(),
-        ));
     }
     None
 }
@@ -1408,6 +1358,12 @@ impl PinnedModelSelection {
         self.candidate.data_policy.retention == DataRetention::None
     }
 
+    /// OpenRouter-specific request fields are valid only for an OpenRouter
+    /// route whose checked-in policy facts say it is actually ZDR.
+    pub(crate) fn sends_openrouter_zdr_constraint(&self) -> bool {
+        self.candidate.provider == "openrouter" && self.enforces_zero_data_retention()
+    }
+
     pub(crate) fn attribute_response(
         &self,
         provider_model: Option<&str>,
@@ -1511,9 +1467,6 @@ pub(crate) enum RegistryError {
         capability: ModelCapability,
     },
     EmptyCapabilityPool(ModelCapability),
-    PrivacyRejected {
-        model: String,
-    },
     AliasUnresolved {
         alias: String,
     },
@@ -1522,7 +1475,6 @@ pub(crate) enum RegistryError {
 impl RegistryError {
     pub(crate) fn code(&self) -> &'static str {
         match self {
-            Self::PrivacyRejected { .. } => "inference_privacy_rejected",
             Self::CapabilityMismatch { .. }
             | Self::EmptyCapabilityPool(_)
             | Self::UnsupportedDeclaredCapability { .. } => "inference_capability_mismatch",
@@ -1565,10 +1517,6 @@ impl fmt::Display for RegistryError {
             Self::EmptyCapabilityPool(capability) => {
                 write!(formatter, "capability registry has no {capability} candidates")
             }
-            Self::PrivacyRejected { model } => write!(
-                formatter,
-                "candidate {model:?} lacks explicit production no-retention/no-training eligibility"
-            ),
             Self::AliasUnresolved { alias } => write!(
                 formatter,
                 "provider did not attribute mutable alias {alias:?} to a concrete returned model"
@@ -2079,18 +2027,41 @@ mod tests {
     }
 
     #[test]
-    fn production_privacy_policy_fails_closed() {
+    fn production_preserves_non_zdr_policy_metadata_without_rejecting_candidate() {
         let mut candidate = declared_candidate("provider/unknown-policy", [ModelCapability::Voice]);
         candidate.data_policy = DataPolicyEligibility::default();
         let registry = snapshot("privacy-1", vec![candidate], Vec::new());
 
-        assert!(registry
-            .pin(ModelCapability::Voice, None, DataPolicyMode::Development)
-            .is_ok());
-        let error = registry
+        let pinned = registry
             .pin(ModelCapability::Voice, None, DataPolicyMode::Production)
-            .expect_err("unknown policy must fail closed");
-        assert_eq!(error.code(), "inference_privacy_rejected");
+            .expect("server-authored production text may use a non-ZDR route");
+        assert_eq!(
+            pinned
+                .attribute_response(None)
+                .expect("non-ZDR attribution")
+                .data_policy,
+            DataPolicyEligibility::default()
+        );
+    }
+
+    #[test]
+    fn production_voice_pool_keeps_zdr_and_non_zdr_candidates() {
+        let zdr = declared_candidate("provider/zdr", [ModelCapability::Voice]);
+        let mut non_zdr = declared_candidate("provider/non-zdr", [ModelCapability::Voice]);
+        non_zdr.data_policy = DataPolicyEligibility {
+            retention: DataRetention::ProviderDefault,
+            training: TrainingUse::Permitted,
+        };
+        let registry = snapshot("mixed-policy-1", vec![zdr, non_zdr], Vec::new());
+
+        let pinned = registry
+            .pin_all(ModelCapability::Voice, DataPolicyMode::Production)
+            .expect("policy metadata must not shrink the server-authored voice pool");
+        assert_eq!(pinned.len(), 2);
+        assert_eq!(pinned[0].requested_model_id(), "provider/non-zdr");
+        assert_eq!(pinned[1].requested_model_id(), "provider/zdr");
+        assert!(!pinned[0].enforces_zero_data_retention());
+        assert!(pinned[1].enforces_zero_data_retention());
     }
 
     #[test]
@@ -2323,21 +2294,20 @@ mod tests {
             .audit_required_capabilities(DataPolicyMode::Development)
             .is_covered());
 
-        // Production startup now requires an explicit registry before building
-        // this fallback. Keep the policy audit fail-closed as defense in depth
-        // for any future caller that constructs a legacy snapshot directly.
+        // Production startup still requires an explicit registry before
+        // building this fallback. Policy facts do not make a valid capability
+        // pool unusable, even if a future caller constructs it directly.
         let production = legacy.audit_required_capabilities(DataPolicyMode::Production);
-        assert!(!production.is_covered());
-        assert!(
-            production.to_string().contains("privacy rejected"),
-            "{production}"
-        );
+        assert!(production.is_covered());
+        let attribution = legacy
+            .pin(ModelCapability::Voice, None, DataPolicyMode::Production)
+            .expect("legacy capability remains routable")
+            .attribute_response(None)
+            .expect("legacy attribution");
         assert_eq!(
-            legacy
-                .pin(ModelCapability::Voice, None, DataPolicyMode::Production)
-                .expect_err("legacy data policy is unknown")
-                .code(),
-            "inference_privacy_rejected"
+            attribution.data_policy,
+            DataPolicyEligibility::default(),
+            "unknown legacy policy remains truthful metadata"
         );
     }
 

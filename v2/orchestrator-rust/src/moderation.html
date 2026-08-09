@@ -146,6 +146,52 @@
     .economy-panel {
       margin-top: 14px;
     }
+    .activation-panel {
+      margin-top: 14px;
+    }
+    .activation-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .activation-stat {
+      display: grid;
+      gap: 3px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fafb;
+    }
+    .activation-stat strong {
+      font-size: 20px;
+    }
+    .activation-stat span,
+    .activation-context {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .activation-context {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .activation-steps {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .activation-steps th,
+    .activation-steps td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+      vertical-align: top;
+    }
+    .activation-steps th:first-child,
+    .activation-steps td:first-child {
+      text-align: left;
+    }
     .economy-summary {
       display: flex;
       gap: 8px;
@@ -291,6 +337,7 @@
     </div>
     <div class="status" id="status" data-console-status></div>
     <div class="status" id="store-health" data-store-health role="status"></div>
+    <div class="status" id="ai-health" data-ai-health role="status"></div>
 
     <section class="grid" aria-label="Moderation reports">
       <section class="panel" aria-label="Report queue">
@@ -309,6 +356,13 @@
       <div class="economy-summary" id="economy-summary" data-economy-summary></div>
       <div class="list" id="reconciliation-list" data-reconciliation-list></div>
     </section>
+    <section class="panel activation-panel" aria-label="First-tale activation">
+      <div class="panel-head"><span>First-tale activation</span><span id="activation-release"></span></div>
+      <div class="activation-context" id="activation-context" data-activation-context>Load the operator view to see lifetime activation and the current recording context.</div>
+      <div class="activation-summary" id="activation-summary" data-activation-summary></div>
+      <div id="activation-steps" data-activation-steps></div>
+      <div id="activation-rejections" data-activation-rejections></div>
+    </section>
   </main>
 
   <script>
@@ -316,6 +370,7 @@
     const authForm = document.getElementById("auth-form");
     const statusNode = document.getElementById("status");
     const storeHealthNode = document.getElementById("store-health");
+    const aiHealthNode = document.getElementById("ai-health");
     const reportList = document.getElementById("report-list");
     const reportDetail = document.getElementById("report-detail");
     const queueTitle = document.getElementById("queue-title");
@@ -325,9 +380,15 @@
     const economySummary = document.getElementById("economy-summary");
     const reconciliationList = document.getElementById("reconciliation-list");
     const reconciliationCount = document.getElementById("reconciliation-count");
+    const activationRelease = document.getElementById("activation-release");
+    const activationContext = document.getElementById("activation-context");
+    const activationSummary = document.getElementById("activation-summary");
+    const activationSteps = document.getElementById("activation-steps");
+    const activationRejections = document.getElementById("activation-rejections");
     const storageKey = "cosyworld.moderationToken";
     let reports = [];
     let economy = { wooden_box_receipts: [], avatar_pack_openings: [], economy_reconciliations: [] };
+    let activation = { dimensions: {}, summary: {}, steps: [] };
     let selectedReportId = 0;
     let statusFilter = "open";
     let busy = false;
@@ -379,9 +440,24 @@
           storeHealthNode.textContent = `Event store ${status}.`;
           storeHealthNode.className = "status";
         }
+        const ai = runtimeMeta?.ai || {};
+        const readiness = ai.readiness || {};
+        if (!ai.configured) {
+          aiHealthNode.textContent = "AI routes are not configured; deterministic play remains available.";
+          aiHealthNode.className = "status";
+        } else if (readiness.status === "ready") {
+          aiHealthNode.textContent = `${ai.provider || "AI"} routes ready.`;
+          aiHealthNode.className = "status ok";
+        } else {
+          const reason = String(readiness.reason_code || readiness.status || "checking").replaceAll("_", " ");
+          aiHealthNode.textContent = `${ai.provider || "AI"} routes degraded: ${reason}. Deterministic play remains available.`;
+          aiHealthNode.className = "status error";
+        }
       } catch (error) {
         storeHealthNode.textContent = `Event store health unavailable: ${error.message || String(error)}`;
         storeHealthNode.className = "status error";
+        aiHealthNode.textContent = "AI route health unavailable.";
+        aiHealthNode.className = "status error";
       }
     }
 
@@ -454,12 +530,14 @@
       }
       setBusy(true);
       try {
-        const [body, economyBody] = await Promise.all([
+        const [body, economyBody, activationBody] = await Promise.all([
           loadAllReports(),
           api("/moderation/economy?limit=40", { headers: authHeaders() }),
+          api("/moderation/activation?limit=120", { headers: authHeaders() }),
         ]);
         reports = body;
         economy = economyBody;
+        activation = activationBody;
         if (!reports.some((report) => report.report_id === selectedReportId)) {
           selectedReportId = reports[0]?.report_id || 0;
         }
@@ -468,6 +546,7 @@
       } catch (error) {
         reports = [];
         economy = { wooden_box_receipts: [], avatar_pack_openings: [], economy_reconciliations: [] };
+        activation = { dimensions: {}, summary: {}, steps: [] };
         selectedReportId = 0;
         render();
         setStatus(error.message || String(error), "error");
@@ -591,6 +670,7 @@
       renderList();
       renderDetail();
       renderEconomy();
+      renderActivation();
     }
 
     function renderList() {
@@ -695,6 +775,82 @@
           ${form}
         </div>`;
       }).join("");
+    }
+
+    function formatRate(rate) {
+      const value = Number(rate);
+      return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "-";
+    }
+
+    function formatDuration(milliseconds) {
+      const value = Number(milliseconds);
+      if (!Number.isFinite(value) || value < 0) return "-";
+      if (value < 60_000) return `${(value / 1000).toFixed(1)}s`;
+      if (value < 3_600_000) return `${(value / 60_000).toFixed(1)}m`;
+      return `${(value / 3_600_000).toFixed(1)}h`;
+    }
+
+    function activationStepLabel(step) {
+      return String(step || "")
+        .replace(/^first_/, "")
+        .replaceAll("_", " ")
+        .replace(/^./, (character) => character.toUpperCase());
+    }
+
+    function renderActivation() {
+      const dimensions = activation?.dimensions || {};
+      const summary = activation?.summary || {};
+      const steps = Array.isArray(activation?.steps) ? activation.steps : [];
+      const rejections = Array.isArray(activation?.first_tale_action_rejections)
+        ? activation.first_tale_action_rejections
+        : [];
+      activationRelease.textContent = dimensions.release_version
+        ? `v${dimensions.release_version}`
+        : "";
+      const recordingContext = [
+        dimensions.deployment_profile,
+        dimensions.worldpack_id && `${dimensions.worldpack_id} pack v${dimensions.worldpack_version || 0}`,
+        dimensions.metrics_definitions_version,
+      ].filter(Boolean).join(" / ");
+      activationContext.textContent = recordingContext
+        ? `Lifetime activation dataset. Current recording context: ${recordingContext}.`
+        : "No activation dataset is available.";
+      const cards = [
+        ["Avatars", Number(summary.avatar_created_count || 0)],
+        ["First turn", `${Number(summary.actors_with_first_turn_committed || 0)} / ${formatRate(summary.first_turn_committed_rate)}`],
+        ["First growth", `${Number(summary.actors_with_first_banked_ledger || 0)} / ${formatRate(summary.first_banked_ledger_rate)}`],
+        ["First tale", `${Number(summary.actors_with_first_public_trace || 0)} / ${formatRate(summary.first_public_trace_rate)}`],
+        ["Day 1 return", `${Number(summary.actors_with_day_1_return || 0)} / ${formatRate(summary.day_1_return_rate)}`],
+        ["Day 7 return", `${Number(summary.actors_with_day_7_return || 0)} / ${formatRate(summary.day_7_return_rate)}`],
+      ];
+      activationSummary.innerHTML = cards.map(([label, value]) => (
+        `<div class="activation-stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`
+      )).join("");
+      activationRejections.innerHTML = rejections.length
+        ? `<table class="activation-steps" aria-label="First-tale action rejections">
+            <thead><tr><th>Rejected phase</th><th>Status</th><th>People</th><th>Attempts</th></tr></thead>
+            <tbody>${rejections.map((entry) => `<tr>
+              <td>${escapeHtml(activationStepLabel(entry.phase))}</td>
+              <td>${Number(entry.status || 0)}</td>
+              <td>${Number(entry.actor_count || 0)}</td>
+              <td>${Number(entry.rejection_count || 0)}</td>
+            </tr>`).join("")}</tbody>
+          </table>`
+        : "";
+      if (!steps.length) {
+        activationSteps.innerHTML = `<div class="empty">No activation events recorded yet.</div>`;
+        return;
+      }
+      activationSteps.innerHTML = `<table class="activation-steps">
+        <thead><tr><th>Milestone</th><th>People</th><th>From avatars</th><th>Median</th><th>75th percentile</th></tr></thead>
+        <tbody>${steps.map((step) => `<tr>
+          <td>${escapeHtml(activationStepLabel(step.step))}</td>
+          <td>${Number(step.actor_count || 0)}</td>
+          <td>${escapeHtml(formatRate(step.rate_from_avatar_created))}</td>
+          <td>${escapeHtml(formatDuration(step.median_time_from_avatar_created_ms))}</td>
+          <td>${escapeHtml(formatDuration(step.p75_time_from_avatar_created_ms))}</td>
+        </tr>`).join("")}</tbody>
+      </table>`;
     }
 
     authForm.addEventListener("submit", (event) => {

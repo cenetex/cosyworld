@@ -12,6 +12,7 @@ mod actor_rules_facets;
 mod ai_context;
 mod ai_gateway;
 mod ai_publication;
+mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
 mod avatar_identity;
@@ -40,6 +41,7 @@ mod contributions;
 mod crafting;
 mod discovery_pipeline;
 mod first_tale;
+mod first_tale_presentations;
 mod generated_places;
 mod generation_policy;
 mod hosted_access;
@@ -100,6 +102,7 @@ use actor_rules_facets::*;
 use ai_context::*;
 use ai_gateway::*;
 use ai_publication::*;
+use ai_readiness::*;
 use ai_resident_planning::*;
 use avatar_identity::*;
 use avatar_reflections::*;
@@ -139,6 +142,7 @@ use cosyworld_orchestrator::card_policy::CardPolicyAction;
 use crafting::*;
 use discovery_pipeline::*;
 use first_tale::*;
+use first_tale_presentations::*;
 use generated_places::*;
 use generation_policy::*;
 use hosted_access::*;
@@ -2377,6 +2381,7 @@ struct MetaResponse {
     build_profile: &'static str,
     deployment: MetaDeployment,
     features: MetaFeatureFlags,
+    ai: MetaAi,
     persistence: MetaPersistence,
     ownership_feed: MetaOwnershipFeed,
     nft: MetaNftConfig,
@@ -4815,6 +4820,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_moderation_retention_scheduler(state.clone());
     start_story_metrics_retention_scheduler(state.clone());
     start_command_receipt_retention_scheduler(state.clone());
+    let _ai_readiness_scheduler = start_ai_readiness_scheduler(state.ai_config.as_ref().clone());
     let app = routes::app_router(state);
     let addr: SocketAddr = std::env::var("COSYWORLD_V2_ADDR")
         .unwrap_or_else(|_| "127.0.0.1:3102".to_string())
@@ -11979,18 +11985,6 @@ impl RuntimeWorld {
         if total_progress > 0 {
             self.record_natural_investigation_contribution(&intent.job_id, contribution_event.seq);
         }
-        if total_progress > 0
-            && active_first_tale()
-                .is_some_and(|first_tale| intent.job_id == first_tale.job_id.as_str())
-            && self.first_tale_trace_event_seq(action.actor_id).is_none()
-        {
-            if let Some(claim_key) =
-                first_tale_trace_claim_key(action.actor_id, contribution_event.seq)
-            {
-                self.rpg_claims.insert(claim_key);
-            }
-        }
-
         let mut events = vec![contribution_event.clone()];
         if total_progress > 0 {
             let mut progress_events = self.advance_clock(
@@ -19750,6 +19744,7 @@ The relationship statement they are preserving is: {statement}"
             recent_lines,
             recent_speaker_shingle_hashes: self.resident_recent_voice_shingle_hashes(actor_id),
             exchange_turns: Vec::new(),
+            initiative_order: self.room_chat_initiative_order(actor.location_id, actor_id),
             fresh_subject,
             missing_need,
             publication_beat_id: String::new(),
@@ -22744,6 +22739,15 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 .as_deref()
                 .map(|rollout| format!("{:016x}", rollout.model_hash)),
         },
+        ai: MetaAi {
+            configured: state.ai_config.as_ref().is_some(),
+            provider: ai_provider_name(state.ai_config.as_ref().as_ref()),
+            readiness: state
+                .ai_config
+                .as_ref()
+                .as_ref()
+                .map(AiConfig::readiness_snapshot),
+        },
         persistence: MetaPersistence {
             snapshot_enabled: state.snapshot_path.is_some(),
             event_store_enabled: state.event_store_path.is_some(),
@@ -25551,11 +25555,14 @@ async fn complete_queued_orb_chat_attempt(
     observed_through_seq: Option<u64>,
     attempt: u32,
 ) -> Result<(), String> {
-    let plan = plan.with_publication_beat(
+    let mut plan = plan.with_publication_beat(
         &orb_chat_attempt_stage("avatar-chat", attempt),
         queue_event_id,
         source_world_tick,
     );
+    if plan.initiative_order.is_empty() {
+        plan.initiative_order.push(target_actor_id);
+    }
     let will_retry = state.event_store_path.is_some() && attempt < ACTOR_JOB_MAX_ATTEMPTS;
     let started_at = Instant::now();
     let usage_config = state.ai_config.as_ref().clone();
@@ -25569,6 +25576,7 @@ async fn complete_queued_orb_chat_attempt(
             queue_event_id,
             source_world_tick,
             observed_through_seq,
+            &plan.initiative_order,
         )?
     };
     if committed_lines.is_empty() {
@@ -25588,6 +25596,11 @@ async fn complete_queued_orb_chat_attempt(
         let certified = match avatar_chat_text(state, &plan).await {
             Ok(content) => content,
             Err(error) => {
+                let config = state.ai_config.as_ref().as_ref();
+                let readiness_retry = chat_target_route_retry_floor_ms(config, target_actor_id) > 0;
+                let will_retry = state.event_store_path.is_some()
+                    && !chat_target_route_is_permanently_unavailable(config, target_actor_id)
+                    && (will_retry || readiness_retry);
                 warn!("queued AI avatar inference failed: {}", error);
                 record_rejected_ai_publication(state, &error);
                 commit_chat_status(
@@ -25712,6 +25725,11 @@ async fn complete_queued_orb_chat_attempt(
     )
     .await;
     if let Err(error) = exchange_result {
+        let config = state.ai_config.as_ref().as_ref();
+        let readiness_retry = chat_target_route_retry_floor_ms(config, target_actor_id) > 0;
+        let will_retry = state.event_store_path.is_some()
+            && !chat_target_route_is_permanently_unavailable(config, target_actor_id)
+            && (will_retry || readiness_retry);
         warn!("bounded avatar chat ended early: {}", error);
         commit_chat_status(
             state,
@@ -25747,16 +25765,14 @@ async fn complete_queued_orb_chat_attempt(
     if completed_already {
         return Ok(());
     }
-    let completed_events = commit_chat_status(
+    let completed_events = commit_completed_chat(
         state,
         actor_id,
         target_actor_id,
-        "completed",
-        "the conversation settled",
         queue_event_id,
         source_world_tick,
         observed_through_seq,
-        Some(plan.location_id),
+        plan.location_id,
     )
     .await;
     if completed_events.is_empty() {
@@ -28879,343 +28895,13 @@ fn chat_participants_can_continue(
         })
 }
 
-async fn complete_orb_chat_exchange(
-    state: &AppState,
-    actor_id: u64,
-    target_actor_id: u64,
-    chat_plan: AvatarChatPlan,
-    queue_event_id: Option<u64>,
-    source_world_tick: Option<u64>,
-    observed_through_seq: Option<u64>,
-    attempt: u32,
-) -> Result<(), String> {
-    let load_lines = || async {
-        let runtime = state.inner.lock().await;
-        committed_orb_chat_lines(
-            &runtime,
-            actor_id,
-            target_actor_id,
-            chat_plan.location_id,
-            queue_event_id,
-            source_world_tick,
-            observed_through_seq,
-        )
-    };
-    let mut lines = load_lines().await?;
-    if lines.is_empty() {
-        return Err("the committed Chat opening could not be recovered".to_string());
-    }
-
-    if lines.len() == 1 {
-        let opening = lines[0].clone();
-        let first_reply_plan = {
-            let runtime = state.inner.lock().await;
-            if !chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                chat_plan.location_id,
-            ) {
-                None
-            } else {
-                runtime
-                    .resident_reply_plan_for_target(actor_id, target_actor_id, &opening.content)
-                    .map(|mut reply_plan| {
-                        if let Some(turn) = reply_plan.incoming_turn.as_mut() {
-                            turn.source_event_seq = Some(opening.seq);
-                        }
-                        reply_plan.with_publication_causality(
-                            &orb_chat_attempt_stage("avatar-chat-reply", attempt),
-                            queue_event_id,
-                            source_world_tick,
-                            Some(observed_through_seq.unwrap_or_default().max(opening.seq)),
-                            Some(chat_plan.location_id),
-                        )
-                    })
-            }
-        }
-        .ok_or_else(|| "the target could not answer the opening line".to_string())?;
-        announce_chat_typing(
-            state,
-            target_actor_id,
-            actor_id,
-            first_reply_plan.caused_by_event_seq,
-            first_reply_plan.source_world_tick,
-            first_reply_plan.observed_through_seq,
-            first_reply_plan.source_location_id,
-        )
-        .await;
-        let first_proposal = match avatar_reply_intent(state, &first_reply_plan).await {
-            Ok(proposal) => proposal,
-            Err(error) => {
-                warn!(
-                    "AI resident inference failed; ending chat exchange: {}",
-                    error
-                );
-                record_rejected_ai_publication(state, &error);
-                return Err(error.to_string());
-            }
-        };
-        let first_reply_events = {
-            let mut runtime = state.inner.lock().await;
-            if chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                chat_plan.location_id,
-            ) {
-                commit_resident_reply_record(
-                    state,
-                    &mut runtime,
-                    &first_reply_plan,
-                    first_proposal,
-                    None,
-                )
-            } else {
-                None
-            }
-        }
-        .ok_or_else(|| "the target reply no longer fit the current room".to_string())?;
-        broadcast_events(state, &first_reply_events);
-        lines = load_lines().await?;
-    }
-
-    if lines.len() == 2 {
-        let opening = lines[0].clone();
-        let first_reply = lines[1].clone();
-        let followup_plan = {
-            let runtime = state.inner.lock().await;
-            if !chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                chat_plan.location_id,
-            ) {
-                None
-            } else {
-                let opening_turn = DirectedDialogueTurn::new(
-                    actor_id,
-                    chat_plan.actor_name.clone(),
-                    target_actor_id,
-                    chat_plan.target_actor_name.clone(),
-                    opening.content.clone(),
-                )
-                .with_source_event_seq(opening.seq);
-                let reply_turn = DirectedDialogueTurn::new(
-                    target_actor_id,
-                    chat_plan.target_actor_name.clone(),
-                    actor_id,
-                    chat_plan.actor_name.clone(),
-                    first_reply.content.clone(),
-                )
-                .with_source_event_seq(first_reply.seq);
-                let mut followup_plan = chat_plan
-                    .clone()
-                    .with_exchange_turns(vec![opening_turn, reply_turn]);
-                followup_plan.recent_lines.clear();
-                followup_plan.fresh_subject = runtime
-                    .conversation_subject(&first_reply.content, target_actor_id)
-                    .or_else(|| runtime.conversation_subject(&opening.content, target_actor_id));
-                Some(followup_plan.with_publication_beat(
-                    &orb_chat_attempt_stage("avatar-chat-followup", attempt),
-                    queue_event_id,
-                    source_world_tick,
-                ))
-            }
-        }
-        .ok_or_else(|| "the participants moved apart before the follow-up".to_string())?;
-        announce_chat_typing(
-            state,
-            actor_id,
-            target_actor_id,
-            queue_event_id,
-            source_world_tick,
-            Some(
-                observed_through_seq
-                    .unwrap_or_default()
-                    .max(first_reply.seq),
-            ),
-            Some(chat_plan.location_id),
-        )
-        .await;
-        tokio::time::sleep(Duration::from_millis(260)).await;
-        let certified_followup = match avatar_chat_followup_text(state, &followup_plan).await {
-            Ok(followup) => followup,
-            Err(error) => {
-                warn!(
-                    "AI avatar follow-up inference failed; ending chat exchange: {}",
-                    error
-                );
-                record_rejected_ai_publication(state, &error);
-                return Err(error.to_string());
-            }
-        };
-        let (proposed_followup, followup_receipt) =
-            into_recorded_speech_parts(state, certified_followup);
-        let followup_events = {
-            let mut runtime = state.inner.lock().await;
-            if !chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                followup_plan.location_id,
-            ) {
-                return Err("the participants moved apart before the follow-up".to_string());
-            }
-            let Some(followup) =
-                runtime.collision_safe_avatar_followup(actor_id, &proposed_followup)
-            else {
-                warn!("AI avatar follow-up repeated recent dialogue; ending chat exchange");
-                return Err("the avatar follow-up repeated recent dialogue".to_string());
-            };
-            let content_id = runtime.next_content_id_value();
-            let mut record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_SAY,
-                    actor_id,
-                    content_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            );
-            record.caused_by_event_seq = queue_event_id;
-            record.source_world_tick = source_world_tick;
-            record.observed_through_seq = Some(
-                observed_through_seq
-                    .unwrap_or_default()
-                    .max(first_reply.seq),
-            );
-            record.source_location_id = Some(chat_plan.location_id);
-            record.content_upserts.insert(content_id, followup);
-            record.ai_publication = Some(followup_receipt);
-            record
-                .projection_mutations
-                .push(ProjectionMutation::MarkVisitLedger {
-                    category: "witness".to_string(),
-                    label: format!(
-                        "shared a little chat with {}.",
-                        runtime
-                            .actor_name(target_actor_id)
-                            .unwrap_or_else(|| "a neighbour".to_string())
-                    ),
-                    source_event_seq: runtime.world.next_event_seq,
-                    reason: format!("chat:{actor_id}:{target_actor_id}"),
-                });
-            let (status, events) = commit_journal_record(state, &mut runtime, record)
-                .map_err(|error| format!("the avatar follow-up could not be committed: {error}"))?;
-            if status != CW_OK || events.is_empty() {
-                return Err("the avatar follow-up was no longer valid".to_string());
-            }
-            events
-        };
-        broadcast_events(state, &followup_events);
-        lines = load_lines().await?;
-    }
-
-    if lines.len() == 3 {
-        let opening = lines[0].clone();
-        let first_reply = lines[1].clone();
-        let followup = lines[2].clone();
-        let closing_plan = {
-            let runtime = state.inner.lock().await;
-            if !chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                chat_plan.location_id,
-            ) {
-                None
-            } else {
-                let directed_lines = vec![
-                    format!(
-                        "{} -> {}: {}",
-                        chat_plan.actor_name, chat_plan.target_actor_name, opening.content
-                    ),
-                    format!(
-                        "{} -> {}: {}",
-                        chat_plan.target_actor_name, chat_plan.actor_name, first_reply.content
-                    ),
-                    format!(
-                        "{} -> {}: {}",
-                        chat_plan.actor_name, chat_plan.target_actor_name, followup.content
-                    ),
-                ];
-                runtime
-                    .resident_reply_plan_for_target(actor_id, target_actor_id, &followup.content)
-                    .map(|mut plan| {
-                        plan.recent_lines = directed_lines;
-                        plan.recent_activity.clear();
-                        if let Some(turn) = plan.incoming_turn.as_mut() {
-                            turn.source_event_seq = Some(followup.seq);
-                        }
-                        plan.with_publication_causality(
-                            &orb_chat_attempt_stage("avatar-chat-closing", attempt),
-                            queue_event_id,
-                            source_world_tick,
-                            Some(observed_through_seq.unwrap_or_default().max(followup.seq)),
-                            Some(chat_plan.location_id),
-                        )
-                    })
-            }
-        }
-        .ok_or_else(|| "the target could not answer the follow-up".to_string())?;
-        announce_chat_typing(
-            state,
-            target_actor_id,
-            actor_id,
-            closing_plan.caused_by_event_seq,
-            closing_plan.source_world_tick,
-            closing_plan.observed_through_seq,
-            closing_plan.source_location_id,
-        )
-        .await;
-        tokio::time::sleep(Duration::from_millis(260)).await;
-        let closing_proposal = match avatar_reply_intent(state, &closing_plan).await {
-            Ok(proposal) => proposal,
-            Err(error) => {
-                warn!(
-                    "AI resident closing inference failed; ending chat exchange: {}",
-                    error
-                );
-                record_rejected_ai_publication(state, &error);
-                return Err(error.to_string());
-            }
-        };
-        let closing_events = {
-            let mut runtime = state.inner.lock().await;
-            if chat_participants_can_continue(
-                &runtime,
-                actor_id,
-                target_actor_id,
-                chat_plan.location_id,
-            ) {
-                commit_resident_reply_record(
-                    state,
-                    &mut runtime,
-                    &closing_plan,
-                    closing_proposal,
-                    None,
-                )
-            } else {
-                None
-            }
-        }
-        .ok_or_else(|| "the closing reply no longer fit the current room".to_string())?;
-        broadcast_events(state, &closing_events);
-        lines = load_lines().await?;
-    }
-
-    (lines.len() == 4)
-        .then_some(())
-        .ok_or_else(|| "the bounded Chat exchange did not reach four committed lines".to_string())
-}
-
 fn commit_resident_reply_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     plan: &AvatarReplyPlan,
     certified: CertifiedAvatarIntent,
     relationship_reply: Option<&RelationshipReplyExpectation>,
+    chat_floor: Option<(&ChatFloorPresentation, u64)>,
 ) -> Option<Vec<EventView>> {
     let CertifiedAvatarIntent {
         mut proposal,
@@ -29283,6 +28969,15 @@ fn commit_resident_reply_record(
                 target_actor_id: expectation.target_actor_id,
                 status: RELATIONSHIP_DIALOGUE_DELIVERED.to_string(),
                 reason: "one grounded resident reply was delivered".to_string(),
+            });
+    }
+    if let Some((presentation, listener_actor_id)) = chat_floor {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ChatStatus {
+                target_actor_id: listener_actor_id,
+                status: "spoke".to_string(),
+                reason: presentation.content(),
             });
     }
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
@@ -29759,9 +29454,13 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                     Err(error) => {
                         warn!("actor job {} failed: {}", job.id, error);
                         let retry_floor_ms = actor_job_retry_floor_ms(&state, &job, &error);
-                        if let Err(store_error) =
-                            fail_or_retry_actor_job(path, &job, &error.to_string(), retry_floor_ms)
-                        {
+                        if let Err(store_error) = fail_actor_job_for_runtime_state(
+                            path,
+                            &state,
+                            &job,
+                            &error.to_string(),
+                            retry_floor_ms,
+                        ) {
                             warn!(
                                 "failed to update retry state for actor job {}: {}",
                                 job.id, store_error
@@ -29944,7 +29643,8 @@ async fn maybe_emit_ambient_event(state: AppState) {
     if !RuntimeWorld::actor_can_act(speaker) || !runtime.actor_uses_inference(speaker.id) {
         return;
     }
-    let Some(events) = commit_resident_reply_record(&state, &mut runtime, &plan, proposal, None)
+    let Some(events) =
+        commit_resident_reply_record(&state, &mut runtime, &plan, proposal, None, None)
     else {
         return;
     };
@@ -31030,6 +30730,7 @@ async fn request_ai_room_memory_summary(
             max_attempts: 2,
             referer: "https://cosyworld.fly.dev",
             response_format: None,
+            room_id: Some(location.id),
         },
     )
     .await
@@ -31149,6 +30850,7 @@ async fn request_ai_avatar_identity(
             max_attempts: 2,
             referer: "https://cosyworld.fly.dev",
             response_format: None,
+            room_id: None,
         },
     )
     .await
@@ -31278,6 +30980,7 @@ async fn generate_hidden_pathway_content(
             max_attempts: 2,
             referer: "http://127.0.0.1:3102",
             response_format: Some(&response_format),
+            room_id: None,
         },
     )
     .await
@@ -38125,89 +37828,6 @@ fn release_pending_actor_jobs(path: &Path, kind: &str) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-fn claim_next_actor_job(path: &Path) -> io::Result<Option<ActorJob>> {
-    claim_next_actor_job_filtered(path, None)
-}
-
-fn claim_next_actor_job_of_kind(path: &Path, kind: &str) -> io::Result<Option<ActorJob>> {
-    claim_next_actor_job_filtered(path, Some(kind))
-}
-
-fn claim_next_actor_job_filtered(
-    path: &Path,
-    claimed_kind: Option<&str>,
-) -> io::Result<Option<ActorJob>> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    let now = now_millis() as i64;
-    let row = conn
-        .query_row(
-            "SELECT id, kind, actor_id, attempts, context_json
-             FROM actor_jobs
-             WHERE ((status = 'pending' AND available_at_ms <= ?1)
-                OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?1))
-               AND (?2 IS NULL OR actor_jobs.kind = ?2)
-               AND NOT EXISTS (
-                   SELECT 1 FROM actor_jobs AS active
-                   WHERE active.actor_id = actor_jobs.actor_id
-                     AND active.kind = actor_jobs.kind
-                     AND active.id != actor_jobs.id
-                     AND active.status = 'running'
-                     AND active.lease_until_ms > ?1
-               )
-             ORDER BY source_tick ASC, id ASC
-             LIMIT 1",
-            params![now, claimed_kind],
-            |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, i64>(3)?,
-                    row.get::<_, String>(4)?,
-                ))
-            },
-        )
-        .optional()
-        .map_err(sqlite_error)?;
-    let Some((id, kind, actor_id, attempts, context_json)) = row else {
-        return Ok(None);
-    };
-    let next_attempt = attempts.max(0).saturating_add(1);
-    let lease_until = now.saturating_add(ACTOR_JOB_LEASE_MS as i64);
-    let claimed = conn
-        .execute(
-            "UPDATE actor_jobs
-             SET status = 'running', attempts = ?2, lease_until_ms = ?3, updated_at_ms = ?4
-             WHERE id = ?1
-               AND ((status = 'pending' AND available_at_ms <= ?4)
-                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?4)) AND attempts = ?5",
-            params![id, next_attempt, lease_until, now, attempts],
-        )
-        .map_err(sqlite_error)?;
-    if claimed == 0 {
-        return Ok(None);
-    }
-    let payload = serde_json::from_str(&context_json)
-        .or_else(|primary_error| {
-            if kind == ACTOR_JOB_KIND_PLAYER_TICK {
-                serde_json::from_str::<PlayerTickObservation>(&context_json)
-                    .map(ActorJobPayload::PlayerTick)
-            } else {
-                Err(primary_error)
-            }
-        })
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    Ok(Some(ActorJob {
-        id,
-        kind,
-        actor_id: actor_id.max(0) as u64,
-        attempts: next_attempt.max(0) as u32,
-        payload,
-    }))
-}
-
 fn complete_actor_job(path: &Path, job_id: i64) -> io::Result<()> {
     let conn = open_event_store(path)?;
     conn.execute(
@@ -42349,18 +41969,12 @@ mod tests {
             .build()
             .expect("hot-room client");
 
-        let (hot_partition, cold_partition) = {
+        let cold_partition = {
             let runtime = state_a.inner.lock().await;
-            let hot_location_ref = runtime
-                .canonical_ref("location", COSY_COTTAGE_LOCATION_ID)
-                .expect("hot location ref");
             let cold_location_ref = runtime
                 .canonical_ref("location", RAIN_SOFT_GARDEN_LOCATION_ID)
                 .expect("cold location ref");
-            (
-                canonical_room_partition_key(hot_location_ref),
-                canonical_room_partition_key(cold_location_ref),
-            )
+            canonical_room_partition_key(cold_location_ref)
         };
 
         let mut committed_seqs = Vec::new();
@@ -42394,6 +42008,15 @@ mod tests {
             hot_intents.push(intent_id);
         }
         assert!(committed_seqs.windows(2).all(|pair| pair[1] > pair[0]));
+
+        let hot_partition = {
+            let runtime = state_a.inner.lock().await;
+            let current_hot_location_ref = runtime
+                .actor_by_id(actor_hot)
+                .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+                .expect("hot avatar current location ref");
+            canonical_room_partition_key(current_hot_location_ref)
+        };
 
         let source_hot_lease = current_partition_lease(
             &primary_path,
@@ -42482,10 +42105,12 @@ mod tests {
             .await
             .expect("post-handoff response");
         assert!(post_handoff.ok, "{post_handoff:?}");
-        assert!(post_handoff
-            .receipt
-            .as_ref()
-            .is_some_and(|receipt| receipt.owner_fencing_epoch >= target_hot_lease.fencing_epoch));
+        assert!(
+            post_handoff.receipt.as_ref().is_some_and(|receipt| {
+                receipt.owner_fencing_epoch >= target_hot_lease.fencing_epoch
+            }),
+            "post-handoff receipt {post_handoff:?} did not reach target lease {target_hot_lease:?}"
+        );
 
         converge_capacity_for_read(&state_a, Some(&session_cold)).await;
         let cold_request = {
@@ -46857,7 +46482,7 @@ mod tests {
         assert!(INDEX_HTML.contains("Your first tale continues when you"));
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
         assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
-        assert!(INDEX_HTML.contains("rain-soft-garden.trustworthy-path"));
+        assert!(INDEX_HTML.contains("tale.progress_clock_id"));
         assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
         assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
         assert!(!INDEX_HTML.contains("notice one little clue."));
@@ -46973,7 +46598,10 @@ mod tests {
         assert!(INDEX_HTML.contains("data-player-concept=\"pass\""));
         assert!(INDEX_HTML.contains("free redeal command has retired"));
         assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
-        assert!(INDEX_HTML.contains("important-notifications"));
+        assert!(INDEX_HTML.contains("id=\"journal-activity-tray\""));
+        assert!(INDEX_HTML.contains("id=\"journal-activity\""));
+        assert!(!INDEX_HTML.contains("important-notifications"));
+        assert!(!INDEX_HTML.contains("id=\"chat-progress\""));
         assert!(INDEX_HTML.contains("enqueueImportantNotification"));
         assert!(INDEX_HTML.contains("function combatAttackEventsShareBeat"));
         assert!(
@@ -50985,10 +50613,13 @@ mod tests {
         assert_eq!(guest.character_creation.len(), 1);
         assert_eq!(guest.character_creation[0].id, "the-lantern-keeper");
         assert_eq!(guest.character_creation[0].schema_version, 2);
-        assert_eq!(guest.character_creation[0].entry_location_id, 800);
+        assert_eq!(
+            guest.character_creation[0].entry_location_id,
+            COSY_COTTAGE_LOCATION_ID
+        );
         assert_eq!(
             guest.character_creation[0].entry_location_name,
-            "Wayside Lantern Inn"
+            "The Cosy Cottage"
         );
         assert_eq!(guest.character_creation[0].species.len(), 3);
         assert_eq!(guest.character_creation[0].origins.len(), 3);
@@ -51013,7 +50644,7 @@ mod tests {
         assert!(response.ok, "{response:?}");
         let actor_session = response.actor_session.clone().expect("actor session");
         let actor = response.actor.expect("campaign avatar");
-        assert_eq!(actor.location_id, 800);
+        assert_eq!(actor.location_id, COSY_COTTAGE_LOCATION_ID);
         assert_eq!(actor.stats.level, 0);
         assert_eq!(actor.title, "Human from the Old Chapel");
         assert!(avatar_persona_is_grounded(&actor.description));
@@ -51054,7 +50685,7 @@ mod tests {
 
             let target = runtime
                 .default_search_target(actor.id)
-                .expect("the failing lantern is a reachable first action");
+                .expect("the cottage clue is a reachable first action");
             let record = runtime
                 .search_record_for_target(actor.id, &target, runtime.next_seed_value())
                 .into_player_card();
@@ -51062,9 +50693,12 @@ mod tests {
                 .expect("first meaningful campaign action commits")
                 .1
         };
-        assert!(readiness_events
-            .iter()
-            .any(|event| event.type_name == "feature.searched"));
+        assert!(readiness_events.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "feature.searched" | "location.searched"
+            )
+        }));
         assert!(readiness_events
             .iter()
             .any(|event| event.type_name == "class.selection_ready"));
@@ -51122,7 +50756,7 @@ mod tests {
                 .as_ref()
                 .expect("later actions cannot overwrite the first evidence");
             assert_eq!(evidence.offer_kind, "search");
-            assert_eq!(evidence.target.label, "Failing Lantern");
+            assert_eq!(evidence.target.label, "The Cosy Cottage");
         }
 
         let class_response = choose_avatar_class(
@@ -55430,6 +55064,19 @@ mod tests {
             .iter()
             .find(|event| event.type_name == "job.contribution.resolved")
             .expect("shared contribution is journaled");
+        let trace_events = events
+            .iter()
+            .filter(|event| event.type_name == "first_tale.public_trace")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            trace_events.len(),
+            1,
+            "one explicit public trace is emitted"
+        );
+        assert_eq!(
+            trace_events[0].caused_by_event_seq,
+            Some(contribution_event.seq)
+        );
         assert!(events.iter().any(|event| {
             event.type_name == "clock.threshold"
                 && event.content.as_deref()
@@ -55442,9 +55089,16 @@ mod tests {
             .expect("completed tale projects");
         assert_eq!(complete.phase, "complete");
         assert!(complete.public_trace_created);
-        assert_eq!(complete.trace_event_seq, Some(contribution_event.seq));
+        assert_eq!(complete.trace_event_seq, Some(trace_events[0].seq));
         assert!(complete.completion_memory.contains("left the next visitor"));
-        assert!(complete.next_invitation.contains("riverside"));
+        assert!(complete.next_invitation.contains("Mara Wick"));
+        let continuation = complete
+            .continuation
+            .as_ref()
+            .expect("completion exposes the authored continuation");
+        assert_eq!(continuation.destination_location_id, 800);
+        assert_eq!(continuation.target_actor_id, 8301);
+        assert_eq!(continuation.job_id, "lantern-keeper:rekindle-the-beacon");
         let trace_prefix =
             first_tale_trace_claim_prefix(5000).expect("official first tale is mounted");
         assert_eq!(
@@ -55494,71 +55148,6 @@ mod tests {
                 .count(),
             1,
             "a retry cannot complete the first tale twice"
-        );
-    }
-
-    #[test]
-    fn first_tale_trace_remains_available_after_the_shared_clock_is_complete() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
-            "Late Path Listener",
-        );
-        runtime
-            .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, COSY_COTTAGE_LOCATION_ID));
-        let clock = runtime
-            .clocks
-            .get_mut(FIRST_TALE_PROGRESS_CLOCK_ID)
-            .expect("first tale clock is seeded");
-        clock.filled = clock.segments;
-
-        let action = CwAction {
-            kind: CW_ACTION_ABILITY_CHECK,
-            actor_id: 5000,
-            ability: LISTEN_ABILITY,
-            dc: LISTEN_DC,
-            ..CwAction::default()
-        };
-        let check = EventView {
-            seq: 91_001,
-            type_name: "ability_check.rolled".to_string(),
-            success: true,
-            actor_id: Some(5000),
-            actor_name: Some("Late Path Listener".to_string()),
-            location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
-            location_name: Some("Rain-Soft Garden".to_string()),
-            total: Some(LISTEN_DC as i16),
-            dc: Some(LISTEN_DC as i16),
-            ..EventView::default()
-        };
-        let events = runtime.apply_first_tale_public_trace_projection(&action, &[check]);
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].type_name, "first_tale.public_trace");
-        assert_eq!(events[0].caused_by_event_seq, Some(91_001));
-        assert_eq!(
-            runtime
-                .first_tale_view(5000)
-                .expect("late first tale completes")
-                .phase,
-            "complete"
-        );
-        assert!(room_memory_entry_for_event(&events[0])
-            .expect("public trace enters room memory")
-            .text
-            .contains("next visitor"));
-        runtime.project_qualifying_deeds(&events);
-        assert!(runtime.actor_deeds(5000).iter().any(|deed| {
-            deed.operation == "first_tale.public_trace"
-                && deed.category == DeedCategory::Stewardship
-        }));
-        assert!(
-            runtime
-                .apply_first_tale_public_trace_projection(&action, &events)
-                .is_empty(),
-            "the per-avatar public trace is idempotent"
         );
     }
 
@@ -59896,7 +59485,10 @@ mod tests {
         assert_eq!(creation.profiles.len(), 1);
         assert_eq!(creation.profiles[0].id, "the-lantern-keeper");
         assert_eq!(creation.profiles[0].schema_version, 2);
-        assert_eq!(creation.profiles[0].entry_location_id, 800);
+        assert_eq!(
+            creation.profiles[0].entry_location_id,
+            COSY_COTTAGE_LOCATION_ID
+        );
         assert_eq!(creation.profiles[0].species.len(), 3);
         assert_eq!(creation.profiles[0].origins.len(), 3);
         assert_eq!(creation.profiles[0].choices.len(), 3);

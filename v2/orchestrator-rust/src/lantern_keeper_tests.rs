@@ -40,8 +40,8 @@ pub(super) fn assert_search_class_readiness(runtime: &RuntimeWorld, actor_id: u6
         .expect("first qualifying action is retained");
     assert_eq!(evidence.offer_kind, "search");
     assert_eq!(evidence.progress, 0);
-    assert_eq!(evidence.target.kind, "feature");
-    assert_eq!(evidence.target.label, "Failing Lantern");
+    assert_eq!(evidence.target.kind, "location");
+    assert_eq!(evidence.target.label, "The Cosy Cottage");
     let identity_view = runtime
         .character_identity_view(actor_id)
         .expect("identity view explains readiness");

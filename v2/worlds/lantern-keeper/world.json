@@ -5,6 +5,7 @@
   "version": 1,
   "description": "A Lantern Keeper-first composition with the CosyWorld core mounted as its dependency.",
   "entry_location": "cosyworld.core:location/1",
+  "first_tale": "../official/first-tale.json",
   "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
   "rules_profile": "cosyworld.srd5/1",
   "pack_lifecycle": {

@@ -542,6 +542,7 @@ mod tests {
         let (command_response, command_leads) =
             command_result.expect("the command path eventually returns the authored lead");
         let mut offered_result = None;
+        let mut last_offered_response = None;
         for seed in 1..=256 {
             let mut candidate = influence_ready_runtime();
             candidate.next_seed = seed;
@@ -550,42 +551,62 @@ mod tests {
                     offer.kind == "influence"
                 })
                 .expect("the Influence offer rotates into the test hand");
-            let state = test_app_state(candidate, None);
-            let (session, _) = issue_actor_session(&state, TEST_ACTOR_ID);
             assert_eq!(offer.label, "Ask for a local lead");
             assert_eq!(offer.command, "influence Rati");
+            let state = test_app_state(candidate, None);
+            let (session, _) = issue_actor_session(&state, TEST_ACTOR_ID);
+            let submission = ActionOfferSubmissionRequest {
+                path: "/actions/influence".to_string(),
+                offer_id: offer.offer_id,
+                composition_id: offer.composition_id,
+                kind: offer.kind,
+                rules_action: offer.rules_action,
+                operation: offer.operation,
+                rules_profile: offer.rules_profile,
+                state_revision: offer.state_revision,
+                route: offer.route,
+                target: offer.target,
+                cost: offer.cost,
+                payload: serde_json::json!({
+                    "actor_id": TEST_ACTOR_ID,
+                    "actor_session": session,
+                    "target_actor_id": RATI_ACTOR_ID
+                }),
+            };
+            {
+                let runtime = state.inner.lock().await;
+                let active = BTreeSet::new();
+                assert_eq!(
+                    runtime.validate_action_offer_submission_with_presence(
+                        TEST_ACTOR_ID,
+                        &AccessContext::default(),
+                        &submission,
+                        Some(&active),
+                        None,
+                    ),
+                    Ok(())
+                );
+            }
             let response = Box::pin(submit_action_offer(
                 ConnectInfo("127.0.0.1:43201".parse().expect("client address")),
                 State(state.clone()),
-                Json(ActionOfferSubmissionRequest {
-                    path: "/actions/influence".to_string(),
-                    offer_id: offer.offer_id,
-                    composition_id: offer.composition_id,
-                    kind: offer.kind,
-                    rules_action: offer.rules_action,
-                    operation: offer.operation,
-                    rules_profile: offer.rules_profile,
-                    state_revision: offer.state_revision,
-                    route: offer.route,
-                    target: offer.target,
-                    cost: offer.cost,
-                    payload: serde_json::json!({
-                        "actor_id": TEST_ACTOR_ID,
-                        "actor_session": session,
-                        "target_actor_id": RATI_ACTOR_ID
-                    }),
-                }),
+                Json(submission),
             ))
             .await
             .0;
+            last_offered_response = Some(format!("{response:?}"));
             let leads = state.inner.lock().await.local_leads.clone();
             if !leads.is_empty() {
                 offered_result = Some((response, leads));
                 break;
             }
         }
-        let (offered_response, offered_leads) =
-            offered_result.expect("the offer path eventually returns the authored lead");
+        let (offered_response, offered_leads) = offered_result.unwrap_or_else(|| {
+            panic!(
+                "the offer path eventually returns the authored lead; last response: {}",
+                last_offered_response.as_deref().unwrap_or("none")
+            )
+        });
 
         assert!(command_response.ok, "{command_response:?}");
         assert!(offered_response.ok, "{offered_response:?}");

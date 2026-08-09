@@ -45,10 +45,15 @@ async fn current_dealt_offer(
 ) -> Option<RankedActionOffer> {
     let active_direct_actors = active_actor_ids_for_state(state);
     let runtime = state.inner.lock().await;
-    let (_, offers) = runtime.legal_action_candidates_with_presence(
+    let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
         Some(actor_id),
         &AccessContext::default(),
         Some(&active_direct_actors),
+    );
+    retain_configured_model_interaction_offers(
+        &mut primary_action,
+        &mut offers,
+        state.ai_config.as_ref().as_ref(),
     );
     let hand = runtime.action_hand_for(Some(actor_id), &offers);
     offers.into_iter().find(|offer| {
@@ -63,10 +68,15 @@ async fn certified_think(state: &AppState, actor_id: u64, actor_session: &str) {
     let pass_offer_id = {
         let active_direct_actors = active_actor_ids_for_state(state);
         let runtime = state.inner.lock().await;
-        let (_, offers) = runtime.legal_action_candidates_with_presence(
+        let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
             Some(actor_id),
             &AccessContext::default(),
             Some(&active_direct_actors),
+        );
+        retain_configured_model_interaction_offers(
+            &mut primary_action,
+            &mut offers,
+            state.ai_config.as_ref().as_ref(),
         );
         runtime
             .action_hand_for(Some(actor_id), &offers)
@@ -103,10 +113,15 @@ async fn rotate_to_dealt_offer(
     let max_rotations = {
         let active_direct_actors = active_actor_ids_for_state(state);
         let runtime = state.inner.lock().await;
-        let (_, offers) = runtime.legal_action_candidates_with_presence(
+        let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
             Some(actor_id),
             &AccessContext::default(),
             Some(&active_direct_actors),
+        );
+        retain_configured_model_interaction_offers(
+            &mut primary_action,
+            &mut offers,
+            state.ai_config.as_ref().as_ref(),
         );
         usize::from(runtime.action_hand_for(Some(actor_id), &offers).deck_size).max(1)
     };
@@ -568,10 +583,15 @@ async fn assert_submit_rejection_preserves_runtime(
         }
         let active_direct_actors = active_actor_ids_for_state(state);
         let runtime = state.inner.lock().await;
-        let (_, offers) = runtime.legal_action_candidates_with_presence(
+        let (mut primary_action, mut offers) = runtime.legal_action_candidates_with_presence(
             Some(actor_id),
             &AccessContext::default(),
             Some(&active_direct_actors),
+        );
+        retain_configured_model_interaction_offers(
+            &mut primary_action,
+            &mut offers,
+            state.ai_config.as_ref().as_ref(),
         );
         let hand = runtime.action_hand_for(Some(actor_id), &offers);
         assert!(

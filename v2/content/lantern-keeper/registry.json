@@ -613,6 +613,33 @@
         }
       ]
     },
+    "first_tale": {
+      "schema_version": 1,
+      "lead_location_id": 1,
+      "destination_location_id": 2,
+      "job_id": "rain-soft-garden:trustworthy-path",
+      "progress_clock_id": "rain-soft-garden.trustworthy-path",
+      "copy": {
+        "question": "Can we make the washed garden path trustworthy before the next visitor?",
+        "notice_instruction": "Notice what the rain has changed; the first useful lead is guaranteed.",
+        "follow_lead_instruction": "Follow the rain-bright lead east to Rain-Soft Garden.",
+        "contribute_instruction": "Inspect the buried stones, clear the drain, or help another traveler lift them.",
+        "complete_instruction": "The first stones are visible. A lamp-road marker beyond them points west toward Mossbell and the Wayside Lantern Inn.",
+        "target_label": "the washed path in Rain-Soft Garden",
+        "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the lantern road.",
+        "completion_memory": "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+        "next_invitation": "Follow the lamp road west to Mara Wick and learn why the Mothwood beacon went dark.",
+        "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
+      },
+      "continuation": {
+        "destination_location_id": 800,
+        "target_actor_id": 8301,
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "travel_instruction": "Follow the lamp road west through Mossbell Inn to the Wayside Lantern Inn.",
+        "arrival_instruction": "Find Mara Wick at the empty key hook and hear what failed along the Mothwood road.",
+        "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon."
+      }
+    },
     "generation_media_registry": {
       "schema_version": 1,
       "profiles": [
@@ -722,7 +749,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
+    "bundle_hash": "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2197,7 +2224,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:3731d8e8ce81da825b3f69fc99f49bb22b6f1f206595460f3444f8ce3990562f"
+        "integrity": "sha256:e5609d396bd4b6ed5251ee46dab4a063266e79d1cb850270f59db1ebdb8d30cd"
       },
       {
         "id": "cosyworld.composition.core-lantern-keeper",
@@ -2358,7 +2385,7 @@
           "type": "workspace",
           "path": "../../content/core-lantern-keeper-bridge"
         },
-        "integrity": "sha256:6aa8a08b240f5bb3c21ea5fa63b175365e90608c43162cb3a07d1e149f260d9b"
+        "integrity": "sha256:81a880cc3d9afaa6767c9ae64eba5016749de8807df69cef68eb1ca2ea34e35e"
       }
     ],
     "files": {
@@ -5084,7 +5111,7 @@
         "from_location_id": 4,
         "to_location_id": 800,
         "flags": 0,
-        "distance": 2,
+        "distance": 1,
         "direction": "north",
         "discovery": "known",
         "pack_id": "cosyworld.composition.core-lantern-keeper"
@@ -5093,7 +5120,7 @@
         "from_location_id": 800,
         "to_location_id": 4,
         "flags": 0,
-        "distance": 2,
+        "distance": 1,
         "direction": "south",
         "discovery": "known",
         "pack_id": "cosyworld.composition.core-lantern-keeper"
@@ -12835,7 +12862,7 @@
           "id": "the-lantern-keeper",
           "name": "The Lantern Keeper",
           "description": "Optional campaign rules for a Lantern Keeper traveler. Species, Origin, Class, level, and starting knack belong to this campaign; Calling and emergent practice remain separate.",
-          "entry_location_id": 800,
+          "entry_location_id": 1,
           "prompt": "What kind of traveler reaches the last light?",
           "class_prompt": "Which Lantern Keeper campaign path will you use?",
           "default_choice_id": "lantern-warden",

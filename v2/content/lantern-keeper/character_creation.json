@@ -8,7 +8,7 @@
         "id": "the-lantern-keeper",
         "name": "The Lantern Keeper",
         "description": "Optional campaign rules for a Lantern Keeper traveler. Species, Origin, Class, level, and starting knack belong to this campaign; Calling and emergent practice remain separate.",
-        "entry_location_id": 800,
+        "entry_location_id": 1,
         "prompt": "What kind of traveler reaches the last light?",
         "class_prompt": "Which Lantern Keeper campaign path will you use?",
         "default_choice_id": "lantern-warden",

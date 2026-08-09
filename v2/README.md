@@ -361,6 +361,20 @@ OpenRouter works too:
 OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=openai/gpt-5.6-luna cargo run
 ```
 
+OpenRouter readiness begins with an immediate bounded `/key` probe and is
+reported without balances or secrets at `/meta.ai.readiness`. HTTP 401/402
+blocks the account until a later successful scheduled probe; 429, 5xx, and
+transport/timeouts cool down only the exact endpoint-and-model route. Affected
+Chat and exact-model offers are withheld and revalidated on submission, while
+deterministic play and `/health` remain healthy. Set
+`COSYWORLD_AI_LOW_CREDIT_THRESHOLD` to a finite value from 0 through 10000
+(default `5`) for a warning-only `ai_credits_low` signal before exhaustion;
+invalid values stop startup. Room-scoped Chat completions also send one stable
+OpenRouter `session_id` per canonical room. Resident speech, planning,
+reflections, and room-memory summaries from the same room therefore share
+sticky routing and observability grouping; non-room inference and other
+providers do not receive that OpenRouter-specific field.
+
 Resident action selection can use the pure-Rust all-card ranker while the LLM
 only narrates the already committed instinct. Start with shadow mode; live mode
 is currently scoped to moderator-created treasure objectives:
@@ -916,7 +930,16 @@ through `/state.combat`, advertised by `/meta.combat`, journaled as append-only
 lifecycle events, and persisted in snapshots. See
 [`docs/combat-system.md`](docs/combat-system.md) for the exact surface.
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret dialogue feature flags, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
+`/health` is intentionally minimal readiness and is not coupled to an AI
+provider outage. `/meta` is the deploy/smoke metadata endpoint: package version,
+debug/release build profile, deployment profile, canonical
+`world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`,
+non-secret dialogue feature flags, sanitized `/meta.ai` readiness, persistence
+mode, moderation report retention, ownership-feed mode, current world counters,
+compiled kernel capacities, and the mounted packs' exact license records. `GET
+/licenses` exposes those pack versions, license links, provenance, modification
+notices, and bundled attribution text without authentication. `./v2/mvp.sh
+status` prints a one-line summary from `/meta`.
 
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 

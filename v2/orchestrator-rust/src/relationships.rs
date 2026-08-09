@@ -871,6 +871,7 @@ mod tests {
                     planning: ResidentPlanningTrace::absent(&plan),
                 },
                 None,
+                None,
             )
             .expect("legacy reply commit");
             assert_eq!(

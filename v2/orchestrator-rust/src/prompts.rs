@@ -100,11 +100,6 @@ impl DirectedDialogueTurn {
             content: content.into(),
         }
     }
-
-    pub(super) fn with_source_event_seq(mut self, source_event_seq: u64) -> Self {
-        self.source_event_seq = Some(source_event_seq);
-        self
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -241,10 +236,89 @@ pub(super) struct AvatarChatPlan {
     pub(super) recent_speaker_shingle_hashes: Vec<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(super) exchange_turns: Vec<DirectedDialogueTurn>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) initiative_order: Vec<u64>,
     pub(super) fresh_subject: Option<String>,
     pub(super) missing_need: Option<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(super) publication_beat_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ChatFloorChoice {
+    Chat,
+    Pass,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChatFloorChoiceOutput {
+    decision: String,
+    #[serde(default)]
+    target_actor_id: Option<u64>,
+}
+
+pub(super) async fn request_chat_floor_choice(
+    config: &AiConfig,
+    location_id: u64,
+    speaker_actor_id: u64,
+    speaker_name: &str,
+    round: u8,
+    available_targets: &[(u64, String)],
+    recent_lines: &[CommittedOrbChatLine],
+) -> Result<ChatFloorChoice, AiGatewayError> {
+    let targets = available_targets
+        .iter()
+        .map(|(actor_id, name)| format!("{actor_id}: {name}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let transcript = recent_lines
+        .iter()
+        .rev()
+        .take(6)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .map(|line| format!("{}: {}", line.speaker_actor_id, line.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let user = format!(
+        "Initiative round: {round}\nSpeaker: {speaker_name} ({speaker_actor_id})\nPeople in the conversation:\n{targets}\nRecent public conversation:\n{transcript}\nChoose whether this speaker has something worthwhile to add now. Return only {{\"decision\":\"chat\"}} or {{\"decision\":\"pass\"}}. Passing is normal and should be preferred over repetition, filler, or forced agreement."
+    );
+    let response_format = serde_json::json!({ "type": "json_object" });
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "chat_floor_choice",
+            prompt_version: "chat-floor-choice-v1",
+            capability: ModelCapability::IntentJson,
+            system: "You chair a bounded conversational floor. Choose exactly chat or pass for one speaker. Never invent a participant. Return one JSON object and no prose.",
+            user: &user,
+            temperature: 0.65,
+            max_tokens: 48,
+            timeout: Duration::from_secs(8),
+            max_attempts: 1,
+            referer: "http://127.0.0.1:3102",
+            response_format: Some(&response_format),
+            room_id: Some(location_id),
+        },
+    )
+    .await?;
+    let output = serde_json::from_str::<ChatFloorChoiceOutput>(completion.text.trim())
+        .map_err(|_| AiGatewayError::invalid_response("chat floor choice"))?;
+    match output.decision.trim().to_ascii_lowercase().as_str() {
+        "pass" if output.target_actor_id.is_none() => Ok(ChatFloorChoice::Pass),
+        "chat"
+            if output.target_actor_id.is_none_or(|target_actor_id| {
+                available_targets
+                    .iter()
+                    .any(|(candidate_id, _)| *candidate_id == target_actor_id)
+            }) =>
+        {
+            Ok(ChatFloorChoice::Chat)
+        }
+        _ => Err(AiGatewayError::invalid_response("chat floor choice")),
+    }
 }
 
 impl AvatarChatPlan {
@@ -260,11 +334,6 @@ impl AvatarChatPlan {
             caused_by_event_seq.unwrap_or(0),
             source_world_tick.unwrap_or(0)
         );
-        self
-    }
-
-    pub(super) fn with_exchange_turns(mut self, exchange_turns: Vec<DirectedDialogueTurn>) -> Self {
-        self.exchange_turns = exchange_turns;
         self
     }
 }
@@ -316,29 +385,6 @@ pub(super) async fn avatar_chat_text(
     .map_err(Into::into)
 }
 
-pub(super) async fn avatar_chat_followup_text(
-    state: &AppState,
-    plan: &AvatarChatPlan,
-) -> Result<CertifiedSpeech, GeneratedSpeechError> {
-    let config = state.ai_config.as_ref().as_ref();
-    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
-    let mut prompt_plan = plan.clone();
-    prompt_plan
-        .public_room_memory
-        .extend(public_room_memory_for_state(state, plan.location_id));
-    request_ai_avatar_chat(
-        config,
-        state
-            .event_store_path
-            .as_deref()
-            .map(std::path::PathBuf::as_path),
-        &prompt_plan,
-        true,
-    )
-    .await
-    .map_err(Into::into)
-}
-
 async fn request_ai_avatar_chat(
     config: &AiConfig,
     store_path: Option<&Path>,
@@ -364,6 +410,7 @@ async fn request_ai_avatar_chat(
             max_tokens: 70,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
+            room_id: Some(plan.location_id),
         },
         avatar_chat_gate_context(plan, followup),
     )
@@ -588,6 +635,7 @@ pub(super) async fn request_ai_avatar_intent(
                 max_tokens: 160,
                 referer: "http://127.0.0.1:3102",
                 model_binding: Some(binding),
+                room_id: Some(plan.location_id),
             },
             resident_gate_context(plan, false),
         )
@@ -631,6 +679,7 @@ pub(super) async fn request_ai_avatar_intent(
             max_tokens: 120,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
+            room_id: Some(plan.location_id),
         },
         resident_gate_context(plan, planning.proposed_action.is_some()),
     )

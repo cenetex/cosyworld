@@ -184,6 +184,16 @@ async function assertRuntimeMeta() {
   assert(meta.deployment?.shard_id === meta.deployment?.process_id, `runtime shard alias should match process id: ${JSON.stringify(meta.deployment)}`);
   assert(meta.features?.server_authored_chat === true, `runtime meta should expose server-authored Chat: ${JSON.stringify(meta.features)}`);
   assert(!("client_authored_speech" in (meta.features || {})), `runtime meta must not advertise client-authored speech: ${JSON.stringify(meta.features)}`);
+  assert(typeof meta.ai?.configured === "boolean", `runtime meta should expose sanitized AI configuration state: ${JSON.stringify(meta.ai)}`);
+  assert(typeof meta.ai?.provider === "string" && meta.ai.provider.length > 0, `runtime meta should name the AI provider class without credentials: ${JSON.stringify(meta.ai)}`);
+  if (meta.ai.configured) {
+    assert(
+      ["probing", "ready", "degraded"].includes(meta.ai.readiness?.status)
+        && Number.isInteger(meta.ai.readiness?.blocked_route_count),
+      `runtime meta should expose bounded AI readiness without account secrets: ${JSON.stringify(meta.ai)}`,
+    );
+    assert(!("api_key" in meta.ai) && !("credit_remaining" in (meta.ai.readiness || {})), `runtime meta must not expose AI credentials or balance: ${JSON.stringify(meta.ai)}`);
+  }
   assert(meta.features?.moderation_audit_enabled === true, `runtime meta should expose enabled moderation audit for MVP smoke: ${JSON.stringify(meta.features)}`);
   assert(meta.features?.default_event_replay_limit === 80, `runtime meta should expose default event replay bound: ${JSON.stringify(meta.features)}`);
   assert(meta.features?.max_event_replay_limit === 500, `runtime meta should expose max event replay bound: ${JSON.stringify(meta.features)}`);
@@ -390,6 +400,17 @@ async function assertModerationConsole(browser, probeAvatar) {
       (reportId) => Boolean(document.querySelector(`[data-report-id="${reportId}"]`)),
       report.report_id,
     );
+    await page.waitForFunction(() => (
+      /avatars/i.test(document.querySelector("[data-activation-summary]")?.textContent || "")
+        && document.querySelectorAll("[data-activation-steps] tbody tr").length > 0
+    ));
+    const activationPanel = await page.locator("[aria-label='First-tale activation']").innerText();
+    assert(
+      /first tale|first-tale/i.test(activationPanel)
+        && /median/i.test(activationPanel)
+        && /75th percentile/i.test(activationPanel),
+      `the operator view should expose the measured first-tale funnel: ${activationPanel}`,
+    );
     await page.locator(`[data-report-id="${report.report_id}"]`).click();
     await page.locator(`[data-suspend-target="${report.report_id}"]`).click();
     await page.waitForFunction(() => {
@@ -591,7 +612,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:not(#shuffle):not(#chat-progress):visible").evaluateAll((nodes) => (
+    return page.locator("footer.prompt button:not(#shuffle):visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -689,6 +710,9 @@ async function main() {
           primary_action: { kind: "check" },
           first_tale: {
             phase: "follow_lead",
+            lead_location_id: 1,
+            destination_location_id: 2,
+            required_location_id: 2,
             instruction: "Follow the rain-bright lead east to Rain-Soft Garden.",
           },
         }, [{
@@ -702,16 +726,58 @@ async function main() {
           primary_action: { kind: "check" },
           first_tale: {
             phase: "notice",
+            lead_location_id: 1,
             instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
-        }, [{ label: "notice", focusKey: "check", command: "listen" }]),
+        }, [{ label: "notice", intention: "notice", target: { id: 1 }, focusKey: "check", command: "listen" }]),
         missedListenWithOtherAdvancementStep: firstThreadModel({
           primary_action: { kind: "search" },
           first_tale: {
             phase: "notice",
+            lead_location_id: 1,
             instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
         }, [{ label: "search", intention: "inspect", focusKey: "location:1:search", command: "search" }]),
+        lanternTravelStep: firstThreadModel({
+          primary_action: { kind: "travel" },
+          first_tale: {
+            phase: "complete",
+            advancing_offer_id: "lantern-route",
+            continuation: {
+              phase: "travel",
+              destination_location_id: 800,
+              required_location_id: 800,
+              advancing_offer_id: "lantern-route",
+              instruction: "Follow the lamp road west through Mossbell Inn to the Wayside Lantern Inn.",
+            },
+          },
+        }, [{
+          label: "travel",
+          intention: "travel",
+          target: { id: 800, label: "Wayside Lantern Inn" },
+          focusKey: "exit:800",
+          command: "go Wayside Lantern Inn",
+          offerIds: ["lantern-route"],
+        }]),
+        lanternArrivalStep: firstThreadModel({
+          primary_action: { kind: "create_bond" },
+          first_tale: {
+            phase: "complete",
+            continuation: {
+              phase: "arrived",
+              target_actor_id: 8301,
+              advancing_offer_id: "meet-mara",
+              instruction: "Find Mara Wick at the empty key hook and hear what failed along the Mothwood road.",
+            },
+          },
+        }, [{
+          label: "befriend",
+          intention: "create_bond",
+          target: { id: 8301, label: "Mara Wick" },
+          focusKey: "bond:8301",
+          command: "bond Mara Wick",
+          offerIds: ["meet-mara"],
+        }]),
         travelThread: nextStoryThreadModel(
           { location: { name: "The Cosy Cottage" } },
           [{ label: "travel", intention: "travel", target: { label: "Rain-Soft Garden" }, detail: "to Rain-Soft Garden", focusKey: "exit:2", command: "go Rain-Soft Garden" }],
@@ -925,6 +991,7 @@ async function main() {
             phase: "complete",
             trace_event_seq: 123,
             completion_memory: "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+            next_invitation: "Follow the uncovered line toward the riverside.",
           },
           ledger: { unbanked_count: 0, banked_count: 2, spent_count: 1, advancement_points: 1, learned_truth_count: 1 },
           bonds: [{ target_actor_name: "Gust" }],
@@ -944,13 +1011,32 @@ async function main() {
           aria: node.querySelector(".journal-row")?.getAttribute("aria-label") || "",
         };
         result.completionText = firstTaleCompletionText();
-        firstTaleCelebration = false;
+        dismissFirstTalePayoff();
         renderStatusUpdates();
         result.completionRepeats = Boolean(node.querySelector(".journal-row.first-thread.complete"));
         result.roomThreadSurfaceAfterCompletion = {
           visible: !node.hidden,
           storyThread: Boolean(node.querySelector(".journal-row.story-thread")),
         };
+        const acceptedExposureId = "synthetic-lantern-accepted-exposure";
+        state.first_tale.phase_exposure_id = acceptedExposureId;
+        state.first_tale.continuation = {
+          phase: "accepted",
+          instruction: "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon.",
+        };
+        const acceptedStorageKey = firstTaleAcceptedStorageKey();
+        localStorage.removeItem(acceptedStorageKey);
+        firstTaleRenderSignature = "";
+        renderStatusUpdates();
+        result.acceptedBeat = {
+          visible: !node.hidden,
+          text: node.querySelector(".journal-row.continuation-accepted")?.textContent.trim().replace(/\s+/g, " ") || "",
+          phase: node.querySelector(".journal-row.continuation-accepted")?.dataset.firstTalePresentation || "",
+        };
+        dismissFirstTalePayoff();
+        renderStatusUpdates();
+        result.acceptedRepeats = Boolean(node.querySelector(".journal-row.continuation-accepted"));
+        localStorage.removeItem(acceptedStorageKey);
         const travelAction = actions[0];
         state.action_hand = {
           entries: [
@@ -1029,13 +1115,32 @@ async function main() {
     assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
     assert(
-      guide.completionBeat?.visible
-        && guide.completionBeat.text === "growthA growth choice is ready for Your avatar."
-        && guide.completionBeat.aria === "growth. A growth choice is ready for Your avatar.",
-      `completed first-tale memory should retire while an unrelated banked growth choice remains open: ${JSON.stringify(guide)}`,
+      guide.lanternTravelStep?.actionKey === "offer:lantern-route"
+        && /Wayside Lantern Inn/i.test(guide.lanternTravelStep?.text || "")
+        && guide.lanternArrivalStep?.actionKey === "offer:meet-mara"
+        && /Mara Wick/i.test(guide.lanternArrivalStep?.text || ""),
+      `the first tale should hand off through exact server-authored Lantern continuation offers: ${JSON.stringify(guide)}`,
     );
-    assert(guide.completionText === "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.", `the first-tale ending should be server-authored consequence memory: ${JSON.stringify(guide)}`);
-    assert(guide.completionRepeats === false, `completed first-tale memory should not reappear as an open thread after rerender: ${JSON.stringify(guide)}`);
+    assert(
+      guide.completionBeat?.visible
+        && /you changed the shared world/i.test(guide.completionBeat.text)
+        && /left the next visitor a clearer way/i.test(guide.completionBeat.text)
+        && /follow the uncovered line toward the riverside/i.test(guide.completionBeat.text)
+        && /growth choice is ready/i.test(guide.completionBeat.text),
+      `completed first-tale memory, growth, and return invitation should share one visible payoff surface: ${JSON.stringify(guide)}`,
+    );
+    assert(
+      guide.completionText === "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way. Next: Follow the uncovered line toward the riverside.",
+      `the first-tale ending should join server-authored consequence memory to its return invitation: ${JSON.stringify(guide)}`,
+    );
+    assert(guide.completionRepeats === false, `acknowledged first-tale completion should not reappear after rerender: ${JSON.stringify(guide)}`);
+    assert(
+      guide.acceptedBeat?.visible
+        && guide.acceptedBeat?.phase === "accepted"
+        && /Mara entrusts you with the dark-road lead/i.test(guide.acceptedBeat?.text || "")
+        && guide.acceptedRepeats === false,
+      `the accepted Lantern continuation should leave one authored payoff until the next successful action: ${JSON.stringify(guide)}`,
+    );
     assert(guide.travelThread?.text === "A path to Rain-Soft Garden is waiting." && guide.travelThread?.actionKey === "exit:2", `an open route should become a grounded clickable room thread: ${JSON.stringify(guide)}`);
     assert(guide.giftThread?.text === "Rati is waiting for Story Button.", `a wanted gift should outrank generic exploration in the room thread: ${JSON.stringify(guide)}`);
     assert(guide.ordinaryGiftThread?.kind === "search", `an optional gift should not be misrepresented as a resident waiting for it: ${JSON.stringify(guide)}`);
@@ -2592,14 +2697,15 @@ async function main() {
     assert(result.multiResident?.length === 1, `one dealt Chat offer should render one card: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.detail === "with Rati · a short exchange", `a dealt Chat card must name its exact resident: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.title === "chat with Rati", `the exact Chat card should open a targeted confirmation: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Your avatar and Rati will trade a few short lines.", `the exact Chat card should explain its bounded conversation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Your avatar and Rati open the conversation, then nearby avatars choose chat or pass.", `the exact Chat card should explain its bounded conversation: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.choices?.length === 0 && result.multiResident[0]?.alternateTargetId === 0, `a Chat card must not expose undealt residents as failing choices: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.focusKeys?.join(",") === "actor:1001", `the dealt Chat card must bind only Rati's offer identity: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "chat with Skull", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.summary === "Your avatar and Skull will trade a few short lines.", `Chat confirmation should explain its bounded exchange: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.summary === "Your avatar and Skull open the conversation, then nearby avatars choose chat or pass.", `Chat confirmation should explain its bounded exchange: ${JSON.stringify(result)}`);
     assert(!result.serverPaid?.rows?.some((row) => row[0] === "Costs"), `chat confirmation should never display an Orb cost: ${JSON.stringify(result)}`);
     assert(!result.serverPaid?.rows?.some((row) => row[0] === "Spend"), `Chat confirmation should not spend advancement: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.rows?.some((row) => row[0] === "Then" && row[1].includes("two short lines each")), `Chat confirmation should explain the bounded exchange: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.rows?.some((row) => row[0] === "Then" && row[1].includes("initiative turns to chat or pass")), `Chat confirmation should explain the initiative floor: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.rows?.some((row) => row[0] === "Ends" && row[1].includes("full initiative round passes")), `Chat confirmation should explain the all-pass ending: ${JSON.stringify(result)}`);
     assert(!/reply hook|authors a line|-[0-9]+ Orb/i.test(JSON.stringify(result.serverPaid)), `chat confirmation should hide implementation and subtraction jargon: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("lv"), `chat cards should let the evolved art and title carry character growth: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("/"), `chat detail should not include card title chrome: ${JSON.stringify(result)}`);
@@ -3442,137 +3548,123 @@ async function main() {
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 
-  async function assertChatExchangeProgressOwnsFullRow() {
-    const previousViewport = page.viewportSize();
-    await page.setViewportSize({ width: 430, height: 860 });
-    try {
-      const result = await page.evaluate(() => {
-        const previous = {
-          state,
-          actorId,
-          actions,
-          actionBusy,
-          actionSlow,
-          pendingAction,
-          pendingChats,
+  async function assertChatActivityLivesInJournalTray() {
+    const result = await page.evaluate(() => {
+      const previous = {
+        state,
+        actorId,
+        pendingChats,
+        journalOpen,
+        pendingReflection,
+        journalNotifications: journalNotifications.map((entry) => ({ ...entry })),
+        dismissedJournalActivityKeys: new Set(dismissedJournalActivityKeys),
+      };
+      state = {
+        ...state,
+        branch: { id: "journal-chat-progress-fixture" },
+        first_tale: null,
+        ledger: { ...(state?.ledger || {}), advancement_points: 0 },
+      };
+      actorId = 77;
+      journalOpen = false;
+      pendingReflection = null;
+      journalNotifications = [];
+      dismissedJournalActivityKeys.clear();
+      pendingChats = [{
+        id: 901,
+        targetActorId: 78,
+        targetName: "Moss Stitch",
+        typingActorId: 77,
+        typingName: "You",
+        afterSeq: 99,
+        queueEventSeq: 100,
+        segmentsCompleted: 2,
+        segmentCount: 2,
+      }];
+      try {
+        renderJournalActivity();
+        const tray = document.querySelector("#journal-activity-tray");
+        const initial = {
+          visible: !tray.hidden,
+          bottomProgress: Boolean(document.querySelector("#chat-progress")),
+          segments: tray.querySelectorAll(".journal-progress-segments span").length,
+          filled: tray.querySelectorAll(".journal-progress-segments span.filled").length,
         };
-        state = {
-          ...state,
-          branch: { id: "chat-progress-fixture" },
-          turn: null,
+        const roundHandled = resolvePendingChat({
+          type: "chat.round",
+          seq: 101,
+          actor_id: 77,
+          target_actor_id: 78,
+          caused_by_event_seq: 100,
+          content: JSON.stringify({ schema_version: 1, round: 1, seat: 0, seats: 3, decision: "round" }),
+        });
+        const passHandled = resolvePendingChat({
+          type: "chat.passed",
+          seq: 102,
+          actor_id: 78,
+          target_actor_id: 77,
+          caused_by_event_seq: 100,
+          content: JSON.stringify({ schema_version: 1, round: 1, seat: 0, seats: 3, decision: "pass" }),
+        });
+        renderJournalActivity();
+        const initiative = {
+          roundHandled,
+          passHandled,
+          segments: tray.querySelectorAll(".journal-progress-segments span").length,
+          filled: tray.querySelectorAll(".journal-progress-segments span.filled").length,
+          text: tray.textContent.replace(/\s+/g, " ").trim(),
         };
-        actorId = 77;
-        actions = [
-          { kind: "move", label: "travel", detail: "to Rain-Soft Garden", command: "go Rain-Soft Garden" },
-          { kind: "listen", label: "listen", detail: "to the room", command: "listen" },
-        ];
-        actionBusy = false;
-        actionSlow = false;
-        pendingAction = null;
-        pendingChats = [{
-          id: 901,
-          targetActorId: 78,
-          targetName: "Moss Stitch",
-          typingActorId: 77,
-          typingName: "You",
-          afterSeq: 100,
-          turnsCompleted: 1,
-          turnCount: 4,
-        }];
-        try {
-          renderCommands();
-          const prompt = document.querySelector("footer.prompt");
-          const status = document.querySelector("#chat-progress");
-          const primary = document.querySelector("#primary");
-          const promptWidth = prompt.getBoundingClientRect().width;
-          const statusSnapshot = {
-            width: status.getBoundingClientRect().width,
-            display: getComputedStyle(status).display,
-            segments: status.querySelectorAll(".chat-turn-progress span").length,
-            filled: status.querySelectorAll(".chat-turn-progress span.filled").length,
-            ariaValueText: status.querySelector(".chat-turn-progress")?.getAttribute("aria-valuetext") || "",
-            normalWidth: primary.getBoundingClientRect().width,
-          };
-
-          resolvePendingChat({ type: "message.created", seq: 101, actor_id: 77 });
-          renderCommands();
-          const progressedFilled = status.querySelectorAll(".chat-turn-progress span.filled").length;
-
-          const retryEvent = {
-            type: "chat.retrying",
-            seq: 102,
-            actor_id: 77,
-            target_actor_id: 78,
-            caused_by_event_seq: 100,
-          };
-          const retryHandled = resolvePendingChat(retryEvent);
-          renderCommands();
-          const retrySnapshot = {
-            handled: retryHandled,
-            pendingCount: pendingChats.length,
-            statusVisible: getComputedStyle(status).display,
-            filled: status.querySelectorAll(".chat-turn-progress span.filled").length,
-            hiddenContext: eventIsHiddenContext(retryEvent),
-          };
-
-          actionBusy = true;
-          pendingAction = {
-            kind: "orb-chat",
-            label: "chat",
-            detail: "with Moss Stitch",
-            pendingChatId: 901,
-          };
-          renderCommands();
-          const busySnapshot = {
-            width: primary.getBoundingClientRect().width,
-            visible: getComputedStyle(primary).display,
-            statusVisible: getComputedStyle(status).display,
-            segments: primary.querySelectorAll(".chat-turn-progress span").length,
-            filled: primary.querySelectorAll(".chat-turn-progress span.filled").length,
-          };
-          return { promptWidth, statusSnapshot, progressedFilled, retrySnapshot, busySnapshot };
-        } finally {
-          state = previous.state;
-          actorId = previous.actorId;
-          actions = previous.actions;
-          actionBusy = previous.actionBusy;
-          actionSlow = previous.actionSlow;
-          pendingAction = previous.pendingAction;
-          pendingChats = previous.pendingChats;
-          renderCommands();
+        setJournalOpen(true);
+        const opened = {
+          trayHidden: tray.hidden,
+          journalHidden: document.querySelector("#journal-view").hidden,
+          activity: document.querySelector("#journal-activity").textContent.replace(/\s+/g, " ").trim(),
+        };
+        setJournalOpen(false);
+        const closed = {
+          trayHidden: tray.hidden,
+          activityCount: currentJournalActivities().length,
+        };
+        return { initial, initiative, opened, closed };
+      } finally {
+        state = previous.state;
+        actorId = previous.actorId;
+        pendingChats = previous.pendingChats;
+        journalOpen = previous.journalOpen;
+        pendingReflection = previous.pendingReflection;
+        journalNotifications = previous.journalNotifications;
+        dismissedJournalActivityKeys.clear();
+        for (const key of previous.dismissedJournalActivityKeys) {
+          dismissedJournalActivityKeys.add(key);
         }
-      });
-      assert(
-        result.statusSnapshot.display !== "none"
-          && result.statusSnapshot.width > result.promptWidth * 0.9
-          && result.statusSnapshot.segments === 4
-          && result.statusSnapshot.filled === 1
-          && result.statusSnapshot.ariaValueText === "1 of 4 chat turns complete",
-        `a running chat should use a full-width card with four progress segments: ${JSON.stringify(result)}`,
-      );
-      assert(
-        result.progressedFilled === 2,
-        `each completed chat message should fill exactly one more segment: ${JSON.stringify(result)}`,
-      );
-      assert(
-        result.retrySnapshot.handled
-          && result.retrySnapshot.pendingCount === 1
-          && result.retrySnapshot.statusVisible !== "none"
-          && result.retrySnapshot.filled === 2
-          && result.retrySnapshot.hiddenContext,
-        `a retrying Chat should preserve its progress row without entering the Journal: ${JSON.stringify(result)}`,
-      );
-      assert(
-        result.busySnapshot.visible !== "none"
-          && result.busySnapshot.statusVisible === "none"
-          && result.busySnapshot.width > result.promptWidth * 0.9
-          && result.busySnapshot.segments === 4
-          && result.busySnapshot.filled === 2,
-        `the initial chat action should also stay full-width while it submits: ${JSON.stringify(result)}`,
-      );
-    } finally {
-      if (previousViewport) await page.setViewportSize(previousViewport);
-    }
+        renderTimelines();
+      }
+    });
+    assert(
+      result.initial.visible
+        && !result.initial.bottomProgress
+        && result.initial.segments === 2
+        && result.initial.filled === 2,
+      `Chat progress should live only in the top Journal tray: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.initiative.roundHandled
+        && result.initiative.passHandled
+        && result.initiative.segments === 3
+        && result.initiative.filled === 1
+        && result.initiative.text.includes("passed"),
+      `initiative chat/pass events should advance Journal segments: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.opened.trayHidden
+        && !result.opened.journalHidden
+        && result.opened.activity.includes("passed"),
+      `the Journal tray should open the Journal onto its activity: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.closed.trayHidden && result.closed.activityCount === 0,
+      `closing the Journal should dismiss its viewed activity: ${JSON.stringify(result)}`,
+    );
   }
 
   async function assertKeepsakeLoadoutShapesSceneDeal() {
@@ -10284,17 +10376,19 @@ async function main() {
       }));
       assert(
         completion.roomClean
+          && completion.rendered
+          && /you changed the shared world/i.test(completion.text)
+          && /next:/i.test(completion.text)
           && (
             completion.growthReady
-              ? completion.rendered
-                && completion.growthCategory === "growth"
+              ? completion.growthCategory === "growth"
                 && completion.growthProse === `A growth choice is ready for ${completion.growthActorName}.`
-              : !completion.rendered && completion.text === ""
+              : completion.growthCategory === "" && completion.growthProse === ""
           ),
-        `the completed opening should retire while any independent growth choice remains in Open threads without occupying chat: ${JSON.stringify(completion)}`,
+        `the completed opening should make its durable consequence and any independent growth choice visible without occupying chat: ${JSON.stringify(completion)}`,
       );
       assert(
-        /uncovered line toward the riverside/i.test(completion.memory),
+        /lamp road west to Mara Wick/i.test(completion.memory),
         `the authoritative completion memory should remain available to semantic history: ${JSON.stringify(completion)}`,
       );
     } else if (Number(current.ledger?.learned_truth_count || 0) > 0) {
@@ -12216,6 +12310,7 @@ async function main() {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
         latestJournalRow: [...document.querySelectorAll("#journal-log .journal-row-summary")]
           .at(-1)?.textContent?.trim() || "",
+        latestHidden: document.querySelector("#room-log-latest")?.hidden === true,
         latestVisible: visible(document.querySelector("#room-log-latest")),
         latestHasTrack: Boolean(document.querySelector("#room-log-latest > #room-log-latest-track")),
         latestAriaLive: document.querySelector("#room-log-latest")?.getAttribute("aria-live") || "",
@@ -12246,8 +12341,8 @@ async function main() {
       `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
     );
     assert(
-      room.latestVisible && room.latestHasTrack && room.latestBelowTitle && !room.latestAriaLive,
-      `${label}: the latest event should occupy one quiet line below the title without another live region: ${JSON.stringify(room)}`,
+      room.latestHidden && !room.latestVisible && room.latestHasTrack && room.latestBelowTitle && !room.latestAriaLive,
+      `${label}: the retired latest-event ticker should remain semantic but add no second live surface: ${JSON.stringify(room)}`,
     );
     assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
     assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
@@ -12275,47 +12370,27 @@ async function main() {
       `${label}: a room without a Journal event should add no ticker chrome: ${JSON.stringify(emptyTicker)}`,
     );
 
-    const originalLatest = await page.evaluate(() => {
+    const retiredTicker = await page.evaluate(() => {
       const latest = document.querySelector("#room-log-latest");
       const original = document.querySelector("#room-log-toggle")?.dataset.latest || "";
       latest.style.maxWidth = "84px";
       renderRoomLogLatest(`${original} — ${"the latest Journal event keeps moving through the room header ".repeat(4)}`);
-      return original;
-    });
-    await page.waitForFunction(() => document.querySelector("#room-log-latest")?.classList.contains("is-overflowing"));
-    const movingTicker = await page.evaluate(() => {
-      const latest = document.querySelector("#room-log-latest");
       const track = document.querySelector("#room-log-latest-track");
-      const style = getComputedStyle(track);
-      return {
-        overflow: track.scrollWidth - latest.clientWidth,
-        animationName: style.animationName,
-        animationPlayState: style.animationPlayState,
+      const result = {
+        hidden: latest.hidden,
+        overflowing: latest.classList.contains("is-overflowing"),
+        trackText: track.textContent.trim(),
       };
-    });
-    assert(
-      movingTicker.overflow > 4 && movingTicker.animationName === "room-log-scroll",
-      `${label}: a clipped latest event should scroll inside the Journal control: ${JSON.stringify(movingTicker)}`,
-    );
-    await page.locator("#room-log-latest").hover();
-    const pausedTicker = await page.locator("#room-log-latest-track").evaluate((track) => getComputedStyle(track).animationPlayState);
-    assert(pausedTicker === "paused", `${label}: hovering the latest-event line should pause its ticker`);
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    const reducedTicker = await page.locator("#room-log-latest-track").evaluate((track) => {
-      const style = getComputedStyle(track);
-      return { animationName: style.animationName, textOverflow: style.textOverflow };
-    });
-    assert(
-      reducedTicker.animationName === "none" && reducedTicker.textOverflow === "ellipsis",
-      `${label}: reduced motion should replace ticker movement with a static ellipsis: ${JSON.stringify(reducedTicker)}`,
-    );
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.evaluate((original) => {
-      document.querySelector("#room-log-latest").style.removeProperty("max-width");
+      latest.style.removeProperty("max-width");
       renderRoomLogLatest(original);
-    }, originalLatest);
+      return result;
+    });
+    assert(
+      retiredTicker.hidden && !retiredTicker.overflowing && retiredTicker.trackText.length > 80,
+      `${label}: long Journal summaries must not revive the retired room ticker: ${JSON.stringify(retiredTicker)}`,
+    );
 
-    await page.locator("#room-log-latest").click();
+    await page.locator("#room-log-toggle").click();
     await page.waitForFunction(() => (
       document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") === "true"
       && document.querySelector("#journal-view")?.hidden === false
@@ -12731,31 +12806,22 @@ async function main() {
           title: rect(".room-title"),
           name: rect(".room-title-main"),
           toggle: rect("#room-log-toggle"),
-          latest: rect("#room-log-latest"),
-          latestLabel: document.querySelector("#room-log-latest")?.getAttribute("aria-label") || "",
+          latestHidden: document.querySelector("#room-log-latest")?.hidden === true,
+          latestDisplay: getComputedStyle(document.querySelector("#room-log-latest")).display,
           toggleLabel: document.querySelector("#room-log-toggle")?.getAttribute("aria-label") || "",
         };
       });
       assert(
-        layout.title && layout.name && layout.toggle && layout.latest,
-        `${width}px: title, Journal control, and latest-event line should all render: ${JSON.stringify(layout)}`,
+        layout.title && layout.name && layout.toggle,
+        `${width}px: the title and Journal control should render: ${JSON.stringify(layout)}`,
       );
       assert(
         layout.name.right <= layout.toggle.left + 0.5,
         `${width}px: location name must not overlap the Journal control: ${JSON.stringify(layout)}`,
       );
       assert(
-        layout.latest.top >= layout.title.bottom - 0.5,
-        `${width}px: latest-event line should sit below the title row: ${JSON.stringify(layout)}`,
-      );
-      assert(
-        Math.abs(layout.latest.left - layout.title.left) <= 1
-          && Math.abs(layout.latest.right - layout.title.right) <= 1,
-        `${width}px: latest-event line should use the full room content width: ${JSON.stringify(layout)}`,
-      );
-      assert(
-        /^Open Journal, latest: .+/.test(layout.latestLabel) && layout.toggleLabel === "Open Journal",
-        `${width}px: both Journal entry points need clear accessible names: ${JSON.stringify(layout)}`,
+        layout.latestHidden && layout.latestDisplay === "none" && layout.toggleLabel === "Open Journal",
+        `${width}px: the single Journal control should stay accessible without reviving the latest-event ticker: ${JSON.stringify(layout)}`,
       );
     }
     if (originalViewport) await page.setViewportSize(originalViewport);
@@ -13698,7 +13764,7 @@ async function main() {
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
-  await assertChatExchangeProgressOwnsFullRow();
+  await assertChatActivityLivesInJournalTray();
   await assertChoicePreviewFollowsSelectedCard();
   await assertKeepsakeLoadoutShapesSceneDeal();
   await assertCarriedDeckUsesWeightLanguage();
@@ -13801,17 +13867,59 @@ async function main() {
     const replay = await fetch(`/events?${params}`).then((response) => response.json());
     return Number(replay.next_after || 0);
   });
-  const firstTaleContribution = await drawPrimaryMatching(
-    "first shared-world check contribution",
-    ["inspect", "stones"],
-  );
+  const guidedContributions = [];
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const guided = await page.evaluate(() => {
+      const phase = String(state?.first_tale?.phase || "");
+      if (phase === "complete") return { complete: true };
+      const offerId = String(state?.first_tale?.advancing_offer_id || "");
+      const action = actionBarActions().find((candidate) => (
+        (candidate.offerIds || []).map(String).includes(offerId)
+      ));
+      if (!offerId || !action) {
+        return {
+          complete: false,
+          ok: false,
+          phase,
+          offerId,
+          handOfferIds: (state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")),
+          actions: actionBarActions().map((candidate) => ({
+            label: candidate.label,
+            offerIds: (candidate.offerIds || []).map(String),
+          })),
+        };
+      }
+      const text = [action.label, action.detail, action.command, action.effect]
+        .filter(Boolean)
+        .join(" ");
+      return {
+        complete: false,
+        ok: true,
+        text,
+        handKey: actionHandKey(action),
+        offerIds: (action.offerIds || []).map(String),
+        generation: Number(state?.action_hand?.generation || 0),
+      };
+    });
+    if (guided.complete) break;
+    assert(guided.ok, `the first tale lost its exact advancing contribution: ${JSON.stringify(guided)}`);
+    guidedContributions.push(guided.text);
+    focusedSelectionIdentity = {
+      handKey: guided.handKey,
+      offerIds: guided.offerIds,
+      generation: guided.generation,
+    };
+    useFocusedActionOnNextClick = true;
+    const committed = await clickPrimary(`commit guided first-tale contribution ${attempt + 1}`);
+    assert(committed?.ok, `the guided first-tale contribution did not commit: ${JSON.stringify(committed)}`);
+    await page.evaluate(() => refresh());
+  }
   assert(
-    /inspect.*stones/i.test(firstTaleContribution),
-    `the first tale should offer its authored check strategy: ${firstTaleContribution}`,
+    guidedContributions.length > 0
+      && guidedContributions.every((text) => /stones|drain|path|traveler/i.test(text)),
+    `the first tale should deal authored progress strategies: ${JSON.stringify(guidedContributions)}`,
   );
-  await clickPrimary("inspect the washed stones");
-  await page.evaluate(() => refresh());
-  const checkContribution = await page.evaluate(async (after) => {
+  const completingFirstTale = await page.evaluate(async (after) => {
     const params = new URLSearchParams({
       actor_id: localStorage.getItem("cosyworld.actorId") || "0",
       actor_session: localStorage.getItem("cosyworld.actorSession") || "",
@@ -13820,26 +13928,137 @@ async function main() {
       limit: "200",
     });
     const replay = await fetch(`/events?${params}`).then((response) => response.json());
-    return (replay.events || []).find((event) => (
-      event.type === "job.contribution.resolved"
-        && String(event.content || "").includes('"strategy_id":"inspect-washed-stones"')
-        && String(event.content || "").includes('"action_kind":"check"')
+    const traceEventSeq = Number(state?.first_tale?.trace_event_seq || 0);
+    const trace = (replay.events || []).find((event) => (
+      event.type === "first_tale.public_trace"
+        && Number(event.seq || 0) === traceEventSeq
     )) || null;
+    const contribution = (replay.events || []).find((event) => (
+      event.type === "job.contribution.resolved"
+        && Number(event.seq || 0) === Number(trace?.caused_by_event_seq || 0)
+    )) || null;
+    return { trace, contribution };
   }, contributionCursor);
   assert(
-    checkContribution,
-    "the browser check choice should resolve through its exact authored strategy",
+    completingFirstTale.trace
+      && completingFirstTale.contribution
+      && ["inspect-washed-stones", "clear-garden-drain", "lift-stones-together"]
+        .some((strategyId) => String(completingFirstTale.contribution.content || "")
+          .includes(`"strategy_id":"${strategyId}"`))
+      && ["check", "work", "help"]
+        .some((actionKind) => String(completingFirstTale.contribution.content || "")
+          .includes(`"action_kind":"${actionKind}"`)),
+    `the browser contribution should resolve through an exact authored strategy and public trace: ${JSON.stringify(completingFirstTale)}`,
   );
   await page.waitForFunction(
     (eventSeq) => (
       state?.first_tale?.phase === "complete"
         && Number(state?.first_tale?.trace_event_seq || 0) === Number(eventSeq)
     ),
-    Number(checkContribution.seq || 0),
+    Number(completingFirstTale.trace.seq || 0),
   );
   await finishFirstThreadIfReady();
   await assertActivationTracksFirstPublicTrace();
-  await travelTo("The Cosy Cottage");
+  await page.waitForFunction(() => state?.first_tale?.continuation?.phase === "travel");
+  const lanternHandoff = await page.evaluate(() => {
+    const continuation = state?.first_tale?.continuation || {};
+    const guide = firstThreadModel(state, actions);
+    const visible = actionBarActions();
+    return {
+      phase: continuation.phase || "",
+      destinationLocationId: Number(continuation.destination_location_id || 0),
+      jobId: String(continuation.job_id || ""),
+      instruction: String(continuation.instruction || ""),
+      advancingOfferId: String(continuation.advancing_offer_id || ""),
+      guideActionKey: String(guide?.actionKey || ""),
+      guided: visible.some((action) => action.storyGuide === true),
+      handOfferIds: (state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")),
+    };
+  });
+  assert(
+    lanternHandoff.phase === "travel"
+      && lanternHandoff.destinationLocationId === 800
+      && lanternHandoff.jobId === "lantern-keeper:rekindle-the-beacon"
+      && /Wayside Lantern Inn/i.test(lanternHandoff.instruction)
+      && lanternHandoff.advancingOfferId
+      && lanternHandoff.handOfferIds.includes(lanternHandoff.advancingOfferId)
+      && lanternHandoff.guideActionKey
+      && lanternHandoff.guided,
+    `the completed first tale should hand off one exact, dealt Lantern route: ${JSON.stringify(lanternHandoff)}`,
+  );
+  await assertReloadContinuity("Rain-Soft Garden");
+  const lanternRoute = [];
+  for (let step = 0; step < 8; step += 1) {
+    const route = await page.evaluate(() => {
+      if (Number(state?.location?.id || 0) === 800) return { arrived: true };
+      const offerId = String(state?.first_tale?.continuation?.advancing_offer_id || "");
+      const action = actionBarActions().find((candidate) => (
+        (candidate.offerIds || []).map(String).includes(offerId)
+      ));
+      if (!offerId || !action) {
+        return {
+          arrived: false,
+          ok: false,
+          location: state?.location?.name || "",
+          offerId,
+          handOfferIds: (state?.action_hand?.entries || []).map((entry) => String(entry.offer_id || "")),
+          actions: actionBarActions().map((candidate) => ({
+            label: candidate.label,
+            offerIds: (candidate.offerIds || []).map(String),
+          })),
+        };
+      }
+      return {
+        arrived: false,
+        ok: true,
+        location: state?.location?.name || "",
+        handKey: actionHandKey(action),
+        offerIds: (action.offerIds || []).map(String),
+        generation: Number(state?.action_hand?.generation || 0),
+      };
+    });
+    if (route.arrived) break;
+    assert(route.ok, `the Lantern continuation lost its exact route card: ${JSON.stringify(route)}`);
+    lanternRoute.push(route.location);
+    focusedSelectionIdentity = {
+      handKey: route.handKey,
+      offerIds: route.offerIds,
+      generation: route.generation,
+    };
+    useFocusedActionOnNextClick = true;
+    const committed = await clickPrimary(`follow Lantern continuation step ${step + 1}`);
+    assert(committed?.ok, `the Lantern continuation route did not commit: ${JSON.stringify(committed)}`);
+    await page.evaluate(() => refresh());
+  }
+  assert(lanternRoute.length > 0, `the Lantern continuation should travel through its authored route: ${JSON.stringify(lanternRoute)}`);
+  await page.waitForFunction(() => state?.first_tale?.continuation?.phase === "arrived");
+  await assertReloadContinuity("Wayside Lantern Inn");
+  const maraHandoff = await focusPrimaryMatching(
+    "accept the Lantern Keeper continuation",
+    (text) => /befriend/.test(text) && /mara wick/.test(text),
+  );
+  assert(/mara wick/i.test(maraHandoff), `the arrived continuation should deal Mara Wick's exact invitation: ${maraHandoff}`);
+  await clickPrimary("accept the Lantern Keeper continuation");
+  await page.waitForFunction(() => state?.first_tale?.continuation?.phase === "accepted");
+  const acceptedLanternPayoff = await page.evaluate(() => {
+    renderStatusUpdates();
+    const row = document.querySelector("#updates .journal-row.continuation-accepted");
+    return {
+      text: row?.textContent?.trim().replace(/\s+/g, " ") || "",
+      phase: row?.dataset.firstTalePresentation || "",
+    };
+  });
+  assert(
+    acceptedLanternPayoff.phase === "accepted"
+      && /Mara entrusts you with the dark-road lead/i.test(acceptedLanternPayoff.text),
+    `accepting Mara's invitation should leave the authored Lantern payoff visible: ${JSON.stringify(acceptedLanternPayoff)}`,
+  );
+  steps.push({ label: "durable Lantern continuation accepted", destination: "Wayside Lantern Inn" });
+  await travelPathTo("The Cosy Cottage");
+  assert(
+    await page.locator("#updates .journal-row.continuation-accepted").count() === 0,
+    "the accepted Lantern payoff should clear after the next successful action",
+  );
   await discoverRoute("Homeroom");
   await assertWorldProjectionAvailable();
   await assertMudCommandApiAvailable();
@@ -13857,42 +14076,55 @@ async function main() {
         .filter((actor) => actor.kind === "npc" && actor.status === "active")
         .map((actor) => actor.name),
       advancement: Number(state?.ledger?.advancement_points || 0),
+      chatOfferAvailable: (state?.action_offers || []).some((offer) => (
+        offer.kind === "chat" && offer.disabled !== true
+      )),
       visibleLabels: actionBarActions().map((action) => action.label),
       turn: state?.turn || null,
     }));
     assert(
-      residentChatDiagnostic.advancement > 0
+      residentChatDiagnostic.advancement >= 0
         && residentChatDiagnostic.residents.length > 0
         && residentChatDiagnostic.visibleLabels.length >= 1
         && residentChatDiagnostic.visibleLabels.length <= 2,
-      `the shared room should be ready to deal its distinct Chat and Befriend cards: ${JSON.stringify(residentChatDiagnostic)}`,
+      `the shared room should expose a bounded authoritative hand near its resident: ${JSON.stringify(residentChatDiagnostic)}`,
     );
-    await focusPrimaryMatching("focus Chat with a nearby resident", (text) => text.startsWith("chat"), 32);
-    await chatWithFocusedResident("Chat button starts a bounded exchange");
-    await focusPrimaryMatching("spend one advancement on Befriend", (text) => text.startsWith("befriend"), 32);
-    await clickPrimary("spend one advancement on Befriend");
-    await page.waitForFunction(
-      (before) => Number(state?.ledger?.advancement_points || 0) < before,
-      residentChatDiagnostic.advancement,
-    );
-    const spentChatDiagnostic = await page.evaluate(async () => {
-      await refresh();
-      return {
-        advancement: Number(state?.ledger?.advancement_points || 0),
-        visibleLabels: actionBarActions().map((action) => action.label),
-      };
-    });
-    assert(
-      spentChatDiagnostic.advancement === residentChatDiagnostic.advancement - 1,
-      `Befriend should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
-    );
-    if (spentChatDiagnostic.advancement === 0) {
+    if (residentChatDiagnostic.chatOfferAvailable) {
+      await focusPrimaryMatching("focus Chat with a nearby resident", (text) => text.startsWith("chat"), 32);
+      await chatWithFocusedResident("Chat button starts a bounded exchange");
+      if (residentChatDiagnostic.advancement > 0) {
+        await focusPrimaryMatching("spend one advancement on Befriend", (text) => text.startsWith("befriend"), 32);
+        await clickPrimary("spend one advancement on Befriend");
+        await page.waitForFunction(
+          (before) => Number(state?.ledger?.advancement_points || 0) < before,
+          residentChatDiagnostic.advancement,
+        );
+      }
+      const spentChatDiagnostic = await page.evaluate(async () => {
+        await refresh();
+        return {
+          advancement: Number(state?.ledger?.advancement_points || 0),
+          visibleLabels: actionBarActions().map((action) => action.label),
+        };
+      });
       assert(
-        !spentChatDiagnostic.visibleLabels.some((label) => /befriend/i.test(label)),
-        `Befriend should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+        spentChatDiagnostic.advancement === Math.max(0, residentChatDiagnostic.advancement - 1),
+        `an available Befriend should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
       );
+      if (spentChatDiagnostic.advancement === 0) {
+        assert(
+          !spentChatDiagnostic.visibleLabels.some((label) => /befriend/i.test(label)),
+          `Befriend should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+        );
+      }
+      steps.push({ label: "spent one advancement on friendship", location: residentChatDiagnostic.location });
+    } else {
+      assert(
+        !residentChatDiagnostic.visibleLabels.some((label) => /chat/i.test(label)),
+        `an unavailable resident chat route must not leak into the hand: ${JSON.stringify(residentChatDiagnostic)}`,
+      );
+      steps.push({ label: "unavailable resident chat excluded", location: residentChatDiagnostic.location });
     }
-    steps.push({ label: "spent one advancement on friendship", location: residentChatDiagnostic.location });
   }
   if (residentRoom.destinationName !== "The Cosy Cottage") {
     await travelPathTo("The Cosy Cottage");
@@ -13943,6 +14175,25 @@ async function main() {
       await travelTo("Rain-Soft Garden");
     }
     await travelTo("Moonlit Trail");
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const combatBlocksProject = await page.evaluate(() => (
+        (state?.action_offers || []).some((offer) => offer.kind === "flee")
+          && !(state?.action_offers || []).some((offer) => (
+            offer?.project?.id === "moonlit-trail:quiet-the-echo"
+          ))
+      ));
+      if (!combatBlocksProject) break;
+      await leaveTrailTo("Rain-Soft Garden");
+      steps.push({ label: "clear combat floor before Moonlit project", attempt });
+      await travelTo("Moonlit Trail");
+    }
+    const projectFloorReady = await page.evaluate(() => (
+      !(state?.action_offers || []).some((offer) => offer.kind === "flee")
+        || (state?.action_offers || []).some((offer) => (
+          offer?.project?.id === "moonlit-trail:quiet-the-echo"
+        ))
+    ));
+    assert(projectFloorReady, "the Moonlit project should begin only after its combat floor is resolved");
     const moonlitProjectStatus = async () => {
       const current = await fetchCurrentState();
       const progress = (current.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
@@ -13971,6 +14222,7 @@ async function main() {
       const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
       const deckSize = await page.evaluate(() => Math.max(1, Number(state?.action_hand?.deck_size || 1)));
       let lastHand = [];
+      let combatResets = 0;
       for (let draw = 0; draw < deckSize; draw += 1) {
         if (stopWhen && await stopWhen()) return null;
         const result = await page.evaluate(({ expectedStrategyId, terms }) => {
@@ -14028,6 +14280,16 @@ async function main() {
           return result.text;
         }
         lastHand = result.hand;
+        const combatOnlyHand = result.hand.length > 0
+          && result.hand.every((entry) => entry.text.startsWith("flee "));
+        if (combatOnlyHand && combatResets < 3) {
+          combatResets += 1;
+          await leaveTrailTo("Rain-Soft Garden");
+          steps.push({ label: "clear combat floor during Moonlit project draw", attempt: combatResets });
+          await travelTo("Moonlit Trail");
+          draw -= 1;
+          continue;
+        }
         if (draw + 1 < deckSize) {
           await passCertifiedHandForDraw(`${label} draw ${draw + 1}`);
         }

@@ -189,6 +189,60 @@ function loadFirstTale(world, worldDir) {
   return normalizeFirstTaleConfig(config);
 }
 
+function validateCompiledFirstTale(firstTale, resources) {
+  if (!firstTale) return;
+  const locationIds = new Set(resources.locations.map((location) => location.id));
+  const actorById = new Map(resources.actors.map((actor) => [actor.id, actor]));
+  const jobById = new Map(resources.jobs.map((job) => [job.id, job]));
+  const clockIds = new Set(resources.clocks.map((clock) => clock.id));
+  assert(
+    locationIds.has(firstTale.lead_location_id),
+    `world first_tale references missing lead location ${firstTale.lead_location_id}`,
+  );
+  assert(
+    locationIds.has(firstTale.destination_location_id),
+    `world first_tale references missing destination location ${firstTale.destination_location_id}`,
+  );
+  const job = jobById.get(firstTale.job_id);
+  assert(job, `world first_tale references missing job ${firstTale.job_id}`);
+  assert(
+    job.progress_clock_id === firstTale.progress_clock_id,
+    `world first_tale job ${firstTale.job_id} does not use progress clock ${firstTale.progress_clock_id}`,
+  );
+  assert(
+    clockIds.has(firstTale.progress_clock_id),
+    `world first_tale references missing progress clock ${firstTale.progress_clock_id}`,
+  );
+  assert(
+    job.location_ids?.includes(firstTale.destination_location_id),
+    `world first_tale job ${firstTale.job_id} is not active at destination ${firstTale.destination_location_id}`,
+  );
+  if (!firstTale.continuation) return;
+  const continuation = firstTale.continuation;
+  assert(
+    locationIds.has(continuation.destination_location_id),
+    `world first_tale continuation references missing location ${continuation.destination_location_id}`,
+  );
+  const targetActor = actorById.get(continuation.target_actor_id);
+  assert(
+    targetActor,
+    `world first_tale continuation references missing actor ${continuation.target_actor_id}`,
+  );
+  assert(
+    targetActor.location_id === continuation.destination_location_id,
+    `world first_tale continuation actor ${continuation.target_actor_id} is not at location ${continuation.destination_location_id}`,
+  );
+  const continuationJob = jobById.get(continuation.job_id);
+  assert(
+    continuationJob,
+    `world first_tale continuation references missing job ${continuation.job_id}`,
+  );
+  assert(
+    continuationJob.location_ids?.includes(continuation.destination_location_id),
+    `world first_tale continuation job ${continuation.job_id} is not active at destination ${continuation.destination_location_id}`,
+  );
+}
+
 function loadPackLifecycle(world) {
   const lifecycle = world.pack_lifecycle;
   if (lifecycle === undefined) return null;
@@ -1024,6 +1078,7 @@ for (const { manifest: packManifest } of packs) {
     assert(false, error);
   }
 }
+validateCompiledFirstTale(firstTale, resources);
 const packManifestById = new Map(packs.map((pack) => [pack.manifest.id, pack.manifest]));
 const locationOwnerById = new Map();
 for (const location of resources.locations) {

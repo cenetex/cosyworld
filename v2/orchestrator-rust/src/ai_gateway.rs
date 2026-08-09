@@ -5,6 +5,9 @@ use super::{
     compact_whitespace, AppState, GeneratedPathwayState, GeneratedWaypointState, LocationMeta,
     NaturalPotentialPolicy,
 };
+use crate::ai_readiness::{
+    AiReadiness, AiReadinessGate, AiReadinessSnapshot, DEFAULT_LOW_CREDIT_THRESHOLD,
+};
 use crate::ai_voice_routing::VoiceRoutingConfig;
 use crate::media_recipes::media_verdict::{
     bounded_visual_verdict_summary, MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT,
@@ -37,6 +40,7 @@ pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v2";
 pub(crate) const CARD_POLICY_MODE_ENV: &str = "COSYWORLD_CARD_POLICY_MODE";
 pub(crate) const CARD_POLICY_MODEL_PATH_ENV: &str = "COSYWORLD_CARD_POLICY_MODEL_PATH";
 pub(crate) const CARD_POLICY_TOP_K_ENV: &str = "COSYWORLD_CARD_POLICY_TOP_K";
+pub(crate) const AI_LOW_CREDIT_THRESHOLD_ENV: &str = "COSYWORLD_AI_LOW_CREDIT_THRESHOLD";
 const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 const IMAGE_GENERATION_MAX_BYTES: usize = 8 * 1024 * 1024;
 const IMAGE_GENERATION_MAX_RESPONSE_BYTES: u64 = 12 * 1024 * 1024;
@@ -55,6 +59,16 @@ const SPEECH_SYNTHESIS_MAX_TEXT_BYTES: usize = 32 * 1024;
 const SPEECH_SYNTHESIS_MAX_VOICE_BYTES: usize = 128;
 const SPEECH_SYNTHESIS_MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 const SPEECH_SYNTHESIS_GENERATION_ID_MAX_BYTES: usize = 256;
+const CHAT_COMPLETIONS_ENDPOINT: &str = "chat/completions";
+const EMBEDDINGS_ENDPOINT: &str = "embeddings";
+const RERANK_ENDPOINT: &str = "rerank";
+const SPEECH_SYNTHESIS_ENDPOINT: &str = "audio/speech";
+const TRANSCRIPTION_ENDPOINT: &str = "audio/transcriptions";
+const IMAGE_GENERATION_ENDPOINT: &str = "images";
+const OPENROUTER_CURRENT_KEY_ENDPOINT: &str = "key";
+const OPENROUTER_KEY_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+const OPENROUTER_KEY_RESPONSE_MAX_BYTES: usize = 64 * 1024;
+const OPENROUTER_ROOM_SESSION_PREFIX: &str = "cosyworld-room-";
 // The exact-bound STT gateway is intentionally dormant until a server-authored
 // transcription action owns its input provenance and publication contract.
 #[allow(dead_code)]
@@ -258,6 +272,7 @@ pub(crate) struct AiConfig {
     pub(crate) data_policy_mode: DataPolicyMode,
     pub(crate) voice_routing: VoiceRoutingConfig,
     pub(crate) card_policy: Option<Arc<CardPolicyRollout>>,
+    pub(crate) readiness: AiReadiness,
 }
 
 impl AiConfig {
@@ -284,6 +299,8 @@ impl AiConfig {
             Some(key) => key,
             None => return Ok(None),
         };
+        let low_credit_threshold =
+            parse_low_credit_threshold(std::env::var(AI_LOW_CREDIT_THRESHOLD_ENV).ok().as_deref())?;
         let configured_model = std::env::var("COSYWORLD_AI_MODEL")
             .ok()
             .or_else(|| std::env::var("OPENROUTER_CHAT_MODEL").ok())
@@ -357,6 +374,11 @@ impl AiConfig {
             data_policy_mode,
         )?;
         let voice_routing = VoiceRoutingConfig::from_env()?;
+        let readiness = if ai_provider_name_for_base_url(&base_url) == "openrouter" {
+            AiReadiness::probing_with_low_credit_threshold(low_credit_threshold)
+        } else {
+            AiReadiness::ready_with_low_credit_threshold(low_credit_threshold)
+        };
         Ok(Some(Self {
             api_key,
             base_url,
@@ -372,6 +394,7 @@ impl AiConfig {
             // remote AI provider. AppState attaches it here when an AI-backed
             // voice configuration is also present.
             card_policy: None,
+            readiness,
         }))
     }
 
@@ -519,10 +542,101 @@ impl AiConfig {
         }
         PinnedModelSelection::from_actor_transcription_binding(binding, self.data_policy_mode)
     }
+
+    pub(crate) fn readiness_snapshot(&self) -> AiReadinessSnapshot {
+        self.readiness.snapshot()
+    }
+
+    pub(crate) fn recommended_readiness_probe_delay(&self) -> Duration {
+        self.readiness.recommended_probe_delay()
+    }
+
+    pub(crate) fn exact_route_gate(
+        &self,
+        endpoint: &str,
+        requested_model_id: &str,
+    ) -> AiReadinessGate {
+        self.readiness.gate(endpoint, requested_model_id)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn actor_image_route_is_ready(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> bool {
+        self.exact_route_gate(IMAGE_GENERATION_ENDPOINT, &binding.requested_model_id)
+            .is_ready()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn global_chat_route_is_ready(&self) -> bool {
+        self.pin_models(ModelCapability::Voice)
+            .is_ok_and(|selections| {
+                !selections.is_empty()
+                    && selections.iter().any(|selection| {
+                        self.exact_route_gate(
+                            CHAT_COMPLETIONS_ENDPOINT,
+                            selection.requested_model_id(),
+                        )
+                        .is_ready()
+                    })
+            })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn actor_chat_route_is_ready(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> bool {
+        self.exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, &binding.requested_model_id)
+            .is_ready()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn actor_embedding_route_is_ready(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> bool {
+        self.exact_route_gate(EMBEDDINGS_ENDPOINT, &binding.requested_model_id)
+            .is_ready()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn actor_rerank_route_is_ready(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> bool {
+        self.exact_route_gate(RERANK_ENDPOINT, &binding.requested_model_id)
+            .is_ready()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn actor_speech_route_is_ready(
+        &self,
+        binding: &crate::content_load::SeedActorModelBinding,
+    ) -> bool {
+        self.exact_route_gate(SPEECH_SYNTHESIS_ENDPOINT, &binding.requested_model_id)
+            .is_ready()
+    }
 }
 
 fn enabled_ai_api_key(api_key: Option<String>, base_url: &str) -> Option<String> {
     api_key.or_else(|| local_ai_base_url(base_url).then(|| "local-ai".to_string()))
+}
+
+fn parse_low_credit_threshold(value: Option<&str>) -> Result<f64, String> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(DEFAULT_LOW_CREDIT_THRESHOLD);
+    };
+    let threshold = value.parse::<f64>().map_err(|_| {
+        format!("{AI_LOW_CREDIT_THRESHOLD_ENV} must be a finite number from 0 through 10000")
+    })?;
+    if !threshold.is_finite() || !(0.0..=10_000.0).contains(&threshold) {
+        return Err(format!(
+            "{AI_LOW_CREDIT_THRESHOLD_ENV} must be a finite number from 0 through 10000"
+        ));
+    }
+    Ok(threshold)
 }
 
 fn require_explicit_production_registry(
@@ -556,10 +670,9 @@ fn validate_ai_routing_configuration(
             })?;
     }
 
-    // A missing explicit registry uses the same synthesized legacy snapshot as
-    // runtime pinning. In production that snapshot has no reviewed data-policy
-    // declaration, so this audit refuses startup instead of booting an AI
-    // configuration whose every request will be privacy rejected.
+    // Audit the same effective snapshot runtime pinning uses. Production still
+    // refuses a registry that leaves a required capability entirely uncovered;
+    // data-policy declarations remain attribution rather than pool coverage.
     let coverage = registry.audit_required_capabilities(data_policy_mode);
     if coverage.is_fatal() {
         return Err(coverage.to_string());
@@ -661,12 +774,19 @@ pub(crate) enum AiFailureKind {
     Unconfigured,
     Registry,
     Capability,
-    Privacy,
     Alias,
     Client,
     Timeout,
     Transport,
-    Provider,
+    ProviderHttp {
+        status: u16,
+        retry_after_secs: Option<u64>,
+    },
+    Readiness {
+        reason_code: &'static str,
+        retry_at_unix: Option<u64>,
+        terminal: bool,
+    },
     InvalidResponse,
 }
 
@@ -676,12 +796,12 @@ impl AiFailureKind {
             Self::Unconfigured => "inference_unconfigured",
             Self::Registry => "inference_registry_error",
             Self::Capability => "inference_capability_mismatch",
-            Self::Privacy => "inference_privacy_rejected",
             Self::Alias => "inference_alias_unresolved",
             Self::Client => "inference_client_error",
             Self::Timeout => "inference_timeout",
             Self::Transport => "inference_transport_error",
-            Self::Provider => "inference_provider_error",
+            Self::ProviderHttp { .. } => "inference_provider_error",
+            Self::Readiness { reason_code, .. } => reason_code,
             Self::InvalidResponse => "inference_invalid_response",
         }
     }
@@ -705,10 +825,18 @@ impl AiGatewayError {
         }
     }
 
+    pub(crate) fn invalid_response(feature: &str) -> Self {
+        Self {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("AI {feature} returned an invalid response"),
+            attempts: 1,
+            latency: Duration::ZERO,
+        }
+    }
+
     fn registry(feature: &str, error: RegistryError) -> Self {
         let kind = match error.code() {
             "inference_capability_mismatch" => AiFailureKind::Capability,
-            "inference_privacy_rejected" => AiFailureKind::Privacy,
             "inference_alias_unresolved" => AiFailureKind::Alias,
             _ => AiFailureKind::Registry,
         };
@@ -717,6 +845,44 @@ impl AiGatewayError {
             message: format!("AI {feature} registry rejected the request: {error}"),
             attempts: 0,
             latency: Duration::ZERO,
+        }
+    }
+
+    pub(crate) fn readiness(feature: &str, gate: AiReadinessGate) -> Self {
+        let reason_code = gate.reason_code().unwrap_or("ai_route_unavailable");
+        Self {
+            kind: AiFailureKind::Readiness {
+                reason_code,
+                retry_at_unix: gate.retry_at_unix(),
+                terminal: gate.is_terminal_block(),
+            },
+            message: format!("AI {feature} exact route is not ready ({reason_code})"),
+            attempts: 0,
+            latency: Duration::ZERO,
+        }
+    }
+
+    fn provider_http(
+        feature: &str,
+        status: reqwest::StatusCode,
+        retry_after: Option<Duration>,
+        detail: Option<&str>,
+        attempts: u8,
+        latency: Duration,
+    ) -> Self {
+        Self {
+            kind: AiFailureKind::ProviderHttp {
+                status: status.as_u16(),
+                retry_after_secs: retry_after.map(|duration| duration.as_secs()),
+            },
+            message: format!(
+                "{feature} provider returned HTTP {status}{}",
+                detail
+                    .map(|detail| format!(": {detail}"))
+                    .unwrap_or_default()
+            ),
+            attempts,
+            latency,
         }
     }
 
@@ -729,9 +895,63 @@ impl AiGatewayError {
             self.kind,
             AiFailureKind::Timeout
                 | AiFailureKind::Transport
-                | AiFailureKind::Provider
+                | AiFailureKind::ProviderHttp { .. }
                 | AiFailureKind::InvalidResponse
         )
+    }
+
+    pub(crate) fn provider_http_status(&self) -> Option<u16> {
+        match self.kind {
+            AiFailureKind::ProviderHttp { status, .. } => Some(status),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn retry_after(&self) -> Option<Duration> {
+        match self.kind {
+            AiFailureKind::ProviderHttp {
+                retry_after_secs: Some(seconds),
+                ..
+            } => Some(Duration::from_secs(seconds)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn retry_at_unix(&self) -> Option<u64> {
+        match self.kind {
+            AiFailureKind::Readiness { retry_at_unix, .. } => retry_at_unix,
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn retry_floor_ms_at(&self, now_unix: u64) -> u64 {
+        if let Some(retry_at_unix) = self.retry_at_unix() {
+            return retry_at_unix.saturating_sub(now_unix).saturating_mul(1_000);
+        }
+        self.retry_after()
+            .map(|delay| delay.as_millis().min(u64::MAX as u128) as u64)
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn terminal_for_model_interaction(&self) -> bool {
+        match self.kind {
+            AiFailureKind::Timeout | AiFailureKind::Transport => false,
+            AiFailureKind::ProviderHttp { status, .. } => {
+                !matches!(status, 408 | 425 | 429 | 500..=599)
+            }
+            AiFailureKind::Readiness { terminal, .. } => terminal,
+            AiFailureKind::Unconfigured
+            | AiFailureKind::Registry
+            | AiFailureKind::Capability
+            | AiFailureKind::Alias
+            | AiFailureKind::Client
+            | AiFailureKind::InvalidResponse => true,
+        }
+    }
+
+    pub(crate) fn retryable_for_model_interaction(&self) -> bool {
+        !self.terminal_for_model_interaction()
     }
 }
 
@@ -761,6 +981,10 @@ pub(crate) struct ChatCompletionRequest<'a> {
     pub(crate) max_attempts: u8,
     pub(crate) referer: &'a str,
     pub(crate) response_format: Option<&'a Value>,
+    /// The canonical shared room associated with this inference. OpenRouter
+    /// receives one stable session id per room; other providers receive no
+    /// provider-specific session field.
+    pub(crate) room_id: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -976,6 +1200,7 @@ pub(crate) async fn request_chat_completion(
         request.max_attempts,
         request.referer,
         request.response_format,
+        request.room_id,
         selection.requested_model_id(),
         if raw_mode {
             selection
@@ -987,7 +1212,7 @@ pub(crate) async fn request_chat_completion(
             config.reasoning_effort.as_deref()
         },
         raw_mode,
-        selection.enforces_zero_data_retention(),
+        selection.sends_openrouter_zdr_constraint(),
         Some(&selection),
     )
     .await
@@ -1011,6 +1236,7 @@ pub(crate) async fn request_chat_completion_with_selection(
         request.max_attempts,
         request.referer,
         request.response_format,
+        request.room_id,
         selection.requested_model_id(),
         if raw_mode {
             selection
@@ -1022,7 +1248,7 @@ pub(crate) async fn request_chat_completion_with_selection(
             config.reasoning_effort.as_deref()
         },
         raw_mode,
-        selection.enforces_zero_data_retention(),
+        selection.sends_openrouter_zdr_constraint(),
         Some(selection),
     )
     .await
@@ -1073,7 +1299,7 @@ pub(crate) async fn request_embeddings_with_binding(
     let (body, attempt) = post_bounded_exact_json(
         config,
         request.feature,
-        "embeddings",
+        EMBEDDINGS_ENDPOINT,
         request.referer,
         &payload,
         request.timeout,
@@ -1247,7 +1473,7 @@ pub(crate) async fn request_rerank_with_binding(
     let (body, attempt) = post_bounded_exact_json(
         config,
         request.feature,
-        "rerank",
+        RERANK_ENDPOINT,
         request.referer,
         &payload,
         request.timeout,
@@ -1398,7 +1624,7 @@ pub(crate) async fn request_speech_synthesis_with_binding(
     let (bytes, generation_id, attempt) = post_bounded_exact_audio(
         config,
         request.feature,
-        "audio/speech",
+        SPEECH_SYNTHESIS_ENDPOINT,
         request.referer,
         &payload,
         request.timeout,
@@ -1474,7 +1700,7 @@ pub(crate) async fn request_transcription_with_binding(
     let (body, attempt) = post_bounded_exact_json(
         config,
         request.feature,
-        "audio/transcriptions",
+        TRANSCRIPTION_ENDPOINT,
         request.referer,
         &payload,
         request.timeout,
@@ -1529,7 +1755,7 @@ pub(crate) async fn request_transcription_with_binding(
 }
 
 fn add_exact_binding_zdr_constraint(payload: &mut Value, selection: &PinnedModelSelection) {
-    if selection.enforces_zero_data_retention() {
+    if selection.sends_openrouter_zdr_constraint() {
         payload["provider"] = json!({
             "data_collection": "deny",
             "zdr": true,
@@ -1613,19 +1839,13 @@ fn exact_endpoint_model_attribution(
             attempts: attempt,
             latency: started_at.elapsed(),
         })?;
-    let requested_model = selection.requested_model_id();
-    let concrete_model = selection
-        .candidate()
-        .concrete_model()
-        .map(|identity| identity.model_id.as_str());
-    if provider_model != requested_model && Some(provider_model) != concrete_model {
-        return Err(AiGatewayError {
-            kind: AiFailureKind::InvalidResponse,
-            message: format!("{feature} provider attributed the response to an unexpected model"),
-            attempts: attempt,
-            latency: started_at.elapsed(),
-        });
-    }
+    // OpenRouter's exact non-chat routes may attribute a successful response
+    // with the serving backend's implementation id rather than either the
+    // requested catalog id or its pinned catalog slug (for example,
+    // `baai/bge-m3` is returned as `parasail-bge-m3`). The authenticated
+    // request body remains pinned to `selection.requested_model_id()`; retain
+    // that requested identity and record the provider's non-empty normalized
+    // value as the resolved identity, just as exact raw Chat already does.
     selection
         .attribute_response(Some(provider_model))
         .map_err(|error| {
@@ -1683,6 +1903,19 @@ async fn post_bounded_exact_json(
     response_limit: usize,
     started_at: &Instant,
 ) -> Result<(Value, u8), AiGatewayError> {
+    let requested_model_id = payload
+        .get("model")
+        .and_then(Value::as_str)
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{feature} exact request did not identify its model"),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let gate = config.exact_route_gate(endpoint, requested_model_id);
+    if !gate.is_ready() {
+        return Err(AiGatewayError::readiness(feature, gate));
+    }
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -1717,6 +1950,9 @@ async fn post_bounded_exact_json(
                     sleep(retry_delay(attempt)).await;
                     continue;
                 }
+                config
+                    .readiness
+                    .record_transport_failure(endpoint, requested_model_id);
                 return Err(AiGatewayError {
                     kind,
                     message: format!("{feature} request failed: {error}"),
@@ -1734,19 +1970,22 @@ async fn post_bounded_exact_json(
                 sleep(retry_delay(attempt)).await;
                 continue;
             }
+            let retry_after = retry_after_from_headers(response.headers());
             let detail = provider_error_detail(response).await;
-            return Err(AiGatewayError {
-                kind: AiFailureKind::Provider,
-                message: format!(
-                    "{feature} provider returned HTTP {status}{}",
-                    detail
-                        .as_deref()
-                        .map(|detail| format!(": {detail}"))
-                        .unwrap_or_default()
-                ),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            });
+            config.readiness.record_http_failure(
+                endpoint,
+                requested_model_id,
+                status.as_u16(),
+                retry_after,
+            );
+            return Err(AiGatewayError::provider_http(
+                feature,
+                status,
+                retry_after,
+                detail.as_deref(),
+                attempt,
+                started_at.elapsed(),
+            ));
         }
         if response
             .content_length()
@@ -1783,6 +2022,9 @@ async fn post_bounded_exact_json(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
+        config
+            .readiness
+            .record_success(endpoint, requested_model_id);
         return Ok((body, attempt));
     }
     unreachable!("the bounded exact-endpoint attempt loop always returns")
@@ -1799,6 +2041,19 @@ async fn post_bounded_exact_audio(
     max_attempts: u8,
     started_at: &Instant,
 ) -> Result<(Vec<u8>, Option<String>, u8), AiGatewayError> {
+    let requested_model_id = payload
+        .get("model")
+        .and_then(Value::as_str)
+        .ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{feature} exact request did not identify its model"),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let gate = config.exact_route_gate(endpoint, requested_model_id);
+    if !gate.is_ready() {
+        return Err(AiGatewayError::readiness(feature, gate));
+    }
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -1833,6 +2088,9 @@ async fn post_bounded_exact_audio(
                     sleep(retry_delay(attempt)).await;
                     continue;
                 }
+                config
+                    .readiness
+                    .record_transport_failure(endpoint, requested_model_id);
                 return Err(AiGatewayError {
                     kind,
                     message: format!("{feature} request failed: {error}"),
@@ -1848,19 +2106,22 @@ async fn post_bounded_exact_audio(
                 sleep(retry_delay(attempt)).await;
                 continue;
             }
+            let retry_after = retry_after_from_headers(response.headers());
             let detail = provider_error_detail(response).await;
-            return Err(AiGatewayError {
-                kind: AiFailureKind::Provider,
-                message: format!(
-                    "{feature} provider returned HTTP {status}{}",
-                    detail
-                        .as_deref()
-                        .map(|detail| format!(": {detail}"))
-                        .unwrap_or_default()
-                ),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            });
+            config.readiness.record_http_failure(
+                endpoint,
+                requested_model_id,
+                status.as_u16(),
+                retry_after,
+            );
+            return Err(AiGatewayError::provider_http(
+                feature,
+                status,
+                retry_after,
+                detail.as_deref(),
+                attempt,
+                started_at.elapsed(),
+            ));
         }
 
         let content_type = response
@@ -1942,12 +2203,31 @@ async fn post_bounded_exact_audio(
                 latency: started_at.elapsed(),
             });
         }
+        config
+            .readiness
+            .record_success(endpoint, requested_model_id);
         return Ok((response_bytes, generation_id, attempt));
     }
     unreachable!("the bounded exact-audio attempt loop always returns")
 }
 
 pub(crate) async fn request_image_generation_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: ImageGenerationRequest<'_>,
+) -> Result<AiGeneratedImage, AiGatewayError> {
+    let result = request_image_generation_with_binding_inner(config, binding, request).await;
+    if result.as_ref().is_err_and(|error| {
+        error.affects_provider_health() && error.provider_http_status().is_none()
+    }) {
+        config
+            .readiness
+            .record_transport_failure(IMAGE_GENERATION_ENDPOINT, &binding.requested_model_id);
+    }
+    result
+}
+
+async fn request_image_generation_with_binding_inner(
     config: &AiConfig,
     binding: &crate::content_load::SeedActorModelBinding,
     request: ImageGenerationRequest<'_>,
@@ -1968,6 +2248,10 @@ pub(crate) async fn request_image_generation_with_binding(
     let selection = config
         .pin_actor_image_model(binding)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let gate = config.exact_route_gate(IMAGE_GENERATION_ENDPOINT, selection.requested_model_id());
+    if !gate.is_ready() {
+        return Err(AiGatewayError::readiness(request.feature, gate));
+    }
     let context_hash = {
         let mut hasher = Sha256::new();
         hasher.update(request.feature.as_bytes());
@@ -2023,6 +2307,10 @@ pub(crate) async fn request_image_generation_with_binding(
                     sleep(retry_delay(attempt)).await;
                     continue;
                 }
+                config.readiness.record_transport_failure(
+                    IMAGE_GENERATION_ENDPOINT,
+                    selection.requested_model_id(),
+                );
                 return Err(AiGatewayError {
                     kind,
                     message: format!("{} request failed: {error}", request.feature),
@@ -2038,20 +2326,22 @@ pub(crate) async fn request_image_generation_with_binding(
                 sleep(retry_delay(attempt)).await;
                 continue;
             }
+            let retry_after = retry_after_from_headers(response.headers());
             let detail = provider_error_detail(response).await;
-            return Err(AiGatewayError {
-                kind: AiFailureKind::Provider,
-                message: format!(
-                    "{} provider returned HTTP {status}{}",
-                    request.feature,
-                    detail
-                        .as_deref()
-                        .map(|detail| format!(": {detail}"))
-                        .unwrap_or_default()
-                ),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            });
+            config.readiness.record_http_failure(
+                IMAGE_GENERATION_ENDPOINT,
+                selection.requested_model_id(),
+                status.as_u16(),
+                retry_after,
+            );
+            return Err(AiGatewayError::provider_http(
+                request.feature,
+                status,
+                retry_after,
+                detail.as_deref(),
+                attempt,
+                started_at.elapsed(),
+            ));
         }
         if response
             .content_length()
@@ -2202,6 +2492,9 @@ pub(crate) async fn request_image_generation_with_binding(
             latency_ms = started_at.elapsed().as_millis() as u64,
             "CosyWorld AI image inference completed"
         );
+        config
+            .readiness
+            .record_success(IMAGE_GENERATION_ENDPOINT, selection.requested_model_id());
         return Ok(AiGeneratedImage {
             bytes,
             content_type,
@@ -2309,6 +2602,7 @@ pub(crate) async fn request_image_policy_decision(
         request.max_attempts,
         request.referer,
         Some(&response_format),
+        None,
         &config.vision_model,
         config.vision_reasoning_effort.as_deref(),
         false,
@@ -2439,6 +2733,7 @@ async fn request_completion(
     max_attempts: u8,
     referer: &str,
     response_format: Option<&Value>,
+    room_id: Option<u64>,
     model: &str,
     reasoning_effort: Option<&str>,
     raw_mode: bool,
@@ -2482,6 +2777,10 @@ async fn request_completion(
                 },
             ));
         }
+    }
+    let gate = config.exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, model);
+    if !gate.is_ready() {
+        return Err(AiGatewayError::readiness(feature, gate));
     }
     let client = reqwest::Client::builder()
         .timeout(timeout)
@@ -2533,10 +2832,11 @@ async fn request_completion(
                 payload["provider"] = json!({ "require_parameters": true });
             }
         }
+        add_openrouter_room_session(config, &mut payload, room_id);
         if let Some(reasoning_effort) = reasoning_effort {
             payload["reasoning"] = json!({ "effort": reasoning_effort });
         }
-        if raw_mode && enforce_zero_data_retention {
+        if enforce_zero_data_retention {
             let mut provider = payload
                 .get("provider")
                 .and_then(Value::as_object)
@@ -2586,6 +2886,9 @@ async fn request_completion(
                         sleep(retry_delay(attempt)).await;
                         continue 'attempts;
                     }
+                    config
+                        .readiness
+                        .record_transport_failure(CHAT_COMPLETIONS_ENDPOINT, model);
                     return Err(AiGatewayError {
                         kind,
                         message: format!("{feature} request failed: {error}"),
@@ -2604,6 +2907,7 @@ async fn request_completion(
                 sleep(retry_delay(attempt)).await;
                 continue 'attempts;
             }
+            let retry_after = retry_after_from_headers(response.headers());
             let detail = provider_error_detail(response).await;
             if raw_mode && !reasoning_compatibility_retried {
                 if let Some(fallback) = reasoning_compatibility_fallback(
@@ -2631,18 +2935,20 @@ async fn request_completion(
                     continue;
                 }
             }
-            return Err(AiGatewayError {
-                kind: AiFailureKind::Provider,
-                message: format!(
-                    "{feature} provider returned HTTP {status}{}",
-                    detail
-                        .as_deref()
-                        .map(|detail| format!(": {detail}"))
-                        .unwrap_or_default()
-                ),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            });
+            config.readiness.record_http_failure(
+                CHAT_COMPLETIONS_ENDPOINT,
+                model,
+                status.as_u16(),
+                retry_after,
+            );
+            return Err(AiGatewayError::provider_http(
+                feature,
+                status,
+                retry_after,
+                detail.as_deref(),
+                attempt,
+                started_at.elapsed(),
+            ));
         };
 
         let body: serde_json::Value = response.json().await.map_err(|error| AiGatewayError {
@@ -2728,6 +3034,9 @@ async fn request_completion(
             completion_tokens = usage.completion_tokens.unwrap_or(0),
             "CosyWorld AI inference completed"
         );
+        config
+            .readiness
+            .record_success(CHAT_COMPLETIONS_ENDPOINT, model);
         return Ok(AiCompletion {
             text,
             attempts: attempt,
@@ -2741,6 +3050,16 @@ async fn request_completion(
     }
 
     unreachable!("the bounded AI attempt loop always returns")
+}
+
+fn add_openrouter_room_session(config: &AiConfig, payload: &mut Value, room_id: Option<u64>) {
+    if ai_provider_name(Some(config)) != "openrouter" {
+        return;
+    }
+    let Some(room_id) = room_id.filter(|room_id| *room_id != 0) else {
+        return;
+    };
+    payload["session_id"] = json!(format!("{OPENROUTER_ROOM_SESSION_PREFIX}{room_id}"));
 }
 
 async fn provider_error_detail(response: reqwest::Response) -> Option<String> {
@@ -2772,6 +3091,161 @@ async fn provider_error_detail(response: reqwest::Response) -> Option<String> {
     } else {
         Some(summary)
     }
+}
+
+fn retry_after_from_headers(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
+    headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .map(Duration::from_secs)
+}
+
+pub(crate) async fn probe_openrouter_account(
+    config: &AiConfig,
+) -> Result<AiReadinessSnapshot, AiGatewayError> {
+    const FEATURE: &str = "ai_account_probe";
+
+    let started_at = Instant::now();
+    let client = reqwest::Client::builder()
+        .timeout(OPENROUTER_KEY_PROBE_TIMEOUT)
+        .build()
+        .map_err(|error| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("OpenRouter account probe client setup failed: {error}"),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let url = format!("{}/{}", config.base_url, OPENROUTER_CURRENT_KEY_ENDPOINT);
+    let mut response = client
+        .get(url)
+        .bearer_auth(&config.api_key)
+        .header("HTTP-Referer", "https://cosy.world/")
+        .header("X-OpenRouter-Title", "CosyWorld v2")
+        .header("X-Title", "CosyWorld v2")
+        .send()
+        .await
+        .map_err(|error| AiGatewayError {
+            kind: if error.is_timeout() {
+                AiFailureKind::Timeout
+            } else {
+                AiFailureKind::Transport
+            },
+            message: format!("OpenRouter account probe failed: {error}"),
+            attempts: 1,
+            latency: started_at.elapsed(),
+        })?;
+    let status = response.status();
+    if !status.is_success() {
+        let retry_after = retry_after_from_headers(response.headers());
+        config.readiness.record_probe_http_failure(status.as_u16());
+        return Err(AiGatewayError::provider_http(
+            FEATURE,
+            status,
+            retry_after,
+            None,
+            1,
+            started_at.elapsed(),
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > OPENROUTER_KEY_RESPONSE_MAX_BYTES as u64)
+    {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: "OpenRouter account probe response exceeded its byte limit".to_string(),
+            attempts: 1,
+            latency: started_at.elapsed(),
+        });
+    }
+    let mut response_bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| AiGatewayError {
+        kind: AiFailureKind::InvalidResponse,
+        message: format!("OpenRouter account probe response could not be read: {error}"),
+        attempts: 1,
+        latency: started_at.elapsed(),
+    })? {
+        if response_bytes.len().saturating_add(chunk.len()) > OPENROUTER_KEY_RESPONSE_MAX_BYTES {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: "OpenRouter account probe response exceeded its byte limit".to_string(),
+                attempts: 1,
+                latency: started_at.elapsed(),
+            });
+        }
+        response_bytes.extend_from_slice(&chunk);
+    }
+    let body =
+        serde_json::from_slice::<Value>(&response_bytes).map_err(|error| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("OpenRouter account probe response was not valid JSON: {error}"),
+            attempts: 1,
+            latency: started_at.elapsed(),
+        })?;
+    let limit_remaining = body
+        .pointer("/data/limit_remaining")
+        .and_then(Value::as_f64);
+    if limit_remaining.is_some_and(|remaining| remaining <= 0.0) {
+        config.readiness.record_probe_credits_exhausted();
+        let gate = config.exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, &config.model);
+        let mut error = AiGatewayError::readiness(FEATURE, gate);
+        error.attempts = 1;
+        error.latency = started_at.elapsed();
+        return Err(error);
+    }
+    config.readiness.record_probe_result(limit_remaining);
+    Ok(config.readiness_snapshot())
+}
+
+pub(crate) fn start_ai_readiness_scheduler(
+    config: Option<AiConfig>,
+) -> Option<tokio::task::JoinHandle<()>> {
+    let config = config.filter(|config| ai_provider_name(Some(config)) == "openrouter")?;
+    let process_id = std::env::var("COSYWORLD_PROCESS_ID")
+        .ok()
+        .map(|value| {
+            value
+                .trim()
+                .chars()
+                .filter(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+                })
+                .take(80)
+                .collect::<String>()
+        })
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "unknown".to_string());
+    Some(tokio::spawn(async move {
+        loop {
+            match probe_openrouter_account(&config).await {
+                Ok(snapshot) => {
+                    tracing::info!(
+                        event = "ai_account_probe",
+                        process_id = %process_id,
+                        status = snapshot.status,
+                        reason_code = snapshot.reason_code.unwrap_or("ready"),
+                        blocked_route_count = snapshot.blocked_route_count,
+                        next_probe_after_secs = snapshot.next_probe_after_secs,
+                        "AI provider account probe completed"
+                    );
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        event = "ai_account_probe",
+                        process_id = %process_id,
+                        status = "failed",
+                        reason_code = error.code(),
+                        http_status = error.provider_http_status().unwrap_or(0),
+                        attempts = error.attempts,
+                        latency_ms = error.latency.as_millis() as u64,
+                        "AI provider account probe failed"
+                    );
+                }
+            }
+            sleep(config.recommended_readiness_probe_delay()).await;
+        }
+    }))
 }
 
 fn retry_delay(attempt: u8) -> Duration {
@@ -3205,7 +3679,12 @@ mod tests {
     use super::registry::DataPolicyEligibility;
     use super::*;
     use crate::RuntimeWorld;
-    use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+    use axum::{
+        http::StatusCode,
+        response::IntoResponse,
+        routing::{get, post},
+        Json, Router,
+    };
     use base64::Engine;
     use std::sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -3406,6 +3885,7 @@ mod tests {
                 max_attempts: 1,
                 referer: "http://127.0.0.1",
                 response_format: None,
+                room_id: None,
             },
             &selection,
         )
@@ -3614,7 +4094,7 @@ mod tests {
                 async move {
                     *captured.lock().expect("capture embedding request") = Some(body);
                     Json(json!({
-                        "model": "baai/bge-base-en-v1.5-20251117",
+                        "model": "parasail-bge-base-en-v1.5",
                         "data": [
                             { "index": 1, "embedding": [0.3, 0.4] },
                             { "index": 0, "embedding": [0.1, 0.2] }
@@ -3681,7 +4161,7 @@ mod tests {
         );
         assert_eq!(
             embedded.model_attribution.resolved_model_id,
-            "baai/bge-base-en-v1.5-20251117"
+            "parasail-bge-base-en-v1.5"
         );
         server.abort();
     }
@@ -4178,35 +4658,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn transcription_rejects_empty_transcript_and_mismatched_model_attribution() {
-        let empty_audio = BASE64_STANDARD.encode(b"empty");
+    async fn transcription_rejects_empty_transcript() {
         let app = Router::new().route(
             "/audio/transcriptions",
-            post(move |Json(body): Json<Value>| {
-                let empty_audio = empty_audio.clone();
-                async move {
-                    if body.pointer("/input_audio/data").and_then(Value::as_str)
-                        == Some(empty_audio.as_str())
-                    {
-                        Json(json!({
-                            "model": "openai/gpt-4o-mini-transcribe-20260731",
-                            "text": "  "
-                        }))
-                    } else {
-                        Json(json!({
-                            "model": "other/provider-model",
-                            "text": "attribution mismatched"
-                        }))
-                    }
-                }
+            post(|| async {
+                Json(json!({
+                    "model": "openai/gpt-4o-mini-transcribe-20260731",
+                    "text": "  "
+                }))
             }),
         );
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
-            .expect("bind invalid transcription gateway test server");
+            .expect("bind empty transcription gateway test server");
         let address = listener
             .local_addr()
-            .expect("invalid transcription gateway test address");
+            .expect("empty transcription gateway test address");
         let server = tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
         });
@@ -4216,25 +4683,100 @@ mod tests {
             data_policy_mode: DataPolicyMode::Development,
             ..AiConfig::default()
         };
-        for audio in [&b"empty"[..], &b"mismatched-model"[..]] {
-            let error = request_transcription_with_binding(
-                &config,
-                &transcription_actor_model_binding(true),
-                TranscriptionRequest {
-                    feature: "transcription_invalid_test",
-                    prompt_version: "transcription-invalid-test-v1",
-                    input_audio: audio,
-                    input_audio_format: TranscriptionAudioFormat::Mp3,
-                    timeout: Duration::from_secs(2),
-                    max_attempts: 1,
-                    referer: "http://127.0.0.1",
-                },
-            )
+        let error = request_transcription_with_binding(
+            &config,
+            &transcription_actor_model_binding(true),
+            TranscriptionRequest {
+                feature: "transcription_empty_test",
+                prompt_version: "transcription-empty-test-v1",
+                input_audio: b"empty",
+                input_audio_format: TranscriptionAudioFormat::Mp3,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect_err("empty transcription response must fail closed");
+        assert_eq!(error.code(), "inference_invalid_response");
+        assert_eq!(error.attempts, 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn transcription_accepts_backend_model_attribution_without_unpinning_request() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/audio/transcriptions",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture transcription request") = Some(body);
+                    Json(json!({
+                        "model": "other/provider-model",
+                        "text": "Backend attribution is truthful."
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
             .await
-            .expect_err("malformed transcription response must fail closed");
-            assert_eq!(error.code(), "inference_invalid_response");
-            assert_eq!(error.attempts, 1);
-        }
+            .expect("bind backend attribution transcription test server");
+        let address = listener
+            .local_addr()
+            .expect("backend attribution transcription test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let audio = b"server-authored audio fixture";
+
+        let transcription = request_transcription_with_binding(
+            &config,
+            &transcription_actor_model_binding(true),
+            TranscriptionRequest {
+                feature: "transcription_backend_attribution_test",
+                prompt_version: "transcription-backend-attribution-test-v1",
+                input_audio: audio,
+                input_audio_format: TranscriptionAudioFormat::Mp3,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect("a non-empty provider backend model is valid attribution");
+
+        let body = request_body
+            .lock()
+            .expect("read transcription request")
+            .clone()
+            .expect("transcription request captured");
+        assert_eq!(body["model"], "openai/gpt-4o-mini-transcribe");
+        assert_eq!(
+            body["input_audio"]["data"],
+            Value::String(BASE64_STANDARD.encode(audio))
+        );
+        assert_eq!(body["input_audio"]["format"], "mp3");
+        assert_eq!(body["provider"]["data_collection"], "deny");
+        assert_eq!(body["provider"]["zdr"], true);
+        assert_eq!(
+            transcription.model_attribution.requested_model_id,
+            "openai/gpt-4o-mini-transcribe"
+        );
+        assert_eq!(
+            transcription.model_attribution.resolved_model_id,
+            "other/provider-model"
+        );
+        assert_eq!(transcription.text, "Backend attribution is truthful.");
         server.abort();
     }
 
@@ -4346,6 +4888,37 @@ mod tests {
     }
 
     #[test]
+    fn openrouter_room_sessions_are_stable_provider_scoped_and_room_specific() {
+        let openrouter = AiConfig {
+            base_url: "https://openrouter.ai/api/v1".to_string(),
+            ..AiConfig::default()
+        };
+        let mut first = json!({});
+        let mut repeated = json!({});
+        let mut other_room = json!({});
+        add_openrouter_room_session(&openrouter, &mut first, Some(71));
+        add_openrouter_room_session(&openrouter, &mut repeated, Some(71));
+        add_openrouter_room_session(&openrouter, &mut other_room, Some(72));
+
+        assert_eq!(first["session_id"], "cosyworld-room-71");
+        assert_eq!(repeated["session_id"], first["session_id"]);
+        assert_eq!(other_room["session_id"], "cosyworld-room-72");
+
+        let openai = AiConfig {
+            base_url: "https://api.openai.com/v1".to_string(),
+            ..AiConfig::default()
+        };
+        let mut non_openrouter = json!({});
+        add_openrouter_room_session(&openai, &mut non_openrouter, Some(71));
+        assert!(non_openrouter.get("session_id").is_none());
+
+        let mut no_room = json!({});
+        add_openrouter_room_session(&openrouter, &mut no_room, None);
+        add_openrouter_room_session(&openrouter, &mut no_room, Some(0));
+        assert!(no_room.get("session_id").is_none());
+    }
+
+    #[test]
     fn enabled_production_ai_requires_an_explicit_registry() {
         let error = require_explicit_production_registry(None, DataPolicyMode::Production)
             .expect_err("production AI without a reviewed registry must not boot");
@@ -4391,9 +4964,9 @@ mod tests {
                   "capabilities": ["voice"]
                 },
                 {
-                  "requested_model_id": "provider/unsafe-planner",
+                  "requested_model_id": "provider/non-zdr-planner",
                   "provider": "test-provider",
-                  "concrete_model": {"model_id": "provider/unsafe-planner", "revision": "r1"},
+                  "concrete_model": {"model_id": "provider/non-zdr-planner", "revision": "r1"},
                   "input_modalities": ["text"],
                   "output_modalities": ["text"],
                   "supported_parameters": {"json_mode": true},
@@ -4423,7 +4996,7 @@ mod tests {
     }
 
     #[test]
-    fn startup_rejects_capability_mismatched_and_privacy_ineligible_overrides() {
+    fn startup_rejects_capability_mismatch_but_accepts_non_zdr_override() {
         let registry = startup_validation_registry();
         let mismatch = validate_ai_routing_configuration(
             &registry,
@@ -4441,18 +5014,15 @@ mod tests {
             "{mismatch}"
         );
 
-        let privacy = validate_ai_routing_configuration(
+        validate_ai_routing_configuration(
             &registry,
             &BTreeMap::from([(
                 ModelCapability::IntentJson,
-                "provider/unsafe-planner".to_string(),
+                "provider/non-zdr-planner".to_string(),
             )]),
             DataPolicyMode::Production,
         )
-        .expect_err("production must reject an unsafe planner override");
-        assert!(privacy.contains("intent_json"), "{privacy}");
-        assert!(privacy.contains("\"provider/unsafe-planner\""), "{privacy}");
-        assert!(privacy.contains("inference_privacy_rejected"), "{privacy}");
+        .expect("server-authored planner input may use a non-ZDR route");
     }
 
     #[test]
@@ -4476,7 +5046,7 @@ mod tests {
     }
 
     #[test]
-    fn production_audits_the_same_legacy_fallback_used_by_runtime_pinning() {
+    fn production_capability_audit_does_not_treat_unknown_policy_as_a_gap() {
         let fallback = CapabilityRegistrySnapshot::legacy(
             "legacy-config-v1",
             "openrouter",
@@ -4484,18 +5054,8 @@ mod tests {
         )
         .expect("legacy registry");
 
-        let error = validate_ai_routing_configuration(
-            &fallback,
-            &BTreeMap::new(),
-            DataPolicyMode::Production,
-        )
-        .expect_err("unreviewed legacy policy must stop production startup");
-        assert!(error.contains("\"legacy-config-v1\""), "{error}");
-        assert!(error.contains("privacy rejected"), "{error}");
-        assert!(
-            error.contains("Startup is refused because COSYWORLD_DEPLOY_PROFILE=production"),
-            "{error}"
-        );
+        validate_ai_routing_configuration(&fallback, &BTreeMap::new(), DataPolicyMode::Production)
+            .expect("unknown policy remains metadata for server-authored input");
 
         validate_ai_routing_configuration(&fallback, &BTreeMap::new(), DataPolicyMode::Development)
             .expect("legacy local development stays compatible");
@@ -4517,6 +5077,92 @@ mod tests {
             .code(),
             "inference_invalid_response"
         );
+    }
+
+    #[test]
+    fn actor_job_failure_classification_separates_permanent_and_transient_outages() {
+        for status in [
+            reqwest::StatusCode::REQUEST_TIMEOUT,
+            reqwest::StatusCode::TOO_EARLY,
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            reqwest::StatusCode::BAD_GATEWAY,
+            reqwest::StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let error =
+                AiGatewayError::provider_http("test", status, None, None, 1, Duration::ZERO);
+            assert!(error.retryable_for_model_interaction(), "{status}");
+            assert!(!error.terminal_for_model_interaction(), "{status}");
+        }
+        for status in [
+            reqwest::StatusCode::BAD_REQUEST,
+            reqwest::StatusCode::UNAUTHORIZED,
+            reqwest::StatusCode::PAYMENT_REQUIRED,
+            reqwest::StatusCode::NOT_FOUND,
+        ] {
+            let error =
+                AiGatewayError::provider_http("test", status, None, None, 1, Duration::ZERO);
+            assert!(error.terminal_for_model_interaction(), "{status}");
+            assert!(!error.retryable_for_model_interaction(), "{status}");
+        }
+
+        for kind in [AiFailureKind::Timeout, AiFailureKind::Transport] {
+            let error = AiGatewayError {
+                kind,
+                message: "transient".to_string(),
+                attempts: 1,
+                latency: Duration::ZERO,
+            };
+            assert!(error.retryable_for_model_interaction());
+        }
+
+        let probing = AiReadiness::probing_with_low_credit_threshold(5.0);
+        let probing_error = AiGatewayError::readiness(
+            "test",
+            probing.gate(CHAT_COMPLETIONS_ENDPOINT, "provider/model"),
+        );
+        assert!(probing_error.retryable_for_model_interaction());
+
+        probing.record_http_failure(CHAT_COMPLETIONS_ENDPOINT, "provider/model", 401, None);
+        let unauthorized = AiGatewayError::readiness(
+            "test",
+            probing.gate(CHAT_COMPLETIONS_ENDPOINT, "provider/model"),
+        );
+        assert!(unauthorized.terminal_for_model_interaction());
+
+        let exact_route = AiReadiness::default();
+        exact_route.record_http_failure(CHAT_COMPLETIONS_ENDPOINT, "provider/model", 404, None);
+        let incompatible = AiGatewayError::readiness(
+            "test",
+            exact_route.gate(CHAT_COMPLETIONS_ENDPOINT, "provider/model"),
+        );
+        assert!(incompatible.terminal_for_model_interaction());
+    }
+
+    #[test]
+    fn actor_job_retry_floor_preserves_provider_delay() {
+        let retry_after = AiGatewayError::provider_http(
+            "test",
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            Some(Duration::from_secs(17)),
+            None,
+            1,
+            Duration::ZERO,
+        );
+        assert_eq!(retry_after.retry_floor_ms_at(0), 17_000);
+
+        let readiness = AiReadiness::default();
+        readiness.record_http_failure(
+            EMBEDDINGS_ENDPOINT,
+            "provider/model",
+            429,
+            Some(Duration::from_secs(10)),
+        );
+        let blocked = AiGatewayError::readiness(
+            "test",
+            readiness.gate(EMBEDDINGS_ENDPOINT, "provider/model"),
+        );
+        let retry_at = blocked.retry_at_unix().expect("route retry deadline");
+        assert_eq!(blocked.retry_floor_ms_at(retry_at.saturating_sub(2)), 2_000);
     }
 
     #[test]
@@ -4638,6 +5284,7 @@ mod tests {
                 max_attempts: 2,
                 referer: "http://127.0.0.1",
                 response_format: Some(&response_format),
+                room_id: None,
             },
         )
         .await
@@ -4729,6 +5376,7 @@ mod tests {
                 max_attempts: 1,
                 referer: "http://127.0.0.1",
                 response_format: None,
+                room_id: None,
             },
         )
         .await
@@ -4871,6 +5519,7 @@ mod tests {
                 max_attempts: 4,
                 referer: "http://127.0.0.1",
                 response_format: None,
+                room_id: None,
             },
             &selection,
         )
@@ -4926,18 +5575,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn production_privacy_rejection_happens_before_network_io() {
-        let request_seen = Arc::new(AtomicBool::new(false));
+    async fn production_non_zdr_global_request_reaches_provider_without_privacy_constraints() {
+        let request_shape_seen = Arc::new(AtomicBool::new(false));
         let app = Router::new().route(
             "/chat/completions",
             post({
-                let request_seen = request_seen.clone();
-                move || {
-                    let request_seen = request_seen.clone();
+                let request_shape_seen = request_shape_seen.clone();
+                move |Json(body): Json<Value>| {
+                    let request_shape_seen = request_shape_seen.clone();
                     async move {
-                        request_seen.store(true, Ordering::SeqCst);
+                        request_shape_seen.store(
+                            body.get("provider").is_none()
+                                && body.pointer("/messages/0/content").and_then(Value::as_str)
+                                    == Some("server-authored system")
+                                && body.pointer("/messages/1/content").and_then(Value::as_str)
+                                    == Some("server-authored world event"),
+                            Ordering::SeqCst,
+                        );
                         Json(json!({
-                            "choices": [{ "message": { "content": "must not run" } }]
+                            "choices": [{ "message": { "content": "The world answers." } }]
                         }))
                     }
                 }
@@ -4975,28 +5631,125 @@ mod tests {
             ..AiConfig::default()
         };
 
-        let error = request_chat_completion(
+        let completion = request_chat_completion(
             &config,
             ChatCompletionRequest {
-                feature: "privacy_test",
-                prompt_version: "privacy-test-v1",
+                feature: "non_zdr_global_test",
+                prompt_version: "non-zdr-global-test-v1",
                 capability: ModelCapability::Voice,
-                system: "private system",
-                user: "private prompt",
+                system: "server-authored system",
+                user: "server-authored world event",
                 temperature: 0.0,
                 max_tokens: 20,
                 timeout: Duration::from_secs(2),
                 max_attempts: 1,
                 referer: "http://127.0.0.1",
                 response_format: None,
+                room_id: None,
             },
         )
         .await
-        .expect_err("unknown production policy must fail closed");
+        .expect("unknown production policy does not block server-authored input");
 
-        assert_eq!(error.code(), "inference_privacy_rejected");
-        assert_eq!(error.attempts, 0);
-        assert!(!request_seen.load(Ordering::SeqCst));
+        assert!(request_shape_seen.load(Ordering::SeqCst));
+        assert_eq!(
+            completion
+                .model_attribution
+                .expect("non-ZDR global attribution")
+                .data_policy,
+            DataPolicyEligibility::default()
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn production_zdr_global_request_sends_truthful_openrouter_constraints() {
+        let request_shape_seen = Arc::new(AtomicBool::new(false));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_shape_seen = request_shape_seen.clone();
+                move |Json(body): Json<Value>| {
+                    let request_shape_seen = request_shape_seen.clone();
+                    async move {
+                        request_shape_seen.store(
+                            body.pointer("/provider/data_collection")
+                                .and_then(Value::as_str)
+                                == Some("deny")
+                                && body.pointer("/provider/zdr").and_then(Value::as_bool)
+                                    == Some(true)
+                                && body["messages"].as_array().map(Vec::len) == Some(2),
+                            Ordering::SeqCst,
+                        );
+                        Json(json!({
+                            "model": "provider/zdr-global",
+                            "choices": [{ "message": { "content": "The world answers." } }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind ZDR gateway test server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "zdr-global-1",
+              "declared": [{
+                "requested_model_id": "provider/zdr-global",
+                "provider": "openrouter",
+                "concrete_model": {"model_id": "provider/zdr-global"},
+                "input_modalities": ["text"],
+                "output_modalities": ["text"],
+                "data_policy": {"retention": "none", "training": "prohibited"},
+                "capabilities": ["voice"]
+              }]
+            }"#,
+        )
+        .expect("valid ZDR registry");
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "provider/zdr-global".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            registry: Some(Arc::new(registry)),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+
+        let completion = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "zdr_global_test",
+                prompt_version: "zdr-global-test-v1",
+                capability: ModelCapability::Voice,
+                system: "server-authored system",
+                user: "server-authored world event",
+                temperature: 0.0,
+                max_tokens: 20,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+                room_id: None,
+            },
+        )
+        .await
+        .expect("ZDR global request succeeds");
+
+        assert!(request_shape_seen.load(Ordering::SeqCst));
+        assert_ne!(
+            completion
+                .model_attribution
+                .expect("ZDR global attribution")
+                .data_policy,
+            DataPolicyEligibility::default()
+        );
         server.abort();
     }
 
@@ -5134,6 +5887,178 @@ mod tests {
         server.abort();
     }
 
+    #[tokio::test]
+    async fn unauthorized_exact_request_is_single_call_and_blocks_the_account() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed_requests = Arc::clone(&requests);
+        let app = Router::new().route(
+            "/embeddings",
+            post(move || {
+                let observed_requests = Arc::clone(&observed_requests);
+                async move {
+                    observed_requests.fetch_add(1, Ordering::SeqCst);
+                    (
+                        StatusCode::UNAUTHORIZED,
+                        Json(json!({ "error": { "message": "invalid credential" } })),
+                    )
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind readiness authorization server");
+        let address = listener.local_addr().expect("readiness test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let inputs = vec!["one passage".to_string()];
+        let binding = embedding_actor_model_binding(false);
+        let request = || {
+            request_embeddings_with_binding(
+                &config,
+                &binding,
+                EmbeddingRequest {
+                    feature: "embedding_readiness_unauthorized",
+                    prompt_version: "embedding-readiness-v1",
+                    inputs: &inputs,
+                    timeout: Duration::from_secs(2),
+                    max_attempts: 4,
+                    referer: "http://127.0.0.1",
+                },
+            )
+        };
+
+        let first = request().await.expect_err("401 must fail closed");
+        assert_eq!(first.provider_http_status(), Some(401));
+        assert_eq!(first.attempts, 1);
+        let second = request()
+            .await
+            .expect_err("open account circuit must reject before I/O");
+        assert_eq!(second.code(), crate::ai_readiness::AI_ACCOUNT_UNAUTHORIZED);
+        assert_eq!(second.attempts, 0);
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        assert!(!config.global_chat_route_is_ready());
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn retry_after_opens_only_the_failed_exact_route() {
+        let app = Router::new().route(
+            "/embeddings",
+            post(|| async {
+                (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [("retry-after", "7")],
+                    Json(json!({ "error": { "message": "slow down" } })),
+                )
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind readiness rate-limit server");
+        let address = listener.local_addr().expect("readiness test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let binding = embedding_actor_model_binding(false);
+        let inputs = vec!["one passage".to_string()];
+        let error = request_embeddings_with_binding(
+            &config,
+            &binding,
+            EmbeddingRequest {
+                feature: "embedding_readiness_rate_limit",
+                prompt_version: "embedding-readiness-v1",
+                inputs: &inputs,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect_err("429 must open a route cooldown");
+
+        assert_eq!(error.provider_http_status(), Some(429));
+        assert_eq!(error.retry_after(), Some(Duration::from_secs(7)));
+        assert!(!config.actor_embedding_route_is_ready(&binding));
+        assert!(config.actor_rerank_route_is_ready(&rerank_actor_model_binding(false)));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn current_key_probe_blocks_exhausted_credit_and_recovers_without_leaking_balance() {
+        let remaining_millis = Arc::new(AtomicUsize::new(0));
+        let observed_remaining = Arc::clone(&remaining_millis);
+        let app = Router::new().route(
+            "/key",
+            get(move || {
+                let observed_remaining = Arc::clone(&observed_remaining);
+                async move {
+                    Json(json!({
+                        "data": {
+                            "limit_remaining": observed_remaining.load(Ordering::SeqCst) as f64 / 1_000.0
+                        }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind current-key probe server");
+        let address = listener.local_addr().expect("probe test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "provider/chat".to_string(),
+            ..AiConfig::default()
+        };
+
+        let error = probe_openrouter_account(&config)
+            .await
+            .expect_err("zero remaining credit must fail readiness");
+        assert_eq!(error.code(), crate::ai_readiness::AI_CREDITS_EXHAUSTED);
+        assert_eq!(error.attempts, 1);
+        assert_eq!(config.readiness_snapshot().status, "degraded");
+        remaining_millis.store(2_500, Ordering::SeqCst);
+        let warning = probe_openrouter_account(&config)
+            .await
+            .expect("low positive credit remains usable");
+        assert_eq!(warning.status, "degraded");
+        assert_eq!(
+            warning.reason_code,
+            Some(crate::ai_readiness::AI_CREDITS_LOW)
+        );
+        assert!(config.global_chat_route_is_ready());
+        let public_warning = serde_json::to_string(&warning).expect("serialize safe readiness");
+        assert!(!public_warning.contains("2.5"));
+        assert!(!public_warning.contains("balance"));
+        assert!(!public_warning.contains("remaining"));
+        assert!(!public_warning.contains("threshold"));
+
+        remaining_millis.store(12_500, Ordering::SeqCst);
+        let recovered = probe_openrouter_account(&config)
+            .await
+            .expect("positive remaining credit recovers the account");
+        assert_eq!(recovered.status, "ready");
+        assert_eq!(recovered.reason_code, None);
+        assert_eq!(recovered.next_probe_after_secs, 300);
+        server.abort();
+    }
+
     #[test]
     fn image_policy_summary_is_bounded_by_utf8_bytes() {
         let decision = parse_image_policy_decision(
@@ -5148,6 +6073,28 @@ mod tests {
 
         assert!(decision.summary.len() <= MEDIA_VISUAL_VERDICT_SUMMARY_LIMIT);
         assert!(decision.summary.is_char_boundary(decision.summary.len()));
+    }
+
+    #[test]
+    fn low_credit_threshold_is_bounded_and_invalid_values_fail_closed() {
+        assert_eq!(
+            parse_low_credit_threshold(None).expect("documented default"),
+            DEFAULT_LOW_CREDIT_THRESHOLD
+        );
+        assert_eq!(
+            parse_low_credit_threshold(Some("0")).expect("zero disables the warning"),
+            0.0
+        );
+        assert_eq!(
+            parse_low_credit_threshold(Some("12.5")).expect("bounded threshold"),
+            12.5
+        );
+        for invalid in ["-1", "10001", "NaN", "infinite", "credits"] {
+            assert!(
+                parse_low_credit_threshold(Some(invalid)).is_err(),
+                "{invalid}"
+            );
+        }
     }
 
     #[test]

@@ -9,6 +9,89 @@ pub(super) struct CommittedOrbChatLine {
     pub(super) content: String,
 }
 
+pub(super) const MAX_CHAT_FLOOR_ROUNDS: u8 = 3;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct ChatFloorPresentation {
+    pub(super) schema_version: u8,
+    pub(super) round: u8,
+    pub(super) seat: usize,
+    pub(super) seats: usize,
+    pub(super) decision: String,
+}
+
+impl ChatFloorPresentation {
+    pub(super) fn new(round: u8, seat: usize, seats: usize, decision: &str) -> Self {
+        Self {
+            schema_version: 1,
+            round,
+            seat,
+            seats,
+            decision: decision.to_string(),
+        }
+    }
+
+    pub(super) fn content(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct CommittedChatFloorDecision {
+    pub(super) seq: u64,
+    pub(super) speaker_actor_id: u64,
+    pub(super) round: u8,
+    pub(super) seat: usize,
+    pub(super) decision: String,
+}
+
+impl RuntimeWorld {
+    pub(super) fn room_chat_initiative_order(
+        &self,
+        location_id: u64,
+        initiator_actor_id: u64,
+    ) -> Vec<u64> {
+        let location = location_id.to_string();
+        let initiator = initiator_actor_id.to_string();
+        let event_seed = self.world.next_event_seq.to_string();
+        let mut initiative = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| {
+                actor.id != initiator_actor_id
+                    && actor.location_id == location_id
+                    && Self::actor_can_act(*actor)
+                    && self.actor_uses_inference(actor.id)
+                    && resident_supports_text_reply(actor.id)
+                    && !self.actors_blocked(initiator_actor_id, actor.id)
+                    && !self.actor_muted(initiator_actor_id, actor.id)
+            })
+            .map(|actor| {
+                let actor_id = actor.id.to_string();
+                let roll = 1
+                    + (stable_hash_u64(&[
+                        "room-chat-initiative-v1",
+                        &location,
+                        &initiator,
+                        &actor_id,
+                        &event_seed,
+                    ]) % 20) as i16;
+                let score = roll.saturating_add(ability_score_modifier(actor.stats.dexterity));
+                (actor.id, score)
+            })
+            .collect::<Vec<_>>();
+        initiative.sort_by(|(left_id, left_score), (right_id, right_score)| {
+            right_score
+                .cmp(left_score)
+                .then_with(|| left_id.cmp(right_id))
+        });
+        initiative
+            .into_iter()
+            .map(|(actor_id, _)| actor_id)
+            .collect()
+    }
+}
+
 pub(super) fn orb_chat_attempt_stage(stage: &str, attempt: u32) -> String {
     format!("{stage}:attempt:{}", attempt.max(1))
 }
@@ -40,14 +123,21 @@ pub(super) fn committed_orb_chat_lines(
     queue_event_id: Option<u64>,
     source_world_tick: Option<u64>,
     observed_through_seq: Option<u64>,
+    initiative_order: &[u64],
 ) -> Result<Vec<CommittedOrbChatLine>, String> {
+    let allowed_speakers = std::iter::once(actor_id)
+        .chain(std::iter::once(target_actor_id))
+        .chain(initiative_order.iter().copied())
+        .collect::<BTreeSet<_>>();
     let mut lines = runtime
         .event_log
         .iter()
         .filter(|event| {
             event.type_name == "message.created"
                 && event.success
-                && matches!(event.actor_id, Some(id) if id == actor_id || id == target_actor_id)
+                && event
+                    .actor_id
+                    .is_some_and(|speaker_actor_id| allowed_speakers.contains(&speaker_actor_id))
                 && orb_chat_event_matches_job(
                     event,
                     queue_event_id,
@@ -65,18 +155,102 @@ pub(super) fn committed_orb_chat_lines(
         })
         .collect::<Vec<_>>();
     lines.sort_by_key(|line| line.seq);
-    let expected_speakers = [actor_id, target_actor_id, actor_id, target_actor_id];
-    if lines.len() > expected_speakers.len()
+    let max_lines = 2usize.saturating_add(
+        initiative_order
+            .len()
+            .saturating_mul(usize::from(MAX_CHAT_FLOOR_ROUNDS)),
+    );
+    if lines.len() > max_lines
+        || lines
+            .first()
+            .is_some_and(|line| line.speaker_actor_id != actor_id)
+        || lines
+            .get(1)
+            .is_some_and(|line| line.speaker_actor_id != target_actor_id)
         || lines
             .iter()
-            .zip(expected_speakers)
-            .any(|(line, expected)| line.speaker_actor_id != expected)
+            .skip(2)
+            .any(|line| !initiative_order.contains(&line.speaker_actor_id))
     {
         return Err("the durable Chat transcript has an invalid turn sequence".to_string());
     }
     Ok(lines)
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(super) fn committed_chat_floor_decisions(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    target_actor_id: u64,
+    location_id: u64,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    initiative_order: &[u64],
+) -> Result<Vec<CommittedChatFloorDecision>, String> {
+    let mut decisions = runtime
+        .event_log
+        .iter()
+        .filter(|event| {
+            matches!(event.type_name.as_str(), "chat.spoke" | "chat.passed")
+                && event.success
+                && orb_chat_event_matches_job(
+                    event,
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                    location_id,
+                )
+        })
+        .map(|event| {
+            let presentation = event
+                .content
+                .as_deref()
+                .and_then(|content| serde_json::from_str::<ChatFloorPresentation>(content).ok())
+                .filter(|presentation| presentation.schema_version == 1)
+                .ok_or_else(|| {
+                    "the durable Chat floor has an invalid decision marker".to_string()
+                })?;
+            if presentation.round == 0
+                || presentation.round > MAX_CHAT_FLOOR_ROUNDS
+                || presentation.seats != initiative_order.len()
+                || presentation.seat >= initiative_order.len()
+                || initiative_order[presentation.seat] != event.actor_id.unwrap_or_default()
+            {
+                return Err("the durable Chat floor has an invalid initiative seat".to_string());
+            }
+            let decision = match event.type_name.as_str() {
+                "chat.spoke" if presentation.decision == "chat" => "chat",
+                "chat.passed" if presentation.decision == "pass" => "pass",
+                _ => {
+                    return Err(
+                        "the durable Chat floor marker disagrees with its decision".to_string()
+                    )
+                }
+            };
+            Ok(CommittedChatFloorDecision {
+                seq: event.seq,
+                speaker_actor_id: event.actor_id.unwrap_or_default(),
+                round: presentation.round,
+                seat: presentation.seat,
+                decision: decision.to_string(),
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    decisions.sort_by_key(|decision| (decision.round, decision.seat, decision.seq));
+    if decisions
+        .windows(2)
+        .any(|pair| pair[0].round == pair[1].round && pair[0].seat == pair[1].seat)
+    {
+        return Err("the durable Chat floor has duplicate initiative decisions".to_string());
+    }
+    if initiative_order.contains(&actor_id) || !initiative_order.contains(&target_actor_id) {
+        return Err("the durable Chat floor has an invalid participant order".to_string());
+    }
+    Ok(decisions)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(super) fn orb_chat_status_already_committed(
     runtime: &RuntimeWorld,
     actor_id: u64,
@@ -130,6 +304,23 @@ pub(super) async fn chat(
         ) {
             return client_actor_rejected_response();
         }
+    }
+    if !chat_target_route_is_configured(state.ai_config.as_ref().as_ref(), payload.target_actor_id)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 503,
+            events: vec![EventView {
+                type_name: "chat.failed".to_string(),
+                actor_id: Some(payload.actor_id),
+                target_actor_id: Some(payload.target_actor_id),
+                content: Some(
+                    "That model route is resting right now. Choose another action; nothing was spent."
+                        .to_string(),
+                ),
+                ..EventView::default()
+            }],
+        });
     }
     if let Some(path) = state.event_store_path.as_deref() {
         match active_orb_chat_target(path, payload.actor_id) {
@@ -276,6 +467,504 @@ pub(super) async fn chat(
     })
 }
 
+pub(super) async fn commit_completed_chat(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    caused_by_event_seq: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: u64,
+) -> Vec<EventView> {
+    let mut runtime = state.inner.lock().await;
+    let source_event_seq = runtime.world.next_event_seq;
+    let target_name = runtime
+        .actor_name(target_actor_id)
+        .unwrap_or_else(|| "a neighbour".to_string());
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record.caused_by_event_seq = caused_by_event_seq;
+    record.source_world_tick = source_world_tick;
+    record.observed_through_seq = observed_through_seq;
+    record.source_location_id = Some(source_location_id);
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ChatStatus {
+            target_actor_id,
+            status: "completed".to_string(),
+            reason: "the conversation settled".to_string(),
+        });
+    record
+        .projection_mutations
+        .push(ProjectionMutation::MarkVisitLedger {
+            category: "witness".to_string(),
+            label: format!("shared a little chat with {target_name}."),
+            source_event_seq,
+            reason: format!("chat:{actor_id}:{target_actor_id}"),
+        });
+    let Ok((status, events)) = commit_journal_record(state, &mut runtime, record) else {
+        return Vec::new();
+    };
+    drop(runtime);
+    if status == CW_OK {
+        broadcast_events(state, &events);
+        events
+    } else {
+        Vec::new()
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn commit_chat_floor_pass(
+    state: &AppState,
+    speaker_actor_id: u64,
+    initiator_actor_id: u64,
+    marker: &ChatFloorPresentation,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    location_id: u64,
+) -> Result<(), String> {
+    let events = commit_chat_status(
+        state,
+        speaker_actor_id,
+        initiator_actor_id,
+        "passed",
+        &marker.content(),
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        Some(location_id),
+    )
+    .await;
+    (!events.is_empty())
+        .then_some(())
+        .ok_or_else(|| "the Chat floor pass could not be committed".to_string())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn complete_orb_chat_exchange(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    chat_plan: AvatarChatPlan,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    attempt: u32,
+) -> Result<(), String> {
+    let initiative_order = if chat_plan.initiative_order.is_empty() {
+        vec![target_actor_id]
+    } else {
+        chat_plan.initiative_order.clone()
+    };
+    let load_lines = || async {
+        let runtime = state.inner.lock().await;
+        committed_orb_chat_lines(
+            &runtime,
+            actor_id,
+            target_actor_id,
+            chat_plan.location_id,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            &initiative_order,
+        )
+    };
+    let mut lines = load_lines().await?;
+    if lines.is_empty() {
+        return Err("the committed Chat opening could not be recovered".to_string());
+    }
+
+    if lines.len() == 1 {
+        let opening = lines[0].clone();
+        let first_reply_plan = {
+            let runtime = state.inner.lock().await;
+            if !chat_participants_can_continue(
+                &runtime,
+                actor_id,
+                target_actor_id,
+                chat_plan.location_id,
+            ) {
+                None
+            } else {
+                runtime
+                    .resident_reply_plan_for_target(actor_id, target_actor_id, &opening.content)
+                    .map(|mut reply_plan| {
+                        if let Some(turn) = reply_plan.incoming_turn.as_mut() {
+                            turn.source_event_seq = Some(opening.seq);
+                        }
+                        reply_plan.with_publication_causality(
+                            &orb_chat_attempt_stage("avatar-chat-reply", attempt),
+                            queue_event_id,
+                            source_world_tick,
+                            Some(observed_through_seq.unwrap_or_default().max(opening.seq)),
+                            Some(chat_plan.location_id),
+                        )
+                    })
+            }
+        }
+        .ok_or_else(|| "the target could not answer the opening line".to_string())?;
+        announce_chat_typing(
+            state,
+            target_actor_id,
+            actor_id,
+            first_reply_plan.caused_by_event_seq,
+            first_reply_plan.source_world_tick,
+            first_reply_plan.observed_through_seq,
+            first_reply_plan.source_location_id,
+        )
+        .await;
+        let first_proposal = avatar_reply_intent(state, &first_reply_plan)
+            .await
+            .map_err(|error| {
+                record_rejected_ai_publication(state, &error);
+                error.to_string()
+            })?;
+        let first_reply_events = {
+            let mut runtime = state.inner.lock().await;
+            chat_participants_can_continue(
+                &runtime,
+                actor_id,
+                target_actor_id,
+                chat_plan.location_id,
+            )
+            .then(|| {
+                commit_resident_reply_record(
+                    state,
+                    &mut runtime,
+                    &first_reply_plan,
+                    first_proposal,
+                    None,
+                    None,
+                )
+            })
+            .flatten()
+        }
+        .ok_or_else(|| "the target reply no longer fit the current room".to_string())?;
+        broadcast_events(state, &first_reply_events);
+        lines = load_lines().await?;
+    }
+    if lines.len() < 2 {
+        return Err("the opening back-and-forth did not finish".to_string());
+    }
+
+    for round in 1..=MAX_CHAT_FLOOR_ROUNDS {
+        let mut decisions = {
+            let runtime = state.inner.lock().await;
+            committed_chat_floor_decisions(
+                &runtime,
+                actor_id,
+                target_actor_id,
+                chat_plan.location_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                &initiative_order,
+            )?
+            .into_iter()
+            .filter(|decision| decision.round == round)
+            .collect::<Vec<_>>()
+        };
+        decisions.sort_by_key(|decision| decision.seat);
+        if decisions
+            .iter()
+            .enumerate()
+            .any(|(seat, decision)| decision.seat != seat)
+        {
+            return Err("the durable Chat floor skipped an initiative seat".to_string());
+        }
+        if decisions.len() == initiative_order.len() {
+            if decisions.iter().all(|decision| decision.decision == "pass") {
+                return Ok(());
+            }
+            continue;
+        }
+        if decisions.is_empty() {
+            let marker = ChatFloorPresentation::new(round, 0, initiative_order.len(), "round");
+            let _ = commit_chat_status(
+                state,
+                actor_id,
+                target_actor_id,
+                "round",
+                &marker.content(),
+                queue_event_id,
+                source_world_tick,
+                lines.last().map(|line| line.seq),
+                Some(chat_plan.location_id),
+            )
+            .await;
+        }
+
+        for seat in decisions.len()..initiative_order.len() {
+            let speaker_actor_id = initiative_order[seat];
+            let marker_for = |decision: &str| {
+                ChatFloorPresentation::new(round, seat, initiative_order.len(), decision)
+            };
+            let (speaker_name, available_targets, source_line) = {
+                let runtime = state.inner.lock().await;
+                let speaker_name = runtime
+                    .actor_by_id(speaker_actor_id)
+                    .filter(|speaker| {
+                        RuntimeWorld::actor_can_act(*speaker)
+                            && speaker.location_id == chat_plan.location_id
+                            && runtime.actor_uses_inference(speaker.id)
+                            && resident_supports_text_reply(speaker.id)
+                    })
+                    .map(|_| {
+                        runtime
+                            .actor_name(speaker_actor_id)
+                            .unwrap_or_else(|| format!("Avatar {speaker_actor_id}"))
+                    });
+                let available_targets = std::iter::once(actor_id)
+                    .chain(initiative_order.iter().copied())
+                    .filter(|candidate_id| *candidate_id != speaker_actor_id)
+                    .filter_map(|candidate_id| {
+                        let actor = runtime.actor_by_id(candidate_id)?;
+                        (RuntimeWorld::actor_can_act(actor)
+                            && actor.location_id == chat_plan.location_id
+                            && !runtime.actors_blocked(speaker_actor_id, candidate_id)
+                            && !runtime.actor_muted(speaker_actor_id, candidate_id))
+                        .then(|| {
+                            (
+                                candidate_id,
+                                runtime
+                                    .actor_name(candidate_id)
+                                    .unwrap_or_else(|| format!("Avatar {candidate_id}")),
+                            )
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let source_line = lines
+                    .iter()
+                    .rev()
+                    .find(|line| line.speaker_actor_id != speaker_actor_id)
+                    .cloned();
+                (speaker_name, available_targets, source_line)
+            };
+
+            let Some(speaker_name) = speaker_name else {
+                commit_chat_floor_pass(
+                    state,
+                    speaker_actor_id,
+                    actor_id,
+                    &marker_for("pass"),
+                    queue_event_id,
+                    source_world_tick,
+                    lines.last().map(|line| line.seq),
+                    chat_plan.location_id,
+                )
+                .await?;
+                continue;
+            };
+            let deciding_marker = marker_for("deciding");
+            let _ = commit_chat_status(
+                state,
+                speaker_actor_id,
+                actor_id,
+                "deciding",
+                &deciding_marker.content(),
+                queue_event_id,
+                source_world_tick,
+                lines.last().map(|line| line.seq),
+                Some(chat_plan.location_id),
+            )
+            .await;
+            let choice = if round == MAX_CHAT_FLOOR_ROUNDS || available_targets.is_empty() {
+                ChatFloorChoice::Pass
+            } else if let Some(config) = state.ai_config.as_ref().as_ref() {
+                request_chat_floor_choice(
+                    config,
+                    chat_plan.location_id,
+                    speaker_actor_id,
+                    &speaker_name,
+                    round,
+                    &available_targets,
+                    &lines,
+                )
+                .await
+                .unwrap_or(ChatFloorChoice::Pass)
+            } else {
+                ChatFloorChoice::Pass
+            };
+            let ChatFloorChoice::Chat = choice else {
+                commit_chat_floor_pass(
+                    state,
+                    speaker_actor_id,
+                    actor_id,
+                    &marker_for("pass"),
+                    queue_event_id,
+                    source_world_tick,
+                    lines.last().map(|line| line.seq),
+                    chat_plan.location_id,
+                )
+                .await?;
+                continue;
+            };
+            let Some(source_line) = source_line else {
+                commit_chat_floor_pass(
+                    state,
+                    speaker_actor_id,
+                    actor_id,
+                    &marker_for("pass"),
+                    queue_event_id,
+                    source_world_tick,
+                    lines.last().map(|line| line.seq),
+                    chat_plan.location_id,
+                )
+                .await?;
+                continue;
+            };
+            let observed_through_line_seq =
+                lines.last().map(|line| line.seq).unwrap_or(source_line.seq);
+            let listener_actor_id = source_line.speaker_actor_id;
+            let reply_plan = {
+                let runtime = state.inner.lock().await;
+                let transcript = lines
+                    .iter()
+                    .rev()
+                    .take(6)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .map(|line| {
+                        format!(
+                            "{} said: {}",
+                            runtime
+                                .actor_name(line.speaker_actor_id)
+                                .unwrap_or_else(|| format!("Avatar {}", line.speaker_actor_id)),
+                            line.content,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                runtime
+                    .resident_reply_plan_for_target(
+                        listener_actor_id,
+                        speaker_actor_id,
+                        &source_line.content,
+                    )
+                    .map(|mut reply_plan| {
+                        reply_plan.recent_activity = transcript;
+                        if let Some(turn) = reply_plan.incoming_turn.as_mut() {
+                            turn.source_event_seq = Some(source_line.seq);
+                        }
+                        reply_plan.with_publication_causality(
+                            &orb_chat_attempt_stage(&format!("chat-floor-{round}-{seat}"), attempt),
+                            queue_event_id,
+                            source_world_tick,
+                            Some(observed_through_line_seq),
+                            Some(chat_plan.location_id),
+                        )
+                    })
+            };
+            let Some(reply_plan) = reply_plan else {
+                commit_chat_floor_pass(
+                    state,
+                    speaker_actor_id,
+                    actor_id,
+                    &marker_for("pass"),
+                    queue_event_id,
+                    source_world_tick,
+                    Some(observed_through_line_seq),
+                    chat_plan.location_id,
+                )
+                .await?;
+                continue;
+            };
+            announce_chat_typing(
+                state,
+                speaker_actor_id,
+                listener_actor_id,
+                queue_event_id,
+                source_world_tick,
+                Some(observed_through_line_seq),
+                Some(chat_plan.location_id),
+            )
+            .await;
+            let proposal = match avatar_reply_intent(state, &reply_plan).await {
+                Ok(proposal) => proposal,
+                Err(error) => {
+                    warn!("Chat floor speaker passed after voice inference failed: {error}");
+                    record_rejected_ai_publication(state, &error);
+                    commit_chat_floor_pass(
+                        state,
+                        speaker_actor_id,
+                        actor_id,
+                        &marker_for("pass"),
+                        queue_event_id,
+                        source_world_tick,
+                        Some(observed_through_line_seq),
+                        chat_plan.location_id,
+                    )
+                    .await?;
+                    continue;
+                }
+            };
+            let marker = marker_for("chat");
+            let spoke_events = {
+                let mut runtime = state.inner.lock().await;
+                commit_resident_reply_record(
+                    state,
+                    &mut runtime,
+                    &reply_plan,
+                    proposal,
+                    None,
+                    Some((&marker, listener_actor_id)),
+                )
+            };
+            let Some(spoke_events) = spoke_events else {
+                commit_chat_floor_pass(
+                    state,
+                    speaker_actor_id,
+                    actor_id,
+                    &marker_for("pass"),
+                    queue_event_id,
+                    source_world_tick,
+                    Some(observed_through_line_seq),
+                    chat_plan.location_id,
+                )
+                .await?;
+                continue;
+            };
+            broadcast_events(state, &spoke_events);
+            lines = load_lines().await?;
+        }
+
+        let round_decisions = {
+            let runtime = state.inner.lock().await;
+            committed_chat_floor_decisions(
+                &runtime,
+                actor_id,
+                target_actor_id,
+                chat_plan.location_id,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                &initiative_order,
+            )?
+            .into_iter()
+            .filter(|decision| decision.round == round)
+            .collect::<Vec<_>>()
+        };
+        if round_decisions.len() != initiative_order.len() {
+            return Err("the Chat floor round did not commit every initiative choice".to_string());
+        }
+        if round_decisions
+            .iter()
+            .all(|decision| decision.decision == "pass")
+        {
+            return Ok(());
+        }
+    }
+    Err("the bounded Chat floor did not reach a full round of passes".to_string())
+}
+
 fn chat_action_lock(state: &AppState, actor_id: u64) -> Arc<Mutex<()>> {
     let key = format!("{:p}:{actor_id}", Arc::as_ptr(&state.inner));
     let mut locks = CHAT_ACTION_LOCKS
@@ -400,6 +1089,35 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn chat_initiative_includes_every_eligible_room_resident_once() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Initiative Anchor",
+        );
+        let first = runtime.room_chat_initiative_order(COSY_COTTAGE_LOCATION_ID, 5000);
+        let second = runtime.room_chat_initiative_order(COSY_COTTAGE_LOCATION_ID, 5000);
+        assert_eq!(
+            first, second,
+            "initiative must be stable for the queued beat"
+        );
+        assert!(!first.contains(&5000));
+        assert_eq!(
+            first.iter().copied().collect::<BTreeSet<_>>().len(),
+            first.len()
+        );
+        assert_eq!(
+            first.iter().copied().collect::<BTreeSet<_>>(),
+            [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                .into_iter()
+                .collect(),
+            "every eligible inference-controlled avatar in the room gets one seat",
+        );
+    }
+
     #[tokio::test]
     async fn chat_endpoint_queues_a_bounded_exchange_without_spending_advancement() {
         let path = std::env::temp_dir().join(format!(
@@ -408,7 +1126,13 @@ mod tests {
             now_seed()
         ));
         let _ = fs::remove_file(&path);
-        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: "http://127.0.0.1:9".to_string(),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
         {
             let mut runtime = state.inner.lock().await;
             create_test_human(
@@ -544,7 +1268,13 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Waiting Chatter",
         );
-        let state = test_app_state(runtime, Some(path.clone()));
+        let mut state = test_app_state(runtime, Some(path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: "http://127.0.0.1:9".to_string(),
+            model: "test-chat-model".to_string(),
+            ..AiConfig::default()
+        }));
         let (session_5000, _) = issue_actor_session(&state, 5000);
         let (session_5001, _) = issue_actor_session(&state, 5001);
         assert_eq!(
@@ -685,7 +1415,7 @@ mod tests {
     ];
 
     #[tokio::test]
-    async fn completed_chat_commits_exactly_two_lines_from_each_participant() {
+    async fn chat_floor_can_speak_then_ends_after_a_full_round_of_passes() {
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let requests = Arc::new(StdMutex::new(Vec::<serde_json::Value>::new()));
         let app = Router::new().route(
@@ -714,10 +1444,21 @@ mod tests {
                         .expect("capture Chat inference request")
                         .push(request);
                     async move {
-                        let content = CHAT_SCRIPT
-                            .get(index)
-                            .copied()
-                            .unwrap_or("The conversation has already settled.");
+                        let content = if payload.contains("Initiative round: 1") {
+                            serde_json::json!({
+                                "decision": "chat",
+                                "target_actor_id": 5000,
+                            })
+                            .to_string()
+                        } else if payload.contains("Initiative round: 2") {
+                            serde_json::json!({ "decision": "pass" }).to_string()
+                        } else {
+                            CHAT_SCRIPT
+                                .get(index)
+                                .copied()
+                                .unwrap_or("The conversation has already settled.")
+                                .to_string()
+                        };
                         Json(serde_json::json!({
                             "model": "test-chat-model",
                             "choices": [{
@@ -754,9 +1495,11 @@ mod tests {
                 COSY_COTTAGE_LOCATION_ID,
                 "Inference Tester",
             );
-            runtime
+            let mut plan = runtime
                 .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
-                .expect("co-present inference resident is a Chat target")
+                .expect("co-present inference resident is a Chat target");
+            plan.initiative_order = vec![RATI_ACTOR_ID];
+            plan
         };
 
         complete_queued_orb_chat(
@@ -791,8 +1534,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             speakers,
-            vec![5000, RATI_ACTOR_ID, 5000, RATI_ACTOR_ID],
-            "Chat must stay bounded to two authoritative lines per participant; calls={}, events={event_diagnostic:?}",
+            vec![5000, RATI_ACTOR_ID, RATI_ACTOR_ID],
+            "the opening pair may continue through the initiative floor; calls={}, events={event_diagnostic:?}",
             calls.load(std::sync::atomic::Ordering::SeqCst),
         );
         let messages = runtime
@@ -807,6 +1550,22 @@ mod tests {
             );
         }
         assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "chat.spoke"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("\"round\":1"))
+        }));
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "chat.passed"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("\"round\":2"))
+        }));
+        assert!(runtime.event_log.iter().any(|event| {
             event.type_name == "chat.completed"
                 && event.actor_id == Some(5000)
                 && event.target_actor_id == Some(RATI_ACTOR_ID)
@@ -817,9 +1576,6 @@ mod tests {
             .any(|event| event.type_name == "chat.failed"));
         drop(runtime);
         let captured = requests.lock().expect("inspect Chat inference requests");
-        // Voice routing ranks several certified candidates before accepting
-        // one, so the follow-up is no longer at a fixed request offset. Select
-        // it by the speaker it is written for instead of by position.
         let last_user_prompt = |request: &serde_json::Value| -> Option<String> {
             request["messages"].as_array().and_then(|messages| {
                 messages.iter().rev().find_map(|message| {
@@ -830,25 +1586,19 @@ mod tests {
                 })
             })
         };
-        // The opener is also written for Inference Tester, so match the
-        // follow-up by the transcript it must carry back into the prompt.
-        let followup_prompt = captured
+        let floor_prompts = captured
             .iter()
             .filter_map(last_user_prompt)
-            .rfind(|prompt| {
-                prompt.contains("i am Inference Tester")
-                    && prompt.contains("Inference Tester said to Rati:")
+            .filter(|prompt| {
+                prompt.contains("Choose whether this speaker has something worthwhile")
             })
-            .expect("avatar follow-up prompt carrying the exchange transcript");
-        let followup_prompt = followup_prompt.as_str();
-        assert!(followup_prompt.contains("i am Inference Tester"));
-        assert!(followup_prompt.contains("Inference Tester said to Rati:"));
-        assert!(followup_prompt.contains("Rati said to Inference Tester:"));
-        assert!(!followup_prompt.contains("actor_id="));
-        assert!(!followup_prompt.contains("event_seq="));
-        assert!(followup_prompt
-            .contains("Kindly enough, though the kettle has opinions about punctuality."));
-        assert!(!followup_prompt.contains("i am Rati"));
+            .collect::<Vec<_>>();
+        assert!(floor_prompts
+            .iter()
+            .any(|prompt| prompt.contains("Initiative round: 1")));
+        assert!(floor_prompts
+            .iter()
+            .any(|prompt| prompt.contains("Initiative round: 2")));
         server.abort();
     }
 
@@ -1058,7 +1808,11 @@ mod tests {
             .iter()
             .filter(|event| event.type_name == "message.created")
             .collect::<Vec<_>>();
-        assert_eq!(messages.len(), 4);
+        assert_eq!(
+            messages.len(),
+            2,
+            "the resumed opening pair is followed by a durable all-pass floor round"
+        );
         assert_eq!(
             messages
                 .iter()

@@ -34,7 +34,7 @@ function digest(value) {
 const LIVE_HASH = digest("live-journal-bundle");
 const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
-const LANTERN_ACTIVE_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
+const LANTERN_ACTIVE_HASH = "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd";
 const LANTERN_PERSISTED_HASH = "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb";
 const ELYSIUM_ACTIVE_HASH = "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e";
 const ELYSIUM_PERSISTED_HASH = "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf";

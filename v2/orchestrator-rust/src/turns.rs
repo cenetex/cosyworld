@@ -1418,16 +1418,30 @@ pub(super) fn advance_actor_room_turn_after_commit(
     status: u32,
     events: &[EventView],
 ) {
-    if status != CW_OK || events.is_empty() {
+    if status != CW_OK {
+        if let Some(first_tale) = runtime.first_tale_view(actor_id) {
+            let phase = first_tale
+                .continuation
+                .map(|continuation| continuation.phase)
+                .unwrap_or(first_tale.phase);
+            record_first_tale_action_rejection(
+                state,
+                actor_id,
+                &phase,
+                status,
+                events
+                    .iter()
+                    .map(|event| event.seq)
+                    .filter(|seq| *seq > 0)
+                    .min(),
+            );
+        }
         return;
     }
-    if let Some(event) = events
-        .iter()
-        .find(|event| event.success && event.actor_id == Some(actor_id))
-        .or_else(|| events.iter().find(|event| event.success))
-    {
-        record_first_turn_committed(state, actor_id, event.seq);
+    if events.is_empty() {
+        return;
     }
+    record_canonical_activation_milestones(state, actor_id, events);
     if let Some(event_seq) = runtime.first_tale_trace_event_seq(actor_id) {
         record_first_public_trace(state, actor_id, event_seq);
     }
@@ -3240,6 +3254,47 @@ mod tests {
         assert_eq!(work.activation_budget.setup_remaining, 1);
         assert_eq!(combat.activation_budget.commit_remaining, 1);
         assert_eq!(work.activation_budget.commit_remaining, 1);
+    }
+
+    #[test]
+    fn common_post_commit_hook_records_live_growth_once() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-activation-post-commit-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        let runtime = RuntimeWorld::seeded();
+        let events = vec![EventView {
+            seq: 70_001,
+            type_name: "ledger.banked".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            ..EventView::default()
+        }];
+
+        advance_actor_room_turn_after_commit(&state, &runtime, None, 5000, CW_OK, &events);
+        advance_actor_room_turn_after_commit(&state, &runtime, None, 5000, CW_OK, &events);
+
+        let conn = open_event_store(&path).expect("open post-commit activation store");
+        for event_kind in [
+            "first_turn_committed",
+            "first_ledger_banked",
+            "first_growth_settled",
+        ] {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM activation_events WHERE actor_id = ?1 AND event_kind = ?2",
+                    params![5000_i64, event_kind],
+                    |row| row.get(0),
+                )
+                .expect("count post-commit activation rows");
+            assert_eq!(count, 1, "{event_kind} must be idempotent");
+        }
+
+        drop(conn);
+        let _ = fs::remove_file(path);
     }
 
     #[test]

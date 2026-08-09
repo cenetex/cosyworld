@@ -1,5 +1,6 @@
 use super::*;
 use sha2::{Digest, Sha256};
+use std::fmt;
 
 const MODEL_INTERACTION_SCHEMA_VERSION: u8 = 1;
 const MODEL_INTERACTION_IMAGE_FEATURE: &str = "model_interaction_image";
@@ -783,8 +784,8 @@ pub(super) async fn model_interaction(
         return model_interaction_failure(
             payload.actor_id,
             payload.target_actor_id,
-            409,
-            "That resident's exact model route is unavailable.",
+            503,
+            "That model route is resting right now. Choose another action; nothing was spent.",
         );
     }
     let source_world_tick = runtime.world.tick;
@@ -890,13 +891,89 @@ fn model_interaction_lock(state: &AppState, actor_id: u64) -> Arc<Mutex<()>> {
     lock
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AiRouteAvailability {
+    Ready,
+    Retryable { retry_at_unix: Option<u64> },
+    Permanent,
+}
+
+impl AiRouteAvailability {
+    fn from_gate(gate: crate::ai_readiness::AiReadinessGate) -> Self {
+        if gate.is_ready() {
+            Self::Ready
+        } else if gate.is_terminal_block() {
+            Self::Permanent
+        } else {
+            debug_assert!(gate.is_retryable_block());
+            Self::Retryable {
+                retry_at_unix: gate.retry_at_unix(),
+            }
+        }
+    }
+
+    const fn is_ready(self) -> bool {
+        matches!(self, Self::Ready)
+    }
+
+    const fn is_permanent(self) -> bool {
+        matches!(self, Self::Permanent)
+    }
+
+    fn and(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Permanent, _) | (_, Self::Permanent) => Self::Permanent,
+            (Self::Ready, Self::Ready) => Self::Ready,
+            (
+                Self::Retryable {
+                    retry_at_unix: left,
+                },
+                Self::Retryable {
+                    retry_at_unix: right,
+                },
+            ) => Self::Retryable {
+                retry_at_unix: match (left, right) {
+                    (Some(left), Some(right)) => Some(left.max(right)),
+                    _ => None,
+                },
+            },
+            (Self::Retryable { retry_at_unix }, Self::Ready)
+            | (Self::Ready, Self::Retryable { retry_at_unix }) => Self::Retryable { retry_at_unix },
+        }
+    }
+
+    fn retry_floor_ms(self, config: &AiConfig) -> u64 {
+        let Self::Retryable { retry_at_unix } = self else {
+            return 0;
+        };
+        retry_at_unix
+            .map(|retry_at_unix| {
+                retry_at_unix
+                    .saturating_mul(1_000)
+                    .saturating_sub(now_millis())
+                    .max(250)
+            })
+            .unwrap_or_else(|| {
+                config
+                    .recommended_readiness_probe_delay()
+                    .as_millis()
+                    .min(u64::MAX as u128) as u64
+            })
+    }
+}
+
+fn model_interaction_route_availability(
+    config: Option<&AiConfig>,
+    plan: &ModelInteractionPlan,
+) -> AiRouteAvailability {
+    if frozen_ready_profile_binding(plan, plan.profile).is_err() {
+        return AiRouteAvailability::Permanent;
+    }
+    model_interaction_target_availability(config, plan.target_actor_id, Some(plan.profile))
+}
+
 fn model_interaction_route_is_configured(state: &AppState, plan: &ModelInteractionPlan) -> bool {
-    frozen_ready_profile_binding(plan, plan.profile).is_ok()
-        && model_interaction_target_is_configured(
-            state.ai_config.as_ref().as_ref(),
-            plan.target_actor_id,
-            Some(plan.profile),
-        )
+    model_interaction_route_availability(state.ai_config.as_ref().as_ref(), plan).is_ready()
 }
 
 fn model_interaction_target_is_configured(
@@ -904,24 +981,136 @@ fn model_interaction_target_is_configured(
     target_actor_id: u64,
     expected_profile: Option<ModelInteractionProfile>,
 ) -> bool {
+    model_interaction_target_availability(config, target_actor_id, expected_profile).is_ready()
+}
+
+fn model_interaction_target_availability(
+    config: Option<&AiConfig>,
+    target_actor_id: u64,
+    expected_profile: Option<ModelInteractionProfile>,
+) -> AiRouteAvailability {
     let Some(config) = config else {
-        return false;
+        return AiRouteAvailability::Permanent;
     };
     let Some(profile) = supported_profile_for_actor(target_actor_id) else {
-        return false;
+        return AiRouteAvailability::Permanent;
     };
     if expected_profile.is_some_and(|expected| expected != profile) {
-        return false;
+        return AiRouteAvailability::Permanent;
     }
     let Some(binding) = exact_ready_profile_binding(target_actor_id, profile) else {
-        return false;
+        return AiRouteAvailability::Permanent;
     };
-    match profile {
-        ModelInteractionProfile::Image => config.pin_actor_image_model(binding).is_ok(),
-        ModelInteractionProfile::Embeddings => config.pin_actor_embedding_model(binding).is_ok(),
-        ModelInteractionProfile::Rerank => config.pin_actor_rerank_model(binding).is_ok(),
-        ModelInteractionProfile::Speech => config.pin_actor_speech_synthesis_model(binding).is_ok(),
+    let (pinned, endpoint) = match profile {
+        ModelInteractionProfile::Image => (config.pin_actor_image_model(binding).is_ok(), "images"),
+        ModelInteractionProfile::Embeddings => (
+            config.pin_actor_embedding_model(binding).is_ok(),
+            "embeddings",
+        ),
+        ModelInteractionProfile::Rerank => {
+            (config.pin_actor_rerank_model(binding).is_ok(), "rerank")
+        }
+        ModelInteractionProfile::Speech => (
+            config.pin_actor_speech_synthesis_model(binding).is_ok(),
+            "audio/speech",
+        ),
+    };
+    if !pinned {
+        return AiRouteAvailability::Permanent;
     }
+    AiRouteAvailability::from_gate(config.exact_route_gate(endpoint, &binding.requested_model_id))
+}
+
+pub(super) fn model_interaction_route_is_permanently_unavailable(
+    config: Option<&AiConfig>,
+    plan: &ModelInteractionPlan,
+) -> bool {
+    model_interaction_route_availability(config, plan).is_permanent()
+}
+
+pub(super) fn model_interaction_route_retry_floor_ms(
+    config: Option<&AiConfig>,
+    plan: &ModelInteractionPlan,
+) -> u64 {
+    let Some(config) = config else {
+        return 0;
+    };
+    model_interaction_route_availability(Some(config), plan).retry_floor_ms(config)
+}
+
+pub(super) fn chat_target_route_is_configured(
+    config: Option<&AiConfig>,
+    target_actor_id: u64,
+) -> bool {
+    chat_target_route_availability(config, target_actor_id).is_ready()
+}
+
+fn chat_target_route_availability(
+    config: Option<&AiConfig>,
+    target_actor_id: u64,
+) -> AiRouteAvailability {
+    let Some(config) = config else {
+        return AiRouteAvailability::Permanent;
+    };
+    let global = global_chat_route_availability(config);
+    let binding = active_content()
+        .actor_model_bindings
+        .iter()
+        .find(|binding| binding.actor_id == target_actor_id);
+    let Some(binding) = binding else {
+        return global;
+    };
+    if !resident_supports_text_reply(target_actor_id) || config.pin_actor_model(binding).is_err() {
+        return AiRouteAvailability::Permanent;
+    }
+    global.and(AiRouteAvailability::from_gate(
+        config.exact_route_gate("chat/completions", &binding.requested_model_id),
+    ))
+}
+
+fn global_chat_route_availability(config: &AiConfig) -> AiRouteAvailability {
+    let Ok(selections) = config.pin_models(ModelCapability::Voice) else {
+        return AiRouteAvailability::Permanent;
+    };
+    if selections.is_empty() {
+        return AiRouteAvailability::Permanent;
+    }
+    let mut retryable: Option<Option<u64>> = None;
+    for selection in selections {
+        match AiRouteAvailability::from_gate(
+            config.exact_route_gate("chat/completions", selection.requested_model_id()),
+        ) {
+            AiRouteAvailability::Ready => return AiRouteAvailability::Ready,
+            AiRouteAvailability::Retryable { retry_at_unix } => {
+                retryable = Some(match (retryable, retry_at_unix) {
+                    (Some(Some(current)), Some(next)) => Some(current.min(next)),
+                    (None, deadline) => deadline,
+                    _ => None,
+                });
+            }
+            AiRouteAvailability::Permanent => {}
+        }
+    }
+    retryable
+        .map(|retry_at_unix| AiRouteAvailability::Retryable { retry_at_unix })
+        .unwrap_or(AiRouteAvailability::Permanent)
+}
+
+pub(super) fn chat_target_route_is_permanently_unavailable(
+    config: Option<&AiConfig>,
+    target_actor_id: u64,
+) -> bool {
+    chat_target_route_availability(config, target_actor_id).is_permanent()
+}
+
+pub(super) fn chat_target_route_retry_floor_ms(
+    config: Option<&AiConfig>,
+    target_actor_id: u64,
+) -> u64 {
+    let Some(config) = config else {
+        return 0;
+    };
+    chat_target_route_availability(Some(config), target_actor_id).retry_floor_ms(config)
 }
 
 pub(super) fn retain_configured_model_interaction_offers(
@@ -930,14 +1119,16 @@ pub(super) fn retain_configured_model_interaction_offers(
     config: Option<&AiConfig>,
 ) {
     action_offers.retain(|offer| {
-        offer.kind != "model_interaction"
-            || offer
-                .target
-                .as_ref()
-                .and_then(|target| target.id)
-                .is_some_and(|target_actor_id| {
-                    model_interaction_target_is_configured(config, target_actor_id, None)
-                })
+        let target_actor_id = offer.target.as_ref().and_then(|target| target.id);
+        match offer.kind.as_str() {
+            "model_interaction" => target_actor_id.is_some_and(|target_actor_id| {
+                model_interaction_target_is_configured(config, target_actor_id, None)
+            }),
+            "chat" => target_actor_id.is_some_and(|target_actor_id| {
+                chat_target_route_is_configured(config, target_actor_id)
+            }),
+            _ => true,
+        }
     });
     let offered_kinds = action_offers
         .iter()
@@ -1065,8 +1256,78 @@ pub(super) async fn complete_model_interaction_attempt(
             .await?;
             return Ok(());
         }
+        Err(error) if error.provider_terminal() => {
+            let gateway = error
+                .gateway()
+                .expect("provider-terminal errors keep their gateway evidence");
+            warn!(
+                event = "model_interaction_provider_failure",
+                process_id = %state.deployment.process_id,
+                interaction_id,
+                queue_event_id = job.queue_event_id.unwrap_or(0),
+                actor_attempt = attempt,
+                actor_id = job.actor_id,
+                target_actor_id = job.target_actor_id,
+                profile = job.plan.profile.intention(),
+                requested_model_id = job.plan.requested_model_id,
+                error_code = gateway.code(),
+                http_status = gateway.provider_http_status().unwrap_or(0),
+                gateway_attempts = gateway.attempts,
+                latency_ms = gateway.latency.as_millis() as u64,
+                retry_after_secs = gateway
+                    .retry_after()
+                    .map(|value| value.as_secs())
+                    .unwrap_or(0),
+                retry_at_unix = gateway.retry_at_unix().unwrap_or(0),
+                disposition = "terminal",
+                "exact model interaction provider failure"
+            );
+            commit_model_interaction_status(
+                state,
+                &job,
+                "failed",
+                "the model interaction could not finish",
+            )
+            .await?;
+            return Ok(());
+        }
         Err(error) => {
-            let terminal = attempt >= ACTOR_JOB_MAX_ATTEMPTS;
+            let retryable_provider = error.provider_retryable();
+            let route_retry_floor_ms = if retryable_provider {
+                model_interaction_route_retry_floor_ms(state.ai_config.as_ref().as_ref(), &job.plan)
+            } else {
+                0
+            };
+            let terminal =
+                model_interaction_attempt_is_terminal(&error, attempt, route_retry_floor_ms);
+            if retryable_provider {
+                let gateway = error
+                    .gateway()
+                    .expect("provider-retryable errors keep their gateway evidence");
+                warn!(
+                    event = "model_interaction_provider_failure",
+                    process_id = %state.deployment.process_id,
+                    interaction_id,
+                    queue_event_id = job.queue_event_id.unwrap_or(0),
+                    actor_attempt = attempt,
+                    actor_id = job.actor_id,
+                    target_actor_id = job.target_actor_id,
+                    profile = job.plan.profile.intention(),
+                    requested_model_id = job.plan.requested_model_id,
+                    error_code = gateway.code(),
+                    http_status = gateway.provider_http_status().unwrap_or(0),
+                    gateway_attempts = gateway.attempts,
+                    latency_ms = gateway.latency.as_millis() as u64,
+                    retry_after_secs = gateway
+                        .retry_after()
+                        .map(|value| value.as_secs())
+                        .unwrap_or(0),
+                    retry_at_unix = gateway.retry_at_unix().unwrap_or(0),
+                    retry_floor_ms = route_retry_floor_ms,
+                    disposition = if terminal { "terminal_attempt_budget" } else { "retryable" },
+                    "transient exact model interaction provider failure"
+                );
+            }
             commit_model_interaction_status(
                 state,
                 &job,
@@ -1078,7 +1339,7 @@ pub(super) async fn complete_model_interaction_attempt(
                 },
             )
             .await?;
-            return Err(error);
+            return Err(error.to_string());
         }
     };
     let events = commit_model_interaction_output(state, &job, execution.publication).await?;
@@ -1099,6 +1360,63 @@ pub(super) async fn complete_model_interaction_attempt(
         "the model interaction is complete",
     )
     .await
+}
+
+#[derive(Debug)]
+enum ModelInteractionAttemptError {
+    Gateway(AiGatewayError),
+    Local(String),
+}
+
+impl ModelInteractionAttemptError {
+    fn from_gateway(error: AiGatewayError) -> Self {
+        Self::Gateway(error)
+    }
+
+    fn provider_terminal(&self) -> bool {
+        matches!(self, Self::Gateway(error) if error.terminal_for_model_interaction())
+    }
+
+    fn provider_retryable(&self) -> bool {
+        matches!(self, Self::Gateway(error) if error.retryable_for_model_interaction())
+    }
+
+    fn gateway(&self) -> Option<&AiGatewayError> {
+        match self {
+            Self::Gateway(error) => Some(error),
+            Self::Local(_) => None,
+        }
+    }
+}
+
+impl From<String> for ModelInteractionAttemptError {
+    fn from(error: String) -> Self {
+        Self::Local(error)
+    }
+}
+
+impl fmt::Display for ModelInteractionAttemptError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Gateway(error) => write!(
+                formatter,
+                "exact model route unavailable (code={}, http_status={}, attempts={}, latency_ms={})",
+                error.code(),
+                error.provider_http_status().unwrap_or(0),
+                error.attempts,
+                error.latency.as_millis()
+            ),
+            Self::Local(error) => formatter.write_str(error),
+        }
+    }
+}
+
+fn model_interaction_attempt_is_terminal(
+    error: &ModelInteractionAttemptError,
+    attempt: u32,
+    route_retry_floor_ms: u64,
+) -> bool {
+    attempt >= ACTOR_JOB_MAX_ATTEMPTS && (!error.provider_retryable() || route_retry_floor_ms == 0)
 }
 
 struct ExecutedModelInteraction {
@@ -1137,9 +1455,11 @@ async fn execute_model_interaction_profile(
     state: &AppState,
     job: &ModelInteractionJob,
     interaction_id: &str,
-) -> Result<Option<ExecutedModelInteraction>, String> {
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     if job.actor_id != job.plan.actor_id || job.target_actor_id != job.plan.target_actor_id {
-        return Err("model interaction durable identity changed".to_string());
+        return Err("model interaction durable identity changed"
+            .to_string()
+            .into());
     }
     match job.plan.profile {
         ModelInteractionProfile::Image => {
@@ -1161,12 +1481,13 @@ async fn execute_image_model_interaction(
     state: &AppState,
     job: &ModelInteractionJob,
     interaction_id: &str,
-) -> Result<Option<ExecutedModelInteraction>, String> {
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Image)?;
-    let config =
-        state.ai_config.as_ref().as_ref().ok_or_else(|| {
-            AiGatewayError::unconfigured(MODEL_INTERACTION_IMAGE_FEATURE).to_string()
-        })?;
+    let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
+        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+            MODEL_INTERACTION_IMAGE_FEATURE,
+        ))
+    })?;
     config
         .pin_actor_image_model(binding)
         .map_err(|error| error.to_string())?;
@@ -1183,7 +1504,23 @@ async fn execute_image_model_interaction(
         ),
         MODEL_INTERACTION_IMAGE_FEATURE,
     )
-    .await?;
+    .await
+    .map_err(|message| {
+        let gate = config.exact_route_gate("images", &binding.requested_model_id);
+        if gate.is_ready() {
+            ModelInteractionAttemptError::Local(message)
+        } else {
+            let error = AiGatewayError::readiness(MODEL_INTERACTION_IMAGE_FEATURE, gate);
+            record_model_interaction_failure(
+                state,
+                job.target_actor_id,
+                binding,
+                MODEL_INTERACTION_IMAGE_FEATURE,
+                &error,
+            );
+            ModelInteractionAttemptError::from_gateway(error)
+        }
+    })?;
     let Some(image) = image else {
         return Ok(None);
     };
@@ -1214,11 +1551,13 @@ async fn execute_embedding_model_interaction(
     state: &AppState,
     job: &ModelInteractionJob,
     interaction_id: &str,
-) -> Result<Option<ExecutedModelInteraction>, String> {
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Embeddings)?;
     validate_semantic_plan(&job.plan)?;
     let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        AiGatewayError::unconfigured(MODEL_INTERACTION_EMBEDDING_FEATURE).to_string()
+        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+            MODEL_INTERACTION_EMBEDDING_FEATURE,
+        ))
     })?;
     config
         .pin_actor_embedding_model(binding)
@@ -1252,7 +1591,7 @@ async fn execute_embedding_model_interaction(
             MODEL_INTERACTION_EMBEDDING_FEATURE,
             &error,
         );
-        error.to_string()
+        ModelInteractionAttemptError::from_gateway(error)
     })?;
     let ranked = rank_embedding_candidates(&embedded.vectors, &job.plan.semantic_candidates)?;
     let publication = semantic_publication(
@@ -1281,11 +1620,13 @@ async fn execute_rerank_model_interaction(
     state: &AppState,
     job: &ModelInteractionJob,
     interaction_id: &str,
-) -> Result<Option<ExecutedModelInteraction>, String> {
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Rerank)?;
     validate_semantic_plan(&job.plan)?;
     let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        AiGatewayError::unconfigured(MODEL_INTERACTION_RERANK_FEATURE).to_string()
+        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+            MODEL_INTERACTION_RERANK_FEATURE,
+        ))
     })?;
     config
         .pin_actor_rerank_model(binding)
@@ -1318,7 +1659,7 @@ async fn execute_rerank_model_interaction(
             MODEL_INTERACTION_RERANK_FEATURE,
             &error,
         );
-        error.to_string()
+        ModelInteractionAttemptError::from_gateway(error)
     })?;
     let ranked = reranked
         .scores
@@ -1352,7 +1693,7 @@ async fn execute_speech_model_interaction(
     state: &AppState,
     job: &ModelInteractionJob,
     interaction_id: &str,
-) -> Result<Option<ExecutedModelInteraction>, String> {
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Speech)?;
     let voice = job
         .plan
@@ -1360,7 +1701,9 @@ async fn execute_speech_model_interaction(
         .as_deref()
         .ok_or_else(|| "speech interaction has no frozen exact voice".to_string())?;
     let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        AiGatewayError::unconfigured(MODEL_INTERACTION_SPEECH_FEATURE).to_string()
+        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+            MODEL_INTERACTION_SPEECH_FEATURE,
+        ))
     })?;
     let selection = config
         .pin_actor_speech_synthesis_model(binding)
@@ -1400,14 +1743,16 @@ async fn execute_speech_model_interaction(
                 MODEL_INTERACTION_SPEECH_FEATURE,
                 &error,
             );
-            error.to_string()
+            ModelInteractionAttemptError::from_gateway(error)
         })?;
         if synthesized.content_type != "audio/mpeg"
             || synthesized.prompt_version != MODEL_INTERACTION_SPEECH_CONTEXT_VERSION
             || synthesized.context_hash != context_hash
             || synthesized.model_attribution != attribution
         {
-            return Err("speech synthesis response changed its exact route contract".to_string());
+            return Err("speech synthesis response changed its exact route contract"
+                .to_string()
+                .into());
         }
         let asset = store_generated_model_audio_for_interaction(
             interaction_id,
@@ -2349,6 +2694,109 @@ mod tests {
         );
         drop(conn);
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn account_readiness_withholds_model_interactions_and_exact_chat_failure_is_target_scoped() {
+        let mut config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: "https://openrouter.ai/api/v1".to_string(),
+            model: "provider/global-chat".to_string(),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        assert!(config
+            .exact_route_gate("embeddings", "provider/embedding-a")
+            .is_ready());
+        config
+            .readiness
+            .record_http_failure("embeddings", "provider/embedding-a", 402, None);
+        assert_eq!(
+            AiRouteAvailability::from_gate(config.exact_route_gate("rerank", "provider/rerank-b")),
+            AiRouteAvailability::Permanent
+        );
+        assert!(!chat_target_route_is_configured(Some(&config), u64::MAX));
+        assert!(chat_target_route_is_permanently_unavailable(
+            Some(&config),
+            u64::MAX,
+        ));
+
+        config.readiness = crate::ai_readiness::AiReadiness::probing_with_low_credit_threshold(5.0);
+        assert_eq!(
+            AiRouteAvailability::from_gate(
+                config.exact_route_gate("embeddings", "provider/embedding-a")
+            ),
+            AiRouteAvailability::Retryable {
+                retry_at_unix: None
+            }
+        );
+        assert!(!chat_target_route_is_permanently_unavailable(
+            Some(&config),
+            u64::MAX,
+        ));
+        assert_eq!(
+            chat_target_route_retry_floor_ms(Some(&config), u64::MAX),
+            60_000,
+            "startup probing should wait for the next account probe"
+        );
+
+        config.readiness.record_probe_success();
+        config
+            .readiness
+            .record_http_failure("chat/completions", "provider/chat-a", 404, None);
+        assert!(config
+            .exact_route_gate("chat/completions", "provider/chat-a")
+            .is_terminal_block());
+        assert!(config
+            .exact_route_gate("chat/completions", "provider/chat-b")
+            .is_ready());
+
+        config.readiness.record_http_failure(
+            "chat/completions",
+            "provider/chat-b",
+            429,
+            Some(Duration::from_secs(10)),
+        );
+        let transient = AiRouteAvailability::from_gate(
+            config.exact_route_gate("chat/completions", "provider/chat-b"),
+        );
+        assert!(matches!(transient, AiRouteAvailability::Retryable { .. }));
+        assert!(transient.retry_floor_ms(&config) > 0);
+    }
+
+    #[test]
+    fn only_gateway_failures_take_the_terminal_model_interaction_path() {
+        let gateway = ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+            MODEL_INTERACTION_EMBEDDING_FEATURE,
+        ));
+        let probing = crate::ai_readiness::AiReadiness::probing_with_low_credit_threshold(5.0);
+        let transient = ModelInteractionAttemptError::from_gateway(AiGatewayError::readiness(
+            MODEL_INTERACTION_EMBEDDING_FEATURE,
+            probing.gate("embeddings", "provider/model"),
+        ));
+        let local =
+            ModelInteractionAttemptError::Local("event store write was interrupted".to_string());
+        assert!(gateway.provider_terminal());
+        assert!(!gateway.provider_retryable());
+        assert!(!transient.provider_terminal());
+        assert!(transient.provider_retryable());
+        assert!(!local.provider_terminal());
+        assert!(!local.provider_retryable());
+        assert!(model_interaction_attempt_is_terminal(
+            &transient,
+            ACTOR_JOB_MAX_ATTEMPTS,
+            0,
+        ));
+        assert!(!model_interaction_attempt_is_terminal(
+            &transient,
+            ACTOR_JOB_MAX_ATTEMPTS,
+            30_000,
+        ));
+        assert!(model_interaction_attempt_is_terminal(
+            &local,
+            ACTOR_JOB_MAX_ATTEMPTS,
+            0,
+        ));
     }
 
     #[test]

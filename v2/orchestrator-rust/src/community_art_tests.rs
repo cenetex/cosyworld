@@ -1320,13 +1320,12 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
                         .unwrap_or_default();
                     assert!(image_url.starts_with("data:image/png;base64,"));
                     if policy_requests.fetch_add(1, Ordering::SeqCst) == 0 {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(serde_json::json!({
-                                "error": { "message": "temporary structured vision mismatch" }
-                            })),
-                        )
-                            .into_response();
+                        return Json(serde_json::json!({
+                            "choices": [{
+                                "message": { "content": "temporary malformed verdict" }
+                            }]
+                        }))
+                        .into_response();
                     }
                     Json(serde_json::json!({
                         "choices": [{

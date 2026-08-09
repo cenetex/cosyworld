@@ -9,19 +9,11 @@
     "notice_instruction": "Notice what the rain has changed; the first useful lead is guaranteed.",
     "follow_lead_instruction": "Follow the rain-bright lead east to Rain-Soft Garden.",
     "contribute_instruction": "Inspect the buried stones, clear the drain, or help another traveler lift them.",
-    "complete_instruction": "The first stones are visible. A lamp-road marker beyond them points west toward Mossbell and the Wayside Lantern Inn.",
+    "complete_instruction": "The first stones are visible. The damp line beyond them points toward the riverside.",
     "target_label": "the washed path in Rain-Soft Garden",
-    "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the lantern road.",
+    "consequence": "The first stones will give the next visitor an honest footing and reveal a lead toward the river.",
     "completion_memory": "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
-    "next_invitation": "Follow the lamp road west to Mara Wick and learn why the Mothwood beacon went dark.",
+    "next_invitation": "Follow the uncovered line toward the riverside and investigate what makes its water worth returning to.",
     "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
-  },
-  "continuation": {
-    "destination_location_id": 800,
-    "target_actor_id": 8301,
-    "job_id": "lantern-keeper:rekindle-the-beacon",
-    "travel_instruction": "Follow the lamp road west through Mossbell Inn to the Wayside Lantern Inn.",
-    "arrival_instruction": "Find Mara Wick at the empty key hook and hear what failed along the Mothwood road.",
-    "accepted_instruction": "Mara entrusts you with the dark-road lead: follow the failed lamps and rekindle the Mothwood beacon."
   }
 }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "profile_snapshot_version": "openrouter-interactions-2026-08-08.2",
+  "profile_snapshot_version": "openrouter-interactions-2026-08-08.3",
   "catalog_snapshot_version": "openrouter-2026-07-31.1",
   "source_binding_count": 485,
   "runtime_refresh": false,
@@ -665,14 +665,14 @@
       "requested_model_id": "allenai/olmo-3-32b-think",
       "route_model_id": "allenai/olmo-3-32b-think",
       "canonical_slug": "allenai/olmo-3-32b-think-20251121",
-      "availability": "active",
-      "availability_reason": null,
+      "availability": "unsupported",
+      "availability_reason": "exact_model_id_has_no_chat_completion_endpoint_2026-08-08",
       "profiles": [
         {
           "kind": "talk",
           "label": "Talk",
-          "provider_available": true,
-          "disabled_reason": null,
+          "provider_available": false,
+          "disabled_reason": "exact_model_id_has_no_chat_completion_endpoint_2026-08-08",
           "runtime_adapter_supported": true,
           "runtime_adapter_unsupported_reason": null,
           "endpoint": "/api/v1/chat/completions",

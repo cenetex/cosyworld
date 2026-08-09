@@ -75,7 +75,7 @@ test("classifies the pinned catalog into exact native interactions", () => {
     compose_audio: 2,
   });
   assert.deepEqual(Object.fromEntries(providerAvailableCounts), {
-    talk: 357,
+    talk: 356,
     illustrate: 38,
     speak: 13,
     transcribe: 13,
@@ -86,10 +86,23 @@ test("classifies the pinned catalog into exact native interactions", () => {
     compose_audio: 2,
   });
   assert.deepEqual(Object.fromEntries(availabilityCounts), {
-    active: 473,
-    unsupported: 8,
+    active: 472,
+    unsupported: 9,
     archived: 4,
   });
+});
+
+test("withholds Talk when the exact chat-completion endpoint is absent", () => {
+  const olmo = document.bindings.find(
+    (row) => row.requested_model_id === "allenai/olmo-3-32b-think",
+  );
+  assert.equal(olmo.availability, "unsupported");
+  assert.equal(olmo.profiles[0].kind, "talk");
+  assert.equal(olmo.profiles[0].provider_available, false);
+  assert.equal(
+    olmo.profiles[0].disabled_reason,
+    "exact_model_id_has_no_chat_completion_endpoint_2026-08-08",
+  );
 });
 
 test("keeps retired exact model ids as disabled tombstones", () => {
@@ -199,7 +212,7 @@ test("keeps provider availability separate from local adapter support", () => {
       ({ profile }) =>
         profile.provider_available && profile.runtime_adapter_supported,
     ).length,
-    441,
+    440,
   );
   const vectorProfiles = profiles.filter(
     ({ row, profile }) =>

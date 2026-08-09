@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The Core world and Ruby High mounted together as peer world packs.",
   "entry_location": "cosyworld.core:location/1",
-  "first_tale": "../official/first-tale.json",
+  "first_tale": "../official/first-tale-core.json",
   "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
   "rules_profile": "cosyworld.srd5/1",
   "pack_lifecycle": {

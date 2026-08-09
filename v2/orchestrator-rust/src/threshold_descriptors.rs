@@ -3930,6 +3930,7 @@ mod tests {
                 },
                 &access,
                 None,
+                None,
             )
             .expect("API offer submission");
         let CommandDispatch::OpenThreshold { action: api_action } = api.dispatch else {

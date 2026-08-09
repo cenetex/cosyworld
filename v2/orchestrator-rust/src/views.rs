@@ -130,6 +130,15 @@ pub(super) struct JourneyView {
 pub(super) struct FirstTaleView {
     pub(super) schema_version: u8,
     pub(super) phase: String,
+    pub(super) phase_exposure_id: String,
+    pub(super) state_revision: u64,
+    pub(super) phase_source_event_seq: u64,
+    pub(super) lead_location_id: u64,
+    pub(super) destination_location_id: u64,
+    pub(super) job_id: String,
+    pub(super) progress_clock_id: String,
+    pub(super) required_location_id: Option<u64>,
+    pub(super) advancing_offer_id: Option<String>,
     pub(super) question: String,
     pub(super) instruction: String,
     pub(super) target_label: String,
@@ -138,6 +147,18 @@ pub(super) struct FirstTaleView {
     pub(super) next_invitation: String,
     pub(super) public_trace_created: bool,
     pub(super) trace_event_seq: Option<u64>,
+    pub(super) continuation: Option<FirstTaleContinuationView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct FirstTaleContinuationView {
+    pub(super) destination_location_id: u64,
+    pub(super) target_actor_id: u64,
+    pub(super) job_id: String,
+    pub(super) phase: String,
+    pub(super) instruction: String,
+    pub(super) required_location_id: Option<u64>,
+    pub(super) advancing_offer_id: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -1703,48 +1724,177 @@ pub(super) fn faction_refs_for_location(location_id: u64) -> Vec<FactionRefView>
 
 impl RuntimeWorld {
     pub(super) fn first_tale_view(&self, actor_id: u64) -> Option<FirstTaleView> {
+        self.first_tale_view_with_actions(actor_id, &[], None)
+    }
+
+    pub(super) fn first_tale_view_with_actions(
+        &self,
+        actor_id: u64,
+        action_offers: &[RankedActionOffer],
+        action_hand: Option<&ActionHandView>,
+    ) -> Option<FirstTaleView> {
         let actor = self.actor_by_id(actor_id)?;
         if !Self::actor_can_act(actor) {
             return None;
         }
         let first_tale = active_first_tale()?;
         let trace_event_seq = self.first_tale_trace_event_seq(actor_id);
-        let has_lead = self.listen_attempt_claimed_at(actor_id, first_tale.lead_location_id);
-        let destination_reached = self.first_tale_destination_reached(actor_id);
-        if trace_event_seq.is_none()
-            && has_lead
-            && destination_reached
-            && actor.location_id != first_tale.destination_location_id
-        {
-            return None;
-        }
-        let phase = if trace_event_seq.is_some() {
-            "complete"
-        } else if !has_lead {
-            "notice"
-        } else if !destination_reached {
-            "follow_lead"
-        } else {
-            "contribute"
+        let stage = self.first_tale_stage(actor_id)?;
+        let phase = stage.phase();
+        let advancing_offer_id = self
+            .first_tale_advancing_offer_selection(actor_id, action_offers)
+            .0
+            .filter(|offer_id| {
+                action_hand.is_some_and(|hand| {
+                    hand.entries.iter().any(|entry| entry.offer_id == *offer_id)
+                })
+            });
+        let required_location_id = match stage {
+            FirstTaleStage::ReturnToLead => Some(first_tale.lead_location_id),
+            FirstTaleStage::FollowLead | FirstTaleStage::ReturnToDestination => {
+                Some(first_tale.destination_location_id)
+            }
+            FirstTaleStage::ContinuationTravel => first_tale
+                .continuation
+                .as_ref()
+                .map(|continuation| continuation.destination_location_id),
+            _ => None,
         };
-        let instruction = match phase {
-            "notice" => &first_tale.copy.notice_instruction,
-            "follow_lead" => &first_tale.copy.follow_lead_instruction,
-            "contribute" => &first_tale.copy.contribute_instruction,
-            _ => &first_tale.copy.complete_instruction,
+        let instruction = match stage {
+            FirstTaleStage::Notice => first_tale.copy.notice_instruction.clone(),
+            FirstTaleStage::ReturnToLead => format!(
+                "Return to {}. {}",
+                self.location_name(first_tale.lead_location_id)
+                    .unwrap_or_else(|| format!("location {}", first_tale.lead_location_id)),
+                first_tale.copy.notice_instruction
+            ),
+            FirstTaleStage::FollowLead => first_tale.copy.follow_lead_instruction.clone(),
+            FirstTaleStage::ReturnToDestination => format!(
+                "Return to {}. {}",
+                self.location_name(first_tale.destination_location_id)
+                    .unwrap_or_else(|| {
+                        format!("location {}", first_tale.destination_location_id)
+                    }),
+                first_tale.copy.contribute_instruction
+            ),
+            FirstTaleStage::Contribute => first_tale.copy.contribute_instruction.clone(),
+            _ => first_tale.copy.complete_instruction.clone(),
         };
+        let phase_source_event_seq =
+            self.first_tale_phase_source_event_seq(actor_id, stage, trace_event_seq, first_tale);
+        let actor_key = actor_id.to_string();
+        let schema_key = first_tale.schema_version.to_string();
+        let source_key = phase_source_event_seq.to_string();
+        let continuation_phase = stage.continuation_phase().unwrap_or_default();
+        let phase_exposure_id = format!(
+            "ftx_{}",
+            stable_hash_hex(&[
+                "first-tale-phase",
+                &schema_key,
+                &actor_key,
+                phase,
+                continuation_phase,
+                &source_key,
+            ])
+        );
+        let continuation = first_tale.continuation.as_ref().and_then(|continuation| {
+            let continuation_phase = stage.continuation_phase()?;
+            Some(FirstTaleContinuationView {
+                destination_location_id: continuation.destination_location_id,
+                target_actor_id: continuation.target_actor_id,
+                job_id: continuation.job_id.clone(),
+                phase: continuation_phase.to_string(),
+                instruction: match stage {
+                    FirstTaleStage::ContinuationTravel => continuation.travel_instruction.clone(),
+                    FirstTaleStage::ContinuationAccepted => {
+                        continuation.accepted_instruction.clone()
+                    }
+                    _ => continuation.arrival_instruction.clone(),
+                },
+                required_location_id: (stage == FirstTaleStage::ContinuationTravel)
+                    .then_some(continuation.destination_location_id),
+                advancing_offer_id: advancing_offer_id.clone(),
+            })
+        });
         Some(FirstTaleView {
             schema_version: first_tale.schema_version,
             phase: phase.to_string(),
+            phase_exposure_id,
+            state_revision: self.current_state_revision(),
+            phase_source_event_seq,
+            lead_location_id: first_tale.lead_location_id,
+            destination_location_id: first_tale.destination_location_id,
+            job_id: first_tale.job_id.clone(),
+            progress_clock_id: first_tale.progress_clock_id.clone(),
+            required_location_id,
+            advancing_offer_id,
             question: first_tale.copy.question.clone(),
-            instruction: instruction.to_string(),
+            instruction,
             target_label: first_tale.copy.target_label.clone(),
             consequence: first_tale.copy.consequence.clone(),
             completion_memory: first_tale.copy.completion_memory.clone(),
             next_invitation: first_tale.copy.next_invitation.clone(),
             public_trace_created: trace_event_seq.is_some(),
             trace_event_seq,
+            continuation,
         })
+    }
+
+    fn first_tale_phase_source_event_seq(
+        &self,
+        actor_id: u64,
+        stage: FirstTaleStage,
+        trace_event_seq: Option<u64>,
+        first_tale: &SeedFirstTaleContent,
+    ) -> u64 {
+        if let Some(trace_event_seq) = trace_event_seq {
+            return match stage {
+                FirstTaleStage::ContinuationAccepted => first_tale
+                    .continuation
+                    .as_ref()
+                    .and_then(|continuation| {
+                        self.active_bond(actor_id, continuation.target_actor_id)
+                    })
+                    .and_then(|bond| bond.updated_event_seq.or(bond.source_event_seq))
+                    .unwrap_or(trace_event_seq),
+                FirstTaleStage::ContinuationArrived => first_tale
+                    .continuation
+                    .as_ref()
+                    .and_then(|continuation| {
+                        self.event_log.iter().rev().find(|event| {
+                            event.actor_id == Some(actor_id)
+                                && event.type_name == "actor.moved"
+                                && event.destination_location_id
+                                    == Some(continuation.destination_location_id)
+                        })
+                    })
+                    .map(|event| event.seq)
+                    .unwrap_or(trace_event_seq),
+                _ => trace_event_seq,
+            };
+        }
+        let source = match stage {
+            FirstTaleStage::Notice | FirstTaleStage::ReturnToLead => {
+                self.event_log.iter().rev().find(|event| {
+                    event.actor_id == Some(actor_id)
+                        && matches!(event.type_name.as_str(), "actor.created" | "actor.moved")
+                })
+            }
+            FirstTaleStage::FollowLead => self.event_log.iter().rev().find(|event| {
+                event.actor_id == Some(actor_id)
+                    && event.type_name == "ability_check.rolled"
+                    && event.location_id == Some(first_tale.lead_location_id)
+            }),
+            FirstTaleStage::Contribute | FirstTaleStage::ReturnToDestination => {
+                self.event_log.iter().rev().find(|event| {
+                    event.actor_id == Some(actor_id)
+                        && event.type_name == "actor.moved"
+                        && event.destination_location_id == Some(first_tale.destination_location_id)
+                })
+            }
+            _ => None,
+        };
+        source.map(|event| event.seq).unwrap_or_default()
     }
 
     pub(super) fn location_view(&self, location_id: u64) -> LocationView {
@@ -2733,7 +2883,9 @@ impl RuntimeWorld {
             fronts: self.front_views(location_id),
             room_sheet: self.room_sheet_view(location_id),
             journey: client_actor_id.and_then(|id| self.journey_view(id)),
-            first_tale: client_actor_id.and_then(|id| self.first_tale_view(id)),
+            first_tale: client_actor_id.and_then(|id| {
+                self.first_tale_view_with_actions(id, &action_offers, Some(&action_hand))
+            }),
             calling: client_actor_id.and_then(|id| self.calling_view(id)),
             skills: client_actor_id
                 .map(|id| self.skill_views(id))

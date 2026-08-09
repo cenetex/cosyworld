@@ -3,7 +3,7 @@
     "from_location_id": 4,
     "to_location_id": 800,
     "flags": 0,
-    "distance": 2,
+    "distance": 1,
     "direction": "north",
     "discovery": "known"
   },
@@ -11,7 +11,7 @@
     "from_location_id": 800,
     "to_location_id": 4,
     "flags": 0,
-    "distance": 2,
+    "distance": 1,
     "direction": "south",
     "discovery": "known"
   },

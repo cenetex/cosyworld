@@ -776,6 +776,16 @@
       flex-wrap: wrap;
       overflow: visible;
     }
+    .updates > .journal-row {
+      grid-column: 1 / -1;
+    }
+    .updates > .journal-row.first-thread.complete {
+      border-bottom-color: rgba(101, 230, 138, 0.42);
+      background: rgba(101, 230, 138, 0.08);
+    }
+    .updates > .journal-row.first-thread.complete .journal-row-label {
+      color: var(--green);
+    }
     .update-pill {
       min-width: 0;
       max-width: 100%;
@@ -1778,9 +1788,6 @@
       white-space: nowrap;
     }
     .turn-banner-control:disabled { opacity: 0.55; cursor: default; }
-    .prompt.combat-mode .chat-progress {
-      display: none !important;
-    }
     .turn-ping-pill {
       flex: 1 1 220px;
       display: flex;
@@ -1828,8 +1835,7 @@
     .prompt.choice-mode.has-draw {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .prompt.single-action .cmd.primary,
-    #chat-progress {
+    .prompt.single-action .cmd.primary {
       grid-column: 1 / -1;
     }
     .prompt[hidden] { display: none; }
@@ -2169,27 +2175,6 @@
       background: var(--cmd-accent);
       animation: action-progress-sweep 1.1s ease-in-out infinite alternate;
     }
-    .cmd.chat-progress-card .cmd-copy {
-      padding-bottom: 8px;
-    }
-    .chat-turn-progress {
-      position: absolute;
-      right: 10px;
-      bottom: 7px;
-      left: 10px;
-      display: grid;
-      grid-template-columns: repeat(var(--chat-turn-count), minmax(0, 1fr));
-      gap: 3px;
-      height: 4px;
-    }
-    .chat-turn-progress span {
-      border-radius: 999px;
-      background: rgba(var(--cmd-accent-rgb), 0.2);
-    }
-    .chat-turn-progress span.filled {
-      background: var(--cmd-accent);
-      box-shadow: 0 0 8px rgba(var(--cmd-accent-rgb), 0.42);
-    }
     @keyframes action-progress-sweep {
       from { transform: translateX(-12%); }
       to { transform: translateX(150%); }
@@ -2242,41 +2227,75 @@
       color: var(--green);
       border-top-color: rgba(101, 230, 138, 0.22);
     }
-    .important-notifications {
+    .journal-activity-tray {
       position: fixed;
       top: calc(54px + env(safe-area-inset-top, 0px));
-      right: max(12px, env(safe-area-inset-right, 0px));
+      left: 50%;
       z-index: 24;
-      width: min(360px, calc(100vw - 24px));
-      display: grid;
-      gap: 8px;
-      pointer-events: none;
-    }
-    .important-notification {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: start;
-      padding: 11px 12px;
+      width: min(680px, calc(100vw - 24px));
+      min-height: 48px;
+      transform: translateX(-50%);
       border: 1px solid rgba(239, 201, 107, 0.55);
-      border-radius: 6px;
+      border-top: 0;
+      border-radius: 0 0 6px 6px;
       background: rgba(10, 16, 12, 0.97);
       color: var(--text);
       box-shadow: 0 12px 34px rgba(0, 0, 0, 0.46);
-      pointer-events: auto;
-    }
-    .important-notification-copy { line-height: 1.35; }
-    .important-notification-dismiss {
-      border: 0;
-      background: transparent;
-      color: var(--dim);
+      padding: 8px 12px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
       font: inherit;
-      font-weight: 900;
+      text-align: left;
       cursor: pointer;
+      animation: journal-tray-drop 180ms ease-out both;
     }
-    .important-notification-dismiss:focus-visible {
+    .journal-activity-tray[hidden] {
+      display: none;
+    }
+    .journal-activity-tray:focus-visible {
       outline: 2px solid var(--amber);
       outline-offset: 2px;
+    }
+    .journal-activity-glyph {
+      color: var(--amber);
+      font-size: 16px;
+    }
+    .journal-activity-tray-copy {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+    }
+    .journal-activity-tray-label {
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .journal-activity-tray-text {
+      overflow: hidden;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .journal-activity-tray-progress .journal-progress-segments {
+      grid-column: auto;
+      width: min(300px, 100%);
+      margin-top: 4px;
+    }
+    .journal-activity-count {
+      min-width: 22px;
+      color: var(--dim);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    @keyframes journal-tray-drop {
+      from { opacity: 0; transform: translate(-50%, -12px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
     }
     .card-modal,
     .action-modal,
@@ -3260,8 +3279,7 @@
       .prompt.choice-mode {
         display: flex;
       }
-      .prompt.single-action .cmd.primary,
-      #chat-progress {
+      .prompt.single-action .cmd.primary {
         flex: 1 1 100%;
         width: 100%;
       }
@@ -3778,6 +3796,59 @@
       font: 750 9px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+    }
+    .journal-activity {
+      display: grid;
+      gap: 5px;
+      padding: 2px 0 7px;
+    }
+    .journal-activity[hidden] {
+      display: none;
+    }
+    .journal-activity-row {
+      min-width: 0;
+      padding: 7px 0 8px;
+      display: grid;
+      grid-template-columns: minmax(8ch, 11ch) minmax(0, 1fr);
+      gap: 3px 7px;
+      align-items: center;
+      border-bottom: 1px solid rgba(239, 201, 107, 0.1);
+    }
+    .journal-activity-row-label {
+      overflow: hidden;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+    .journal-activity-row-label::before {
+      content: "> ";
+      color: var(--faint);
+    }
+    .journal-activity-row-text {
+      min-width: 0;
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .journal-progress-segments {
+      grid-column: 2;
+      display: grid;
+      grid-template-columns: repeat(var(--journal-segment-count), minmax(0, 1fr));
+      gap: 4px;
+      height: 4px;
+      margin-top: 3px;
+    }
+    .journal-progress-segments span {
+      border-radius: 999px;
+      background: rgba(222, 194, 141, 0.2);
+    }
+    .journal-progress-segments span.filled {
+      background: var(--amber);
+      box-shadow: 0 0 7px rgba(222, 194, 141, 0.34);
     }
     .shared-questions,
     .updates,
@@ -4325,6 +4396,7 @@
           </section>
           <section class="journal-region journal-open-threads" id="journal-open-threads" aria-labelledby="journal-open-threads-heading" hidden>
             <h3 class="journal-region-heading" id="journal-open-threads-heading">Open threads</h3>
+            <section class="journal-activity" id="journal-activity" aria-label="Journal activity" hidden></section>
             <section class="shared-questions" id="shared-questions" aria-label="Unresolved matters in this place" hidden></section>
             <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
           </section>
@@ -4337,13 +4409,16 @@
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room transcript"></section>
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
-    <aside class="important-notifications" id="important-notifications" aria-live="polite" aria-label="Important notices"></aside>
+    <button class="journal-activity-tray" id="journal-activity-tray" type="button" aria-controls="journal-view" aria-label="Open Journal activity" aria-live="polite" hidden>
+      <span class="journal-activity-glyph" aria-hidden="true">▾</span>
+      <span class="journal-activity-tray-copy"><span class="journal-activity-tray-label" id="journal-activity-tray-label">Journal</span><span class="journal-activity-tray-text" id="journal-activity-tray-text"></span><span class="journal-activity-tray-progress" id="journal-activity-tray-progress"></span></span>
+      <span class="journal-activity-count" id="journal-activity-count" aria-hidden="true"></span>
+    </button>
     <footer class="prompt">
       <div class="turn-banner" id="turn-banner" hidden>
         <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="turn-banner-controls" id="turn-banner-controls"></div>
       </div>
-      <button class="cmd chat-progress" id="chat-progress" type="button" disabled></button>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="pass" data-analytics-event="action.pass" aria-label="Think: pass these two actions and commit the turn">
@@ -4511,6 +4586,8 @@
     const clockPresentationContractVersion = 1;
     const clockPresentationReceiptState = new Map();
     let clockPresentationVisibilityFrame = null;
+    const firstTalePresentationReceiptState = new Map();
+    let firstTalePresentationVisibilityFrame = null;
     const expeditionRingRenderState = new Map();
     let streamReplayFloorSeq = 0;
     let stream = null;
@@ -4524,11 +4601,14 @@
     let actionSlowTimer = null;
     let pendingAction = null;
     let pendingChats = [];
+    let pendingReflection = null;
+    let journalNotifications = [];
+    const dismissedJournalActivityKeys = new Set();
     let nextPendingChatId = 1;
     let pendingModelInteractions = [];
     let nextPendingModelInteractionId = 1;
     let pendingModelInteractionRehydrationRequired = false;
-    const chatExchangeTurnCount = 4;
+    const chatOpeningTurnCount = 2;
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
     let accountPanelPinned = false;
@@ -5728,7 +5808,7 @@
           targetActorId: firstChat.id,
           modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
           modalSummary: oneChat
-            ? `Your avatar and ${firstTargetName} will trade a few short lines.`
+            ? `Your avatar and ${firstTargetName} open the conversation, then nearby avatars choose chat or pass.`
             : "Choose someone nearby for a short back-and-forth conversation.",
           effect: oneChat
             ? `a short conversation with ${firstTargetName} unfolds`
@@ -7856,7 +7936,8 @@
 
     async function action(path, payload) {
       setError("");
-      const clearFirstTaleAfterAction = firstTaleCelebration && path !== "/actions/timeout";
+      const clearFirstTaleAfterAction = firstTalePayoffVisible()
+        && path !== "/actions/timeout";
       const beforeOrbs = economyOrbCount();
       const authoritativePayload = withAccess(payload);
       const offer = currentOfferForSubmission(path, authoritativePayload);
@@ -7893,7 +7974,10 @@
       } else {
         await refresh();
       }
-      if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
+      if (result.ok && clearFirstTaleAfterAction) {
+        dismissFirstTalePayoff();
+        renderStatusUpdates();
+      }
       focusIndex = 0;
       focusedKey = "";
       playerPromotedHandKey = "";
@@ -7906,6 +7990,12 @@
       const status = Number(result.status || 0);
       const conflict = (result.events || []).find((event) => event?.type === "action.conflict");
       if (conflict?.content) return String(conflict.content);
+      const modelFailure = (result.events || []).find((event) => (
+        event?.type === "model_interaction.failed"
+      ));
+      if (path === "/actions/model-interaction" && modelFailure?.content) {
+        return cleanStatusText(modelFailure.content);
+      }
       const timeoutRefusal = (result.events || []).find((event) => (
         String(event?.type || "").startsWith("turn.timeout_refused.")
       ));
@@ -7916,6 +8006,9 @@
         return "You need one Orb to add to this community image.";
       }
       if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
+      if (status === 503 && path === "/actions/model-interaction") {
+        return "That model route is resting right now. Choose another action; nothing was spent.";
+      }
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
       if (status === 400 && path.includes("/actions/rest")) return "You are already steady enough to keep going.";
       if (status === 409) return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
@@ -7961,7 +8054,7 @@
         return;
       }
       setError("");
-      const clearFirstTaleAfterAction = firstTaleCelebration
+      const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
         setError("That free redeal command has retired. Choose Think to commit a pass.");
@@ -7982,7 +8075,10 @@
         if (!result.output) pushCommandOutput(result.command || command, message, false, resultEvents);
         setError(message);
       }
-      if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
+      if (result.ok && clearFirstTaleAfterAction) {
+        dismissFirstTalePayoff();
+        renderStatusUpdates();
+      }
       focusIndex = 0;
       focusedKey = "";
       playerPromotedHandKey = "";
@@ -8226,6 +8322,9 @@
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
       pendingChats = [];
+      pendingReflection = null;
+      journalNotifications = [];
+      dismissedJournalActivityKeys.clear();
       pendingModelInteractions = [];
       seenSeq.clear();
       streamReplayFloorSeq = 0;
@@ -8337,20 +8436,116 @@
     function enqueueImportantNotification(event) {
       const type = String(event?.type || "");
       if (!importantNotificationTypes.has(type) && !type.startsWith("clock.threshold")) return;
-      const host = $("important-notifications");
-      if (!host) return;
       const key = String(event?.seq || `${type}:${Date.now()}`);
-      if ([...host.children].some((child) => child.dataset.notificationKey === key)) return;
+      if (journalNotifications.some((notification) => notification.key === key)) return;
       const text = sceneCardEventText(event)
         || cleanStatusText(event?.content || eventText(event))
         || "Something important changed.";
-      const item = document.createElement("div");
-      item.className = "important-notification";
-      item.dataset.notificationKey = key;
-      item.setAttribute("role", "alert");
-      item.innerHTML = `<span class="important-notification-copy">${escapeHtml(text)}</span><button class="important-notification-dismiss" type="button" data-dismiss-important aria-label="Dismiss notification">×</button>`;
-      host.prepend(item);
-      while (host.children.length > 3) host.lastElementChild?.remove();
+      const clockSegments = Math.max(0, Number(event?.clock_segments || 0));
+      journalNotifications.push({
+        key,
+        label: type.startsWith("clock.") ? "clock" : "notice",
+        text,
+        filled: clockSegments ? Math.max(0, Number(event?.clock_filled || 0)) : 0,
+        segments: clockSegments,
+      });
+      journalNotifications = journalNotifications.slice(-6);
+      dismissedJournalActivityKeys.delete(key);
+      renderJournalActivity();
+    }
+
+    function enqueueJournalNotification(event) {
+      if (!sceneCardEventTypes.has(String(event?.type || ""))) return;
+      if (["ability_check.rolled", "avatar.thought", "avatar.dream"].includes(event.type)) return;
+      const key = String(event?.seq || `${event.type}:${Date.now()}`);
+      if (journalNotifications.some((notification) => notification.key === key)) return;
+      const meta = statusUpdateMeta(event);
+      const clockSegments = Math.max(0, Number(event?.clock_segments || 0));
+      journalNotifications.push({
+        key,
+        label: meta.label || "journal",
+        text: meta.text || cleanStatusText(eventText(event)) || "The shared world changed.",
+        filled: clockSegments ? Math.max(0, Number(event?.clock_filled || 0)) : 0,
+        segments: clockSegments,
+      });
+      journalNotifications = journalNotifications.slice(-6);
+      dismissedJournalActivityKeys.delete(key);
+    }
+
+    function ensureJournalNotification(notification) {
+      if (!notification?.key || dismissedJournalActivityKeys.has(notification.key)) return;
+      if (journalNotifications.some((candidate) => candidate.key === notification.key)) return;
+      journalNotifications.push({ filled: 0, segments: 0, ...notification });
+      journalNotifications = journalNotifications.slice(-6);
+    }
+
+    function journalProgressSegmentsHtml(filled, total, label) {
+      const segmentCount = Math.max(0, Math.min(12, Number(total || 0)));
+      if (!segmentCount) return "";
+      const filledCount = Math.max(0, Math.min(segmentCount, Number(filled || 0)));
+      const segments = Array.from({ length: segmentCount }, (_, index) => (
+        `<span${index < filledCount ? ' class="filled"' : ""}></span>`
+      )).join("");
+      return `<span class="journal-progress-segments" style="--journal-segment-count:${segmentCount}" role="progressbar" aria-label="${escapeAttr(label)}" aria-valuemin="0" aria-valuemax="${segmentCount}" aria-valuenow="${filledCount}">${segments}</span>`;
+    }
+
+    function pendingChatJournalActivity(chat) {
+      if (!chat) return null;
+      const total = Math.max(1, Number(chat.segmentCount || chatOpeningTurnCount));
+      const filled = Math.max(0, Math.min(total, Number(chat.segmentsCompleted || 0)));
+      const speaker = String(chat.typingName || chat.targetName || "Someone nearby");
+      return {
+        key: `chat:${chat.id}:${filled}`,
+        label: "chat",
+        text: String(chat.activityText || `${speaker} is continuing the conversation`),
+        filled,
+        segments: total,
+      };
+    }
+
+    function currentJournalActivities() {
+      return [
+        ...journalNotifications,
+        pendingChatJournalActivity(pendingChats[0]),
+        pendingReflection ? {
+          key: `reflection:${pendingReflection.sourceSeq}`,
+          label: pendingReflection.kind,
+          text: pendingReflection.text,
+          filled: 0,
+          segments: 1,
+        } : null,
+      ].filter((activity) => activity && !dismissedJournalActivityKeys.has(activity.key));
+    }
+
+    function journalActivityRowHtml(activity) {
+      const progress = journalProgressSegmentsHtml(
+        activity.filled,
+        activity.segments,
+        `${activity.label} progress: ${activity.filled} of ${activity.segments}`,
+      );
+      return `<div class="journal-activity-row"><span class="journal-activity-row-label">${escapeHtml(activity.label)}</span><span class="journal-activity-row-text">${escapeHtml(activity.text)}</span>${progress}</div>`;
+    }
+
+    function renderJournalActivity() {
+      const activities = currentJournalActivities();
+      const panel = $("journal-activity");
+      const tray = $("journal-activity-tray");
+      if (!panel || !tray) return;
+      panel.hidden = activities.length === 0;
+      panel.innerHTML = activities.map(journalActivityRowHtml).join("");
+      const latest = activities.at(-1);
+      tray.hidden = journalOpen || !latest;
+      if (latest) {
+        $("journal-activity-tray-label").textContent = latest.label;
+        $("journal-activity-tray-text").textContent = latest.text;
+        $("journal-activity-count").textContent = activities.length > 1 ? `+${activities.length - 1}` : "";
+        $("journal-activity-tray-progress").innerHTML = journalProgressSegmentsHtml(
+          latest.filled,
+          latest.segments,
+          `${latest.label} progress: ${latest.filled} of ${latest.segments}`,
+        );
+      }
+      syncJournalRegions();
     }
 
     function pushEvents(events) {
@@ -8380,8 +8575,46 @@
           changed = true;
           modelInteractionProgressChanged = true;
         }
+        if (
+          event?.type === "ability_check.rolled"
+          && ["think", "dream"].includes(String(event.content || ""))
+        ) {
+          if (event.success === true) {
+            pendingReflection = {
+              sourceSeq: Number(event.seq || 0),
+              kind: String(event.content || "think"),
+              text: event.content === "dream"
+                ? "A dream is taking shape…"
+                : "A thought is taking shape…",
+            };
+          } else {
+            const key = String(event.seq || `reflection:${Date.now()}`);
+            journalNotifications.push({
+              key,
+              label: String(event.content || "think"),
+              text: event.content === "dream"
+                ? "No dream came back this time."
+                : "No clear thought settled this time.",
+              filled: 1,
+              segments: 1,
+            });
+          }
+        }
+        if (["avatar.thought", "avatar.dream"].includes(event?.type)) {
+          pendingReflection = null;
+          const key = String(event.seq || `reflection:${Date.now()}`);
+          journalNotifications.push({
+            key,
+            label: event.type === "avatar.dream" ? "dream" : "think",
+            text: cleanStatusText(event.content || "A private reflection settled."),
+            filled: 1,
+            segments: 1,
+          });
+          dismissedJournalActivityKeys.delete(key);
+        }
         if (eventIsHiddenContext(event)) continue;
         enqueueImportantNotification(event);
+        enqueueJournalNotification(event);
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
       }
@@ -8389,6 +8622,7 @@
       if (pendingChats.length !== pendingChatCountBefore
           || pendingModelInteractions.length !== pendingInteractionCountBefore
           || chatProgressChanged || modelInteractionProgressChanged) renderCommands();
+      renderJournalActivity();
       return changed;
     }
 
@@ -8434,15 +8668,16 @@
         typingActorId: Number(actorId),
         typingName: self ? actorLabel(self) : "Your avatar",
         afterSeq: latestSeenSeq(),
-        turnsCompleted: 0,
-        turnCount: chatExchangeTurnCount,
+        segmentsCompleted: 0,
+        segmentCount: chatOpeningTurnCount,
+        activityText: `${self ? actorLabel(self) : "Your avatar"} is opening the conversation`,
       });
       window.setTimeout(() => {
         if (!pendingChats.some((chat) => chat.id === id)) return;
         cancelPendingChat({ id, created: true });
         renderCommands();
         renderLog();
-      }, 60000);
+      }, 180000);
       return { id, created: true };
     }
 
@@ -8451,11 +8686,17 @@
       const id = Number(pending.id || pending || 0);
       if (!id) return;
       pendingChats = pendingChats.filter((chat) => chat.id !== id);
+      renderJournalActivity();
     }
 
     function pendingChatMatchesEvent(chat, event) {
       const eventSeq = Number(event?.seq || 0);
       if (!eventSeq || eventSeq <= Number(chat.afterSeq || 0)) return false;
+      const queueEventSeq = Number(chat.queueEventSeq || 0);
+      const eventQueueSeq = event.type === "chat.queued"
+        ? eventSeq
+        : Number(event.caused_by_event_seq || 0);
+      if (queueEventSeq && eventQueueSeq) return queueEventSeq === eventQueueSeq;
       const pairMatches = (
         (Number(event.actor_id || 0) === Number(actorId || 0)
           && Number(event.target_actor_id || 0) === Number(chat.targetActorId || 0))
@@ -8463,46 +8704,23 @@
           && Number(event.target_actor_id || 0) === Number(actorId || 0))
       );
       if (!pairMatches) return false;
-      const queueEventSeq = Number(chat.queueEventSeq || 0);
-      const eventQueueSeq = event.type === "chat.queued"
-        ? eventSeq
-        : Number(event.caused_by_event_seq || 0);
-      return !queueEventSeq || !eventQueueSeq || queueEventSeq === eventQueueSeq;
+      return pairMatches;
     }
 
-    function chatProgressForAction(action) {
-      const pendingChatId = Number(action?.pendingChatId || 0);
-      if (!pendingChatId) return null;
-      return pendingChats.find((chat) => chat.id === pendingChatId) || null;
-    }
-
-    function chatTurnProgressHtml(chat) {
-      const turnCount = Math.max(1, Number(chat?.turnCount || chatExchangeTurnCount));
-      const turnsCompleted = Math.max(0, Math.min(turnCount, Number(chat?.turnsCompleted || 0)));
-      const segments = Array.from({ length: turnCount }, (_, index) => (
-        `<span${index < turnsCompleted ? ' class="filled"' : ""}></span>`
-      )).join("");
-      return `<span class="chat-turn-progress" style="--chat-turn-count:${turnCount}" role="progressbar" aria-label="Chat exchange progress" aria-valuemin="0" aria-valuemax="${turnCount}" aria-valuenow="${turnsCompleted}" aria-valuetext="${turnsCompleted} of ${turnCount} chat turns complete">${segments}</span>`;
-    }
-
-    function chatProgressAction(chat) {
-      const turnCount = Math.max(1, Number(chat?.turnCount || chatExchangeTurnCount));
-      const turnsCompleted = Math.max(0, Math.min(turnCount, Number(chat?.turnsCompleted || 0)));
-      const speaker = String(chat?.typingName || chat?.targetName || "Someone nearby");
-      const detail = turnsCompleted >= turnCount
-        ? "the conversation settles"
-        : `${speaker} is speaking — turn ${turnsCompleted + 1} of ${turnCount}`;
-      return {
-        kind: "orb-chat",
-        label: "chat",
-        detail,
-        busy: true,
-        busyDetail: detail,
-        target_actor_id: Number(chat?.targetActorId || 0),
-        target_actor_name: String(chat?.targetName || ""),
-        chatProgress: chat,
-        accessibleLabel: `Chat exchange, ${turnsCompleted} of ${turnCount} turns complete`,
-      };
+    function chatFloorPresentation(event) {
+      if (!String(event?.type || "").startsWith("chat.")) return null;
+      try {
+        const value = JSON.parse(String(event.content || ""));
+        if (Number(value?.schema_version) !== 1) return null;
+        const round = Math.max(1, Number(value.round || 1));
+        const seat = Math.max(0, Number(value.seat || 0));
+        const seats = Math.max(1, Number(value.seats || 1));
+        const decision = String(value.decision || "");
+        if (!Number.isFinite(round) || !Number.isFinite(seat) || !Number.isFinite(seats)) return null;
+        return { round, seat, seats, decision };
+      } catch {
+        return null;
+      }
     }
 
     function resolvePendingChat(event) {
@@ -8529,6 +8747,7 @@
           matchingChat.typingName = String(
             event.actor_name || (speaker ? actorLabel(speaker) : "Someone nearby"),
           );
+          matchingChat.activityText = `${matchingChat.typingName} is composing a line`;
           return true;
         }
         return false;
@@ -8540,29 +8759,80 @@
         ));
         if (messageChatIndex >= 0) {
           const chat = pendingChats[messageChatIndex];
+          if (Number(chat.round || 0) > 0) return true;
           pendingChats[messageChatIndex] = {
             ...chat,
             afterSeq: eventSeq,
-            turnsCompleted: Math.min(
-              Number(chat.turnCount || chatExchangeTurnCount),
-              Number(chat.turnsCompleted || 0) + 1,
+            segmentsCompleted: Math.min(
+              Number(chat.segmentCount || chatOpeningTurnCount),
+              Number(chat.segmentsCompleted || 0) + 1,
             ),
           };
           return true;
         }
         return false;
       }
+      if (["chat.round", "chat.deciding", "chat.spoke", "chat.passed"].includes(event.type)) {
+        if (matchingChatIndex < 0) return false;
+        const floor = chatFloorPresentation(event);
+        if (!floor) return false;
+        const chat = pendingChats[matchingChatIndex];
+        const speakerId = Number(event.actor_id || 0);
+        const speaker = actorForId(speakerId);
+        const speakerName = String(
+          event.actor_name || (speaker ? actorLabel(speaker) : "Someone nearby"),
+        );
+        pendingChats[matchingChatIndex] = {
+          ...chat,
+          round: floor.round,
+          segmentCount: floor.seats,
+          segmentsCompleted: event.type === "chat.round"
+            ? 0
+            : Math.min(floor.seats, floor.seat + (event.type === "chat.deciding" ? 0 : 1)),
+          typingActorId: speakerId || chat.typingActorId,
+          typingName: event.type === "chat.passed"
+            ? `${speakerName} passes`
+            : event.type === "chat.spoke"
+              ? `${speakerName} spoke`
+              : event.type === "chat.round"
+                ? `initiative round ${floor.round}`
+                : `${speakerName} is choosing chat or pass`,
+          activityText: event.type === "chat.passed"
+            ? `${speakerName} passed`
+            : event.type === "chat.spoke"
+              ? `${speakerName} spoke`
+              : event.type === "chat.round"
+                ? `Initiative round ${floor.round} began`
+                : `${speakerName} is choosing chat or pass`,
+        };
+        return true;
+      }
       if (event.type === "chat.failed" || event.type === "chat.completed") {
         if (matchingChatIndex >= 0) {
           if (event.type === "chat.failed") {
             pendingChats.splice(matchingChatIndex, 1);
+            ensureJournalNotification({
+              key: `chat-failed:${eventSeq}`,
+              label: "chat",
+              text: cleanStatusText(event.content || "The conversation ended early."),
+              filled: 1,
+              segments: 1,
+            });
             return true;
           }
           const chat = pendingChats[matchingChatIndex];
+          ensureJournalNotification({
+            key: `chat-completed:${eventSeq}`,
+            label: "chat",
+            text: `${chat.targetName || "The conversation"} settled after everyone passed.`,
+            filled: Number(chat.segmentCount || chatOpeningTurnCount),
+            segments: Number(chat.segmentCount || chatOpeningTurnCount),
+          });
           pendingChats[matchingChatIndex] = {
             ...chat,
-            turnsCompleted: Number(chat.turnCount || chatExchangeTurnCount),
+            segmentsCompleted: Number(chat.segmentCount || chatOpeningTurnCount),
             typingName: "the conversation settles",
+            activityText: "The conversation settled after everyone passed",
           };
           window.setTimeout(() => {
             cancelPendingChat(chat.id);
@@ -8764,6 +9034,7 @@
       const previousPendingModelInteractions = pendingModelInteractions.map((pending) => ({
         ...pending,
       }));
+      pendingReflection = null;
       logEvents = [];
       seenSeq.clear();
       for (const event of events) {
@@ -8774,6 +9045,20 @@
         if (!event || eventIsMuted(event)) continue;
         resolvePendingChat(event);
         resolvePendingModelInteraction(event);
+        if (
+          event.type === "ability_check.rolled"
+          && ["think", "dream"].includes(String(event.content || ""))
+          && event.success === true
+        ) {
+          pendingReflection = {
+            sourceSeq: Number(event.seq || 0),
+            kind: String(event.content || "think"),
+            text: event.content === "dream"
+              ? "A dream is taking shape…"
+              : "A thought is taking shape…",
+          };
+        }
+        if (["avatar.thought", "avatar.dream"].includes(event.type)) pendingReflection = null;
         if (eventIsHiddenContext(event)) continue;
         if (event.seq !== undefined && event.seq !== null) {
           if (seenSeq.has(event.seq)) continue;
@@ -8796,6 +9081,7 @@
       pendingModelInteractions = lifecycle.pending.length
         ? lifecycle.pending
         : preserved.slice(-1);
+      renderJournalActivity();
     }
 
     function rebuildLogFromAuthoritativeState(view = state) {
@@ -8861,6 +9147,7 @@
       "item.given",
       "item.traded",
       "job.contribution.resolved",
+      "first_tale.public_trace",
       "clock.updated",
       "clock.threshold",
       "natural_feature.revealed",
@@ -9137,6 +9424,95 @@
       }
     }
 
+    function firstTalePresentationExposure(interaction, view = state) {
+      const tale = view?.first_tale;
+      const exposureId = String(tale?.phase_exposure_id || "");
+      const phase = String(tale?.continuation?.phase || tale?.phase || "");
+      const stateRevision = Math.max(
+        1,
+        Number(tale?.state_revision || 0),
+        Number(view?.state_revision || 0),
+        Number(view?.world_seq || 0),
+        latestSeenSeq(),
+      );
+      if (
+        !exposureId
+        || !["notice", "return_to_lead", "follow_lead", "return_to_destination", "contribute", "complete", "travel", "arrived", "accepted"].includes(phase)
+        || !["phase_seen", "growth_feedback_seen", "completion_memory_seen", "journal_opened_after_growth"].includes(interaction)
+      ) return null;
+      return { exposureId, interaction, phase, stateRevision };
+    }
+
+    function scheduleVisibleFirstTalePresentationReceipts() {
+      if (firstTalePresentationVisibilityFrame !== null) return;
+      firstTalePresentationVisibilityFrame = window.requestAnimationFrame(() => {
+        firstTalePresentationVisibilityFrame = null;
+        acknowledgeVisibleFirstTalePresentations();
+      });
+    }
+
+    function acknowledgeVisibleFirstTalePresentations() {
+      if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
+      if (libraryPanelPinned || accountPanelPinned) return;
+      const updates = $("updates");
+      if (!updates || updates.hidden || updates.getClientRects().length === 0) return;
+      const taleRow = updates.querySelector("[data-first-tale-presentation]");
+      if (taleRow && worldBeatRowIsActuallyVisible(taleRow, updates)) {
+        void acknowledgeFirstTalePresentation("phase_seen");
+        if (taleRow.hasAttribute("data-first-tale-completion-memory")) {
+          void acknowledgeFirstTalePresentation("completion_memory_seen");
+        }
+      }
+      const growthRow = updates.querySelector(".growth-thread");
+      if (growthRow && worldBeatRowIsActuallyVisible(growthRow, updates)) {
+        void acknowledgeFirstTalePresentation("growth_feedback_seen");
+      }
+      if (journalOpen && Number(state?.ledger?.advancement_points || 0) > 0) {
+        void acknowledgeFirstTalePresentation("journal_opened_after_growth");
+      }
+    }
+
+    async function acknowledgeFirstTalePresentation(interaction) {
+      const exposure = firstTalePresentationExposure(interaction);
+      if (!exposure) return;
+      const receiptKey = `${exposure.exposureId}:${interaction}`;
+      const previous = firstTalePresentationReceiptState.get(receiptKey);
+      if (["in_flight", "acknowledged", "rejected"].includes(previous?.status)) return;
+      const attempts = Number(previous?.attempts || 0) + 1;
+      firstTalePresentationReceiptState.set(receiptKey, { status: "in_flight", attempts });
+      try {
+        const result = await post("/story/first-tale-presentations", {
+          actor_id: actorId,
+          actor_session: actorSession,
+          exposure_id: exposure.exposureId,
+          interaction: exposure.interaction,
+          phase: exposure.phase,
+          transport: "browser",
+          state_revision: exposure.stateRevision,
+        });
+        if (result?.ok) {
+          firstTalePresentationReceiptState.set(receiptKey, { status: "acknowledged", attempts });
+          return;
+        }
+        const status = Number(result?.status || 0);
+        if ([403, 404, 409, 422].includes(status)) {
+          firstTalePresentationReceiptState.set(receiptKey, { status: "rejected", attempts });
+          return;
+        }
+        throw new Error(result?.error || "first-tale presentation receipt failed");
+      } catch (error) {
+        firstTalePresentationReceiptState.set(receiptKey, { status: "retry", attempts });
+        if (attempts < 3) {
+          window.setTimeout(
+            () => void acknowledgeFirstTalePresentation(interaction),
+            attempts * 1000,
+          );
+        } else {
+          console.warn("First-tale presentation receipt was not recorded", receiptKey, error);
+        }
+      }
+    }
+
     const mechanicalCommandOutputPrefixes = [
       "Visit Ledger marked:",
       "Visit Ledger banked:",
@@ -9184,6 +9560,10 @@
         || event.type === "chat.queued"
         || event.type === "chat.typing"
         || event.type === "chat.retrying"
+        || event.type === "chat.round"
+        || event.type === "chat.deciding"
+        || event.type === "chat.spoke"
+        || event.type === "chat.passed"
         || event.type === "chat.completed"
         || event.type === "model_interaction.queued"
         || event.type === "model_interaction.generating"
@@ -9540,9 +9920,18 @@
       kind = "",
       attrs = "",
     } = {}) {
-      const text = cleanStatusText(prose);
+      const text = cleanJournalProseText(prose);
       if (!text) return "";
       return `<details class="journal-row journal-prose-row ${escapeAttr(kind)}"${attrs} aria-label="${escapeAttr(`${category}. ${text}`)}"><summary tabindex="-1" aria-disabled="true"><span class="journal-row-label">${escapeHtml(category)}</span><span class="journal-row-summary">${escapeHtml(text)}</span><span class="journal-row-marker" aria-hidden="true"></span></summary></details>`;
+    }
+
+    function cleanJournalProseText(value) {
+      return String(value || "")
+        .trim()
+        .replace(/:{1,2}(resident_feature_use|resident_autonomy_intent)\b/g, "")
+        .replace(/^you:\s*/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
     function syncJournalMode() {
@@ -9566,17 +9955,29 @@
       if (open) {
         scheduleVisibleWorldBeatReceipts();
         scheduleVisibleClockPresentationReceipts();
+        scheduleVisibleFirstTalePresentationReceipts();
         scheduleJournalRowOverflowSync();
       }
+      renderJournalActivity();
     }
 
     function setJournalOpen(open) {
+      const closing = journalOpen && !open;
+      if (closing) {
+        for (const activity of currentJournalActivities()) {
+          dismissedJournalActivityKeys.add(activity.key);
+        }
+        journalNotifications = [];
+        dismissFirstTalePayoff();
+      }
       journalOpen = Boolean(open);
       syncJournalMode();
+      if (closing) renderStatusUpdates();
     }
 
     function renderTimelines() {
       renderStatusUpdates();
+      renderJournalActivity();
       renderRoomMemory();
       renderJournalLog();
       renderLog();
@@ -9591,23 +9992,44 @@
         firstTaleActorIdSeen = currentActorId;
         firstTaleStageSeen = 0;
         firstTaleCelebration = false;
-        firstTaleCompletionSeen = false;
+        firstTaleCompletionSeen = firstTaleCompletionWasSeen();
         firstTaleRenderSignature = "";
       }
       const firstThread = firstThreadModel();
       if (firstThread) {
         firstTaleStageSeen = Math.max(firstTaleStageSeen, Number(firstThread.stage || 0));
       }
-      firstTaleCelebration = Boolean(currentActorId && state?.first_tale?.phase === "complete");
-      firstTaleCompletionSeen = firstTaleCelebration;
+      const taleComplete = Boolean(currentActorId && state?.first_tale?.phase === "complete");
+      if (!taleComplete) {
+        firstTaleCelebration = false;
+        firstTaleCompletionSeen = false;
+      } else if (!firstTaleCompletionSeen) {
+        firstTaleCelebration = true;
+      }
       const growthReady = currentActorId && Number(state?.ledger?.advancement_points || 0) > 0;
       const growthActorName = String(actorForId(currentActorId)?.name || "Your avatar").trim();
+      const acceptedPayoff = firstTaleAcceptedPayoffVisible();
       const rows = [
-        firstThread
+        firstTaleCelebration
+          ? journalProseRowHtml({
+              category: "story",
+              prose: `You changed the shared world. ${firstTaleCompletionText()}`,
+              kind: "first-thread complete",
+              attrs: " data-first-tale-presentation=\"complete\" data-first-tale-completion-memory",
+            })
+          : acceptedPayoff
+          ? journalProseRowHtml({
+              category: "story",
+              prose: String(state?.first_tale?.continuation?.instruction || ""),
+              kind: "first-thread continuation-accepted",
+              attrs: " data-first-tale-presentation=\"accepted\"",
+            })
+          : firstThread
           ? journalProseRowHtml({
               category: "story",
               prose: `Your first tale continues when you ${lowerInitial(firstThread.text)}`,
               kind: "first-thread",
+              attrs: ` data-first-tale-presentation="${escapeAttr(state?.first_tale?.phase || "")}"`,
             })
           : "",
         growthReady
@@ -9620,19 +10042,103 @@
       ].filter(Boolean);
       updates.hidden = rows.length === 0;
       const html = rows.join("");
-      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || ""}:${Number(state?.ledger?.advancement_points || 0)}`;
+      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.continuation?.phase || ""}:${state?.first_tale?.phase_exposure_id || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || ""}:${Number(state?.ledger?.advancement_points || 0)}:${Number(firstTaleCelebration)}:${Number(firstTaleCompletionSeen)}:${Number(acceptedPayoff)}`;
       if (signature !== firstTaleRenderSignature) {
         updates.innerHTML = html;
         firstTaleRenderSignature = signature;
       }
+      const storyNotice = firstTaleCelebration
+        ? `You changed the shared world. ${firstTaleCompletionText()}`
+        : acceptedPayoff
+          ? String(state?.first_tale?.continuation?.instruction || "")
+          : firstThread
+            ? `Your first tale continues when you ${lowerInitial(firstThread.text)}`
+            : "";
+      if (storyNotice) {
+        ensureJournalNotification({
+          key: `story:${currentActorId}:${state?.first_tale?.phase_exposure_id || state?.first_tale?.phase || firstThread?.stage || 0}:${state?.first_tale?.trace_event_seq || 0}`,
+          label: "story",
+          text: cleanJournalProseText(storyNotice),
+        });
+      }
+      if (growthReady) {
+        ensureJournalNotification({
+          key: `growth:${currentActorId}:${Number(state?.ledger?.advancement_points || 0)}`,
+          label: "growth",
+          text: `A growth choice is ready for ${growthActorName}.`,
+        });
+      }
+      renderJournalActivity();
+      scheduleVisibleFirstTalePresentationReceipts();
     }
 
     function firstTaleCompletionText(view = state) {
-      return String(
-        view?.first_tale?.next_invitation
-          || view?.first_tale?.completion_memory
-          || "you changed the shared world and left the next visitor a clearer way."
-      );
+      const memory = String(
+        view?.first_tale?.completion_memory
+          || "You changed the shared world and left the next visitor a clearer way."
+      ).trim();
+      const invitation = String(view?.first_tale?.next_invitation || "").trim();
+      return `${finishSentence(memory)}${invitation ? ` Next: ${finishSentence(invitation)}` : ""}`;
+    }
+
+    function firstTaleCompletionStorageKey(view = state) {
+      const traceEventSeq = Number(view?.first_tale?.trace_event_seq || 0);
+      if (!actorId || !traceEventSeq) return "";
+      return `cosyworld.first-tale-completion-seen.${actorId}.${traceEventSeq}`;
+    }
+
+    function firstTaleCompletionWasSeen(view = state) {
+      const key = firstTaleCompletionStorageKey(view);
+      if (!key) return false;
+      try {
+        return localStorage.getItem(key) === "1";
+      } catch (_error) {
+        return false;
+      }
+    }
+
+    function firstTaleAcceptedStorageKey(view = state) {
+      const tale = view?.first_tale;
+      const exposureId = tale?.continuation?.phase === "accepted"
+        ? String(tale?.phase_exposure_id || "")
+        : "";
+      if (!actorId || !exposureId) return "";
+      return `cosyworld.first-tale-accepted-seen.${actorId}.${exposureId}`;
+    }
+
+    function firstTaleAcceptedPayoffVisible(view = state) {
+      const key = firstTaleAcceptedStorageKey(view);
+      if (!key) return false;
+      try {
+        return localStorage.getItem(key) !== "1";
+      } catch (_error) {
+        return true;
+      }
+    }
+
+    function firstTalePayoffVisible(view = state) {
+      return firstTaleCelebration || firstTaleAcceptedPayoffVisible(view);
+    }
+
+    function dismissFirstTalePayoff(view = state) {
+      const completionVisible = firstTaleCelebration;
+      const acceptedKey = firstTaleAcceptedStorageKey(view);
+      if (!completionVisible && !acceptedKey) return;
+      if (completionVisible) {
+        firstTaleCelebration = false;
+        firstTaleCompletionSeen = true;
+      }
+      const keys = [
+        ...(completionVisible ? [firstTaleCompletionStorageKey(view)] : []),
+        acceptedKey,
+      ].filter(Boolean);
+      for (const key of keys) {
+        try {
+          localStorage.setItem(key, "1");
+        } catch (_error) {
+          // Leave the payoff available when storage cannot preserve its acknowledgement.
+        }
+      }
     }
 
     function firstTaleIsComplete(view = state) {
@@ -9800,20 +10306,13 @@
         roomLogTickerFrame = null;
       }
       toggle.dataset.latest = value;
-      latest.hidden = !value;
+      // The former scrolling Journal ticker is folded into the single activity
+      // tray, so the room never presents a second notification surface.
+      latest.hidden = true;
       latest.classList.remove("is-overflowing");
       latest.style.removeProperty("--room-log-duration");
       latest.style.removeProperty("--room-log-overflow");
       track.textContent = value;
-      if (!value) return;
-      roomLogTickerFrame = window.requestAnimationFrame(() => {
-        roomLogTickerFrame = null;
-        const overflow = Math.max(0, Math.ceil(track.scrollWidth - latest.clientWidth));
-        if (overflow <= 4) return;
-        latest.style.setProperty("--room-log-overflow", `${overflow}px`);
-        latest.style.setProperty("--room-log-duration", `${Math.min(28, Math.max(9, 6 + overflow / 22))}s`);
-        latest.classList.add("is-overflowing");
-      });
     }
 
     function sharedQuestionsForPresentation(view = state) {
@@ -9880,7 +10379,9 @@
 
     function syncJournalRegions() {
       const openThreads = $("journal-open-threads");
-      openThreads.hidden = $("shared-questions").hidden && $("updates").hidden;
+      openThreads.hidden = $("journal-activity").hidden
+        && $("shared-questions").hidden
+        && $("updates").hidden;
     }
 
     const journalBeatCategories = new Set([
@@ -10789,8 +11290,10 @@
         const typingActorId = Number(chat.typingActorId || chat.targetActorId || 0);
         const actor = actorForId(typingActorId);
         const speaker = chat.typingName || (actor ? actorLabel(actor) : chat.targetName || "Someone nearby");
-        const aria = `${speaker} is typing. Your next actions are ready while the conversation unfolds.`;
-        return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: typingActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>typing…</span></div>`;
+        const deciding = chat.stage === "deciding";
+        const status = deciding ? "choosing chat or pass…" : "typing…";
+        const aria = `${speaker} is ${deciding ? "choosing whether to chat or pass" : "typing"}. Your next actions are ready while the conversation unfolds.`;
+        return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: typingActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>${status}</span></div>`;
       }).join("");
     }
 
@@ -11241,6 +11744,10 @@
       }
       if (type === "relationship.beat" || type === "relationship.advanced") {
         return finishSentence(cleanStatusText(event.content || "The relationship changes through a visible deed"));
+      }
+      if (type === "first_tale.public_trace") {
+        const trace = cleanStatusText(event.content || "left the next visitor a clearer way");
+        return finishSentence(`${actor} ${lowerInitial(trace)}`);
       }
       if (type === "world.weather.shifted") {
         return finishSentence(cleanStatusText(event.content || "The weather changes its mind"));
@@ -13317,12 +13824,16 @@
         if (action?.choices?.length) {
           return [
             ["Choose", "who you want to talk with"],
-            ["Then", "your avatar and theirs trade two short lines each"],
+            ["Opening", "your avatar and theirs trade one line each"],
+            ["Then", "nearby avatars take initiative turns to chat or pass"],
+            ["Ends", "when one full initiative round passes"],
           ];
         }
         return [
           ["With", action?.targetName || String(action?.detail || "").split(/[·,]/)[0].trim()],
-          ["Then", "your avatar and theirs trade two short lines each"],
+          ["Opening", "your avatar and theirs trade one line each"],
+          ["Then", "nearby avatars take initiative turns to chat or pass"],
+          ["Ends", "when one full initiative round passes"],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "befriend") {
@@ -13775,31 +14286,62 @@
     function firstThreadModel(view = state, availableActions = actions) {
       if (!actorId || !view || view?.primary_action?.kind === "create_avatar") return null;
       const tale = view.first_tale;
-      if (!tale || tale.phase === "complete") return null;
+      if (!tale) return null;
+      const continuation = tale.phase === "complete" ? tale.continuation : null;
+      if (continuation?.phase === "accepted" || (tale.phase === "complete" && !continuation)) return null;
+      const advancingOfferId = String(
+        continuation?.advancing_offer_id || tale.advancing_offer_id || "",
+      );
+      const actionHasOffer = (action) => advancingOfferId && (
+        Array.isArray(action?.offerIds) && action.offerIds.includes(advancingOfferId)
+      );
+      const actionTargets = (action, targetId) => (
+        Number(action?.target?.id || 0) === Number(targetId || 0)
+          || actionFocusKeys(action).includes(`exit:${targetId}`)
+          || actionFocusKeys(action).includes(`actor:${targetId}`)
+      );
       const matchesPhase = (action) => {
-        if (tale.phase === "notice") {
-          return action.intention === "notice" || action.focusKey === "check";
+        if (actionHasOffer(action)) return true;
+        if (continuation?.phase === "travel") {
+          const destinationId = Number(
+            continuation.required_location_id || continuation.destination_location_id || 0,
+          );
+          return action.intention === "travel" && actionTargets(action, destinationId);
         }
-        if (tale.phase === "follow_lead") {
+        if (continuation?.phase === "arrived") {
+          return ["create_bond", "bond"].includes(String(action?.intention || action?.kind || ""))
+            && actionTargets(action, continuation.target_actor_id);
+        }
+        if (tale.phase === "notice") {
+          return (action.intention === "notice" || action.focusKey === "check")
+            && actionTargets(action, tale.lead_location_id);
+        }
+        if (["return_to_lead", "follow_lead", "return_to_destination"].includes(tale.phase)) {
+          const destinationId = Number(tale.required_location_id || (
+            tale.phase === "return_to_lead" ? tale.lead_location_id : tale.destination_location_id
+          ));
           return action.intention === "travel"
-            && (String(action?.target?.id || "") === "2"
-              || actionFocusKeys(action).includes("exit:2"));
+            && actionTargets(action, destinationId);
         }
         if (tale.phase === "contribute") {
-          return String(action?.project?.progress_clock_id || "") === "rain-soft-garden.trustworthy-path"
+          return String(action?.project?.id || "") === String(tale.job_id || "")
+            || String(action?.project?.progress_clock_id || "") === String(tale.progress_clock_id || "")
             || action.intention === "notice"
             || action.focusKey === "check";
         }
         return false;
       };
       const matching = availableActions.filter(matchesPhase);
-      const stage = tale.phase === "notice" ? 1 : (tale.phase === "follow_lead" ? 2 : 3);
+      const stage = continuation
+        ? (continuation.phase === "travel" ? 4 : 5)
+        : (["notice", "return_to_lead"].includes(tale.phase) ? 1
+          : (tale.phase === "follow_lead" ? 2 : 3));
       return {
         stage,
-        total: 3,
+        total: continuation ? 5 : 3,
         actionKey: matching[0] ? actionHandKey(matching[0]) : "",
         actionKeys: matching.map(actionHandKey),
-        text: String(tale.instruction || ""),
+        text: String(continuation?.instruction || tale.instruction || ""),
       };
     }
 
@@ -14060,18 +14602,10 @@
         button.classList.remove("dealt");
         button.classList.remove("keepsake-guided");
         button.classList.remove("story-guided");
-        button.classList.remove("chat-progress-card");
         button.setAttribute("aria-label", "wait");
         button.classList.remove("has-copy");
         button.innerHTML = `<span class="thumb placeholder" aria-hidden="true"></span>`;
         return;
-      }
-      if (action.kind === "orb-chat" && pendingChats.length) {
-        action = {
-          ...action,
-          busy: true,
-          busyDetail: "current exchange unfolding…",
-        };
       }
       if (action.kind === "model-interaction" && pendingModelInteractions.length) {
         const pending = pendingModelInteractions[0];
@@ -14089,7 +14623,6 @@
       else button.removeAttribute("data-command");
       button.classList.remove(...actionCardAccentClasses);
       const { cardType, rarity, className } = actionCardAccentClass(action);
-      const chatProgress = action.chatProgress || chatProgressForAction(action);
       const keepsakeGuide = action.keepsakeGuide || keepsakeGuideForAction(action);
       const keepsakeName = keepsakeGuide?.display_name || keepsakeGuide?.card_id || "";
       const storyGuide = action.storyGuide === true;
@@ -14102,7 +14635,6 @@
       button.classList.add(className);
       button.classList.toggle("keepsake-guided", Boolean(keepsakeGuide));
       button.classList.toggle("story-guided", storyGuide);
-      button.classList.toggle("chat-progress-card", Boolean(chatProgress));
       if (keepsakeName) button.dataset.keepsakeGuide = keepsakeName;
       else button.removeAttribute("data-keepsake-guide");
       if (storyGuide) button.dataset.storyGuide = storyGuideLabel;
@@ -14172,9 +14704,7 @@
         ? `<span class="provider-call">↳ ${escapeHtml(providerReason)}</span>`
         : "";
       const busyHtml = action.busy
-        ? (chatProgress
-            ? chatTurnProgressHtml(chatProgress)
-            : `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`)
+        ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
       button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
     }
@@ -14275,12 +14805,9 @@
         const thoughtRoll = (result.events || []).find((event) => (
           event.type === "ability_check.rolled" && event.content === "think"
         ));
-        setStatus(
-          thoughtRoll?.success
-            ? "The Intelligence check lands; an avatar thought is forming asynchronously."
-            : "The Intelligence check misses; no avatar thought is generated this time.",
-          thoughtRoll?.success ? "ok" : "quiet",
-        );
+        if (!thoughtRoll) {
+          setError("The hand passed, but no reflection check was returned.");
+        }
         await refresh();
         renderCommands();
         return result;
@@ -14294,15 +14821,12 @@
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary"];
       const drawButton = $("shuffle");
-      const chatProgressButton = $("chat-progress");
       renderTurnPingPill();
       prompt.classList.toggle("single-action", actionBusy);
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
         prompt.classList.remove("has-draw");
         drawButton.style.display = "none";
-        renderButton("chat-progress", null);
-        chatProgressButton.style.display = "none";
         const busyDetail = typeof pendingAction?.busyDetail === "function"
           ? pendingAction.busyDetail()
           : pendingAction?.busyDetail;
@@ -14336,9 +14860,6 @@
       const passLabel = state?.action_hand?.pass?.label || "Think";
       drawButton.querySelector(".cmd-label").textContent = passLabel.toLowerCase();
       drawButton.setAttribute("aria-label", `${passLabel}: commit a pass for the current two actions`);
-      const chatProgress = pendingChats[0] || null;
-      renderButton("chat-progress", chatProgress ? chatProgressAction(chatProgress) : null);
-      chatProgressButton.style.display = chatProgress && !state?.combat ? "flex" : "none";
       const visibleActions = actionBarActions().slice(0, handCapacity());
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
@@ -14385,7 +14906,6 @@
         renderCommands();
       }, 3000);
       const pendingChat = beginPendingChat(action);
-      if (pendingChat?.id) action.pendingChatId = pendingChat.id;
       const pendingInteraction = beginPendingModelInteraction(action);
       renderCommands();
       renderLog();
@@ -15095,8 +15615,9 @@
       void passHand();
     });
 
-    $("important-notifications").addEventListener("click", (event) => {
-      event.target.closest("[data-dismiss-important]")?.closest(".important-notification")?.remove();
+    $("journal-activity-tray").addEventListener("click", () => {
+      setJournalOpen(true);
+      $("journal-view").querySelector(".journal-stream")?.focus?.({ preventScroll: true });
     });
 
     document.addEventListener("keydown", (event) => {

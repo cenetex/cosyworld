@@ -168,7 +168,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:3731d8e8ce81da825b3f69fc99f49bb22b6f1f206595460f3444f8ce3990562f",
+      "integrity": "sha256:e5609d396bd4b6ed5251ee46dab4a063266e79d1cb850270f59db1ebdb8d30cd",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -322,7 +322,7 @@
         "type": "workspace",
         "path": "../../content/core-lantern-keeper-bridge"
       },
-      "integrity": "sha256:6aa8a08b240f5bb3c21ea5fa63b175365e90608c43162cb3a07d1e149f260d9b",
+      "integrity": "sha256:81a880cc3d9afaa6767c9ae64eba5016749de8807df69cef68eb1ca2ea34e35e",
       "dependencies": [
         {
           "id": "cosyworld.core",

@@ -796,9 +796,14 @@ pub(super) async fn complete_avatar_reply(
         }
     };
     let mut runtime = state.inner.lock().await;
-    let Some(events) =
-        commit_resident_reply_record(state, &mut runtime, &plan, proposal, relationship_reply)
-    else {
+    let Some(events) = commit_resident_reply_record(
+        state,
+        &mut runtime,
+        &plan,
+        proposal,
+        relationship_reply,
+        None,
+    ) else {
         return Ok(committed.is_some());
     };
     drop(runtime);

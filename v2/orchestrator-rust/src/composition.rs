@@ -2368,6 +2368,61 @@ impl RuntimeWorld {
             .map(|generation| usize::try_from(generation).unwrap_or(usize::MAX))
             .unwrap_or_default();
         let mut hand = compose_action_hand_at(offers, draw_count);
+        if let Some(actor_id) = actor_id {
+            let (advancing_offer_id, advancing_offer_ids) =
+                self.first_tale_advancing_offer_selection(actor_id, offers);
+            if let Some(advancing_offer_id) = advancing_offer_id {
+                if let Some(offer) = offers
+                    .iter()
+                    .find(|offer| offer.offer_id == advancing_offer_id)
+                {
+                    let companion_capacity = usize::from(hand.capacity).saturating_sub(1);
+                    let mut companion_candidates = offers
+                        .iter()
+                        .filter(|candidate| {
+                            candidate.ranked_hand_eligible
+                                && action_offer_is_reachable(candidate)
+                                && !advancing_offer_ids.contains(&candidate.offer_id)
+                        })
+                        .collect::<Vec<_>>();
+                    companion_candidates.sort_by(|left, right| {
+                        left.provider
+                            .priority
+                            .cmp(&right.provider.priority)
+                            .then_with(|| left.rank.cmp(&right.rank))
+                            .then_with(|| left.id.cmp(&right.id))
+                    });
+                    let mut seen_groups = BTreeSet::new();
+                    companion_candidates
+                        .retain(|candidate| seen_groups.insert(action_offer_hand_group(candidate)));
+                    let companion_count = companion_candidates.len();
+                    let companions = if companion_count == 0 || companion_capacity == 0 {
+                        Vec::new()
+                    } else {
+                        let start = draw_count.saturating_mul(companion_capacity) % companion_count;
+                        (0..companion_capacity.min(companion_count))
+                            .map(|offset| companion_candidates[(start + offset) % companion_count])
+                            .collect::<Vec<_>>()
+                    };
+                    hand.entries = std::iter::once(ActionHandEntryView {
+                        offer_id: offer.offer_id.clone(),
+                        kind: offer.kind.clone(),
+                        intention: offer.intention.clone(),
+                        provider: offer.provider.clone(),
+                    })
+                    .chain(companions.into_iter().map(|companion| ActionHandEntryView {
+                        offer_id: companion.offer_id.clone(),
+                        kind: companion.kind.clone(),
+                        intention: companion.intention.clone(),
+                        provider: companion.provider.clone(),
+                    }))
+                    .collect();
+                    let guided_deck_size = companion_count.saturating_add(1);
+                    hand.deck_size = u16::try_from(guided_deck_size).unwrap_or(u16::MAX);
+                    hand.draw_available = guided_deck_size > usize::from(hand.capacity);
+                }
+            }
+        }
         let state_revision = self.current_state_revision();
         let scene_key = focused_encounter_for_actor(self, actor_id.unwrap_or_default())
             .map(|focused| focused.handoff_key())
@@ -2400,37 +2455,36 @@ impl RuntimeWorld {
         access: &AccessContext,
         mut predicate: impl FnMut(&RankedActionOffer) -> bool,
     ) -> Option<RankedActionOffer> {
-        let (_, initial_offers) = self.legal_action_candidates(Some(actor_id), access);
-        let attempts = initial_offers.len().max(1);
-        let starting_draw_count = self
-            .hand_generations
-            .get(&actor_id)
-            .map(|generation| usize::try_from(*generation).unwrap_or(usize::MAX))
-            .unwrap_or_default();
-        let additional_draws = (0..attempts).find(|additional_draws| {
-            let hand = compose_action_hand_at(
-                &initial_offers,
-                starting_draw_count.saturating_add(*additional_draws),
+        let direct_input = self.actor_control_mode(actor_id) == ActorControlMode::DirectInput;
+        let (mut initial_primary_action, mut initial_offers) =
+            self.legal_action_candidates_with_presence(Some(actor_id), access, None);
+        if direct_input {
+            retain_configured_model_interaction_offers(
+                &mut initial_primary_action,
+                &mut initial_offers,
+                None,
             );
-            initial_offers.iter().any(|offer| {
+        }
+        let attempts = initial_offers.len().max(1);
+        drop(initial_offers);
+        for _ in 0..attempts {
+            let (mut primary_action, mut offers) =
+                self.legal_action_candidates_with_presence(Some(actor_id), access, None);
+            if direct_input {
+                retain_configured_model_interaction_offers(&mut primary_action, &mut offers, None);
+            }
+            let hand = self.action_hand_for(Some(actor_id), &offers);
+            if let Some(offer) = offers.into_iter().find(|offer| {
                 hand.entries
                     .iter()
                     .any(|entry| entry.offer_id == offer.offer_id)
                     && predicate(offer)
-            })
-        })?;
-        drop(initial_offers);
-        for _ in 0..additional_draws {
+            }) {
+                return Some(offer);
+            }
             self.append_hand_shuffled_event(actor_id, "test_draw");
         }
-        let (_, offers) = self.legal_action_candidates(Some(actor_id), access);
-        let hand = self.action_hand_for(Some(actor_id), &offers);
-        offers.into_iter().find(|offer| {
-            hand.entries
-                .iter()
-                .any(|entry| entry.offer_id == offer.offer_id)
-                && predicate(offer)
-        })
+        None
     }
 }
 

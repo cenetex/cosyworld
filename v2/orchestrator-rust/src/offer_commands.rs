@@ -318,15 +318,17 @@ impl RuntimeWorld {
         payload: &CommandRequest,
         access: &AccessContext,
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
+        model_config: Option<&AiConfig>,
     ) -> Result<ResolvedCommand, CommandError> {
         let Some(offer_id) = payload.offer_id.as_deref() else {
             return self.resolve_command_with_presence(payload, access, active_direct_actor_ids);
         };
-        let (_, offers) = self.legal_action_candidates_with_presence(
+        let (mut primary_action, mut offers) = self.legal_action_candidates_with_presence(
             Some(payload.actor_id),
             access,
             active_direct_actor_ids,
         );
+        retain_configured_model_interaction_offers(&mut primary_action, &mut offers, model_config);
         let hand = self.action_hand_for(Some(payload.actor_id), &offers);
         if hand.pass.offer_id == offer_id {
             return Ok(ResolvedCommand {
@@ -379,7 +381,12 @@ pub(crate) async fn resolve_command_submission_at_boundary(
             }));
         }
         let active_direct_actors = active_actor_ids_for_state(state);
-        runtime.resolve_command_submission(payload, access, Some(&active_direct_actors))
+        runtime.resolve_command_submission(
+            payload,
+            access,
+            Some(&active_direct_actors),
+            state.ai_config.as_ref().as_ref(),
+        )
     };
 
     match resolved {
@@ -490,7 +497,7 @@ mod tests {
         let mut right = left.clone();
         right.command = "different legacy prose".to_string();
         let resolved = runtime
-            .resolve_command_submission(&left, &AccessContext::default(), None)
+            .resolve_command_submission(&left, &AccessContext::default(), None, None)
             .expect("offer identity resolves before prose");
         assert_eq!(
             resolved.action.as_ref().map(|action| action.kind.as_str()),
@@ -534,7 +541,7 @@ mod tests {
         assert_eq!(command_submission_identity(&legacy), "look");
         assert!(matches!(
             runtime
-                .resolve_command_submission(&legacy, &AccessContext::default(), None)
+                .resolve_command_submission(&legacy, &AccessContext::default(), None, None)
                 .expect("legacy prose still resolves")
                 .dispatch,
             CommandDispatch::Read { .. }

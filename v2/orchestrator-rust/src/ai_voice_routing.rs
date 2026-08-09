@@ -137,6 +137,7 @@ pub(crate) struct VoiceAttemptRequest {
     pub(crate) max_tokens: u32,
     pub(crate) referer: &'static str,
     pub(crate) model_binding: Option<crate::content_load::SeedActorModelBinding>,
+    pub(crate) room_id: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -269,6 +270,7 @@ impl VoiceAttemptBackend for GatewayVoiceBackend {
                     max_attempts: 1,
                     referer: request.referer,
                     response_format: None,
+                    room_id: request.room_id,
                 },
                 &selection,
             )
@@ -1795,6 +1797,7 @@ mod tests {
             max_tokens: 70,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
+            room_id: None,
         }
     }
 
@@ -2032,7 +2035,7 @@ mod tests {
     }
 
     #[test]
-    fn privacy_rejection_filters_only_the_ineligible_candidate() {
+    fn declared_data_policy_preserves_both_voice_candidates() {
         let config = config(
             vec![
                 candidate("provider/good", "one", "shared/tiny", "tiny", "r1", true),
@@ -2048,8 +2051,9 @@ mod tests {
             VoiceRoutingConfig::default(),
         );
         let pinned = config.pin_models(ModelCapability::Voice).unwrap();
-        assert_eq!(pinned.len(), 1);
+        assert_eq!(pinned.len(), 2);
         assert_eq!(pinned[0].requested_model_id(), "provider/good");
+        assert_eq!(pinned[1].requested_model_id(), "provider/private");
     }
 
     #[test]

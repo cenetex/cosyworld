@@ -311,6 +311,7 @@ pub(super) async fn complete_avatar_reflection(
             max_tokens: 100,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
+            room_id: Some(job.source_location_id),
         },
         reflection_gate(&job),
     )

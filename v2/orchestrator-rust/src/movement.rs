@@ -1510,12 +1510,25 @@ mod tests {
             .find(|actor| actor.id == actor_id)
             .expect("First Tale actor exists")
             .location_id = MOONLIT_TRAIL_LOCATION_ID;
-        assert!(runtime.first_tale_view(actor_id).is_none());
+        let return_view = runtime
+            .first_tale_view(actor_id)
+            .expect("return guidance persists");
+        assert_eq!(return_view.phase, "return_to_destination");
+        assert_eq!(
+            return_view.required_location_id,
+            Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .expect("First Tale progress survives snapshot restore");
-        assert!(restored.first_tale_view(actor_id).is_none());
+        assert_eq!(
+            restored
+                .first_tale_view(actor_id)
+                .expect("restored return guidance")
+                .phase,
+            "return_to_destination"
+        );
 
         let mut legacy_snapshot = RuntimeSnapshot::from_runtime(&runtime);
         let destination_claim =
@@ -1524,7 +1537,13 @@ mod tests {
         let backfilled = legacy_snapshot
             .into_runtime()
             .expect("legacy arrival progress backfills from movement");
-        assert!(backfilled.first_tale_view(actor_id).is_none());
+        assert_eq!(
+            backfilled
+                .first_tale_view(actor_id)
+                .expect("backfilled return guidance")
+                .required_location_id,
+            Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
         assert!(backfilled.first_tale_destination_reached(actor_id));
     }
 
@@ -1715,9 +1734,13 @@ mod tests {
             assert!(travel_response.ok, "step {step}: {travel_response:?}");
             {
                 let runtime = state.inner.lock().await;
-                assert!(
-                    runtime.first_tale_view(actor_id).is_none(),
-                    "the Garden contribution is hidden when it is not locally actionable"
+                let first_tale = runtime
+                    .first_tale_view(actor_id)
+                    .expect("the Garden return remains visible while wandering");
+                assert_eq!(first_tale.phase, "return_to_destination");
+                assert_eq!(
+                    first_tale.required_location_id,
+                    Some(RAIN_SOFT_GARDEN_LOCATION_ID)
                 );
             }
             if step < 3 {

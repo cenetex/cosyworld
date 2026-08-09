@@ -5,6 +5,16 @@ const firstTaleFields = [
   "job_id",
   "progress_clock_id",
   "copy",
+  "continuation",
+];
+
+const firstTaleContinuationFields = [
+  "destination_location_id",
+  "target_actor_id",
+  "job_id",
+  "travel_instruction",
+  "arrival_instruction",
+  "accepted_instruction",
 ];
 
 const firstTaleCopyFields = [
@@ -69,11 +79,51 @@ export function firstTaleValidationErrors(value, label = "first tale") {
       errors.push(`${label} copy.${field} must be a non-empty string`);
     }
   }
+  if (value.continuation !== undefined) {
+    if (!isObject(value.continuation)) {
+      errors.push(`${label} continuation must contain an object`);
+    } else {
+      const extraContinuationFields = unknownFields(
+        value.continuation,
+        firstTaleContinuationFields,
+      );
+      if (extraContinuationFields.length > 0) {
+        errors.push(
+          `${label} continuation has unknown fields: ${extraContinuationFields.join(", ")}`,
+        );
+      }
+      for (const field of ["destination_location_id", "target_actor_id"]) {
+        if (
+          !Number.isSafeInteger(value.continuation[field]) ||
+          value.continuation[field] <= 0
+        ) {
+          errors.push(
+            `${label} continuation.${field} must be a positive safe integer`,
+          );
+        }
+      }
+      for (const field of [
+        "job_id",
+        "travel_instruction",
+        "arrival_instruction",
+        "accepted_instruction",
+      ]) {
+        if (
+          typeof value.continuation[field] !== "string" ||
+          !value.continuation[field].trim()
+        ) {
+          errors.push(
+            `${label} continuation.${field} must be a non-empty string`,
+          );
+        }
+      }
+    }
+  }
   return errors;
 }
 
 export function normalizeFirstTaleConfig(value) {
-  return {
+  const normalized = {
     schema_version: value.schema_version,
     lead_location_id: value.lead_location_id,
     destination_location_id: value.destination_location_id,
@@ -83,4 +133,15 @@ export function normalizeFirstTaleConfig(value) {
       firstTaleCopyFields.map((field) => [field, value.copy[field].trim()]),
     ),
   };
+  if (value.continuation !== undefined) {
+    normalized.continuation = {
+      destination_location_id: value.continuation.destination_location_id,
+      target_actor_id: value.continuation.target_actor_id,
+      job_id: value.continuation.job_id.trim(),
+      travel_instruction: value.continuation.travel_instruction.trim(),
+      arrival_instruction: value.continuation.arrival_instruction.trim(),
+      accepted_instruction: value.continuation.accepted_instruction.trim(),
+    };
+  }
+  return normalized;
 }
