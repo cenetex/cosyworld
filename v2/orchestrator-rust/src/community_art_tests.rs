@@ -924,7 +924,14 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
         .stats
         .level = 2;
     let before_tick = runtime.world.tick;
+    let generated_dir = std::env::temp_dir().join(format!(
+        "cosyworld-evolution-endpoint-{}-{}",
+        std::process::id(),
+        now_seed()
+    ));
+    let _ = fs::remove_dir_all(&generated_dir);
     let mut state = test_app_state(runtime, None);
+    state.generated_asset_dir = Arc::new(generated_dir.clone());
     state.avatar_art_config = Arc::new(Some(test_art_config()));
     state.ai_config = Arc::new(Some(AiConfig {
         api_key: "test".to_string(),
@@ -990,7 +997,10 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
     let response = fund(actor_session.clone(), "test-community-endpoint-1")
         .await
         .0;
-    assert!(response.ok);
+    assert!(
+        response.ok,
+        "evolution funding should be accepted: {response:?}"
+    );
     assert!(response
         .events
         .iter()
@@ -1022,6 +1032,7 @@ async fn evolution_endpoint_freezes_prior_and_pools_without_extra_orb_or_turn() 
         evolution.prior_asset_digest,
         format!("{:x}", Sha256::digest(&prior_bytes))
     );
+    let _ = fs::remove_dir_all(generated_dir);
     server.abort();
 }
 
