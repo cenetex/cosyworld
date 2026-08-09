@@ -128,6 +128,11 @@ test("the official world accepts replay from prior Holy Land bundles", () => {
       "sha256:fea970b0cdbb1266e4fd20bbec60ed2ff48bb8feb36a799ebd558700a7f83028",
     ),
   );
+  assert.ok(
+    compatible.includes(
+      "sha256:407b41af639a9cdd0ee1e5a043482d56bd5e935fcc99f53385733fb39d4425c0",
+    ),
+  );
 });
 
 test("Bethlehem accepts the pre-context-dominant prompt bundle", () => {
