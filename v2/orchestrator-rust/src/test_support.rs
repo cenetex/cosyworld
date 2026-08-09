@@ -104,6 +104,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         dev_reset_enabled: false,
         card_policy: None,
         ai_config: Arc::new(None),
+        transient_openrouter_keys: Arc::new(StdMutex::new(BTreeMap::new())),
         generation_controls: Arc::new(GenerationControls::default()),
         avatar_art_config: Arc::new(None),
         generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),

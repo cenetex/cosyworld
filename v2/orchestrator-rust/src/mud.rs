@@ -812,6 +812,12 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             .content
             .as_ref()
             .map(|content| format!("You dream: {content}")),
+        "avatar.self_description" => event.content.as_ref().map(|content| {
+            format!(
+                "At level {}, you describe yourself: {content}",
+                event.total.unwrap_or(1)
+            )
+        }),
         "transfer.offer_created"
         | "transfer.offer_declined"
         | "transfer.offer_withdrawn"

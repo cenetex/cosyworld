@@ -1,7 +1,12 @@
+use std::time::Duration;
+
 use cosyworld_ai_model::GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity;
 
 use super::{
     active_content,
+    ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability},
+    ai_publication::SpeechMode,
+    avatar_context_spine::{AvatarContextMode, AvatarContextPromptOptions, AvatarContextSpine},
     content_policy::{
         compact_whitespace, has_disallowed_control_character, human_message_is_cozy_safe,
     },
@@ -28,6 +33,69 @@ impl From<ModelGeneratedAvatarIdentity> for GeneratedAvatarIdentity {
             visual_prompt,
         }
     }
+}
+
+pub(super) async fn request_ai_avatar_identity(
+    config: &AiConfig,
+    actor_id: u64,
+    naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
+    context_spine: Option<&AvatarContextSpine>,
+) -> Result<GeneratedAvatarIdentity, String> {
+    let fallback = fallback_avatar_identity_with_naming_context(actor_id, naming_context);
+    let naming_style = active_content()
+        .manifest
+        .avatar_naming
+        .as_ref()
+        .and_then(|config| cosyworld_ai_model::avatar_naming_style_prompt(config, naming_context))
+        .unwrap_or("Use a warm, memorable fantasy name that feels rooted in a lived-in community.");
+    let system = "You generate compact JSON for a player avatar in a cozy shared MUD. The persona is a first-person stream of consciousness made from desires, preferences, dislikes, and social instincts. It is not inventory and must not invent possessions, imaginary friends, invisible companions, pets, familiars, or personal artifacts. Every identity must feel warm, playful, grounded, and safe to meet. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
+    let spine_context = context_spine
+        .map(|spine| {
+            spine
+                .prompt(AvatarContextPromptOptions {
+                    mode: AvatarContextMode::SelfDescription,
+                    speech_mode: SpeechMode::Prose,
+                    max_words: 90,
+                    response_job: "Use this authoritative arrival context as inspiration for a stable identity refinement. Do not claim uncommitted history.".to_string(),
+                })
+                .render_for(Some(32_768), 240)
+                .user
+        })
+        .unwrap_or_else(|| "No additional committed arrival context is available.".to_string());
+    let user = format!(
+        "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
+         Authoritative arrival context spine:\n{spine_context}\n\
+         Tone: grounded, gentle storybook comedy. Describe what this person wants, prefers, dislikes, notices, or hopes for, and how they tend to meet other people. Never invent an item they own, carry, wear, hold, hide, remember, or travel with. Never invent a friend, pet, companion, familiar, sidekick, mascot, or invisible presence. Mischief may be clumsy or curious but never hungry, hostile, cruel, threatening, or mean. Do not use grudges, schemes, insults, weapons, danger, or villain language.\n\
+         Naming tradition from the active worldpack: {naming_style}\n\
+         Avoid existing resident names: Rati, Gust, Skull, Coach, Badger, Toad.\n\
+         Output exactly this shape: {{\"name\":\"1-3 words following that tradition, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm temperament-only card epithet, 2-5 words and 36 chars max; no item, possession, companion, location, or the words The Cosy Cottage\",\"description\":\"one first-person stream-of-consciousness sentence using I, about desires and preferences rather than biography or possessions, 220 chars max\",\"visual_prompt\":\"stable appearance-only physical description of exactly one character, 360 chars max: anatomy/species, face, skin/fur, hair, build, age impression, distinctive features, and practical clothing; empty hands; no held or carried items, pets, companions, familiars, mascots, pose, camera, art style, text, or location\"}}\n\
+         If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
+        name = fallback.name,
+        title = fallback.title,
+        description = fallback.description,
+    );
+
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "avatar_identity",
+            prompt_version: "avatar-identity-context-spine-v3",
+            capability: ModelCapability::WorldContent,
+            system,
+            user: &user,
+            temperature: 1.0,
+            max_tokens: 240,
+            timeout: Duration::from_secs(14),
+            max_attempts: 2,
+            referer: "https://cosyworld.fly.dev",
+            response_format: None,
+            room_id: None,
+        },
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    parse_avatar_identity_json_with_naming_context(&completion.text, actor_id, naming_context)
+        .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
 pub(super) fn fallback_avatar_name(_actor_id: u64) -> String {

@@ -37,7 +37,8 @@ use crate::{
     EventView, EvolutionRolloutRoute, FrozenCommunityArtEvolutionJob, FrozenMediaAssetReference,
     GeneratedPolicyBinding, ImagePolicyRequest, JournalRecord, MediaAssetBackfill,
     MediaAssetProvenance, PreparedReplicateExecution, ProjectionMutation, PublicArtHistoryEvent,
-    ReplicateAvatarArtConfig, RuntimeWorld, CW_ACTION_NONE, CW_OK, EVOLUTION_CANARY_MODEL_REVISION,
+    ReplicateAvatarArtConfig, RuntimeWorld, WorldEntityRef, CW_ACTION_NONE, CW_OK,
+    EVOLUTION_CANARY_MODEL_REVISION,
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
@@ -548,6 +549,13 @@ impl RuntimeWorld {
             format!("equipment role: {}", crate::item_role(item.role)),
             format!("size: {}", crate::item_size(item.size_class)),
         ];
+        if let Some(description) =
+            self.latest_world_entity_description(WorldEntityRef::item(item.id))
+        {
+            facts.push(format!(
+                "self-defined persona and appearance: {description}"
+            ));
+        }
         if item.charges > 0 {
             facts.push(format!("remaining charges: {}", item.charges));
         }
@@ -575,6 +583,13 @@ impl RuntimeWorld {
         }
         if !meta.persona.trim().is_empty() {
             facts.push(format!("place character: {}", meta.persona));
+        }
+        if let Some(description) =
+            self.latest_world_entity_description(WorldEntityRef::location(location_id))
+        {
+            facts.push(format!(
+                "self-defined persona and appearance: {description}"
+            ));
         }
         if !meta.biome.trim().is_empty() {
             facts.push(format!("biome: {}", meta.biome));

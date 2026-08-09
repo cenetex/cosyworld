@@ -26,13 +26,14 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
-    sync::Arc,
-    time::Duration,
+    sync::{Arc, OnceLock},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::time::{sleep, Instant};
 
 pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
+pub(crate) const OPENROUTER_FREE_MODEL: &str = "openrouter/free";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
 pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
@@ -69,6 +70,8 @@ const OPENROUTER_CURRENT_KEY_ENDPOINT: &str = "key";
 const OPENROUTER_KEY_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 const OPENROUTER_KEY_RESPONSE_MAX_BYTES: usize = 64 * 1024;
 const OPENROUTER_ROOM_SESSION_PREFIX: &str = "cosyworld-room-";
+const SERVER_PAID_DAILY_LIMIT_USD: f64 = 10.0;
+static SERVER_PAID_INFERENCE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 // The exact-bound STT gateway is intentionally dormant until a server-authored
 // transcription action owns its input provenance and publication contract.
 #[allow(dead_code)]
@@ -76,10 +79,12 @@ const TRANSCRIPTION_MAX_AUDIO_BYTES: usize = 8 * 1024 * 1024;
 #[allow(dead_code)]
 const TRANSCRIPTION_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 // When a raw actor's catalog entry explicitly advertises the unified reasoning
-// parameter, prefer visible speech over hidden work. This must never be sent to
-// every raw model: some endpoints reject reasoning controls, while mandatory-
-// reasoning endpoints need the bounded compatibility fallback below.
-const RAW_DIALOGUE_DISABLED_REASONING_EFFORT: &str = "none";
+// parameter, ask for the smallest reasoning budget and retain any readable
+// trace separately from visible speech. This must never be sent to every raw
+// model: some endpoints reject reasoning controls, while those endpoints need
+// the bounded compatibility fallback below.
+const RAW_DIALOGUE_REASONING_EFFORT: &str = "minimal";
+const REASONING_TRACE_MAX_CHARS: usize = 2_048;
 const REASONING_MANDATORY_ERROR: &str =
     "reasoning is mandatory for this endpoint and cannot be disabled";
 
@@ -263,6 +268,7 @@ impl GenerationControls {
 pub(crate) struct AiConfig {
     pub(crate) api_key: String,
     pub(crate) base_url: String,
+    pub(crate) server_paid: bool,
     pub(crate) model: String,
     pub(crate) vision_model: String,
     pub(crate) reasoning_effort: Option<String>,
@@ -276,6 +282,16 @@ pub(crate) struct AiConfig {
 }
 
 impl AiConfig {
+    pub(crate) fn for_transient_openrouter(&self, api_key: String) -> Self {
+        let mut config = self.clone();
+        config.api_key = api_key;
+        config.base_url = "https://openrouter.ai/api/v1".to_string();
+        config.server_paid = false;
+        config.readiness =
+            AiReadiness::ready_with_low_credit_threshold(DEFAULT_LOW_CREDIT_THRESHOLD);
+        config
+    }
+
     pub(crate) fn from_env() -> Result<Option<Self>, String> {
         let api_key = std::env::var("COSYWORLD_AI_API_KEY")
             .ok()
@@ -382,6 +398,7 @@ impl AiConfig {
         Ok(Some(Self {
             api_key,
             base_url,
+            server_paid: true,
             model,
             vision_model,
             reasoning_effort,
@@ -447,7 +464,9 @@ impl AiConfig {
         binding: &crate::content_load::SeedActorModelBinding,
     ) -> Result<PinnedModelSelection, RegistryError> {
         let configured_provider = ai_provider_name(Some(self));
-        if configured_provider != "openrouter" {
+        let local_development_adapter = self.data_policy_mode == DataPolicyMode::Development
+            && local_ai_base_url(&self.base_url);
+        if configured_provider != "openrouter" && !local_development_adapter {
             return Err(RegistryError::ProviderMismatch {
                 model: binding.requested_model_id.clone(),
                 declared: "openrouter".to_string(),
@@ -834,6 +853,34 @@ impl AiGatewayError {
         }
     }
 
+    fn daily_spend_exhausted(feature: &str, retry_at_unix: u64) -> Self {
+        Self {
+            kind: AiFailureKind::Readiness {
+                reason_code: "inference_daily_spend_exhausted",
+                retry_at_unix: Some(retry_at_unix),
+                terminal: true,
+            },
+            message: format!(
+                "AI {feature} is paused because the $10 UTC daily server budget is exhausted"
+            ),
+            attempts: 0,
+            latency: Duration::ZERO,
+        }
+    }
+
+    fn daily_spend_check_unavailable(feature: &str) -> Self {
+        Self {
+            kind: AiFailureKind::Readiness {
+                reason_code: "inference_daily_spend_check_unavailable",
+                retry_at_unix: Some(current_unix_secs().saturating_add(60)),
+                terminal: false,
+            },
+            message: format!("AI {feature} paused because server spend could not be verified"),
+            attempts: 0,
+            latency: Duration::ZERO,
+        }
+    }
+
     fn registry(feature: &str, error: RegistryError) -> Self {
         let kind = match error.code() {
             "inference_capability_mismatch" => AiFailureKind::Capability,
@@ -990,9 +1037,13 @@ pub(crate) struct ChatCompletionRequest<'a> {
 #[derive(Clone, Debug)]
 pub(crate) struct AiCompletion {
     pub(crate) text: String,
+    /// Readable provider reasoning, kept separate from publishable speech.
+    /// Encrypted reasoning blocks are deliberately never copied here.
+    pub(crate) reasoning_trace: Option<String>,
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: Option<ModelAttribution>,
+    pub(crate) resolved_model_id: String,
     pub(crate) finish_reason: String,
     pub(crate) usage: AiTokenUsage,
     pub(crate) context_hash: String,
@@ -1011,9 +1062,16 @@ pub(crate) struct ImageGenerationRequest<'a> {
     pub(crate) feature: &'static str,
     pub(crate) prompt_version: &'static str,
     pub(crate) prompt: &'a str,
+    pub(crate) reference: Option<ImageGenerationReference<'a>>,
     pub(crate) timeout: Duration,
     pub(crate) max_attempts: u8,
     pub(crate) referer: &'a str,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ImageGenerationReference<'a> {
+    pub(crate) bytes: &'a [u8],
+    pub(crate) content_type: &'a str,
 }
 
 #[derive(Clone, Debug)]
@@ -1108,6 +1166,35 @@ pub(crate) struct AiSynthesizedSpeech {
     pub(crate) attempts: u8,
     pub(crate) latency: Duration,
     pub(crate) model_attribution: ModelAttribution,
+    pub(crate) context_hash: String,
+    pub(crate) prompt_version: String,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct DirectAudioCompletionRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) prompt_version: &'static str,
+    pub(crate) system: &'a str,
+    pub(crate) user: &'a str,
+    pub(crate) voice: &'a str,
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+    pub(crate) room_id: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AiDirectAudioCompletion {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) content_type: String,
+    pub(crate) transcript: String,
+    #[allow(dead_code)] // Retained as truthful gateway execution metadata.
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
+    pub(crate) model_attribution: ModelAttribution,
+    #[allow(dead_code)] // Retained for provider usage audit correlation.
+    pub(crate) usage: AiTokenUsage,
+    #[allow(dead_code)] // Retained for exact prompt provenance audits.
     pub(crate) context_hash: String,
     pub(crate) prompt_version: String,
 }
@@ -1207,7 +1294,7 @@ pub(crate) async fn request_chat_completion(
                 .candidate()
                 .supported_parameters()
                 .reasoning
-                .then_some(RAW_DIALOGUE_DISABLED_REASONING_EFFORT)
+                .then_some(RAW_DIALOGUE_REASONING_EFFORT)
         } else {
             config.reasoning_effort.as_deref()
         },
@@ -1243,13 +1330,52 @@ pub(crate) async fn request_chat_completion_with_selection(
                 .candidate()
                 .supported_parameters()
                 .reasoning
-                .then_some(RAW_DIALOGUE_DISABLED_REASONING_EFFORT)
+                .then_some(RAW_DIALOGUE_REASONING_EFFORT)
         } else {
             config.reasoning_effort.as_deref()
         },
         raw_mode,
         selection.sends_openrouter_zdr_constraint(),
         Some(selection),
+    )
+    .await
+}
+
+pub(crate) async fn request_routed_chat_completion(
+    config: &AiConfig,
+    model: &str,
+    request: ChatCompletionRequest<'_>,
+) -> Result<AiCompletion, AiGatewayError> {
+    let local_development_adapter = config.data_policy_mode == DataPolicyMode::Development
+        && local_ai_base_url(&config.base_url);
+    if (ai_provider_name(Some(config)) != "openrouter" && !local_development_adapter)
+        || !model.starts_with("openrouter/")
+    {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{} requires an OpenRouter router model", request.feature),
+            attempts: 0,
+            latency: Duration::ZERO,
+        });
+    }
+    request_completion(
+        config,
+        request.feature,
+        request.prompt_version,
+        request.system,
+        Value::String(request.user.to_string()),
+        Some(request.temperature),
+        request.max_tokens,
+        request.timeout,
+        request.max_attempts,
+        request.referer,
+        request.response_format,
+        request.room_id,
+        model,
+        config.reasoning_effort.as_deref(),
+        false,
+        false,
+        None,
     )
     .await
 }
@@ -1660,6 +1786,263 @@ pub(crate) async fn request_speech_synthesis_with_binding(
     })
 }
 
+pub(crate) async fn request_direct_audio_completion_with_binding(
+    config: &AiConfig,
+    binding: &crate::content_load::SeedActorModelBinding,
+    request: DirectAudioCompletionRequest<'_>,
+) -> Result<AiDirectAudioCompletion, AiGatewayError> {
+    let started_at = Instant::now();
+    if request.system.trim().is_empty()
+        || request.user.trim().is_empty()
+        || request.voice.trim().is_empty()
+        || request.voice.len() > SPEECH_SYNTHESIS_MAX_VOICE_BYTES
+        || !binding.input_modalities.iter().any(|value| value == "text")
+        || !binding
+            .output_modalities
+            .iter()
+            .any(|value| value == "text")
+        || !binding
+            .output_modalities
+            .iter()
+            .any(|value| value == "audio")
+    {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{} direct-audio request was invalid", request.feature),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
+    let selection = config
+        .pin_actor_model(binding)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    let gate = config.exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, selection.requested_model_id());
+    if !gate.is_ready() {
+        return Err(AiGatewayError::readiness(request.feature, gate));
+    }
+    let context_hash = exact_endpoint_binary_context_hash(
+        request.feature,
+        request.prompt_version,
+        &[
+            request.system.as_bytes(),
+            request.user.as_bytes(),
+            request.voice.as_bytes(),
+            b"mp3",
+        ],
+    );
+    let _server_spend_guard = enforce_server_paid_daily_limit(config, request.feature).await?;
+    let client = reqwest::Client::builder()
+        .timeout(request.timeout)
+        .build()
+        .map_err(|error| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{} client setup failed: {error}", request.feature),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    let url = format!("{}/chat/completions", config.base_url);
+    let max_attempts = request.max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        let mut payload = json!({
+            "model": selection.requested_model_id(),
+            "messages": [
+                { "role": "system", "content": request.system },
+                { "role": "user", "content": request.user }
+            ],
+            "modalities": ["text", "audio"],
+            "audio": { "voice": request.voice, "format": "mp3" },
+            "stream": true,
+            "max_tokens": 256,
+        });
+        add_openrouter_room_session(config, &mut payload, request.room_id);
+        add_exact_binding_zdr_constraint(&mut payload, &selection);
+        let response = client
+            .post(&url)
+            .bearer_auth(&config.api_key)
+            .header("HTTP-Referer", request.referer)
+            .header("X-OpenRouter-Title", "CosyWorld v2")
+            .header("X-Title", "CosyWorld v2")
+            .json(&payload)
+            .send()
+            .await;
+        let mut response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                if (error.is_timeout() || error.is_connect()) && attempt < max_attempts {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+                config.readiness.record_transport_failure(
+                    CHAT_COMPLETIONS_ENDPOINT,
+                    selection.requested_model_id(),
+                );
+                return Err(AiGatewayError {
+                    kind: if error.is_timeout() {
+                        AiFailureKind::Timeout
+                    } else {
+                        AiFailureKind::Transport
+                    },
+                    message: format!("{} request failed: {error}", request.feature),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+        };
+        let status = response.status();
+        if !status.is_success() {
+            let retryable = status.as_u16() == 429 || status.is_server_error();
+            if retryable && attempt < max_attempts {
+                sleep(retry_delay(attempt)).await;
+                continue;
+            }
+            let retry_after = retry_after_from_headers(response.headers());
+            let detail = provider_error_detail(response).await;
+            config.readiness.record_http_failure(
+                CHAT_COMPLETIONS_ENDPOINT,
+                selection.requested_model_id(),
+                status.as_u16(),
+                retry_after,
+            );
+            return Err(AiGatewayError::provider_http(
+                request.feature,
+                status,
+                retry_after,
+                detail.as_deref(),
+                attempt,
+                started_at.elapsed(),
+            ));
+        }
+        let mut stream_bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|error| AiGatewayError {
+            kind: AiFailureKind::Transport,
+            message: format!("{} audio stream failed: {error}", request.feature),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })? {
+            if stream_bytes.len().saturating_add(chunk.len())
+                > IMAGE_GENERATION_MAX_RESPONSE_BYTES as usize
+            {
+                return Err(AiGatewayError {
+                    kind: AiFailureKind::InvalidResponse,
+                    message: format!("{} audio stream exceeded its byte limit", request.feature),
+                    attempts: attempt,
+                    latency: started_at.elapsed(),
+                });
+            }
+            stream_bytes.extend_from_slice(&chunk);
+        }
+        let stream = std::str::from_utf8(&stream_bytes).map_err(|_| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{} audio stream was not UTF-8 SSE", request.feature),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?;
+        let mut audio = Vec::new();
+        let mut transcript = String::new();
+        let mut provider_model = None::<String>;
+        let mut usage = AiTokenUsage::default();
+        for data in stream
+            .lines()
+            .filter_map(|line| line.strip_prefix("data: "))
+        {
+            if data == "[DONE]" {
+                continue;
+            }
+            let value = serde_json::from_str::<Value>(data).map_err(|error| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} audio stream event was invalid: {error}",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
+            if let Some(model) = value.get("model").and_then(Value::as_str) {
+                provider_model = Some(model.to_string());
+            }
+            if value.get("usage").is_some() {
+                usage = token_usage(&value);
+            }
+            let audio_delta = value
+                .pointer("/choices/0/delta/audio")
+                .or_else(|| value.pointer("/choices/0/message/audio"));
+            if let Some(encoded) = audio_delta
+                .and_then(|audio| audio.get("data"))
+                .and_then(Value::as_str)
+            {
+                let decoded = BASE64_STANDARD
+                    .decode(encoded)
+                    .map_err(|error| AiGatewayError {
+                        kind: AiFailureKind::InvalidResponse,
+                        message: format!(
+                            "{} audio chunk was invalid base64: {error}",
+                            request.feature
+                        ),
+                        attempts: attempt,
+                        latency: started_at.elapsed(),
+                    })?;
+                if audio.len().saturating_add(decoded.len()) > SPEECH_SYNTHESIS_MAX_RESPONSE_BYTES {
+                    return Err(AiGatewayError {
+                        kind: AiFailureKind::InvalidResponse,
+                        message: format!(
+                            "{} audio output exceeded its byte limit",
+                            request.feature
+                        ),
+                        attempts: attempt,
+                        latency: started_at.elapsed(),
+                    });
+                }
+                audio.extend_from_slice(&decoded);
+            }
+            if let Some(fragment) = audio_delta
+                .and_then(|audio| audio.get("transcript"))
+                .and_then(Value::as_str)
+            {
+                if fragment.starts_with(&transcript) {
+                    transcript = fragment.to_string();
+                } else {
+                    transcript.push_str(fragment);
+                }
+            }
+        }
+        let transcript = transcript.trim().to_string();
+        if audio.is_empty() || transcript.is_empty() {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} audio stream omitted audio or transcript",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
+        let model_attribution = selection
+            .attribute_response(provider_model.as_deref())
+            .map_err(|error| {
+                let mut error = AiGatewayError::registry(request.feature, error);
+                error.attempts = attempt;
+                error.latency = started_at.elapsed();
+                error
+            })?;
+        config
+            .readiness
+            .record_success(CHAT_COMPLETIONS_ENDPOINT, selection.requested_model_id());
+        return Ok(AiDirectAudioCompletion {
+            bytes: audio,
+            content_type: "audio/mpeg".to_string(),
+            transcript,
+            attempts: attempt,
+            latency: started_at.elapsed(),
+            model_attribution,
+            usage,
+            context_hash,
+            prompt_version: request.prompt_version.to_string(),
+        });
+    }
+    unreachable!("the bounded direct-audio attempt loop always returns")
+}
+
 #[allow(dead_code)] // Safe primitive is held dormant until input provenance is enforced.
 pub(crate) async fn request_transcription_with_binding(
     config: &AiConfig,
@@ -1916,6 +2299,11 @@ async fn post_bounded_exact_json(
     if !gate.is_ready() {
         return Err(AiGatewayError::readiness(feature, gate));
     }
+    let _server_spend_guard = if requested_model_id == OPENROUTER_FREE_MODEL {
+        None
+    } else {
+        enforce_server_paid_daily_limit(config, feature).await?
+    };
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -2054,6 +2442,11 @@ async fn post_bounded_exact_audio(
     if !gate.is_ready() {
         return Err(AiGatewayError::readiness(feature, gate));
     }
+    let _server_spend_guard = if requested_model_id == OPENROUTER_FREE_MODEL {
+        None
+    } else {
+        enforce_server_paid_daily_limit(config, feature).await?
+    };
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -2245,6 +2638,37 @@ async fn request_image_generation_with_binding_inner(
             latency: started_at.elapsed(),
         });
     }
+    let reference_content_type = request
+        .reference
+        .map(|reference| normalize_generated_image_content_type(reference.content_type))
+        .transpose()
+        .map_err(|()| AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} reference image MIME type was unsupported",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        })?;
+    if request.reference.is_some_and(|reference| {
+        reference.bytes.is_empty()
+            || reference.bytes.len() > IMAGE_GENERATION_MAX_BYTES
+            || !binding
+                .input_modalities
+                .iter()
+                .any(|value| value == "image")
+    }) {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!(
+                "{} reference image was invalid for its exact model",
+                request.feature
+            ),
+            attempts: 0,
+            latency: started_at.elapsed(),
+        });
+    }
     let selection = config
         .pin_actor_image_model(binding)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
@@ -2252,6 +2676,7 @@ async fn request_image_generation_with_binding_inner(
     if !gate.is_ready() {
         return Err(AiGatewayError::readiness(request.feature, gate));
     }
+    let _server_spend_guard = enforce_server_paid_daily_limit(config, request.feature).await?;
     let context_hash = {
         let mut hasher = Sha256::new();
         hasher.update(request.feature.as_bytes());
@@ -2259,6 +2684,10 @@ async fn request_image_generation_with_binding_inner(
         hasher.update(request.prompt_version.as_bytes());
         hasher.update([0]);
         hasher.update(request.prompt.as_bytes());
+        if let Some(reference) = request.reference {
+            hasher.update([0]);
+            hasher.update(Sha256::digest(reference.bytes));
+        }
         format!("{:x}", hasher.finalize())
     };
     let client = reqwest::Client::builder()
@@ -2278,6 +2707,19 @@ async fn request_image_generation_with_binding_inner(
             "prompt": request.prompt,
             "n": 1,
         });
+        if let (Some(reference), Some(content_type)) =
+            (request.reference, reference_content_type.as_deref())
+        {
+            payload["input_references"] = json!([{
+                "type": "image_url",
+                "image_url": {
+                    "url": format!(
+                        "data:{content_type};base64,{}",
+                        BASE64_STANDARD.encode(reference.bytes)
+                    )
+                }
+            }]);
+        }
         add_exact_binding_zdr_constraint(&mut payload, &selection);
         if selection.candidate().supported_parameters().seed {
             let digest = Sha256::digest(context_hash.as_bytes());
@@ -2704,20 +3146,75 @@ fn reasoning_compatibility_fallback(
         .collect::<Vec<_>>()
         .join(" ")
         .to_ascii_lowercase();
-    if detail.trim_end_matches(['.', ' ']) == REASONING_MANDATORY_ERROR {
-        let already_enabled = current_reasoning
-            .and_then(|reasoning| reasoning.get("enabled"))
-            .and_then(Value::as_bool)
-            == Some(true);
-        return (!already_enabled).then_some(ReasoningCompatibilityFallback::Enable);
+    let reasoning_is_disabled = current_reasoning.is_some_and(|reasoning| {
+        reasoning.get("effort").and_then(Value::as_str) == Some("none")
+            || reasoning.get("enabled").and_then(Value::as_bool) == Some(false)
+    });
+    let requested_effort = current_reasoning
+        .and_then(|reasoning| reasoning.get("effort"))
+        .and_then(Value::as_str);
+    let requires_reasoning = detail.trim_end_matches(['.', ' ']) == REASONING_MANDATORY_ERROR
+        || (detail.contains("reasoning")
+            && (detail.contains("mandatory")
+                || detail.contains("required")
+                || detail.contains("must be enabled")
+                || detail.contains("cannot be disabled")
+                || detail.contains("can't be disabled")));
+    if reasoning_is_disabled && requires_reasoning {
+        return Some(ReasoningCompatibilityFallback::Enable);
     }
     let rejects_reasoning_control = detail.contains("reasoning")
         && (detail.contains("not supported")
             || detail.contains("unsupported")
             || detail.contains("unknown parameter")
-            || detail.contains("unrecognized parameter"));
+            || detail.contains("unrecognized parameter")
+            || (detail.contains("invalid")
+                && requested_effort.is_some_and(|effort| detail.contains(effort))));
     (current_reasoning.is_some() && rejects_reasoning_control)
         .then_some(ReasoningCompatibilityFallback::Omit)
+}
+
+fn bounded_reasoning_trace(value: &str) -> Option<String> {
+    let value = compact_whitespace(value);
+    if value.is_empty() || value.eq_ignore_ascii_case("[redacted]") {
+        return None;
+    }
+    if value.chars().count() <= REASONING_TRACE_MAX_CHARS {
+        return Some(value);
+    }
+    let mut bounded = value
+        .chars()
+        .take(REASONING_TRACE_MAX_CHARS.saturating_sub(1))
+        .collect::<String>();
+    bounded.push('…');
+    Some(bounded)
+}
+
+/// Extracts only readable reasoning. Structured summaries are preferred over
+/// raw text, while encrypted or redacted blocks are deliberately ignored.
+fn readable_reasoning_trace(message: &Value) -> Option<String> {
+    let details = message.get("reasoning_details").and_then(Value::as_array);
+    let detail_fragments = |field: &str| {
+        details
+            .into_iter()
+            .flatten()
+            .filter_map(|detail| detail.get(field).and_then(Value::as_str))
+            .filter_map(bounded_reasoning_trace)
+            .collect::<Vec<_>>()
+    };
+    let summaries = detail_fragments("summary");
+    if !summaries.is_empty() {
+        return bounded_reasoning_trace(&summaries.join(" "));
+    }
+    let texts = detail_fragments("text");
+    if !texts.is_empty() {
+        return bounded_reasoning_trace(&texts.join(" "));
+    }
+    message
+        .get("reasoning")
+        .or_else(|| message.get("reasoning_content"))
+        .and_then(Value::as_str)
+        .and_then(bounded_reasoning_trace)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2782,6 +3279,11 @@ async fn request_completion(
     if !gate.is_ready() {
         return Err(AiGatewayError::readiness(feature, gate));
     }
+    let _server_spend_guard = if model == OPENROUTER_FREE_MODEL {
+        None
+    } else {
+        enforce_server_paid_daily_limit(config, feature).await?
+    };
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .build()
@@ -2917,7 +3419,7 @@ async fn request_completion(
                 ) {
                     match fallback {
                         ReasoningCompatibilityFallback::Enable => {
-                            payload["reasoning"] = json!({ "enabled": true, "exclude": true });
+                            payload["reasoning"] = json!({ "enabled": true });
                         }
                         ReasoningCompatibilityFallback::Omit => {
                             if let Some(body) = payload.as_object_mut() {
@@ -2966,9 +3468,14 @@ async fn request_completion(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
-        let text = first_choice
-            .get("message")
-            .and_then(|message| message.get("content"))
+        let message = first_choice.get("message").ok_or_else(|| AiGatewayError {
+            kind: AiFailureKind::InvalidResponse,
+            message: format!("{feature} response did not include a message"),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        })?;
+        let text = message
+            .get("content")
             .and_then(|content| content.as_str())
             .map(str::trim)
             .filter(|text| !text.is_empty())
@@ -2979,6 +3486,7 @@ async fn request_completion(
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
+        let reasoning_trace = readable_reasoning_trace(message);
         let finish_reason = first_choice
             .get("finish_reason")
             .and_then(Value::as_str)
@@ -3008,6 +3516,15 @@ async fn request_completion(
                 gateway_error.latency = started_at.elapsed();
                 gateway_error
             })?;
+        let resolved_model_id = model_attribution
+            .as_ref()
+            .map(|attribution| attribution.resolved_model_id.clone())
+            .or_else(|| {
+                body.get("model")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string)
+            })
+            .unwrap_or_else(|| model.to_string());
 
         tracing::info!(
             feature,
@@ -3039,9 +3556,11 @@ async fn request_completion(
             .record_success(CHAT_COMPLETIONS_ENDPOINT, model);
         return Ok(AiCompletion {
             text,
+            reasoning_trace,
             attempts: attempt,
             latency: started_at.elapsed(),
             model_attribution,
+            resolved_model_id,
             finish_reason,
             usage,
             context_hash,
@@ -3060,6 +3579,94 @@ fn add_openrouter_room_session(config: &AiConfig, payload: &mut Value, room_id: 
         return;
     };
     payload["session_id"] = json!(format!("{OPENROUTER_ROOM_SESSION_PREFIX}{room_id}"));
+}
+
+fn current_unix_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+fn next_utc_day_unix(now: u64) -> u64 {
+    (now / 86_400).saturating_add(1).saturating_mul(86_400)
+}
+
+fn server_daily_spend_exhausted(usage_daily: f64) -> bool {
+    usage_daily >= SERVER_PAID_DAILY_LIMIT_USD
+}
+
+fn uses_server_paid_openrouter(config: &AiConfig) -> bool {
+    config.server_paid && ai_provider_name(Some(config)) == "openrouter"
+}
+
+async fn enforce_server_paid_daily_limit(
+    config: &AiConfig,
+    feature: &str,
+) -> Result<Option<tokio::sync::MutexGuard<'static, ()>>, AiGatewayError> {
+    if !uses_server_paid_openrouter(config) {
+        return Ok(None);
+    }
+    // Hold this guard through the inference request. OpenRouter's usage_daily
+    // is authoritative for the key, and serial admission prevents concurrent
+    // calls from all observing the same just-below-limit balance.
+    let guard = SERVER_PAID_INFERENCE_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    let client = reqwest::Client::builder()
+        .timeout(OPENROUTER_KEY_PROBE_TIMEOUT)
+        .build()
+        .map_err(|_| AiGatewayError::daily_spend_check_unavailable(feature))?;
+    let mut response = client
+        .get(format!(
+            "{}/{}",
+            config.base_url, OPENROUTER_CURRENT_KEY_ENDPOINT
+        ))
+        .bearer_auth(&config.api_key)
+        .header("HTTP-Referer", "https://cosy.world/")
+        .header("X-OpenRouter-Title", "CosyWorld v2")
+        .send()
+        .await
+        .map_err(|_| AiGatewayError::daily_spend_check_unavailable(feature))?;
+    if !response.status().is_success()
+        || response
+            .content_length()
+            .is_some_and(|length| length > OPENROUTER_KEY_RESPONSE_MAX_BYTES as u64)
+    {
+        return Err(AiGatewayError::daily_spend_check_unavailable(feature));
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| AiGatewayError::daily_spend_check_unavailable(feature))?
+    {
+        if bytes.len().saturating_add(chunk.len()) > OPENROUTER_KEY_RESPONSE_MAX_BYTES {
+            return Err(AiGatewayError::daily_spend_check_unavailable(feature));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let body: Value = serde_json::from_slice(&bytes)
+        .map_err(|_| AiGatewayError::daily_spend_check_unavailable(feature))?;
+    let usage_daily = body
+        .pointer("/data/usage_daily")
+        .and_then(Value::as_f64)
+        .filter(|usage| usage.is_finite() && *usage >= 0.0)
+        .ok_or_else(|| AiGatewayError::daily_spend_check_unavailable(feature))?;
+    if server_daily_spend_exhausted(usage_daily) {
+        return Err(AiGatewayError::daily_spend_exhausted(
+            feature,
+            next_utc_day_unix(current_unix_secs()),
+        ));
+    }
+    tracing::debug!(
+        feature,
+        usage_daily_usd = usage_daily,
+        daily_limit_usd = SERVER_PAID_DAILY_LIMIT_USD,
+        "admitted server-paid inference under the UTC daily budget"
+    );
+    Ok(Some(guard))
 }
 
 async fn provider_error_detail(response: reqwest::Response) -> Option<String> {
@@ -3692,6 +4299,27 @@ mod tests {
     };
     use tokio::net::TcpListener;
 
+    #[test]
+    fn server_budget_closes_at_ten_dollars_and_resets_on_utc_boundary() {
+        assert!(!server_daily_spend_exhausted(9.999_999));
+        assert!(server_daily_spend_exhausted(10.0));
+        assert!(server_daily_spend_exhausted(10.01));
+        assert_eq!(next_utc_day_unix(0), 86_400);
+        assert_eq!(next_utc_day_unix(86_399), 86_400);
+        assert_eq!(next_utc_day_unix(86_400), 172_800);
+
+        let server = AiConfig {
+            api_key: "sk-or-server".to_string(),
+            base_url: "https://openrouter.ai/api/v1".to_string(),
+            server_paid: true,
+            ..AiConfig::default()
+        };
+        assert!(uses_server_paid_openrouter(&server));
+        assert!(!uses_server_paid_openrouter(
+            &server.for_transient_openrouter("sk-or-player".to_string())
+        ));
+    }
+
     fn raw_actor_model_binding(
         zero_data_retention: bool,
     ) -> crate::content_load::SeedActorModelBinding {
@@ -3792,6 +4420,19 @@ mod tests {
         binding.output_modalities = vec!["speech".to_string()];
         binding.context_length = Some(16_384);
         binding.supported_parameters.clear();
+        binding
+    }
+
+    fn direct_audio_actor_model_binding() -> crate::content_load::SeedActorModelBinding {
+        let mut binding = raw_actor_model_binding(false);
+        binding.id = "openai/gpt-audio".to_string();
+        binding.actor_id = 232_270_660_128;
+        binding.actor_ref = "pack://cosyworld.elysium/actor/232270660128".to_string();
+        binding.requested_model_id = binding.id.clone();
+        binding.canonical_slug = binding.id.clone();
+        binding.display_name = "OpenAI: GPT Audio".to_string();
+        binding.input_modalities = vec!["audio".to_string(), "text".to_string()];
+        binding.output_modalities = vec!["audio".to_string(), "text".to_string()];
         binding
     }
 
@@ -4024,6 +4665,9 @@ mod tests {
             data_policy_mode: DataPolicyMode::Development,
             ..AiConfig::default()
         };
+        let reference_bytes = BASE64_STANDARD
+            .decode(PNG_1X1)
+            .expect("decode reference image");
         let generated = request_image_generation_with_binding(
             &config,
             &image_actor_model_binding(false),
@@ -4031,6 +4675,10 @@ mod tests {
                 feature: "image_test",
                 prompt_version: "image-test-v1",
                 prompt: "a tiny lantern",
+                reference: Some(ImageGenerationReference {
+                    bytes: &reference_bytes,
+                    content_type: "image/png",
+                }),
                 timeout: Duration::from_secs(2),
                 max_attempts: 1,
                 referer: "http://127.0.0.1",
@@ -4047,6 +4695,9 @@ mod tests {
         assert_eq!(body["model"], "black-forest-labs/flux.2-klein-4b");
         assert_eq!(body["prompt"], "a tiny lantern");
         assert_eq!(body["n"], 1);
+        assert!(body["input_references"][0]["image_url"]["url"]
+            .as_str()
+            .is_some_and(|url| url.starts_with("data:image/png;base64,")));
         assert!(body.get("provider").is_none());
         assert!(body.get("messages").is_none());
         assert!(body.get("seed").and_then(Value::as_u64).is_some());
@@ -4458,6 +5109,149 @@ mod tests {
         assert_eq!(
             speech.model_attribution.resolved_model_id,
             "openai/gpt-4o-mini-tts-20260731"
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn direct_audio_model_streams_its_own_mp3_and_transcript() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let audio = BASE64_STANDARD.encode(b"ID3\x04direct-model-mp3");
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                let audio = audio.clone();
+                async move {
+                    *captured.lock().expect("capture direct audio request") = Some(body);
+                    let stream = format!(
+                        "data: {{\"model\":\"openai/gpt-audio\",\"choices\":[{{\"delta\":{{\"audio\":{{\"data\":\"{audio}\",\"transcript\":\"Welcome home.\"}}}}}}]}}\n\ndata: {{\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":4,\"total_tokens\":12}},\"choices\":[{{\"delta\":{{}}}}]}}\n\ndata: [DONE]\n\n"
+                    );
+                    ([(("content-type"), "text/event-stream")], stream).into_response()
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind direct audio gateway test server");
+        let address = listener.local_addr().expect("direct audio gateway address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let direct = request_direct_audio_completion_with_binding(
+            &config,
+            &direct_audio_actor_model_binding(),
+            DirectAudioCompletionRequest {
+                feature: "direct_audio_test",
+                prompt_version: "direct-audio-test-v1",
+                system: "Speak directly.",
+                user: "Welcome the traveler.",
+                voice: "alloy",
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                room_id: Some(118),
+            },
+        )
+        .await
+        .expect("direct audio completion");
+
+        let body = request_body
+            .lock()
+            .expect("read direct audio request")
+            .clone()
+            .expect("direct audio request captured");
+        assert_eq!(body["model"], "openai/gpt-audio");
+        assert_eq!(body["modalities"], json!(["text", "audio"]));
+        assert_eq!(body["audio"], json!({ "voice": "alloy", "format": "mp3" }));
+        assert_eq!(body["stream"], true);
+        assert!(body.get("session_id").is_none());
+        assert_eq!(direct.bytes, b"ID3\x04direct-model-mp3");
+        assert_eq!(direct.transcript, "Welcome home.");
+        assert_eq!(direct.usage.total_tokens, Some(12));
+        assert_eq!(
+            direct.model_attribution.resolved_model_id,
+            "openai/gpt-audio"
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn free_router_authors_text_and_reports_the_resolved_model() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture free router request") = Some(body);
+                    Json(json!({
+                        "model": "example/resolved-free-model:free",
+                        "choices": [{
+                            "message": { "content": "The kettle remembers you." },
+                            "finish_reason": "stop"
+                        }],
+                        "usage": { "total_tokens": 9 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind free router gateway test server");
+        let address = listener.local_addr().expect("free router gateway address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let completion = request_routed_chat_completion(
+            &config,
+            OPENROUTER_FREE_MODEL,
+            ChatCompletionRequest {
+                feature: "speech_text_test",
+                prompt_version: "speech-text-test-v1",
+                capability: ModelCapability::Voice,
+                system: "Write one line.",
+                user: "Welcome the traveler.",
+                temperature: 0.7,
+                max_tokens: 64,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+                room_id: None,
+            },
+        )
+        .await
+        .expect("free router text completion");
+
+        let body = request_body
+            .lock()
+            .expect("read free router request")
+            .clone()
+            .expect("free router request captured");
+        assert_eq!(body["model"], OPENROUTER_FREE_MODEL);
+        assert_eq!(completion.text, "The kettle remembers you.");
+        assert_eq!(
+            completion.resolved_model_id,
+            "example/resolved-free-model:free"
         );
         server.abort();
     }
@@ -5122,7 +5916,7 @@ mod tests {
         );
         assert!(probing_error.retryable_for_model_interaction());
 
-        probing.record_http_failure(CHAT_COMPLETIONS_ENDPOINT, "provider/model", 401, None);
+        probing.record_probe_http_failure(401);
         let unauthorized = AiGatewayError::readiness(
             "test",
             probing.gate(CHAT_COMPLETIONS_ENDPOINT, "provider/model"),
@@ -5435,8 +6229,73 @@ mod tests {
         );
     }
 
+    #[test]
+    fn reasoning_shape_fallback_accepts_current_provider_wording() {
+        let disabled = json!({ "effort": "none" });
+        assert_eq!(
+            reasoning_compatibility_fallback(
+                reqwest::StatusCode::BAD_REQUEST,
+                Some("Reasoning must be enabled for this model"),
+                Some(&disabled),
+            ),
+            Some(ReasoningCompatibilityFallback::Enable),
+        );
+        assert_eq!(
+            reasoning_compatibility_fallback(
+                reqwest::StatusCode::BAD_REQUEST,
+                Some("Invalid reasoning effort: none"),
+                Some(&disabled),
+            ),
+            Some(ReasoningCompatibilityFallback::Omit),
+        );
+        let minimal = json!({ "effort": "minimal" });
+        assert_eq!(
+            reasoning_compatibility_fallback(
+                reqwest::StatusCode::BAD_REQUEST,
+                Some("Invalid reasoning effort: minimal"),
+                Some(&minimal),
+            ),
+            Some(ReasoningCompatibilityFallback::Omit),
+        );
+
+        let enabled = json!({ "enabled": true, "exclude": true });
+        assert_eq!(
+            reasoning_compatibility_fallback(
+                reqwest::StatusCode::BAD_REQUEST,
+                Some("Reasoning is mandatory and cannot be disabled"),
+                Some(&enabled),
+            ),
+            None,
+        );
+    }
+
+    #[test]
+    fn readable_reasoning_prefers_summaries_and_ignores_encrypted_blocks() {
+        let message = json!({
+            "reasoning": "raw fallback",
+            "reasoning_details": [
+                { "type": "reasoning.text", "text": "longer raw reasoning" },
+                { "type": "reasoning.encrypted", "data": "opaque-secret" },
+                { "type": "reasoning.summary", "summary": "A brief useful thought." }
+            ]
+        });
+        assert_eq!(
+            readable_reasoning_trace(&message).as_deref(),
+            Some("A brief useful thought.")
+        );
+        assert!(readable_reasoning_trace(&json!({
+            "reasoning_details": [{ "type": "reasoning.encrypted", "data": "opaque-secret" }]
+        }))
+        .is_none());
+        assert_eq!(
+            readable_reasoning_trace(&json!({ "reasoning_content": "  one\nthought  " }))
+                .as_deref(),
+            Some("one thought")
+        );
+    }
+
     #[tokio::test]
-    async fn mandatory_reasoning_raw_actor_uses_one_bounded_shape_fallback() {
+    async fn raw_actor_minimal_reasoning_uses_one_bounded_shape_fallback() {
         use std::sync::Mutex;
 
         let request_bodies = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -5457,7 +6316,7 @@ mod tests {
                                 StatusCode::BAD_REQUEST,
                                 Json(json!({
                                     "error": {
-                                        "message": "Reasoning is mandatory for this endpoint and cannot be disabled."
+                                        "message": "Invalid reasoning effort: minimal"
                                     }
                                 })),
                             )
@@ -5467,7 +6326,20 @@ mod tests {
                             "model": "arcee-ai/trinity-large-thinking",
                             "choices": [{
                                 "finish_reason": "stop",
-                                "message": { "content": "Reasoning is enabled, and I can answer." }
+                                "message": {
+                                    "content": "Reasoning is enabled, and I can answer.",
+                                    "reasoning": "A longer raw trace that should lose to the structured summary.",
+                                    "reasoning_details": [
+                                        {
+                                            "type": "reasoning.summary",
+                                            "summary": "I connected the question to the room before answering."
+                                        },
+                                        {
+                                            "type": "reasoning.encrypted",
+                                            "data": "must-not-be-stored"
+                                        }
+                                    ]
+                                }
                             }]
                         }))
                         .into_response()
@@ -5524,29 +6396,23 @@ mod tests {
             &selection,
         )
         .await
-        .expect("mandatory reasoning fallback succeeds");
+        .expect("minimal reasoning fallback succeeds");
 
         assert_eq!(completion.attempts, 1);
+        assert_eq!(
+            completion.reasoning_trace.as_deref(),
+            Some("I connected the question to the room before answering.")
+        );
         let bodies = request_bodies.lock().expect("read raw requests");
         assert_eq!(bodies.len(), 2, "one 400 gets exactly one shape fallback");
         assert_eq!(
             bodies[0]
                 .pointer("/reasoning/effort")
                 .and_then(Value::as_str),
-            Some("none")
+            Some("minimal")
         );
-        assert_eq!(
-            bodies[1]
-                .pointer("/reasoning/enabled")
-                .and_then(Value::as_bool),
-            Some(true)
-        );
-        assert_eq!(
-            bodies[1]
-                .pointer("/reasoning/exclude")
-                .and_then(Value::as_bool),
-            Some(true)
-        );
+        assert!(bodies[0].pointer("/reasoning/exclude").is_none());
+        assert!(bodies[1].get("reasoning").is_none());
         for body in bodies.iter() {
             assert_eq!(
                 body.pointer("/provider/data_collection")
@@ -5888,7 +6754,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unauthorized_exact_request_is_single_call_and_blocks_the_account() {
+    async fn unauthorized_exact_request_is_single_call_and_blocks_only_that_route() {
         let requests = Arc::new(AtomicUsize::new(0));
         let observed_requests = Arc::clone(&requests);
         let app = Router::new().route(
@@ -5939,11 +6805,13 @@ mod tests {
         assert_eq!(first.attempts, 1);
         let second = request()
             .await
-            .expect_err("open account circuit must reject before I/O");
-        assert_eq!(second.code(), crate::ai_readiness::AI_ACCOUNT_UNAUTHORIZED);
+            .expect_err("open exact-route circuit must reject before I/O");
+        assert_eq!(second.code(), crate::ai_readiness::AI_ROUTE_INCOMPATIBLE);
         assert_eq!(second.attempts, 0);
         assert_eq!(requests.load(Ordering::SeqCst), 1);
-        assert!(!config.global_chat_route_is_ready());
+        assert!(config
+            .exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, "provider/other-model")
+            .is_ready());
         server.abort();
     }
 

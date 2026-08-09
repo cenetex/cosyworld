@@ -1035,6 +1035,7 @@ pub(crate) fn init_ai_voice_routing_store(conn: &Connection) -> io::Result<()> {
             policy_json TEXT NOT NULL,
             decisions_json TEXT,
             accepted_text TEXT,
+            accepted_reasoning_trace TEXT,
             accepted_receipt_json TEXT,
             terminal_code TEXT,
             created_at_ms INTEGER NOT NULL,
@@ -1078,7 +1079,27 @@ pub(crate) fn init_ai_voice_routing_store(conn: &Connection) -> io::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_ai_voice_family_accepts_family
             ON ai_voice_family_accepts(family);",
     )
-    .map_err(crate::sqlite_error)
+    .map_err(crate::sqlite_error)?;
+    ensure_ai_voice_job_column(
+        conn,
+        "accepted_reasoning_trace",
+        "ALTER TABLE ai_voice_jobs ADD COLUMN accepted_reasoning_trace TEXT",
+    )
+}
+
+fn ensure_ai_voice_job_column(conn: &Connection, column: &str, alter_sql: &str) -> io::Result<()> {
+    let mut statement = conn
+        .prepare("PRAGMA table_info(ai_voice_jobs)")
+        .map_err(crate::sqlite_error)?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(crate::sqlite_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::sqlite_error)?;
+    if !columns.iter().any(|existing| existing == column) {
+        conn.execute_batch(alter_sql).map_err(crate::sqlite_error)?;
+    }
+    Ok(())
 }
 
 fn claim_voice_job(
@@ -1129,7 +1150,7 @@ fn claim_voice_job(
     let row = tx
         .query_row(
             "SELECT status, lease_expires_ms, lease_retries, accepted_text,
-                    accepted_receipt_json, terminal_code
+                    accepted_reasoning_trace, accepted_receipt_json, terminal_code
              FROM ai_voice_jobs WHERE generation_id = ?1",
             params![generation_id],
             |row| {
@@ -1140,19 +1161,20 @@ fn claim_voice_job(
                     row.get::<_, Option<String>>(3)?,
                     row.get::<_, Option<String>>(4)?,
                     row.get::<_, Option<String>>(5)?,
+                    row.get::<_, Option<String>>(6)?,
                 ))
             },
         )
         .map_err(crate::sqlite_error)?;
     match row.0.as_str() {
         "accepted" => {
-            let speech = restored_speech(row.3, row.4)?;
+            let speech = restored_speech(row.3, row.4, row.5)?;
             tx.commit().map_err(crate::sqlite_error)?;
             Ok(JobClaim::Accepted(Box::new(speech)))
         }
         "unavailable" => {
             tx.commit().map_err(crate::sqlite_error)?;
-            Ok(JobClaim::Unavailable(row.5.unwrap_or_else(|| {
+            Ok(JobClaim::Unavailable(row.6.unwrap_or_else(|| {
                 "voice_candidates_exhausted".to_string()
             })))
         }
@@ -1197,6 +1219,7 @@ fn claim_voice_job(
 
 fn restored_speech(
     text: Option<String>,
+    reasoning_trace: Option<String>,
     receipt_json: Option<String>,
 ) -> io::Result<CertifiedSpeech> {
     let text =
@@ -1207,7 +1230,7 @@ fn restored_speech(
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "receipt missing"))?,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    CertifiedSpeech::restore(text, receipt)
+    CertifiedSpeech::restore(text, reasoning_trace, receipt)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "accepted receipt mismatch"))
 }
 
@@ -1437,12 +1460,14 @@ fn accept_voice_job(
         .execute(
             "UPDATE ai_voice_jobs
              SET status = 'accepted', accepted_text = ?3,
-                 accepted_receipt_json = ?4, updated_at_ms = ?5
+                 accepted_reasoning_trace = ?4,
+                 accepted_receipt_json = ?5, updated_at_ms = ?6
              WHERE generation_id = ?1 AND status = 'pending' AND lease_owner = ?2",
             params![
                 generation_id,
                 owner,
                 speech.text(),
+                speech.reasoning_trace(),
                 receipt_json,
                 now as i64
             ],
@@ -1462,16 +1487,16 @@ fn accept_voice_job(
 fn load_accepted_voice_job(path: Option<&Path>, generation_id: &str) -> Option<CertifiedSpeech> {
     let path = path?;
     let conn = crate::open_event_store(path).ok()?;
-    let (text, receipt) = conn
+    let (text, reasoning_trace, receipt) = conn
         .query_row(
-            "SELECT accepted_text, accepted_receipt_json FROM ai_voice_jobs
+            "SELECT accepted_text, accepted_reasoning_trace, accepted_receipt_json FROM ai_voice_jobs
              WHERE generation_id = ?1 AND status = 'accepted'",
             params![generation_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .optional()
         .ok()??;
-    restored_speech(text, receipt).ok()
+    restored_speech(text, reasoning_trace, receipt).ok()
 }
 
 fn finish_voice_job_unavailable(path: Option<&Path>, generation_id: &str, owner: &str, code: &str) {
@@ -1571,6 +1596,7 @@ mod tests {
     #[derive(Clone)]
     struct MockOutput {
         text: String,
+        reasoning_trace: Option<String>,
         delay: Duration,
         finish_reason: String,
     }
@@ -1595,6 +1621,7 @@ mod tests {
                     .or_default()
                     .push_back(MockOutput {
                         text: text.to_string(),
+                        reasoning_trace: None,
                         delay: Duration::from_millis(delay_ms),
                         finish_reason: "stop".to_string(),
                     });
@@ -1614,11 +1641,33 @@ mod tests {
                     .or_default()
                     .push_back(MockOutput {
                         text: text.to_string(),
+                        reasoning_trace: None,
                         delay: Duration::from_millis(delay_ms),
                         finish_reason: finish_reason.to_string(),
                     });
             }
             drop(configured);
+            backend
+        }
+
+        fn with_reasoning_output(
+            model: &'static str,
+            text: &'static str,
+            trace: &'static str,
+        ) -> Self {
+            let backend = Self::default();
+            backend
+                .outputs
+                .lock()
+                .unwrap()
+                .entry(model.to_string())
+                .or_default()
+                .push_back(MockOutput {
+                    text: text.to_string(),
+                    reasoning_trace: Some(trace.to_string()),
+                    delay: Duration::ZERO,
+                    finish_reason: "stop".to_string(),
+                });
             backend
         }
 
@@ -1654,6 +1703,7 @@ mod tests {
                 .and_then(VecDeque::pop_front)
                 .unwrap_or(MockOutput {
                     text: "Teapot ready.".to_string(),
+                    reasoning_trace: None,
                     delay: Duration::ZERO,
                     finish_reason: "stop".to_string(),
                 });
@@ -1664,9 +1714,11 @@ mod tests {
                     .expect("fixed test model attributes");
                 Ok(AiCompletion {
                     text: output.text,
+                    reasoning_trace: output.reasoning_trace,
                     attempts: 1,
                     latency: output.delay,
                     model_attribution: Some(model_attribution),
+                    resolved_model_id: model,
                     finish_reason: output.finish_reason,
                     usage: AiTokenUsage {
                         prompt_tokens: Some(20),
@@ -2531,7 +2583,7 @@ mod tests {
         );
         let mut raw_gate = gate("raw-feedback-beat");
         raw_gate.mode = SpeechMode::Raw;
-        raw_gate.anchors.clear();
+        raw_gate.anchors = vec!["answer".to_string()];
 
         let certified = route_certified_voice_with(
             &config,
@@ -2549,7 +2601,7 @@ mod tests {
         assert_eq!(users[0], "raw scene");
         assert_eq!(
             users[1],
-            "raw scene\nagain · fresh wording · no repeated phrase"
+            "raw scene\nagain · fresh wording · no repeated phrase · touch something already present"
         );
     }
 
@@ -2575,7 +2627,7 @@ mod tests {
         let mut raw_gate = gate("raw-length-feedback-beat");
         raw_gate.mode = SpeechMode::Raw;
         raw_gate.max_words = 400;
-        raw_gate.anchors.clear();
+        raw_gate.anchors = vec!["answer".to_string()];
 
         route_certified_voice_with(
             &config,
@@ -2592,7 +2644,7 @@ mod tests {
         assert_eq!(users[0], "raw scene");
         assert_eq!(
             users[1],
-            "raw scene\nagain · one complete response · at most 64 words"
+            "raw scene\nagain · one complete response · at most 64 words · touch something already present"
         );
     }
 
@@ -2670,6 +2722,57 @@ mod tests {
         assert_eq!(cached_backend.call_count(), 0);
         let counts = voice_family_accept_counts(&path).unwrap();
         assert_eq!(counts.values().sum::<u64>(), 1);
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn accepted_reasoning_trace_survives_the_durable_voice_cache() {
+        let path = test_path("reasoning-trace");
+        let _ = fs::remove_file(&path);
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 1,
+            hedge_width: 1,
+            spend_ceiling_microdollars: u64::MAX,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_reasoning_output(
+            "provider/tiny-a",
+            "Teapot ready.",
+            "I checked the warm kettle before speaking.",
+        );
+        let certified = route_certified_voice_with(
+            &config,
+            Some(&path),
+            request("dialogue_avatar"),
+            gate("reasoning-trace-beat"),
+            Arc::new(backend),
+        )
+        .await
+        .expect("reasoning-bearing speech certifies");
+        assert_eq!(
+            certified.reasoning_trace(),
+            Some("I checked the warm kettle before speaking.")
+        );
+
+        let cached = route_certified_voice_with(
+            &config,
+            Some(&path),
+            request("dialogue_avatar"),
+            gate("reasoning-trace-beat"),
+            Arc::new(MockBackend::default()),
+        )
+        .await
+        .expect("accepted speech restores from the durable cache");
+        assert_eq!(cached.reasoning_trace(), certified.reasoning_trace());
+        let stored: String = crate::open_event_store(&path)
+            .unwrap()
+            .query_row(
+                "SELECT accepted_reasoning_trace FROM ai_voice_jobs",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored, "I checked the warm kettle before speaking.");
         let _ = fs::remove_file(path);
     }
 

@@ -16,6 +16,9 @@ const WALLET_LINK_TTL: Duration = Duration::from_secs(5 * 60);
 const WALLET_CLAIM_TTL: Duration = Duration::from_secs(5 * 60);
 const WALLET_CLAIM_COMPLETE_GRACE: Duration = Duration::from_secs(2 * 60);
 const ACCOUNT_WALLET_CAPABILITY_TTL: Duration = Duration::from_secs(30 * 60);
+const OPENROUTER_OAUTH_BASE_URL: &str = "https://openrouter.ai/api/v1";
+const OPENROUTER_OAUTH_TIMEOUT: Duration = Duration::from_secs(10);
+const OPENROUTER_OAUTH_RESPONSE_LIMIT: usize = 64 * 1024;
 
 type AccountResult<T> = Result<T, AccountError>;
 
@@ -302,6 +305,38 @@ struct IdentityResponse {
     step_up_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct OpenRouterExchangeRequest {
+    code: String,
+    code_verifier: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct OpenRouterVerifyRequest {
+    api_key: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct OpenRouterConnectionView {
+    ok: bool,
+    connected: bool,
+    provider: &'static str,
+    label: Option<String>,
+    user_id: Option<String>,
+    limit_usd: Option<f64>,
+    limit_remaining_usd: Option<f64>,
+    usage_daily_usd: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+struct OpenRouterExchangeResponse {
+    #[serde(flatten)]
+    connection: OpenRouterConnectionView,
+    api_key: String,
 }
 
 impl IdentityResponse {
@@ -881,6 +916,212 @@ pub(super) async fn account_logout(State(state): State<AppState>, headers: Heade
         &IdentityResponse::signed_out(),
         Some(state.account_auth.clear_cookie()),
     )
+}
+
+pub(super) async fn openrouter_exchange(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<OpenRouterExchangeRequest>,
+) -> Response {
+    if let Err(error) = state
+        .account_auth
+        .session_from_headers(&headers)
+        .and_then(|session| session.ok_or_else(|| account_error("passkey sign-in required")))
+    {
+        return auth_error(StatusCode::UNAUTHORIZED, error);
+    }
+    if !valid_openrouter_authorization_code(&payload.code)
+        || !valid_pkce_verifier(&payload.code_verifier)
+    {
+        return auth_message(
+            StatusCode::BAD_REQUEST,
+            "OpenRouter authorization is invalid",
+        );
+    }
+    let body = serde_json::json!({
+        "code": payload.code,
+        "code_verifier": payload.code_verifier,
+        "code_challenge_method": "S256",
+    });
+    let exchanged = match bounded_openrouter_json(
+        reqwest::Method::POST,
+        &format!("{OPENROUTER_OAUTH_BASE_URL}/auth/keys"),
+        None,
+        Some(&body),
+    )
+    .await
+    {
+        Ok(body) => body,
+        Err(error) => return auth_message(StatusCode::BAD_GATEWAY, error),
+    };
+    let Some(api_key) = exchanged
+        .get("key")
+        .and_then(serde_json::Value::as_str)
+        .filter(|key| valid_openrouter_api_key(key))
+        .map(ToString::to_string)
+    else {
+        return auth_message(
+            StatusCode::BAD_GATEWAY,
+            "OpenRouter did not return a usable connection",
+        );
+    };
+    let user_id = exchanged
+        .get("user_id")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string);
+    let mut connection = match verify_openrouter_key(&api_key).await {
+        Ok(connection) => connection,
+        Err(error) => return auth_message(StatusCode::BAD_GATEWAY, error),
+    };
+    connection.user_id = user_id;
+    no_store_json(
+        StatusCode::OK,
+        &OpenRouterExchangeResponse {
+            connection,
+            api_key,
+        },
+        None,
+    )
+}
+
+pub(super) async fn openrouter_verify(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<OpenRouterVerifyRequest>,
+) -> Response {
+    if let Err(error) = state
+        .account_auth
+        .session_from_headers(&headers)
+        .and_then(|session| session.ok_or_else(|| account_error("passkey sign-in required")))
+    {
+        return auth_error(StatusCode::UNAUTHORIZED, error);
+    }
+    match verify_openrouter_key(&payload.api_key).await {
+        Ok(connection) => no_store_json(StatusCode::OK, &connection, None),
+        Err(error) => auth_message(StatusCode::BAD_GATEWAY, error),
+    }
+}
+
+pub(super) async fn openrouter_disconnect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(error) = state
+        .account_auth
+        .session_from_headers(&headers)
+        .and_then(|session| session.ok_or_else(|| account_error("passkey sign-in required")))
+    {
+        return auth_error(StatusCode::UNAUTHORIZED, error);
+    }
+    no_store_json(
+        StatusCode::OK,
+        &serde_json::json!({ "ok": true, "connected": false }),
+        None,
+    )
+}
+
+pub(super) async fn verify_openrouter_key(
+    api_key: &str,
+) -> Result<OpenRouterConnectionView, String> {
+    if !valid_openrouter_api_key(api_key) {
+        return Err("OpenRouter key is invalid".to_string());
+    }
+    let body = bounded_openrouter_json(
+        reqwest::Method::GET,
+        &format!("{OPENROUTER_OAUTH_BASE_URL}/key"),
+        Some(api_key),
+        None,
+    )
+    .await?;
+    let data = body
+        .get("data")
+        .and_then(serde_json::Value::as_object)
+        .ok_or_else(|| "OpenRouter connection could not be verified".to_string())?;
+    Ok(OpenRouterConnectionView {
+        ok: true,
+        connected: true,
+        provider: "openrouter",
+        label: data
+            .get("label")
+            .and_then(serde_json::Value::as_str)
+            .map(|label| label.chars().take(100).collect()),
+        user_id: None,
+        limit_usd: data.get("limit").and_then(serde_json::Value::as_f64),
+        limit_remaining_usd: data
+            .get("limit_remaining")
+            .and_then(serde_json::Value::as_f64),
+        usage_daily_usd: data.get("usage_daily").and_then(serde_json::Value::as_f64),
+    })
+}
+
+fn valid_openrouter_api_key(value: &str) -> bool {
+    value.starts_with("sk-or-")
+        && (20..=512).contains(&value.len())
+        && value.bytes().all(|byte| byte.is_ascii_graphic())
+}
+
+fn valid_openrouter_authorization_code(value: &str) -> bool {
+    (8..=1024).contains(&value.len()) && value.bytes().all(|byte| byte.is_ascii_graphic())
+}
+
+fn valid_pkce_verifier(value: &str) -> bool {
+    (43..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~'))
+}
+
+async fn bounded_openrouter_json(
+    method: reqwest::Method,
+    url: &str,
+    bearer: Option<&str>,
+    body: Option<&serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(OPENROUTER_OAUTH_TIMEOUT)
+        .build()
+        .map_err(|_| "OpenRouter connection could not start".to_string())?;
+    let mut request = client
+        .request(method, url)
+        .header("HTTP-Referer", "https://cosy.world/")
+        .header("X-OpenRouter-Title", "CosyWorld v2");
+    if let Some(api_key) = bearer {
+        request = request.bearer_auth(api_key);
+    }
+    if let Some(body) = body {
+        request = request.json(body);
+    }
+    let mut response = request
+        .send()
+        .await
+        .map_err(|_| "OpenRouter could not be reached; try again".to_string())?;
+    if !response.status().is_success() {
+        return Err(match response.status().as_u16() {
+            400 | 403 => "OpenRouter authorization expired or was declined".to_string(),
+            401 => "OpenRouter rejected this connection".to_string(),
+            429 => "OpenRouter is busy; try again shortly".to_string(),
+            _ => "OpenRouter could not complete the connection".to_string(),
+        });
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > OPENROUTER_OAUTH_RESPONSE_LIMIT as u64)
+    {
+        return Err("OpenRouter returned an oversized response".to_string());
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| "OpenRouter response could not be read".to_string())?
+    {
+        if bytes.len().saturating_add(chunk.len()) > OPENROUTER_OAUTH_RESPONSE_LIMIT {
+            return Err("OpenRouter returned an oversized response".to_string());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes)
+        .map_err(|_| "OpenRouter returned an invalid response".to_string())
 }
 
 pub(super) async fn wallet_link_start(
@@ -2240,6 +2481,23 @@ mod tests {
         let hashed = hash_session_token(&token);
         assert_ne!(hashed, token);
         assert_eq!(hashed, hash_session_token(&token));
+    }
+
+    #[test]
+    fn openrouter_oauth_inputs_are_conservative() {
+        assert!(valid_openrouter_api_key(&format!(
+            "sk-or-{}",
+            "a".repeat(32)
+        )));
+        assert!(!valid_openrouter_api_key("sk-not-openrouter"));
+        assert!(valid_openrouter_authorization_code("code_12345"));
+        assert!(!valid_openrouter_authorization_code("has spaces"));
+        assert!(valid_pkce_verifier(&"a".repeat(43)));
+        assert!(valid_pkce_verifier(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
+        ));
+        assert!(!valid_pkce_verifier(&"a".repeat(42)));
+        assert!(!valid_pkce_verifier(&format!("{}+", "a".repeat(42))));
     }
 
     #[test]

@@ -199,4 +199,9 @@
 # both directions, the empty-store and inconsistent-store boundaries, and the
 # health contract; the checkpoint-refusal half lives in snapshot_persistence.rs
 # beside the writer that owns it.
-71479
+# 71479 -> 71508: integrate the extracted entity-context memory/goal ledger at
+# the existing snapshot, projection, article, and public-view boundaries, and
+# retain bounded readable model reasoning as private thought memory after a
+# certified reply. The owned logic and tests live in entity_context.rs and the
+# AI publication modules; main.rs keeps only runtime/persistence boundary glue.
+71508

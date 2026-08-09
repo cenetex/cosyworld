@@ -205,14 +205,14 @@ test("keeps provider availability separate from local adapter support", () => {
   );
   assert.equal(
     profiles.filter(({ profile }) => profile.runtime_adapter_supported).length,
-    449,
+    451,
   );
   assert.equal(
     profiles.filter(
       ({ profile }) =>
         profile.provider_available && profile.runtime_adapter_supported,
     ).length,
-    440,
+    442,
   );
   const vectorProfiles = profiles.filter(
     ({ row, profile }) =>
@@ -228,6 +228,29 @@ test("keeps provider availability separate from local adapter support", () => {
         !profile.runtime_adapter_supported &&
         profile.runtime_adapter_unsupported_reason ===
           "safe_svg_rasterizer_not_implemented",
+    ),
+  );
+});
+
+test("pins direct voice chat to the implemented MP3 stream contract", () => {
+  const voiceChat = document.bindings.flatMap((row) =>
+    row.profiles
+      .filter((profile) => profile.kind === "voice_chat")
+      .map((profile) => ({ model: row.requested_model_id, profile })),
+  );
+  assert.deepEqual(
+    voiceChat.map(({ model }) => model).sort(),
+    ["openai/gpt-audio", "openai/gpt-audio-mini"],
+  );
+  assert(
+    voiceChat.every(
+      ({ profile }) =>
+        profile.provider_available &&
+        profile.runtime_adapter_supported &&
+        profile.runtime_adapter_unsupported_reason === null &&
+        profile.streaming &&
+        profile.defaults.audio.voice === "alloy" &&
+        profile.defaults.audio.format === "mp3",
     ),
   );
 });

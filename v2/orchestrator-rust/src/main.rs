@@ -15,6 +15,7 @@ mod ai_publication;
 mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
+mod avatar_context_spine;
 mod avatar_identity;
 mod avatar_reflections;
 #[cfg(test)]
@@ -40,6 +41,7 @@ mod content_registry;
 mod contributions;
 mod crafting;
 mod discovery_pipeline;
+mod entity_context;
 mod first_tale;
 mod first_tale_presentations;
 mod generated_places;
@@ -104,6 +106,7 @@ use ai_gateway::*;
 use ai_publication::*;
 use ai_readiness::*;
 use ai_resident_planning::*;
+use avatar_context_spine::*;
 use avatar_identity::*;
 use avatar_reflections::*;
 use axum::{
@@ -141,6 +144,7 @@ use contributions::*;
 use cosyworld_orchestrator::card_policy::CardPolicyAction;
 use crafting::*;
 use discovery_pipeline::*;
+use entity_context::*;
 use first_tale::*;
 use first_tale_presentations::*;
 use generated_places::*;
@@ -256,6 +260,7 @@ struct AppState {
     actor_sessions: Arc<StdMutex<ActorSessions>>,
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
     rate_limiter: Arc<StdMutex<RateLimiter>>,
+    transient_openrouter_keys: Arc<StdMutex<BTreeMap<u64, TransientOpenRouterKey>>>,
     inactive_inventory_release_conflicts: Arc<StdMutex<BTreeSet<(u64, u64)>>>,
     canonical_command_lock: Arc<Mutex<()>>,
     canonical_owner_id: Arc<String>,
@@ -281,6 +286,7 @@ struct AppState {
     last_checkpoint_rejection: Option<String>,
     allow_unsigned_wallet_claims: bool,
 }
+
 #[derive(Clone, Debug, Default)]
 struct EventStoreHealth {
     last_append_success_at_unix: Option<u64>,
@@ -936,6 +942,14 @@ enum ProjectionMutation {
         caused_by_event_seq: Option<u64>,
         source_world_tick: u64,
         observed_through_seq: u64,
+    },
+    RecordAvatarSelfDescription(AvatarSelfDescriptionProjection),
+    RecordEntitySelfDescription(EntitySelfDescriptionProjection),
+    PassivePerceiveItem {
+        item_id: u64,
+        location_id: u64,
+        chance_percent: u8,
+        roll: u8,
     },
     FocusedControl {
         control: String,
@@ -1707,6 +1721,8 @@ struct RuntimeWorld {
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
     beliefs: BTreeMap<String, BeliefState>,
+    entity_memories: BTreeMap<String, WorldEntityMemoryState>,
+    goal_ledger: BTreeMap<String, EntityGoalState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
     actor_rules_facets: BTreeMap<u64, BTreeMap<String, ActorRulesFacetState>>,
@@ -1849,6 +1865,10 @@ struct RuntimeSnapshot {
     bonds: BTreeMap<String, BondState>,
     #[serde(default)]
     beliefs: BTreeMap<String, BeliefState>,
+    #[serde(default)]
+    entity_memories: BTreeMap<String, WorldEntityMemoryState>,
+    #[serde(default)]
+    goal_ledger: BTreeMap<String, EntityGoalState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     resident_memories: BTreeMap<String, LegacyResidentMemoryState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -4740,22 +4760,37 @@ fn schedule_avatar_identity_refinement(
     let state = state.clone();
     tokio::spawn(async move {
         let naming_context = avatar_naming_context(character_selection.as_ref());
-        let identity =
-            match request_ai_avatar_identity(&config, actor_id, naming_context.as_ref()).await {
-                Ok(identity) => apply_avatar_creation_flavor(
-                    identity,
-                    character_selection.as_ref(),
-                    &initial_calling,
-                ),
-                Err(error) => {
-                    warn!(
-                        "AI avatar identity refinement failed for actor {}: {}",
-                        actor_id, error
-                    );
-                    let _ = fallback_identity;
-                    return;
-                }
-            };
+        let context_spine = {
+            let runtime = state.inner.lock().await;
+            runtime.avatar_context_spine(
+                actor_id,
+                None,
+                None,
+                "This newly arrived avatar is discovering a first stable way to describe themself in the current world.",
+            )
+        };
+        let identity = match request_ai_avatar_identity(
+            &config,
+            actor_id,
+            naming_context.as_ref(),
+            context_spine.as_ref(),
+        )
+        .await
+        {
+            Ok(identity) => apply_avatar_creation_flavor(
+                identity,
+                character_selection.as_ref(),
+                &initial_calling,
+            ),
+            Err(error) => {
+                warn!(
+                    "AI avatar identity refinement failed for actor {}: {}",
+                    actor_id, error
+                );
+                let _ = fallback_identity;
+                return;
+            }
+        };
         let actor_meta = ActorMeta {
             name: identity.name.clone(),
             speech_mode: "prose".to_string(),
@@ -5301,6 +5336,7 @@ impl AppState {
             actor_sessions: Arc::new(StdMutex::new(actor_sessions)),
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
+            transient_openrouter_keys: Arc::new(StdMutex::new(BTreeMap::new())),
             inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id,
@@ -5609,6 +5645,8 @@ impl RuntimeSnapshot {
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
             beliefs: runtime.beliefs.clone(),
+            entity_memories: runtime.entity_memories.clone(),
+            goal_ledger: runtime.goal_ledger.clone(),
             resident_memories: BTreeMap::new(),
             search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
@@ -5893,6 +5931,8 @@ impl RuntimeSnapshot {
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
             beliefs,
+            entity_memories: self.entity_memories,
+            goal_ledger: self.goal_ledger,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
             actor_rules_facets: self.actor_rules_facets,
@@ -5940,6 +5980,7 @@ impl RuntimeSnapshot {
             runtime.backfill_first_tale_destination_arrivals();
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
+            runtime.backfill_world_entity_state_if_missing();
             runtime.backfill_generated_place_governance();
             runtime.backfill_settlement_buildings();
             runtime.rebuild_deed_index();
@@ -6312,6 +6353,8 @@ impl RuntimeWorld {
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
             beliefs: BTreeMap::new(),
+            entity_memories: BTreeMap::new(),
+            goal_ledger: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
             actor_rules_facets: BTreeMap::new(),
@@ -6349,6 +6392,8 @@ impl RuntimeWorld {
         runtime.backfill_generated_avatar_flavor();
         runtime.refresh_all_resident_continuities();
         runtime.ensure_actor_autonomy();
+        runtime.record_world_entity_memories(&runtime.event_log.clone());
+        runtime.refresh_entity_goal_ledger();
         runtime.ensure_world_simulation();
         runtime
     }
@@ -9749,6 +9794,8 @@ impl RuntimeWorld {
         self.apply_resident_planning_lifecycle(record, status, resident_planning_lifecycle);
         self.ensure_canonical_identities(record.seed);
         if status == CW_OK {
+            self.record_committed_world_entity_memories(&events);
+            self.refresh_entity_goal_ledger();
             self.ensure_active_actor_rules_facets();
             self.bump_entity_versions_for_events(&events);
         }
@@ -9895,6 +9942,33 @@ impl RuntimeWorld {
                         Some(*source_world_tick),
                         Some(*observed_through_seq),
                     ));
+                }
+                ProjectionMutation::RecordAvatarSelfDescription(projection) => {
+                    events.push(
+                        self.append_avatar_self_description_projection(action.actor_id, projection),
+                    );
+                }
+                ProjectionMutation::RecordEntitySelfDescription(projection) => {
+                    if let Some(event) = self.append_entity_self_description_projection(projection)
+                    {
+                        events.push(event);
+                    }
+                }
+                ProjectionMutation::PassivePerceiveItem {
+                    item_id,
+                    location_id,
+                    chance_percent,
+                    roll,
+                } => {
+                    if let Some(event) = self.apply_passive_item_perception(
+                        action.actor_id,
+                        *item_id,
+                        *location_id,
+                        *chance_percent,
+                        *roll,
+                    ) {
+                        events.push(event);
+                    }
                 }
                 ProjectionMutation::FocusedControl { .. } => {}
                 ProjectionMutation::ChatStatus {
@@ -15302,9 +15376,11 @@ The relationship statement they are preserving is: {statement}"
             return None;
         }
         let user_text = self.resident_economy_action_reply_seed(actor, action)?;
+        let context_spine = self.avatar_context_spine(actor.id, None, None, user_text.clone())?;
         let actor_meta = self.actors.get(&actor.id);
         let location_meta = self.location_meta_for(actor.location_id);
         Some(AvatarReplyPlan {
+            context_spine,
             speaker_actor_id: actor.id,
             speaker_name: self
                 .actor_name(actor.id)
@@ -18279,7 +18355,8 @@ The relationship statement they are preserving is: {statement}"
                     mechanics: None,
                 });
                 community_art_eligible_card(&card_for_item(item.id, &meta.name, &meta.description))
-                    .then_some(1)
+                    .then(|| self.world_entity_level(WorldEntityRef::item(subject_id)))
+                    .flatten()
             }
             "location" => {
                 let name = self.location_name(subject_id)?;
@@ -18291,9 +18368,10 @@ The relationship statement they are preserving is: {statement}"
                 if let Some(pathway) = self.generated_pathway_for_location(subject_id) {
                     return (pathway.art_eligible
                         && self.generated_places.contains_key(&subject_id))
-                    .then_some(1);
+                    .then(|| self.world_entity_level(WorldEntityRef::location(subject_id)))
+                    .flatten();
                 }
-                Some(1)
+                self.world_entity_level(WorldEntityRef::location(subject_id))
             }
             _ => None,
         }
@@ -19695,6 +19773,16 @@ The relationship statement they are preserving is: {statement}"
             .actor_name(target_actor_id)
             .map(|name| grounded_avatar_name_for_prompt(target_actor_id, &name))
             .unwrap_or_else(|| "Someone nearby".to_string());
+        let actor_name = self
+            .actor_name(actor_id)
+            .map(|name| grounded_avatar_name_for_prompt(actor_id, &name))
+            .unwrap_or_else(|| fallback_avatar_identity(actor_id).name);
+        let context_spine = self.avatar_context_spine(
+            actor_id,
+            Some(target_actor_id),
+            None,
+            format!("{actor_name}'s controller chose Chat with {target_actor_name}."),
+        )?;
         let location_meta = self.location_meta_for(actor.location_id);
         let target_economy_note = self.resident_economy_prompt_note(target, Some(actor_id));
         let recent_lines = self.recent_room_lines(actor.location_id, 8);
@@ -19704,12 +19792,10 @@ The relationship statement they are preserving is: {statement}"
             .take(2)
             .find_map(|line| self.conversation_subject(line, target_actor_id));
         Some(AvatarChatPlan {
+            context_spine,
             actor_id,
             location_id: actor.location_id,
-            actor_name: self
-                .actor_name(actor_id)
-                .map(|name| grounded_avatar_name_for_prompt(actor_id, &name))
-                .unwrap_or_else(|| fallback_avatar_identity(actor_id).name),
+            actor_name,
             actor_title: actor_meta
                 .map(|meta| meta.title.clone())
                 .filter(|title| !title.trim().is_empty())
@@ -20099,7 +20185,27 @@ The relationship statement they are preserving is: {statement}"
             } else {
                 self.resident_economy_prompt_note(responder, Some(responder.id))
             };
+        let incoming_turn = incoming_is_spoken.then(|| {
+            DirectedDialogueTurn::new(
+                speaker_actor_id,
+                speaker_name,
+                target_actor_id,
+                responder_name.clone(),
+                text,
+            )
+        });
+        let context_spine = self.avatar_context_spine(
+            target_actor_id,
+            Some(speaker_actor_id),
+            incoming_turn.clone(),
+            if incoming_is_spoken {
+                format!("{responder_name} is answering a line directed by the other speaker.")
+            } else {
+                text.to_string()
+            },
+        )?;
         Some(AvatarReplyPlan {
+            context_spine,
             speaker_actor_id: target_actor_id,
             speaker_name: responder_name.clone(),
             speaker_voice: self.authored_actor_voice(target_actor_id),
@@ -20130,15 +20236,7 @@ The relationship statement they are preserving is: {statement}"
             recent_lines: self.recent_room_lines(responder.location_id, 8),
             recent_activity: self.recent_room_activity(responder.location_id, 10),
             user_text: text.to_string(),
-            incoming_turn: incoming_is_spoken.then(|| {
-                DirectedDialogueTurn::new(
-                    speaker_actor_id,
-                    speaker_name,
-                    target_actor_id,
-                    responder_name,
-                    text,
-                )
-            }),
+            incoming_turn,
             caused_by_event_seq: None,
             source_world_tick: None,
             observed_through_seq: None,
@@ -20256,53 +20354,6 @@ The relationship statement they are preserving is: {statement}"
         }
 
         Some(candidates[(self.world.tick as usize) % candidates.len()])
-    }
-
-    #[cfg(test)]
-    fn ambient_reply_plan(&self) -> Option<AvatarReplyPlan> {
-        let npc = self.ambient_actor()?;
-        let npc_meta = self.actors.get(&npc.id);
-        let location_meta = self.location_meta_for(npc.location_id);
-        let economy_note = self.resident_economy_prompt_note(npc, None);
-        Some(AvatarReplyPlan {
-            speaker_actor_id: npc.id,
-            speaker_name: self
-                .actor_name(npc.id)
-                .unwrap_or_else(|| format!("Actor {}", npc.id)),
-            speaker_voice: self.authored_actor_voice(npc.id),
-            speech_mode: npc_meta
-                .map(|meta| meta.speech_mode.clone())
-                .unwrap_or_else(|| "prose".to_string()),
-            location_id: npc.location_id,
-            resident_continuity: self.resident_continuity_for(npc),
-            economy_note,
-            goals: self.narrative_goal_lines(Some(npc.id), npc.location_id),
-            location_name: self
-                .location_name(npc.location_id)
-                .unwrap_or_else(|| "Unknown Location".to_string()),
-            location_title: location_meta.title,
-            location_description: location_meta.description,
-            location_persona: location_meta.persona,
-            location_evidence: self.conversation_location_evidence(
-                npc.location_id,
-                npc.id,
-                None,
-            ),
-            public_room_memory: self.recent_public_room_evidence(npc.location_id, 3),
-            cast: self.room_cast_names(npc.location_id),
-            recent_lines: self.recent_room_lines(npc.location_id, 8),
-            recent_activity: self.recent_room_activity(npc.location_id, 10),
-            user_text: "The room has been quiet. Add one fresh in-character ambient beat that follows the recent room dialogue without repeating an earlier line.".to_string(),
-            incoming_turn: None,
-            caused_by_event_seq: None,
-            source_world_tick: None,
-            observed_through_seq: None,
-            source_location_id: None,
-            publication_beat_id: String::new(),
-            planner_requested: false,
-            planner_candidates: Vec::new(),
-            card_policy_snapshot: None,
-        })
     }
 
     #[cfg(test)]
@@ -22228,6 +22279,7 @@ fn hosted_guest_progression_mutation_restricted(mutation: &ProjectionMutation) -
             | ProjectionMutation::DiscoverHiddenExit { .. }
             | ProjectionMutation::DiscoverAvatar { .. }
             | ProjectionMutation::RememberSearchItem { .. }
+            | ProjectionMutation::PassivePerceiveItem { .. }
             | ProjectionMutation::UseFeature { .. }
             | ProjectionMutation::FocusedControl { .. }
             | ProjectionMutation::AdvanceClock { .. }
@@ -25634,6 +25686,7 @@ async fn complete_queued_orb_chat_attempt(
                 return Err(error.to_string());
             }
         };
+        let reasoning_trace = certified.reasoning_trace().map(ToString::to_string);
         let (content, publication_receipt) = into_recorded_speech_parts(state, certified);
         let committed = {
             let mut runtime = state.inner.lock().await;
@@ -25661,6 +25714,12 @@ async fn complete_queued_orb_chat_attempt(
                 record.source_location_id = Some(plan.location_id);
                 record.content_upserts.insert(content_id, content.clone());
                 record.ai_publication = Some(publication_receipt);
+                runtime.attach_reasoning_thought_memory(
+                    &mut record,
+                    actor_id,
+                    plan.location_id,
+                    reasoning_trace.as_deref(),
+                );
                 match commit_journal_record(state, &mut runtime, record) {
                     Ok((CW_OK, events)) if !events.is_empty() => Some((content_id, events)),
                     _ => None,
@@ -28116,6 +28175,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     target_actor_id,
+                    openrouter_api_key: None,
                 }),
             )
             .await;
@@ -28908,6 +28968,7 @@ fn commit_resident_reply_record(
         speech,
         mut planning,
     } = certified;
+    let reasoning_trace = speech.reasoning_trace().map(ToString::to_string);
     let (_, publication_receipt) = into_recorded_speech_parts(state, speech);
     let speaker = runtime.actor_by_id(plan.speaker_actor_id)?;
     if !RuntimeWorld::actor_can_act(speaker) {
@@ -28980,6 +29041,12 @@ fn commit_resident_reply_record(
                 reason: presentation.content(),
             });
     }
+    runtime.attach_reasoning_thought_memory(
+        &mut record,
+        plan.speaker_actor_id,
+        plan.location_id,
+        reasoning_trace.as_deref(),
+    );
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
         return None;
     };
@@ -30809,54 +30876,6 @@ fn trim_to_chars(value: &str, max_chars: usize) -> String {
         .collect::<String>();
     out.push('…');
     out
-}
-
-async fn request_ai_avatar_identity(
-    config: &AiConfig,
-    actor_id: u64,
-    naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
-) -> Result<GeneratedAvatarIdentity, String> {
-    let fallback = fallback_avatar_identity_with_naming_context(actor_id, naming_context);
-    let naming_style = active_content()
-        .manifest
-        .avatar_naming
-        .as_ref()
-        .and_then(|config| cosyworld_ai_model::avatar_naming_style_prompt(config, naming_context))
-        .unwrap_or("Use a warm, memorable fantasy name that feels rooted in a lived-in community.");
-    let system = "You generate compact JSON for a player avatar in a cozy shared MUD. The persona is a first-person stream of consciousness made from desires, preferences, dislikes, and social instincts. It is not inventory and must not invent possessions, imaginary friends, invisible companions, pets, familiars, or personal artifacts. Every identity must feel warm, playful, grounded, and safe to meet. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
-    let user = format!(
-        "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
-         Tone: grounded, gentle storybook comedy. Describe what this person wants, prefers, dislikes, notices, or hopes for, and how they tend to meet other people. Never invent an item they own, carry, wear, hold, hide, remember, or travel with. Never invent a friend, pet, companion, familiar, sidekick, mascot, or invisible presence. Mischief may be clumsy or curious but never hungry, hostile, cruel, threatening, or mean. Do not use grudges, schemes, insults, weapons, danger, or villain language.\n\
-         Naming tradition from the active worldpack: {naming_style}\n\
-         Avoid existing resident names: Rati, Gust, Skull, Coach, Badger, Toad.\n\
-         Output exactly this shape: {{\"name\":\"1-3 words following that tradition, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm temperament-only card epithet, 2-5 words and 36 chars max; no item, possession, companion, location, or the words The Cosy Cottage\",\"description\":\"one first-person stream-of-consciousness sentence using I, about desires and preferences rather than biography or possessions, 220 chars max\",\"visual_prompt\":\"stable appearance-only physical description of exactly one character, 360 chars max: anatomy/species, face, skin/fur, hair, build, age impression, distinctive features, and practical clothing; empty hands; no held or carried items, pets, companions, familiars, mascots, pose, camera, art style, text, or location\"}}\n\
-         If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
-        name = fallback.name,
-        title = fallback.title,
-        description = fallback.description,
-    );
-
-    let completion = request_chat_completion(
-        config,
-        ChatCompletionRequest {
-            feature: "avatar_identity",
-            prompt_version: "avatar-identity-v2",
-            capability: ModelCapability::WorldContent,
-            system,
-            user: &user,
-            temperature: 1.0,
-            max_tokens: 240,
-            timeout: Duration::from_secs(14),
-            max_attempts: 2,
-            referer: "https://cosyworld.fly.dev",
-            response_format: None,
-            room_id: None,
-        },
-    )
-    .await
-    .map_err(|error| error.to_string())?;
-    parse_avatar_identity_json_with_naming_context(&completion.text, actor_id, naming_context)
-        .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
 fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
@@ -36521,6 +36540,9 @@ fn commit_journal_record(
     }
     if hosted_guest_record_restricted(state, runtime, &record) {
         return Ok((CW_ERR_RULE, Vec::new()));
+    }
+    if !actor_is_restricted_hosted_guest(state, runtime, record.action.actor_id) {
+        runtime.bind_passive_item_perception(&mut record);
     }
     if record.hosted_access_grant.as_ref().is_some_and(|grant| {
         !hosted_access_grant_runtime_valid(
@@ -46423,10 +46445,10 @@ mod tests {
 
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
         assert!(!INDEX_HTML.contains("connect ai"));
-        assert!(!INDEX_HTML.contains("openrouter_api_key"));
-        assert!(INDEX_HTML.contains("localStorage.removeItem(\"cosyworld.openrouterApiKey\""));
+        assert!(INDEX_HTML.contains("openrouter_api_key"));
+        assert!(INDEX_HTML.contains("localStorage.setItem(openRouterApiKeyStorage"));
+        assert!(INDEX_HTML.contains("localStorage.removeItem(openRouterApiKeyStorage"));
         assert!(INDEX_HTML.contains("sessionStorage.removeItem(\"cosyworld.openrouterApiKey\""));
-        assert!(!INDEX_HTML.contains("localStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(!INDEX_HTML.contains("sessionStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
         assert!(INDEX_HTML.contains("const stateRequest = api(statePath())"));
@@ -46459,8 +46481,10 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-room-more"));
         assert!(!INDEX_HTML.contains("room-more"));
         assert!(INDEX_HTML.contains("id=\"room-log-toggle\""));
+        assert!(INDEX_HTML.contains("id=\"journal-notification-count\""));
         assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
-        assert!(INDEX_HTML.contains("room-title-main"));
+        assert!(INDEX_HTML.contains("class=\"topbar-actions\""));
+        assert!(!INDEX_HTML.contains("class=\"room-title\""));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
         assert!(!INDEX_HTML.contains("interior-view"));
         assert!(!INDEX_HTML.contains("renderInteriorView"));
@@ -46683,8 +46707,13 @@ mod tests {
         assert!(!INDEX_HTML.contains("modalTitle: \"choose a calling\""));
         assert!(!INDEX_HTML.contains("id=\"ai-key-modal\""));
         assert!(!INDEX_HTML.contains("data-ai-oauth-start"));
-        assert!(!INDEX_HTML.contains("openRouterCodeChallenge"));
-        assert!(!INDEX_HTML.contains("https://openrouter.ai/auth"));
+        assert!(INDEX_HTML.contains("data-openrouter-connect"));
+        assert!(INDEX_HTML.contains("data-openrouter-disconnect"));
+        assert!(INDEX_HTML.contains("openRouterCodeChallenge"));
+        assert!(INDEX_HTML.contains("https://openrouter.ai/auth"));
+        assert!(INDEX_HTML.contains("code_challenge_method\", \"S256\""));
+        assert!(INDEX_HTML.contains("/ai/openrouter/exchange"));
+        assert!(INDEX_HTML.contains("/ai/openrouter/verify"));
         assert!(!INDEX_HTML.contains("/api/v1/auth/keys"));
         assert!(INDEX_HTML.contains("listenHintForLocation"));
         assert!(INDEX_HTML.contains("listen_attempted_here"));
@@ -50308,8 +50337,7 @@ mod tests {
             acting_avatar.economy_note,
             DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT
         );
-        assert!(resident_voice_user_prompt(&acting_avatar, "")
-            .contains(DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT));
+        assert!(resident_voice_user_prompt(&acting_avatar, "").contains("control direct_input"));
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -50327,8 +50355,7 @@ mod tests {
             other_avatar.economy_note,
             DIRECTLY_CONTROLLED_REACTION_CONTEXT
         );
-        assert!(resident_voice_user_prompt(&other_avatar, "")
-            .contains(DIRECTLY_CONTROLLED_REACTION_CONTEXT));
+        assert!(resident_voice_user_prompt(&other_avatar, "").contains("control direct_input"));
     }
 
     #[test]
@@ -57318,7 +57345,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
                 .expect("replayed state serializes"),
-            expected
+            expected,
         );
 
         drop(state);
@@ -64367,7 +64394,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
                 .expect("replayed state serializes"),
-            expected
+            expected,
         );
     }
 
@@ -64485,7 +64512,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
                 .expect("replayed state serializes"),
-            expected
+            expected,
         );
     }
 
@@ -67622,6 +67649,7 @@ mod tests {
         speech_mode: &str,
     ) -> AvatarReplyPlan {
         AvatarReplyPlan {
+            context_spine: AvatarContextSpine::default(),
             speaker_actor_id,
             speaker_name: speaker_name.to_string(),
             speaker_voice: String::new(),
@@ -70814,6 +70842,7 @@ mod tests {
             actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
+            transient_openrouter_keys: Arc::new(StdMutex::new(BTreeMap::new())),
             inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),

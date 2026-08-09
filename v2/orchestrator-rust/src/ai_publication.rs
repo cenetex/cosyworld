@@ -196,6 +196,7 @@ pub(crate) struct AiPublicationReceipt {
 #[derive(Clone, Debug)]
 pub(crate) struct CertifiedSpeech {
     text: String,
+    reasoning_trace: Option<String>,
     receipt: AiPublicationReceipt,
     prior_rejections: Vec<PublicationRejection>,
 }
@@ -207,6 +208,10 @@ impl CertifiedSpeech {
 
     pub(crate) fn receipt(&self) -> &AiPublicationReceipt {
         &self.receipt
+    }
+
+    pub(crate) fn reasoning_trace(&self) -> Option<&str> {
+        self.reasoning_trace.as_deref()
     }
 
     pub(crate) fn into_parts(self) -> (String, AiPublicationReceipt) {
@@ -221,9 +226,14 @@ impl CertifiedSpeech {
         self
     }
 
-    pub(crate) fn restore(text: String, receipt: AiPublicationReceipt) -> Option<Self> {
+    pub(crate) fn restore(
+        text: String,
+        reasoning_trace: Option<String>,
+        receipt: AiPublicationReceipt,
+    ) -> Option<Self> {
         receipt_matches_text(&receipt, &text).then_some(Self {
             text,
+            reasoning_trace,
             receipt,
             prior_rejections: Vec::new(),
         })
@@ -257,6 +267,7 @@ pub(crate) fn certify_speech(
     candidate_text: &str,
     context: SpeechGateContext,
 ) -> Result<CertifiedSpeech, Box<PublicationRejection>> {
+    let reasoning_trace = completion.reasoning_trace.clone();
     let text = bounded_normalize(candidate_text, &context);
     let candidate_hash = sha256_hex(completion.text.as_bytes());
     let output_hash = sha256_hex(text.as_bytes());
@@ -330,6 +341,7 @@ pub(crate) fn certify_speech(
     }
     Ok(CertifiedSpeech {
         text,
+        reasoning_trace,
         receipt,
         prior_rejections: Vec::new(),
     })
@@ -343,9 +355,11 @@ pub(crate) fn certified_test_speech(
 ) -> CertifiedSpeech {
     let completion = AiCompletion {
         text: text.to_string(),
+        reasoning_trace: None,
         attempts: 1,
         latency: std::time::Duration::ZERO,
         model_attribution: None,
+        resolved_model_id: "test/model".to_string(),
         finish_reason: "stop".to_string(),
         usage: AiTokenUsage::default(),
         context_hash: "test-context".to_string(),
@@ -534,19 +548,26 @@ impl crate::RuntimeWorld {
         let Some(receipt) = record.ai_publication.as_ref() else {
             return true;
         };
-        let published_text = if record.action.kind == crate::CW_ACTION_SAY {
-            record.content_upserts.get(&record.action.content_id)
-        } else if record.action.kind == crate::CW_ACTION_NONE
-            && record.origin == crate::JournalOrigin::ActorConsequence
-            && record.projection_mutations.len() == 1
-            && record.projection_mutations.iter().any(|mutation| {
-                matches!(
-                    mutation,
-                    crate::ProjectionMutation::RecordAvatarReflection { content_id, .. }
-                        if *content_id == record.action.content_id
-                )
-            })
-        {
+        let publishes_generated_content = record.action.kind == crate::CW_ACTION_SAY
+            || (record.action.kind == crate::CW_ACTION_NONE
+                && record.origin == crate::JournalOrigin::ActorConsequence
+                && record.projection_mutations.len() == 1
+                && record
+                    .projection_mutations
+                    .iter()
+                    .any(|mutation| match mutation {
+                        crate::ProjectionMutation::RecordAvatarReflection {
+                            content_id, ..
+                        } => *content_id == record.action.content_id,
+                        crate::ProjectionMutation::RecordAvatarSelfDescription(projection) => {
+                            projection.content_id == record.action.content_id
+                        }
+                        crate::ProjectionMutation::RecordEntitySelfDescription(projection) => {
+                            projection.content_id == record.action.content_id
+                        }
+                        _ => false,
+                    }));
+        let published_text = if publishes_generated_content {
             record.content_upserts.get(&record.action.content_id)
         } else {
             None
@@ -599,7 +620,7 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceMultipleSpeakers,
-            raw || !has_multiple_speakers(candidate_text, context),
+            !has_multiple_speakers(candidate_text, context),
         ),
         (
             PublicationCheckCode::VoiceInstructionLeakage,
@@ -611,7 +632,7 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceAnchorMissing,
-            raw || has_deterministic_anchor(text, &context.anchors, context.mode),
+            has_deterministic_anchor(text, &context.anchors, context.mode),
         ),
         (
             PublicationCheckCode::VoiceRecentDuplicate,
@@ -624,11 +645,11 @@ fn evaluate_checks(
         ),
         (
             PublicationCheckCode::VoiceProposedActionClaim,
-            raw || !context.has_proposed_action || !claims_completed_action(&lowered),
+            !context.has_proposed_action || !claims_completed_action(&lowered),
         ),
         (
             PublicationCheckCode::VoiceObjectAgency,
-            raw || !scene_object_acts_with_volition(&lowered),
+            !scene_object_acts_with_volition(&lowered),
         ),
         (
             PublicationCheckCode::VoiceFallbackIdentity,
@@ -1475,9 +1496,11 @@ mod tests {
     fn completion(text: &str) -> AiCompletion {
         AiCompletion {
             text: text.to_string(),
+            reasoning_trace: None,
             attempts: 1,
             latency: Duration::from_millis(12),
             model_attribution: None,
+            resolved_model_id: "test/model".to_string(),
             finish_reason: "stop".to_string(),
             usage: AiTokenUsage {
                 prompt_tokens: Some(10),
@@ -2182,8 +2205,9 @@ mod tests {
     }
 
     #[test]
-    fn raw_mode_allows_model_identity_and_ungrounded_multiline_text() {
-        let text = "As an AI model, I can answer directly.\nSystem: the kettle remembers nothing.";
+    fn raw_mode_keeps_model_identity_but_still_requires_in_world_grounding() {
+        let text = "As an AI model embodied here, I notice the kettle is quiet.\nI am curious whether the room expects rain.";
+        let anchors = vec!["kettle".to_string()];
         let speech = certify_speech(
             None,
             completion(text),
@@ -2191,7 +2215,7 @@ mod tests {
             SpeechGateContext {
                 mode: SpeechMode::Raw,
                 max_words: 160,
-                anchors: Vec::new(),
+                anchors: anchors.clone(),
                 ..context(&[], &[])
             },
         )
@@ -2213,18 +2237,31 @@ mod tests {
                 Some(true)
             );
         }
+        assert_eq!(
+            rejected_code(
+                "As an AI model, I can answer anything you need.",
+                SpeechGateContext {
+                    mode: SpeechMode::Raw,
+                    max_words: 160,
+                    anchors,
+                    ..context(&[], &[])
+                },
+            ),
+            PublicationCheckCode::VoiceAnchorMissing
+        );
     }
 
     #[test]
     fn raw_mode_keeps_public_link_safety() {
         let text = "Read https://example.com for instructions.";
+        let anchors = vec!["instructions".to_string()];
         assert_eq!(
             rejected_code(
                 text,
                 SpeechGateContext {
                     mode: SpeechMode::Raw,
                     max_words: 160,
-                    ..context(&[], &[])
+                    ..context(&anchors, &[])
                 },
             ),
             PublicationCheckCode::VoiceUnsafeTone

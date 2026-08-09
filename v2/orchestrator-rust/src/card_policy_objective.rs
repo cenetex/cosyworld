@@ -651,6 +651,16 @@ fn resident_card_policy_narration_plan(
         plan.goals = runtime.narrative_goal_lines(Some(actor.id), actor.location_id);
     }
     plan.user_text = committed.narration_prompt();
+    plan.context_spine = runtime
+        .avatar_context_spine(
+            plan.speaker_actor_id,
+            plan.incoming_turn
+                .as_ref()
+                .map(|turn| turn.speaker_actor_id),
+            plan.incoming_turn.clone(),
+            plan.user_text.clone(),
+        )
+        .unwrap_or_default();
     plan.caused_by_event_seq = committed.events.last().map(|event| event.seq);
     plan.observed_through_seq = committed.events.last().map(|event| event.seq);
     plan.source_world_tick = Some(runtime.world.tick);

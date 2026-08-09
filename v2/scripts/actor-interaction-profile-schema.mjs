@@ -1,6 +1,6 @@
 export const ACTOR_INTERACTION_PROFILE_SCHEMA_VERSION = 1;
 export const ACTOR_INTERACTION_PROFILE_SNAPSHOT =
-  "openrouter-interactions-2026-08-08.3";
+  "openrouter-interactions-2026-08-08.4";
 export const PROVIDER_AVAILABILITY_SEMANTICS =
   "provider_available only records that the pinned exact model and provider endpoint were advertised in the profile snapshot; it does not mean CosyWorld has a runtime adapter. Action offers must require provider_available, runtime_adapter_supported, and the applicable runtime policy gates.";
 
@@ -56,6 +56,7 @@ const runtimeAdapterSupportedKinds = new Set([
   "illustrate",
   "find_resonance",
   "rank_echoes",
+  "voice_chat",
 ]);
 
 // Pinned from the provider's public model inventory on 2026-08-08. Models
@@ -274,7 +275,7 @@ function voiceChatProfile(binding) {
     ],
     defaults: {
       modalities: ["text", "audio"],
-      audio: { voice: "alloy", format: "wav" },
+      audio: { voice: "alloy", format: "mp3" },
       stream: true,
     },
   });

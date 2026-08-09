@@ -10855,7 +10855,7 @@ async function main() {
   }
 
   async function listenAtCurrentLocation() {
-    await page.locator("#subtitle").click();
+    await page.locator("#location-name").click();
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     await drawPrimaryMatching("current room Notice", ["notice"]);
@@ -12572,8 +12572,8 @@ async function main() {
       `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
     );
     assert(
-      room.latestHidden && !room.latestVisible && room.latestHasTrack && room.latestBelowTitle && !room.latestAriaLive,
-      `${label}: the retired latest-event ticker should remain semantic but add no second live surface: ${JSON.stringify(room)}`,
+      room.latestHidden && !room.latestVisible && room.latestHasTrack && !room.latestBelowTitle && !room.latestAriaLive,
+      `${label}: the retired latest-event ticker should remain semantic without restoring the removed room-title panel: ${JSON.stringify(room)}`,
     );
     assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
     assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
@@ -13034,8 +13034,8 @@ async function main() {
             : null;
         };
         return {
-          title: rect(".room-title"),
-          name: rect(".room-title-main"),
+          actions: rect(".topbar-actions"),
+          economy: rect("#economy"),
           toggle: rect("#room-log-toggle"),
           latestHidden: document.querySelector("#room-log-latest")?.hidden === true,
           latestDisplay: getComputedStyle(document.querySelector("#room-log-latest")).display,
@@ -13043,12 +13043,12 @@ async function main() {
         };
       });
       assert(
-        layout.title && layout.name && layout.toggle,
-        `${width}px: the title and Journal control should render: ${JSON.stringify(layout)}`,
+        layout.actions && layout.economy && layout.toggle,
+        `${width}px: the Orb status and Journal control should render together: ${JSON.stringify(layout)}`,
       );
       assert(
-        layout.name.right <= layout.toggle.left + 0.5,
-        `${width}px: location name must not overlap the Journal control: ${JSON.stringify(layout)}`,
+        layout.economy.right <= layout.toggle.left + 0.5,
+        `${width}px: Journal must sit beside the Orb status without overlap: ${JSON.stringify(layout)}`,
       );
       assert(
         layout.latestHidden && layout.latestDisplay === "none" && layout.toggleLabel === "Open Journal",

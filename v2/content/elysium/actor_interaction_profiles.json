@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "profile_snapshot_version": "openrouter-interactions-2026-08-08.3",
+  "profile_snapshot_version": "openrouter-interactions-2026-08-08.4",
   "catalog_snapshot_version": "openrouter-2026-07-31.1",
   "source_binding_count": 485,
   "runtime_refresh": false,
@@ -10921,8 +10921,8 @@
           "label": "Voice chat",
           "provider_available": true,
           "disabled_reason": null,
-          "runtime_adapter_supported": false,
-          "runtime_adapter_unsupported_reason": "mixed_audio_stream_adapter_not_implemented",
+          "runtime_adapter_supported": true,
+          "runtime_adapter_unsupported_reason": null,
           "endpoint": "/api/v1/chat/completions",
           "accepted_inputs": [
             "audio",
@@ -10950,7 +10950,7 @@
             ],
             "audio": {
               "voice": "alloy",
-              "format": "wav"
+              "format": "mp3"
             },
             "stream": true
           }
@@ -10970,8 +10970,8 @@
           "label": "Voice chat",
           "provider_available": true,
           "disabled_reason": null,
-          "runtime_adapter_supported": false,
-          "runtime_adapter_unsupported_reason": "mixed_audio_stream_adapter_not_implemented",
+          "runtime_adapter_supported": true,
+          "runtime_adapter_unsupported_reason": null,
           "endpoint": "/api/v1/chat/completions",
           "accepted_inputs": [
             "audio",
@@ -10999,7 +10999,7 @@
             ],
             "audio": {
               "voice": "alloy",
-              "format": "wav"
+              "format": "mp3"
             },
             "stream": true
           }

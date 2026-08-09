@@ -218,36 +218,10 @@
       border-bottom: 1px solid var(--line);
       background: linear-gradient(180deg, rgba(16, 25, 18, 0.98), rgba(11, 17, 12, 0.96));
     }
-    .room-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      min-width: 0;
-      color: var(--amber);
-      font-weight: 850;
-      font-size: 16px;
-    }
-    .room-title span { min-width: 0; }
-    .room-title-main {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      min-width: 0;
-    }
     #location-name {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-    }
-    #avatar {
-      flex: 0 1 auto;
-      max-width: 46%;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      text-align: right;
-      color: var(--blue);
     }
     .room-log-toggle {
       flex: 1 1 280px;
@@ -538,8 +512,12 @@
       min-width: 0;
       white-space: nowrap;
     }
-    .room.collapsed #avatar {
-      display: none;
+    .room.collapsed {
+      padding-bottom: 0;
+    }
+    .room.collapsed .room-hero,
+    .room.collapsed .combat-heading {
+      margin-bottom: 0;
     }
     .room.collapsed .room-copy {
       margin-top: 6px;
@@ -1140,23 +1118,19 @@
     }
     .line.chat {
       grid-template-columns: 36px minmax(10ch, 22ch) minmax(0, 1fr);
-      border-left: 2px solid rgba(139, 183, 255, 0.34);
-      padding: 5px 0 5px 9px;
+      padding: 5px 0;
       align-items: start;
-      background: linear-gradient(90deg, rgba(139, 183, 255, 0.05), transparent 58%);
     }
     .line.chat.avatar {
-      border-left-color: rgba(239, 201, 107, 0.4);
-      background: linear-gradient(90deg, rgba(239, 201, 107, 0.05), transparent 58%);
+      background: transparent;
     }
     .line.model-output {
       display: grid;
       grid-template-columns: 36px minmax(10ch, 22ch) minmax(0, 1fr);
       gap: 12px;
       align-items: start;
-      border-left: 2px solid rgba(199, 155, 255, 0.42);
-      padding: 5px 0 5px 9px;
-      background: linear-gradient(90deg, rgba(199, 155, 255, 0.06), transparent 58%);
+      padding: 5px 0;
+      background: transparent;
     }
     .line.model-output .text,
     .model-output-image,
@@ -1325,14 +1299,12 @@
     .chat-markdown .align-right { text-align: right; }
     .resident-reply-image {
       display: block;
-      width: min(100%, 640px);
+      width: auto;
+      max-width: min(100%, 640px);
+      height: auto;
       max-height: min(68vh, 720px);
       object-fit: contain;
       object-position: left top;
-      border: 1px solid rgba(239, 201, 107, 0.34);
-      border-radius: 12px;
-      background: rgba(8, 11, 9, 0.72);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
     }
     .resident-image-alt {
       color: var(--dim);
@@ -3393,25 +3365,10 @@
         flex-basis: 42px;
       }
       .room-tag { font-size: 11px; padding: 2px 6px; }
-      .room-title {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 2px;
-      }
-      .room-title-main { min-width: 0; }
-      .room-log-toggle {
-        max-width: 100%;
-        width: 100%;
-        min-width: 0;
-      }
       .memory-entry {
         grid-template-columns: minmax(5ch, 8ch) minmax(0, 1fr);
       }
       .memory-entry-label {
-        text-align: left;
-      }
-      #avatar {
-        max-width: 100%;
         text-align: left;
       }
       .line {
@@ -3684,7 +3641,6 @@
 
     .economy strong,
     .location-pill,
-    .room-title,
     .cmd-label,
     .roll-title,
     .card-name {
@@ -3715,12 +3671,6 @@
     .room {
       border-bottom-color: var(--line);
       background: #191611;
-    }
-
-    .room-title {
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 19px;
-      font-weight: 500;
     }
 
     .room-log-toggle,
@@ -3865,10 +3815,6 @@
     }
     .log {
       grid-row: 2;
-    }
-    .room-title-main {
-      flex: 1 1 auto;
-      max-width: none;
     }
     .room-log-toggle {
       flex: 0 0 auto;
@@ -4230,20 +4176,10 @@
     }
 
     @media (max-width: 900px) {
-      .room-title {
-        display: flex;
-        gap: 10px;
-      }
-      .room-title-main {
-        max-width: none;
-      }
       .room-log-toggle {
         width: auto;
         min-width: auto;
         min-height: 44px;
-      }
-      #avatar {
-        display: none;
       }
       .journal-heading,
       .journal-stream {
@@ -4365,6 +4301,20 @@
       gap: 10px;
       max-width: none;
     }
+    .topbar-actions {
+      grid-area: economy;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-self: end;
+      gap: 12px;
+    }
+    .topbar-actions .economy {
+      grid-area: auto;
+    }
+    .topbar-actions .room-log-toggle {
+      min-height: 44px;
+    }
     .economy-stat {
       display: inline-flex;
       align-items: center;
@@ -4401,6 +4351,13 @@
     .room-log-icon {
       display: inline-flex;
       color: var(--amber);
+    }
+    .room-log-count {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .room-log-count[hidden] {
+      display: none;
     }
     .cmd-label {
       display: flex;
@@ -4612,11 +4569,14 @@
   <div class="shell">
     <header class="topbar">
       <button class="brand" id="brand" type="button" aria-label="Open Menu" aria-expanded="false" aria-controls="log">menu</button>
-      <span class="economy" id="economy" aria-label="Carried deck and Orb status"></span>
       <button class="location-pill" type="button" aria-label="Focus current location">
         <img id="location-image" alt="" />
-        <span id="subtitle">booting</span>
+        <span id="location-name">booting</span>
       </button>
+      <div class="topbar-actions">
+        <span class="economy" id="economy" aria-label="Carried deck and Orb status"></span>
+        <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open"><span class="room-log-icon" aria-hidden="true"></span><strong class="room-log-count" id="journal-notification-count" aria-hidden="true" hidden>0</strong><span class="room-log-kicker">Journal</span></button>
+      </div>
     </header>
     <main class="terminal">
       <section class="room">
@@ -4627,11 +4587,6 @@
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
         </div>
         <section class="combat-heading" id="combat-heading" aria-label="Battle formation" hidden></section>
-        <div class="room-title">
-          <span class="room-title-main"><h1 id="location-name">The Cosy Cottage</h1></span>
-          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open"><span class="room-log-icon" aria-hidden="true"></span><span class="room-log-kicker">Journal</span></button>
-          <span id="avatar"></span>
-        </div>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -4867,6 +4822,10 @@
     let worldView = null;
     let worldViewAccessKey = "";
     let identity = null;
+    const openRouterApiKeyStorage = "cosyworld.openrouterApiKey";
+    const openRouterConnectionStorage = "cosyworld.openrouterConnection";
+    const openRouterOauthVerifierStorage = "cosyworld.openrouterOauthVerifier";
+    let openRouterConnection = loadOpenRouterConnection();
     let openingBoxId = "";
     let roomCopyExpanded = false;
     let journalOpen = false;
@@ -4902,11 +4861,8 @@
     if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
     if (walletSession) localStorage.setItem("cosyworld.walletSession", walletSession);
     if (ownedCardIds.length) localStorage.setItem("cosyworld.cards", ownedCardIds.join(","));
-    localStorage.removeItem("cosyworld.openrouterApiKey");
-    localStorage.removeItem("cosyworld.openrouterLabel");
     sessionStorage.removeItem("cosyworld.openrouterApiKey");
     sessionStorage.removeItem("cosyworld.openrouterLabel");
-    sessionStorage.removeItem("cosyworld.openrouterOauthVerifier");
     sessionStorage.removeItem("cosyworld.openrouterOauthReturn");
 
     function clearLocalSession() {
@@ -5038,6 +4994,111 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
+    }
+
+    function loadOpenRouterConnection() {
+      try {
+        return JSON.parse(localStorage.getItem(openRouterConnectionStorage) || "null");
+      } catch {
+        return null;
+      }
+    }
+
+    function openRouterApiKey() {
+      try {
+        return localStorage.getItem(openRouterApiKeyStorage) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    function saveOpenRouterConnection(connection, apiKey) {
+      localStorage.setItem(openRouterApiKeyStorage, apiKey);
+      localStorage.setItem(openRouterConnectionStorage, JSON.stringify({
+        connected: true,
+        provider: "openrouter",
+        label: connection?.label || "OpenRouter",
+        limit_remaining_usd: connection?.limit_remaining_usd ?? null,
+        usage_daily_usd: connection?.usage_daily_usd ?? null,
+        cosyworld_user_id: identity?.user_id || "",
+        verified_at: Date.now(),
+      }));
+      openRouterConnection = loadOpenRouterConnection();
+    }
+
+    function clearOpenRouterConnection() {
+      localStorage.removeItem(openRouterApiKeyStorage);
+      localStorage.removeItem(openRouterConnectionStorage);
+      sessionStorage.removeItem(openRouterOauthVerifierStorage);
+      openRouterConnection = null;
+    }
+
+    async function openRouterCodeChallenge(verifier) {
+      const digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(verifier),
+      );
+      return bytesToBase64Url(digest);
+    }
+
+    async function startOpenRouterConnection() {
+      if (!identity?.authenticated) throw new Error("Sign in with a passkey before connecting OpenRouter.");
+      if (!crypto?.subtle || !crypto?.getRandomValues) {
+        throw new Error("This browser cannot create a secure OpenRouter connection.");
+      }
+      const verifier = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(64)));
+      const challenge = await openRouterCodeChallenge(verifier);
+      sessionStorage.setItem(openRouterOauthVerifierStorage, verifier);
+      const callbackUrl = `${window.location.origin}${window.location.pathname}`;
+      const authorization = new URL("https://openrouter.ai/auth");
+      authorization.searchParams.set("callback_url", callbackUrl);
+      authorization.searchParams.set("code_challenge", challenge);
+      authorization.searchParams.set("code_challenge_method", "S256");
+      authorization.searchParams.set("key_label", "CosyWorld");
+      window.location.assign(authorization.toString());
+    }
+
+    async function completeOpenRouterConnection() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code") || "";
+      const verifier = sessionStorage.getItem(openRouterOauthVerifierStorage) || "";
+      if (!code || !verifier) return false;
+      params.delete("code");
+      const cleanQuery = params.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`);
+      sessionStorage.removeItem(openRouterOauthVerifierStorage);
+      const connected = await post("/ai/openrouter/exchange", {
+        code,
+        code_verifier: verifier,
+      });
+      if (!connected?.ok || !connected?.api_key) {
+        throw new Error("OpenRouter connection could not be completed.");
+      }
+      saveOpenRouterConnection(connected, connected.api_key);
+      setStatus("OpenRouter connected for public model interactions.", "ok");
+      return true;
+    }
+
+    async function refreshOpenRouterConnection() {
+      const apiKey = openRouterApiKey();
+      if (!apiKey || !identity?.authenticated) return false;
+      if (openRouterConnection?.cosyworld_user_id
+          && openRouterConnection.cosyworld_user_id !== identity.user_id) {
+        clearOpenRouterConnection();
+        return false;
+      }
+      const connection = await post("/ai/openrouter/verify", { api_key: apiKey });
+      if (!connection?.connected) throw new Error("OpenRouter connection is no longer available.");
+      saveOpenRouterConnection(connection, apiKey);
+      return true;
+    }
+
+    async function disconnectOpenRouter() {
+      try {
+        if (identity?.authenticated) await post("/ai/openrouter/disconnect", {});
+      } finally {
+        clearOpenRouterConnection();
+      }
     }
 
     function base64UrlToBytes(value) {
@@ -5195,6 +5256,7 @@
 
     async function logoutAccount() {
       applyIdentity(await post("/auth/logout", {}));
+      clearOpenRouterConnection();
       walletAddress = "";
       walletSession = "";
       localStorage.removeItem("cosyworld.wallet");
@@ -8239,7 +8301,10 @@
       const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && path !== "/actions/timeout";
       const beforeOrbs = economyOrbCount();
-      const authoritativePayload = withAccess(payload);
+      const donatedPayload = path === "/actions/model-interaction" && openRouterApiKey()
+        ? { ...payload, openrouter_api_key: openRouterApiKey() }
+        : payload;
+      const authoritativePayload = withAccess(donatedPayload);
       const offer = currentOfferForSubmission(path, authoritativePayload);
       if (!offer && offerBoundPaths.has(path)) {
         const result = {
@@ -8828,6 +8893,12 @@
 
     function renderJournalActivity() {
       const activities = currentJournalActivities();
+      const notificationCount = $("journal-notification-count");
+      if (notificationCount) {
+        const additionalCount = Math.max(0, activities.length - 1);
+        notificationCount.textContent = String(additionalCount);
+        notificationCount.hidden = additionalCount === 0;
+      }
       const panel = $("journal-activity");
       if (!panel) return;
       panel.hidden = activities.length === 0;
@@ -8836,8 +8907,7 @@
       const statusNode = $("error");
       const statusActivity = journalOpen ? null : latest;
       if (statusActivity && (!statusNode.textContent || statusNode.dataset.statusSource === "journal")) {
-        const count = activities.length > 1 ? ` · +${activities.length - 1}` : "";
-        writeStatus(`${statusActivity.label} · ${statusActivity.text}${count}`, "notice", "journal");
+        writeStatus(`${statusActivity.label} · ${statusActivity.text}`, "notice", "journal");
       } else if (!statusActivity && statusNode.dataset.statusSource === "journal") {
         writeStatus("");
       }
@@ -10014,7 +10084,6 @@
 
     function render() {
       const location = state.location || {};
-      const me = (state.actors || []).find((actor) => actor.id === actorId);
       const locationCard = cardForLocation(location.id);
       const locationArt = cardImage(locationCard) || fallbackCardImage(locationCard || { display_name: location.name || "Location", aspect: "wide", role: "location" });
       const locationImage = $("location-image");
@@ -10028,7 +10097,7 @@
       setCardTarget(roomHeroCard, locationCard);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       renderCombatHeading();
-      $("subtitle").textContent = location.name || "Unknown";
+      $("location-name").textContent = location.name || "Unknown";
       const brand = $("brand");
       const menuOpen = libraryPanelPinned || accountPanelPinned;
       brand.innerHTML = `${iconSvg(menuOpen ? "close" : "menu")}<span>${menuOpen ? "close menu" : "menu"}</span>`;
@@ -10038,8 +10107,6 @@
       $("card-modal").querySelector(".card-close").innerHTML = iconSvg("close");
       $("wallet-modal").querySelector(".wallet-close").innerHTML = iconSvg("close");
       renderEconomy();
-      $("avatar").textContent = me ? `${actorLabel(me)}, ${me.title || "traveler"}` : "";
-      $("location-name").textContent = location.name || "Unknown";
       $("journal-location").textContent = location.name || "Unknown";
       document.querySelector(".room")?.classList.toggle("collapsed", !roomCopyExpanded);
       if (lastRoomCopyLocationId !== location.id) {
@@ -11460,7 +11527,7 @@
       const deck = state?.deck || {};
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
-      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="keepsake-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="keepsake-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", openRouterApiKey() ? "your OpenRouter connection" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
     }
 
     function libraryPanelHtml() {
@@ -11769,7 +11836,17 @@
       const passkeyCopy = passkeys.length === 1
         ? "1 passkey — add a second for recovery"
         : `${passkeys.length} passkeys`;
-      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>claim NFT wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
+      const openRouterConnected = Boolean(openRouterApiKey());
+      const openRouterLabel = openRouterConnection?.label || "OpenRouter";
+      const remainingValue = openRouterConnection?.limit_remaining_usd;
+      const remaining = remainingValue == null ? Number.NaN : Number(remainingValue);
+      const remainingCopy = Number.isFinite(remaining)
+        ? ` · $${remaining.toFixed(2)} key limit remaining`
+        : "";
+      const openRouterControls = openRouterConnected
+        ? `<div class="keepsake-note"><strong>${escapeHtml(openRouterLabel)} connected</strong>${escapeHtml(remainingCopy)}<br>Player-started public model interactions use this key. Autonomous room voices stay on CosyWorld's protected daily budget.</div><div class="account-actions"><button class="account-button secondary" type="button" data-openrouter-disconnect>disconnect OpenRouter</button></div>`
+        : `<div class="keepsake-note">Connect OpenRouter to pay for model interactions you start. Their approved output is shared with the room, so your account contributes to the public world.</div><div class="account-actions"><button class="account-button" type="button" data-openrouter-connect>connect OpenRouter</button></div>`;
+      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>claim NFT wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section><section class="account-section" aria-label="OpenRouter connection"><div class="account-section-title">OpenRouter contribution</div>${openRouterControls}</section>`;
     }
 
     function characterSheetHtml() {
@@ -15712,6 +15789,18 @@
         runIdentityTask("Unlinking wallet.", () => unlinkWallet(wallet));
         return;
       }
+      const openRouterConnect = event.target.closest("[data-openrouter-connect]");
+      if (openRouterConnect) {
+        event.preventDefault();
+        runIdentityTask("Opening OpenRouter.", startOpenRouterConnection);
+        return;
+      }
+      const openRouterDisconnect = event.target.closest("[data-openrouter-disconnect]");
+      if (openRouterDisconnect) {
+        event.preventDefault();
+        runIdentityTask("Disconnecting OpenRouter.", disconnectOpenRouter);
+        return;
+      }
       const keepsake = event.target.closest("[data-account-toggle-keepsake]");
       if (keepsake) {
         event.preventDefault();
@@ -15783,7 +15872,10 @@
     });
 
     $("room-log-toggle").addEventListener("click", () => {
-      setJournalOpen(!journalOpen);
+      const panelWasOpen = libraryPanelPinned || accountPanelPinned;
+      if (libraryPanelPinned) toggleLibraryPanel(false);
+      if (accountPanelPinned) toggleAccountPanel(false);
+      setJournalOpen(panelWasOpen ? true : !journalOpen);
     });
     $("room-log-latest").addEventListener("click", () => {
       setJournalOpen(!journalOpen);
@@ -16197,6 +16289,14 @@
       try {
         await requestDevResetIfNeeded();
         await loadIdentity();
+        const completedOpenRouter = await completeOpenRouterConnection();
+        if (!completedOpenRouter && openRouterApiKey() && identity?.authenticated) {
+          try {
+            await refreshOpenRouterConnection();
+          } catch (error) {
+            setError(String(error.message || error));
+          }
+        }
         await Promise.all([pingPresence(), refresh()]);
         connectStream();
       } catch (error) {

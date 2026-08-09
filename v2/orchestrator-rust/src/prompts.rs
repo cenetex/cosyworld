@@ -104,6 +104,8 @@ impl DirectedDialogueTurn {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct AvatarReplyPlan {
+    #[serde(default)]
+    pub(super) context_spine: AvatarContextSpine,
     pub(super) speaker_actor_id: u64,
     pub(super) speaker_name: String,
     #[serde(default)]
@@ -206,6 +208,8 @@ impl AvatarReplyPlan {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct AvatarChatPlan {
+    #[serde(default)]
+    pub(super) context_spine: AvatarContextSpine,
     #[serde(default)]
     pub(super) actor_id: u64,
     pub(super) location_id: u64,
@@ -401,9 +405,9 @@ async fn request_ai_avatar_chat(
                 "dialogue_avatar"
             },
             prompt_version: if followup {
-                "dialogue-avatar-followup-v5"
+                "dialogue-avatar-followup-context-spine-v6"
             } else {
-                "dialogue-avatar-v5"
+                "dialogue-avatar-context-spine-v6"
             },
             prompt: avatar_chat_prompt(plan, followup),
             temperature: 0.8,
@@ -417,181 +421,145 @@ async fn request_ai_avatar_chat(
     .await
 }
 
-fn format_directed_dialogue_turn(turn: &DirectedDialogueTurn) -> String {
-    format!(
-        "{speaker} said to {recipient}: {content}",
-        speaker = turn.speaker_name,
-        recipient = turn.recipient_name,
-        content = turn.content
-    )
-}
-
-fn private_thought_evidence(value: &str, actor_id: u64, salience: u8) -> Vec<PromptEvidence> {
-    value
+fn avatar_chat_context_spine(plan: &AvatarChatPlan, followup: bool) -> AvatarContextSpine {
+    let mut spine = if plan.context_spine.is_current() {
+        plan.context_spine.clone()
+    } else {
+        let continuity = plan
+            .actor_continuity
+            .as_ref()
+            .map(|state| format_resident_continuity_for(state, Some(plan.target_actor_id)))
+            .unwrap_or_default()
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(ToString::to_string)
+            .collect();
+        AvatarContextSpine {
+            schema_version: AVATAR_CONTEXT_SPINE_VERSION,
+            speaker: AvatarContextActor {
+                actor_id: plan.actor_id,
+                name: plan.actor_name.clone(),
+                title: plan.actor_title.clone(),
+                description: plan.actor_description.clone(),
+                voice: plan.actor_voice.clone(),
+                calling: default_calling_statement().to_string(),
+                control_mode: "direct_input".to_string(),
+                level: 1,
+                ..AvatarContextActor::default()
+            },
+            counterpart: Some(AvatarContextActor {
+                actor_id: plan.target_actor_id,
+                name: plan.target_actor_name.clone(),
+                title: plan.target_title.clone(),
+                ..AvatarContextActor::default()
+            }),
+            location: AvatarContextLocation {
+                location_id: plan.location_id,
+                name: plan.location_name.clone(),
+                title: plan.location_title.clone(),
+                description: plan.location_description.clone(),
+                persona: plan.location_persona.clone(),
+            },
+            continuity,
+            goals: plan.goals.clone(),
+            location_evidence: plan.location_evidence.clone(),
+            public_room_memory: plan.public_room_memory.clone(),
+            cast: plan.cast.clone(),
+            ..AvatarContextSpine::default()
+        }
+    };
+    spine.speaker.actor_id = plan.actor_id;
+    spine.speaker.name = plan.actor_name.clone();
+    spine.speaker.title = plan.actor_title.clone();
+    spine.speaker.description = plan.actor_description.clone();
+    spine.speaker.voice = plan.actor_voice.clone();
+    spine.speaker.control_mode = "direct_input".to_string();
+    spine.counterpart = Some(AvatarContextActor {
+        actor_id: plan.target_actor_id,
+        name: plan.target_actor_name.clone(),
+        title: plan.target_title.clone(),
+        ..spine.counterpart.take().unwrap_or_default()
+    });
+    spine.location = AvatarContextLocation {
+        location_id: plan.location_id,
+        name: plan.location_name.clone(),
+        title: plan.location_title.clone(),
+        description: plan.location_description.clone(),
+        persona: plan.location_persona.clone(),
+    };
+    spine.continuity = plan
+        .actor_continuity
+        .as_ref()
+        .map(|state| format_resident_continuity_for(state, Some(plan.target_actor_id)))
+        .unwrap_or_default()
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
-        .map(|line| PromptEvidence::private_actor(line, actor_id, salience))
-        .collect()
-}
-
-fn avatar_chat_dialogue_parts(plan: &AvatarChatPlan, followup: bool) -> (Vec<String>, String) {
-    let turns = if followup && !plan.exchange_turns.is_empty() {
-        plan.exchange_turns
+        .map(ToString::to_string)
+        .collect();
+    spine.goals = plan.goals.clone();
+    spine.location_evidence = plan.location_evidence.clone();
+    spine.public_room_memory = plan.public_room_memory.clone();
+    spine.cast = plan.cast.clone();
+    if !plan.exchange_turns.is_empty() {
+        spine.recent_dialogue = plan
+            .exchange_turns
             .iter()
-            .map(format_directed_dialogue_turn)
-            .collect::<Vec<_>>()
-    } else {
-        let recent_lines = if followup {
-            let start = plan.recent_lines.len().saturating_sub(2);
-            &plan.recent_lines[start..]
-        } else {
-            &plan.recent_lines[..]
-        };
-        recent_lines.to_vec()
-    };
-    let freshest = turns
-        .last()
-        .cloned()
-        .unwrap_or_else(|| "the room has gone quiet".to_string());
-    (turns.into_iter().rev().skip(1).rev().collect(), freshest)
-}
-
-fn goal_thought(goal: &str) -> String {
-    let thought = goal
-        .split_once(':')
-        .map(|(_, thought)| thought)
-        .unwrap_or(goal)
-        .trim();
-    if thought.is_empty() {
-        String::new()
-    } else {
-        format!("what presses on me: {thought}")
+            .map(|turn| AvatarContextDialogueTurn {
+                source_event_seq: turn.source_event_seq,
+                speaker_actor_id: turn.speaker_actor_id,
+                speaker_name: turn.speaker_name.clone(),
+                recipient_actor_id: Some(turn.recipient_actor_id),
+                recipient_name: Some(turn.recipient_name.clone()),
+                content: turn.content.clone(),
+            })
+            .collect();
     }
+    let directed = followup
+        .then(|| {
+            plan.exchange_turns
+                .iter()
+                .rev()
+                .find(|turn| turn.recipient_actor_id == plan.actor_id)
+                .cloned()
+        })
+        .flatten();
+    let beat = directed
+        .as_ref()
+        .map(|turn| {
+            format!(
+                "{} has just addressed {} directly: {}",
+                turn.speaker_name, turn.recipient_name, turn.content
+            )
+        })
+        .or_else(|| {
+            plan.fresh_subject
+                .as_ref()
+                .map(|subject| format!("A live subject between them is {subject}."))
+        })
+        .unwrap_or_else(|| spine.current_beat.clone());
+    spine.with_incoming_turn(directed).with_current_beat(beat)
 }
 
 fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
     let word_budget = if followup { 28 } else { 34 };
-    let audience = EvidenceAudience::conversation(
-        plan.actor_id,
-        (plan.target_actor_id != 0).then_some(plan.target_actor_id),
-        plan.location_id,
-    );
-    let continuity = plan
-        .actor_continuity
-        .as_ref()
-        .map(|continuity| format_resident_continuity_for(continuity, Some(plan.target_actor_id)))
-        .unwrap_or_default();
-    let (history, freshest) = avatar_chat_dialogue_parts(plan, followup);
-    let mut prompt = PromptEnvelope::default()
-        .system(format!(
-            "only {}'s next spoken line · at most {word_budget} words · use supplied verified facts only · do not invent possessions, companions, memories, or completed actions",
-            plan.actor_name
-        ))
-        .user("…still me.", PromptSegmentKind::Envelope, 100, true)
-        .user(
+    avatar_chat_context_spine(plan, followup).prompt(AvatarContextPromptOptions {
+        mode: AvatarContextMode::Respond,
+        speech_mode: SpeechMode::Prose,
+        max_words: word_budget,
+        response_job: if followup {
             format!(
-                "i am {} — {}. {}",
-                plan.actor_name, plan.actor_title, plan.actor_description
-            ),
-            PromptSegmentKind::UniqueEvidence,
-            100,
-            true,
-        )
-        .user(
-            plan.actor_voice.clone(),
-            PromptSegmentKind::UniqueEvidence,
-            95,
-            false,
-        )
-        .evidence(
-            "",
-            private_thought_evidence(&continuity, plan.actor_id, 90),
-            &audience,
-            EvidenceModality::Conversation,
-            false,
-        )
-        .user(
+                "Answer the directed turn as {}. Keep clear that {} is the speaker now; do not reverse who is asking whom, repeat the question, or fall into generic assistant talk.",
+                plan.actor_name, plan.actor_name
+            )
+        } else {
             format!(
-                "with {} — {}. {}",
-                plan.target_actor_name, plan.target_title, plan.target_economy_note
-            ),
-            PromptSegmentKind::UniqueEvidence,
-            92,
-            true,
-        )
-        .user(
-            format!(
-                "here: {} — {}. {} {}",
-                plan.location_name,
-                plan.location_title,
-                plan.location_description,
-                plan.location_persona
-            ),
-            PromptSegmentKind::UniqueEvidence,
-            85,
-            true,
-        )
-        .evidence(
-            "this place keeps: ",
-            plan.location_evidence.clone(),
-            &audience,
-            EvidenceModality::Conversation,
-            false,
-        )
-        .evidence(
-            "what happened here: ",
-            plan.public_room_memory.clone(),
-            &audience,
-            EvidenceModality::Conversation,
-            false,
-        );
-
-    for goal in &plan.goals {
-        prompt = prompt.user(
-            goal_thought(goal),
-            PromptSegmentKind::UniqueEvidence,
-            62,
-            false,
-        );
-    }
-    if !plan.cast.is_empty() {
-        prompt = prompt.user(
-            format!("here with us: {}", plan.cast.join(", ")),
-            PromptSegmentKind::UniqueEvidence,
-            55,
-            false,
-        );
-    }
-    if !followup {
-        if let Some(item) = plan.missing_need.as_deref() {
-            prompt = prompt.user(
-                format!("{} may be needing {item}", plan.target_actor_name),
-                PromptSegmentKind::UniqueEvidence,
-                68,
-                false,
-            );
-        }
-    }
-    if let Some(subject) = plan.fresh_subject.as_deref() {
-        prompt = prompt.user(
-            format!("between us now: {subject}"),
-            PromptSegmentKind::UniqueEvidence,
-            96,
-            true,
-        );
-    }
-    for turn in history {
-        prompt = prompt.user(turn, PromptSegmentKind::UniqueEvidence, 70, false);
-    }
-    prompt
-        .user(
-            format!("freshest: {freshest}"),
-            PromptSegmentKind::UniqueEvidence,
-            100,
-            true,
-        )
-        .user("so—", PromptSegmentKind::Envelope, 100, true)
+                "Open a conversation with {} because {}'s controller selected Chat. Follow a concrete live detail, preference, curiosity, or open thread. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
+                plan.target_actor_name, plan.actor_name
+            )
+        },
+    })
 }
 
 #[cfg(test)]
@@ -619,18 +587,14 @@ pub(super) async fn request_ai_avatar_intent(
         } else {
             resident_disposition_for_voice(plan).0
         };
+        let planning_brief = resident_voice_planning_brief(&planning);
         let speech = route_certified_voice(
             config,
             store_path,
             VoiceAttemptRequest {
                 feature: "dialogue_resident_raw",
-                prompt_version: "dialogue-resident-raw-v2",
-                prompt: PromptEnvelope::default().user(
-                    plan.user_text.clone(),
-                    PromptSegmentKind::UniqueEvidence,
-                    100,
-                    true,
-                ),
+                prompt_version: "dialogue-resident-raw-context-spine-v3",
+                prompt: resident_voice_prompt(plan, &planning_brief),
                 temperature: 0.0,
                 max_tokens: 160,
                 referer: "http://127.0.0.1:3102",
@@ -673,7 +637,7 @@ pub(super) async fn request_ai_avatar_intent(
         store_path,
         VoiceAttemptRequest {
             feature: "dialogue_resident",
-            prompt_version: "dialogue-resident-voice-v5",
+            prompt_version: "dialogue-resident-voice-context-spine-v6",
             prompt,
             temperature: 0.75,
             max_tokens: 120,
@@ -701,114 +665,103 @@ pub(super) async fn request_ai_avatar_intent(
 }
 
 fn resident_voice_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> PromptEnvelope {
+    let mut spine = if plan.context_spine.is_current() {
+        plan.context_spine.clone()
+    } else {
+        let relationship_actor_id = plan
+            .incoming_turn
+            .as_ref()
+            .map(|turn| turn.speaker_actor_id);
+        let continuity =
+            format_resident_continuity_for(&plan.resident_continuity, relationship_actor_id)
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .map(ToString::to_string)
+                .collect();
+        AvatarContextSpine {
+            schema_version: AVATAR_CONTEXT_SPINE_VERSION,
+            speaker: AvatarContextActor {
+                actor_id: plan.speaker_actor_id,
+                name: plan.speaker_name.clone(),
+                description: plan.resident_continuity.stable_identity.clone(),
+                voice: plan.speaker_voice.clone(),
+                calling: default_calling_statement().to_string(),
+                control_mode: "autonomous".to_string(),
+                level: 1,
+                ..AvatarContextActor::default()
+            },
+            counterpart: plan.incoming_turn.as_ref().map(|turn| AvatarContextActor {
+                actor_id: turn.speaker_actor_id,
+                name: turn.speaker_name.clone(),
+                ..AvatarContextActor::default()
+            }),
+            location: AvatarContextLocation {
+                location_id: plan.location_id,
+                name: plan.location_name.clone(),
+                title: plan.location_title.clone(),
+                description: plan.location_description.clone(),
+                persona: plan.location_persona.clone(),
+            },
+            continuity,
+            goals: plan.goals.clone(),
+            location_evidence: plan.location_evidence.clone(),
+            public_room_memory: plan.public_room_memory.clone(),
+            cast: plan.cast.clone(),
+            recent_activity: plan.recent_activity.clone(),
+            ..AvatarContextSpine::default()
+        }
+    };
     let relationship_actor_id = plan
         .incoming_turn
         .as_ref()
         .map(|turn| turn.speaker_actor_id);
-    let audience = EvidenceAudience::conversation(
-        plan.speaker_actor_id,
-        relationship_actor_id,
-        plan.location_id,
-    );
-    let continuity =
-        format_resident_continuity_for(&plan.resident_continuity, relationship_actor_id);
-    let mut prompt = PromptEnvelope::default()
-        .system(resident_system_prompt(plan))
-        .user("…still me.", PromptSegmentKind::Envelope, 100, true)
-        .evidence(
-            "",
-            private_thought_evidence(&continuity, plan.speaker_actor_id, 92),
-            &audience,
-            EvidenceModality::Conversation,
-            false,
+    spine.speaker.actor_id = plan.speaker_actor_id;
+    spine.speaker.name = plan.speaker_name.clone();
+    spine.speaker.voice = plan.speaker_voice.clone();
+    spine.location = AvatarContextLocation {
+        location_id: plan.location_id,
+        name: plan.location_name.clone(),
+        title: plan.location_title.clone(),
+        description: plan.location_description.clone(),
+        persona: plan.location_persona.clone(),
+    };
+    spine.continuity =
+        format_resident_continuity_for(&plan.resident_continuity, relationship_actor_id)
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(ToString::to_string)
+            .collect();
+    spine.goals = plan.goals.clone();
+    spine.location_evidence = plan.location_evidence.clone();
+    spine.public_room_memory = plan.public_room_memory.clone();
+    spine.cast = plan.cast.clone();
+    spine.recent_activity = plan.recent_activity.clone();
+    spine = spine
+        .with_incoming_turn(plan.incoming_turn.clone())
+        .with_current_beat(plan.user_text.clone());
+    let response_job = if let Some(turn) = plan.incoming_turn.as_ref() {
+        format!(
+            "Respond as {} to {}'s directed line. {} is speaking now and {} is being answered. Do not reverse the roles, paraphrase the question back, or ask for a real-world task. {}",
+            plan.speaker_name,
+            turn.speaker_name,
+            plan.speaker_name,
+            turn.speaker_name,
+            planning_brief
         )
-        .user(
-            grounded_resident_voice(plan),
-            PromptSegmentKind::UniqueEvidence,
-            95,
-            false,
+    } else {
+        format!(
+            "Give {}'s immediate in-world response to the current beat. Prefer a concrete reaction, preference, or self-directed intention over generic assistance. {}",
+            plan.speaker_name, planning_brief
         )
-        .user(
-            format!(
-                "here: {} — {}. {} {}",
-                plan.location_name,
-                plan.location_title,
-                plan.location_description,
-                plan.location_persona
-            ),
-            PromptSegmentKind::UniqueEvidence,
-            86,
-            true,
-        )
-        .evidence(
-            "this place keeps: ",
-            plan.location_evidence.clone(),
-            &audience,
-            EvidenceModality::Conversation,
-            false,
-        )
-        .evidence(
-            "what happened here: ",
-            plan.public_room_memory.clone(),
-            &audience,
-            EvidenceModality::Conversation,
-            false,
-        )
-        .user(
-            format!("what i can spend: {}", plan.economy_note),
-            PromptSegmentKind::UniqueEvidence,
-            66,
-            false,
-        );
-
-    for goal in &plan.goals {
-        prompt = prompt.user(
-            goal_thought(goal),
-            PromptSegmentKind::UniqueEvidence,
-            64,
-            false,
-        );
-    }
-    if !plan.cast.is_empty() {
-        prompt = prompt.user(
-            format!("here with me: {}", plan.cast.join(", ")),
-            PromptSegmentKind::UniqueEvidence,
-            55,
-            false,
-        );
-    }
-    for activity in &plan.recent_activity {
-        prompt = prompt.user(
-            format!("recently here: {activity}"),
-            PromptSegmentKind::UniqueEvidence,
-            58,
-            false,
-        );
-    }
-    for line in plan.recent_lines.iter().rev().skip(1).rev() {
-        prompt = prompt.user(
-            format!("earlier: {line}"),
-            PromptSegmentKind::UniqueEvidence,
-            70,
-            false,
-        );
-    }
-    if !planning_brief.trim().is_empty() {
-        prompt = prompt.user(
-            planning_brief.to_string(),
-            PromptSegmentKind::UniqueEvidence,
-            88,
-            true,
-        );
-    }
-    prompt
-        .user(
-            format!("freshest: {}", plan.user_text),
-            PromptSegmentKind::UniqueEvidence,
-            100,
-            true,
-        )
-        .user("so—", PromptSegmentKind::Envelope, 100, true)
+    };
+    spine.prompt(AvatarContextPromptOptions {
+        mode: AvatarContextMode::Respond,
+        speech_mode: SpeechMode::from_name(&plan.speech_mode),
+        max_words: resident_word_budget(plan),
+        response_job,
+    })
 }
 
 #[cfg(test)]
@@ -915,6 +868,7 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
     // present, which made announcing it the cheapest way to pass the gate. See
     // issue #553.
     anchors.extend(plan.cast.iter().cloned());
+    anchors.extend(avatar_chat_context_spine(plan, followup).anchors(AvatarContextMode::Respond));
     let other_speaker_names = std::iter::once(plan.target_actor_name.clone())
         .chain(plan.cast.iter().cloned())
         .chain(
@@ -975,6 +929,9 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
     // guaranteed way through the gate. See issue #553.
     anchors.extend(plan.cast.iter().cloned());
     anchors.extend(plan.goals.iter().cloned());
+    if plan.context_spine.is_current() {
+        anchors.extend(plan.context_spine.anchors(AvatarContextMode::Respond));
+    }
     let other_speaker_names = plan
         .cast
         .iter()
@@ -1021,7 +978,7 @@ fn publication_beat_id(explicit: &str, actor_id: u64, scope_id: u64) -> String {
 
 fn resident_word_budget(plan: &AvatarReplyPlan) -> usize {
     if plan.speech_mode == "raw" {
-        return 160;
+        return 80;
     }
     if matches!(
         plan.economy_note.as_str(),
@@ -1034,20 +991,6 @@ fn resident_word_budget(plan: &AvatarReplyPlan) -> usize {
         1056 | 1066 | 1067 => 45,
         _ => 40,
     }
-}
-
-pub(super) fn format_goal_lines(goals: &[String]) -> String {
-    if goals.is_empty() {
-        return "No active player-facing goal is currently highlighted.".to_string();
-    }
-    goals
-        .iter()
-        .filter_map(|goal| {
-            let goal = goal.trim();
-            (!goal.is_empty()).then(|| format!("- {goal}"))
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 /// Normalizes one durable note into a thought fragment: whitespace collapsed and the
@@ -1076,7 +1019,7 @@ fn prompt_safe_legacy_action_intent(value: &str) -> Option<String> {
     machine_details.then(|| {
         format!(
             "propose {}",
-            crate::compact_whitespace(&kind.replace('_', " ").replace('-', " "))
+            crate::compact_whitespace(&kind.replace(['_', '-'], " "))
         )
     })
 }
@@ -1169,10 +1112,12 @@ pub(super) fn format_resident_continuity_for(
     lines.join("\n")
 }
 
+#[cfg(test)]
 pub(super) fn format_resident_continuity(continuity: &ResidentContinuityState) -> String {
     format_resident_continuity_for(continuity, None)
 }
 
+#[cfg(test)]
 pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
     let truth = "use supplied verified facts only · do not invent possessions, companions, memories, or completed actions";
     match SpeechMode::from_name(&plan.speech_mode) {
@@ -1189,16 +1134,6 @@ pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
             plan.speaker_name,
             resident_word_budget(plan)
         ),
-    }
-}
-
-fn grounded_resident_voice(plan: &AvatarReplyPlan) -> String {
-    match plan.speaker_actor_id {
-        1001 => "i want this cottage orderly and welcoming, dislike needless mess, and have strong opinions about everyone's footwear. my patience is short but my care is practical.".to_string(),
-        1056 => "i prefer immaculate order, correct people mid-crisis, defend procedure far too earnestly, and get flustered at precisely the wrong moment.".to_string(),
-        1066 => "i want an audience, dislike being overlooked, and meet every disappointment with grand appetite and wounded pride.".to_string(),
-        1067 => "i prefer tremendous formality, make pronouncements whether or not anyone asked, and immediately worry whether anybody was listening.".to_string(),
-        _ => plan.speaker_voice.clone(),
     }
 }
 
@@ -1344,9 +1279,11 @@ mod publication_tests {
     fn gate_completion(text: &str) -> AiCompletion {
         AiCompletion {
             text: text.to_string(),
+            reasoning_trace: None,
             attempts: 1,
             latency: std::time::Duration::from_millis(9),
             model_attribution: None,
+            resolved_model_id: "test/model".to_string(),
             finish_reason: "stop".to_string(),
             usage: AiTokenUsage {
                 prompt_tokens: Some(10),
@@ -1460,7 +1397,7 @@ mod publication_tests {
         ];
 
         let prompt = avatar_chat_user_prompt(&chat, true);
-        assert!(prompt.contains("i am Elsie Starfield"));
+        assert!(prompt.contains("SELF · Elsie Starfield"));
         assert!(prompt.contains("Judas Iscariot said to Elsie Starfield:"));
         assert!(!prompt.contains("actor_id="));
         assert!(prompt.contains("I will look with you first. Bethlehem can wait."));
@@ -1499,11 +1436,34 @@ mod publication_tests {
         chat.actor_continuity = Some(continuity);
 
         let prompt = avatar_chat_user_prompt(&chat, false);
-        assert!(prompt.contains("with Judas Iscariot — traveller"));
+        assert!(prompt.contains("OTHER · Judas Iscariot — traveller"));
         assert!(prompt.contains("keep pace with Judas"));
         assert!(prompt.contains("biscuit in my pocket"));
         assert!(!prompt.contains("i am Judas"));
-        assert!(prompt.matches("i am Elsie Starfield").count() >= 1);
+        assert_eq!(prompt.matches("SELF · Elsie Starfield").count(), 1);
+    }
+
+    #[test]
+    fn native_model_avatar_receives_the_same_speaker_and_addressee_spine() {
+        let (_, mut reply) = seeded_plans();
+        reply.speaker_name = "Anthropic: Claude".to_string();
+        reply.speech_mode = "raw".to_string();
+        reply.incoming_turn = Some(DirectedDialogueTurn::new(
+            5000,
+            "Marnie Bramblewick",
+            reply.speaker_actor_id,
+            "Anthropic: Claude",
+            "What are you noticing in this room?",
+        ));
+        let rendered = resident_voice_prompt(&reply, "").render_for_test();
+        assert!(rendered.system.contains("native identity and voice"));
+        assert!(rendered.user.contains("SELF · Anthropic: Claude"));
+        assert!(rendered.user.contains(
+            "DIRECTED TURN · Marnie Bramblewick said to Anthropic: Claude: What are you noticing in this room?"
+        ));
+        assert!(rendered.user.contains(
+            "Anthropic: Claude is speaking now and Marnie Bramblewick is being answered"
+        ));
     }
 
     #[test]
@@ -1648,7 +1608,7 @@ mod publication_tests {
         let request =
             resident_voice_user_prompt(&direct, &resident_voice_planning_brief(&planning));
         assert!(request.contains("Lila Wayfarer just arrived in Bethlehem."));
-        assert!(request.contains("here: Bethlehem"));
+        assert!(request.contains("SCENE · Bethlehem"));
         assert!(!request.contains("Hearth Tonic"), "{request}");
         assert!(!request.contains("status=committed"));
         assert!(direct

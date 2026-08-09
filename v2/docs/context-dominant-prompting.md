@@ -58,6 +58,86 @@ The fields are:
 Actors may add a short first-person `voice` field. It carries the character's authored
 rhythm and preoccupations. It is context, not a backend branch keyed to an actor ID.
 
+## Avatar context spine
+
+Every avatar voice generation freezes one `AvatarContextSpine` from the authoritative
+world projection and committed journal. The spine is an intelligence and selection layer,
+not a new source of lore: it points at identity, Calling, control mode, location, directed
+turns, continuity, goals, authorized evidence, public room memory, recent activity, and
+journaled recollection. Generated text becomes usable context only after it is certified
+and committed back to the journal.
+
+The frozen spine travels with asynchronous jobs. A provider therefore sees the same
+causal snapshot the game approved, even when the world advances while inference is in
+flight. Old serialized jobs remain readable and receive a bounded compatibility spine.
+
+One spine has four projections:
+
+- `respond` is light: four dialogue turns, two recent events, five continuity lines, a
+  small evidence window, and no private recollection retrieval. It always names the
+  current speaker and addressee. Directly controlled avatars are speech proxies and may
+  not acquire invented controller intent or actions. Native model avatars keep their
+  model identity, but remain in-world participants rather than falling into generic
+  assistant mode.
+- `think` is medium: six dialogue turns, five recent events, ten continuity lines, and
+  the top three relevant prior thoughts, dreams, memories, beliefs, desires, promises, or
+  refusals.
+- `dream` is large: eight dialogue turns, eight events, sixteen continuity lines, broader
+  place and room memory, and the same top-three retrieval. Facts may transform through
+  surreal association, but dream events do not become waking facts.
+- `self_description` uses the large projection to write one first-person identity
+  evolution per level, opportunistically after the next successful thought or dream
+  reflection. The description is journaled as `avatar.self_description`; later spines may
+  use that committed description. A stable actor-and-level generation key and a second
+  commit-time due check prevent duplicates.
+
+Recollection candidates are deduplicated and ranked deterministically against the current
+beat, Calling, place, incoming turn, and freshest dialogue, with relevance, salience,
+recency, and thought priority contributing to the score. Only the top three enter `think`
+or `dream`. The deterministic baseline keeps replay and tests stable; a future embedding
+reranker may refine the ordering without changing authorization, candidate provenance, or
+the three-item cap.
+
+### Shared entity core
+
+The avatar spine wraps a `WorldEntityContextSpine`, which is also the sole generation
+context for items and locations. The shared core carries canonical identity, current
+level, current custody or contents, active goals, persistent journal memory, top-three
+semantic recollections, and the latest committed persona/appearance. It never summarizes
+or invents world state; it selects and renders authoritative state for a particular
+generation job.
+
+Items and locations gain levels from recorded history rather than avatar XP: item levels
+advance with use, while location levels advance with meaningful events. Avatars, items,
+and locations each become eligible for one first-person persona-and-appearance revision
+per level. These revisions use stable entity-and-level generation keys, are rechecked at
+commit time, and enter later context only as journaled `*.self_description` events.
+Non-avatar descriptions belong only to their subject; the avatar whose reflection created
+the opportunity does not inherit an item's or location's first-person memory.
+
+### Goal ledger and passive perception
+
+The persistent typed goal ledger currently derives three world relationships:
+
+- an avatar wants to possess an item;
+- an avatar or location wants a particular location to possess an item it can use;
+- an item's home location wants that item to collect recorded history from three distinct
+  locations.
+
+Goals are refreshed from canonical custody, location contents, features, and journal
+memory after every successful record and after restore. Completed goals remain visible as
+typed state and active goal lines enter the owning entity's context spine. The public
+state view exposes only the controlled avatar's goals plus goals owned by the current
+location or visible/carried items.
+
+Items continue to have exactly one physical custody state: carried by an avatar, loose in
+a location, contained by another item, or hidden. Ordinary actions by directly controlled
+or autonomous avatars can trigger a deterministic passive-perception roll for one hidden
+candidate without displacing items already in the room. Previously used items are more
+familiar and therefore easier to notice; untouched items remain the hardest. A success is
+not prompt lore: it journals `item.revealed`, moves the item into the location projection,
+and creates the same decaying discovery memory used by active search.
+
 ## Security boundary
 
 Authorization happens before relevance, ranking, budgeting, or prompt assembly.
@@ -73,24 +153,16 @@ never reach a prompt segment, a media brief, a gate anchor, or provider telemetr
 
 ## Conversation assembly
 
-The shared system message describes output shape only, for example:
+The spine renders one lean role contract and structured evidence segments in speaker
+order: `SELF`, `CALLING`, `VOICE`, `INNER CONTINUITY`, `OPEN THREAD`, `OTHER`,
+`RELATIONSHIP`, `SCENE`, authorized facts, present cast, recent events/dialogue, `NOW`,
+the pinned `DIRECTED TURN`, and finally the explicit `RESPONSE JOB`.
 
-```text
-only Rati's next spoken line · at most 40 words
-```
-
-The user context then flows in speaker order:
-
-1. a tiny continuity marker (`…still me.`);
-2. speaker identity and authored voice;
-3. speaker-owned continuity, with the current relationship first;
-4. current relationship/economy facts;
-5. authored place description and character;
-6. authorized location evidence and public room chapters;
-7. goals, present cast, and recent activity when budget permits;
-8. recent directed dialogue;
-9. the freshest turn, pinned last;
-10. a small completion hinge (`so—`).
+“Stream of consciousness” means immediate character attention, desire, preference, and
+hesitation. It does not request hidden model reasoning. A response job says exactly who is
+speaking and who is being answered, preventing role reversal when one avatar quotes or
+mirrors another. Human-controlled chat openings and autonomous resident replies share
+this assembly. Exact/native model bindings no longer receive a naked user line.
 
 Stored confidence, salience, event sequence numbers, actor IDs, status codes, and other
 telemetry do not appear as prose. Planning state is rendered as ordinary first-person

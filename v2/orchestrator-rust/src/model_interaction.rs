@@ -7,9 +7,11 @@ const MODEL_INTERACTION_IMAGE_FEATURE: &str = "model_interaction_image";
 const MODEL_INTERACTION_EMBEDDING_FEATURE: &str = "model_interaction_embeddings";
 const MODEL_INTERACTION_RERANK_FEATURE: &str = "model_interaction_rerank";
 const MODEL_INTERACTION_SPEECH_FEATURE: &str = "model_interaction_speech";
+const MODEL_INTERACTION_SPEECH_TEXT_FEATURE: &str = "model_interaction_speech_text";
 const MODEL_INTERACTION_IMAGE_CONTEXT_VERSION: &str = "authoritative-scene-v1";
 const MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION: &str = "authoritative-model-neighbors-v1";
-const MODEL_INTERACTION_SPEECH_CONTEXT_VERSION: &str = "authoritative-world-speech-v1";
+const MODEL_INTERACTION_SPEECH_CONTEXT_VERSION: &str = "authoritative-world-speech-v2";
+const MODEL_INTERACTION_SPEECH_TEXT_CONTEXT_VERSION: &str = "authoritative-world-speech-text-v1";
 const MODEL_INTERACTION_SEMANTIC_CANDIDATES: usize = 8;
 const MODEL_INTERACTION_SEMANTIC_RESULTS: usize = 3;
 const MODEL_INTERACTION_MAX_PARTS: usize = 8;
@@ -17,6 +19,61 @@ const MODEL_INTERACTION_MAX_SUMMARY_CHARS: usize = 280;
 
 static MODEL_INTERACTION_LOCKS: OnceLock<StdMutex<BTreeMap<String, Weak<Mutex<()>>>>> =
     OnceLock::new();
+
+#[derive(Clone, Debug)]
+pub(super) struct TransientOpenRouterKey {
+    api_key: String,
+    expires_at: Instant,
+}
+
+const TRANSIENT_OPENROUTER_KEY_TTL: Duration = Duration::from_secs(10 * 60);
+
+fn store_transient_openrouter_key(state: &AppState, actor_id: u64, api_key: String) {
+    let Ok(mut keys) = state.transient_openrouter_keys.lock() else {
+        return;
+    };
+    let now = Instant::now();
+    keys.retain(|_, key| key.expires_at > now);
+    keys.insert(
+        actor_id,
+        TransientOpenRouterKey {
+            api_key,
+            expires_at: now + TRANSIENT_OPENROUTER_KEY_TTL,
+        },
+    );
+}
+
+fn transient_openrouter_config(
+    state: &AppState,
+    actor_id: u64,
+    player_openrouter: bool,
+) -> Option<(AiConfig, &'static str)> {
+    let server_config = state.ai_config.as_ref().as_ref()?;
+    if !player_openrouter {
+        return Some((server_config.clone(), "server"));
+    }
+    let key = state
+        .transient_openrouter_keys
+        .lock()
+        .ok()
+        .and_then(|mut keys| {
+            let now = Instant::now();
+            keys.retain(|_, key| key.expires_at > now);
+            keys.get(&actor_id).cloned()
+        });
+    key.map(|key| {
+        (
+            server_config.for_transient_openrouter(key.api_key),
+            "player_openrouter",
+        )
+    })
+}
+
+fn clear_transient_openrouter_key(state: &AppState, actor_id: u64) {
+    if let Ok(mut keys) = state.transient_openrouter_keys.lock() {
+        keys.remove(&actor_id);
+    }
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -92,6 +149,8 @@ pub(super) struct ModelInteractionJob {
     pub(super) actor_id: u64,
     pub(super) target_actor_id: u64,
     pub(super) plan: ModelInteractionPlan,
+    #[serde(default)]
+    pub(super) player_openrouter: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) queue_event_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,6 +165,8 @@ pub(super) struct ModelInteractionRequest {
     pub(super) actor_id: u64,
     pub(super) actor_session: Option<String>,
     pub(super) target_actor_id: u64,
+    #[serde(default)]
+    pub(super) openrouter_api_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -600,6 +661,27 @@ fn exact_ready_profile_binding(
 }
 
 fn exact_speech_voice(actor_id: u64) -> Option<&'static str> {
+    if let Some(exact) =
+        exact_actor_interaction_profile_for_actor(actor_id, ActorInteractionKind::VoiceChat)
+            .ok()
+            .flatten()
+            .filter(|exact| exact.profile.ready_before_policy())
+    {
+        return (exact
+            .profile
+            .defaults
+            .pointer("/audio/format")
+            .and_then(serde_json::Value::as_str)
+            == Some("mp3"))
+        .then(|| {
+            exact
+                .profile
+                .defaults
+                .pointer("/audio/voice")
+                .and_then(serde_json::Value::as_str)
+        })
+        .flatten();
+    }
     let exact = exact_actor_interaction_profile_for_actor(actor_id, ActorInteractionKind::Speak)
         .ok()
         .flatten()
@@ -660,11 +742,17 @@ fn binding_has_ready_profile(
     binding: &SeedActorModelBinding,
     profile: ModelInteractionProfile,
 ) -> bool {
-    let exact =
-        exact_actor_interaction_profile_for_actor(binding.actor_id, profile.interaction_kind())
-            .ok()
-            .flatten()
-            .filter(|exact| exact.profile.ready_before_policy());
+    let interaction_kind = if profile == ModelInteractionProfile::Speech
+        && binding_supports_direct_audio_reply(binding)
+    {
+        ActorInteractionKind::VoiceChat
+    } else {
+        profile.interaction_kind()
+    };
+    let exact = exact_actor_interaction_profile_for_actor(binding.actor_id, interaction_kind)
+        .ok()
+        .flatten()
+        .filter(|exact| exact.profile.ready_before_policy());
     let Some(exact) = exact else {
         return false;
     };
@@ -685,13 +773,30 @@ fn binding_has_ready_profile(
             PinnedModelSelection::from_actor_rerank_binding(binding, DataPolicyMode::Development)
         }
         ModelInteractionProfile::Speech => {
-            PinnedModelSelection::from_actor_speech_synthesis_binding(
-                binding,
-                DataPolicyMode::Development,
-            )
+            if binding_supports_direct_audio_reply(binding) {
+                PinnedModelSelection::from_actor_binding(binding, DataPolicyMode::Development)
+            } else {
+                PinnedModelSelection::from_actor_speech_synthesis_binding(
+                    binding,
+                    DataPolicyMode::Development,
+                )
+            }
         }
     };
     pinned.is_ok()
+}
+
+fn binding_supports_direct_audio_reply(binding: &SeedActorModelBinding) -> bool {
+    binding.speech_mode == "raw"
+        && binding.input_modalities.iter().any(|value| value == "text")
+        && binding
+            .output_modalities
+            .iter()
+            .any(|value| value == "text")
+        && binding
+            .output_modalities
+            .iter()
+            .any(|value| value == "audio")
 }
 
 fn authoritative_model_descriptor(binding: &SeedActorModelBinding) -> String {
@@ -740,6 +845,12 @@ pub(super) async fn model_interaction(
             return client_actor_rejected_response();
         }
     }
+    let player_openrouter = payload
+        .openrouter_api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .map(ToString::to_string);
     if let Some(path) = state.event_store_path.as_deref() {
         match active_model_interaction_target(path, payload.actor_id) {
             Ok(Some(active_target)) if active_target == payload.target_actor_id => {
@@ -769,6 +880,16 @@ pub(super) async fn model_interaction(
             Ok(None) => {}
         }
     }
+    if let Some(api_key) = player_openrouter.as_deref() {
+        if let Err(error) = verify_openrouter_key(api_key).await {
+            return model_interaction_failure(
+                payload.actor_id,
+                payload.target_actor_id,
+                401,
+                &error,
+            );
+        }
+    }
 
     let mut runtime = state.inner.lock().await;
     let Some(plan) = runtime.model_interaction_plan_for(payload.actor_id, payload.target_actor_id)
@@ -787,6 +908,9 @@ pub(super) async fn model_interaction(
             503,
             "That model route is resting right now. Choose another action; nothing was spent.",
         );
+    }
+    if let Some(api_key) = player_openrouter.as_deref() {
+        store_transient_openrouter_key(&state, payload.actor_id, api_key.to_string());
     }
     let source_world_tick = runtime.world.tick;
     let observed_through_seq = runtime.world.next_event_seq.saturating_sub(1);
@@ -810,11 +934,15 @@ pub(super) async fn model_interaction(
         actor_id: payload.actor_id,
         target_actor_id: payload.target_actor_id,
         plan: plan.clone(),
+        player_openrouter: player_openrouter.is_some(),
         queue_event_id: None,
         source_world_tick: None,
         observed_through_seq: None,
     }));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        if player_openrouter.is_some() {
+            clear_transient_openrouter_key(&state, payload.actor_id);
+        }
         return model_interaction_failure(
             payload.actor_id,
             payload.target_actor_id,
@@ -822,6 +950,9 @@ pub(super) async fn model_interaction(
             "The model interaction could not be saved; try again.",
         );
     };
+    if status != CW_OK && player_openrouter.is_some() {
+        clear_transient_openrouter_key(&state, payload.actor_id);
+    }
     drop(runtime);
     broadcast_events(&state, &events);
     if status == CW_OK {
@@ -838,6 +969,7 @@ pub(super) async fn model_interaction(
                     actor_id: payload.actor_id,
                     target_actor_id: payload.target_actor_id,
                     plan,
+                    player_openrouter: player_openrouter.is_some(),
                     queue_event_id,
                     source_world_tick: Some(source_world_tick),
                     observed_through_seq: Some(observed_through_seq),
@@ -1011,8 +1143,16 @@ fn model_interaction_target_availability(
             (config.pin_actor_rerank_model(binding).is_ok(), "rerank")
         }
         ModelInteractionProfile::Speech => (
-            config.pin_actor_speech_synthesis_model(binding).is_ok(),
-            "audio/speech",
+            if binding_supports_direct_audio_reply(binding) {
+                config.pin_actor_model(binding).is_ok()
+            } else {
+                config.pin_actor_speech_synthesis_model(binding).is_ok()
+            },
+            if binding_supports_direct_audio_reply(binding) {
+                "chat/completions"
+            } else {
+                "audio/speech"
+            },
         ),
     };
     if !pinned {
@@ -1228,6 +1368,7 @@ pub(super) async fn complete_model_interaction_attempt(
 ) -> Result<(), String> {
     let interaction_id = model_interaction_id(&job);
     if model_interaction_output_committed(state, &job, &interaction_id).await? {
+        clear_transient_openrouter_key(state, job.actor_id);
         commit_model_interaction_status(
             state,
             &job,
@@ -1247,6 +1388,7 @@ pub(super) async fn complete_model_interaction_attempt(
     let execution = match execute_model_interaction_profile(state, &job, &interaction_id).await {
         Ok(Some(execution)) => execution,
         Ok(None) => {
+            clear_transient_openrouter_key(state, job.actor_id);
             commit_model_interaction_status(
                 state,
                 &job,
@@ -1282,6 +1424,7 @@ pub(super) async fn complete_model_interaction_attempt(
                 disposition = "terminal",
                 "exact model interaction provider failure"
             );
+            clear_transient_openrouter_key(state, job.actor_id);
             commit_model_interaction_status(
                 state,
                 &job,
@@ -1328,6 +1471,9 @@ pub(super) async fn complete_model_interaction_attempt(
                     "transient exact model interaction provider failure"
                 );
             }
+            if terminal {
+                clear_transient_openrouter_key(state, job.actor_id);
+            }
             commit_model_interaction_status(
                 state,
                 &job,
@@ -1350,9 +1496,10 @@ pub(super) async fn complete_model_interaction_attempt(
     if let Some(image) = execution.image {
         image.record_published(state, output_event_id);
     }
-    if let Some(usage) = execution.usage {
+    for usage in execution.usages {
         usage.record_published(state, output_event_id);
     }
+    clear_transient_openrouter_key(state, job.actor_id);
     commit_model_interaction_status(
         state,
         &job,
@@ -1422,7 +1569,7 @@ fn model_interaction_attempt_is_terminal(
 struct ExecutedModelInteraction {
     publication: ModelInteractionPublication,
     image: Option<GeneratedResidentImage>,
-    usage: Option<ModelInteractionUsage>,
+    usages: Vec<ModelInteractionUsage>,
 }
 
 struct ModelInteractionUsage {
@@ -1431,6 +1578,7 @@ struct ModelInteractionUsage {
     provider: String,
     model: String,
     latency: Duration,
+    payer_mode: &'static str,
 }
 
 impl ModelInteractionUsage {
@@ -1439,7 +1587,7 @@ impl ModelInteractionUsage {
             state,
             Some(self.actor_id),
             self.feature,
-            "server",
+            self.payer_mode,
             &self.provider,
             &self.model,
             "published",
@@ -1483,16 +1631,21 @@ async fn execute_image_model_interaction(
     interaction_id: &str,
 ) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Image)?;
-    let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
-            MODEL_INTERACTION_IMAGE_FEATURE,
-        ))
-    })?;
+    let (config, payer_mode) =
+        transient_openrouter_config(state, job.actor_id, job.player_openrouter).ok_or_else(
+            || {
+                ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+                    MODEL_INTERACTION_IMAGE_FEATURE,
+                ))
+            },
+        )?;
     config
         .pin_actor_image_model(binding)
         .map_err(|error| error.to_string())?;
     let image = generate_moderated_resident_image(
         state,
+        Some(&config),
+        payer_mode,
         binding,
         job.target_actor_id,
         interaction_id,
@@ -1543,7 +1696,7 @@ async fn execute_image_model_interaction(
     Ok(Some(ExecutedModelInteraction {
         publication,
         image: Some(image),
-        usage: None,
+        usages: Vec::new(),
     }))
 }
 
@@ -1554,11 +1707,14 @@ async fn execute_embedding_model_interaction(
 ) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Embeddings)?;
     validate_semantic_plan(&job.plan)?;
-    let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
-            MODEL_INTERACTION_EMBEDDING_FEATURE,
-        ))
-    })?;
+    let (config, payer_mode) =
+        transient_openrouter_config(state, job.actor_id, job.player_openrouter).ok_or_else(
+            || {
+                ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+                    MODEL_INTERACTION_EMBEDDING_FEATURE,
+                ))
+            },
+        )?;
     config
         .pin_actor_embedding_model(binding)
         .map_err(|error| error.to_string())?;
@@ -1571,7 +1727,7 @@ async fn execute_embedding_model_interaction(
         )
         .collect::<Vec<_>>();
     let embedded = request_embeddings_with_binding(
-        config,
+        &config,
         binding,
         EmbeddingRequest {
             feature: MODEL_INTERACTION_EMBEDDING_FEATURE,
@@ -1606,13 +1762,14 @@ async fn execute_embedding_model_interaction(
     Ok(Some(ExecutedModelInteraction {
         publication,
         image: None,
-        usage: Some(ModelInteractionUsage {
+        usages: vec![ModelInteractionUsage {
             feature: MODEL_INTERACTION_EMBEDDING_FEATURE,
             actor_id: job.target_actor_id,
             provider: embedded.model_attribution.provider,
             model: embedded.model_attribution.resolved_model_id,
             latency: embedded.latency,
-        }),
+            payer_mode,
+        }],
     }))
 }
 
@@ -1623,11 +1780,14 @@ async fn execute_rerank_model_interaction(
 ) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
     let binding = frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::Rerank)?;
     validate_semantic_plan(&job.plan)?;
-    let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
-            MODEL_INTERACTION_RERANK_FEATURE,
-        ))
-    })?;
+    let (config, payer_mode) =
+        transient_openrouter_config(state, job.actor_id, job.player_openrouter).ok_or_else(
+            || {
+                ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+                    MODEL_INTERACTION_RERANK_FEATURE,
+                ))
+            },
+        )?;
     config
         .pin_actor_rerank_model(binding)
         .map_err(|error| error.to_string())?;
@@ -1638,7 +1798,7 @@ async fn execute_rerank_model_interaction(
         .map(|candidate| candidate.descriptor.clone())
         .collect::<Vec<_>>();
     let reranked = request_rerank_with_binding(
-        config,
+        &config,
         binding,
         RerankRequest {
             feature: MODEL_INTERACTION_RERANK_FEATURE,
@@ -1679,13 +1839,14 @@ async fn execute_rerank_model_interaction(
     Ok(Some(ExecutedModelInteraction {
         publication,
         image: None,
-        usage: Some(ModelInteractionUsage {
+        usages: vec![ModelInteractionUsage {
             feature: MODEL_INTERACTION_RERANK_FEATURE,
             actor_id: job.target_actor_id,
             provider: reranked.model_attribution.provider,
             model: reranked.model_attribution.resolved_model_id,
             latency: reranked.latency,
-        }),
+            payer_mode,
+        }],
     }))
 }
 
@@ -1700,29 +1861,64 @@ async fn execute_speech_model_interaction(
         .exact_voice
         .as_deref()
         .ok_or_else(|| "speech interaction has no frozen exact voice".to_string())?;
-    let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
-        ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
-            MODEL_INTERACTION_SPEECH_FEATURE,
-        ))
-    })?;
+    let (config, payer_mode) =
+        transient_openrouter_config(state, job.actor_id, job.player_openrouter).ok_or_else(
+            || {
+                ModelInteractionAttemptError::from_gateway(AiGatewayError::unconfigured(
+                    MODEL_INTERACTION_SPEECH_FEATURE,
+                ))
+            },
+        )?;
+    if binding_supports_direct_audio_reply(binding) {
+        return execute_direct_audio_model_interaction(
+            state,
+            job,
+            interaction_id,
+            binding,
+            &config,
+            payer_mode,
+            voice,
+        )
+        .await;
+    }
     let selection = config
         .pin_actor_speech_synthesis_model(binding)
         .map_err(|error| error.to_string())?;
     let attribution = selection
         .attribute_response(None)
         .map_err(|error| error.to_string())?;
-    let transcript = authoritative_speech_text(&job.plan);
-    validate_bounded_text(&transcript, 280, "authoritative speech text")?;
-    let context_hash = speech_context_hash(voice, &transcript);
     let recovered = load_generated_model_audio_for_interaction(
         interaction_id,
         state.generated_asset_dir.as_path(),
     )?;
-    let (asset, usage) = if let Some(asset) = recovered {
+    let persisted_transcript = load_generated_model_audio_transcript_for_interaction(
+        interaction_id,
+        state.generated_asset_dir.as_path(),
+    )?;
+    let (authored_transcript, transcript_usage) = if let Some(transcript) = persisted_transcript {
+        (transcript, None)
+    } else if recovered.is_some() {
+        // Audio receipts created before model-authored TTS text used the
+        // deterministic authoritative line. Keep that recovery path coherent.
+        (authoritative_speech_text(&job.plan), None)
+    } else {
+        let (transcript, usage) =
+            generate_tts_transcript(state, &config, payer_mode, job.target_actor_id, &job.plan)
+                .await?;
+        (transcript, Some(usage))
+    };
+    let transcript = store_generated_model_audio_transcript_for_interaction(
+        interaction_id,
+        &authored_transcript,
+        state.generated_asset_dir.as_path(),
+    )?;
+    validate_bounded_text(&transcript, 280, "authoritative speech text")?;
+    let context_hash = speech_context_hash(voice, &transcript);
+    let (asset, synthesis_usage) = if let Some(asset) = recovered {
         (asset, None)
     } else {
         let synthesized = request_speech_synthesis_with_binding(
-            config,
+            &config,
             binding,
             SpeechSynthesisRequest {
                 feature: MODEL_INTERACTION_SPEECH_FEATURE,
@@ -1765,6 +1961,7 @@ async fn execute_speech_model_interaction(
             provider: attribution.provider.clone(),
             model: attribution.resolved_model_id.clone(),
             latency: synthesized.latency,
+            payer_mode,
         };
         (asset, Some(usage))
     };
@@ -1802,11 +1999,241 @@ async fn execute_speech_model_interaction(
         context_hash,
     };
     publication.validate()?;
+    let mut usages = transcript_usage.into_iter().collect::<Vec<_>>();
+    usages.extend(synthesis_usage);
     Ok(Some(ExecutedModelInteraction {
         publication,
         image: None,
-        usage,
+        usages,
     }))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_direct_audio_model_interaction(
+    state: &AppState,
+    job: &ModelInteractionJob,
+    interaction_id: &str,
+    binding: &SeedActorModelBinding,
+    config: &AiConfig,
+    payer_mode: &'static str,
+    voice: &str,
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
+    let selection = config
+        .pin_actor_model(binding)
+        .map_err(|error| error.to_string())?;
+    let attribution = selection
+        .attribute_response(None)
+        .map_err(|error| error.to_string())?;
+    let recovered = load_generated_model_audio_for_interaction(
+        interaction_id,
+        state.generated_asset_dir.as_path(),
+    )?;
+    let persisted_transcript = load_generated_model_audio_transcript_for_interaction(
+        interaction_id,
+        state.generated_asset_dir.as_path(),
+    )?;
+    let (asset, transcript, usage) = match (recovered, persisted_transcript) {
+        (Some(asset), Some(transcript)) => (asset, transcript, None),
+        (Some(_), None) => {
+            return Err("direct audio receipt was missing its transcript"
+                .to_string()
+                .into());
+        }
+        (None, persisted_transcript) => {
+            let system = if persisted_transcript.is_some() {
+                "Respond directly in audio as the named resident. Say the supplied recovery line exactly, with no added words."
+            } else {
+                "Respond directly in audio as the named resident. Speak one brief, natural in-world line with no preamble, label, stage direction, or explanation."
+            };
+            let recovery = persisted_transcript
+                .as_deref()
+                .map(|transcript| format!("\nRecovery line to say exactly: {transcript}"))
+                .unwrap_or_default();
+            let user = format!(
+                "Resident: {name}\nLocation: {location}\nAuthoritative setting: {description}{recovery}",
+                name = compact_whitespace(&job.plan.target_name),
+                location = compact_whitespace(&job.plan.location_name),
+                description = compact_whitespace(&job.plan.location_description),
+            );
+            let direct = request_direct_audio_completion_with_binding(
+                config,
+                binding,
+                DirectAudioCompletionRequest {
+                    feature: MODEL_INTERACTION_SPEECH_FEATURE,
+                    prompt_version: MODEL_INTERACTION_SPEECH_CONTEXT_VERSION,
+                    system,
+                    user: &user,
+                    voice,
+                    timeout: Duration::from_secs(60),
+                    max_attempts: 2,
+                    referer: "https://cosy.world/",
+                    room_id: Some(job.plan.location_id),
+                },
+            )
+            .await
+            .map_err(|error| {
+                record_model_interaction_failure(
+                    state,
+                    job.target_actor_id,
+                    binding,
+                    MODEL_INTERACTION_SPEECH_FEATURE,
+                    &error,
+                );
+                ModelInteractionAttemptError::from_gateway(error)
+            })?;
+            if direct.content_type != "audio/mpeg"
+                || direct.prompt_version != MODEL_INTERACTION_SPEECH_CONTEXT_VERSION
+                || direct.model_attribution != attribution
+            {
+                return Err("direct speech response changed its exact route contract"
+                    .to_string()
+                    .into());
+            }
+            let direct_transcript = bounded_authoritative_speech(&direct.transcript, 280);
+            if persisted_transcript.as_deref().is_some_and(|persisted| {
+                compact_whitespace(persisted) != compact_whitespace(&direct_transcript)
+            }) {
+                return Err("direct speech recovery did not preserve its transcript"
+                    .to_string()
+                    .into());
+            }
+            let transcript = store_generated_model_audio_transcript_for_interaction(
+                interaction_id,
+                &direct_transcript,
+                state.generated_asset_dir.as_path(),
+            )?;
+            let asset = store_generated_model_audio_for_interaction(
+                interaction_id,
+                &direct.bytes,
+                state.generated_asset_dir.as_path(),
+            )?;
+            let usage = ModelInteractionUsage {
+                feature: MODEL_INTERACTION_SPEECH_FEATURE,
+                actor_id: job.target_actor_id,
+                provider: direct.model_attribution.provider,
+                model: direct.model_attribution.resolved_model_id,
+                latency: direct.latency,
+                payer_mode,
+            };
+            (asset, transcript, Some(usage))
+        }
+    };
+    validate_bounded_text(&transcript, 280, "direct speech transcript")?;
+    let context_hash = speech_context_hash(voice, &transcript);
+    let summary = format!(
+        "{} spoke one direct model response in {}.",
+        authoritative_speech_fragment(&job.plan.target_name),
+        authoritative_speech_fragment(&job.plan.location_name)
+    );
+    let publication = ModelInteractionPublication {
+        schema_version: MODEL_INTERACTION_SCHEMA_VERSION,
+        interaction_id: interaction_id.to_string(),
+        profile: job.plan.profile,
+        summary: bounded_authoritative_speech(&summary, MODEL_INTERACTION_MAX_SUMMARY_CHARS),
+        output_parts: vec![ModelInteractionOutputPart::Audio {
+            asset_id: asset.asset_id,
+            url: asset.url,
+            mime_type: asset.mime_type,
+            duration_ms: None,
+            description: bounded_authoritative_speech(
+                &format!(
+                    "{} responds directly from {}.",
+                    authoritative_speech_fragment(&job.plan.target_name),
+                    authoritative_speech_fragment(&job.plan.location_name)
+                ),
+                280,
+            ),
+            transcript: Some(transcript),
+            digest: asset.digest,
+        }],
+        attribution: ModelInteractionAttribution {
+            provider: attribution.provider,
+            model: attribution.resolved_model_id,
+        },
+        prompt_version: MODEL_INTERACTION_SPEECH_CONTEXT_VERSION.to_string(),
+        context_hash,
+    };
+    publication.validate()?;
+    Ok(Some(ExecutedModelInteraction {
+        publication,
+        image: None,
+        usages: usage.into_iter().collect(),
+    }))
+}
+
+async fn generate_tts_transcript(
+    state: &AppState,
+    config: &AiConfig,
+    payer_mode: &'static str,
+    actor_id: u64,
+    plan: &ModelInteractionPlan,
+) -> Result<(String, ModelInteractionUsage), ModelInteractionAttemptError> {
+    let system = "Write one brief line of in-world dialogue for the named resident. Return only the words they should speak: no speaker label, quotation marks, stage direction, markdown, or explanation. Stay within the supplied setting and keep the line under 240 characters.";
+    let user = format!(
+        "Resident: {name}\nLocation: {location}\nAuthoritative setting: {description}\nSpeak naturally from this moment.",
+        name = compact_whitespace(&plan.target_name),
+        location = compact_whitespace(&plan.location_name),
+        description = compact_whitespace(&plan.location_description),
+    );
+    let completion = request_routed_chat_completion(
+        config,
+        OPENROUTER_FREE_MODEL,
+        ChatCompletionRequest {
+            feature: MODEL_INTERACTION_SPEECH_TEXT_FEATURE,
+            prompt_version: MODEL_INTERACTION_SPEECH_TEXT_CONTEXT_VERSION,
+            capability: ModelCapability::Voice,
+            system,
+            user: &user,
+            temperature: 0.7,
+            max_tokens: 96,
+            timeout: Duration::from_secs(30),
+            max_attempts: 2,
+            referer: "https://cosy.world/",
+            response_format: None,
+            room_id: Some(plan.location_id),
+        },
+    )
+    .await
+    .map_err(|error| {
+        record_ai_usage_for_provider(
+            state,
+            Some(actor_id),
+            MODEL_INTERACTION_SPEECH_TEXT_FEATURE,
+            payer_mode,
+            "openrouter",
+            OPENROUTER_FREE_MODEL,
+            "failed",
+            None,
+            0,
+            Some(error.code()),
+            error.latency,
+        );
+        ModelInteractionAttemptError::from_gateway(error)
+    })?;
+    if completion.finish_reason == "length" {
+        return Err("speech text router returned an incomplete line"
+            .to_string()
+            .into());
+    }
+    let transcript = bounded_authoritative_speech(
+        completion
+            .text
+            .trim()
+            .trim_matches(['\"', '\'', '“', '”', '‘', '’']),
+        280,
+    );
+    validate_bounded_text(&transcript, 280, "model-authored speech text")?;
+    Ok((
+        transcript,
+        ModelInteractionUsage {
+            feature: MODEL_INTERACTION_SPEECH_TEXT_FEATURE,
+            actor_id,
+            provider: "openrouter".to_string(),
+            model: completion.resolved_model_id,
+            latency: completion.latency,
+            payer_mode,
+        },
+    ))
 }
 
 fn validate_semantic_plan(plan: &ModelInteractionPlan) -> Result<(), String> {
@@ -2402,7 +2829,7 @@ mod tests {
     }
 
     #[test]
-    fn exact_speech_profiles_offer_only_the_thirteen_pinned_voice_routes() {
+    fn exact_speech_profiles_offer_tts_and_direct_audio_routes() {
         let bindings = elysium_bindings();
         let speech = bindings
             .iter()
@@ -2410,7 +2837,14 @@ mod tests {
                 supported_profile_for_binding(binding) == Some(ModelInteractionProfile::Speech)
             })
             .collect::<Vec<_>>();
-        assert_eq!(speech.len(), 13);
+        assert_eq!(speech.len(), 15);
+        assert_eq!(
+            speech
+                .iter()
+                .filter(|binding| binding_supports_direct_audio_reply(binding))
+                .count(),
+            2
+        );
         let missing_voices = speech
             .iter()
             .filter(|binding| exact_speech_voice(binding.actor_id).is_none())
@@ -2446,6 +2880,7 @@ mod tests {
             actor_id: plan.actor_id,
             target_actor_id: plan.target_actor_id,
             plan: plan.clone(),
+            player_openrouter: false,
             queue_event_id: Some(7),
             source_world_tick: Some(8),
             observed_through_seq: Some(7),
@@ -2551,6 +2986,15 @@ mod tests {
         assert!(audio_text
             .iter()
             .all(|binding| !binding_supports_text_reply(binding)));
+        assert_eq!(
+            audio_text
+                .iter()
+                .filter(|binding| {
+                    supported_profile_for_binding(binding) == Some(ModelInteractionProfile::Speech)
+                })
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -2651,6 +3095,7 @@ mod tests {
                 target_descriptor: String::new(),
                 semantic_candidates: Vec::new(),
             },
+            player_openrouter: true,
             queue_event_id: None,
             source_world_tick: None,
             observed_through_seq: None,
@@ -2665,6 +3110,7 @@ mod tests {
             panic!("wrong durable payload kind");
         };
         assert_eq!(claimed_job.queue_event_id, Some(77));
+        assert!(claimed_job.player_openrouter);
         assert_eq!(claimed_job.plan.profile, ModelInteractionProfile::Image);
         let interaction_id = model_interaction_id(&claimed_job);
         let durable_output = EventView {

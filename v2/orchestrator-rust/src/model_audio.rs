@@ -23,6 +23,8 @@ const MODEL_AUDIO_MIME_TYPE: &str = "audio/mpeg";
 const MODEL_AUDIO_MAX_BYTES: usize = 8 * 1024 * 1024;
 const MODEL_AUDIO_DIRECTORY: &str = "model-audio";
 const MODEL_AUDIO_RECEIPT_DIRECTORY: &str = "receipts";
+const MODEL_AUDIO_TRANSCRIPT_DIRECTORY: &str = "transcripts";
+const MODEL_AUDIO_TRANSCRIPT_MAX_CHARS: usize = 280;
 const MODEL_AUDIO_URL_PREFIX: &str = "/assets/generated/model-audio";
 const MODEL_AUDIO_TEMP_CREATE_ATTEMPTS: usize = 8;
 
@@ -124,6 +126,49 @@ pub(super) fn store_generated_model_audio_for_interaction(
     load_generated_model_audio_for_interaction(interaction_id, generated_asset_dir)?.ok_or_else(
         || "generated model-audio interaction receipt disappeared during publication".to_string(),
     )
+}
+
+pub(super) fn load_generated_model_audio_transcript_for_interaction(
+    interaction_id: &str,
+    generated_asset_dir: &Path,
+) -> Result<Option<String>, String> {
+    validate_model_audio_interaction_id(interaction_id)?;
+    let path = model_audio_transcript_path(generated_asset_dir, interaction_id);
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "generated model-audio transcript could not be read: {error}"
+            ));
+        }
+    };
+    let transcript = String::from_utf8(bytes)
+        .map_err(|_| "generated model-audio transcript was not UTF-8".to_string())?;
+    validate_model_audio_transcript(&transcript)?;
+    Ok(Some(transcript))
+}
+
+pub(super) fn store_generated_model_audio_transcript_for_interaction(
+    interaction_id: &str,
+    transcript: &str,
+    generated_asset_dir: &Path,
+) -> Result<String, String> {
+    validate_model_audio_interaction_id(interaction_id)?;
+    validate_model_audio_transcript(transcript)?;
+    if let Some(existing) =
+        load_generated_model_audio_transcript_for_interaction(interaction_id, generated_asset_dir)?
+    {
+        return Ok(existing);
+    }
+    let path = model_audio_transcript_path(generated_asset_dir, interaction_id);
+    if persist_model_audio_receipt(&path, transcript)? {
+        return Ok(transcript.to_string());
+    }
+    load_generated_model_audio_transcript_for_interaction(interaction_id, generated_asset_dir)?
+        .ok_or_else(|| {
+            "generated model-audio transcript disappeared during publication".to_string()
+        })
 }
 
 pub(super) async fn generated_model_audio_asset(
@@ -239,6 +284,16 @@ fn validate_model_audio_interaction_id(interaction_id: &str) -> Result<(), Strin
     Ok(())
 }
 
+fn validate_model_audio_transcript(transcript: &str) -> Result<(), String> {
+    if transcript.trim().is_empty()
+        || transcript.chars().count() > MODEL_AUDIO_TRANSCRIPT_MAX_CHARS
+        || transcript.chars().any(char::is_control)
+    {
+        return Err("generated model-audio transcript is invalid".to_string());
+    }
+    Ok(())
+}
+
 fn is_lowercase_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -277,6 +332,12 @@ fn model_audio_receipt_dir(root: &Path) -> PathBuf {
 
 fn model_audio_receipt_path(root: &Path, interaction_id: &str) -> PathBuf {
     model_audio_receipt_dir(root).join(format!("{interaction_id}.sha256"))
+}
+
+fn model_audio_transcript_path(root: &Path, interaction_id: &str) -> PathBuf {
+    model_audio_asset_dir(root)
+        .join(MODEL_AUDIO_TRANSCRIPT_DIRECTORY)
+        .join(format!("{interaction_id}.txt"))
 }
 
 fn atomic_persist_model_audio(path: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -440,6 +501,39 @@ mod tests {
             bytes
         );
         fs::remove_dir_all(root).expect("remove model-audio persistence fixture");
+    }
+
+    #[test]
+    fn interaction_transcript_receipt_is_first_writer_wins_and_bounded() {
+        let root = test_root("transcript");
+        let interaction_id = "a".repeat(64);
+        let first = store_generated_model_audio_transcript_for_interaction(
+            &interaction_id,
+            "The kettle remembers you.",
+            &root,
+        )
+        .expect("store transcript");
+        let repeated = store_generated_model_audio_transcript_for_interaction(
+            &interaction_id,
+            "A different retry line.",
+            &root,
+        )
+        .expect("recover first transcript");
+
+        assert_eq!(first, "The kettle remembers you.");
+        assert_eq!(repeated, first);
+        assert_eq!(
+            load_generated_model_audio_transcript_for_interaction(&interaction_id, &root)
+                .expect("load transcript"),
+            Some(first)
+        );
+        assert!(store_generated_model_audio_transcript_for_interaction(
+            &"b".repeat(64),
+            &"x".repeat(281),
+            &root,
+        )
+        .is_err());
+        fs::remove_dir_all(root).expect("remove transcript fixture");
     }
 
     #[test]

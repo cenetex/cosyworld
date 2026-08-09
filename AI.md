@@ -105,7 +105,7 @@ Official OpenRouter docs confirm the integration shape:
 
 The player may connect an OpenRouter account or API key for explicitly supported provider features. Neither Chat nor ambient room replies cost Orbs.
 
-Recommended MVP shape:
+Current browser-owned MVP shape:
 
 - Reuse Ruby High's PKCE flow where possible.
 - The browser receives and stores the OpenRouter key, and sends it only with explicit player-initiated AI actions.
@@ -114,6 +114,9 @@ Recommended MVP shape:
 - The server verifies the key with OpenRouter's `/api/v1/key` endpoint before enabling the mode.
 - The client can show compact key state such as "OpenRouter connected", label, remaining credits, or limited/unlimited status.
 - A player can disconnect, rotate, or replace the key at any time.
+- Durable model-interaction jobs freeze whether the player or server pays. A
+  player-funded retry without its transient key fails closed instead of falling
+  back to the CosyWorld account.
 
 This follows Ruby High's main safety choice: the CosyWorld server is not a long-lived third-party API-key vault in the first release.
 
@@ -127,6 +130,13 @@ Tradeoff:
 The server key pays for autonomous/public text inference, including the resident
 reply after Chat and other card plays. Failure is skipped or remains visible as
 appropriate, but no reservation, debit, or refund touches the Orb ledger.
+
+Server-paid OpenRouter inference has a $10 UTC daily admission limit. Before
+each request, the gateway checks the server key's authoritative `usage_daily`
+value through `/api/v1/key`, serializes in-process admissions, and fails closed
+when usage cannot be verified. Once the reported value reaches $10, inference
+pauses until the next UTC day. Because OpenRouter reports cost after a request,
+the last admitted request can take the final total slightly over $10.
 
 Community image generation is different: the server validates a level-scoped shared funding pool before starting Replicate. One card gets one generation at each level, the pooled Orb price equals that level, and retries after full funding are free.
 
@@ -823,10 +833,18 @@ Orb balance does not affect Chat. Without banked advancement, it is absent:
 
 ### Stage 2: Player OpenRouter Connection
 
-- Reuse Ruby High PKCE concepts or an explicit key paste dev flow.
-- Verify key with `/api/v1/key`.
-- Return compact connection state in `/state`.
-- Send a player key only with explicitly supported media actions.
+Current status: browser-owned PKCE connection implemented.
+
+- The signed-in account starts OpenRouter OAuth with an S256 PKCE verifier and
+  the server exchanges the one-time authorization code.
+- The browser owns the resulting key; the server verifies it with `/api/v1/key`
+  and never persists it.
+- Connected metadata shows the provider label, remaining credit, and current
+  daily usage, and disconnect removes the local key.
+- Explicit public model interactions may carry the key transiently and record
+  `player_openrouter` as payer; autonomous inference remains server-paid.
+- The server-paid OpenRouter lane stops admitting work at $10 reported daily
+  usage and fails closed if usage cannot be checked.
 
 ### Stage 3: Community-Funded Card Images
 

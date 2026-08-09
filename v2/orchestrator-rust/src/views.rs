@@ -208,6 +208,7 @@ const JOURNAL_BEAT_POLICIES: &[(&str, JournalBeatCategory)] = &[
     ("calling.set", JournalBeatCategory::Growth),
     ("calling.revised", JournalBeatCategory::Growth),
     ("avatar.evolved", JournalBeatCategory::Growth),
+    ("avatar.self_description", JournalBeatCategory::Growth),
     ("job.contribution.resolved", JournalBeatCategory::Work),
     ("job.updated", JournalBeatCategory::Work),
     ("building.construction_opened", JournalBeatCategory::Work),
@@ -297,6 +298,7 @@ pub(super) struct StateResponse {
     pub(super) calling: Option<CallingView>,
     pub(super) skills: Vec<SkillView>,
     pub(super) ledger: VisitLedgerView,
+    pub(super) goals: Vec<EntityGoalState>,
     pub(super) bonds: Vec<BondView>,
     pub(super) chat_bond_claimed_target_ids: Vec<u64>,
     pub(super) cards: CardRegistryView,
@@ -415,6 +417,70 @@ fn journal_world_beat_exposure_id(event: &EventView) -> Option<String> {
             | "world.conflict.escalated"
     )
     .then(|| format!("world-beat:v1:{}", event.seq))
+}
+
+fn journal_world_beat_authored_prose(event: &EventView) -> Option<String> {
+    let content = event.content.as_deref()?.trim();
+    if content.is_empty() {
+        return None;
+    }
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(content) {
+        return value
+            .get("summary")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|summary| !summary.is_empty())
+            .map(str::to_string);
+    }
+    let normalized =
+        content.trim_end_matches(|character: char| matches!(character, '.' | '!' | '?' | '…'));
+    if normalized.eq_ignore_ascii_case(&event.type_name) {
+        return None;
+    }
+    Some(content.to_string())
+}
+
+fn journal_world_beat_fallback(event: &EventView) -> Option<String> {
+    let location = event.location_name.as_deref().unwrap_or("this place");
+    let destination = event
+        .destination_location_name
+        .as_deref()
+        .unwrap_or("a nearby place");
+    let headline = match event.type_name.as_str() {
+        "world.weather.shifted" => format!("The weather changed around {location}"),
+        "world.weather.held" => format!("The weather held steady around {location}"),
+        "world.trade.flowed" => {
+            format!("Needed supplies moved from {location} toward {destination}")
+        }
+        "world.trade.disrupted" => {
+            format!("The flow of supplies from {location} toward {destination} was interrupted")
+        }
+        "world.delivery.needed" => {
+            format!("A physical delivery is needed from {location} to {destination}")
+        }
+        "world.logistics.completed" => format!(
+            "{} completed a physical delivery from {location} to {destination}",
+            event.actor_name.as_deref().unwrap_or("Someone")
+        ),
+        "world.faction.influence_shifted" => {
+            format!("Influence shifted from {location} toward {destination}")
+        }
+        "world.conflict.pressure_grew" => {
+            format!("An unanswered strain grew around {location}")
+        }
+        "world.conflict.pressure_eased" => {
+            format!("The strain around {location} eased for now")
+        }
+        "world.conflict.escalated" => format!("The conflict in {location} escalated"),
+        _ => return None,
+    };
+    Some(headline)
+}
+
+fn journal_world_beat_headline(event: &EventView) -> Option<String> {
+    complete_journal_headline(
+        &journal_world_beat_authored_prose(event).or_else(|| journal_world_beat_fallback(event))?,
+    )
 }
 
 const JOURNAL_ACTION_EVENT_SPAN: u64 = 24;
@@ -773,10 +839,7 @@ fn journal_beat_views(events: &[EventView], location_id: u64) -> Vec<JournalBeat
                             receipt.event_seqs,
                         )
                     } else if journal_world_beat_exposure_id(event).is_some() {
-                        (
-                            complete_journal_headline(event.content.as_deref()?)?,
-                            vec![event.seq],
-                        )
+                        (journal_world_beat_headline(event)?, vec![event.seq])
                     } else {
                         (
                             complete_journal_headline(&room_memory_log_text_at_location(
@@ -2893,6 +2956,7 @@ impl RuntimeWorld {
             ledger: client_actor_id
                 .map(|id| self.visit_ledger_view(id))
                 .unwrap_or_else(empty_visit_ledger_view),
+            goals: self.visible_entity_goals(client_actor_id, location_id),
             bonds: client_actor_id
                 .map(|id| self.bond_views(id))
                 .unwrap_or_default(),
@@ -4949,5 +5013,61 @@ mod tests {
             beats[0].world_beat_exposure_id.as_deref(),
             Some("world-beat:v1:31")
         );
+    }
+
+    #[test]
+    fn journal_world_beats_replace_missing_or_internal_content_with_prose() {
+        let delivery = EventView {
+            seq: 41,
+            type_name: "world.delivery.needed".to_string(),
+            location_id: Some(7),
+            location_name: Some("Moonlit Trail".to_string()),
+            destination_location_id: Some(8),
+            destination_location_name: Some("Cosy Cottage".to_string()),
+            content: Some("world.delivery.needed".to_string()),
+            ..EventView::default()
+        };
+        let weather = EventView {
+            seq: 42,
+            type_name: "world.weather.held".to_string(),
+            location_id: Some(8),
+            location_name: Some("Cosy Cottage".to_string()),
+            content: None,
+            ..EventView::default()
+        };
+        let completed = EventView {
+            seq: 43,
+            type_name: "world.logistics.completed".to_string(),
+            actor_name: Some("Marnie Bramble".to_string()),
+            location_id: Some(7),
+            location_name: Some("Moonlit Trail".to_string()),
+            destination_location_id: Some(8),
+            destination_location_name: Some("Cosy Cottage".to_string()),
+            content: Some(
+                serde_json::json!({
+                    "schema_version": 1,
+                    "summary": "Marnie Bramble carried a needed parcel to Cosy Cottage"
+                })
+                .to_string(),
+            ),
+            ..EventView::default()
+        };
+
+        let beats = journal_beat_views(&[delivery, weather, completed], 7);
+
+        assert_eq!(beats.len(), 3);
+        assert_eq!(
+            beats[0].headline,
+            "A physical delivery is needed from Moonlit Trail to Cosy Cottage."
+        );
+        assert_eq!(
+            beats[1].headline,
+            "The weather held steady around Cosy Cottage."
+        );
+        assert_eq!(
+            beats[2].headline,
+            "Marnie Bramble carried a needed parcel to Cosy Cottage."
+        );
+        assert!(beats.iter().all(|beat| !beat.headline.contains("world.")));
     }
 }

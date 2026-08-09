@@ -293,7 +293,20 @@ impl AiReadiness {
         now_unix: u64,
     ) {
         match status {
-            401 => self.record_account_failure(AccountReadiness::Unauthorized, status, now_unix),
+            // An exact OpenRouter route can surface authorization failures from
+            // its downstream provider even while the OpenRouter key itself is
+            // valid. Keep those failures scoped to the endpoint and model. The
+            // authenticated account probe remains the sole authority that can
+            // open the account-wide unauthorized circuit.
+            401 => self.record_route_failure(
+                endpoint,
+                requested_model_id,
+                RouteFailureKind::Incompatible,
+                None,
+                status,
+                now,
+                now_unix,
+            ),
             402 => {
                 self.record_account_failure(AccountReadiness::CreditsExhausted, status, now_unix)
             }
@@ -505,17 +518,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn account_auth_and_credit_failures_block_every_exact_route_until_probe_recovers() {
+    fn account_probe_auth_and_credit_failures_block_every_exact_route_until_probe_recovers() {
         for (status, reason) in [(401, AI_ACCOUNT_UNAUTHORIZED), (402, AI_CREDITS_EXHAUSTED)] {
             let readiness = AiReadiness::default();
-            readiness.record_http_failure_at(
-                "embeddings",
-                "provider/model-a",
-                status,
-                None,
-                Instant::now(),
-                100,
-            );
+            readiness.record_probe_http_failure(status);
             assert_eq!(
                 readiness.gate("images", "provider/model-b").reason_code(),
                 Some(reason)
@@ -529,6 +535,38 @@ mod tests {
             readiness.record_probe_success();
             assert!(readiness.gate("images", "provider/model-b").is_ready());
         }
+    }
+
+    #[test]
+    fn exact_route_unauthorized_does_not_poison_other_models_or_endpoints() {
+        let readiness = AiReadiness::default();
+        readiness.record_http_failure_at(
+            "images",
+            "openai/gpt-image-1",
+            401,
+            None,
+            Instant::now(),
+            100,
+        );
+
+        let failed = readiness.gate("images", "openai/gpt-image-1");
+        assert_eq!(failed.reason_code(), Some(AI_ROUTE_INCOMPATIBLE));
+        assert!(failed.is_terminal_block());
+        assert!(readiness
+            .gate("images", "openai/gpt-image-1-mini")
+            .is_ready());
+        assert!(readiness
+            .gate("chat/completions", "openai/gpt-chat-latest")
+            .is_ready());
+
+        readiness.record_probe_http_failure(401);
+        assert_eq!(
+            readiness
+                .gate("chat/completions", "openai/gpt-chat-latest")
+                .reason_code(),
+            Some(AI_ACCOUNT_UNAUTHORIZED),
+            "only the account probe may open the account-wide unauthorized circuit"
+        );
     }
 
     #[test]

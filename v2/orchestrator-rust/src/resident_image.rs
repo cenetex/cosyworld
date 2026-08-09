@@ -72,6 +72,7 @@ pub(super) struct GeneratedResidentImage {
     provider: String,
     model: String,
     latency_ms: u64,
+    payer_mode: &'static str,
 }
 
 impl ResidentImagePublication {
@@ -216,6 +217,8 @@ pub(super) async fn complete_resident_image_reply(
     let job_id = resident_image_job_id(plan);
     let generated = generate_moderated_resident_image(
         state,
+        None,
+        "server",
         binding,
         plan.speaker_actor_id,
         &job_id,
@@ -258,6 +261,8 @@ pub(super) async fn complete_resident_image_reply(
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn generate_moderated_resident_image(
     state: &AppState,
+    config_override: Option<&AiConfig>,
+    payer_mode: &'static str,
     binding: &SeedActorModelBinding,
     actor_id: u64,
     job_id: &str,
@@ -269,14 +274,19 @@ pub(super) async fn generate_moderated_resident_image(
     let stored = match load_published_resident_image(&state.generated_asset_dir, job_id)? {
         Some(stored) => stored,
         None => {
-            let config = state
-                .ai_config
-                .as_ref()
-                .as_ref()
+            let config = config_override
+                .or_else(|| state.ai_config.as_ref().as_ref())
                 .ok_or_else(|| AiGatewayError::unconfigured(feature).to_string())?;
             config
                 .pin_actor_image_model(binding)
                 .map_err(|error| error.to_string())?;
+            let reference = latest_resident_image_reference(
+                state,
+                actor_id,
+                &binding.requested_model_id,
+                job_id,
+            )
+            .await?;
             let mut candidate =
                 match load_resident_image_candidate(&state.generated_asset_dir, job_id)? {
                     Some(candidate) => candidate,
@@ -288,6 +298,12 @@ pub(super) async fn generate_moderated_resident_image(
                                 feature,
                                 prompt_version: RESIDENT_IMAGE_PROMPT_VERSION,
                                 prompt,
+                                reference: reference.as_ref().map(|reference| {
+                                    ImageGenerationReference {
+                                        bytes: &reference.bytes,
+                                        content_type: &reference.content_type,
+                                    }
+                                }),
                                 timeout: Duration::from_secs(90),
                                 max_attempts: 2,
                                 referer: "https://cosy.world/",
@@ -299,7 +315,7 @@ pub(super) async fn generate_moderated_resident_image(
                                 state,
                                 Some(actor_id),
                                 feature,
-                                "server",
+                                payer_mode,
                                 &binding.provider,
                                 &binding.requested_model_id,
                                 "failed",
@@ -310,18 +326,20 @@ pub(super) async fn generate_moderated_resident_image(
                             );
                             error.to_string()
                         })?;
-                        let (width, height) = validate_resident_image_bytes(
+                        let (image_bytes, content_type) = trim_transparent_image_padding(
                             &generated.bytes,
                             &generated.content_type,
                         )?;
+                        let (width, height) =
+                            validate_resident_image_bytes(&image_bytes, &content_type)?;
                         let candidate = StoredResidentImage {
                             schema_version: RESIDENT_IMAGE_SCHEMA_VERSION,
                             job_id: job_id.to_string(),
                             actor_id,
-                            content_type: generated.content_type,
+                            content_type,
                             width,
                             height,
-                            digest: format!("{:x}", Sha256::digest(&generated.bytes)),
+                            digest: format!("{:x}", Sha256::digest(&image_bytes)),
                             attribution: generated.model_attribution,
                             context_hash: generated.context_hash,
                             prompt_version: generated.prompt_version,
@@ -335,7 +353,7 @@ pub(super) async fn generate_moderated_resident_image(
                         store_resident_image_candidate(
                             &state.generated_asset_dir,
                             &candidate,
-                            &generated.bytes,
+                            &image_bytes,
                         )?;
                         candidate
                     }
@@ -373,7 +391,7 @@ pub(super) async fn generate_moderated_resident_image(
                     state,
                     Some(actor_id),
                     RESIDENT_IMAGE_POLICY_FEATURE,
-                    "server",
+                    payer_mode,
                     ai_provider_name(Some(config)),
                     &config.vision_model,
                     "failed",
@@ -388,7 +406,7 @@ pub(super) async fn generate_moderated_resident_image(
                 state,
                 Some(actor_id),
                 RESIDENT_IMAGE_POLICY_FEATURE,
-                "server",
+                payer_mode,
                 ai_provider_name(Some(config)),
                 &config.vision_model,
                 if decision.allowed {
@@ -410,7 +428,7 @@ pub(super) async fn generate_moderated_resident_image(
                     state,
                     Some(actor_id),
                     feature,
-                    "server",
+                    payer_mode,
                     &candidate.attribution.provider,
                     &candidate.attribution.resolved_model_id,
                     "rejected",
@@ -437,6 +455,7 @@ pub(super) async fn generate_moderated_resident_image(
         provider: stored.attribution.provider,
         model: stored.attribution.resolved_model_id,
         latency_ms: stored.latency_ms,
+        payer_mode,
     }))
 }
 
@@ -446,7 +465,7 @@ impl GeneratedResidentImage {
             state,
             Some(self.actor_id),
             self.feature,
-            "server",
+            self.payer_mode,
             &self.provider,
             &self.model,
             "published",
@@ -456,6 +475,125 @@ impl GeneratedResidentImage {
             Duration::from_millis(self.latency_ms),
         );
     }
+}
+
+struct ResidentImageReference {
+    bytes: Vec<u8>,
+    content_type: String,
+}
+
+async fn latest_resident_image_reference(
+    state: &AppState,
+    actor_id: u64,
+    requested_model_id: &str,
+    excluded_job_id: &str,
+) -> Result<Option<ResidentImageReference>, String> {
+    let asset_ids = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| event.success && event.actor_id == Some(actor_id))
+            .filter_map(resident_image_asset_id_from_event)
+            .filter(|asset_id| asset_id != excluded_job_id)
+            .take(16)
+            .collect::<Vec<_>>()
+    };
+    for asset_id in asset_ids {
+        let Some(stored) = load_published_resident_image(&state.generated_asset_dir, &asset_id)?
+        else {
+            continue;
+        };
+        if stored.actor_id != actor_id
+            || stored.attribution.requested_model_id != requested_model_id
+        {
+            continue;
+        }
+        let bytes = load_validated_resident_image_bytes(
+            &resident_image_published_asset_path(&state.generated_asset_dir, &asset_id),
+            &stored,
+        )?;
+        return Ok(Some(ResidentImageReference {
+            bytes,
+            content_type: stored.content_type,
+        }));
+    }
+    Ok(None)
+}
+
+fn resident_image_asset_id_from_event(event: &EventView) -> Option<String> {
+    let content = event.content.as_deref()?;
+    let value = serde_json::from_str::<serde_json::Value>(content).ok()?;
+    let asset_id = match event.type_name.as_str() {
+        "image.created" => value.get("asset_id").and_then(serde_json::Value::as_str),
+        "model_interaction.output" => value
+            .get("output_parts")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|parts| {
+                parts.iter().find_map(|part| {
+                    (part.get("modality").and_then(serde_json::Value::as_str) == Some("image"))
+                        .then(|| {
+                            part.get("image")
+                                .and_then(|image| image.get("asset_id"))
+                                .and_then(serde_json::Value::as_str)
+                        })
+                        .flatten()
+                })
+            }),
+        _ => None,
+    }?;
+    is_sha256_hex(asset_id).then(|| asset_id.to_string())
+}
+
+fn trim_transparent_image_padding(
+    bytes: &[u8],
+    content_type: &str,
+) -> Result<(Vec<u8>, String), String> {
+    if content_type == "image/gif" {
+        return Ok((bytes.to_vec(), content_type.to_string()));
+    }
+    let format = match content_type {
+        "image/png" => image::ImageFormat::Png,
+        "image/jpeg" => image::ImageFormat::Jpeg,
+        "image/webp" => image::ImageFormat::WebP,
+        _ => return Err("resident image format is unsupported".to_string()),
+    };
+    let rgba = image::load_from_memory_with_format(bytes, format)
+        .map_err(|error| error.to_string())?
+        .to_rgba8();
+    let (width, height) = rgba.dimensions();
+    let mut left = width;
+    let mut top = height;
+    let mut right = 0;
+    let mut bottom = 0;
+    let mut found = false;
+    for (x, y, pixel) in rgba.enumerate_pixels() {
+        if pixel[3] > 4 {
+            found = true;
+            left = left.min(x);
+            top = top.min(y);
+            right = right.max(x);
+            bottom = bottom.max(y);
+        }
+    }
+    if !found {
+        return Ok((bytes.to_vec(), content_type.to_string()));
+    }
+    let cropped_width = right.saturating_sub(left).saturating_add(1);
+    let cropped_height = bottom.saturating_sub(top).saturating_add(1);
+    let removed_width = width.saturating_sub(cropped_width);
+    let removed_height = height.saturating_sub(cropped_height);
+    if removed_width.saturating_mul(20) < width && removed_height.saturating_mul(20) < height {
+        return Ok((bytes.to_vec(), content_type.to_string()));
+    }
+    let cropped =
+        image::imageops::crop_imm(&rgba, left, top, cropped_width, cropped_height).to_image();
+    let mut output = Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(cropped)
+        .write_to(&mut output, image::ImageFormat::Png)
+        .map_err(|error| error.to_string())?;
+    Ok((output.into_inner(), "image/png".to_string()))
 }
 
 fn resident_image_prompt(plan: &AvatarReplyPlan) -> String {
@@ -878,6 +1016,60 @@ mod tests {
         assert!(validate_resident_image_id(&"a".repeat(64)).is_ok());
         assert!(validate_resident_image_id(&"A".repeat(64)).is_err());
         assert!(validate_resident_image_id("../image").is_err());
+    }
+
+    #[test]
+    fn transparent_generated_padding_is_removed_before_publication() {
+        let mut padded = image::RgbaImage::new(8, 8);
+        for x in 0..8 {
+            padded.put_pixel(x, 0, image::Rgba([80, 120, 160, 255]));
+        }
+        let mut encoded = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(padded)
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .expect("encode padded PNG");
+
+        let (trimmed, content_type) =
+            trim_transparent_image_padding(encoded.get_ref(), "image/png")
+                .expect("trim transparent padding");
+
+        assert_eq!(content_type, "image/png");
+        assert_eq!(
+            validate_resident_image_bytes(&trimmed, &content_type).expect("trimmed dimensions"),
+            (8, 1)
+        );
+    }
+
+    #[test]
+    fn image_reference_identity_is_read_from_both_public_event_shapes() {
+        let asset_id = "a".repeat(64);
+        let direct = EventView {
+            type_name: "image.created".to_string(),
+            content: Some(serde_json::json!({ "asset_id": asset_id }).to_string()),
+            ..EventView::default()
+        };
+        assert_eq!(
+            resident_image_asset_id_from_event(&direct),
+            Some("a".repeat(64))
+        );
+
+        let model_output = EventView {
+            type_name: "model_interaction.output".to_string(),
+            content: Some(
+                serde_json::json!({
+                    "output_parts": [{
+                        "modality": "image",
+                        "image": { "asset_id": "b".repeat(64) }
+                    }]
+                })
+                .to_string(),
+            ),
+            ..EventView::default()
+        };
+        assert_eq!(
+            resident_image_asset_id_from_event(&model_output),
+            Some("b".repeat(64))
+        );
     }
 
     #[test]

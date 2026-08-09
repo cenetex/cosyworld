@@ -5,7 +5,7 @@ use cosyworld_orchestrator::card_policy::{
     card_kind_code_q15, CardPolicyAction, CARD_POLICY_FEATURES,
 };
 
-const RESIDENT_PLANNER_PROMPT_VERSION: &str = "resident-intent-v1";
+const RESIDENT_PLANNER_PROMPT_VERSION: &str = "resident-intent-context-spine-v2";
 const RESIDENT_PLANNER_ELIGIBILITY_POLICY: &str = "resident-planner-offers-v1";
 const RESIDENT_PLANNER_ELIGIBLE_KINDS: &[&str] = &[
     "pass",
@@ -1553,13 +1553,49 @@ pub(super) async fn request_resident_plan(
     }
     let candidates =
         serde_json::to_string(&plan.planner_candidates).unwrap_or_else(|_| "[]".to_string());
+    let spine = if plan.context_spine.is_current() {
+        plan.context_spine.clone()
+    } else {
+        AvatarContextSpine {
+            schema_version: AVATAR_CONTEXT_SPINE_VERSION,
+            speaker: AvatarContextActor {
+                actor_id: plan.speaker_actor_id,
+                name: plan.speaker_name.clone(),
+                description: plan.resident_continuity.stable_identity.clone(),
+                voice: plan.speaker_voice.clone(),
+                calling: default_calling_statement().to_string(),
+                control_mode: "autonomous".to_string(),
+                level: 1,
+                ..AvatarContextActor::default()
+            },
+            location: AvatarContextLocation {
+                location_id: plan.location_id,
+                name: plan.location_name.clone(),
+                title: plan.location_title.clone(),
+                description: plan.location_description.clone(),
+                persona: plan.location_persona.clone(),
+            },
+            current_beat: plan.user_text.clone(),
+            goals: plan.goals.clone(),
+            location_evidence: plan.location_evidence.clone(),
+            public_room_memory: plan.public_room_memory.clone(),
+            cast: plan.cast.clone(),
+            recent_activity: plan.recent_activity.clone(),
+            ..AvatarContextSpine::default()
+        }
+    };
+    let spine_context = spine
+        .prompt(AvatarContextPromptOptions {
+            mode: AvatarContextMode::Think,
+            speech_mode: SpeechMode::Prose,
+            max_words: 45,
+            response_job: "Use present motives and relevant recollections to choose one legal candidate. The JSON reason is a brief in-character motive, not hidden reasoning or a new world fact.".to_string(),
+        })
+        .render_for(Some(32_768), 120)
+        .user;
     let system = "You are a bounded intent selector. Select exactly one candidate from the supplied authoritative planner-eligible list. Return one JSON object only. Echo candidate_id and state_revision exactly. speech_act must be inform, propose, commit, refuse, or react. reason is private proposal metadata, not a world fact. Never invent an action, target, item, destination, cost, outcome, reward, belief, candidate, or revision.";
     let user = format!(
-        "Resident actor: {actor_id}\nTriggering public event: {event}\nBounded continuity and goals:\n{continuity}\n{goals}\nEligibility policy: {policy}; closed offer kinds: {eligible_kinds}\nExact current planner-eligible legal candidates:\n{candidates}\nReturn only {{\"candidate_id\":\"exact id\",\"state_revision\":0,\"speech_act\":\"inform|propose|commit|refuse|react\",\"reason\":\"brief selection rationale\"}}.",
-        actor_id = plan.speaker_actor_id,
-        event = plan.user_text,
-        continuity = format_resident_continuity(&plan.resident_continuity),
-        goals = format_goal_lines(&plan.goals),
+        "Avatar context spine:\n{spine_context}\nEligibility policy: {policy}; closed offer kinds: {eligible_kinds}\nExact current planner-eligible legal candidates:\n{candidates}\nReturn only {{\"candidate_id\":\"exact id\",\"state_revision\":0,\"speech_act\":\"inform|propose|commit|refuse|react\",\"reason\":\"brief in-character motive\"}}.",
         policy = RESIDENT_PLANNER_ELIGIBILITY_POLICY,
         eligible_kinds = RESIDENT_PLANNER_ELIGIBLE_KINDS.join(","),
     );
