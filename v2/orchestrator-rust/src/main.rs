@@ -46598,10 +46598,10 @@ mod tests {
         assert!(INDEX_HTML.contains("data-player-concept=\"pass\""));
         assert!(INDEX_HTML.contains("free redeal command has retired"));
         assert!(INDEX_HTML.contains("prompt.classList.toggle(\"combat-mode\""));
-        assert!(INDEX_HTML.contains("id=\"journal-activity-tray\""));
+        assert!(!INDEX_HTML.contains("id=\"journal-activity-tray\""));
         assert!(INDEX_HTML.contains("id=\"journal-activity\""));
-        assert!(!INDEX_HTML.contains("important-notifications"));
-        assert!(!INDEX_HTML.contains("id=\"chat-progress\""));
+        assert!(INDEX_HTML.contains("id=\"error\""));
+        assert!(INDEX_HTML.contains("id=\"combat-heading\""));
         assert!(INDEX_HTML.contains("enqueueImportantNotification"));
         assert!(INDEX_HTML.contains("function combatAttackEventsShareBeat"));
         assert!(
@@ -46833,7 +46833,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("<textarea"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));
-        assert!(!INDEX_HTML.contains("<table"));
+        assert!(INDEX_HTML.contains("class=\"chat-table-scroll\""));
     }
 
     #[test]

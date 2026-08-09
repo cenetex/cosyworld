@@ -2845,6 +2845,35 @@ async function main() {
           ...valueOverrides,
         }),
       });
+      const imageDigest = "9".repeat(64);
+      const imageEvent = {
+        type: "model_interaction.output",
+        actor_id: 1001,
+        actor_name: "Echo",
+        target_actor_id: 5000,
+        content: JSON.stringify({
+          schema_version: 1,
+          interaction_id: "8".repeat(64),
+          profile: "image",
+          summary: "Echo illustrates the current scene in The Cosy Cottage.",
+          output_parts: [{
+            modality: "image",
+            image: {
+              schema_version: 1,
+              asset_id: imageDigest,
+              url: `/assets/generated/resident-images/${imageDigest}.image`,
+              mime_type: "image/png",
+              width: 1024,
+              height: 1024,
+              alt: "Echo illustrates the current scene in The Cosy Cottage.",
+            },
+          }],
+          attribution: { provider: "openrouter", model: "exact-image-model" },
+          prompt_version: "grounded-image-v1",
+          context_hash: "7".repeat(64),
+        }),
+      };
+      let modelOutputLayoutHost = null;
       try {
         const visibleText = (html) => {
           const container = document.createElement("div");
@@ -2872,6 +2901,30 @@ async function main() {
         const speechOutput = speechEvent();
         const speechMetadata = modelInteractionMetadata(speechOutput);
         const speechResult = modelInteractionOutputHtml(speechOutput);
+        modelOutputLayoutHost = document.createElement("div");
+        modelOutputLayoutHost.style.cssText = "position:fixed;left:16px;top:16px;width:calc(100vw - 32px);visibility:hidden;";
+        modelOutputLayoutHost.innerHTML = modelInteractionOutputHtml(imageEvent);
+        document.body.appendChild(modelOutputLayoutHost);
+        const modelOutputRow = modelOutputLayoutHost.querySelector(".line.model-output");
+        const modelOutputText = modelOutputRow?.querySelector(":scope > .text");
+        const modelOutputImage = modelOutputRow?.querySelector(".resident-reply-image");
+        const modelOutputCaption = modelOutputRow?.querySelector(".resident-image-alt");
+        const modelOutputRowRect = modelOutputRow?.getBoundingClientRect();
+        const modelOutputTextRect = modelOutputText?.getBoundingClientRect();
+        const modelOutputImageRect = modelOutputImage?.getBoundingClientRect();
+        const modelOutputCaptionRect = modelOutputCaption?.getBoundingClientRect();
+        const mobileImageLayout = {
+          viewportWidth: window.innerWidth,
+          rowWidth: modelOutputRowRect?.width || 0,
+          textWidth: modelOutputTextRect?.width || 0,
+          imageWidth: modelOutputImageRect?.width || 0,
+          imageRight: modelOutputImageRect?.right || 0,
+          textRight: modelOutputTextRect?.right || 0,
+          imageBottom: modelOutputImageRect?.bottom || 0,
+          captionTop: modelOutputCaptionRect?.top || 0,
+          gridTemplateColumns: modelOutputRow ? getComputedStyle(modelOutputRow).gridTemplateColumns : "",
+          gridTemplateAreas: modelOutputRow ? getComputedStyle(modelOutputRow).gridTemplateAreas : "",
+        };
         const escapedTranscript = modelInteractionOutputHtml(speechEvent({
           transcript: "<img src=x onerror=window.__modelAudioXss=true>",
         }));
@@ -2897,6 +2950,7 @@ async function main() {
           rerankResultText: visibleText(rerankResult),
           speechResult,
           speechMetadata,
+          mobileImageLayout,
           speechWithDuration: modelInteractionMetadata(speechEvent({ duration_ms: 1200 })),
           rejectedSpeech: {
             mismatchedAsset: modelInteractionMetadata(speechEvent({ asset_id: "f".repeat(64) })) === null,
@@ -2924,12 +2978,19 @@ async function main() {
           }),
         };
       } finally {
+        modelOutputLayoutHost?.remove();
         state = previousState;
         actorId = previousActorId;
         pendingModelInteractions = previousPending;
       }
     });
     assert(result.image?.label === "illustrate" && result.image?.detail.endsWith("one visual interpretation"), `image interaction should remain explicitly visual: ${JSON.stringify(result)}`);
+    assert(result.mobileImageLayout?.viewportWidth <= 900
+      && result.mobileImageLayout?.textWidth >= result.mobileImageLayout?.rowWidth * 0.8
+      && result.mobileImageLayout?.imageWidth >= result.mobileImageLayout?.textWidth - 1
+      && result.mobileImageLayout?.imageRight <= result.mobileImageLayout?.textRight + 1
+      && result.mobileImageLayout?.captionTop >= result.mobileImageLayout?.imageBottom - 1
+      && /pfp/.test(result.mobileImageLayout?.gridTemplateAreas || ""), `mobile visual model output should use the transcript width with its caption beneath the image: ${JSON.stringify(result.mobileImageLayout)}`);
     assert(result.image?.summary.includes("exact image model") && result.image?.busyLabel === "illustrating", `image confirmation and pending copy should remain visual: ${JSON.stringify(result.image)}`);
     assert(result.embeddings?.label === "find resonance" && result.embeddings?.title === "find resonance with Echo", `embedding interaction should render Find resonance: ${JSON.stringify(result.embeddings)}`);
     assert(result.embeddings?.detail.endsWith("three neighboring model resonances") && result.embeddings?.busyLabel === "finding resonance", `embedding interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.embeddings)}`);
@@ -2972,6 +3033,81 @@ async function main() {
     assert(/Try Find resonance again/.test(result.embeddingsFailure)
       && /Try Rank echoes again/.test(result.rerankFailure)
       && /Try Speak again/.test(result.speechFailure), `model interactions should retain their profile-specific retry action: ${JSON.stringify(result)}`);
+  }
+
+  async function assertChatMarkdownTypography() {
+    const result = await page.evaluate(() => {
+      const markdown = [
+        "## Field notes",
+        "A **steady** plan with *soft emphasis* and `inline_code`.",
+        "",
+        "| Zone | Avatar | HP |",
+        "|:---|:---:|---:|",
+        "| Range left | Moss Guard | 6 |",
+        "| Close combat | Lantern Stitch | 8 |",
+        "",
+        "```javascript",
+        "const unsafe = \"<script>alert('no')</script>\";",
+        "````",
+        "",
+        "<img src=x onerror=window.__chatMarkdownXss=true>",
+      ].join("\n");
+      const host = document.createElement("div");
+      host.style.cssText = "position:fixed;left:8px;top:8px;width:320px;visibility:hidden;";
+      host.innerHTML = messageHtml({
+        type: "message.created",
+        actor_id: 1001,
+        actor_name: "Rati",
+        content: markdown,
+      });
+      document.body.appendChild(host);
+      try {
+        const prose = host.querySelector(".chat-markdown");
+        const tableScroller = host.querySelector(".chat-table-scroll");
+        const code = host.querySelector(".chat-code-block code");
+        return {
+          headings: host.querySelectorAll(".chat-markdown h2").length,
+          tables: host.querySelectorAll(".chat-markdown table").length,
+          headers: [...host.querySelectorAll(".chat-markdown th")].map((node) => node.textContent.trim()),
+          rows: host.querySelectorAll(".chat-markdown tbody tr").length,
+          codeBlocks: host.querySelectorAll(".chat-code-block").length,
+          language: code?.getAttribute("data-language") || "",
+          codeText: code?.textContent || "",
+          inlineCode: host.querySelector(":not(pre) > code")?.textContent || "",
+          strong: host.querySelector("strong")?.textContent || "",
+          emphasis: host.querySelector("em")?.textContent || "",
+          scripts: host.querySelectorAll("script").length,
+          images: host.querySelectorAll("img").length,
+          xssTriggered: window.__chatMarkdownXss === true,
+          escapedHtmlVisible: prose?.textContent.includes("<img src=x onerror=window.__chatMarkdownXss=true>") || false,
+          whiteSpace: prose ? getComputedStyle(prose).whiteSpace : "",
+          lineHeight: prose ? Number.parseFloat(getComputedStyle(prose).lineHeight) : 0,
+          overflowX: tableScroller ? getComputedStyle(tableScroller).overflowX : "",
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        };
+      } finally {
+        host.remove();
+      }
+    });
+    assert(result.headings === 1
+      && result.tables === 1
+      && result.headers.join(",") === "Zone,Avatar,HP"
+      && result.rows === 2, `chat Markdown should render headings and tables with stable structure: ${JSON.stringify(result)}`);
+    assert(result.codeBlocks === 1
+      && result.language === "javascript"
+      && result.codeText.includes("<script>alert('no')</script>")
+      && result.inlineCode === "inline_code", `chat Markdown should preserve fenced and inline code literally: ${JSON.stringify(result)}`);
+    assert(result.strong === "steady"
+      && result.emphasis === "soft emphasis"
+      && result.scripts === 0
+      && result.images === 0
+      && result.escapedHtmlVisible
+      && !result.xssTriggered, `chat Markdown must stay escaped while retaining typographic emphasis: ${JSON.stringify(result)}`);
+    assert(result.whiteSpace === "normal"
+      && result.lineHeight >= 20
+      && result.overflowX === "auto"
+      && result.documentWidth <= result.viewportWidth, `chat typography and tables should stay readable without viewport overflow: ${JSON.stringify(result)}`);
   }
 
   async function assertModelInteractionLifecycleRehydratesAfterReloadAndGap() {
@@ -3548,7 +3684,7 @@ async function main() {
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 
-  async function assertChatActivityLivesInJournalTray() {
+  async function assertChatActivityLivesInStatusSurface() {
     const result = await page.evaluate(() => {
       const previous = {
         state,
@@ -3558,6 +3694,11 @@ async function main() {
         pendingReflection,
         journalNotifications: journalNotifications.map((entry) => ({ ...entry })),
         dismissedJournalActivityKeys: new Set(dismissedJournalActivityKeys),
+        statusText: document.querySelector("#error")?.textContent || "",
+        statusKind: document.querySelector("#error")?.classList.contains("ok")
+          ? "ok"
+          : document.querySelector("#error")?.classList.contains("notice") ? "notice" : "error",
+        statusSource: document.querySelector("#error")?.dataset.statusSource || "system",
       };
       state = {
         ...state,
@@ -3570,6 +3711,7 @@ async function main() {
       pendingReflection = null;
       journalNotifications = [];
       dismissedJournalActivityKeys.clear();
+      writeStatus("");
       pendingChats = [{
         id: 901,
         targetActorId: 78,
@@ -3583,12 +3725,15 @@ async function main() {
       }];
       try {
         renderJournalActivity();
-        const tray = document.querySelector("#journal-activity-tray");
+        const status = document.querySelector("#error");
         const initial = {
-          visible: !tray.hidden,
+          topTrayAbsent: !document.querySelector("#journal-activity-tray"),
           bottomProgress: Boolean(document.querySelector("#chat-progress")),
-          segments: tray.querySelectorAll(".journal-progress-segments span").length,
-          filled: tray.querySelectorAll(".journal-progress-segments span.filled").length,
+          statusText: status.textContent.replace(/\s+/g, " ").trim(),
+          statusSource: status.dataset.statusSource || "",
+          statusNotice: status.classList.contains("notice"),
+          segments: document.querySelectorAll("#journal-activity .journal-progress-segments span").length,
+          filled: document.querySelectorAll("#journal-activity .journal-progress-segments span.filled").length,
         };
         const roundHandled = resolvePendingChat({
           type: "chat.round",
@@ -3610,19 +3755,19 @@ async function main() {
         const initiative = {
           roundHandled,
           passHandled,
-          segments: tray.querySelectorAll(".journal-progress-segments span").length,
-          filled: tray.querySelectorAll(".journal-progress-segments span.filled").length,
-          text: tray.textContent.replace(/\s+/g, " ").trim(),
+          segments: document.querySelectorAll("#journal-activity .journal-progress-segments span").length,
+          filled: document.querySelectorAll("#journal-activity .journal-progress-segments span.filled").length,
+          text: status.textContent.replace(/\s+/g, " ").trim(),
         };
         setJournalOpen(true);
         const opened = {
-          trayHidden: tray.hidden,
+          statusCleared: status.dataset.statusSource !== "journal",
           journalHidden: document.querySelector("#journal-view").hidden,
           activity: document.querySelector("#journal-activity").textContent.replace(/\s+/g, " ").trim(),
         };
         setJournalOpen(false);
         const closed = {
-          trayHidden: tray.hidden,
+          statusCleared: status.dataset.statusSource !== "journal",
           activityCount: currentJournalActivities().length,
         };
         return { initial, initiative, opened, closed };
@@ -3638,14 +3783,18 @@ async function main() {
           dismissedJournalActivityKeys.add(key);
         }
         renderTimelines();
+        writeStatus(previous.statusText, previous.statusKind, previous.statusSource);
       }
     });
     assert(
-      result.initial.visible
+      result.initial.topTrayAbsent
         && !result.initial.bottomProgress
+        && result.initial.statusSource === "journal"
+        && result.initial.statusNotice
+        && result.initial.statusText.includes("chat")
         && result.initial.segments === 2
         && result.initial.filled === 2,
-      `Chat progress should live only in the top Journal tray: ${JSON.stringify(result)}`,
+      `Chat progress should use the shared status surface instead of a top popup: ${JSON.stringify(result)}`,
     );
     assert(
       result.initiative.roundHandled
@@ -3656,13 +3805,13 @@ async function main() {
       `initiative chat/pass events should advance Journal segments: ${JSON.stringify(result)}`,
     );
     assert(
-      result.opened.trayHidden
+      result.opened.statusCleared
         && !result.opened.journalHidden
         && result.opened.activity.includes("passed"),
-      `the Journal tray should open the Journal onto its activity: ${JSON.stringify(result)}`,
+      `opening the Journal should move activity detail into the Journal and clear its status notice: ${JSON.stringify(result)}`,
     );
     assert(
-      result.closed.trayHidden && result.closed.activityCount === 0,
+      result.closed.statusCleared && result.closed.activityCount === 0,
       `closing the Journal should dismiss its viewed activity: ${JSON.stringify(result)}`,
     );
   }
@@ -4679,62 +4828,137 @@ async function main() {
     assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `the post-defeat action should be a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
   }
 
-  async function assertCombatTurnBannerOwnsFullRowAboveCardHand() {
-    // Issue #490: the narrow layout turns the footer into a flex row, where
-    // grid-column is meaningless; the banner must still claim its own row
-    // above the widest (three-entry combat) hand instead of crushing the
-    // cards into slivers beside it.
+  async function assertCombatHeadingOwnsBattleFormation() {
     const previousViewport = page.viewportSize();
     await page.setViewportSize({ width: 360, height: 860 });
     await page.waitForTimeout(50);
     const result = await page.evaluate(() => {
-      const prompt = document.querySelector(".prompt");
-      const banner = $("turn-banner");
-      const pill = $("turn-ping-pill");
-      const controls = $("turn-banner-controls");
-      const shuffle = $("shuffle");
-      const previousHidden = banner.hidden;
-      const previousPill = pill.innerHTML;
-      const previousControls = controls.innerHTML;
-      const previousShuffleDisplay = shuffle.style.display;
-      const previousHasDraw = prompt.classList.contains("has-draw");
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousLogEvents = logEvents;
+      const previousTurnRuns = turnBannerControlRuns;
       try {
-        pill.innerHTML = '<span class="turn-ping-copy">ordered combat — your turn</span><span class="turn-ping-time">45s</span>';
-        controls.innerHTML = [
-          '<button type="button" class="turn-banner-control">draw</button>',
-          '<button type="button" class="turn-banner-control">need time</button>',
-        ].join("");
-        banner.hidden = false;
-        // The exact hand caps play to two footer cards; the draw control stays
-        // separate from that authority-bound hand.
-        prompt.classList.add("has-draw");
-        shuffle.style.display = "flex";
-        const promptRect = prompt.getBoundingClientRect();
-        const bannerRect = banner.getBoundingClientRect();
-        const cards = [...prompt.querySelectorAll(".cmd")]
-          .filter((card) => card.offsetParent !== null)
-          .map((card) => card.getBoundingClientRect());
+        actorId = 5000;
+        state = {
+          location: { id: 3, name: "Moonlit Trail" },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 2 } },
+            { id: 5001, name: "Moss Guard", kind: "human", status: "active", stats: { level: 1 } },
+            { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 2 } },
+          ],
+          cards: {
+            actors: {
+              5000: { card_id: "lantern-stitch", display_name: "Lantern Stitch", role: "avatar", aspect: "portrait", image_url: "" },
+              5001: { card_id: "moss-guard", display_name: "Moss Guard", role: "avatar", aspect: "portrait", image_url: "" },
+              1004: { card_id: "moonlit-echo", display_name: "Moonlit Echo", role: "resident", aspect: "portrait", image_url: "" },
+            },
+            items: {},
+            locations: {},
+          },
+          combat: {
+            encounter_id: 88,
+            round: 3,
+            current_actor_id: 5000,
+            current_actor_name: "Lantern Stitch",
+            is_current_actor: true,
+            participants: [
+              { actor_id: 5000, actor_name: "Lantern Stitch", side: 1, initiative: 12, status: "active", current_hp: 8, max_hp: 10 },
+              { actor_id: 5001, actor_name: "Moss Guard", side: 1, initiative: 9, status: "active", current_hp: 6, max_hp: 8 },
+              { actor_id: 1004, actor_name: "Moonlit Echo", side: 2, initiative: 7, status: "active", current_hp: 5, max_hp: 12 },
+            ],
+          },
+          turn: {
+            enabled: true,
+            policy: "scene-turn",
+            is_current_actor: true,
+            can_need_time: true,
+            need_time_extension_ms: 60000,
+          },
+          primary_action: { kind: "attack", options: [{ kind: "attack" }] },
+          economy: {},
+          ledger: {},
+          bonds: [],
+          items: [],
+          exits: [],
+          room_features: [],
+          access: {},
+        };
+        renderCombatHeading();
+        renderTurnPingPill();
+        logEvents = [{
+          seq: 200,
+          type: "combat.encounter.started",
+          actor_id: 5000,
+          actor_name: "Lantern Stitch",
+          target_actor_id: 1004,
+          target_actor_name: "Moonlit Echo",
+          location_id: 3,
+          location_name: "Moonlit Trail",
+        }, {
+          seq: 201,
+          type: "combat.attack.attempt",
+          actor_id: 5000,
+          actor_name: "Lantern Stitch",
+          target_actor_id: 1004,
+          target_actor_name: "Moonlit Echo",
+          location_id: 3,
+          raw_roll: 14,
+          modifier: 3,
+          total: 17,
+          dc: 10,
+          combat_outcome: {
+            type: "combat.attack.hit",
+            target_actor_name: "Moonlit Echo",
+            damage: 4,
+            current_hp: 5,
+          },
+        }];
+        renderLog();
+        const heading = document.querySelector("#combat-heading");
+        const headingRect = heading.getBoundingClientRect();
+        const zoneNames = (key) => [...heading.querySelectorAll(`[data-combat-zone="${key}"] .combat-profile-name`)]
+          .map((node) => node.textContent.trim());
         return {
-          cardCount: cards.length,
-          promptWidth: promptRect.width,
-          bannerWidth: bannerRect.width,
-          bannerBottom: bannerRect.bottom,
-          highestCardTop: Math.min(...cards.map((rect) => rect.top)),
-          narrowestCard: Math.min(...cards.map((rect) => rect.width)),
+          headingVisible: !heading.hidden,
+          headingHeight: headingRect.height,
+          headingLeft: headingRect.left,
+          headingRight: headingRect.right,
+          heroHidden: getComputedStyle(document.querySelector("#room-hero")).display === "none",
+          left: zoneNames("left"),
+          close: zoneNames("close"),
+          right: zoneNames("right"),
+          zoneLabels: [...heading.querySelectorAll(".combat-zone-label")].map((node) => node.textContent.trim()),
+          footerBannerHidden: document.querySelector("#turn-banner").hidden,
+          needTimeInHeading: Boolean(heading.querySelector('[data-turn-control="need-time"]')),
+          battleLog: document.querySelector("#log [data-combat-beat]")?.textContent.replace(/\s+/g, " ").trim() || "",
+          battleRows: document.querySelectorAll("#log [data-combat-beat]").length,
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
         };
       } finally {
-        banner.hidden = previousHidden;
-        pill.innerHTML = previousPill;
-        controls.innerHTML = previousControls;
-        shuffle.style.display = previousShuffleDisplay;
-        prompt.classList.toggle("has-draw", previousHasDraw);
+        state = previousState;
+        actorId = previousActorId;
+        logEvents = previousLogEvents;
+        turnBannerControlRuns = previousTurnRuns;
+        renderCombatHeading();
+        renderTurnPingPill();
+        renderLog();
       }
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
-    assert(result.cardCount >= 1, `the combat hand should retain a usable footer card beneath the turn banner: ${JSON.stringify(result)}`);
-    assert(result.bannerWidth >= result.promptWidth * 0.9, `the banner must span the footer, not sit beside the cards: ${JSON.stringify(result)}`);
-    assert(result.bannerBottom <= result.highestCardTop + 1, `the banner must occupy its own row above the card grid: ${JSON.stringify(result)}`);
-    assert(result.narrowestCard >= 60, `every combat card must stay at usable size beneath the banner: ${JSON.stringify(result)}`);
+    assert(result.headingVisible && result.heroHidden, `battle formation should replace the room hero in the heading: ${JSON.stringify(result)}`);
+    assert(result.headingHeight >= 110 && result.headingHeight <= 170
+      && result.headingLeft >= 0
+      && result.headingRight <= result.viewportWidth + 1
+      && result.documentWidth <= result.viewportWidth, `mobile battle heading should stay compact and inside the viewport: ${JSON.stringify(result)}`);
+    assert(result.left.join(",") === "Moss Guard"
+      && result.close.join(",") === "Lantern Stitch"
+      && result.right.join(",") === "Moonlit Echo", `battle profiles should stage allies left, the current actor close, and opponents right: ${JSON.stringify(result)}`);
+    assert(result.zoneLabels.join(",") === "range left,close combat,range right", `battle range zones should be explicit: ${JSON.stringify(result)}`);
+    assert(result.footerBannerHidden && result.needTimeInHeading, `battle timing controls should live in the heading instead of encroaching on the chat footer: ${JSON.stringify(result)}`);
+    assert(result.battleRows === 1
+      && result.battleLog.includes("Moonlit Echo takes 4 harm")
+      && result.battleLog.includes("5 HP remaining"), `battle narration should remain in the shared log: ${JSON.stringify(result)}`);
   }
 
   async function assertRecoveryPromotionRequiresDealtRest() {
@@ -12280,10 +12504,17 @@ async function main() {
         text: document.querySelector("#error")?.textContent || "",
         display: getComputedStyle(document.querySelector("#error")).display,
         height: document.querySelector("#error").getBoundingClientRect().height,
+        source: document.querySelector("#error")?.dataset.statusSource || "",
+        notice: document.querySelector("#error")?.classList.contains("notice") || false,
       }));
       assert(
-        recovered.text === "" && recovered.display === "none" && recovered.height === 0,
-        `successful recovery should clear the status row completely: ${JSON.stringify(recovered)}`,
+        !recovered.text.includes("Catching up")
+          && recovered.source !== "system"
+          && (
+            (recovered.text === "" && recovered.display === "none" && recovered.height === 0)
+            || (recovered.source === "journal" && recovered.notice && recovered.display !== "none")
+          ),
+        `successful recovery should clear its system status and may reveal a journal notice: ${JSON.stringify(recovered)}`,
       );
       steps.push({ label: "gap recovery status clears", announcements: active.announcements });
     } finally {
@@ -13683,6 +13914,7 @@ async function main() {
   await assertNoVisibleOverflow();
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
+  await assertChatMarkdownTypography();
   // Before an avatar exists there is one onboarding command, rather than a
   // dealt action hand. The finite two-card cap begins with normal play.
   await assertActionBarCapped("avatar gate", 1);
@@ -13764,7 +13996,7 @@ async function main() {
   await assertGiftPrimaryUsesCompactVerb();
   await assertGiftChoicesCollapseIntoOneCard();
   await assertTravelChoicesCollapseIntoOneCard();
-  await assertChatActivityLivesInJournalTray();
+  await assertChatActivityLivesInStatusSurface();
   await assertChoicePreviewFollowsSelectedCard();
   await assertKeepsakeLoadoutShapesSceneDeal();
   await assertCarriedDeckUsesWeightLanguage();
@@ -13779,7 +14011,7 @@ async function main() {
   await assertSpentPreparationSurfacesProjectPush();
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
   await assertPlayerDefeatTransitionIsExplicit();
-  await assertCombatTurnBannerOwnsFullRowAboveCardHand();
+  await assertCombatHeadingOwnsBattleFormation();
   await assertRecoveryPromotionRequiresDealtRest();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();
