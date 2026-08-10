@@ -68,6 +68,7 @@ mod offer_commands;
 mod ownership;
 #[cfg(test)]
 mod project_push_tests;
+mod projection;
 mod prompts;
 mod proxim8;
 mod quest_loot;
@@ -906,11 +907,7 @@ enum ProjectionMutation {
     CreateTransferOffer {
         offer: TransferOfferState,
     },
-    ResolveTransferOffer {
-        offer_id: String,
-        status: TransferOfferStatus,
-        resolved_by_actor_id: u64,
-    },
+    ResolveTransferOffer(projection::ResolveTransferOffer),
     SetActorSafety {
         actor_id: u64,
         target_actor_id: u64,
@@ -920,9 +917,7 @@ enum ProjectionMutation {
     SetGiftAutoAccept {
         policy: GiftAutoAcceptPolicy,
     },
-    ConsumeGiftAutoAccept {
-        policy_id: String,
-    },
+    ConsumeGiftAutoAccept(projection::ConsumeGiftAutoAccept),
     ShuffleHand {
         reason: String,
     },
@@ -1192,11 +1187,7 @@ enum ProjectionMutation {
         prepared: bool,
         reason: String,
     },
-    SetItemEquipped {
-        item_id: u64,
-        equipped: bool,
-        reason: String,
-    },
+    SetItemEquipped(projection::SetItemEquipped),
     SetItemContained {
         item_id: u64,
         container_item_id: Option<u64>,
@@ -9817,6 +9808,19 @@ impl RuntimeWorld {
         allow_legacy_generated_identity_backfill: bool,
         historical_bundle_hash: &str,
     ) -> Vec<EventView> {
+        // Handlers take this instead of a growing positional argument list.
+        // Reshaped variants read everything they need from it; the arms that
+        // still destructure inline keep using the bindings above until they
+        // are reshaped in turn.
+        let ctx = projection::ProjectionContext {
+            action,
+            committed_events,
+            enforce_active_contribution_contract,
+            provenance: projection::RecordProvenance {
+                allow_legacy_generated_identity_backfill,
+                historical_bundle_hash,
+            },
+        };
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
@@ -9828,17 +9832,8 @@ impl RuntimeWorld {
                         .entry(offer.id.clone())
                         .or_insert_with(|| offer.clone());
                 }
-                ProjectionMutation::ResolveTransferOffer {
-                    offer_id,
-                    status,
-                    resolved_by_actor_id,
-                } => {
-                    if let Some(offer) = self.transfer_offers.get_mut(offer_id) {
-                        if offer.status == TransferOfferStatus::Pending || offer.status == *status {
-                            offer.status = *status;
-                            offer.resolved_by_actor_id = Some(*resolved_by_actor_id);
-                        }
-                    }
+                ProjectionMutation::ResolveTransferOffer(mutation) => {
+                    mutation.apply(self, &ctx);
                 }
                 ProjectionMutation::SetActorSafety {
                     actor_id,
@@ -9882,10 +9877,8 @@ impl RuntimeWorld {
                     self.gift_auto_accepts
                         .insert(policy.id.clone(), policy.clone());
                 }
-                ProjectionMutation::ConsumeGiftAutoAccept { policy_id } => {
-                    if let Some(policy) = self.gift_auto_accepts.get_mut(policy_id) {
-                        policy.consumed = true;
-                    }
+                ProjectionMutation::ConsumeGiftAutoAccept(mutation) => {
+                    mutation.apply(self, &ctx);
                 }
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
@@ -10937,17 +10930,8 @@ impl RuntimeWorld {
                         reason,
                     ));
                 }
-                ProjectionMutation::SetItemEquipped {
-                    item_id,
-                    equipped,
-                    reason,
-                } => {
-                    events.extend(self.set_item_equipped(
-                        action.actor_id,
-                        *item_id,
-                        *equipped,
-                        reason,
-                    ));
+                ProjectionMutation::SetItemEquipped(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
                 ProjectionMutation::SetItemContained {
                     item_id,
@@ -31339,9 +31323,11 @@ async fn give_item(
                 let mut record = JournalRecord::new(planned_action, runtime.next_seed_value());
                 record
                     .projection_mutations
-                    .push(ProjectionMutation::ConsumeGiftAutoAccept {
-                        policy_id: policy.id,
-                    });
+                    .push(ProjectionMutation::ConsumeGiftAutoAccept(
+                        projection::ConsumeGiftAutoAccept {
+                            policy_id: policy.id,
+                        },
+                    ));
                 let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record)
                 else {
                     return Json(ActionResponse {
@@ -31659,11 +31645,13 @@ async fn resolve_transfer_offer(
     };
     record
         .projection_mutations
-        .push(ProjectionMutation::ResolveTransferOffer {
-            offer_id: offer.id.clone(),
-            status: resolved_status,
-            resolved_by_actor_id: payload.actor_id,
-        });
+        .push(ProjectionMutation::ResolveTransferOffer(
+            projection::ResolveTransferOffer {
+                offer_id: offer.id.clone(),
+                status: resolved_status,
+                resolved_by_actor_id: payload.actor_id,
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -33067,11 +33055,13 @@ async fn set_item_equipped(
     );
     record
         .projection_mutations
-        .push(ProjectionMutation::SetItemEquipped {
-            item_id: payload.item_id,
-            equipped: payload.equipped,
-            reason: "equipment_configuration".to_string(),
-        });
+        .push(ProjectionMutation::SetItemEquipped(
+            projection::SetItemEquipped {
+                item_id: payload.item_id,
+                equipped: payload.equipped,
+                reason: "equipment_configuration".to_string(),
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
