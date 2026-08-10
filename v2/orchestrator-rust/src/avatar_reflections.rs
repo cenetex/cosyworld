@@ -3,10 +3,15 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v1";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v2";
 const REASONING_THOUGHT_MEMORY_MAX_WORDS: usize = 45;
-const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v1";
-const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v1";
+const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
+const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
+// The prose publication gate also enforces a 360-character ceiling. Ninety
+// words invited valid prompt-following output that the gate could never
+// publish; 48 words leaves room for ordinary word lengths and punctuation.
+const SELF_DESCRIPTION_MAX_WORDS: usize = 48;
+const SELF_DESCRIPTION_MAX_TOKENS: u32 = 128;
 pub(super) const AVATAR_REFLECTION_DC: u16 = 18;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -562,7 +567,7 @@ async fn complete_avatar_self_description(
     let prompt = spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::SelfDescription,
         speech_mode: SpeechMode::Prose,
-        max_words: 90,
+        max_words: SELF_DESCRIPTION_MAX_WORDS,
         response_job: "Describe the current self from lived evidence. Preserve continuity; make any change an interpretation, not a newly invented deed or fact.".to_string(),
     });
     let generation_key = format!(
@@ -585,7 +590,7 @@ async fn complete_avatar_self_description(
             prompt_version: AVATAR_SELF_DESCRIPTION_PROMPT_VERSION,
             prompt,
             temperature: 0.86,
-            max_tokens: 180,
+            max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
             room_id: Some(source_job.source_location_id),
@@ -597,7 +602,7 @@ async fn complete_avatar_self_description(
             speaker_name: source_job.actor_name.clone(),
             other_speaker_names: source_job.other_speaker_names.clone(),
             mode: SpeechMode::Prose,
-            max_words: 90,
+            max_words: SELF_DESCRIPTION_MAX_WORDS,
             anchors: spine.anchors(AvatarContextMode::SelfDescription),
             recent_lines: spine
                 .recent_dialogue
@@ -700,7 +705,7 @@ async fn complete_world_entity_self_description(
         ),
         WorldEntityKind::Avatar => return Ok(()),
     };
-    let max_words = 90;
+    let max_words = SELF_DESCRIPTION_MAX_WORDS;
     let generation_key = format!(
         "{}-self-description:{}:level:{}",
         subject.kind.as_str(),
@@ -723,7 +728,7 @@ async fn complete_world_entity_self_description(
             prompt_version,
             prompt: spine.self_description_prompt(max_words),
             temperature: 0.88,
-            max_tokens: 180,
+            max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
             referer: "http://127.0.0.1:3102",
             model_binding: None,
             room_id: Some(source_job.source_location_id),

@@ -1,6 +1,6 @@
 export const ACTOR_INTERACTION_PROFILE_SCHEMA_VERSION = 1;
 export const ACTOR_INTERACTION_PROFILE_SNAPSHOT =
-  "openrouter-interactions-2026-08-08.4";
+  "openrouter-interactions-2026-08-09.5";
 export const PROVIDER_AVAILABILITY_SEMANTICS =
   "provider_available only records that the pinned exact model and provider endpoint were advertised in the profile snapshot; it does not mean CosyWorld has a runtime adapter. Action offers must require provider_available, runtime_adapter_supported, and the applicable runtime policy gates.";
 
@@ -109,6 +109,8 @@ const imageRouteReason =
   "exact_model_id_absent_from_openrouter_image_models_2026-08-08";
 const chatRouteReason =
   "exact_model_id_has_no_chat_completion_endpoint_2026-08-08";
+const batchChatRouteReason =
+  "exact_batch_model_id_requires_async_batch_route_2026-08-09";
 const embeddingRouteReason =
   "exact_batch_model_id_has_no_immediate_embeddings_route_2026-08-08";
 const ttsVoiceReason =
@@ -188,11 +190,11 @@ function talkProfile(binding) {
   return interactionProfile(binding, "talk", {
     outputs: ["text"],
     required_parameters: ["model", "messages"],
-    disabled_reason: chatRouteUnavailableModelIds.has(
-      binding.requested_model_id,
-    )
-      ? chatRouteReason
-      : null,
+    disabled_reason: binding.requested_model_id.endsWith(":batch")
+      ? batchChatRouteReason
+      : chatRouteUnavailableModelIds.has(binding.requested_model_id)
+        ? chatRouteReason
+        : null,
   });
 }
 

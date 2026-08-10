@@ -605,7 +605,7 @@ pub(crate) fn room_memory_prompt(
         location.memory.join(" ")
     };
     (
-        "one or two plain sentences of shared room memory · under 65 words · no labels or system vocabulary".to_string(),
+        "one or two plain sentences of shared room memory · under 65 words · natural prose only · no headings, labels, bullets, colons, semicolons, slashes, dashes, or system vocabulary".to_string(),
         format!(
             "{name} — {title}. {description} {persona}\nthis place keeps: {fixed}\nbefore:\n{before}\ntoday:\n{current}\ntoday—",
             name = location.name,

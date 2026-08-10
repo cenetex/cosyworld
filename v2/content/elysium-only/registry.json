@@ -12,6 +12,7 @@
     "persistence_compatibility": {
       "schema_version": 1,
       "replay_compatible_bundle_hashes": [
+        "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548",
         "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf",
         "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e"
       ]
@@ -19,7 +20,7 @@
     "rules_profile": "cosyworld.srd5/1",
     "active_rules_variants": [],
     "active_rules_extensions": [],
-    "bundle_hash": "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548",
+    "bundle_hash": "sha256:3b89e4cae565d664488218ce98eef3baa3a9c26d374bb4c6633e30db126d6e38",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -276,7 +277,7 @@
           "type": "workspace",
           "path": "../../content/elysium"
         },
-        "integrity": "sha256:52f8b700af98c365bf74a4a8e4ae928c456002e9291ca21b6a83ee42c8aa3a00"
+        "integrity": "sha256:f396ee2ae66128930d7e9d6eaa8ad700816d118e93322a5dc416a6f82b52872c"
       }
     ],
     "files": {
@@ -49320,7 +49321,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },
@@ -49405,7 +49406,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },
@@ -49887,7 +49888,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },
@@ -53145,7 +53146,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },
@@ -53265,7 +53266,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },
@@ -53344,7 +53345,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },
@@ -56059,7 +56060,7 @@
         ],
         "input_cost_per_million": 0,
         "output_cost_per_million": 0,
-        "zero_data_retention": true,
+        "zero_data_retention": false,
         "speech_mode": "raw",
         "pack_id": "cosyworld.elysium"
       },

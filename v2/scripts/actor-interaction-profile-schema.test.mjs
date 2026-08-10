@@ -75,7 +75,7 @@ test("classifies the pinned catalog into exact native interactions", () => {
     compose_audio: 2,
   });
   assert.deepEqual(Object.fromEntries(providerAvailableCounts), {
-    talk: 356,
+    talk: 328,
     illustrate: 38,
     speak: 13,
     transcribe: 13,
@@ -86,8 +86,8 @@ test("classifies the pinned catalog into exact native interactions", () => {
     compose_audio: 2,
   });
   assert.deepEqual(Object.fromEntries(availabilityCounts), {
-    active: 472,
-    unsupported: 9,
+    active: 444,
+    unsupported: 37,
     archived: 4,
   });
 });
@@ -102,6 +102,24 @@ test("withholds Talk when the exact chat-completion endpoint is absent", () => {
   assert.equal(
     olmo.profiles[0].disabled_reason,
     "exact_model_id_has_no_chat_completion_endpoint_2026-08-08",
+  );
+});
+
+test("withholds synchronous Talk from asynchronous batch variants", () => {
+  const batchProfiles = document.bindings.filter((row) =>
+    row.requested_model_id.endsWith(":batch"),
+  );
+  assert.equal(batchProfiles.length, 31);
+  assert(
+    batchProfiles.every((row) =>
+      row.profiles.every(
+        (profile) =>
+          profile.kind !== "talk" ||
+          (profile.provider_available === false &&
+            profile.disabled_reason ===
+              "exact_batch_model_id_requires_async_batch_route_2026-08-09"),
+      ),
+    ),
   );
 });
 
@@ -212,7 +230,7 @@ test("keeps provider availability separate from local adapter support", () => {
       ({ profile }) =>
         profile.provider_available && profile.runtime_adapter_supported,
     ).length,
-    442,
+    414,
   );
   const vectorProfiles = profiles.filter(
     ({ row, profile }) =>

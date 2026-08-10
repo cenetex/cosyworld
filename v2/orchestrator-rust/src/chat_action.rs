@@ -10,6 +10,7 @@ pub(super) struct CommittedOrbChatLine {
 }
 
 pub(super) const MAX_CHAT_FLOOR_ROUNDS: u8 = 3;
+pub(super) const CHAT_CONTEXT_CHANGED_ERROR: &str = "chat_context_changed";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct ChatFloorPresentation {
@@ -647,7 +648,7 @@ pub(super) async fn complete_orb_chat_exchange(
             })
             .flatten()
         }
-        .ok_or_else(|| "the target reply no longer fit the current room".to_string())?;
+        .ok_or_else(|| CHAT_CONTEXT_CHANGED_ERROR.to_string())?;
         broadcast_events(state, &first_reply_events);
         lines = load_lines().await?;
     }
