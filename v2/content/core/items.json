@@ -204,7 +204,7 @@
   {
     "id": 2014,
     "name": "Steady Light",
-    "description": "A prepared spell card that kindles a replay-safe glow around one nearby traveler until they rest.",
+    "description": "A prepared spell card that kindles a steady glow around one nearby traveler until they rest.",
     "kind": "keepsake",
     "charges": 1,
     "location_id": 1,

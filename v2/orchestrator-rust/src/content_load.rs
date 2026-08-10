@@ -53,6 +53,8 @@ pub(super) struct SeedContent {
     pub(super) contributions: Vec<SeedContributionBundle>,
     pub(super) attributions: Vec<SeedAttribution>,
     pub(super) licenses: Vec<SeedLicenseRecord>,
+    // Loaded to type-check the attribution contract even though runtime seeding does not project it.
+    #[allow(dead_code)]
     pub(super) modified_material: Vec<SeedModifiedMaterial>,
     pub(super) character_creation: Vec<SeedCharacterCreationBundle>,
     pub(super) external_cards: Vec<ExternalCardSpec>,
@@ -115,8 +117,10 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) licenses: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub(super) contributions: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub(super) modified_material: String,
 }
 
@@ -395,6 +399,7 @@ pub(super) struct SeedRulesConformance {
     pub(super) replay_fixture: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedModifiedMaterial {
     pub(super) pack_id: String,
@@ -863,8 +868,10 @@ pub(super) struct SeedItemContent {
     #[serde(default)]
     pub(super) allowed_contents: Vec<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub(super) access_cost: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub(super) nested_containers: Option<String>,
 }
 

@@ -4296,25 +4296,6 @@ pub(super) fn apply_generated_waypoint_content(
     ));
 }
 
-pub(super) fn set_pathway_generation_provenance(
-    pathway: &mut GeneratedPathwayState,
-    mode: GenerationMode,
-    config: Option<&AiConfig>,
-    source: &str,
-    attempts: u8,
-) {
-    pathway.generation = GenerationProvenance {
-        source: source.to_string(),
-        feature: PATHWAY_CONTENT_FEATURE.to_string(),
-        policy_mode: mode.as_str().to_string(),
-        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
-        provider: ai_provider_name(config).to_string(),
-        model: ai_model_name(config),
-        model_attribution: None,
-        attempts,
-    };
-}
-
 #[cfg(test)]
 mod tests {
     use super::registry::DataPolicyEligibility;

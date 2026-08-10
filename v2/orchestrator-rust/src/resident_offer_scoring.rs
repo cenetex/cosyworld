@@ -60,6 +60,7 @@ impl RuntimeWorld {
         records
     }
 
+    #[cfg(test)]
     pub(super) fn resident_economy_autonomy_record(
         &self,
         actor: CwActor,

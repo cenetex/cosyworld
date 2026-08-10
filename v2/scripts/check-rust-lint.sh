@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CEILING_FILE="$ROOT/scripts/rust-lint-warning-ceiling.txt"
+CLIPPY_TARGET_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-clippy.XXXXXX")"
+trap 'rm -rf "$CLIPPY_TARGET_DIR"' EXIT
 
 ceiling="$(awk '!/^[[:space:]]*(#|$)/ { print $1; exit }' "$CEILING_FILE")"
 if [[ ! "$ceiling" =~ ^[0-9]+$ ]]; then
@@ -13,7 +15,9 @@ fi
 set +e
 output="$(
   cd "$ROOT/orchestrator-rust"
-  RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}" cargo clippy --all-targets 2>&1
+  CARGO_TARGET_DIR="$CLIPPY_TARGET_DIR" \
+    RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}" \
+    cargo clippy --all-targets 2>&1
 )"
 status=$?
 set -e

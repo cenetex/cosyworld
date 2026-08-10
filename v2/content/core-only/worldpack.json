@@ -609,7 +609,7 @@
       "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
     }
   },
-  "bundle_hash": "sha256:9e128fde246b190c724fc41aa46227ac1b73d7a3a56e748f9243c86a33d96775",
+  "bundle_hash": "sha256:aa32fc4a74c3768d89f8b27fa50beea55f6fc3987a4a64a7c15ab90ee1ccea78",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1772,7 +1772,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
+      "integrity": "sha256:04a333d2b519d3bf580b6adc75100b2573546567efb35ae764090872c5a82f2c"
     }
   ],
   "files": {

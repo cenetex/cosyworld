@@ -739,7 +739,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:a802c581ab174a0751125760135d36fabfaf7a989507108e90f410c3810c1ffe",
+  "bundle_hash": "sha256:92258580598c5b7c79eee6e100bd244d68772502caa6b5a066030b90b64a4454",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1902,7 +1902,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
+      "integrity": "sha256:04a333d2b519d3bf580b6adc75100b2573546567efb35ae764090872c5a82f2c"
     },
     {
       "id": "ruby-high.first-bell",

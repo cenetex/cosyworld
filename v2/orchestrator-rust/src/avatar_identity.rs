@@ -404,6 +404,7 @@ fn sanitize_avatar_visual_prompt(value: Option<&str>, fallback: &str) -> String 
     }
 }
 
+#[cfg(test)]
 pub(super) fn avatar_identity_from_json_value(
     value: &serde_json::Value,
     actor_id: u64,
