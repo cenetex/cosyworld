@@ -136,9 +136,11 @@ const worldCases = [
     seedItemCount: 485,
     seedLocationCount: 485,
     localSeedActorCount: 1,
+    localSeedActorControlMode: "local_ai",
     localItemCount: 1,
     scoutDestination: "Void 002",
     additionalScoutDestination: "Void 003",
+    multiStepScoutPath: true,
   },
 ];
 
@@ -1155,7 +1157,7 @@ function assertLanternGoldenReplay(state, events, expected) {
   assertLanternSuggestions(state, "lantern replay");
 }
 
-function assertMountedComposition(meta, spec, addedActorCount = 0) {
+function assertMountedComposition(meta, spec, addedActorCount = 0, addedLocationCount = 0) {
   assert(meta.worldpack?.id === spec.worldpackId, JSON.stringify(meta.worldpack));
   assert(
     meta.worldpack?.packs?.map((pack) => pack.id).join(",") === spec.packIds.join(","),
@@ -1175,9 +1177,10 @@ function assertMountedComposition(meta, spec, addedActorCount = 0) {
     );
   }
   if (spec.seedLocationCount !== undefined) {
+    const expectedLocationCount = spec.seedLocationCount + addedLocationCount;
     assert(
-      meta.world?.location_count === spec.seedLocationCount,
-      `${spec.label} mounted ${meta.world?.location_count} locations instead of ${spec.seedLocationCount}`,
+      meta.world?.location_count === expectedLocationCount,
+      `${spec.label} mounted ${meta.world?.location_count} locations instead of ${expectedLocationCount}`,
     );
   }
 }
@@ -1282,12 +1285,18 @@ async function runWorldLoop(spec) {
       finalLocationPack = goldenJourney.state.rules_context?.location_pack_id || finalLocationPack;
     }
     if (spec.localSeedActorCount !== undefined) {
-      const localSeedActorCount =
-        initial.actors?.filter((actor) => actor.id !== actorId).length ?? 0;
+      const localSeedActors = initial.actors?.filter((actor) => actor.id !== actorId) ?? [];
+      const localSeedActorCount = localSeedActors.length;
       assert(
         localSeedActorCount === spec.localSeedActorCount,
         `${spec.label} exposed ${localSeedActorCount} local seed actors instead of ${spec.localSeedActorCount}`,
       );
+      if (spec.localSeedActorControlMode) {
+        assert(
+          localSeedActors.every((actor) => actor.control_mode === spec.localSeedActorControlMode),
+          `${spec.label} local seed actors did not use ${spec.localSeedActorControlMode}: ${JSON.stringify(localSeedActors)}`,
+        );
+      }
     }
     if (spec.localItemCount !== undefined) {
       assert(
@@ -1298,6 +1307,7 @@ async function runWorldLoop(spec) {
 
     let discovered = initial;
     let discoveryEventCount = 0;
+    let revealedMoveTarget = spec.scoutDestination;
     if (spec.scoutDestination) {
       if (spec.additionalScoutDestination) {
         const initialScoutTargets = initial.action_offers
@@ -1325,18 +1335,22 @@ async function runWorldLoop(spec) {
         first.baseUrl,
         actorId,
         actorSession,
-        (offer) => offer.kind === "move" && offer.target?.label === spec.scoutDestination,
+        (offer) => offer.kind === "move"
+          && (spec.multiStepScoutPath || offer.target?.label === spec.scoutDestination),
         `${spec.label} discovered route Move card`,
       );
       discovered = revealedMove.state;
+      revealedMoveTarget = revealedMove.offer.target?.label;
       assert(
         discoveryEventCount === 1
           && !discovered.action_offers?.some((offer) =>
             offer.kind === "explore_path" && offer.target?.label === spec.scoutDestination)
           && discovered.action_offers?.some((offer) =>
-            offer.kind === "move" && offer.target?.label === spec.scoutDestination),
+            offer.kind === "move" && offer.target?.label === revealedMoveTarget)
+          && (!spec.multiStepScoutPath || revealedMoveTarget !== spec.scoutDestination),
         `${spec.label} did not reveal its route exactly once: ${JSON.stringify({
           discoveryEventCount,
+          revealedMoveTarget,
           offers: discovered.action_offers?.map(({ kind, target }) => ({ kind, target })),
         })}`,
       );
@@ -1397,7 +1411,7 @@ async function runWorldLoop(spec) {
     );
 
     restarted = await startServer(tempDir, spec.registryPath, spec.entryLocationId);
-    assertMountedComposition(restarted.meta, spec, 1);
+    assertMountedComposition(restarted.meta, spec, 1, spec.multiStepScoutPath ? 1 : 0);
     assert(
       restarted.output.some((line) => line.includes("loaded journal checkpoint")),
       `${spec.label} restart did not use its journal checkpoint: ${
@@ -1424,7 +1438,7 @@ async function runWorldLoop(spec) {
         restarted.baseUrl,
         actorId,
         actorSession,
-        (offer) => offer.kind === "move" && offer.target?.label === spec.scoutDestination,
+        (offer) => offer.kind === "move" && offer.target?.label === revealedMoveTarget,
         `${spec.label} replayed route Move card`,
       );
       replayed = replayedMove.state;
@@ -1432,7 +1446,7 @@ async function runWorldLoop(spec) {
         !replayed.action_offers?.some((offer) =>
           offer.kind === "explore_path" && offer.target?.label === spec.scoutDestination)
           && replayed.action_offers?.some((offer) =>
-            offer.kind === "move" && offer.target?.label === spec.scoutDestination),
+            offer.kind === "move" && offer.target?.label === revealedMoveTarget),
         `${spec.label} restart lost its discovered route`,
       );
       events = await fetchAllActorEvents(restarted.baseUrl, actorId, actorSession);

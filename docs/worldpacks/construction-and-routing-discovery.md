@@ -282,13 +282,14 @@ The first construction proof after the current trust and remembered-arc gates
 should use an **intermediate construction site on an exploration path**, not a
 mandatory purpose field on every location.
 
-Elysium is a useful content proof because its current rhizome consists entirely
-of authored, distance-one Void cells and does not declare a generation policy.
-Use one bounded branch rather than changing the whole graph:
+Elysium is a useful content proof because its authored Void anchors are joined
+by reciprocal, variable-length Scout paths while their intermediate pathway
+sites use the shared runtime generation flow. Use one bounded branch rather
+than changing the whole graph:
 
 1. declare a reviewed Elysium generation policy and neutral Anchor presentation;
-2. make one reciprocal branch long enough to allocate one deterministic
-   intermediate waypoint;
+2. select one existing reciprocal branch and allocate one of its deterministic
+   intermediate waypoints;
 3. allocate/reveal that waypoint through the existing exact legacy branch offer;
 4. mount one bounded Discovery Slot against the branch or site and prove that it
    records only its authored Lead/Reveal rather than creating topology or moving;

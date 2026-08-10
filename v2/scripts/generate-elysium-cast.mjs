@@ -9,6 +9,8 @@ const packRoot = path.join(v2Root, "content", "elysium");
 const LOCATION_BASE = 652_000;
 const ITEM_BASE = 6_520_000;
 const EXIT_CAPACITY = 4_096;
+const VOID_PATH_MIN_DISTANCE = 3;
+const VOID_PATH_MAX_DISTANCE = 5;
 const PHI = (1 + Math.sqrt(5)) / 2;
 const PHI_CONJUGATE = PHI - 1;
 const rawArgs = process.argv.slice(2);
@@ -97,7 +99,7 @@ function actorsFromBindings(bindings) {
     speech_mode: binding.speech_mode,
     title: binding.requested_model_id,
     description: "An avatar with an exact OpenRouter model binding.",
-    ambient_autonomy: false,
+    ambient_autonomy: true,
     location_id: LOCATION_BASE + index,
     stats: {
       strength: 10,
@@ -122,10 +124,10 @@ function locationsFromBindings(bindings) {
     name: `Void ${voidNumber(index)}`,
     title: "A Private Node in the Void",
     description: "A dark node in a branching fractal web contains one model avatar and one inert marker.",
-    persona: "Attention holds at this node. Scout reveals unmapped filaments before anyone can travel them.",
+    persona: "Attention holds at this node. Scout reveals unmapped paths before anyone can travel them.",
     memory: [
       "This private cell contains one model avatar and one unique inert marker.",
-      "Scout reveals the local filaments of the Fibonacci-Wythoff rhizome one route at a time.",
+      "Scout reveals the local paths of the Fibonacci-Wythoff rhizome one segment at a time.",
     ],
     biome: "void",
     terrain: [
@@ -241,25 +243,33 @@ function voidTopology(nodeCount) {
   return { edges, depths };
 }
 
+function voidPathDistance(edge) {
+  const distanceRange = VOID_PATH_MAX_DISTANCE - VOID_PATH_MIN_DISTANCE + 1;
+  return VOID_PATH_MIN_DISTANCE + ((edge.left * 31 + edge.right * 17) % distanceRange);
+}
+
 function exitsFromTopology(topology) {
-  const exits = topology.edges.flatMap((edge) => [
-    {
-      from_location_id: LOCATION_BASE + edge.left,
-      to_location_id: LOCATION_BASE + edge.right,
-      flags: 0,
-      distance: 1,
-      direction: edge.leftDirection,
-      discovery: "scout",
-    },
-    {
-      from_location_id: LOCATION_BASE + edge.right,
-      to_location_id: LOCATION_BASE + edge.left,
-      flags: 0,
-      distance: 1,
-      direction: edge.rightDirection,
-      discovery: "scout",
-    },
-  ]);
+  const exits = topology.edges.flatMap((edge) => {
+    const distance = voidPathDistance(edge);
+    return [
+      {
+        from_location_id: LOCATION_BASE + edge.left,
+        to_location_id: LOCATION_BASE + edge.right,
+        flags: 0,
+        distance,
+        direction: edge.leftDirection,
+        discovery: "scout",
+      },
+      {
+        from_location_id: LOCATION_BASE + edge.right,
+        to_location_id: LOCATION_BASE + edge.left,
+        flags: 0,
+        distance,
+        direction: edge.rightDirection,
+        discovery: "scout",
+      },
+    ];
+  });
   return exits.sort((left, right) =>
     left.from_location_id - right.from_location_id
     || left.direction.localeCompare(right.direction)
@@ -286,7 +296,7 @@ function roomSheetsFromBindings(bindings, topology) {
       "scoutable passage through a deterministic fractal web",
     ],
     hooks: [
-      `${degreeByNode.get(index) ?? 0} local void filaments can be revealed by Scout and then travelled`,
+      `${degreeByNode.get(index) ?? 0} local void paths can be revealed by Scout and then travelled segment by segment`,
     ],
     resources: {
       void_items: 1,
@@ -308,8 +318,14 @@ function generatedResources(bindings) {
 
 function assertVoidTopology(bindings, resources) {
   const nodeCount = bindings.length;
+  assert(
+    resources.actors.every((actor) => actor.ambient_autonomy === true),
+    "Elysium avatars must participate in ambient autonomy",
+  );
   const adjacency = new Map(bindings.map((_binding, index) => [index, new Set()]));
   const directions = new Set();
+  const pathDistances = new Set();
+  const distanceByDirectedEdge = new Map();
   for (const exit of resources.exits) {
     const from = exit.from_location_id - LOCATION_BASE;
     const to = exit.to_location_id - LOCATION_BASE;
@@ -318,6 +334,17 @@ function assertVoidTopology(bindings, resources) {
     assert(!directions.has(directionKey), `void ${from} repeats direction ${exit.direction}`);
     directions.add(directionKey);
     assert(exit.discovery === "scout", `void filament ${from}->${to} bypasses Scout`);
+    assert(exit.distance >= VOID_PATH_MIN_DISTANCE, `void path ${from}->${to} is too short`);
+    assert(exit.distance <= VOID_PATH_MAX_DISTANCE, `void path ${from}->${to} is too long`);
+    pathDistances.add(exit.distance);
+    distanceByDirectedEdge.set(`${from}:${to}`, exit.distance);
+  }
+  for (const [edge, distance] of distanceByDirectedEdge) {
+    const [from, to] = edge.split(":");
+    assert(
+      distanceByDirectedEdge.get(`${to}:${from}`) === distance,
+      `void path ${from}<->${to} has asymmetric distance`,
+    );
   }
 
   const visited = new Set(nodeCount > 0 ? [0] : []);
@@ -337,6 +364,7 @@ function assertVoidTopology(bindings, resources) {
   assert(nodeCount < 3 || adjacency.get(0)?.size === 2, "the entry void must begin with two Scout branches");
   assert(nodeCount < 4 || [...adjacency.values()].some((neighbors) => neighbors.size >= 3), "the void does not branch");
   assert(nodeCount < 4 || cycleRank > 0, "the void has no lateral rhizome loops");
+  assert(nodeCount < 3 || pathDistances.size > 1, "the void paths do not vary in length");
   assert(
     [...adjacency.values()].every((neighbors) => neighbors.size <= 4),
     "a void node exceeds the four-filament exploration budget",
