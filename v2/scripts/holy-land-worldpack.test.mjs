@@ -135,13 +135,16 @@ test("the official world accepts replay from prior Holy Land bundles", () => {
   );
 });
 
-test("Bethlehem accepts the pre-context-dominant prompt bundle", () => {
+test("Bethlehem accepts every declared production replay epoch", () => {
   // #669 changed only authored voice text and prompt presentation: the world,
   // resource identities, rules profile, pack versions, and persisted-state
   // interpretation remain stable across this boundary.
+  // Tenant 7 persisted the second hash before v0.1.13; its journal uses the
+  // same canonical IDs and state interpretation as the current bundle.
   const compatible = bethlehemWorld.persistence_compatibility
     .replay_compatible_bundle_hashes;
   assert.deepEqual(compatible, [
     "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df",
+    "sha256:0d989794764b86a1b3067a3c1ca43078dbacfece38a84371039d5a16af80e2f3",
   ]);
 });
