@@ -143,22 +143,6 @@ impl PromptEvidence {
         }
     }
 
-    pub(crate) fn private_actor(text: impl Into<String>, actor_id: u64, salience: u8) -> Self {
-        Self {
-            text: text.into(),
-            scope: EvidenceScope::SelfActor,
-            owner_actor_id: Some(actor_id),
-            shared_actor_ids: Vec::new(),
-            location_id: None,
-            visibility: EvidenceVisibility::Private,
-            sayability: EvidenceSayability::Disclosable,
-            visuality: EvidenceVisuality::SubtextOnly,
-            salience,
-            revealed: true,
-            source_event_seq: None,
-        }
-    }
-
     fn from_scoped_knowledge(
         knowledge: &ScopedKnowledge,
         location_id: u64,

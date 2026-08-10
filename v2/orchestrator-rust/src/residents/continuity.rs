@@ -173,85 +173,6 @@ impl RuntimeWorld {
         Ok(())
     }
 
-    pub(crate) fn resident_memory_prompt_notes(&self, resident_id: u64) -> Vec<String> {
-        let mut memories: Vec<_> = self
-            .beliefs
-            .values()
-            .filter(|memory| {
-                memory.holder_actor_id == resident_id
-                    && memory.confidence >= BELIEF_TUNING.minimum_action_confidence
-            })
-            .cloned()
-            .collect();
-        memories.sort_by_key(|memory| {
-            (
-                std::cmp::Reverse(memory.salience),
-                std::cmp::Reverse(memory.confidence),
-                std::cmp::Reverse(memory.observed_tick),
-                memory.hops,
-                memory.kind.clone(),
-                memory.subject_id,
-            )
-        });
-
-        let mut notes = Vec::new();
-        let mut seen = BTreeSet::new();
-        for memory in memories {
-            let route = if memory.source_actor_id == Some(resident_id) && memory.hops == 0 {
-                "saw"
-            } else {
-                "heard"
-            };
-            let location_name = self
-                .location_name(memory.location_id)
-                .unwrap_or_else(|| format!("Location {}", memory.location_id));
-            let note = match memory.kind.as_str() {
-                BELIEF_KIND_ACTOR_LOCATION => {
-                    if memory.subject_id == resident_id {
-                        continue;
-                    }
-                    let actor_name = self
-                        .actor_name(memory.subject_id)
-                        .unwrap_or_else(|| format!("Resident {}", memory.subject_id));
-                    format!("{route} {actor_name} near {location_name}")
-                }
-                BELIEF_KIND_ITEM_LOCATION => {
-                    let item_name = self
-                        .item_name(memory.subject_id)
-                        .unwrap_or_else(|| format!("Item {}", memory.subject_id));
-                    if let Some(holder_name) = memory
-                        .related_actor_id
-                        .and_then(|holder_actor_id| self.actor_name(holder_actor_id))
-                    {
-                        format!("{route} {item_name} with {holder_name} near {location_name}")
-                    } else {
-                        format!("{route} {item_name} near {location_name}")
-                    }
-                }
-                BELIEF_KIND_ACTOR_WANTS_ITEM => {
-                    let Some(target_actor_id) = memory.related_actor_id else {
-                        continue;
-                    };
-                    let target_name = self
-                        .actor_name(target_actor_id)
-                        .unwrap_or_else(|| format!("Resident {}", target_actor_id));
-                    let item_name = self
-                        .item_name(memory.subject_id)
-                        .unwrap_or_else(|| format!("Item {}", memory.subject_id));
-                    format!("{route} {target_name} wanted {item_name} near {location_name}")
-                }
-                _ => continue,
-            };
-            if seen.insert(note.clone()) {
-                notes.push(note);
-            }
-            if notes.len() >= 4 {
-                break;
-            }
-        }
-        notes
-    }
-
     pub(crate) fn resident_continuity_for(&self, resident: CwActor) -> ResidentContinuityState {
         let identity = self.resident_stable_identity(resident);
         let mut continuity = self
@@ -414,12 +335,6 @@ impl RuntimeWorld {
         if let Some(source_event_seq) = source_event_seq {
             continuity.last_observed_event_seq =
                 continuity.last_observed_event_seq.max(source_event_seq);
-        }
-    }
-
-    pub(crate) fn clear_resident_pending_action(&mut self, resident_id: u64) {
-        if let Some(continuity) = self.resident_continuities.get_mut(&resident_id) {
-            continuity.pending_action = None;
         }
     }
 

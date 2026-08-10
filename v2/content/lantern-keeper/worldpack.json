@@ -12,7 +12,8 @@
     "replay_compatible_bundle_hashes": [
       "sha256:31d24881001c9b38518b4e08c02ca4ff16fc2c2c67f6f9ce560b05ef6c517586",
       "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb",
-      "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911"
+      "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
+      "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd"
     ]
   },
   "pack_lifecycle": {
@@ -748,7 +749,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd",
+  "bundle_hash": "sha256:b459f7f38512c3fae3c3a19c0491f8c97e0b0e22c760ec860288488d47381173",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1911,7 +1912,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:6a2b55fe868acf599d6e1d503f21945a1b0e10b8657afb7fd27eafa348e1d612"
+      "integrity": "sha256:04a333d2b519d3bf580b6adc75100b2573546567efb35ae764090872c5a82f2c"
     },
     {
       "id": "cosyworld.rules-srd-5.1",

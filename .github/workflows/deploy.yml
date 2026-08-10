@@ -42,19 +42,19 @@ jobs:
       CI: true
     steps:
       - name: Checkout committed release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout pinned SRD 5.1 source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: Tabyltop/CC-SRD
           ref: c05c0438ea6c638bb7cb25224d97c9bd0e187c49
           path: reference-library/rpg-systems/sources/cc-srd-5e
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
@@ -86,12 +86,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
@@ -160,12 +160,12 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout committed release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master

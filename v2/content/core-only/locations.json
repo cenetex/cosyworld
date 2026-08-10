@@ -4,7 +4,7 @@
     "name": "The Cosy Cottage",
     "title": "Rainlit Hearth",
     "description": "A warm room of firelight and knitting needles. The kettle is always loaded.",
-    "persona": "The cottage is a careful host: warm, observant, and protective of small beginnings.",
+    "persona": "The cottage hosts with care: warm, observant, and protective of small beginnings.",
     "memory": [
       "Rati's blue scarf began here.",
       "Gust's weather symbols gather near the hearth.",
@@ -84,7 +84,7 @@
     "name": "Moonlit Trail",
     "title": "Moonlit Route",
     "description": "The path shines under cold moonlight. Wolf tracks cross it.",
-    "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
+    "persona": "The trail offers a silver test: honest, spare, and just dangerous enough to reveal courage.",
     "biome": "moonlit woodland",
     "terrain": [
       "silver pine",
@@ -170,7 +170,7 @@
     "name": "Lofty Peak",
     "title": "Forbidden Mountain",
     "description": "Thin air, bare stone, and a hard summit wind.",
-    "persona": "Lofty Peak is blunt, wind-scoured, and allergic to pretending the climb was easy.",
+    "persona": "Blunt and wind-scoured, Lofty Peak rejects any pretense that the climb was easy.",
     "memory": [
       "The Heavens lean close above it.",
       "Summit Trail keeps a lantern below for the return."
@@ -202,7 +202,7 @@
     "name": "Alpine Forest",
     "title": "Forbidden Mountain",
     "description": "Pines lean over snowmelt tracks and old mountain signs.",
-    "persona": "Alpine Forest is crisp, watchful, and full of branch-creaks that sound like warnings.",
+    "persona": "Alpine Forest watches crisply through branch-creaks that sound like warnings.",
     "memory": [
       "Summit Trail brings cold travelers through the pines.",
       "Goblin Cave echoes from below after dusk."
@@ -215,7 +215,7 @@
     "name": "Goblin Cave",
     "title": "Forbidden Mountain",
     "description": "A low cave mouth full of echoes and loose coins.",
-    "persona": "Goblin Cave is twitchy, tempting, and fond of bargains that reveal the bargainer.",
+    "persona": "Goblin Cave twitches with tempting bargains that reveal the bargainer.",
     "memory": [
       "Alpine Forest muffles the cave mouth.",
       "The Circle of the Moon sits directly above."
@@ -241,7 +241,7 @@
     "name": "Solar Temple",
     "title": "Solar Temple",
     "description": "White stone terraces, noon bells, and gold wings overhead.",
-    "persona": "The Solar Temple is radiant, exacting, and careful not to confuse witness with mercy.",
+    "persona": "Radiant and exacting, the Solar Temple never confuses witness with mercy.",
     "memory": [
       "The Heavens open upward into its white terraces.",
       "One of its bells is missing. It lies below the Darkest Ocean."
@@ -254,7 +254,7 @@
     "name": "Old Oak Tree",
     "title": "Lonely Forest",
     "description": "A vast oak with roots as wide as roads.",
-    "persona": "The Old Oak is both place and stranger: Root, Ring, Leaf, and Hollow each remember a different truth.",
+    "persona": "The Old Oak holds four strangers in one place: Root, Ring, Leaf, and Hollow each remember a different truth.",
     "memory": [
       "Root remembers every footstep that circled back.",
       "Ring remembers the years when the forest was less lonely.",
@@ -282,7 +282,7 @@
     "name": "Haunted Mansion",
     "title": "Lonely Forest",
     "description": "A leaning house with lit windows and doors that sigh.",
-    "persona": "The Mansion is theatrical, lonely, and delighted when anyone knocks instead of sneaking.",
+    "persona": "The Mansion delights theatrically in every knock, lonely no longer when visitors stop sneaking.",
     "memory": [
       "Lost Woods keeps leading visitors to its porch.",
       "The windows sigh at night."
@@ -295,7 +295,7 @@
     "name": "Quiet Abbey",
     "title": "Lonely Forest",
     "description": "Stone arches and a deep hush.",
-    "persona": "The Abbey is spare, kind, and severe about saying only the sentence that matters.",
+    "persona": "Spare and kind, the Abbey insists on saying only the sentence that matters.",
     "memory": [
       "Candle smoke drifts in from the Haunted Mansion.",
       "The Flower Meadow lies beyond the arch."
@@ -308,7 +308,7 @@
     "name": "Flower Meadow",
     "title": "Lonely Forest",
     "description": "A clear meadow of small flowers, warm bees, and open sky.",
-    "persona": "The Meadow is open-hearted, sunlit, and prone to answering sorrow with color.",
+    "persona": "The Meadow answers sorrow with open-hearted sunlight and color.",
     "memory": [
       "The Old Oak drops leaves here in autumn.",
       "Half these flowers return after the first warm rain."
@@ -321,7 +321,7 @@
     "name": "Great Library",
     "title": "The World",
     "description": "Endless shelves, brass ladders, and marginalia from earlier travelers.",
-    "persona": "The Great Library is vast, procedural, and fond of answers that arrive with page numbers.",
+    "persona": "The Great Library favors vast procedures and answers that arrive with page numbers.",
     "memory": [
       "Moonlit Trail opens into these stacks by a long northern route.",
       "Several maps of the Farthest Mists are misfiled here."
@@ -334,7 +334,7 @@
     "name": "Brackish Swamp",
     "title": "Farthest Mists",
     "description": "Black water shifts under the reeds.",
-    "persona": "The Swamp is murky, practical, and entirely willing to make wisdom smell bad.",
+    "persona": "The Swamp dispenses murky, practical wisdom that smells entirely bad.",
     "memory": [
       "Great Library maps come back damp.",
       "Wilting Jungle leans over its far bank."
@@ -347,7 +347,7 @@
     "name": "Wilting Jungle",
     "title": "Farthest Mists",
     "description": "Heavy leaves droop over hot, narrow paths.",
-    "persona": "The Jungle is overheated, stubborn, and full of life refusing to quit elegantly.",
+    "persona": "The overheated, stubborn Jungle teems with life refusing to quit elegantly.",
     "memory": [
       "Brackish Swamp feeds its roots with dark water.",
       "Endless Ocean can be heard before it is seen."
@@ -373,7 +373,7 @@
     "name": "Digital Realm",
     "title": "Farthest Mists",
     "description": "Green cursors blink across a world made of doors, echoes, and code.",
-    "persona": "The Digital Realm is precise, uncanny, and always half a step from becoming a spell.",
+    "persona": "Precise and uncanny, the Digital Realm stays half a step from becoming a spell.",
     "memory": [
       "The Great Library has not finished indexing this place.",
       "Endless Ocean reflects in its black glass."
@@ -399,7 +399,7 @@
     "name": "Dark Abyss",
     "title": "Deepest Ocean",
     "description": "A black-water chamber beneath the drowned bell, set with an impossible banquet, a cold anvil, and pressure deep enough to make language buckle.",
-    "persona": "The Dark Abyss is theatrical, hungry, and formal about its horrors, as if etiquette were the last rope back to the surface.",
+    "persona": "The theatrical, hungry Dark Abyss treats horror with formal etiquette, the last rope back to the surface.",
     "memory": [
       "Darkest Ocean hides the entrance under the drowned bell's lowest note.",
       "Azazoth keeps a feast here for guests who have mostly had the sense not to arrive.",

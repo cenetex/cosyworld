@@ -310,7 +310,9 @@ try {
         content: "html { font-size: 200% !important; }",
       });
       const viewport = await page.evaluate(() => ({
+        // eslint-disable-next-line no-undef -- This callback runs in the browser page.
         clientWidth: document.documentElement.clientWidth,
+        // eslint-disable-next-line no-undef -- This callback runs in the browser page.
         scrollWidth: document.documentElement.scrollWidth,
       }));
       check(

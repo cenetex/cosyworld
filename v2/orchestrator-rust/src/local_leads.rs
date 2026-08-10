@@ -268,14 +268,6 @@ impl RuntimeWorld {
             lead.settled_event_seq = Some(event_seq);
         }
     }
-
-    pub(super) fn forget_local_lead_memory(&mut self, lead_id: &str) {
-        if let Some(lead) = self.local_leads.get_mut(lead_id) {
-            if !lead.consumed && !lead.settled {
-                lead.forgotten = true;
-            }
-        }
-    }
 }
 
 pub(super) fn local_lead_id(actor_id: u64, offer_id: &str, source_event_seq: u64) -> String {

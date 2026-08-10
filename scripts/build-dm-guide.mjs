@@ -249,8 +249,10 @@ try {
   });
   await page.goto(pathToFileURL(htmlPath).href, { waitUntil: "load" });
   await page.evaluate(async () => {
+    // eslint-disable-next-line no-undef -- This callback runs in the browser page.
     await document.fonts.ready;
     await Promise.all(
+      // eslint-disable-next-line no-undef -- This callback runs in the browser page.
       [...document.images].map((image) =>
         image.complete
           ? Promise.resolve()
