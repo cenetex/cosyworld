@@ -216,4 +216,12 @@
 # with the context block added, so the remaining ~62 variants should each pay
 # for themselves. Payloads and their declared write sets live in projection.rs;
 # no behaviour changes and the journal encoding is pinned by test.
-71037
+# 71037 -> 70991: five more ProjectionMutation variants become newtype payloads
+# owning their apply -- SetItemContained, SetCharmEquipped, UnlockCharmSlot,
+# UnlockCharmSlotForCharm, SetSpellPrepared -- in projection_items.rs with
+# empirically derived write sets. Every one of the five writes
+# actor_rules_facets, including the two that never touch an item, so that looks
+# like a property of event-appending handlers generally rather than the
+# item-specific effect ADR 0008 recorded for SetItemEquipped. No behaviour
+# changes; journal encoding pinned by test for each variant.
+70991

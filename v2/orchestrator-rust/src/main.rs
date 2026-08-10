@@ -69,6 +69,7 @@ mod ownership;
 #[cfg(test)]
 mod project_push_tests;
 mod projection;
+mod projection_items;
 mod prompts;
 mod proxim8;
 mod quest_loot;
@@ -1168,31 +1169,12 @@ enum ProjectionMutation {
         cost: u8,
         reason: String,
     },
-    UnlockCharmSlot {
-        cost: u8,
-        reason: String,
-    },
-    UnlockCharmSlotForCharm {
-        item_id: u64,
-        cost: u8,
-        reason: String,
-    },
-    SetCharmEquipped {
-        item_id: u64,
-        equipped: bool,
-        reason: String,
-    },
-    SetSpellPrepared {
-        item_id: u64,
-        prepared: bool,
-        reason: String,
-    },
+    UnlockCharmSlot(projection_items::UnlockCharmSlot),
+    UnlockCharmSlotForCharm(projection_items::UnlockCharmSlotForCharm),
+    SetCharmEquipped(projection_items::SetCharmEquipped),
+    SetSpellPrepared(projection_items::SetSpellPrepared),
     SetItemEquipped(projection::SetItemEquipped),
-    SetItemContained {
-        item_id: u64,
-        container_item_id: Option<u64>,
-        reason: String,
-    },
+    SetItemContained(projection_items::SetItemContained),
     MaterializeItem {
         receipt: MaterializationReceiptState,
         item: CwItem,
@@ -10891,59 +10873,23 @@ impl RuntimeWorld {
                 } => {
                     events.extend(self.train_skill(action.actor_id, skill_id, *cost, reason));
                 }
-                ProjectionMutation::UnlockCharmSlot { cost, reason } => {
-                    events.extend(self.unlock_charm_slot(action.actor_id, *cost, reason));
+                ProjectionMutation::UnlockCharmSlot(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
-                ProjectionMutation::UnlockCharmSlotForCharm {
-                    item_id,
-                    cost,
-                    reason,
-                } => {
-                    events.extend(self.unlock_charm_slot_for_charm(
-                        action.actor_id,
-                        *item_id,
-                        *cost,
-                        reason,
-                    ));
+                ProjectionMutation::UnlockCharmSlotForCharm(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
-                ProjectionMutation::SetCharmEquipped {
-                    item_id,
-                    equipped,
-                    reason,
-                } => {
-                    events.extend(self.set_charm_equipped(
-                        action.actor_id,
-                        *item_id,
-                        *equipped,
-                        reason,
-                    ));
+                ProjectionMutation::SetCharmEquipped(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
-                ProjectionMutation::SetSpellPrepared {
-                    item_id,
-                    prepared,
-                    reason,
-                } => {
-                    events.extend(self.set_spell_prepared(
-                        action.actor_id,
-                        *item_id,
-                        *prepared,
-                        reason,
-                    ));
+                ProjectionMutation::SetSpellPrepared(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
                 ProjectionMutation::SetItemEquipped(mutation) => {
                     events.extend(mutation.apply(self, &ctx));
                 }
-                ProjectionMutation::SetItemContained {
-                    item_id,
-                    container_item_id,
-                    reason,
-                } => {
-                    events.extend(self.set_item_contained(
-                        action.actor_id,
-                        *item_id,
-                        *container_item_id,
-                        reason,
-                    ));
+                ProjectionMutation::SetItemContained(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
                 ProjectionMutation::MaterializeItem {
                     receipt,
@@ -21954,8 +21900,8 @@ fn hosted_guest_progression_mutation_restricted(mutation: &ProjectionMutation) -
             | ProjectionMutation::CreateBond { .. }
             | ProjectionMutation::ReviseBond { .. }
             | ProjectionMutation::TrainSkill { .. }
-            | ProjectionMutation::UnlockCharmSlot { .. }
-            | ProjectionMutation::UnlockCharmSlotForCharm { .. }
+            | ProjectionMutation::UnlockCharmSlot(..)
+            | ProjectionMutation::UnlockCharmSlotForCharm(..)
             | ProjectionMutation::DeepenBond { .. }
             | ProjectionMutation::ResolveBond { .. }
     )
@@ -32854,11 +32800,13 @@ async fn unlock_charm_slot(
     .into_player_card();
     record
         .projection_mutations
-        .push(ProjectionMutation::UnlockCharmSlotForCharm {
-            item_id: charm.id,
-            cost: CHARM_SLOT_COST,
-            reason: "deck_loadout".to_string(),
-        });
+        .push(ProjectionMutation::UnlockCharmSlotForCharm(
+            projection_items::UnlockCharmSlotForCharm {
+                item_id: charm.id,
+                cost: CHARM_SLOT_COST,
+                reason: "deck_loadout".to_string(),
+            },
+        ));
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -32923,11 +32871,13 @@ async fn set_charm_equipped(
     );
     record
         .projection_mutations
-        .push(ProjectionMutation::SetCharmEquipped {
-            item_id: payload.item_id,
-            equipped: payload.equipped,
-            reason: "deck_configuration".to_string(),
-        });
+        .push(ProjectionMutation::SetCharmEquipped(
+            projection_items::SetCharmEquipped {
+                item_id: payload.item_id,
+                equipped: payload.equipped,
+                reason: "deck_configuration".to_string(),
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -32989,11 +32939,13 @@ async fn set_spell_prepared(
     );
     record
         .projection_mutations
-        .push(ProjectionMutation::SetSpellPrepared {
-            item_id: payload.item_id,
-            prepared: payload.equipped,
-            reason: "spell_deck_configuration".to_string(),
-        });
+        .push(ProjectionMutation::SetSpellPrepared(
+            projection_items::SetSpellPrepared {
+                item_id: payload.item_id,
+                prepared: payload.equipped,
+                reason: "spell_deck_configuration".to_string(),
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -33124,11 +33076,13 @@ async fn set_item_contained(
     );
     record
         .projection_mutations
-        .push(ProjectionMutation::SetItemContained {
-            item_id: payload.item_id,
-            container_item_id: payload.container_item_id,
-            reason: "container_configuration".to_string(),
-        });
+        .push(ProjectionMutation::SetItemContained(
+            projection_items::SetItemContained {
+                item_id: payload.item_id,
+                container_item_id: payload.container_item_id,
+                reason: "container_configuration".to_string(),
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
