@@ -1,13 +1,13 @@
 # CosyWorld Product Requirements
 
-Last major revision: 2026-07-27. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, and the card-composed world.
+Last major revision: 2026-08-09. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, the card-composed world, and the accepted wallet-optional ownership boundary in ADR 0006.
 
 Companion documents:
 
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative mechanics design: Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, ownership, and poems. This PRD does not restate it.
 - `docs/systems/04-action-system.md` — authoritative target for card zones, deterministic scene composition, rules-bound offers, loadouts, and pack extensions.
 - `ENG.md` — architecture and engineering priorities.
-- `ECONOMY.md` — Orbs, Boxes, packs, and the NFT bridge in detail.
+- `ECONOMY.md` — Orbs, shared media funding, the avatar-NFT bridge, and the legacy Box/collection migration inventory.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
 - `docs/backlog/community-art-evolution.md` — shipped slice, production gaps, and acceptance invariants for the image-only Orb economy.
 
@@ -21,13 +21,13 @@ The product should feel like living in a small fantasy world that remembers you 
 
 CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
 
-- CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with compiled cards and complete room sheets validated by the content gate. Release counts are generated from the compiled worldpack rather than maintained in this prose.
+- CosyWorld Core and Ruby High: First Bell, with compiled cards and complete room sheets validated by the content gate. Legacy card-gated access remains migration inventory; the accepted target never makes wallet possession a condition of ordinary or expansion play. Release counts are generated from the compiled worldpack rather than maintained in this prose.
 - The full verb surface: advancement-backed Chat (begin a friendship), Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
 - The card-hand control surface: exactly two dealt action cards with art and labels plus a certified **Think**/**Pass** control. Pass commits the turn and deals the next deterministic hand; it is never a free redeal.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.
-- Resident autonomy on played time: residents wander, remember, and hunt the items they desire — a resident reclaiming her own lost keepsake is now an observed, emergent story beat.
+- Resident autonomy on played time: residents wander, remember, and hunt the items they desire — a resident reclaiming her own lost cherished item is now an observed, emergent story beat.
 - The RPG retention layer: Callings, first-class Bonds, sanctuary/frontier zoning, progress and danger clocks, seeded Jobs and Fronts, factions, the Visit Ledger with growth banking into skill steps and bond slots — all rendered in the shared transcript (arrivals, callings, clues, dice, growth).
-- An economy MVP: starter Orbs, claim-key-gated rewards, image-only community spends, durable Orb/AI-usage ledgers, and the Wooden Box burn → pack reveal bridge with production Solana/Core verification.
+- An economy MVP: starter Orbs, claim-key-gated rewards, image-only community spends, and durable Orb/AI-usage ledgers. The shipped Wooden Box and pack-reveal bridge is legacy compatibility scheduled for replay-safe removal under #682/#685.
 - Moderation basics: player reports, an operator console, protected all-room replay, actor suspension, and report retention.
 - Browser and terminal clients over the same API, with a Playwright smoke, visual baselines, and a production deployment profile with strict guardrails.
 
@@ -37,14 +37,14 @@ The question this PRD answers is no longer "can the loop exist?" It is: **why do
 
 Every feature must serve at least one of these; a feature that serves none does not ship.
 
-1. **One shared world.** No private room copies, no resident DMs, no per-player AI responses. A resident reply is a world event broadcast to everyone present. Card ownership unlocks shared places, never private instances.
+1. **One shared world.** No private room copies, no resident DMs, no per-player AI responses. A resident reply is a world event broadcast to everyone present. Wallet or card ownership never unlocks, owns, or controls a shared place.
 2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
 3. **The world runs on played time.** World time advances only through committed player turns — never on a wall clock. A quiet world is still, not rotting; a busy world is alive because people are in it. "The world moved while you were away" is always true in a populated shard, and it always means other players moved it.
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
 5. **One meaningful action hand.** The resting UI is exactly two labeled, server-authored actions and a certified **Think**/**Pass** control. Pass binds the actor, current scene/focus, state revision, and hand generation; it commits one turn and deals the next deterministic hand. Each selected action shows its target, cost, and risk before commit. Inspection and moderation remain turn-exempt. The small hand is a focus mechanism, not an inventory limit.
 6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Core world actions remain playable without inference. Dialogue is never fabricated from canned text: an explicit dialogue action fails visibly and without charge when inference is unavailable, while incidental resident speech is skipped.
 7. **Progression is earned, never bought.** Orbs buy only shared images — never Chat, power, access, success, or growth. Every ordinary world verb has a zero-Orb path.
-8. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
+8. **World truth owns itself.** Actors, items, places, cards, and Journal history are canonical world facts, not wallet assets. An optional allowlisted avatar-NFT bridge may register or recover one durable autonomous actor per verified asset. It grants no command authority, power, item, reward, or place access. Item/location NFTs, Boxes, bundles, wallet gates, and native transferable card ownership are outside the core product; see ADR 0006.
 
 ## The Concept Budget
 
@@ -61,7 +61,7 @@ Two rules follow.
 | Calling | who you are | calling tags, ledger triggers |
 | Friends | bonds with residents and players | bond entities, reaction states, evolution gates |
 | Journal | memories that settle into growth | Visit Ledger marks, advancement points, skill steps |
-| Cards | your collection and deck; the people, things, places, and spells that meet in a scene | ownership records, card zones, carrying capacity, scene composition, rules bindings |
+| Cards | visual and interaction views of the people, things, places, spells, and actions that meet in a scene | authoritative world entities, item/spell zones, carrying capacity, scene composition, rules bindings |
 | Orbs | the one visible currency | ledgers, payer modes, claim gating |
 
 Everything else is *fiction, not vocabulary*: a clock is "the trail feels safer lately," a job is "someone needs help," a front is weather and trouble, a faction is who a character stands with. System names (clock, front, claim key, projection, sanctuary/frontier) never appear in the player UI. A new feature must fit an existing noun or replace one — the budget does not grow by default.
@@ -70,9 +70,9 @@ Everything else is *fiction, not vocabulary*: a clock is "the trail feels safer 
 
 ## The Card-Composed World
 
-Adopted direction (2026-07-19), superseding the one-hand/one-floor simplification. CosyWorld is already a world of cards: a player's deck meets the cards contributed by a location, its residents, its items, and its live conditions. These rules make that reality authoritative instead of pretending that a single physical slot is the system:
+Adopted direction (2026-07-19), superseding the one-hand/one-floor simplification. ADR 0006 further clarifies that a card is presentation of authoritative world state, not a transferable ownership record. CosyWorld is already a world of cards: a player's carried and prepared state meets the cards contributed by a location, its residents, its items, and its live conditions. These rules make that reality authoritative instead of pretending that a single physical slot is the system:
 
-1. **Cards live in explicit zones.** Collection, carried deck, equipped loadout, spell deck/hand, exhausted/discard, world, and escrow/transfer are authoritative states. The action hand is a server-authored projection and never doubles as an ownership record. Every transition names the card instance, source, destination, actor, reason, and idempotency key.
+1. **Contributing state lives in explicit zones.** Carried items, equipped loadout, spell deck/hand, exhausted/discard, contained items, and world placement are authoritative states. The card and action-hand surfaces are server-authored projections and never double as ownership records. Every physical transition names the world instance, source, destination, actor, reason, and idempotency key.
 2. **A scene is a composition.** On entry and whenever relevant state changes, the server composes the active rules profile, location and room-feature cards, visible resident/avatar and world-item cards, clocks/conditions, and the player's carried/equipped/spell cards. That composition produces legal actions and a ranked action hand; it does not transfer ownership or let presentation text acquire authority.
 3. **Capacity is physical, not arbitrary.** An avatar may carry multiple cards. Legality comes from weight, size, physical ability, containers, and typed equipment slots. Bracelet advancement opens space for skill charms; it does not conjure a skill. Bags extend usable carrying capacity only while validly equipped and cannot create recursive capacity.
 4. **Search circulates cards through world state.** Search may reveal or make reachable cards when the location, feature, supply, season, or claim state permits it. An empty visual floor can be one authored condition, but it is never the universal faucet. Discovery and materialization remain kernel-validated, journaled, capacity-aware, and idempotent.
@@ -85,7 +85,7 @@ The old phrases “one hand” and “one floor” may survive as scene copy or 
 
 - **The new wanderer.** Arrives with no context. Needs to become someone, learn one true thing, and feel the room notice them — within the first session, without typing, on a phone.
 - **The returning regular.** The retention audience. Needs bonds that deepen, a Journal worth settling, a covenant that is theirs, and a frontier that visibly changed because players spent turns there.
-- **The collector and supporter.** Holds cards, opens packs, unlocks expansions, gifts, trades, and crafts. Must always feel additive: their money makes the world fancier for everyone, never gates another player's progression.
+- **The linked-avatar holder and supporter.** May link an allowlisted avatar NFT so one durable autonomous actor joins the world, and may contribute Orbs to shared public media. Neither wallet custody nor payment grants command authority, power, access, or ownership of world items and places.
 - **The world designer.** Authors rooms, residents, jobs, fronts, recipes, and evolution tracks as worldpack data with a validation gate — not by editing runtime code.
 - **The operator.** Runs the official canonical world: moderation queue, suspension, economy audit, deployment guardrails. Later: self-hosted installation operators with their own world identity, content, and gates.
 
@@ -99,8 +99,9 @@ The loop exists and multiplayer works; the priority is making the world worth re
 2. **The card-composed world.** Land explicit zones, weight/size/container capacity, typed loadouts, and deterministic scene composition. Complete the multi-card migration without reintroducing a parallel single-item authority model.
 3. **First-session arc.** Instrument the arc: arrive → become someone → play a first card → learn a truth → meet a resident → settle the Journal. Target: a first-time mobile visitor settles their first growth in under ten minutes without typing.
 4. **Turn cadence legibility.** The shipped room-turn system (one committed card per active human, ping/pong pacing, speech always turn-exempt) needs its remaining visibility work: a visible ping countdown for both sides, a clear "you've been pinged — play or pass" signal, and warm copy when a room's action hand genuinely offers only exits.
-5. **Economy circulation and card art.** Wire the already-designed job Orb payouts; add witness credit; recover world-bound cards from inactive avatars; scope faucets to played-time seasons; complete the generalized community media queue. Each generated collectible unlocks one shared image per authoritative level, with pooled cost equal to that level and history-aware visual evolution.
+5. **Economy circulation and public art.** Wire the already-designed job Orb payouts; add witness credit; recover world items from inactive avatars; scope faucets to played-time seasons; complete the generalized community media queue. Each eligible world subject unlocks one shared image per authoritative level, with pooled cost equal to that level and history-aware visual evolution.
 6. **Real faces and public-traffic safety.** Replace deterministic SVG placeholders with generated avatar portraits and card art through the media pipeline, while completing pre-commit filtering, operator resolution workflows, resident line-variety cooldowns, and abuse review.
+7. **Ownership-boundary migration.** Keep ordinary play wallet-free, freeze new keepsake/Box/item-location NFT scope, disable and archive legacy collection flows without duplicating or deleting live world items, and isolate the supported linked-avatar adapter.
 
 ### Next — a world that makes things
 
@@ -109,7 +110,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 3. **A living frontier.** The first slice is live: every sixth committed player tick drives deterministic ambient weather and opportunity-level route trade, faction movement, and conflict pressure. Stakes remain local and consensual: only a recorded action at the affected frontier can let pressure advance its danger clock, while sanctuary and unrelated players remain untouched. Next, let those audited consequences create new Jobs so the Wanderer returns to fresh work produced by play. Spent encounters reset through the same played-time seasons.
 4. **Evolution as arrangement.** Placement-pattern evolution tracks with generated per-level quest lists, replacing the fixed two-item gift: patterns compile through the same fail-closed descriptor seam as clock effects, the kernel checks satisfaction against real world state, and ceremonies pay witness credit. This is the renewable quest engine — every resident level mints a fresh constellation of things to find, carry, place, and guard.
 5. **Conflict with objectives.** Objective clocks in danger rooms, nonlethal outcomes, gear durability that breaks to absorb harm, and Flee as a first-class success path. Combat stays one risk mode among many, never the default verb. (RPG Bible Phase 6.)
-6. **Native ownership, phase one.** The signed card provenance log: native mints bound to the world events that earned them — including craft events — free gifting, world-bound co-signed trading, and commit-reveal poem claims. A player owns, gifts, and trades a base-game card with no wallet.
+6. **Linked-avatar bridge.** Productize allowlisted avatar profiles, exactly-once asset-to-actor binding, safe offstage presence, custody transfer, cosmetic metadata allowlisting, and recovery of the same actor across retries and restarts. Direct control remains a separate decision.
 
 ### Later — many hearths
 
@@ -151,7 +152,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 ### P2 — designed, staged behind P1
 
 - Crafting live: recipes.json, tag-keyed combination, AI-decorated names within rails, crafted items, crafted exits/unlocks, recipe balance declarations, and non-consuming craft-event card mints.
-- Native provenance log live: native mints, gifting, world-bound trading, one-time poem claims and world-gate incantations (repeatable).
+- Avatar-only migration complete: legacy collection/item/location ownership surfaces archived, default play wallet-free, and the optional linked-avatar adapter proven exactly once under transfer/restart.
 - Covenant-spawned jobs and played-time seasonal cadence.
 - Self-hosted installation configuration surface.
 - Higher-level evolution tracks.
@@ -161,7 +162,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - No private AI companions, teacher DMs, or per-user room instances — for any price.
 - No pay-for-power, no purchasable progression, no anonymous secondary market, no speculation loop.
 - Not a full D&D engine; the rules layer stays compact, legible, and kernel-audited.
-- No unlimited or spreadsheet-like inventory. A carried deck is bounded by weight, size, containers, typed slots, and access costs; the wider collection remains distinct from cards materialized in the shared world.
+- No unlimited or spreadsheet-like inventory. Physical carrying is bounded by weight, size, containers, typed slots, and access costs; presentation cards do not create a second collection or world-item plane.
 - No consumable world items — use, craft, and evolution may exhaust or transform meaning, but must not delete physical items from the world.
 - No dashboard/admin chrome in the player surface; operator tools live behind protected routes.
 - No wall-clock world simulation; the world's pulse is its players.
@@ -189,18 +190,18 @@ World health:
 
 Economy health:
 
-- Orb faucet/sink balance per cohort week; percentage of sessions blocked on an Orb wall for a core-loop action (target: zero); pack/burn completion without support intervention; craft events per active player once crafting lands.
+- Orb faucet/sink balance per cohort week; percentage of sessions blocked on an Orb wall for a core-loop action (target: zero); linked-avatar recovery without duplication; unresolved legacy ownership-migration anomalies; craft events per active player once crafting lands.
 
 ## Risks
 
-- **Card-zone ambiguity creates duplicate authority.** Collection ownership, world possession, carried cards, equipped cards, spell preparation, and the action hand must never collapse into one field or be inferred from the browser. Migrate each legacy field through a versioned boundary and reject ambiguous state rather than guessing.
+- **Card-zone ambiguity creates duplicate authority.** World possession, carried/equipped items, spell preparation, presentation cards, legacy collection records, and the action hand must never collapse into one field or be inferred from the browser. Archive each legacy field through a versioned boundary and reject ambiguous state rather than guessing.
 - **Scene composition can become illegible.** The underlying merge may be deep while the resting surface stays small. Keep the two-card action hand, make precedence inspectable, and test that each current card and Think/Pass certificate remains current and explicit.
 - **Retention layer under-delivers.** If Journal marks feel like chores, the whole Now bet fails. Keep marks tied to genuinely novel events (truths, bonds, frontier returns, witnessed moments), never grind.
 - **Crafting opens a generative moderation surface.** AI-decorated names/blurbs on player-triggered mints must pass the same sanitizer as speech, with authored fallbacks — and recipe outputs must never be kernel-arbitrary.
 - **Moderation debt blocks launch.** One shared world with open traffic and thin filtering is an incident, not a risk. Public-traffic moderation is a P1 gate.
 - **UI creep.** Every new system (covenants, trading, crafting, media) will ask for chrome. The hand rule and transcript-first surface are product law; new surfaces must be focus states, not panels.
 - **Economy drift.** Any negative Orb ledger reason other than `community_image_generation`, or any image contribution that buys outcomes or ownership, breaks pillar 7. Review must enforce the single-sink invariant and level-sized pooled cap.
-- **Trading reintroduces speculation.** World-bound, co-signed, lineage-preserving trades are the line; hold it even when a marketplace would be easier.
+- **External ownership leaks into world authority.** Wallet custody must never become command authority, item supply, location access, action legality, or progression. Fail closed whenever an adapter cannot prove the narrow linked-avatar contract.
 - **Turn systems can suffocate a chat world.** Speech stays turn-exempt, browsing stays free, and absent players are skippable — if any of those three slips, shared rooms stop feeling alive.
 - **Scope gravity toward simulation.** Covenants, fronts, seasons, and crafting can each become a management game. Ship the smallest slice that serves a fantasy, per the RPG Bible's acceptance criteria.
 

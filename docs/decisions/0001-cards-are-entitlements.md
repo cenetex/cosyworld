@@ -2,6 +2,11 @@
 
 - Status: Accepted
 - Date: 2026-07-16
+- Superseded in part: 2026-08-09 by
+  [ADR 0006](0006-avatar-nft-only-bridge.md). Its separation of cards from
+  canonical world entities remains authoritative; its external-card,
+  entitlement-gated-place, portable-item, Box/bundle, and general collectible
+  product direction does not.
 - Decision owners: CosyWorld maintainers
 - Related: #20, #23, #24, #25, #26, #27, #48, #51, #52
 

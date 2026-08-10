@@ -7,7 +7,14 @@ data, and the local smoke/deployment gates.
 The older Node service remains in the repository as a legacy companion for
 integrations and migration work. Gameplay truth lives here.
 
-For the Orbs, Intricately Carved Wooden Boxes, Ruby High pack/burn adapter, and legacy migration plan, see `../ECONOMY.md`.
+ADR 0006 accepts a wallet-optional core with an avatar-NFT-only bridge. The
+Box/pack, keepsake, wallet-gate, and item/location materialization routes
+documented below are live legacy compatibility surfaces being removed through
+#682/#685; they are not product direction. New external-ownership work belongs
+only in the optional linked-avatar adapter.
+
+For Orbs, linked avatars, legacy receipt inventory, and the migration plan, see
+`../ECONOMY.md`.
 
 For free public Chat, community-funded evolving card art, combat rewards, and self-expanding swarm design, see `../AI.md`.
 

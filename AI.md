@@ -442,6 +442,11 @@ concern.
 
 - Generated media belongs to the world event/card it was generated for, not to a private chat.
 - A contribution buys no ownership, access, power, or private control over the prompt.
+- ADR 0006 permits external ownership only as provenance for one allowlisted
+  linked avatar. Reviewed cosmetic appearance fields may inform that avatar's
+  presentation, but NFT metadata cannot author prompts, personality, memory,
+  mechanics, items, rewards, access, pack ids, or controller mode. Item and
+  location NFTs are never media-authority inputs.
 - Each `{subject kind, subject id, level}` generation is unique and replay-safe. Multiple avatars may pool its exact level-sized cost.
 - The prompt captures public card history through a committed sequence. When the card reaches a later level, its one newly unlocked image can evolve in response to everything that happened since.
 - Fully funded jobs may be retried without another Orb debit. Before any actor,
