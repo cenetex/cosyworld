@@ -15181,19 +15181,34 @@ async function main() {
         }
       }
     }
-    await page.waitForFunction(() => {
+    const authoritativeProjectBeforeReconcile = await moonlitProjectStatus();
+    await reconcileActionHand();
+    const reconciledProjectPresentation = await page.evaluate(() => {
       const progress = (state?.clocks || []).find(
         (clock) => clock.id === "moonlit-trail.progress",
       );
       const job = (state?.jobs || []).find(
         (entry) => entry.id === "moonlit-trail:quiet-the-echo",
       );
-      return (
-        progress?.filled === 4 &&
-        job?.status === "completed" &&
-        (state?.tags || []).some((tag) => tag.label === "quieted moonlight")
-      );
+      return {
+        filled: Number(progress?.filled || 0),
+        job: job?.status || "missing",
+        rewarded: (state?.tags || []).some((tag) => tag.label === "quieted moonlight"),
+      };
     });
+    assert(
+      reconciledProjectPresentation.filled === 4
+        && reconciledProjectPresentation.job === "completed"
+        && reconciledProjectPresentation.rewarded,
+      `the browser should reconcile authoritative shared project completion without waiting on a stale snapshot: ${JSON.stringify({
+        authoritative: {
+          filled: authoritativeProjectBeforeReconcile.filled,
+          job: authoritativeProjectBeforeReconcile.status,
+          completed: authoritativeProjectBeforeReconcile.completed,
+        },
+        browser: reconciledProjectPresentation,
+      })}`,
+    );
     const completedProjectState = await fetchCurrentState();
     const completedMoonlitProgress = (completedProjectState.clocks || []).find(
       (clock) => clock.id === "moonlit-trail.progress",
