@@ -76,6 +76,24 @@ Every place node should declare:
 | Recovery | Where does failure move the player, and what remains possible? |
 | Generative envelope | Which descriptions, waypoints, encounters, or art may be proposed? |
 
+If a place may develop, also map it against
+[Location Classes, Development Projects, and Buildings](../location-development.md):
+
+| Development field | Design question |
+| --- | --- |
+| Cairn / Anchor | Which durable fixture authorizes a founding proposal without pretending to be settlement or shelter? |
+| Governance | How do public proposals become one selected, slot-reserving construction project? |
+| Class families | Which identity buildings may establish this place as a Pathway, Hearth, Garden, Shrine, or pack-defined extension? |
+| Slot envelope | Which Identity, Amenity, Landmark, and Route slots can durable projects open? |
+| Building fit | Which class, environment, resource, capability, access, and covenant facts make an archetype legal? |
+| Advancement | Which one-shot development completions receive replay-safe level credit, and which repeatable services explicitly do not? |
+| Civic agency | How can both directly controlled and autonomous avatars propose, support, object, and contribute under the same rule? |
+| Migration | What happens to class, slot reservations, installed buildings, advancement receipts, and art when the pack changes? |
+
+Do not author a starting class as descriptive metadata and then search prose for
+proof. Class comes from the completed identity building. Do not use activity,
+chat, visits, repeatable jobs, or cosmetic funding as location advancement.
+
 Use three authorship bands when the world needs scale:
 
 1. **Authored core:** permanent locations, rules, residents, missions,
@@ -112,6 +130,14 @@ Define each recurring character with:
 | Public signal | What lets players read their present intention. |
 | Memory | Which journaled facts may alter future choices. |
 | Change rule | What can transform their need, bond, or affiliation. |
+
+Do not use a provider model binding as proof that this character exists. A
+model may embody an authored conversational actor, but image, video, speech-
+synthesis, transcription, semantic, or music endpoints normally power item
+devices. Ask whether the subject perceives, chooses, and participates as an
+agent or whether an agent uses it. Declare that embodiment explicitly and
+follow [ADR 0007](../decisions/0007-model-bindings-and-item-devices.md); adapter
+readiness must never change the answer.
 
 Autonomy and authorship are complementary. The
 [GDC talk on NPCs in *The Division*](https://www.gdcvault.com/play/1023383/Blending-Autonomy-and-Control-Creating)
@@ -227,6 +253,14 @@ Unique keys must have recovery rules. Actor-bound relics must not be confused
 with wallet ownership. A collectible image or card is never sufficient
 authority to mint the underlying item.
 
+A model-backed special item additionally declares its exact binding and
+profile, `carried|equipped|installed` activation, typed slot when equipped,
+closed settings schema, unavailable-state copy, async custody policy, and
+truthful attribution. A dormant device remains discoverable but cannot
+contribute an unplayable action. A voicebox changes how its carrier's action is
+rendered; it does not become the speaker. Provider tools and free-form prompts
+are never implied by possessing the item.
+
 ## 7. Evolve from facts, not improvisation
 
 Dynamic evolution should be causal and inspectable:
@@ -306,6 +340,12 @@ Authored core:
 Constrained connective space:
 Bounded frontier:
 Safety and recovery:
+
+Developable locations and Cairn equivalents:
+Location classes and identity buildings:
+Typed-slot and building-fit envelope:
+Development projects versus repeatable services:
+Location governance and civic agency:
 
 Characters:
 Factions and typed relations:

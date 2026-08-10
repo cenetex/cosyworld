@@ -7,6 +7,12 @@ This document describes how exploration, logistics, construction, and local
 services can make every worldpack feel alive without introducing a `void_`
 namespace or a parallel settlement engine.
 
+The canonical product contract for location class, typed slots, project-derived
+levels, and human/AI civic parity is
+[Location Classes, Development Projects, and Buildings](../location-development.md).
+This document distinguishes that accepted direction from the generated-place
+behavior currently shipped in the runtime.
+
 ## Product model
 
 ```json
@@ -33,9 +39,10 @@ shelter, sanctuary, or Hearth. A cairn and Project 89 Signal Anchor are
 worldpack-specific presentations of that shared role.
 
 The word **purpose** remains player-facing language for an actor's Calling. Do
-not add a second mandatory `location.purpose` concept. Local function should
-normally emerge from completed work and installed capabilities rather than from
-one singular label chosen in advance.
+not add a second mandatory `location.purpose` concept. A location may gain a
+class, but that class is derived from the completed building in its identity
+slot. Local function continues to emerge from completed work and installed
+capabilities rather than from a free-floating label chosen in advance.
 
 ## Status vocabulary
 
@@ -73,6 +80,30 @@ ladder:
 
 This is the generated-place lifecycle. Only its first stage is the Anchor or
 cairn stage. Connection and Settlement retain separate authority and meaning.
+It remains accurate shipped behavior, but it is not the target universal
+founding flow. The accepted location contract lets an active Cairn directly
+authorize a legal founding proposal; Connection and Settlement may remain
+separate projects or archetype prerequisites without being universal gates on
+originating that proposal.
+
+### Location classes, typed slots, and levels — accepted direction
+
+A selected founding proposal reserves one identity slot and opens a real
+construction project. Completion installs the identity building, derives one
+of the initial Pathway, Hearth, Garden, or Shrine classes, and awards the first
+replay-safe location advancement receipt. Supporting buildings occupy typed
+Amenity or Landmark slots and must fit that class as well as the existing
+environment, resource, capability, access, and governance predicates.
+
+Location level is the count of unique credited development-project
+completions, capped at 20. Founding, construction, civic expansion, building
+upgrade, conversion, and landmark work may count. Repeatable production,
+maintenance, delivery, care, and stewardship jobs do not. Event volume, chat,
+model activity, and community-art funding never count.
+
+An autonomous avatar and a directly controlled avatar use the same proposal,
+governance, and contribution rules. Either may originate a legal proposal;
+neither may unilaterally install a building or bypass the place's governance.
 
 ### Natural affordances and building eligibility
 
@@ -139,7 +170,7 @@ or create sanctuary.
 
 ## Real gaps
 
-### Authored places cannot enter the settlement-building flow
+### Cairned authored places cannot yet enter the universal founding flow
 
 Authored locations may expose environment and natural potentials, and a survey
 may show eligible building archetype IDs. Current major building-slot capacity,
@@ -147,23 +178,17 @@ however, is created only by a generated place's settlement proposal. An authored
 location can therefore advertise eligibility without having a construction
 footprint to claim.
 
-If authored construction is needed, add an opt-in **development profile** or
-**charter** that reuses the same jobs, governance, footprint, construction,
-capability, journal, and replay contracts. Do not require every authored place to
-develop, and do not fabricate a generated pathway merely to obtain its state.
+The accepted direction is now explicit: an active Cairn or setting-equivalent
+authorized Anchor permits any legal avatar to originate a founding proposal at
+that location. The same jobs, governance, slot reservation, construction,
+capability, Journal, and replay contracts must work for authored and generated
+places. Do not fabricate a generated pathway merely to obtain settlement state.
 
-Possible profile responsibilities are:
-
-- whether development is permitted;
-- initial and maximum footprint capacity;
-- allowed building families or explicit archetype IDs;
-- the condition that opens a proposal;
-- governance policy;
-- authored establishment presentation; and
-- migration behavior across pack upgrades and world epochs.
-
-This is a proposal, not yet a schema. Prove that generated-path sites are
-insufficient before generalizing the stored state.
+The versioned authoring contract still needs to express Cairn equivalence,
+governance policy, allowed class families or exact archetypes, typed-slot caps,
+establishment presentation, and migration behavior. The target shape and
+invariants live in the canonical location-development document; it must be
+implemented as a versioned extension rather than inferred from prose.
 
 ### Completed buildings are mostly capability endpoints
 
@@ -199,21 +224,22 @@ knowledge:
 This knowledge layer should make construction needs and route discoveries travel
 through the world without making every actor or client omniscient.
 
-### AI civic agency needs a governance rule
+### Equal human and AI civic agency needs one action surface
 
 Inference-controlled actors already use the same legal contribution surface and
 can help complete construction. Current permanent building selection favors a
-directly controlled chooser. If autonomous stewards should shape a place, give
-them bounded civic acts:
+directly controlled chooser. The accepted location contract gives both
+controller modes the same bounded civic acts:
 
 - propose one currently legal alternative;
 - support or object to a public alternative for an authored reason;
 - volunteer themselves for a concrete job or staffing commitment; and
 - explain their choice from certified needs, bonds, duties, and known facts.
 
-AI must not invent an archetype, output, resource, rule, or permanent topology,
-and it must never assign another actor. Selection remains governed by an
-explicit authored policy.
+AI must not invent an archetype, output, resource, rule, slot, class, or
+permanent topology, and it must never assign another actor. Selection remains
+governed by an explicit authored policy. Human control grants no mechanical
+override.
 
 ## Discovery repeat law
 

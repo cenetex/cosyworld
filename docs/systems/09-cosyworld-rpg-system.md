@@ -232,7 +232,11 @@ Actors include player avatars and residents.
 
 ### Room
 
-A room is a persistent world actor.
+A room is a persistent world entity. It can have authored character, public
+memory, goals, and reactions without receiving an actor body, controller, or
+personhood. Gentle animism is presentation; rules agency still belongs to
+avatars. Model-backed facilities are represented by installed items or
+building capabilities rather than by turning the room into an actor.
 
 - `id`, `name`, `description`
 - `safety`: safe, risky, or dangerous (also selects sanctuary vs frontier rules)
@@ -267,6 +271,14 @@ Items are the main build surface for a light RPG.
 - `recharge_condition`, `break_effect`
 - `kernel_effect`, when the item changes authoritative state
 - `projection_effect`, when the item only changes clocks, tags, or presentation
+- optional model-backed device mechanics: exact binding/profile, activation
+  while carried/equipped/installed, typed slot, closed settings, availability,
+  uses/exhaustion/recovery, and transfer policy
+
+A model-backed camera, voicebox, listener, semantic instrument, or music device
+is still an item. It contributes certified actions or settings to the avatar
+using it; it does not become the acting person. See
+[ADR 0007](../decisions/0007-model-bindings-and-item-devices.md).
 
 ### Clock
 

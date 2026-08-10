@@ -12,6 +12,7 @@ restart_delay="${COSYWORLD_MULTITENANT_RESTART_DELAY_SECS:-2}"
 supervisor_pid="$$"
 workers=""
 nginx_pid=""
+nginx_log_pid=""
 health_monitor_pid=""
 required_health_urls=""
 
@@ -131,6 +132,9 @@ stop_all() {
   if [ -n "$health_monitor_pid" ]; then
     kill -TERM "$health_monitor_pid" 2>/dev/null || true
   fi
+  if [ -n "$nginx_log_pid" ]; then
+    kill -TERM "$nginx_log_pid" 2>/dev/null || true
+  fi
   for worker in $workers; do
     kill -TERM "$worker" 2>/dev/null || true
   done
@@ -139,6 +143,9 @@ stop_all() {
   fi
   if [ -n "$health_monitor_pid" ]; then
     wait "$health_monitor_pid" 2>/dev/null || true
+  fi
+  if [ -n "$nginx_log_pid" ]; then
+    wait "$nginx_log_pid" 2>/dev/null || true
   fi
   for worker in $workers; do
     wait "$worker" 2>/dev/null || true
@@ -169,15 +176,15 @@ if [ ! -x "$health_monitor" ]; then
   log "required tenant health monitor is not executable: $health_monitor"
   exit 1
 fi
-# Preserve current-main's root readiness contract: every installed sibling,
-# including optional Elysium when present, is checked by root /health. Build
-# this manifest-derived list before root starts so it cannot race later rows.
+# Root readiness follows the same required/optional boundary as the supervisor
+# and dedicated health monitor. An optional world may restart independently
+# without making every hostname on the Machine fail its public health check.
 while IFS='|' read -r slug requirement hosts upstream port registry entry_location snapshot_path event_db_path generated_asset_dir extra_origins; do
   case "$slug" in
     ""|\#*) continue ;;
   esac
+  [ "$requirement" = "required" ] || continue
   if [ ! -r "$registry" ]; then
-    [ "$requirement" = "optional" ] && continue
     log "required tenant $slug registry is unreadable: $registry"
     exit 1
   fi
@@ -214,6 +221,11 @@ while IFS='|' read -r slug requirement hosts upstream port registry entry_locati
     "$snapshot_path" "$event_db_path" "$generated_asset_dir" "$extra_origins" \
     "$requirement"
 done < "$tenant_config"
+
+touch /tmp/cosyworld-nginx/error.log /tmp/cosyworld-nginx/access.log
+tail -n 0 -F /tmp/cosyworld-nginx/error.log /tmp/cosyworld-nginx/access.log &
+nginx_log_pid="$!"
+log "nginx access and error logs are streaming to the platform log"
 
 if ! nginx -t -c "$nginx_config"; then
   log "hostname router configuration is invalid"

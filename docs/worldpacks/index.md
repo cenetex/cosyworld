@@ -13,6 +13,15 @@ Start here:
 
 - [How to Design a Worldpack](how-to-design-a-worldpack.md) is the reusable
   design method and authoring checklist.
+- [Location Classes, Development Projects, and Buildings](../location-development.md)
+  defines the shared Cairn, class, typed-slot, project-level, and civic-agency
+  contract that developable places must follow.
+- [ADR 0007: Model Bindings and Item Devices](../decisions/0007-model-bindings-and-item-devices.md)
+  defines when an exact model embodies an actor and when it powers a portable,
+  equipped, or installed item device.
+- [Construction, Place Development, and Route Discovery](construction-and-routing-discovery.md)
+  distinguishes that accepted direction from the generated-place behavior
+  currently shipped.
 - [Project 89 Systems Study](project-89-systems-study.md) applies the method to
   the proposed three-ring Project 89 world.
 - [Project 89 Content Review](project-89-content-review.md) reviews the story,

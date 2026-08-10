@@ -136,6 +136,7 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
         room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
         room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+        room_memory_retries: Arc::new(StdMutex::new(BTreeMap::new())),
         room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
         actor_job_notify: Arc::new(Notify::new()),
         avatar_chat_delay: Duration::ZERO,

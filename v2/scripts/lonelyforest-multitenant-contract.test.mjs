@@ -84,6 +84,11 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(workflow, /node v2\/scripts\/check-lonelyforest-worldpacks\.mjs/);
   assert.match(workflow, /check-lonelyforest-worldpacks\.mjs[\s\S]*?npm run v2:lonelyforest:contract[\s\S]*?flyctl deploy/);
   assert.match(supervisor, /health_url="http:\/\/127\.0\.0\.1:\$port\/health"/);
+  assert.match(
+    supervisor,
+    /Root readiness follows the same required\/optional boundary[\s\S]*?\[ "\$requirement" = "required" \] \|\| continue[\s\S]*?\[ "\$slug" = "root" \] && continue/,
+    "root readiness must not couple optional tenant health to every hostname",
+  );
   assert.match(supervisor, /COSYWORLD_REQUIRED_HEALTH_URLS="\$required_health_urls"/);
   assert.equal(
     (supervisor.match(/COSYWORLD_REQUIRED_HEALTH_URLS="\$required_health_urls"/g) ?? []).length,
@@ -103,6 +108,8 @@ test("Lonely Forest tenant manifest strictly covers supervisor, nginx, Fly healt
   assert.match(nginx, /^error_log \/tmp\/cosyworld-nginx\/error\.log notice;$/m);
   assert.match(nginx, /^\s*access_log \/tmp\/cosyworld-nginx\/access\.log combined;$/m);
   assert.match(supervisor, /mkdir -p[\s\S]*?\/tmp\/cosyworld-nginx \\/);
+  assert.match(supervisor, /tail -n 0 -F \/tmp\/cosyworld-nginx\/error\.log \/tmp\/cosyworld-nginx\/access\.log/);
+  assert.match(supervisor, /kill -TERM "\$nginx_log_pid"/);
   for (const [directive, directory] of [
     ["client_body_temp_path", "/tmp/cosyworld-nginx/client-body"],
     ["proxy_temp_path", "/tmp/cosyworld-nginx/proxy"],

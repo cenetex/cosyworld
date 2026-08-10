@@ -482,11 +482,21 @@ pub(crate) fn record_rejected_ai_publication(
     state: &crate::AppState,
     error: &crate::prompts::GeneratedSpeechError,
 ) {
-    for rejection in error.rejections() {
+    record_ai_publication_rejections_with_logs(state, error.rejections());
+}
+
+pub(crate) fn record_ai_publication_rejections_with_logs(
+    state: &crate::AppState,
+    rejections: &[PublicationRejection],
+) {
+    for rejection in rejections {
         tracing::warn!(
+            generation_id = %rejection.receipt.generation_id,
             feature = %rejection.receipt.feature,
             failure_code = rejection.failure_code.as_str(),
             candidate_round = rejection.receipt.candidate_round,
+            provider = %rejection.receipt.provider,
+            requested_model = %rejection.receipt.model,
             // Which run tripped the gate, so a duplicate storm is diagnosable
             // from logs alone. Normalized tokens from a line no player saw, and
             // only ever on the rejection path.
@@ -494,7 +504,7 @@ pub(crate) fn record_rejected_ai_publication(
             "AI voice candidate rejected by publication gate"
         );
     }
-    record_ai_publication_rejections(state, error.rejections());
+    record_ai_publication_rejections(state, rejections);
 }
 
 pub(crate) fn record_prior_ai_publication_rejections(

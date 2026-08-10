@@ -14,9 +14,11 @@ candidate and sends only that model ID to the provider.
   declare JSON mode or structured output.
 - `world_content` is strict structured content such as hidden pathway identity.
   A candidate must declare structured-output support.
-- `image_generation` accepts text and produces an image. Elysium residents use
-  the same capability validation against their exact checked-in actor binding,
-  rather than borrowing a model from a global text pool.
+- `image_generation` accepts text and produces an image. Exact-bound Elysium
+  subjects use the same capability validation against their checked-in binding,
+  rather than borrowing a model from a global text pool. Under
+  [ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md), an
+  image-only subject is a model-backed item device rather than a resident.
 
 Capabilities are independent. Discovery metadata is retained for inspection
 but never grants eligibility. Only a normalized declared capability enters a
@@ -208,21 +210,28 @@ supersedes the prior one, while a rejected new attempt does not mutate it.
 
 ## Pack-bound exact models and interaction profiles
 
-AI cast worldpacks may bind a resident directly to one OpenRouter model through
-the compiled `actor_model_bindings` resource. The separate checked-in
-`actor_interaction_profiles` snapshot gives every binding one or more explicit
-interaction profiles. Each profile pins its endpoint, accepted inputs, outputs,
-required parameters, defaults, provider availability, endpoint ZDR fact, and
-runtime-adapter status. An offer requires both `provider_available` and
-`runtime_adapter_supported`, the exact configured route, and the applicable
-runtime policy gates. It always sends the binding's requested model ID; an
-unsupported model never borrows the global Voice model or masquerades as Talk.
-The frozen provider-availability snapshot also withholds a route observed to
-have no exact endpoint, while runtime readiness suppresses newly failing routes
-between snapshots.
+An exact model is execution configuration, not automatically a resident.
+[ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md)
+requires a worldpack to declare whether the binding embodies an authored actor
+or powers an item device. The current compatibility resource
+`actor_model_bindings` supports actors only. The accepted additive direction is
+`item_model_bindings` for portable, equipped, or installed items, normalized at
+runtime with actor bindings into one discriminated exact-binding contract.
 
-`Talk` backs the existing bounded Chat exchange. Raw Talk deliberately removes
-CosyWorld's character prompt and resident planner. Its sole message is the
+The separate checked-in interaction-profile snapshot gives every binding one or
+more explicit profiles. Each profile pins its endpoint, accepted inputs,
+outputs, required parameters, defaults, provider availability, endpoint ZDR
+fact, asynchronous/streaming behavior, and runtime-adapter status. An offer
+requires both `provider_available` and `runtime_adapter_supported`, the exact
+configured route, an eligible active subject, and the applicable runtime policy
+gates. It always sends the binding's requested model ID; an unsupported model
+never borrows the global Voice model or masquerades as Talk. The frozen
+provider-availability snapshot also withholds a route observed to have no exact
+endpoint, while runtime readiness suppresses newly failing routes between
+snapshots. Readiness never changes the subject's actor-or-item embodiment.
+
+`Talk` backs the existing bounded actor Chat exchange. Raw Talk deliberately
+removes CosyWorld's character prompt and resident planner. Its sole message is the
 bounded preceding server-generated dialogue line; it omits system text, tools,
 response formats, and player input. If the catalog says the model accepts the
 unified reasoning parameter, the first request asks for reasoning effort
@@ -233,10 +242,11 @@ unrecognized HTTP 400 gets one retry with the reasoning object omitted. No
 other provider error activates these shape fallbacks, and the normal retry loop
 does not multiply them.
 
-The other ready native profiles are:
+The other ready native profiles are device affordances unless their subject is
+also an explicitly authored conversational actor:
 
 - `Illustrate` calls the exact image route with a prompt derived only from the
-  frozen resident, location, and scene. The candidate is stored outside public
+  frozen actor, source device, location, and scene. The candidate is stored outside public
   asset routes, decoded with byte and dimension limits, and reviewed from
   visible pixels. Only an approved raster image is copied to immutable public
   storage and journaled. The event keeps its asset digest, URL, dimensions,
@@ -244,9 +254,10 @@ The other ready native profiles are:
   not the prompt or rejected bytes.
 - `Speak` is offered only when the snapshot pins an authoritative provider
   voice and MP3 output. Its input is a server-authored line of at most 280
-  characters derived from frozen resident and location facts. The resulting
+  characters derived from frozen actor, device, and location facts. The resulting
   content-addressed audio is durably recovered and published with its digest,
-  MIME type, exact attribution, and transcript.
+  MIME type, exact attribution, and transcript. The avatar speaks through the
+  voicebox; the device or model does not become the speaker.
 - `Find resonance` sends one frozen model descriptor and eight deterministic
   neighboring descriptors to the exact embeddings endpoint, computes cosine
   similarity locally, and publishes only the top three coarse matches. The
@@ -258,17 +269,24 @@ The other ready native profiles are:
   semantic action journals its prompt, embedding vectors, or raw scores.
 
 There is no player-authored speech or model prompt in any of these paths. The
-browser sends only the acting avatar and target resident certified by the
-current offer. It exposes no microphone, audio upload, arbitrary text, or
-prompt field.
+browser submits only the current certified offer for the acting avatar and its
+bound actor or item subject. It exposes no microphone, audio upload, arbitrary
+text, model picker, provider tool, or prompt field.
 
 Every other advertised modality still has a truthful profile and an explicit
 reason it is withheld. `Transcribe` has a bounded exact STT gateway primitive,
-but its action adapter stays dormant because CosyWorld accepts no human speech
-or audio upload. Asynchronous video, mixed audio/text voice chat, and music
-composition remain unavailable until their persistence and streaming adapters
-exist. Vector-only image models remain unavailable until a safe SVG rasterizer
-exists. These profiles are not rerouted through Chat.
+but its action adapter stays dormant because CosyWorld accepts no authorized
+human speech or audio upload. Asynchronous video and music composition remain
+unavailable until their persistence adapters exist. A genuine two-way voice
+profile may embody an actor only under an explicit actor contract and an
+implemented streaming adapter. Vector-only image models remain unavailable
+until a safe SVG rasterizer exists. These profiles are not rerouted through
+Chat.
+
+A dormant item remains visible and inspectable with this sanitized reason but
+does not occupy either current action-hand slot. Provider or adapter recovery
+can make the item's certified offer eligible; it cannot convert the item into
+an avatar.
 
 Exact interactions carry only server-authored world text. Production therefore
 allows both ZDR and non-ZDR exact bindings. A profile whose snapshot says its
@@ -287,9 +305,12 @@ becoming world authority. The deterministic C kernel and journal still own all
 state mutation.
 
 Raw mode does not remove the ordinary spatial observation model; it only keeps
-that state out of the provider prompt. Elysium gives every exact-model avatar
-one private void and one local void token, so the normal room boundary limits
-belief observation and exchange without a provider-specific engine shortcut.
+that state out of the provider prompt. In the accepted Elysium migration,
+conversational actors retain private voids while each tool-only binding powers
+the existing local Void Token as a curious device. The normal room, custody,
+equipment, installed-item, and access boundaries limit observation and use
+without a provider-specific engine shortcut. Actor canonical references retired
+by that migration cannot silently become item references.
 
 ## Data policy and attribution
 

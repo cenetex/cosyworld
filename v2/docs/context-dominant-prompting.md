@@ -107,13 +107,24 @@ semantic recollections, and the latest committed persona/appearance. It never su
 or invents world state; it selects and renders authoritative state for a particular
 generation job.
 
-Items and locations gain levels from recorded history rather than avatar XP: item levels
-advance with use, while location levels advance with meaningful events. Avatars, items,
-and locations each become eligible for one first-person persona-and-appearance revision
-per level. These revisions use stable entity-and-level generation keys, are rechecked at
-commit time, and enter later context only as journaled `*.self_description` events.
+Items and locations do not use avatar XP. Item levels advance with use. The current
+runtime still derives location levels from a broad meaningful-event count, but that is a
+migration boundary rather than the product contract: location levels must instead derive
+only from unique, replay-safe development-project completion receipts as specified in
+[Location Classes, Development Projects, and Buildings](../../docs/location-development.md).
+Prompt construction consumes the authoritative level and must never infer advancement
+from transcript volume, model activity, descriptive prose, or Orb funding. Avatars,
+items, and locations each become eligible for one first-person persona-and-appearance
+revision per authoritative level. These revisions use stable entity-and-level generation
+keys, are rechecked at commit time, and enter later context only as journaled
+`*.self_description` events.
 Non-avatar descriptions belong only to their subject; the avatar whose reflection created
 the opportunity does not inherit an item's or location's first-person memory.
+An item or location persona is gentle animism, not an actor controller or a claim of
+personhood. Per
+[ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md), a model-backed
+device remains an item even when it receives a first-person description; the avatar using
+it remains the acting subject unless a separate authored actor contract says otherwise.
 
 ### Goal ledger and passive perception
 

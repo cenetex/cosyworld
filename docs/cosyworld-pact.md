@@ -93,6 +93,11 @@ AI may speak for a resident, propose narration, or illustrate an earned
 moment. It never chooses legality, odds, access, topology, rewards, custody, or
 consequences.
 
+A model is not automatically a person. It may embody an authored resident or
+power a carried, equipped, or installed item. In either case the world states
+truthfully who acted, which device or model contributed, and why a capability
+is unavailable.
+
 Core play remains available without AI. If requested dialogue cannot be
 generated, it fails plainly and without charge. The game does not put invented
 words into a character's mouth as a fallback.

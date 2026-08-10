@@ -105,6 +105,12 @@ wants, boundaries, memory references, reaction state, and allowed actions.
 AI may phrase a response, but it cannot grant a new power, move an unavailable
 item, ignore a boundary, or change a relationship by narration.
 
+A provider model is not enough to make a resident. If an endpoint only creates
+images, video, speech audio, transcripts, semantic matches, rankings, or music,
+represent it as a curious item device unless the worldpack separately authors a
+genuine agent. A device may be carried, equipped, or installed; the avatar using
+it remains the actor. This follows ADR 0007, *Model Bindings and Item Devices*.
+
 A useful resident answers four questions:
 
 1. What do they want now?

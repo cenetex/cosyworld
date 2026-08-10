@@ -6427,6 +6427,34 @@ async function main() {
   }
 
   async function assertFailureCopyStaysContextual() {
+    const promotedEnvelope = await page.evaluate(async () => {
+      const originalFetch = window.fetch;
+      try {
+        window.fetch = async (input, options) => {
+          if (String(input) === "/__smoke_error_envelope") {
+            return new Response(JSON.stringify({
+              ok: false,
+              status: 409,
+              events: [{ type: "action.offer_rejected" }],
+              output: "The room changed; look again.",
+            }), {
+              status: 409,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          return originalFetch(input, options);
+        };
+        return await postResult("/__smoke_error_envelope", {});
+      } finally {
+        window.fetch = originalFetch;
+      }
+    });
+    assert(
+      promotedEnvelope?.status === 409
+        && promotedEnvelope?.output === "The room changed; look again."
+        && promotedEnvelope?.events?.length === 1,
+      `promoted HTTP errors should preserve their action envelope: ${JSON.stringify(promotedEnvelope)}`,
+    );
     const result = await page.evaluate(() => ({
       action: {
         chatCost: actionFailureMessage("/actions/chat", { status: 402 }),

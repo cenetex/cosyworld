@@ -26,7 +26,7 @@ describe("two-action browser hand", () => {
     expect(browser).toContain('const buttonIds = ["primary", "secondary"];');
     expect(browser).toContain('async function passHand()');
     expect(browser).toContain('offer_id: handPassSubmission.offer_id');
-    expect(browser).toContain('post("/commands", withAccess({');
+    expect(browser).toContain('postResult("/commands", withAccess({');
     expect(browser).not.toContain('post("/actions/draw"');
     expect(browser).not.toContain("advanceHandPage");
     expect(browser).not.toContain("drawNextHandCard");

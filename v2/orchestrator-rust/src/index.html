@@ -5005,6 +5005,17 @@
       });
     }
 
+    async function postResult(path, payload) {
+      try {
+        return await post(path, payload);
+      } catch (error) {
+        if (error?.payload && typeof error.payload === "object" && Number(error.status || 0)) {
+          return error.payload;
+        }
+        throw error;
+      }
+    }
+
     function loadOpenRouterConnection() {
       try {
         return JSON.parse(localStorage.getItem(openRouterConnectionStorage) || "null");
@@ -5603,7 +5614,7 @@
     async function pingPresence() {
       if (!actorId || !actorSession) return;
       try {
-        const result = await post("/presence/ping", { actor_id: actorId, actor_session: actorSession });
+        const result = await postResult("/presence/ping", { actor_id: actorId, actor_session: actorSession });
         pushEvents(result.events || []);
         if (!result.ok && result.status === 403) stopPresenceHeartbeat();
       } catch {
@@ -8326,10 +8337,8 @@
         void queueRefresh();
         return result;
       }
-      let result;
-      try {
-        result = offer
-          ? await post("/actions/submit", {
+      const result = offer
+          ? await postResult("/actions/submit", {
               path,
               offer_id: offer.offer_id,
               composition_id: offer.composition_id,
@@ -8343,13 +8352,7 @@
               cost: offer.cost,
               payload: authoritativePayload,
             })
-          : await post(path, authoritativePayload);
-      } catch (error) {
-        if (!error?.payload || typeof error.payload !== "object" || !Number(error.status || 0)) {
-          throw error;
-        }
-        result = error.payload;
-      }
+          : await postResult(path, authoritativePayload);
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
@@ -8452,7 +8455,7 @@
         return null;
       }
       const beforeOrbs = economyOrbCount();
-      const result = await post("/commands", withAccess({
+      const result = await postResult("/commands", withAccess({
         actor_id: actorId,
         command,
         ...(exactOffer?.offer_id ? { offer_id: exactOffer.offer_id } : {}),
@@ -15177,7 +15180,7 @@
             envelope: canonicalCommandEnvelope(),
           };
         }
-        const result = await post("/commands", withAccess({
+        const result = await postResult("/commands", withAccess({
           actor_id: actorId,
           actor_session: actorSession,
           command: "pass",

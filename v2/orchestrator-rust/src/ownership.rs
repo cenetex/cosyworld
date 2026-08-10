@@ -36,6 +36,7 @@ pub(super) struct OwnershipFeedConfig {
     pub(super) remote_bearer: Option<String>,
     pub(super) remote_timeout: Duration,
     pub(super) refresh_every: Option<Duration>,
+    pub(super) remote_client: reqwest::Client,
 }
 
 impl Default for OwnershipFeedConfig {
@@ -47,6 +48,7 @@ impl Default for OwnershipFeedConfig {
             remote_bearer: None,
             remote_timeout: Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS),
             refresh_every: None,
+            remote_client: reqwest::Client::new(),
         }
     }
 }
@@ -105,6 +107,7 @@ impl OwnershipFeedConfig {
             remote_bearer,
             remote_timeout,
             refresh_every,
+            remote_client: reqwest::Client::new(),
         }
     }
 
@@ -128,6 +131,7 @@ impl OwnershipFeedConfig {
         }
         if let Some(url) = self.remote_url.as_deref() {
             match OwnershipIndex::fetch_remote(
+                &self.remote_client,
                 url,
                 self.remote_bearer.as_deref(),
                 self.remote_timeout,
@@ -162,6 +166,7 @@ impl OwnershipFeedConfig {
         if let Some(url) = self.remote_url.as_deref() {
             index.merge(
                 OwnershipIndex::fetch_remote(
+                    &self.remote_client,
                     url,
                     self.remote_bearer.as_deref(),
                     self.remote_timeout,
@@ -337,15 +342,12 @@ pub(super) async fn load_effective_ownership_index_strict(
 
 impl OwnershipIndex {
     pub(super) async fn fetch_remote(
+        client: &reqwest::Client,
         url: &str,
         bearer: Option<&str>,
         timeout: Duration,
     ) -> io::Result<Self> {
-        let mut request = reqwest::Client::builder()
-            .timeout(timeout)
-            .build()
-            .map_err(ownership_reqwest_error)?
-            .get(url);
+        let mut request = client.get(url).timeout(timeout);
         if let Some(token) = bearer.map(str::trim).filter(|value| !value.is_empty()) {
             request = request.bearer_auth(token);
         }
@@ -1290,7 +1292,8 @@ pub(super) fn start_ownership_refresh_scheduler(state: AppState) {
         return;
     };
     tokio::spawn(async move {
-        let mut next_refresh = refresh_every;
+        let mut next_refresh =
+            ownership_refresh_delay_with_jitter(refresh_every, 0, rand::random::<u64>());
         loop {
             tokio::time::sleep(next_refresh).await;
             let failures = match refresh_ownership_index_once(&state).await {
@@ -1307,7 +1310,8 @@ pub(super) fn start_ownership_refresh_scheduler(state: AppState) {
                         .unwrap_or(1)
                 }
             };
-            next_refresh = ownership_refresh_delay(refresh_every, failures);
+            next_refresh =
+                ownership_refresh_delay_with_jitter(refresh_every, failures, rand::random::<u64>());
         }
     });
 }
@@ -1373,6 +1377,22 @@ pub(super) fn ownership_refresh_delay(base: Duration, consecutive_failures: u32)
     }
     let multiplier = 1_u32 << consecutive_failures.min(4);
     base.saturating_mul(multiplier).min(MAX_BACKOFF)
+}
+
+pub(super) fn ownership_refresh_delay_with_jitter(
+    base: Duration,
+    consecutive_failures: u32,
+    sample: u64,
+) -> Duration {
+    let delay = ownership_refresh_delay(base, consecutive_failures);
+    let delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX);
+    let jitter_radius_ms = (delay_ms / 10).max(1);
+    let jitter_span_ms = jitter_radius_ms.saturating_mul(2).saturating_add(1);
+    Duration::from_millis(
+        delay_ms
+            .saturating_sub(jitter_radius_ms)
+            .saturating_add(sample % jitter_span_ms),
+    )
 }
 
 pub(super) fn load_receipt_ownership_index(path: &Path) -> io::Result<OwnershipIndex> {

@@ -3192,7 +3192,7 @@ mod tests {
             .record_http_failure("chat/completions", "provider/chat-a", 404, None);
         assert!(config
             .exact_route_gate("chat/completions", "provider/chat-a")
-            .is_terminal_block());
+            .is_retryable_block());
         assert!(config
             .exact_route_gate("chat/completions", "provider/chat-b")
             .is_ready());
