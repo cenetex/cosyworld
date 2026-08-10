@@ -9,6 +9,8 @@ pub(super) struct AccountView {
     pub(super) recent_box_receipts: Vec<WoodenBoxReceiptView>,
     pub(super) recent_pack_openings: Vec<AvatarPackOpeningView>,
     pub(super) materialization_receipts: Vec<MaterializationReceiptState>,
+    pub(super) item_materialization_migrations:
+        Vec<materialization_retirement::ItemMaterializationMigrationReceipt>,
 }
 
 #[derive(Debug, Serialize)]
@@ -654,6 +656,7 @@ pub(super) fn account_view(access: &AccessContext) -> AccountView {
         recent_box_receipts: Vec::new(),
         recent_pack_openings: Vec::new(),
         materialization_receipts: Vec::new(),
+        item_materialization_migrations: Vec::new(),
     }
 }
 

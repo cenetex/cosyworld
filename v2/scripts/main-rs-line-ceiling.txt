@@ -219,4 +219,4 @@
 # 71037 -> 70873: replace the retired public item-collectible materialization
 # implementation with a no-write compatibility tombstone for #685. Historical
 # projection replay and the separate verified Proxim8 actor adapter remain.
-70873
+70783

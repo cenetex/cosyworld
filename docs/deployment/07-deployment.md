@@ -112,6 +112,48 @@ Create a `.env` file with:
 - Run `npm run deploy:setup-db` to apply SQLite schema migrations.
 - MongoDB can be selected explicitly with `DATA_BACKEND=mongo` for migration or compatibility deployments.
 
+### Retiring legacy item materialization
+
+The item collectible bridge is a read-only compatibility surface. Deploy the
+route freeze before a build that performs receipt conversion; never run a build
+that can accept new `POST /collection/materialize` mutations while conversion
+is active.
+
+On boot, after snapshot or journal replay and before accepting traffic, the V2
+runtime deterministically classifies every legacy item receipt. It writes one
+versioned migration receipt for each non-avatar receipt:
+
+- a valid active receipt preserves the existing kernel item and snapshots its
+  exact holder, location, zone, container/equipment state, mechanics, and
+  provenance as `preserved_ordinary_world_item`;
+- an item already returned to Collection is recorded as
+  `archived_collection_return`;
+- a missing active item, duplicate claim, malformed record, or ambiguous
+  same-actor/card claim is `quarantined`. Conversion never creates, deletes, or
+  chooses an item for these records;
+- the allowlisted linked-avatar actor receipt is excluded and continues through
+  its dedicated adapter.
+
+Inspect `GET /meta` at the release boundary. Under
+`nft.item_materialization.receipts`, `migration_receipts` must equal the sum of
+`preserved_ordinary_world_items`, `archived_collection_returns`, and
+`quarantined`. Review every non-zero quarantine count against the preserved
+legacy receipt coordinates before continuing removal work.
+
+Migration receipts and their legacy wallet/card/receipt coordinates are
+snapshot state and read-only audit evidence. Restart or journal-only recovery
+derives the same result; a later snapshot retains the original migration-point
+item evidence even if ordinary play subsequently trades, drops, equips, or
+contains the item. Repeated migration is a no-op. Boot fails closed if a stored
+migration receipt no longer matches its retained legacy coordinates or typed
+outcome.
+
+During the compatibility window, repeated return requests are stable: an
+already returned receipt remains a successful no-op, while a preserved or
+quarantined receipt returns `410` with its typed migration receipt and cannot
+delete the ordinary world item. Do not remove this audit state until a separate
+retention policy explicitly authorizes deletion.
+
 ---
 
 ## Server Requirements

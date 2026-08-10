@@ -159,6 +159,9 @@ use journal_checkpoint::read_persistence_compaction_report;
 use kernel::*;
 use legacy_import::*;
 use local_leads::*;
+#[cfg(test)]
+use materialization_retirement::UnmaterializeItemRequest;
+use materialization_retirement::{materialize_collection_item, unmaterialize_collection_item};
 use media_evolution::*;
 use media_recipes::*;
 use model_audio::*;
@@ -1710,6 +1713,8 @@ struct RuntimeWorld {
     local_leads: BTreeMap<String, LocalLeadState>,
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
+    item_materialization_migrations:
+        BTreeMap<String, materialization_retirement::ItemMaterializationMigrationReceipt>,
     craft_receipts: BTreeMap<String, CraftReceiptState>,
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
@@ -1849,6 +1854,9 @@ struct RuntimeSnapshot {
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     #[serde(default)]
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
+    #[serde(default)]
+    item_materialization_migrations:
+        BTreeMap<String, materialization_retirement::ItemMaterializationMigrationReceipt>,
     #[serde(default)]
     craft_receipts: BTreeMap<String, CraftReceiptState>,
     #[serde(default)]
@@ -2547,6 +2555,7 @@ struct MetaNftConfig {
 #[derive(Debug, Serialize)]
 struct MetaItemMaterialization {
     status: &'static str,
+    compatibility_mode: &'static str,
     new_materialization_enabled: bool,
     return_endpoint_enabled: bool,
     receipts: materialization_retirement::MaterializationReceiptInventory,
@@ -3679,23 +3688,6 @@ struct SetItemContainedRequest {
     actor_session: Option<String>,
     item_id: u64,
     container_item_id: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct UnmaterializeItemRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    receipt_id: String,
-}
-
-#[derive(Debug, Serialize)]
-struct MaterializationResponse {
-    ok: bool,
-    status: u32,
-    receipt: Option<MaterializationReceiptState>,
-    item: Option<ItemView>,
-    events: Vec<EventView>,
-    error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -5001,6 +4993,12 @@ impl AppState {
             }
             hydrate_runtime_canonical_state(&mut runtime, path)?;
         }
+        // The public item-materialization route is already frozen. Convert the
+        // final replayed state before accepting traffic so no request can race
+        // receipt classification. This projection is deterministic and
+        // idempotent: a journal-only recovery derives the same typed receipts,
+        // while snapshots retain the original migration-point evidence.
+        materialization_retirement::migrate_legacy_receipts(&mut runtime)?;
 
         let ownership_feed = OwnershipFeedConfig::from_env();
         let hosted_access_config = Arc::new(HostedAccessConfig::from_env());
@@ -5572,7 +5570,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 17,
+            version: 18,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -5631,6 +5629,7 @@ impl RuntimeSnapshot {
             local_leads: runtime.local_leads.clone(),
             item_provenance: runtime.item_provenance.clone(),
             materialization_receipts: runtime.materialization_receipts.clone(),
+            item_materialization_migrations: runtime.item_materialization_migrations.clone(),
             craft_receipts: runtime.craft_receipts.clone(),
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
@@ -5917,6 +5916,7 @@ impl RuntimeSnapshot {
             local_leads: self.local_leads,
             item_provenance: self.item_provenance,
             materialization_receipts: self.materialization_receipts,
+            item_materialization_migrations: self.item_materialization_migrations,
             craft_receipts: self.craft_receipts,
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
@@ -6339,6 +6339,7 @@ impl RuntimeWorld {
             local_leads: BTreeMap::new(),
             item_provenance: BTreeMap::new(),
             materialization_receipts: BTreeMap::new(),
+            item_materialization_migrations: BTreeMap::new(),
             craft_receipts: BTreeMap::new(),
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
@@ -12687,6 +12688,13 @@ impl RuntimeWorld {
         let Some(receipt) = self.materialization_receipts.get(receipt_id).cloned() else {
             return Vec::new();
         };
+        if self
+            .item_materialization_migrations
+            .contains_key(receipt_id)
+            || proxim8::is_materialized_actor_receipt(self, &receipt)
+        {
+            return Vec::new();
+        }
         let Some(index) = self.world.items[..self.world.item_count]
             .iter()
             .position(|item| item.id == receipt.item_id)
@@ -22516,6 +22524,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
             item_materialization: MetaItemMaterialization {
                 status: "retired",
+                compatibility_mode: "read_only_migration_receipts",
                 new_materialization_enabled: false,
                 return_endpoint_enabled: true,
                 receipts: materialization_receipts,
@@ -23421,6 +23430,16 @@ async fn state_view(
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    let item_materialization_migrations = actor_id
+        .map(|actor_id| {
+            runtime
+                .item_materialization_migrations
+                .values()
+                .filter(|migration| migration.legacy_receipt.actor_id == actor_id)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     drop(runtime);
     if let Some(path) = state.event_store_path.as_deref() {
         match load_account_activity_view(path, &access, 6) {
@@ -23433,6 +23452,7 @@ async fn state_view(
         }
     }
     response.account.materialization_receipts = materialization_receipts;
+    response.account.item_materialization_migrations = item_materialization_migrations;
     response.room_memory =
         room_memory_view_for_state(&state, &response.location, &response.recent_events);
     Json(response)
@@ -33157,145 +33177,6 @@ async fn set_item_contained(
         ok: status == CW_OK && !events.is_empty(),
         status: if events.is_empty() { 409 } else { status },
         events,
-    })
-}
-
-async fn materialize_collection_item(
-    ConnectInfo(_client_addr): ConnectInfo<SocketAddr>,
-    State(_state): State<AppState>,
-    Json(_payload): Json<serde_json::Value>,
-) -> Json<MaterializationResponse> {
-    // Compatibility tombstone: keep historical payloads parseable while
-    // permanently preventing this public route from reaching ownership,
-    // projection, journal, or world mutation code. Historical replay and the
-    // separate verified Proxim8 actor adapter retain their internal reducers.
-    Json(MaterializationResponse {
-        ok: false,
-        status: 410,
-        receipt: None,
-        item: None,
-        events: Vec::new(),
-        error: Some(
-            "item collectible materialization is retired; existing receipts may only be returned"
-                .to_string(),
-        ),
-    })
-}
-
-async fn unmaterialize_collection_item(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<UnmaterializeItemRequest>,
-) -> Json<MaterializationResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "action-actor",
-        GENERAL_ACTION_LIMIT,
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("unmaterialization rate limited".to_string()),
-        });
-    }
-    let mut runtime = state.inner.lock().await;
-    if !client_actor_authorized_for_state(
-        &runtime,
-        &state,
-        payload.actor_id,
-        payload.actor_session.as_deref(),
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("actor session is not authorized".to_string()),
-        });
-    }
-    let Some(existing) = runtime
-        .materialization_receipts
-        .get(&payload.receipt_id)
-        .cloned()
-    else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 404,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization receipt was not found".to_string()),
-        });
-    };
-    if existing.actor_id != payload.actor_id {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization receipt belongs to another avatar".to_string()),
-        });
-    }
-    if existing.status == "collection" && runtime.item_by_id(existing.item_id).is_none() {
-        return Json(MaterializationResponse {
-            ok: true,
-            status: CW_OK,
-            receipt: Some(existing),
-            item: None,
-            events: Vec::new(),
-            error: None,
-        });
-    }
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            item_id: existing.item_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record.bind_offer_kind("materialize");
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UnmaterializeItem {
-            receipt_id: payload.receipt_id.clone(),
-            reason: "collection_unmaterialization".to_string(),
-        });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 500,
-            receipt: Some(existing),
-            item: None,
-            events: Vec::new(),
-            error: Some("unmaterialization commit failed".to_string()),
-        });
-    };
-    let receipt = runtime
-        .materialization_receipts
-        .get(&payload.receipt_id)
-        .cloned();
-    drop(runtime);
-    broadcast_events(&state, &events);
-    let rejected = events.is_empty();
-    Json(MaterializationResponse {
-        ok: status == CW_OK && !rejected,
-        status: if rejected { 409 } else { status },
-        receipt,
-        item: None,
-        events,
-        error: rejected.then(|| {
-            "only an unequipped, uncontained card still held by the materializing avatar can return to Collection"
-                .to_string()
-        }),
     })
 }
 
@@ -52710,13 +52591,20 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Collection Tester",
         );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Collection Tester Two",
+        );
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
+        let (second_actor_session, _) = issue_actor_session(&state, 5001);
         let addr = "127.0.0.1:44120".parse().expect("client address");
-        let request = |receipt_id: &str, card_id: &str| {
+        let request = |actor_id: u64, actor_session: &str, receipt_id: &str, card_id: &str| {
             serde_json::json!({
-                "actor_id": 5000,
-                "actor_session": actor_session.clone(),
+                "actor_id": actor_id,
+                "actor_session": actor_session,
                 "receipt_id": receipt_id,
                 "card_id": card_id,
                 "owned_card_ids": format!("item-patchwork-satchel,{card_id}"),
@@ -52730,13 +52618,30 @@ mod tests {
                 runtime.materialization_receipts.len(),
             )
         };
-        let retired = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
+        let (retired, concurrent_retired) = tokio::join!(
+            materialize_collection_item(
+                ConnectInfo(addr),
+                State(state.clone()),
+                Json(request(
+                    5000,
+                    &actor_session,
+                    "receipt:bag:1",
+                    "item-patchwork-satchel",
+                )),
+            ),
+            materialize_collection_item(
+                ConnectInfo(addr),
+                State(state.clone()),
+                Json(request(
+                    5001,
+                    &second_actor_session,
+                    "receipt:bag:2",
+                    "item-patchwork-satchel",
+                )),
+            ),
+        );
+        let retired = retired.0;
+        let concurrent_retired = concurrent_retired.0;
         assert!(!retired.ok);
         assert_eq!(retired.status, 410);
         assert!(retired.receipt.is_none());
@@ -52745,9 +52650,14 @@ mod tests {
         assert_eq!(
             retired.error.as_deref(),
             Some(
-                "item collectible materialization is retired; existing receipts may only be returned"
+                "item collectible materialization is retired; existing receipts use read-only migration compatibility"
             )
         );
+        assert!(!concurrent_retired.ok);
+        assert_eq!(concurrent_retired.status, 410);
+        assert!(concurrent_retired.receipt.is_none());
+        assert!(concurrent_retired.migration_receipt.is_none());
+        assert!(concurrent_retired.events.is_empty());
         {
             let runtime = state.inner.lock().await;
             assert_eq!(runtime.world.item_count, before.0);
