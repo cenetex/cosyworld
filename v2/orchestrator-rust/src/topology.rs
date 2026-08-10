@@ -3251,15 +3251,14 @@ mod tests {
             .expect("generated waypoint has a place projection");
         assert_eq!(place.canonical_id, pathway.waypoints[0].canonical_id);
         assert_eq!(place.pack_id, "cosyworld.composition.core-ruby");
-        for job_id in [
-            &place.anchor_job_id,
-            &place.connection_job_id,
-            &place.settlement_job_id,
-        ] {
+        for job_id in [&place.anchor_job_id, &place.settlement_job_id] {
             assert_eq!(
                 runtime.jobs[job_id].pack_id,
                 "cosyworld.composition.core-ruby"
             );
+        }
+        if let Some(connection_job) = runtime.jobs.get(&place.connection_job_id) {
+            assert_eq!(connection_job.pack_id, "cosyworld.composition.core-ruby");
         }
         if let Some(natural) = runtime.natural_affordances.get(&waypoint_id) {
             assert_eq!(

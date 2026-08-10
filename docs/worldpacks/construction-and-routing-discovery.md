@@ -86,6 +86,16 @@ authorize a legal founding proposal; Connection and Settlement may remain
 separate projects or archetype prerequisites without being universal gates on
 originating that proposal.
 
+Generated-place Connection jobs freeze one exact, movable item represented at
+the connected source when the job is created. Their public question names that
+item and source. Completion requires the same item identity, the recorded
+source, the generated destination, one holder, and contiguous movement before
+the delivery action. If no represented item is available, the runtime withholds
+the Connection job instead of accepting arbitrary cargo. Existing persisted
+delivery jobs without an exact requirement retain their historical replay
+semantics. Aggregate world-simulation resource labels remain a separate
+follow-up; they are not silently treated as item tags.
+
 ### Location classes, typed slots, and levels — accepted direction
 
 A selected founding proposal reserves one identity slot and opens a real
@@ -315,8 +325,10 @@ first bounded, executable slice whose prerequisites are satisfied.
 1. **Reconcile language and status.** Keep this document, ADR 0005, player
    guides, and action contracts consistent about Anchor, settlement, Facets,
    discovery claims, and shipped versus target behavior.
-2. **Make logistics exact.** Ensure delivery jobs match the required physical
-   resource as well as origin, destination, holder, and movement history.
+2. **Make logistics exact.** The generated-place exact-item slice is shipped:
+   Connection jobs match item identity, origin, destination, holder, and
+   movement history. Finish a typed item/resource binding before treating
+   aggregate world-simulation resource labels as physical delivery contracts.
 3. **Prove one path construction site.** Use the existing generated-place
    lifecycle and one mounted Discovery Slot in one real worldpack branch; capture
    player-facing and replay evidence.

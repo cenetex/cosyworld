@@ -6590,10 +6590,9 @@ impl RuntimeWorld {
                 .values()
                 .filter(|job| self.job_status(job) == "active")
                 .filter(|job| {
-                    job.delivery.as_ref().is_some_and(|delivery| {
-                        delivery.origin_location_id == evidence.origin_location_id
-                            && delivery.destination_location_id == evidence.destination_location_id
-                    })
+                    job.delivery
+                        .as_ref()
+                        .is_some_and(|delivery| delivery.accepts(&evidence))
                 })
                 .map(|job| job.id.clone())
                 .collect::<Vec<_>>();
@@ -17403,13 +17402,12 @@ The relationship statement they are preserving is: {statement}"
                 contribution_schema_version: 0,
                 contribution_strategies: Vec::new(),
                 narrated_thresholds: Vec::new(),
-                delivery: Some(DeliveryJobSpec {
-                    resource: trade.resource.clone(),
-                    origin_location_id: trade.from_location_id,
-                    destination_location_id: trade.to_location_id,
-                    created_world_tick: pulse.source_world_tick,
-                    updated_world_tick: pulse.source_world_tick,
-                }),
+                delivery: Some(DeliveryJobSpec::aggregate_resource(
+                    trade.resource.clone(),
+                    trade.from_location_id,
+                    trade.to_location_id,
+                    pulse.source_world_tick,
+                )),
                 loot: None,
                 focused_profile: None,
                 focused_encounter: None,
@@ -45632,16 +45630,7 @@ mod tests {
             vec!["Discovered"]
         );
 
-        let carried_item_id = STORY_BUTTON_ITEM_ID;
-        for world in [&mut runtime, &mut replay] {
-            let item = world.world.items[..world.world.item_count]
-                .iter_mut()
-                .find(|item| item.id == carried_item_id)
-                .expect("seed item exists");
-            item.location_id = place.connected_from_location_id;
-            item.holder_actor_id = 0;
-            item.zone = CW_CARD_ZONE_WORLD;
-        }
+        let carried_item_id = place.connection_item_id.expect("exact connection item");
         apply_pair(
             &mut runtime,
             &mut replay,
