@@ -261,9 +261,12 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
     return;
   }
   const longChrome = [];
-  for (const [index, line] of indexSource.split("\n").entries()) {
+  const indexLines = indexSource.split("\n");
+  for (const [index, line] of indexLines.entries()) {
     const assignment = line.match(/\bmodalSummary:(.*)$/);
     if (!assignment) continue;
+    // Required authority and input-boundary disclosures may opt out explicitly.
+    if (indexLines[index - 1]?.includes("writing-register: allow-long-modal-summary")) continue;
     const literal = assignment[1].match(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`([^`]*)`/);
     if (literal) {
       const text = (literal[1] ?? literal[2] ?? literal[3])
