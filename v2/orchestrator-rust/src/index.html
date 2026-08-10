@@ -4261,6 +4261,9 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .journal-row.is-measuring-overflow .journal-row-marker {
+      display: none;
+    }
     .journal-row[open] .journal-row-marker::before { content: "−"; }
     .journal-row:not([open]) .journal-row-marker::before { content: "+"; }
     .journal-row.journal-beat:last-of-type { border-bottom: 0; }

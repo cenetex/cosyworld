@@ -12882,7 +12882,11 @@ async function main() {
       const row = document.querySelector("#journal-log .journal-beat");
       const summary = row?.querySelector(":scope > summary");
       const headline = summary?.querySelector(".journal-row-summary");
-      if (!row || !summary || !headline) return { exists: false };
+      const marker = row?.querySelector(".journal-row-marker");
+      if (!row || !summary || !headline || !marker) return { exists: false };
+      row.classList.add("is-overflowing", "is-measuring-overflow");
+      const markerExcludedFromMeasurement = getComputedStyle(marker).display === "none";
+      row.classList.remove("is-overflowing", "is-measuring-overflow");
       let chosen = "Elsie found the path.";
       for (let index = 1; index <= 8; index += 1) {
         const candidate = `Elsie found the path.${" It led toward the Old Oak Tree.".repeat(index)}`;
@@ -12898,13 +12902,15 @@ async function main() {
         prose: chosen,
         overflowing: row.classList.contains("is-overflowing"),
         tabIndex: summary.tabIndex,
+        markerExcludedFromMeasurement,
       };
     });
     assert(
       wideDisclosure.exists
         && wideDisclosure.prose.length > 40
         && !wideDisclosure.overflowing
-        && wideDisclosure.tabIndex === -1,
+        && wideDisclosure.tabIndex === -1
+        && wideDisclosure.markerExcludedFromMeasurement,
       `${label}: the responsive disclosure fixture should fit at a wide viewport: ${JSON.stringify(wideDisclosure)}`,
     );
     await page.setViewportSize({ width: 320, height: 760 });
