@@ -15430,6 +15430,7 @@
     function orderedActionIndexesForHand() {
       const indexes = actions.map((_, index) => index);
       if (state?.branch) return indexes;
+      if (state?.primary_action?.kind === "create_avatar") return indexes;
       const ordered = [];
       const chosen = new Set();
       const authoritativeEntries = state?.action_hand?.entries || [];
