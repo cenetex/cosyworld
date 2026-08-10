@@ -3932,6 +3932,11 @@
       }
     }
     .journal-view {
+      --journal-paper: #1c1a13;
+      --journal-paper-deep: #15130e;
+      --journal-ink: #e8dfc6;
+      --journal-ink-soft: #b9aa88;
+      --journal-rule: rgba(239, 201, 107, 0.2);
       grid-row: 2;
       min-width: 0;
       min-height: 0;
@@ -3939,33 +3944,51 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       border-top: 1px solid var(--line);
-      background: #11100d;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(239, 201, 107, 0.08), transparent 28%),
+        #0e0e0b;
+      color: var(--journal-ink);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
     }
     .journal-view[hidden] {
       display: none;
     }
     .journal-heading {
       min-width: 0;
-      padding: 6px 10px;
+      padding: 15px 18px 13px;
       display: flex;
-      align-items: baseline;
+      align-items: end;
       justify-content: space-between;
-      gap: 10px;
-      border-bottom: 1px solid var(--line);
-      color: var(--dim);
+      gap: 14px;
+      border-bottom: 1px solid var(--journal-rule);
+      background: rgba(10, 10, 8, 0.72);
+      color: var(--journal-ink-soft);
+    }
+    .journal-heading-copy {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .journal-heading .journal-book-kicker {
+      color: var(--amber);
+      font: 750 9px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
     }
     .journal-heading h2 {
       margin: 0;
-      color: var(--green);
-      font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      color: var(--journal-ink);
+      font: 650 clamp(22px, 2vw, 28px)/1.05 ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      letter-spacing: 0.01em;
     }
     .journal-heading span {
       min-width: 0;
       overflow: hidden;
-      color: var(--faint);
-      font-size: 11px;
+      color: var(--journal-ink-soft);
+      font: 650 10px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.06em;
       text-overflow: ellipsis;
+      text-transform: uppercase;
       white-space: nowrap;
     }
     .journal-stream {
@@ -3975,7 +3998,12 @@
       overscroll-behavior: contain;
       scrollbar-width: thin;
       scrollbar-color: rgba(239, 201, 107, 0.38) rgba(5, 12, 7, 0.2);
-      padding: 0 10px 10px;
+      padding: 14px;
+      scroll-padding-top: 14px;
+    }
+    .journal-stream > .journal-region {
+      width: min(100%, 980px);
+      margin-inline: auto;
     }
     .journal-stream > [hidden] {
       display: none;
@@ -3983,55 +4011,78 @@
     .journal-region {
       min-width: 0;
       margin: 0;
-      padding: 8px 0 0;
+      padding: 14px 15px;
+      border: 1px solid var(--journal-rule);
+      border-radius: 12px;
+      background:
+        linear-gradient(90deg, rgba(239, 201, 107, 0.035), transparent 18%, transparent 82%, rgba(239, 201, 107, 0.025)),
+        var(--journal-paper);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
     }
     .journal-region + .journal-region {
-      margin-top: 6px;
-      border-top: 1px solid rgba(239, 201, 107, 0.16);
+      margin-top: 12px;
     }
     .journal-region-heading {
       margin: 0;
-      padding: 0 0 3px;
-      color: var(--faint);
-      font: 750 9px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      letter-spacing: 0.08em;
+      padding: 0 0 8px;
+      color: var(--amber);
+      font: 750 9px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
+    }
+    .journal-current-place {
+      position: relative;
+      overflow: hidden;
+    }
+    .journal-current-place::after {
+      content: "❦";
+      position: absolute;
+      right: 15px;
+      top: 9px;
+      color: rgba(239, 201, 107, 0.32);
+      font-size: 17px;
+    }
+    .journal-open-threads {
+      border-left: 3px solid rgba(101, 230, 138, 0.38);
+      background:
+        linear-gradient(90deg, rgba(101, 230, 138, 0.055), transparent 38%),
+        var(--journal-paper);
     }
     .journal-activity {
       display: grid;
-      gap: 5px;
-      padding: 2px 0 7px;
+      gap: 7px;
+      padding: 1px 0 8px;
     }
     .journal-activity[hidden] {
       display: none;
     }
     .journal-activity-row {
       min-width: 0;
-      padding: 7px 0 8px;
+      padding: 9px 10px;
       display: grid;
-      grid-template-columns: minmax(8ch, 11ch) minmax(0, 1fr);
+      grid-template-columns: minmax(7ch, 10ch) minmax(0, 1fr);
       gap: 3px 7px;
       align-items: center;
-      border-bottom: 1px solid rgba(239, 201, 107, 0.1);
+      border: 1px solid rgba(239, 201, 107, 0.12);
+      border-radius: 8px;
+      background: rgba(7, 10, 7, 0.2);
     }
     .journal-activity-row-label {
       overflow: hidden;
-      color: var(--green);
+      color: #a8d7ae;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 10px;
       font-weight: 800;
       text-overflow: ellipsis;
       text-transform: lowercase;
       white-space: nowrap;
     }
-    .journal-activity-row-label::before {
-      content: "> ";
-      color: var(--faint);
-    }
+    .journal-activity-row-label::before { content: ""; }
     .journal-activity-row-text {
       min-width: 0;
-      color: var(--dim);
-      font-size: 12px;
-      line-height: 1.25;
+      color: var(--journal-ink);
+      font-size: 13px;
+      line-height: 1.35;
       overflow-wrap: anywhere;
     }
     .journal-progress-segments {
@@ -4065,6 +4116,80 @@
       gap: 0;
       align-items: stretch;
     }
+    .journal-story-history {
+      padding: 0;
+      overflow: hidden;
+      background: var(--journal-paper-deep);
+    }
+    .journal-chapter-heading {
+      padding: 18px 18px 15px;
+      border-bottom: 1px solid var(--journal-rule);
+      background:
+        radial-gradient(circle at 90% 0%, rgba(239, 201, 107, 0.09), transparent 34%),
+        var(--journal-paper);
+    }
+    .journal-chapter-heading .journal-region-heading {
+      padding-bottom: 5px;
+    }
+    .journal-chapter-summary {
+      max-width: 58ch;
+      margin: 0;
+      color: var(--journal-ink);
+      font-size: 15px;
+      font-style: italic;
+      line-height: 1.55;
+    }
+    .journal-chapter-summary::first-letter {
+      color: var(--amber);
+      font-size: 1.15em;
+      font-weight: 700;
+    }
+    .journal-page {
+      position: relative;
+      min-height: 420px;
+      padding: 18px 18px 32px 30px;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.14), transparent 20px),
+        repeating-linear-gradient(0deg, transparent 0 29px, rgba(239, 201, 107, 0.035) 29px 30px),
+        var(--journal-paper);
+    }
+    .journal-page::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      top: 17px;
+      bottom: 24px;
+      width: 1px;
+      background: rgba(239, 201, 107, 0.2);
+    }
+    .journal-page-heading {
+      margin: 0 0 10px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .journal-page-title {
+      color: var(--journal-ink);
+      font-size: 17px;
+      font-weight: 650;
+      letter-spacing: 0.01em;
+    }
+    .journal-page-date {
+      color: var(--journal-ink-soft);
+      font: 700 9px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .journal-page-folio {
+      position: absolute;
+      right: 17px;
+      bottom: 10px;
+      color: rgba(239, 201, 107, 0.55);
+      font-size: 11px;
+      font-style: italic;
+    }
     .journal-row {
       position: static;
       z-index: auto;
@@ -4074,7 +4199,7 @@
       margin: 0;
       padding: 0;
       border: 0;
-      border-bottom: 1px solid rgba(239, 201, 107, 0.1);
+      border-bottom: 1px solid rgba(239, 201, 107, 0.11);
       background: transparent;
       color: var(--text);
       overflow: visible;
@@ -4084,12 +4209,12 @@
     .journal-row > summary {
       box-sizing: border-box;
       min-width: 0;
-      min-height: 30px;
-      padding: 5px 0;
+      min-height: 0;
+      padding: 9px 0;
       display: grid;
-      grid-template-columns: minmax(10ch, 16ch) minmax(0, 1fr) auto;
-      gap: 6px;
-      align-items: center;
+      grid-template-columns: minmax(7ch, 10ch) minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: start;
       list-style: none;
       cursor: pointer;
     }
@@ -4097,42 +4222,35 @@
       display: none;
     }
     .journal-row-label {
-      max-width: 16ch;
+      max-width: 10ch;
       overflow: hidden;
-      color: var(--green);
-      font-size: 10px;
+      align-self: start;
+      margin-top: 3px;
+      color: #a8d7ae;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 9px;
       font-weight: 700;
+      letter-spacing: 0.07em;
       text-overflow: ellipsis;
       text-transform: lowercase;
       white-space: nowrap;
     }
-    .journal-row-label::before {
-      content: "> ";
-      color: var(--faint);
-    }
+    .journal-row-label::before { content: ""; }
     .journal-row-summary {
       min-width: 0;
       overflow: hidden;
-      color: var(--dim);
-      font-size: 12px;
-      line-height: 1.2;
+      color: var(--journal-ink);
+      font-size: 14px;
+      line-height: 1.48;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .journal-row-marker {
-      color: var(--faint);
-      font-size: 12px;
-      font-weight: 850;
+      color: var(--journal-ink-soft);
+      font: 800 12px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    .journal-row.journal-prose-row:not(.is-overflowing) > summary {
-      cursor: default;
-    }
-    .journal-row.journal-prose-row:not(.is-overflowing) .journal-row-marker {
-      display: none;
-    }
-    .journal-row[open] > summary {
-      align-items: start;
-    }
+    .journal-row.journal-prose-row:not(.is-overflowing) > summary { cursor: default; }
+    .journal-row.journal-prose-row:not(.is-overflowing) .journal-row-marker { display: none; }
     .journal-row[open] .journal-row-summary {
       overflow: visible;
       text-overflow: clip;
@@ -4143,32 +4261,70 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .journal-row[open] .journal-row-marker::before {
-      content: "−";
+    .journal-row[open] .journal-row-marker::before { content: "−"; }
+    .journal-row:not([open]) .journal-row-marker::before { content: "+"; }
+    .journal-row.journal-beat:last-of-type { border-bottom: 0; }
+    .journal-row.journal-beat:first-of-type .journal-row-summary::first-letter {
+      color: var(--amber);
+      font-size: 1.18em;
+      font-weight: 700;
     }
-    .journal-row:not([open]) .journal-row-marker::before {
-      content: "+";
+    .journal-page-nav {
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      border-top: 1px solid var(--journal-rule);
+      background: #11100c;
+    }
+    .journal-page-nav button {
+      min-height: 34px;
+      padding: 5px 8px;
+      border: 1px solid rgba(239, 201, 107, 0.22);
+      border-radius: 999px;
+      background: rgba(239, 201, 107, 0.04);
+      color: var(--journal-ink-soft);
+      font: 700 10px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .journal-page-nav button:last-child { justify-self: end; }
+    .journal-page-nav button:hover,
+    .journal-page-nav button:focus-visible {
+      border-color: rgba(239, 201, 107, 0.5);
+      color: var(--amber);
+      outline: 0;
+    }
+    .journal-page-nav button:disabled {
+      border-color: transparent;
+      color: rgba(185, 170, 136, 0.35);
+      cursor: default;
+    }
+    .journal-page-label {
+      color: var(--journal-ink-soft);
+      font-size: 12px;
+      font-style: italic;
+      text-align: center;
+      white-space: nowrap;
     }
     .terminal.journal-open {
-      grid-template-columns: minmax(0, 1fr) minmax(300px, 38%);
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
     }
     .terminal.journal-open .room {
-      grid-column: 1;
-      grid-row: 1;
-      padding-bottom: 10px;
+      display: none;
     }
     .terminal.journal-open .log {
-      grid-column: 1;
-      grid-row: 2;
-      display: flex;
+      display: none;
     }
     .terminal.journal-open .journal-view {
-      grid-column: 2;
-      grid-row: 1 / span 2;
+      grid-column: 1;
+      grid-row: 1;
       border-top: 0;
-      border-left: 1px solid var(--line);
+      border-left: 0;
     }
+    .terminal.journal-open + .status { display: none; }
     .terminal.panel-open .journal-view {
       display: none;
     }
@@ -4192,31 +4348,29 @@
       }
       .terminal.journal-open {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto minmax(150px, 42%) minmax(140px, 1fr);
+        grid-template-rows: minmax(0, 1fr);
       }
       .terminal.journal-open .room {
-        grid-column: 1;
-        grid-row: 1;
+        display: none;
       }
       .terminal.journal-open .room-hero,
       .terminal.journal-open .room-copy {
         display: none;
       }
       .terminal.journal-open .log {
-        grid-column: 1;
-        grid-row: 3;
+        display: none;
       }
       .terminal.journal-open .journal-view {
         grid-column: 1;
-        grid-row: 2;
-        border-top: 1px solid var(--line);
+        grid-row: 1;
+        border-top: 0;
         border-left: 0;
       }
       .journal-row > summary {
-        min-height: 36px;
-        grid-template-columns: minmax(8ch, 11ch) minmax(0, 1fr) auto;
-        gap: 6px;
+        grid-template-columns: minmax(7ch, 9ch) minmax(0, 1fr) auto;
+        gap: 8px;
       }
+      .journal-page { min-height: 320px; }
     }
 
     /* Issue #387: production-safe recovery of the local UI polish. */
@@ -4596,7 +4750,10 @@
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
         <header class="journal-heading">
-          <h2>journal://</h2>
+          <div class="journal-heading-copy">
+            <span class="journal-book-kicker">A living storybook</span>
+            <h2>The Journal</h2>
+          </div>
           <span id="journal-location"></span>
         </header>
         <div class="journal-stream">
@@ -4611,8 +4768,16 @@
             <section class="updates" id="updates" aria-live="polite" aria-label="First tale" hidden></section>
           </section>
           <section class="journal-region journal-story-history" id="journal-story-history" aria-labelledby="journal-story-history-heading">
-            <h3 class="journal-region-heading" id="journal-story-history-heading">Story so far</h3>
+            <header class="journal-chapter-heading">
+              <h3 class="journal-region-heading" id="journal-story-history-heading">Story so far</h3>
+              <p class="journal-chapter-summary" id="journal-chapter-summary"></p>
+            </header>
             <section class="journal-log" id="journal-log" aria-label="Chronological story history"></section>
+            <nav class="journal-page-nav" id="journal-page-nav" aria-label="Journal pages">
+              <button id="journal-page-previous" type="button" aria-label="Read the previous Journal page">← Earlier</button>
+              <span class="journal-page-label" id="journal-page-label" aria-live="polite"></span>
+              <button id="journal-page-next" type="button" aria-label="Read the next Journal page">Later →</button>
+            </nav>
           </section>
         </div>
       </section>
@@ -4833,6 +4998,7 @@
     let openingBoxId = "";
     let roomCopyExpanded = false;
     let journalOpen = false;
+    let journalPageIndex = -1;
     let roomLogTickerFrame = null;
     let journalRowOverflowFrame = null;
     let journalRowResizeObserver = null;
@@ -8921,7 +9087,12 @@
     }
 
     function renderJournalActivity() {
-      const activities = currentJournalActivities();
+      const activities = currentJournalActivities()
+        .map((activity) => ({
+          ...activity,
+          text: journalWorldProse(activity.text),
+        }))
+        .filter((activity) => activity.text);
       const notificationCount = $("journal-notification-count");
       if (notificationCount) {
         const additionalCount = Math.max(0, activities.length - 1);
@@ -10344,7 +10515,7 @@
       latestControl.setAttribute("aria-label", open ? "Close Journal, latest entry" : `Open Journal, latest: ${latest}`);
       latestControl.dataset.analyticsEvent = open ? "journal.close" : "journal.open";
       toggle.querySelector(".room-log-kicker")?.replaceChildren(document.createTextNode(open ? "Close Journal" : "Journal"));
-      document.querySelector(".prompt").hidden = Boolean(panelMode);
+      document.querySelector(".prompt").hidden = Boolean(panelMode || open);
       if (open) {
         scheduleVisibleWorldBeatReceipts();
         scheduleVisibleClockPresentationReceipts();
@@ -10356,6 +10527,7 @@
 
     function setJournalOpen(open) {
       const closing = journalOpen && !open;
+      const opening = !journalOpen && open;
       if (closing) {
         for (const activity of currentJournalActivities()) {
           dismissedJournalActivityKeys.add(activity.key);
@@ -10363,7 +10535,9 @@
         journalNotifications = [];
         dismissFirstTalePayoff();
       }
+      if (opening) journalPageIndex = -1;
       journalOpen = Boolean(open);
+      if (opening) renderJournalLog();
       syncJournalMode();
       if (closing) renderStatusUpdates();
     }
@@ -10639,6 +10813,19 @@
       return null;
     }
 
+    function journalWorldProse(value) {
+      const prose = cleanStatusText(value);
+      const sentences = prose.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g) || [];
+      return cleanStatusText(sentences
+        .map((sentence) => cleanStatusText(sentence))
+        .filter((sentence) => (
+          sentence
+          && !/kept a memory:\s*noticed/i.test(sentence)
+          && !/journal:\/\/|->|Something changed|\b(?:journey|pathway)\.[a-z_]+/i.test(sentence)
+        ))
+        .join(" "));
+    }
+
     function renderRoomMemory() {
       const toggle = $("room-log-toggle");
       const panel = $("room-memory");
@@ -10652,14 +10839,17 @@
       toggle.hidden = false;
       renderRoomLogLatest(latestText);
       panel.hidden = false;
-      const latestMemoryProse = cleanStatusText(atmosphericMemoryBeat(memory.latest) || memory.latest.text);
-      const memorySummary = cleanStatusText(memory.summary || openingBeat(state));
+      const latestMemoryProse = journalWorldProse(atmosphericMemoryBeat(memory.latest) || memory.latest.text);
+      const memorySummary = journalWorldProse(memory.summary || openingBeat(state))
+        || cleanStatusText(openingBeat(state));
       const latestIsHistory = Boolean(
         latestJournalBeat
         && latestMemoryProse === cleanStatusText(latestJournalBeat.headline)
       );
+      const latestIsMemoryEcho = /^.+? kept a memory:/i.test(latestMemoryProse);
       const placeProse = (
         !latestIsHistory
+        && !latestIsMemoryEcho
         && latestMemoryProse
         && !memorySummary.toLowerCase().includes(memoryPhrase(latestMemoryProse).toLowerCase())
       )
@@ -10789,8 +10979,32 @@
       "consequence",
     ]);
 
+    const journalPageSize = 6;
+    const journalThemePhrases = {
+      story: "turning points",
+      discovery: "discoveries brought to light",
+      travel: "roads taken",
+      search: "things looked at more closely",
+      relationship: "bonds and promises",
+      growth: "quiet changes in who people are becoming",
+      work: "work carried together",
+      item: "keepsakes found, made, and shared",
+      consequence: "choices that left a mark",
+    };
+    const journalPageTitles = {
+      story: "A turn in the tale",
+      discovery: "Things brought to light",
+      travel: "Roads taken",
+      search: "Looking closer",
+      relationship: "Bonds and promises",
+      growth: "Becoming",
+      work: "Work carried together",
+      item: "Things carried",
+      consequence: "What followed",
+    };
+
     function journalBeatsForPresentation(view = state) {
-      return (Array.isArray(view?.journal_beats) ? view.journal_beats : [])
+      const beats = (Array.isArray(view?.journal_beats) ? view.journal_beats : [])
         .filter((beat) => (
           beat
           && journalBeatCategories.has(String(beat.category || ""))
@@ -10802,6 +11016,49 @@
           || String(left.id || "").localeCompare(String(right.id || ""))
         ))
         .slice(-60);
+      const entries = [];
+      for (const beat of beats) {
+        const headline = cleanStatusText(beat.headline);
+        const memory = headline.match(/^(.+?) kept a memory:\s*(.+)$/i);
+        if (!memory || beat.world_beat_exposure_id) {
+          entries.push(beat);
+          continue;
+        }
+        const subject = cleanStatusText(memory[1]);
+        const rememberedMoment = cleanStatusText(memory[2]);
+        const memoryKey = rememberedMoment.toLowerCase();
+        const prior = entries.at(-1);
+        if (prior?._journal_memory_key === memoryKey) {
+          prior._journal_memory_subjects = [...new Set([
+            ...prior._journal_memory_subjects,
+            subject,
+          ])];
+          prior.source_event_seqs = [...new Set([
+            ...(prior.source_event_seqs || []),
+            ...(beat.source_event_seqs || []),
+          ])].sort((left, right) => Number(left) - Number(right));
+          prior.ordering_seq = Math.max(Number(prior.ordering_seq || 0), Number(beat.ordering_seq || 0));
+          prior.headline = journalSharedMemoryHeadline(prior._journal_memory_subjects, rememberedMoment);
+          continue;
+        }
+        entries.push({
+          ...beat,
+          category: "story",
+          headline: journalSharedMemoryHeadline([subject], rememberedMoment),
+          _journal_memory_key: memoryKey,
+          _journal_memory_subjects: [subject],
+        });
+      }
+      return entries;
+    }
+
+    function journalSharedMemoryHeadline(subjects, rememberedMoment) {
+      const rememberedBy = journalPhraseList(subjects.filter(Boolean));
+      const noticedTucking = rememberedMoment.match(/^noticed\s+(.+?)\s+tuck away\s+(.+?)[.!?]?$/i);
+      const moment = noticedTucking
+        ? `${noticedTucking[1]} tucked away ${noticedTucking[2]}`
+        : rememberedMoment.replace(/^noticed\s+/i, "").replace(/[.!?]+$/, "");
+      return journalSentence(`The moment ${moment} stayed with ${rememberedBy}`);
     }
 
     function journalBeatHtml(beat, index) {
@@ -10817,6 +11074,73 @@
         kind: `journal-beat ${category}`,
         attrs: receiptAttrs,
       });
+    }
+
+    function journalPhraseList(values) {
+      if (values.length <= 1) return values[0] || "";
+      if (values.length === 2) return `${values[0]} and ${values[1]}`;
+      return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+    }
+
+    function journalDominantCategory(beats) {
+      const counts = new Map();
+      for (const beat of beats) {
+        const category = String(beat?.category || "story");
+        counts.set(category, Number(counts.get(category) || 0) + 1);
+      }
+      return [...counts.entries()]
+        .sort((left, right) => (
+          right[1] - left[1]
+          || beats.map((beat) => String(beat?.category || "story")).lastIndexOf(right[0])
+            - beats.map((beat) => String(beat?.category || "story")).lastIndexOf(left[0])
+        ))[0]?.[0] || "story";
+    }
+
+    function journalChapterSummary(beats) {
+      if (!beats.length) {
+        return "The pages are waiting for their first remembered moment. Explore, listen, or change the world to begin the tale.";
+      }
+      const latest = journalSentence(beats.at(-1)?.headline);
+      if (beats.length === 1) {
+        return `The story begins with one remembered moment: ${latest}`;
+      }
+      const counts = new Map();
+      for (const beat of beats) {
+        const category = String(beat?.category || "story");
+        counts.set(category, Number(counts.get(category) || 0) + 1);
+      }
+      const themes = [...counts.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 3)
+        .map(([category]) => journalThemePhrases[category])
+        .filter(Boolean);
+      return `This chapter has been shaped by ${journalPhraseList(themes)}. Its latest turn: ${latest}`;
+    }
+
+    function journalPageHtml(beats, pageIndex, pageCount, firstBeatIndex) {
+      const dominantCategory = journalDominantCategory(beats);
+      const title = journalPageTitles[dominantCategory] || journalPageTitles.story;
+      const leaf = pageIndex === pageCount - 1 ? "Latest leaf" : "Earlier leaf";
+      const entries = beats.length
+        ? beats.map((beat, index) => journalBeatHtml(beat, firstBeatIndex + index)).join("")
+        : journalProseRowHtml({
+            category: "story",
+            prose: "Nothing has been written here yet. Explore the room or change the world to leave the first trace.",
+            kind: "empty",
+          });
+      return `<article class="journal-page" aria-labelledby="journal-page-title"><header class="journal-page-heading"><h4 class="journal-page-title" id="journal-page-title">${escapeHtml(title)}</h4><span class="journal-page-date">${escapeHtml(leaf)}</span></header>${entries}<span class="journal-page-folio" aria-hidden="true">${pageIndex + 1}</span></article>`;
+    }
+
+    function turnJournalPage(delta) {
+      const beats = journalBeatsForPresentation();
+      const pageCount = Math.max(1, Math.ceil(beats.length / journalPageSize));
+      const currentPage = journalPageIndex < 0
+        ? pageCount - 1
+        : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
+      const nextPage = Math.max(0, Math.min(pageCount - 1, currentPage + Number(delta || 0)));
+      journalPageIndex = nextPage === pageCount - 1 ? -1 : nextPage;
+      renderJournalLog({ pageTurn: true });
+      scheduleVisibleWorldBeatReceipts();
     }
 
     function scheduleJournalRowOverflowSync() {
@@ -10853,7 +11177,7 @@
       }
     }
 
-    function renderJournalLog() {
+    function renderJournalLog({ pageTurn = false } = {}) {
       const panel = $("journal-log");
       const stream = panel.closest(".journal-stream");
       const previousScrollTop = stream?.scrollTop || 0;
@@ -10861,16 +11185,24 @@
         || stream.scrollHeight <= stream.clientHeight + 1
         || stream.scrollHeight - stream.scrollTop - stream.clientHeight < 28;
       const beats = journalBeatsForPresentation();
-      panel.innerHTML = beats.length
-        ? beats.map(journalBeatHtml).join("")
-        : journalProseRowHtml({
-            category: "story",
-            prose: "Nothing has been written here yet. Explore the room or change the world to leave the first trace.",
-            kind: "empty",
-          });
+      const pageCount = Math.max(1, Math.ceil(beats.length / journalPageSize));
+      const pageIndex = journalPageIndex < 0
+        ? pageCount - 1
+        : Math.max(0, Math.min(pageCount - 1, journalPageIndex));
+      const firstBeatIndex = pageIndex * journalPageSize;
+      const pageBeats = beats.slice(firstBeatIndex, firstBeatIndex + journalPageSize);
+      panel.innerHTML = journalPageHtml(pageBeats, pageIndex, pageCount, firstBeatIndex);
+      $("journal-chapter-summary").textContent = journalChapterSummary(beats);
+      $("journal-page-label").textContent = `Page ${pageIndex + 1} of ${pageCount}`;
+      $("journal-page-previous").disabled = pageIndex === 0;
+      $("journal-page-next").disabled = pageIndex === pageCount - 1;
       scheduleJournalRowOverflowSync();
       if (stream) {
-        stream.scrollTop = wasAtBottom ? stream.scrollHeight : previousScrollTop;
+        if (pageTurn) {
+          stream.scrollTop = Math.max(0, $("journal-story-history").offsetTop - 8);
+        } else {
+          stream.scrollTop = wasAtBottom ? stream.scrollHeight : previousScrollTop;
+        }
       }
     }
 
@@ -16264,6 +16596,8 @@
 
     $("log").addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
     $("journal-log").closest(".journal-stream")?.addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
+    $("journal-page-previous").addEventListener("click", () => turnJournalPage(-1));
+    $("journal-page-next").addEventListener("click", () => turnJournalPage(1));
     $("journal-view").addEventListener("click", (event) => {
       const summary = event.target.closest(".journal-prose-row > summary");
       if (summary && !summary.parentElement?.classList.contains("is-overflowing")) {

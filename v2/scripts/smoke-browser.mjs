@@ -8735,17 +8735,35 @@ async function main() {
     assert(
       evidence.roomStoryCount === 0
         && evidence.journalVisible
-        && evidence.chatVisible
-        && evidence.promptVisible
-        && evidence.chatRect.right <= evidence.journalRect.left + 0.5,
-      `Journal should be the sole story surface and must not replace or overlap chat: ${JSON.stringify(evidence)}`,
+        && !evidence.chatVisible
+        && !evidence.promptVisible,
+      `Journal should become the sole story surface while the book is open: ${JSON.stringify(evidence)}`,
     );
+    const restoredRoom = await page.evaluate(() => {
+      setJournalOpen(false);
+      return {
+        journalVisible: Boolean(document.querySelector("#journal-view")?.getClientRects().length),
+        chatVisible: Boolean(document.querySelector("#log")?.getClientRects().length),
+        promptVisible: Boolean(document.querySelector(".prompt")?.getClientRects().length),
+        buttons: ["primary", "secondary"].map((id) => {
+          const button = document.getElementById(id);
+          return {
+            id,
+            aria: button?.getAttribute("aria-label") || "",
+            visible: Boolean(button && button.getClientRects().length),
+          };
+        }),
+      };
+    });
     assert(
-      evidence.buttons.every((button) => button.visible)
-        && evidence.buttons[0].aria.includes("suggestion 1 of 2")
-        && evidence.buttons[1].aria.includes("suggestion 2 of 2")
-        && evidence.buttons.every((button) => !/action \d+ of \d+/i.test(button.aria)),
-      `the two playable cards should use suggestion ordinals and no legal-superset count: ${JSON.stringify(evidence)}`,
+      !restoredRoom.journalVisible
+        && restoredRoom.chatVisible
+        && restoredRoom.promptVisible
+        && restoredRoom.buttons.every((button) => button.visible)
+        && restoredRoom.buttons[0].aria.includes("suggestion 1 of 2")
+        && restoredRoom.buttons[1].aria.includes("suggestion 2 of 2")
+        && restoredRoom.buttons.every((button) => !/action \d+ of \d+/i.test(button.aria)),
+      `closing the Journal should restore both playable cards with suggestion ordinals: ${JSON.stringify(restoredRoom)}`,
     );
     await page.screenshot({ path: screenshotPath, fullPage: false });
     await page.locator("#primary").focus();
@@ -12716,8 +12734,15 @@ async function main() {
           row.querySelectorAll(".journal-row-summary").length === 1
           && row.querySelectorAll(".journal-row-detail").length === 0
         )),
-        noDashboardCopy: !/why this matters|what we know/i.test(document.querySelector("#journal-view")?.textContent || ""),
-        noCardChrome: document.querySelectorAll("#journal-view article, #journal-view img, #journal-view .shared-question-meter, #journal-view .shared-question-suggestions").length === 0,
+        chapterSummary: document.querySelector("#journal-chapter-summary")?.textContent?.trim() || "",
+        pageLabel: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+        pageTitle: document.querySelector("#journal-page-title")?.textContent?.trim() || "",
+        pageExists: Boolean(document.querySelector("#journal-log > .journal-page")),
+        visibleStoryBeats: document.querySelectorAll("#journal-log .journal-beat").length,
+        pageControls: document.querySelectorAll("#journal-page-nav button").length,
+        rawDebugCopy: (document.querySelector("#journal-view")?.innerText || "").match(/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+/i)?.[0] || "",
+        noRawDebugCopy: !/journal:\/\/|->|Something changed|kept a memory:\s*noticed|\b(?:journey|pathway)\.[a-z_]+/i.test(document.querySelector("#journal-view")?.innerText || ""),
+        noDashboardChrome: document.querySelectorAll("#journal-view img, #journal-view .shared-question-meter, #journal-view .shared-question-suggestions").length === 0,
         panesDoNotOverlap: Boolean(
           journalRect
           && chatRect
@@ -12733,6 +12758,14 @@ async function main() {
           && journalRect.top >= terminalRect.top - 1
           && journalRect.bottom <= terminalRect.bottom + 1
         ),
+        fillsTerminal: Boolean(
+          terminalRect
+          && journalRect
+          && Math.abs(journalRect.top - terminalRect.top) <= 1
+          && Math.abs(journalRect.bottom - terminalRect.bottom) <= 1
+          && Math.abs(journalRect.left - terminalRect.left) <= 1
+          && Math.abs(journalRect.right - terminalRect.right) <= 1
+        ),
         stateUnchanged: stateSignature === JSON.stringify({
           sharedQuestions: state?.shared_questions,
           roomMemory: state?.room_memory,
@@ -12742,7 +12775,13 @@ async function main() {
       };
     }, room.stateSignature);
     assert(journal.expanded === "true" && journal.journalVisible, `${label}: Journal should open from beside the location name: ${JSON.stringify(journal)}`);
-    assert(journal.transcriptVisible && journal.promptVisible && journal.panesDoNotOverlap, `${label}: Journal must remain separate from visible chat and actions: ${JSON.stringify(journal)}`);
+    assert(
+      !journal.heroVisible
+        && !journal.transcriptVisible
+        && !journal.promptVisible
+        && journal.fillsTerminal,
+      `${label}: Journal should become the full reading surface and cover the room transcript and card selector: ${JSON.stringify(journal)}`,
+    );
     assert(
       journal.regionNames.includes("Current place")
         && journal.regionNames.includes("Story so far")
@@ -12751,10 +12790,9 @@ async function main() {
     );
     assert(
       journal.allCollapsed
-        && journal.rowsCompact
         && journal.summariesOneLine
         && journal.oneProseNodePerRow,
-      `${label}: Journal rows should begin as one semantic tag beside one prose line: ${JSON.stringify(journal)}`,
+      `${label}: Journal beats should begin as one semantic tag beside one prose line: ${JSON.stringify(journal)}`,
     );
     assert(
       journal.semanticRows.every(({ category, prose, aria }) => (
@@ -12768,13 +12806,20 @@ async function main() {
       `${label}: every visible Journal row needs one closed-vocabulary tag, complete prose, matching accessible copy, and no raw fallback grammar: ${JSON.stringify(journal.semanticRows)}`,
     );
     assert(
-      journal.heading === "journal://"
-        && /mono|menlo|consolas/i.test(journal.fontFamily)
-        && journal.noCardChrome
-        && journal.noDashboardCopy
+      journal.heading === "The Journal"
+        && /serif|georgia|cambria/i.test(journal.fontFamily)
+        && journal.pageExists
+        && journal.visibleStoryBeats <= 6
+        && journal.pageControls === 2
+        && /^Page \d+ of \d+$/.test(journal.pageLabel)
+        && journal.pageTitle.length > 0
+        && /\.$/.test(journal.chapterSummary)
+        && journal.noRawDebugCopy
+        && journal.noDashboardChrome
         && journal.insideTerminal
+        && journal.fillsTerminal
         && journal.stateUnchanged,
-      `${label}: Journal should stay a minimalist console without changing inference-facing state: ${JSON.stringify(journal)}`,
+      `${label}: Journal should read as a summarized, paged storybook without changing inference-facing state: ${JSON.stringify(journal)}`,
     );
 
     const beatDisclosure = await page.evaluate(() => {
@@ -13000,8 +13045,59 @@ async function main() {
     assert(
       rowContract.rows === rowContract.proseNodes
         && rowContract.duplicateDetails === 0
-        && rowContract.actionControls === 0,
-      `${label}: every Journal row should contain one prose string and no duplicate detail or action surface: ${JSON.stringify(rowContract)}`,
+        && rowContract.actionControls === 2,
+      `${label}: every Journal row should contain one prose string, with only the two page-turn controls added: ${JSON.stringify(rowContract)}`,
+    );
+
+    const pagination = await page.evaluate(() => {
+      const previousState = state;
+      const previousPageIndex = journalPageIndex;
+      try {
+        const categories = ["story", "travel", "discovery", "relationship", "work", "growth", "item"];
+        state = {
+          ...state,
+          journal_beats: Array.from({ length: 14 }, (_, index) => ({
+            id: `journal-beat:v1:test:${index + 1}`,
+            source_event_seqs: [700000 + index],
+            category: categories[index % categories.length],
+            headline: `Remembered story moment ${index + 1} changed the shared tale.`,
+            location_id: Number(state?.location?.id || 1),
+            ordering_seq: 700000 + index,
+          })),
+        };
+        journalPageIndex = -1;
+        renderJournalLog();
+        const snapshot = () => ({
+          label: document.querySelector("#journal-page-label")?.textContent?.trim() || "",
+          rows: document.querySelectorAll("#journal-log .journal-beat").length,
+          summary: document.querySelector("#journal-chapter-summary")?.textContent?.trim() || "",
+          previousDisabled: document.querySelector("#journal-page-previous")?.disabled,
+          nextDisabled: document.querySelector("#journal-page-next")?.disabled,
+        });
+        const latest = snapshot();
+        turnJournalPage(-1);
+        const middle = snapshot();
+        turnJournalPage(1);
+        const returned = snapshot();
+        return { latest, middle, returned };
+      } finally {
+        state = previousState;
+        journalPageIndex = previousPageIndex;
+        renderJournalLog();
+      }
+    });
+    assert(
+      pagination.latest.label === "Page 3 of 3"
+        && pagination.latest.rows === 2
+        && !pagination.latest.previousDisabled
+        && pagination.latest.nextDisabled
+        && pagination.latest.summary.startsWith("This chapter has been shaped by")
+        && pagination.middle.label === "Page 2 of 3"
+        && pagination.middle.rows === 6
+        && !pagination.middle.previousDisabled
+        && !pagination.middle.nextDisabled
+        && pagination.returned.label === "Page 3 of 3",
+      `${label}: storybook pages should summarize the whole chapter and turn without showing a raw event wall: ${JSON.stringify(pagination)}`,
     );
 
     const growthThread = await page.evaluate(() => {
