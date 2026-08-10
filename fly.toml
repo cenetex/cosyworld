@@ -12,11 +12,10 @@ primary_region = "sjc"
   COSYWORLD_GENERATED_ASSET_DIR = "/data/generated"
   COSYWORLD_WEBAUTHN_RP_ID = "cosyworld.fly.dev"
   COSYWORLD_WEBAUTHN_ORIGIN = "https://cosyworld.fly.dev"
-  COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
-  COSYWORLD_HOSTED_PARTY_MAX_GUESTS = "4"
-  COSYWORLD_HOSTED_PARTY_MAX_ACTIVE_PER_GUEST = "4"
-  COSYWORLD_HOSTED_ACCESS_TTL_SECS = "7200"
-  COSYWORLD_HOSTED_ACCESS_GRACE_SECS = "60"
+  COSYWORLD_AVATAR_OWNERSHIP_FEED_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
+  COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS = "4"
+  COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST = "4"
+  COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS = "7200"
   COSYWORLD_STORY_METRICS_RETENTION_DAYS = "400"
   COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"
   COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"
@@ -37,12 +36,8 @@ primary_region = "sjc"
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
 # Required production secrets:
-# fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
+# fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
 # fly secrets set COSYWORLD_MODERATION_TOKEN=...
-
-# Required before enabling production Box burns:
-# fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
-# fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
 
 [[mounts]]
   source = "cosyworld_data"

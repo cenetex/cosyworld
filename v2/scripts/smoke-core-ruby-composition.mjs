@@ -22,7 +22,6 @@ const coreRubyRegistryPath = resolve(v2Root, "content/core-ruby/registry.json");
 const contentRoot = resolve(v2Root, "content");
 const packMigrationPath = resolve(v2Root, "scripts/migrate-pack-unmount.mjs");
 const journalInspectionPath = resolve(v2Root, "scripts/inspect-action-journal.mjs");
-const walletAddress = "core-ruby-composition-smoke";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -147,7 +146,6 @@ async function startServer(tempDir, registryPath, snapshotPath) {
     RUST_LOG: "cosyworld_orchestrator=info",
     COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
-    COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET: "1",
     COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
     // This lifecycle proof compares the same historical Ruby record before
@@ -157,12 +155,6 @@ async function startServer(tempDir, registryPath, snapshotPath) {
     COSYWORLD_V2_SNAPSHOT_PATH: snapshotPath,
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
     COSYWORLD_V2_GENERATED_ASSET_DIR: resolve(tempDir, "generated"),
-    COSYWORLD_RUBY_HIGH_WALLET_CARDS: JSON.stringify({
-      wallets: [{
-        walletAddress,
-        cardIds: ["location-homeroom"],
-      }],
-    }),
   });
   const proc = spawn(binaryPath, {
     cwd: orchestratorDir,
@@ -267,7 +259,6 @@ function stateUrl(baseUrl, actorId, actorSession) {
   const query = new URLSearchParams({
     actor_id: String(actorId),
     actor_session: actorSession,
-    wallet_address: walletAddress,
   });
   return `${baseUrl}/state?${query}`;
 }
@@ -297,7 +288,6 @@ async function passCurrentHand(baseUrl, actorId, actorSession, initialState) {
       body: JSON.stringify({
         actor_id: actorId,
         actor_session: actorSession,
-        wallet_address: walletAddress,
         command: "pass",
         offer_id: pass.offer_id,
         envelope: offerEnvelope(state, actorId, pass.offer_id),
@@ -347,7 +337,6 @@ async function commandExactOffer(baseUrl, actorId, actorSession, value) {
   const result = await postJson(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     command: value,
     offer_id: offer.offer_id,
   });
@@ -366,7 +355,6 @@ async function move(baseUrl, actorId, actorSession, destinationLocationId) {
   const result = await submitOffer(baseUrl, offer, "/actions/move", {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     destination_location_id: destinationLocationId,
   });
   assert(
@@ -480,7 +468,6 @@ async function main() {
     );
     const created = await postJson(`${source.baseUrl}/avatar`, {
       name: "Boundary Walker",
-      wallet_address: walletAddress,
     });
     assert(created.ok && created.actor?.id && created.actor_session, JSON.stringify(created));
     const actorId = created.actor.id;
@@ -566,7 +553,6 @@ async function main() {
     const travelPayload = {
       actor_id: actorId,
       actor_session: actorSession,
-      wallet_address: walletAddress,
       destination_location_id: 11,
     };
     const rejectedTravel = await submitOffer(
@@ -624,11 +610,6 @@ async function main() {
       offerVerb: "Tune in",
       sourceCard: "location-homeroom",
     });
-    assert(
-      homeroom.account?.owned_cards?.some((card) =>
-        card.card_id === "location-homeroom" && card.owned === true),
-      `Homeroom pass missing after entry: ${JSON.stringify(homeroom.account)}`,
-    );
     const worldSeqBeforeRestart = homeroom.world_seq;
 
     await stopServer(first.proc);
@@ -654,7 +635,6 @@ async function main() {
     const replayQuery = new URLSearchParams({
       actor_id: String(actorId),
       actor_session: actorSession,
-      wallet_address: walletAddress,
       limit: "500",
     });
     const replayEvents = await fetchJson(`${second.baseUrl}/events?${replayQuery}`);

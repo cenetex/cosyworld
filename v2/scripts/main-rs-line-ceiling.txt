@@ -219,4 +219,8 @@
 # 71037 -> 70873: replace the retired public item-collectible materialization
 # implementation with a no-write compatibility tombstone for #685. Historical
 # projection replay and the separate verified Proxim8 actor adapter remain.
-70783
+# 69301 -> 68166: remove the remaining production collectible routes,
+# projections, wallet-gated location and hosted-entry plumbing, live receipt
+# merging, and ownership-driven resident relocation for #682. Historical
+# receipts remain readable for audit, and the linked-avatar adapter remains.
+68166

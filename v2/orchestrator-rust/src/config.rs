@@ -110,17 +110,6 @@ impl DeploymentProfile {
     }
 }
 
-pub(crate) fn requires_remote_entitlement_feed() -> bool {
-    active_content().manifest.packs.iter().any(|pack| {
-        pack.entitlements.as_ref().is_some_and(|entitlements| {
-            entitlements
-                .authorities
-                .iter()
-                .any(|authority| authority.kind == "asset_feed")
-        })
-    })
-}
-
 impl DeploymentConfig {
     #[cfg(test)]
     pub(crate) fn local() -> Self {
@@ -166,20 +155,14 @@ impl DeploymentConfig {
         avatar_chat_delay: Duration,
         event_store_enabled: bool,
         moderation_enabled: bool,
-        _box_burn_verifier_configured: bool,
     ) -> io::Result<()> {
         if !self.profile.is_production() {
             return Ok(());
         }
 
-        if requires_remote_entitlement_feed() && ownership_feed.remote_url.is_none() {
+        if ownership_feed.remote_url.is_some() && ownership_feed.remote_bearer.is_none() {
             return Err(deployment_config_error(
-                "production profile requires COSYWORLD_ENTITLEMENT_FEED_URL for the active entitlement provider",
-            ));
-        }
-        if requires_remote_entitlement_feed() && ownership_feed.remote_bearer.is_none() {
-            return Err(deployment_config_error(
-                "production profile requires COSYWORLD_ENTITLEMENT_FEED_BEARER for the active entitlement provider",
+                "production profile requires COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER when the linked-avatar adapter URL is configured",
             ));
         }
         if trust_client_card_ids {

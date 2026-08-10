@@ -62,8 +62,8 @@ spell, or item without becoming a privately owned token.
 | Issue | Priority | Purpose |
 | --- | --- | --- |
 | [#681](https://github.com/cenetex/cosyworld/issues/681) | Accepted | Avatar-NFT-only product boundary recorded in ADR 0006. |
-| [#682](https://github.com/cenetex/cosyworld/issues/682) | P1 / next, blocked | Remove keepsake/item/location NFT surfaces and isolate the avatar adapter. |
-| [#688](https://github.com/cenetex/cosyworld/issues/688) | P1 / next, blocked | Productize supported NFT avatars joining on wallet link. |
+| [#682](https://github.com/cenetex/cosyworld/issues/682) | P1 / implementation | Remove keepsake/item/location NFT surfaces and isolate the avatar adapter. |
+| [#688](https://github.com/cenetex/cosyworld/issues/688) | P1 / next | Productize supported NFT avatars joining on wallet link. |
 | [#683](https://github.com/cenetex/cosyworld/issues/683) | P0 / now | Prevent actor/item art funding before the full review path is available. |
 | [#684](https://github.com/cenetex/cosyworld/issues/684) | P1 / next | Match causal delivery jobs to the actual delivered resource. |
 | [#685](https://github.com/cenetex/cosyworld/issues/685) | P1 / now | Retire item materialization without duplicating live items. |
@@ -136,26 +136,25 @@ Removing keepsakes should make physical items more important, not less.
 
 ## Documentation status
 
-The avatar-only boundary is accepted. Existing wallet/NFT documentation may
-still describe the live compatibility surface until #682 and #685 remove it;
-those sections are implementation inventory, not product direction. New work
-and player copy follow ADR 0006. `ECONOMY.md`, `ENG.md`, `PRD.md`, the player
-lexicon, and the traveler guide distinguish that target from the migration
-surface.
+The avatar-only boundary is accepted and the #682 cleanup is reflected in the
+product, engineering, economy, operations, worldpack, traveler, and player-copy
+contracts. Legacy Box, pack, entitlement, and materialization database rows are
+historical audit records only; player routes, projections, controls, and new
+mutations are removed. #688 owns the remaining linked-avatar productization.
 
 ## Exit criteria
 
 - [x] ADR 0006 accepts the wallet-optional, avatar-NFT-only product boundary.
-- [ ] The default/core composition starts with no wallet, ownership feed, NFT,
+- [x] The default/core composition starts with no wallet, ownership feed, NFT,
       Box, collection, or chain configuration.
-- [ ] A new ordinary player completes the first-session and golden-journey
+- [x] A new ordinary player completes the first-session and golden-journey
       paths without encountering keepsake, bundle, NFT, or materialization
       concepts.
 - [ ] Linking a wallet makes every supported NFT avatar join according to the
       accepted roster policy, exactly once per asset.
-- [ ] Cards remain useful presentation; world items retain full physical and
+- [x] Cards remain useful presentation; world items retain full physical and
       mechanical behavior.
-- [ ] Existing live materialized items are neither lost nor duplicated.
-- [ ] Historical receipts remain auditable under the accepted retention policy.
-- [ ] No official place, action, stat, item, image, or progression path depends
+- [x] Existing live materialized items are neither lost nor duplicated.
+- [x] Historical receipts remain auditable under the accepted retention policy.
+- [x] No official place, action, stat, item, image, or progression path depends
       on external asset ownership.
