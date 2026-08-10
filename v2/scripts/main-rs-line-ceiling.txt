@@ -216,4 +216,7 @@
 # with the context block added, so the remaining ~62 variants should each pay
 # for themselves. Payloads and their declared write sets live in projection.rs;
 # no behaviour changes and the journal encoding is pinned by test.
-71037
+# 71037 -> 71027: move observational projection-cache response types and
+# lock-independent endpoint plumbing behind projection_cache.rs while keeping
+# the authoritative runtime boundary in main.rs.
+71027

@@ -69,6 +69,9 @@ mod ownership;
 #[cfg(test)]
 mod project_push_tests;
 mod projection;
+mod projection_cache;
+#[cfg(test)]
+mod projection_cache_tests;
 mod prompts;
 mod proxim8;
 mod quest_loot;
@@ -168,6 +171,7 @@ use mud::*;
 use natural_affordances::*;
 use offer_commands::*;
 use ownership::*;
+use projection_cache::*;
 use prompts::*;
 use proxim8::*;
 use qrcode::{render::svg, QrCode};
@@ -232,6 +236,7 @@ tokio::task_local! {
 #[derive(Clone)]
 struct AppState {
     inner: Arc<Mutex<RuntimeWorld>>,
+    projection_cache: Arc<ProjectionCache>,
     tx: broadcast::Sender<EventView>,
     deployment: DeploymentConfig,
     snapshot_path: Option<Arc<PathBuf>>,
@@ -2384,23 +2389,6 @@ struct HealthResponse {
     status: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct MetaResponse {
-    ok: bool,
-    service: &'static str,
-    version: &'static str,
-    build_profile: &'static str,
-    deployment: MetaDeployment,
-    features: MetaFeatureFlags,
-    ai: MetaAi,
-    persistence: MetaPersistence,
-    ownership_feed: MetaOwnershipFeed,
-    nft: MetaNftConfig,
-    combat: MetaCombat,
-    worldpack: MetaWorldpack,
-    world: MetaWorldCounters,
 }
 
 #[derive(Debug, Serialize)]
@@ -4838,6 +4826,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     configured_content_registry().map_err(io::Error::other)?;
     let state = AppState::bootstrap().await?;
     let shutdown_state = state.clone();
+    let _projection_refresh_scheduler = start_projection_refresh_scheduler(state.clone());
     let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
     start_focused_encounter_scheduler(state.clone());
     start_actor_job_worker(state.clone());
@@ -5294,9 +5283,11 @@ impl AppState {
         } else {
             None
         };
+        let projection_cache = Arc::new(ProjectionCache::new(&runtime));
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
+            projection_cache,
             tx,
             deployment,
             snapshot_path,
@@ -22325,7 +22316,8 @@ async fn health_live() -> (StatusCode, Json<HealthResponse>) {
 }
 
 async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
-    let runtime = state.inner.lock().await;
+    let projection = state.projection_cache.read().await;
+    let runtime = projection.runtime.as_ref();
     let tick = runtime.world.tick;
     let next_event_seq = runtime.world.next_event_seq;
     let actor_count = runtime.world.actor_count;
@@ -22336,7 +22328,6 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let item_count = runtime.world.item_count;
     let location_count = runtime.world.location_count;
     let event_count = runtime.event_log.len();
-    drop(runtime);
     let (retained_command_receipts, retained_command_receipt_bytes) = state
         .event_store_path
         .as_deref()
@@ -22429,6 +22420,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 "single_process"
             },
         },
+        projection: projection.telemetry(next_event_seq.saturating_sub(1)),
         features: MetaFeatureFlags {
             server_authored_chat: true,
             ai_enabled: state.ai_config.as_ref().is_some(),
@@ -23351,14 +23343,7 @@ async fn box_burn_confirm(
 }
 
 async fn converge_capacity_for_read(state: &AppState, actor_session: Option<&str>) {
-    if let Some(token) = actor_session {
-        if let Err(error) = refresh_actor_session_from_store(state, token) {
-            warn!(
-                "failed to refresh actor session for canonical read: {}",
-                error
-            );
-        }
-    }
+    refresh_actor_session_for_read(state, actor_session);
     match sync_canonical_capacity_once(state).await {
         Ok(events) if !events.is_empty() => broadcast_events(state, &events),
         Ok(_) => {}
@@ -23687,7 +23672,10 @@ async fn world_view(
     State(state): State<AppState>,
     Query(query): Query<StateQuery>,
 ) -> Json<WorldResponse> {
-    converge_capacity_for_read(&state, query.actor_session.as_deref()).await;
+    // The canonical convergence scheduler refreshes the observational cache.
+    // Waiting for convergence here would put this read path behind `inner`
+    // again and recreate the convoy this cache exists to avoid.
+    refresh_actor_session_for_read(&state, query.actor_session.as_deref());
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_query(
         &query,
@@ -23696,10 +23684,11 @@ async fn world_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let runtime = state.inner.lock().await;
+    let projection = state.projection_cache.read().await;
+    let runtime = projection.runtime.as_ref();
     let actor_id = query.actor_id.filter(|id| {
         client_actor_read_authorized_for_state(
-            &runtime,
+            runtime,
             &state,
             *id,
             query.actor_session.as_deref(),
@@ -23709,7 +23698,6 @@ async fn world_view(
     let active_direct_actors = active_actor_ids_for_state(&state);
     let response =
         runtime.world_response_with_presence(actor_id, &access, Some(&active_direct_actors));
-    drop(runtime);
     Json(response)
 }
 
@@ -70334,10 +70322,12 @@ mod tests {
         runtime.apply_wallet_overlap_placements(&initial, 0);
         assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 1);
         let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
+        let projection_cache = Arc::new(ProjectionCache::new(&runtime));
 
         let (tx, _) = broadcast::channel(8);
         let state = AppState {
             inner: Arc::new(Mutex::new(runtime)),
+            projection_cache,
             tx,
             deployment: DeploymentConfig::local(),
             snapshot_path: None,
