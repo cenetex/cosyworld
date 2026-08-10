@@ -3981,7 +3981,7 @@ async function main() {
       `each Avatar, Item, and Location should explain its cosmetic keepsake promise: ${JSON.stringify(result)}`,
     );
     assert(result.modalPromise.includes("Homeroom can appear beside matching choices. It does not change available actions or odds."), `card details should repeat the cosmetic keepsake promise: ${JSON.stringify(result)}`);
-    assert(JSON.stringify(result.materializeLabels) === JSON.stringify([{ cardId: "cosy-hearth-tonic", label: "materialize to carried deck" }]), `owned Item cards should expose an explicit collection-to-shard materialization operation: ${JSON.stringify(result)}`);
+    assert(result.materializeLabels.length === 0, `owned Item cards must not expose new collection-to-world materialization controls: ${JSON.stringify(result)}`);
     assert(JSON.stringify(result.returnLabels) === JSON.stringify([{ receiptId: "smoke:tonic", label: "return from carried deck" }]), `materialized Item cards should expose the receipt-backed return operation: ${JSON.stringify(result)}`);
     assert(
       result.guidedButton.highlighted

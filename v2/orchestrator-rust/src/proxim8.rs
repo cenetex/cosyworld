@@ -6,6 +6,10 @@ const PROXIM8_COLLECTION_ADDRESS: &str = "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3
 const PROXIM8_ENTRY_LOCATION_ID: u64 = 8900;
 const PROXIM8_PILOT_ASSET_ID: &str = "Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo";
 
+pub(super) fn is_proxim8_receipt_id(receipt_id: &str) -> bool {
+    receipt_id.starts_with(PROXIM8_RECEIPT_PREFIX)
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct Proxim8MaterializationConfig {
     schema_version: u32,
@@ -418,6 +422,9 @@ mod tests {
             runtime.actor_control_mode(actor_id),
             ActorControlMode::LocalAi
         );
+        let item_inventory = materialization_retirement::receipt_inventory(&runtime);
+        assert_eq!(item_inventory.total, 0);
+        assert_eq!(item_inventory.retained_actor_materialization, 1);
         assert!(proxim8_materialization_record(&runtime, wallet, asset_id, &config).is_none());
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)

@@ -216,4 +216,7 @@
 # with the context block added, so the remaining ~62 variants should each pay
 # for themselves. Payloads and their declared write sets live in projection.rs;
 # no behaviour changes and the journal encoding is pinned by test.
-71037
+# 71037 -> 70873: replace the retired public item-collectible materialization
+# implementation with a no-write compatibility tombstone for #685. Historical
+# projection replay and the separate verified Proxim8 actor adapter remain.
+70873

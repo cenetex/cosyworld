@@ -56,6 +56,7 @@ mod keys;
 mod lantern_keeper_tests;
 mod legacy_import;
 mod local_leads;
+mod materialization_retirement;
 mod media_evolution;
 mod media_recipes;
 mod model_audio;
@@ -2540,6 +2541,15 @@ struct MetaOwnershipFeed {
 #[derive(Debug, Serialize)]
 struct MetaNftConfig {
     box_burn_verifier_configured: bool,
+    item_materialization: MetaItemMaterialization,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaItemMaterialization {
+    status: &'static str,
+    new_materialization_enabled: bool,
+    return_endpoint_enabled: bool,
+    receipts: materialization_retirement::MaterializationReceiptInventory,
 }
 
 #[derive(Debug, Serialize)]
@@ -3669,19 +3679,6 @@ struct SetItemContainedRequest {
     actor_session: Option<String>,
     item_id: u64,
     container_item_id: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MaterializeItemRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    receipt_id: String,
-    card_id: String,
-    wallet_address: Option<String>,
-    wallet: Option<String>,
-    wallet_session: Option<String>,
-    owned_card_ids: Option<String>,
-    cards: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22336,6 +22333,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let item_count = runtime.world.item_count;
     let location_count = runtime.world.location_count;
     let event_count = runtime.event_log.len();
+    let materialization_receipts = materialization_retirement::receipt_inventory(&runtime);
     drop(runtime);
     let (retained_command_receipts, retained_command_receipt_bytes) = state
         .event_store_path
@@ -22516,6 +22514,12 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         },
         nft: MetaNftConfig {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
+            item_materialization: MetaItemMaterialization {
+                status: "retired",
+                new_materialization_enabled: false,
+                return_endpoint_enabled: true,
+                receipts: materialization_receipts,
+            },
         },
         combat: MetaCombat {
             protocol: "cosyworld.combat/4",
@@ -23407,6 +23411,16 @@ async fn state_view(
         actor_id,
         &turn_humans,
     );
+    let materialization_receipts = actor_id
+        .map(|actor_id| {
+            runtime
+                .materialization_receipts
+                .values()
+                .filter(|receipt| receipt.actor_id == actor_id)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     drop(runtime);
     if let Some(path) = state.event_store_path.as_deref() {
         match load_account_activity_view(path, &access, 6) {
@@ -23418,6 +23432,7 @@ async fn state_view(
             ),
         }
     }
+    response.account.materialization_receipts = materialization_receipts;
     response.room_memory =
         room_memory_view_for_state(&state, &response.location, &response.recent_events);
     Json(response)
@@ -33146,248 +33161,24 @@ async fn set_item_contained(
 }
 
 async fn materialize_collection_item(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<MaterializeItemRequest>,
+    ConnectInfo(_client_addr): ConnectInfo<SocketAddr>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<serde_json::Value>,
 ) -> Json<MaterializationResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "action-actor",
-        GENERAL_ACTION_LIMIT,
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization rate limited".to_string()),
-        });
-    }
-    let receipt_id = payload.receipt_id.trim();
-    if receipt_id.is_empty()
-        || receipt_id.len() > 96
-        || !receipt_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':'))
-    {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 400,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("receipt_id must be a stable printable identifier".to_string()),
-        });
-    }
-    let ownership = state.ownership_snapshot().await;
-    let access = AccessContext::from_request_parts(
-        payload.wallet_session.as_deref(),
-        payload
-            .wallet_address
-            .as_deref()
-            .or(payload.wallet.as_deref()),
-        [
-            state
-                .trust_client_card_ids
-                .then_some(payload.owned_card_ids.as_deref())
-                .flatten(),
-            state
-                .trust_client_card_ids
-                .then_some(payload.cards.as_deref())
-                .flatten(),
-        ],
-        &ownership,
-        &state.wallet_sessions,
-        state.allow_unsigned_wallet_claims,
-    );
-    let Some(card) = active_content()
-        .cards
-        .iter()
-        .find(|card| card.card_id == payload.card_id && card.subject_kind == "item")
-    else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 404,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("card_id is not an item collectible".to_string()),
-        });
-    };
-    let owns_card = access.owned_card_ids.contains(&card.card_id)
-        || card
-            .external_card_id
-            .as_ref()
-            .is_some_and(|external_id| access.owned_card_ids.contains(external_id));
-    if !owns_card {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("the signed collection does not own this item card".to_string()),
-        });
-    }
-    let mut runtime = state.inner.lock().await;
-    if !client_actor_authorized_for_state(
-        &runtime,
-        &state,
-        payload.actor_id,
-        payload.actor_session.as_deref(),
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("actor session is not authorized".to_string()),
-        });
-    }
-    if let Some(existing) = runtime.materialization_receipts.get(receipt_id).cloned() {
-        let matching = existing.actor_id == payload.actor_id && existing.card_id == payload.card_id;
-        if !matching || existing.status == "materialized" {
-            return Json(MaterializationResponse {
-                ok: matching,
-                status: if matching { CW_OK } else { 409 },
-                item: matching
-                    .then(|| runtime.item_by_id(existing.item_id))
-                    .flatten()
-                    .map(|item| runtime.item_view(item)),
-                receipt: Some(existing),
-                events: Vec::new(),
-                error: (!matching)
-                    .then(|| "receipt_id is already bound to another materialization".to_string()),
-            });
-        }
-    }
-    if let Some(existing) = runtime
-        .materialization_receipts
-        .values()
-        .find(|receipt| {
-            receipt.actor_id == payload.actor_id
-                && receipt.card_id == payload.card_id
-                && receipt.status == "materialized"
-        })
-        .cloned()
-    {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 409,
-            item: runtime
-                .item_by_id(existing.item_id)
-                .map(|item| runtime.item_view(item)),
-            receipt: Some(existing),
-            events: Vec::new(),
-            error: Some("this collectible is already materialized for the avatar".to_string()),
-        });
-    }
-    let Some(seed_item) = active_content()
-        .items
-        .iter()
-        .find(|item| item.id == card.subject_id)
-    else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 409,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("item collectible has no playable item profile".to_string()),
-        });
-    };
-    let item_id = materialized_item_id(receipt_id);
-    let (max_charges, recovery, recovery_zone) = seed_item_recovery_profile(seed_item);
-    let item = CwItem {
-        id: item_id,
-        kind: seed_item_kind(seed_item).unwrap_or(CW_ITEM_KEEPSAKE),
-        charges: seed_item.charges,
-        max_charges,
-        recovery,
-        recovery_zone,
-        weight_tenths: seed_item.weight_tenths,
-        container_capacity_tenths: seed_item.container_capacity_tenths,
-        size_class: seed_item_size(seed_item).unwrap_or(CW_ITEM_SIZE_SMALL),
-        role: seed_item_role(seed_item).unwrap_or(CW_ITEM_ROLE_GENERIC),
-        zone: CW_CARD_ZONE_CARRIED,
-        holder_actor_id: payload.actor_id,
-        held_since_tick: runtime.world.tick,
-        reserved: seed_weapon_die_sides(seed_item),
-        ..CwItem::default()
-    };
-    if runtime.item_by_id(item_id).is_some()
-        || !runtime.actor_can_exchange_items(payload.actor_id, None, item)
-    {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 409,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("instance id collision or insufficient carried-deck capacity".to_string()),
-        });
-    }
-    let receipt = MaterializationReceiptState {
-        id: receipt_id.to_string(),
-        actor_id: payload.actor_id,
-        card_id: payload.card_id.clone(),
-        item_id,
-        status: "materialized".to_string(),
-        source_wallet: access.owner_wallet_address,
-        source_event_seq: runtime.world.next_event_seq,
-    };
-    let meta = ItemMeta {
-        name: seed_item.name.clone(),
-        description: seed_item.description.clone(),
-        skill_id: seed_item.skill_id.clone(),
-        skill_bonus: seed_item.skill_bonus,
-        mechanics: seed_item.mechanics.clone(),
-    };
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            item_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record.bind_offer_kind("materialize");
-    record
-        .projection_mutations
-        .push(ProjectionMutation::MaterializeItem {
-            receipt: receipt.clone(),
-            item,
-            meta,
-            reason: "collection_materialization".to_string(),
-        });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 500,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization commit failed".to_string()),
-        });
-    };
-    let committed_receipt = runtime.materialization_receipts.get(receipt_id).cloned();
-    let committed_item = runtime
-        .item_by_id(item_id)
-        .map(|item| runtime.item_view(item));
-    drop(runtime);
-    broadcast_events(&state, &events);
+    // Compatibility tombstone: keep historical payloads parseable while
+    // permanently preventing this public route from reaching ownership,
+    // projection, journal, or world mutation code. Historical replay and the
+    // separate verified Proxim8 actor adapter retain their internal reducers.
     Json(MaterializationResponse {
-        ok: status == CW_OK && committed_receipt.is_some(),
-        status,
-        receipt: committed_receipt,
-        item: committed_item,
-        events,
-        error: None,
+        ok: false,
+        status: 410,
+        receipt: None,
+        item: None,
+        events: Vec::new(),
+        error: Some(
+            "item collectible materialization is retired; existing receipts may only be returned"
+                .to_string(),
+        ),
     })
 }
 
@@ -33442,6 +33233,26 @@ async fn unmaterialize_collection_item(
             error: Some("materialization receipt was not found".to_string()),
         });
     };
+    if existing.actor_id != payload.actor_id {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 403,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("materialization receipt belongs to another avatar".to_string()),
+        });
+    }
+    if existing.status == "collection" && runtime.item_by_id(existing.item_id).is_none() {
+        return Json(MaterializationResponse {
+            ok: true,
+            status: CW_OK,
+            receipt: Some(existing),
+            item: None,
+            events: Vec::new(),
+            error: None,
+        });
+    }
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -45926,7 +45737,8 @@ mod tests {
         assert!(INDEX_HTML.contains("deck.charm_slot_expansion"));
         assert!(INDEX_HTML.contains("Make room"));
         assert!(INDEX_HTML.contains("Only prepared spell cards can be cast"));
-        assert!(INDEX_HTML.contains("data-materialize-card"));
+        assert!(!INDEX_HTML.contains("data-materialize-card"));
+        assert!(!INDEX_HTML.contains("/collection/materialize"));
         assert!(INDEX_HTML.contains("data-unmaterialize-receipt"));
         assert!(INDEX_HTML.contains("function currentOfferForSubmission"));
         assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
@@ -52890,7 +52702,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn materialization_endpoint_requires_ownership_and_prevents_duplicates() {
+    async fn materialization_endpoint_is_frozen_and_legacy_returns_are_idempotent() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -52898,81 +52710,103 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Collection Tester",
         );
-        let mut state = test_app_state(runtime, None);
+        let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
         let addr = "127.0.0.1:44120".parse().expect("client address");
-        let request = |receipt_id: &str, card_id: &str| MaterializeItemRequest {
-            actor_id: 5000,
-            actor_session: Some(actor_session.clone()),
-            receipt_id: receipt_id.to_string(),
-            card_id: card_id.to_string(),
-            wallet_address: None,
-            wallet: None,
-            wallet_session: None,
-            owned_card_ids: Some(format!("item-patchwork-satchel,{card_id}")),
-            cards: None,
+        let request = |receipt_id: &str, card_id: &str| {
+            serde_json::json!({
+                "actor_id": 5000,
+                "actor_session": actor_session.clone(),
+                "receipt_id": receipt_id,
+                "card_id": card_id,
+                "owned_card_ids": format!("item-patchwork-satchel,{card_id}"),
+            })
         };
 
-        let spoofed = materialize_collection_item(
+        let before = {
+            let runtime = state.inner.lock().await;
+            (
+                runtime.world.item_count,
+                runtime.materialization_receipts.len(),
+            )
+        };
+        let retired = materialize_collection_item(
             ConnectInfo(addr),
             State(state.clone()),
             Json(request("receipt:bag:1", "item-patchwork-satchel")),
         )
         .await
         .0;
-        assert!(!spoofed.ok);
-        assert_eq!(spoofed.status, 403);
+        assert!(!retired.ok);
+        assert_eq!(retired.status, 410);
+        assert!(retired.receipt.is_none());
+        assert!(retired.item.is_none());
+        assert!(retired.events.is_empty());
         assert_eq!(
-            spoofed.error.as_deref(),
-            Some("the signed collection does not own this item card")
+            retired.error.as_deref(),
+            Some(
+                "item collectible materialization is retired; existing receipts may only be returned"
+            )
         );
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(runtime.world.item_count, before.0);
+            assert_eq!(runtime.materialization_receipts.len(), before.1);
+        }
 
-        state.trust_client_card_ids = true;
-        let created = materialize_collection_item(
-            ConnectInfo(addr),
+        let receipt_id = "receipt:bag:1";
+        let item_id = materialized_item_id(receipt_id);
+        {
+            let mut runtime = state.inner.lock().await;
+            let receipt = MaterializationReceiptState {
+                id: receipt_id.to_string(),
+                actor_id: 5000,
+                card_id: "item-patchwork-satchel".to_string(),
+                item_id,
+                status: "materialized".to_string(),
+                source_wallet: Some("legacy-wallet".to_string()),
+                source_event_seq: runtime.world.next_event_seq,
+            };
+            let item = CwItem {
+                id: item_id,
+                kind: CW_ITEM_KEEPSAKE,
+                charges: 1,
+                weight_tenths: 1,
+                size_class: CW_ITEM_SIZE_SMALL,
+                role: CW_ITEM_ROLE_CONTAINER,
+                zone: CW_CARD_ZONE_CARRIED,
+                holder_actor_id: 5000,
+                held_since_tick: runtime.world.tick,
+                ..CwItem::default()
+            };
+            let meta = runtime.items.get(&2002).cloned().expect("bag metadata");
+            assert_eq!(
+                runtime
+                    .materialize_item(receipt, item, meta, "legacy_fixture")
+                    .len(),
+                1
+            );
+        }
+        let state_with_receipt = state_view(
             State(state.clone()),
-            Json(request("receipt:bag:1", "item-patchwork-satchel")),
+            Query(StateQuery {
+                actor_id: Some(5000),
+                actor_session: Some(actor_session.clone()),
+                wallet_address: None,
+                wallet: None,
+                wallet_session: None,
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
         )
         .await
         .0;
-        assert!(created.ok, "{created:?}");
-        assert_eq!(created.status, CW_OK);
-        assert_eq!(created.events.len(), 1);
-        let item_id = created.item.as_ref().expect("materialized item").id;
-
-        let retry = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
-        assert!(retry.ok, "{retry:?}");
-        assert_eq!(retry.item.as_ref().map(|item| item.id), Some(item_id));
-        assert!(
-            retry.events.is_empty(),
-            "retry must not create another item"
+        assert_eq!(
+            state_with_receipt.account.materialization_receipts.len(),
+            1,
+            "the authenticated client retains its legacy return control"
         );
-
-        let rebound_receipt = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-steady-light")),
-        )
-        .await
-        .0;
-        assert!(!rebound_receipt.ok);
-        assert_eq!(rebound_receipt.status, 409);
-
-        let duplicate_card = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:2", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
-        assert!(!duplicate_card.ok);
-        assert_eq!(duplicate_card.status, 409);
 
         let returned = unmaterialize_collection_item(
             ConnectInfo(addr),
@@ -52980,7 +52814,7 @@ mod tests {
             Json(UnmaterializeItemRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session.clone()),
-                receipt_id: "receipt:bag:1".to_string(),
+                receipt_id: receipt_id.to_string(),
             }),
         )
         .await
@@ -53000,13 +52834,15 @@ mod tests {
             Json(UnmaterializeItemRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session),
-                receipt_id: "receipt:bag:1".to_string(),
+                receipt_id: receipt_id.to_string(),
             }),
         )
         .await
         .0;
-        assert!(!repeat_return.ok);
-        assert_eq!(repeat_return.status, 409);
+        assert!(repeat_return.ok, "{repeat_return:?}");
+        assert_eq!(repeat_return.status, CW_OK);
+        assert!(repeat_return.events.is_empty());
+        assert!(state.inner.lock().await.item_by_id(item_id).is_none());
     }
 
     #[test]

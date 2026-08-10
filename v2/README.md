@@ -154,8 +154,10 @@ The Rust orchestrator currently owns:
 - Rules-bound legal-action envelopes, deterministic ranked two-card hands plus
   certified Think/Pass rotation, composition traces, and stale/tampered
   submission rejection.
-- Signed-ownership item materialization with durable receipts, reversible
-  Collection returns, and possession provenance.
+- Read-only legacy item-materialization receipts with reversible, idempotent
+  Collection returns and possession provenance. New item collectible
+  materialization is retired; the verified avatar-NFT actor adapter is a
+  separate compatibility seam.
 - Session-touched and heartbeat-refreshed direct-input presence, so stale
   directly controlled avatars do not crowd active rooms.
 - Controller-based safety policy: directly controlled avatars cannot be theft
@@ -867,8 +869,18 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /actions/set-spell-prepared`
 - `POST /actions/set-item-equipped`
 - `POST /actions/set-item-contained`
-- `POST /collection/materialize`
-- `POST /collection/unmaterialize`
+- `POST /collection/materialize` is a compatibility tombstone. It performs no
+  authorization, journal, or world writes and returns `{ "ok": false,
+  "status": 410 }` for every valid JSON payload.
+- `POST /collection/unmaterialize` returns an existing legacy receipt's item to
+  Collection. Retrying an already completed return succeeds without another
+  journal event.
+
+`GET /meta` exposes `nft.item_materialization`: the permanent retirement state,
+whether legacy returns remain enabled, and read-only receipt counts classified
+as `unmaterialized`, `valid_active_world_item`, `already_returned`, `duplicate`,
+or `ambiguous`. Verified Proxim8 actor receipts are counted separately because
+the retained actor adapter is not the retired general item bridge.
 `POST /actions/submit` is the canonical scene-mutation gateway. Callers send
 the authenticated actor handle and an exact offer from the current two-card
 hand. The offer payload includes its stable envelope:

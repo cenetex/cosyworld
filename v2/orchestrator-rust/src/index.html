@@ -12303,21 +12303,15 @@
       const cardNameHtml = `${emojiHtml(cardEmoji(card, shape))}${escapeHtml(cardName)}`;
       const itemCard = ["item", "weapon", "spell", "container", "skill charm", "skill_charm", "tool", "consumable", "relic"]
         .some((role) => String(card.role || "").toLowerCase().includes(role));
-      const receipt = (state?.account?.materialization_receipts || []).find((entry) => entry.card_id === card.card_id);
-      const materialized = receipt?.status === "materialized";
-      const materializeButton = itemCard && actorId
-        ? materialized
-          ? `<button class="account-button secondary" type="button" data-unmaterialize-receipt="${escapeAttr(receipt.id)}">return from carried deck</button>`
-          : `<button class="account-button secondary" type="button" data-materialize-card="${escapeAttr(card.card_id || "")}">materialize to carried deck</button>`
+      const receipt = (state?.account?.materialization_receipts || []).find((entry) => (
+        entry.card_id === card.card_id && entry.status === "materialized"
+      ));
+      const materialized = Boolean(receipt);
+      const returnButton = itemCard && actorId && materialized
+        ? `<button class="account-button secondary" type="button" data-unmaterialize-receipt="${escapeAttr(receipt.id)}">return from carried deck</button>`
         : "";
-      const zoneCopy = itemCard ? `<div class="account-asset-effect"><span>authoritative zone</span>${materialized ? "carried in this shard" : "collection"}</div>` : "";
-      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}" data-player-concept="keepsake"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} keepsake details" data-analytics-event="keepsake.open"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "keepsake")}</div>${zoneCopy}<div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}" data-analytics-event="keepsake.toggle"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button>${materializeButton}</div>`;
-    }
-
-    function materializationReceiptId(cardId) {
-      const left = handHash(cardId, Number(actorId || 0)).toString(16).padStart(8, "0");
-      const right = handHash([...String(cardId)].reverse().join(""), Number(actorId || 0) ^ 0x9e3779b9).toString(16).padStart(8, "0");
-      return `web:${actorId}:${left}${right}`;
+      const zoneCopy = itemCard ? `<div class="account-asset-effect"><span>authoritative zone</span>${materialized ? "legacy item carried in this shard" : "collection only"}</div>` : "";
+      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}" data-player-concept="keepsake"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} keepsake details" data-analytics-event="keepsake.open"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "keepsake")}</div>${zoneCopy}<div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}" data-analytics-event="keepsake.toggle"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button>${returnButton}</div>`;
     }
 
     function boxImageUrl(boxId, stateName = "closed") {
@@ -16078,18 +16072,6 @@
           actor_id: actorId,
           item_id: itemId,
           container_item_id: containerRaw ? Number(containerRaw) : null,
-        }).then(() => refresh());
-        return;
-      }
-      const materializeTarget = event.target.closest("[data-materialize-card]");
-      if (materializeTarget) {
-        event.preventDefault();
-        const cardId = materializeTarget.getAttribute("data-materialize-card") || "";
-        if (!cardId) return;
-        action("/collection/materialize", {
-          actor_id: actorId,
-          card_id: cardId,
-          receipt_id: materializationReceiptId(cardId),
         }).then(() => refresh());
         return;
       }
