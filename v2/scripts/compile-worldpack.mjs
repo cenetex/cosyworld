@@ -38,6 +38,7 @@ import {
   routeDiscoveryValidationErrors,
 } from "./route-direction.mjs";
 import { progressionSafetyWorldValidationErrors } from "./progression-safety-schema.mjs";
+import { spatialSceneValidationErrors } from "./spatial-scene-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -82,6 +83,7 @@ const resourceFiles = {
 const optionalResourceFiles = {
   actor_model_bindings: "actor_model_bindings.json",
   avatar_level_tracks: "avatar_level_tracks.json",
+  spatial_scenes: "spatial_scenes.json",
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
@@ -1047,6 +1049,16 @@ const activeActionIds = new Set(
 );
 for (const bundle of contributionBundles) {
   validateContributions({ id: bundle.pack_id }, bundle, activeActionIds);
+}
+
+for (const error of spatialSceneValidationErrors({
+  scenes: resources.spatial_scenes ?? [],
+  locations: resources.locations,
+  actors: resources.actors,
+  roomFeatures: resources.room_features,
+  exits: resources.exits,
+})) {
+  assert(false, error);
 }
 
 const contributionIdentityOwners = new Map();

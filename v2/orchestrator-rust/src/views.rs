@@ -275,6 +275,8 @@ pub(super) struct StateResponse {
     pub(super) world_seq: u64,
     pub(super) state_revision: u64,
     pub(super) rules_context: Option<SceneRulesContextView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) spatial_scene: Option<SpatialSceneView>,
     pub(super) location: LocationView,
     pub(super) exits: Vec<ExitView>,
     pub(super) actors: Vec<ActorView>,
@@ -2930,6 +2932,14 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         let journal_beats = journal_beat_views(&recent_events, location_id);
         let room_memory = fallback_room_memory_view(&location, &recent_events);
+        let spatial_scene = self.spatial_scene_view(
+            client_actor_id,
+            location_id,
+            &actors,
+            &exits,
+            &visible_action_offers,
+            access,
+        );
         StateResponse {
             world_id: OFFICIAL_WORLD_ID.to_string(),
             world_epoch: OFFICIAL_WORLD_EPOCH,
@@ -2937,6 +2947,7 @@ impl RuntimeWorld {
             state_revision: self.current_state_revision(),
             rules_context: self
                 .scene_rules_context(location_id, self.world.next_event_seq.saturating_sub(1)),
+            spatial_scene,
             location,
             exits,
             actors,

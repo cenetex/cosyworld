@@ -595,7 +595,136 @@
       overflow: hidden;
     }
     .combat-heading[hidden] { display: none; }
-    .room.combat-room .room-hero { display: none; }
+    .room.combat-room .room-hero:not(.spatial) { display: none; }
+    .room-hero.spatial {
+      height: clamp(210px, 36vh, 330px);
+      background:
+        radial-gradient(circle at 50% 92%, rgba(204, 159, 65, 0.13), transparent 38%),
+        linear-gradient(180deg, #091210, #050908);
+    }
+    .room-hero.spatial .room-hero-card,
+    .room-hero.spatial .room-avatar-rail {
+      display: none;
+    }
+    .spatial-stage {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      color: #f8edcf;
+    }
+    .spatial-stage[hidden] { display: none; }
+    .spatial-stage svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      overflow: visible;
+    }
+    .spatial-link {
+      stroke: rgba(186, 224, 207, 0.2);
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+    .spatial-tile {
+      stroke: rgba(244, 226, 176, 0.23);
+      stroke-width: 1.5;
+    }
+    .spatial-tile.entry { fill: #344a3d; }
+    .spatial-tile.feature { fill: #755e2d; }
+    .spatial-tile.crossing { fill: #504a3b; }
+    .spatial-tile.exit { fill: #3d534e; }
+    .spatial-tile.ground { fill: #314039; }
+    .spatial-site-label {
+      fill: rgba(248, 237, 207, 0.72);
+      font: 600 11px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.03em;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(4, 8, 7, 0.92);
+      stroke-width: 3px;
+    }
+    .spatial-token .token-disc {
+      fill: #d9e6dc;
+      stroke: #102019;
+      stroke-width: 3;
+    }
+    .spatial-token.viewer .token-disc { fill: #f4d77f; }
+    .spatial-token.hostile .token-disc { fill: #b96358; }
+    .spatial-token.feature .token-disc { fill: #d5ad42; }
+    .spatial-token .token-mark {
+      fill: #0b1410;
+      font: 800 12px/1 ui-sans-serif, system-ui, sans-serif;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+    .spatial-token .token-label,
+    .spatial-portal .portal-label {
+      fill: #fff3d4;
+      font: 700 12px/1 ui-sans-serif, system-ui, sans-serif;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(4, 8, 7, 0.96);
+      stroke-width: 4px;
+    }
+    .spatial-portal .portal-gate {
+      fill: rgba(126, 172, 154, 0.24);
+      stroke: rgba(209, 234, 220, 0.68);
+      stroke-width: 2;
+    }
+    .spatial-portal.blocked .portal-gate {
+      fill: rgba(137, 63, 57, 0.3);
+      stroke: #d98676;
+    }
+    .spatial-constraint {
+      stroke: #e08b74;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 6 5;
+    }
+    .spatial-focus-1 .token-disc,
+    .spatial-focus-1 .portal-gate {
+      stroke: #73e7a1;
+      stroke-width: 5;
+      filter: drop-shadow(0 0 7px rgba(115, 231, 161, 0.7));
+    }
+    .spatial-focus-2 .token-disc,
+    .spatial-focus-2 .portal-gate {
+      stroke: #efc96b;
+      stroke-width: 5;
+      filter: drop-shadow(0 0 7px rgba(239, 201, 107, 0.68));
+    }
+    .spatial-caption {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      z-index: 4;
+      pointer-events: none;
+      color: rgba(255, 243, 212, 0.9);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .spatial-caption strong {
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      max-width: 64%;
+    }
+    .spatial-hand-key { display: flex; gap: 10px; }
+    .spatial-hand-key span::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 5px;
+      border-radius: 50%;
+      background: #73e7a1;
+    }
+    .spatial-hand-key span + span::before { background: #efc96b; }
     .combat-heading-bar {
       min-height: 34px;
       display: grid;
@@ -4746,6 +4875,10 @@
             <img id="room-hero-image" alt="" />
           </button>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
+          <div class="spatial-stage" id="spatial-stage" role="img" hidden>
+            <svg id="spatial-scene" viewBox="0 0 1000 230" aria-hidden="true"></svg>
+            <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
+          </div>
         </div>
         <section class="combat-heading" id="combat-heading" aria-label="Battle formation" hidden></section>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
@@ -10289,6 +10422,164 @@
       pendingModelInteractionRehydrationRequired = true;
     }
 
+    function spatialPoint(tile, compact = false) {
+      const x = Number(tile?.[0] || 0);
+      const y = Number(tile?.[1] || 0);
+      const z = Number(tile?.[2] || 0);
+      if (compact) {
+        return {
+          x: 175 + ((x - y) * 29),
+          y: 35 + ((x + y) * 31) - (z * 28),
+        };
+      }
+      return {
+        x: 405 + ((x - y) * 80),
+        y: 42 + ((x + y) * 27) - (z * 32),
+      };
+    }
+
+    function spatialFocusClass(offerIds, handOfferIds) {
+      const offered = new Set(Array.isArray(offerIds) ? offerIds.map(String) : []);
+      if (handOfferIds[0] && offered.has(handOfferIds[0])) return " spatial-focus-1";
+      if (handOfferIds[1] && offered.has(handOfferIds[1])) return " spatial-focus-2";
+      return "";
+    }
+
+    function renderSpatialScene(scene) {
+      const stage = $("spatial-stage");
+      const svg = $("spatial-scene");
+      const usable = scene?.schema_version === 1
+        && scene?.projection === "isometric"
+        && Array.isArray(scene?.sites)
+        && scene.sites.length > 0;
+      stage.hidden = !usable;
+      if (!usable) {
+        svg.innerHTML = "";
+        stage.removeAttribute("aria-label");
+        return false;
+      }
+
+      const compact = window.matchMedia("(max-width: 700px)").matches;
+      svg.setAttribute("viewBox", compact ? "0 0 390 270" : "0 0 1000 230");
+      const tileHalfWidth = compact ? 30 : 52;
+      const tileHalfHeight = compact ? 14 : 20;
+      const handOfferIds = (state?.action_hand?.entries || [])
+        .map((entry) => String(entry?.offer_id || ""));
+      const sites = new Map(scene.sites.map((site) => [String(site.id), site]));
+      const centerForSite = (siteId) => {
+        const tiles = sites.get(String(siteId))?.tiles || [[0, 0, 0]];
+        const points = tiles.map((tile) => spatialPoint(tile, compact));
+        return {
+          x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+          y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+        };
+      };
+      const tileRows = scene.sites
+        .flatMap((site) => (site.tiles || []).map((tile) => ({ site, tile, point: spatialPoint(tile, compact) })))
+        .sort((left, right) => (
+          (Number(left.tile[0]) + Number(left.tile[1]) + Number(left.tile[2]))
+          - (Number(right.tile[0]) + Number(right.tile[1]) + Number(right.tile[2]))
+        ));
+      const linkRows = (scene.links || []).map((link) => {
+        const from = centerForSite(link.from_site_id);
+        const to = centerForSite(link.to_site_id);
+        return `<line class="spatial-link" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" />`;
+      });
+      const tileHtml = tileRows.map(({ site, point }) => (
+        `<polygon class="spatial-tile ${escapeAttr(site.kind || "ground")}" points="${point.x},${point.y - tileHalfHeight} ${point.x + tileHalfWidth},${point.y} ${point.x},${point.y + tileHalfHeight} ${point.x - tileHalfWidth},${point.y}" />`
+      ));
+      const siteLabels = scene.sites.filter((site) => (
+        !compact || ["crossing", "ground"].includes(String(site.kind || ""))
+      )).map((site) => {
+        const point = centerForSite(site.id);
+        return `<text class="spatial-site-label" x="${point.x}" y="${point.y + 43}">${escapeHtml(site.label || site.id)}</text>`;
+      });
+
+      const portalPoints = new Map();
+      const portals = (scene.portals || []).map((portal) => {
+        const sitePoint = centerForSite(portal.site_id);
+        const direction = String(portal.direction || "").toLowerCase();
+        const point = direction === "west"
+          ? { x: sitePoint.x - (compact ? 48 : 92), y: sitePoint.y - 18 }
+          : direction === "north"
+            ? { x: sitePoint.x + (compact ? 8 : 75), y: sitePoint.y - (compact ? 74 : 46) }
+            : { x: sitePoint.x, y: sitePoint.y - 42 };
+        portalPoints.set(String(portal.ref_id), point);
+        const classes = `spatial-portal${portal.blocked ? " blocked" : ""}${spatialFocusClass(portal.offer_ids, handOfferIds)}`;
+        const directionLabel = portal.direction ? ` · ${portal.direction}` : "";
+        const compactPortalLabel = direction === "west"
+          ? `${String(portal.label || "West").replace(/'s Ruin$/i, "")} ←`
+          : direction === "north"
+            ? `${String(portal.label || "North").replace(/^Road to /i, "")} ↑`
+            : (portal.label || portal.direction || "Exit");
+        const portalLabel = compact ? compactPortalLabel : `${portal.label}${directionLabel}`;
+        return `<g class="${escapeAttr(classes)}" transform="translate(${point.x} ${point.y})"><title>${escapeHtml(`${portal.label}${directionLabel}`)}</title><rect class="portal-gate" x="-25" y="-24" width="50" height="31" rx="6" /><path d="M-9 -8 H9 M4 -13 L10 -8 L4 -3" fill="none" stroke="currentColor" stroke-width="2" /><text class="portal-label" y="25">${escapeHtml(portalLabel)}</text></g>`;
+      });
+
+      const tokenPoints = new Map();
+      const siteTokenCounts = new Map();
+      const viewerRef = scene.viewer?.actor_id ? `actor:${scene.viewer.actor_id}` : "";
+      const tokens = (scene.tokens || []).map((token) => {
+        const sitePoint = centerForSite(token.site_id);
+        const offset = siteTokenCounts.get(token.site_id) || 0;
+        siteTokenCounts.set(token.site_id, offset + 1);
+        const isViewer = String(token.ref_id) === viewerRef;
+        const point = {
+          x: sitePoint.x + (compact ? 5 : 12) + (offset * (compact ? 28 : 35)),
+          y: sitePoint.y - 35 - (offset % 2) * 12 - (compact && isViewer ? 27 : 0),
+        };
+        tokenPoints.set(String(token.ref_id), point);
+        const classes = [
+          "spatial-token",
+          token.kind || "actor",
+          isViewer ? "viewer" : "",
+          token.hostile ? "hostile" : "",
+        ].filter(Boolean).join(" ") + spatialFocusClass(token.offer_ids, handOfferIds);
+        const mark = token.kind === "feature"
+          ? "✦"
+          : String(token.label || "?").trim().slice(0, 1).toUpperCase();
+        const label = isViewer
+          ? (compact ? "You" : `${token.label} · you`)
+          : compact && token.kind === "feature"
+            ? String(token.label || "Feature").replace(/^Golden /i, "")
+            : compact && token.hostile
+              ? String(token.label || "Hostile").replace(/^Moth-Eaten /i, "")
+              : token.label;
+        return `<g class="${escapeAttr(classes)}" transform="translate(${point.x} ${point.y})"><title>${escapeHtml(token.label || "Unknown")}</title><circle class="token-disc" r="16" /><text class="token-mark" y="1">${escapeHtml(mark)}</text><text class="token-label" y="34">${escapeHtml(label || "Unknown")}</text></g>`;
+      });
+      const constraints = (scene.constraints || [])
+        .filter((constraint) => constraint.active)
+        .map((constraint) => {
+          const subject = tokenPoints.get(String(constraint.subject_ref));
+          const object = portalPoints.get(String(constraint.object_ref));
+          if (!subject || !object) return "";
+          return `<line class="spatial-constraint" x1="${subject.x}" y1="${subject.y + 19}" x2="${object.x}" y2="${object.y - 4}"><title>${escapeHtml(constraint.label)}</title></line>`;
+        });
+      const activeConstraints = (scene.constraints || []).filter((constraint) => constraint.active);
+      const viewerSite = sites.get(String(scene.viewer?.site_id || ""));
+      const summaryParts = [
+        `Spatial view of ${state?.location?.name || "the current location"}.`,
+        viewerSite ? `You are at ${viewerSite.label}.` : "",
+        ...activeConstraints.map((constraint) => constraint.label),
+      ].filter(Boolean);
+      stage.setAttribute("aria-label", summaryParts.join(" "));
+      $("spatial-title").textContent = activeConstraints.length
+        ? activeConstraints[0].label
+        : (state?.location?.name || "Spatial scene");
+      svg.innerHTML = [
+        compact
+          ? '<path d="M0 176 C72 132 139 207 214 160 C288 115 332 198 390 151 V270 H0 Z" fill="rgba(17, 42, 38, .62)" />'
+          : '<path d="M0 163 C145 112 276 191 428 148 C606 97 746 181 1000 112 V230 H0 Z" fill="rgba(17, 42, 38, .62)" />',
+        ...linkRows,
+        ...tileHtml,
+        ...siteLabels,
+        ...portals,
+        ...constraints,
+        ...tokens,
+      ].join("");
+      return true;
+    }
+
     function render() {
       const location = state.location || {};
       const locationCard = cardForLocation(location.id);
@@ -10303,6 +10594,7 @@
       roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} keepsake`);
       setCardTarget(roomHeroCard, locationCard);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
+      $("room-hero").classList.toggle("spatial", renderSpatialScene(state?.spatial_scene));
       renderCombatHeading();
       $("location-name").textContent = location.name || "Unknown";
       const brand = $("brand");
@@ -16634,6 +16926,7 @@
     window.addEventListener("resize", () => {
       if (state) {
         renderEconomy();
+        renderSpatialScene(state?.spatial_scene);
         renderRoomLogLatest($("room-log-toggle").dataset.latest || "");
         reconcileHand();
         renderCommands();

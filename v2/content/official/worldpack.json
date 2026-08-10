@@ -51,7 +51,8 @@
       "sha256:9576956c1e4e526044e6bf67996d18ada8a52f140be77ea25d763b2f386dc790",
       "sha256:3ab091b7b358316785dfd6a0fd3c771dfe9c758b49067cc1d04071c2aac32542",
       "sha256:407b41af639a9cdd0ee1e5a043482d56bd5e935fcc99f53385733fb39d4425c0",
-      "sha256:9f81e10655b907dda0bad70f7b25b8a1750226a2417534f63e9e8fee072c358a"
+      "sha256:9f81e10655b907dda0bad70f7b25b8a1750226a2417534f63e9e8fee072c358a",
+      "sha256:fb709a47642b710dbf062bff696a3b16cf3b0e9dda378fc7a5fd59dc77f8e1bb"
     ]
   },
   "pack_lifecycle": {
@@ -805,7 +806,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:fb709a47642b710dbf062bff696a3b16cf3b0e9dda378fc7a5fd59dc77f8e1bb",
+  "bundle_hash": "sha256:2f05782c25e61f4f61cdfa142bb99c793ff533f8266120e6b923ca2afdb9d9e4",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -865,6 +866,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -947,6 +949,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 112,
@@ -1040,6 +1043,7 @@
         "evolution_tracks": 3,
         "recipes": 9,
         "sentences": 21,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 2,
         "rules": 0,
@@ -2028,6 +2032,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -2049,7 +2054,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2133,6 +2138,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 1,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -2280,7 +2286,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:e5609d396bd4b6ed5251ee46dab4a063266e79d1cb850270f59db1ebdb8d30cd"
+      "integrity": "sha256:c5de2288d001e41959156ff058754f6709b2c930c47927e392c93b09cbb42e9a"
     },
     {
       "id": "cosyworld.the-holy-land",
@@ -2365,6 +2371,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -2625,6 +2632,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -2839,6 +2847,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -3024,6 +3033,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 6,
+        "spatial_scenes": 0,
         "external_cards": 24,
         "assets": 1,
         "rules": 0,
@@ -3208,6 +3218,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -3408,6 +3419,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -3445,7 +3457,8 @@
     "lifecycle_hooks": "lifecycle_hooks.json",
     "evolution_tracks": "evolution_tracks.json",
     "recipes": "recipes.json",
-    "sentences": "sentences.json"
+    "sentences": "sentences.json",
+    "spatial_scenes": "spatial_scenes.json"
   },
   "external_cards": "external_cards.json",
   "assets": "assets.json",

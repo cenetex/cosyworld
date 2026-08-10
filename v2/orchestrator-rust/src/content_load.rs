@@ -36,6 +36,7 @@ pub(super) struct SeedContent {
     pub(super) items: Vec<SeedItemContent>,
     pub(super) locations: Vec<SeedLocationContent>,
     pub(super) room_features: Vec<SeedRoomFeatureContent>,
+    pub(super) spatial_scenes: Vec<SeedSpatialSceneContent>,
     pub(super) exits: Vec<SeedExitContent>,
     pub(super) hidden_exits: Vec<SeedHiddenExitContent>,
     pub(super) room_sheets: Vec<RoomSheetState>,
@@ -929,6 +930,7 @@ pub(super) struct SeedLocationContent {
 pub(super) enum InteriorViewMode {
     Hex,
     Close,
+    Isometric,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1780,6 +1782,7 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
 
 pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     validate_seed_building_archetypes(content)?;
+    validate_seed_spatial_scenes(content)?;
     discovery_authority::validate_seed_discovery_authority(content)?;
     threshold_descriptors::validate_seed_threshold_descriptors(content)?;
     validate_seed_loot_tables(content)?;
@@ -4275,8 +4278,14 @@ mod rules_profile_tests {
         .expect("hex interior view");
         assert_eq!(hex.interior_view, Some(InteriorViewMode::Hex));
 
-        let error = serde_json::from_str::<SeedLocationContent>(
+        let isometric: SeedLocationContent = serde_json::from_str(
             r#"{"id":3,"name":"Room","interior_view":"isometric","allow_combat":false}"#,
+        )
+        .expect("isometric interior view");
+        assert_eq!(isometric.interior_view, Some(InteriorViewMode::Isometric));
+
+        let error = serde_json::from_str::<SeedLocationContent>(
+            r#"{"id":4,"name":"Room","interior_view":"perspective","allow_combat":false}"#,
         )
         .expect_err("unsupported interior view");
         assert!(error.to_string().contains("unknown variant"));
