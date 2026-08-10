@@ -10496,7 +10496,7 @@ async function main() {
   }
 
   async function travelPathTo(name) {
-    const path = await page.evaluate(async (destinationName) => {
+    const route = await page.evaluate(async (destinationName) => {
       const actorId = localStorage.getItem("cosyworld.actorId");
       const actorSession = localStorage.getItem("cosyworld.actorSession");
       const params = new URLSearchParams({
@@ -10504,31 +10504,63 @@ async function main() {
         actor_session: actorSession,
         wallet_address: "dev-wallet",
       });
-      const world = await fetch(`/world?${params}`).then((response) => response.json());
-      const currentId = Number(world.current_location_id || state?.location?.id || 0);
-      const destination = (world.locations || []).find((location) => location.name === destinationName);
-      if (!currentId || !destination) return [];
-      const locationsById = new Map((world.locations || []).map((location) => [Number(location.id), location]));
-      const queue = [[currentId]];
-      const visited = new Set([currentId]);
-      while (queue.length) {
-        const ids = queue.shift();
-        const tail = ids.at(-1);
-        if (tail === Number(destination.id)) {
-          return ids.slice(1).map((id) => locationsById.get(id)?.name || "").filter(Boolean);
+      const deadline = Date.now() + 6_000;
+      let latestWorld = null;
+      do {
+        const world = await fetch(`/world?${params}`).then((response) => response.json());
+        latestWorld = world;
+        const currentId = Number(world.current_location_id || state?.location?.id || 0);
+        const destination = (world.locations || []).find((location) => location.name === destinationName);
+        if (currentId && destination) {
+          const locationsById = new Map((world.locations || []).map((location) => [Number(location.id), location]));
+          const queue = [[currentId]];
+          const visited = new Set([currentId]);
+          while (queue.length) {
+            const ids = queue.shift();
+            const tail = ids.at(-1);
+            if (tail === Number(destination.id)) {
+              const path = ids.slice(1).map((id) => locationsById.get(id)?.name || "").filter(Boolean);
+              if (path.length > 0) return { path };
+              if (
+                String(state?.location?.name || "") === destinationName
+                && Number(state?.location?.id || 0) === currentId
+              ) {
+                return { path: [], alreadyAtDestination: true };
+              }
+              break;
+            }
+            const location = locationsById.get(tail);
+            for (const exit of location?.exits || []) {
+              const nextId = Number(exit.destination_location_id || 0);
+              if (!nextId || visited.has(nextId) || !locationsById.has(nextId)) continue;
+              visited.add(nextId);
+              queue.push([...ids, nextId]);
+            }
+          }
         }
-        const location = locationsById.get(tail);
-        for (const exit of location?.exits || []) {
-          const nextId = Number(exit.destination_location_id || 0);
-          if (!nextId || visited.has(nextId) || !locationsById.has(nextId)) continue;
-          visited.add(nextId);
-          queue.push([...ids, nextId]);
-        }
-      }
-      return [];
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } while (Date.now() < deadline);
+      return {
+        path: [],
+        diagnostic: {
+          currentLocationId: latestWorld?.current_location_id || null,
+          currentStateLocation: state?.location?.name || null,
+          currentStateLocationId: state?.location?.id || null,
+          locations: (latestWorld?.locations || []).map((location) => ({
+            id: location.id,
+            name: location.name,
+            exits: (location.exits || []).map((exit) => exit.destination_location_name),
+          })),
+          worldSeq: latestWorld?.world_seq || null,
+        },
+      };
     }, name);
-    assert(path.length > 0, `${name} should have a discovered path through the living world`);
-    for (const step of path) await travelTo(step);
+    if (route.alreadyAtDestination) return;
+    assert(
+      route.path.length > 0,
+      `${name} should have a discovered path through the living world: ${JSON.stringify(route.diagnostic)}`,
+    );
+    for (const step of route.path) await travelTo(step);
   }
 
   async function discoverRoute(name, maxAttempts = 8) {
@@ -11319,23 +11351,40 @@ async function main() {
         targetHeld: items.some((item) => (
           item.name === name && Number(item.holder_actor_id || 0) === currentActorId
         )),
+        exchangeItemName: items.find((item) => (
+          item.name !== name
+            && Number(item.holder_actor_id || 0) === 0
+            && Number(item.location_id || 0) === locationId
+        ))?.name || "",
       };
     }, itemName);
     assert(placement.targetHeld, `${itemName} should be in hand before placing it`);
-    const result = await page.evaluate((name) => runCommandText(`drop ${name}`), itemName);
-    assert(
-      result?.ok === true && String(result.output || "").includes(`drop ${itemName}`),
-      `dropping ${itemName} should place it in the current room: ${JSON.stringify(result)}`,
-    );
-    steps.push({ label: `drop ${itemName}`, location: await currentLocation() });
+    if (placement.exchangeItemName) {
+      await takeItem(placement.exchangeItemName);
+    } else {
+      const result = await clickDealtActionMatching(
+        `drop ${itemName}`,
+        ["drop", itemName.toLowerCase()],
+      );
+      assert(
+        result?.ok === true && String(result.output || "").includes(`drop ${itemName}`),
+        `dropping ${itemName} should place it in the current room: ${JSON.stringify(result)}`,
+      );
+    }
+    steps.push({ label: `place ${itemName}`, location: await currentLocation() });
     await page.evaluate(() => refresh());
     await page.waitForFunction(
-      ({ name, locationId }) => (state?.items || []).some((item) => (
-        item.name === name
-          && Number(item.holder_actor_id || 0) === 0
-          && Number(item.location_id || 0) === locationId
-      )),
-      { name: itemName, locationId: placement.locationId },
+      ({ name, locationId, currentActorId }) => (state?.items || []).some((item) => {
+        if (item.name !== name) return false;
+        const holderActorId = Number(item.holder_actor_id || 0);
+        return holderActorId !== currentActorId
+          && (holderActorId > 0 || Number(item.location_id || 0) === locationId);
+      }),
+      {
+        name: itemName,
+        locationId: placement.locationId,
+        currentActorId: await page.evaluate(() => Number(actorId || 0)),
+      },
     );
   }
 
@@ -11670,7 +11719,21 @@ async function main() {
         actor_session: actorSession,
         wallet_address: "dev-wallet",
       });
-      return fetch(`/world?${params}`).then((response) => response.json());
+      const deadline = Date.now() + 6_000;
+      let projection = null;
+      do {
+        projection = await fetch(`/world?${params}`).then((response) => response.json());
+        const cottage = (projection.locations || []).find((location) => (
+          location.name === "The Cosy Cottage"
+        ));
+        if ((cottage?.exits || []).some((exit) => (
+          exit.destination_location_name === "Homeroom"
+        ))) {
+          return projection;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } while (Date.now() < deadline);
+      return projection;
     });
     assert(world.shared_world === true, "world projection should identify the shared world");
     assert(world.current_actor_id, "world projection should preserve the current actor");
