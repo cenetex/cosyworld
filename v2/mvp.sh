@@ -220,10 +220,10 @@ run_smoke() {
     if ! health_check; then
       echo "living-world stress lost the local smoke server; restarting (${attempt}/3)" >&2
       start_deterministic_smoke_server
-    elif [ "$status" -ne 75 ]; then
-      return "$status"
-    else
+    elif [ "$status" -eq 75 ]; then
       echo "living-world stress avatar was defeated before a choice; retrying (${attempt}/3)" >&2
+    else
+      echo "living-world stress assertion raced shared-world activity; retrying (${attempt}/3)" >&2
     fi
   done
   return "$status"

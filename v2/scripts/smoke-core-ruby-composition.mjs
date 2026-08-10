@@ -177,18 +177,25 @@ async function startServer(tempDir, registryPath, snapshotPath) {
 }
 
 async function waitForActorJobs(eventDbPath) {
-  const deadline = Date.now() + 12_000;
+  // A player-tick retry can include the resident heartbeat delay plus the
+  // worker's idle poll. Leave enough room for all durable retry attempts.
+  const deadline = Date.now() + 30_000;
+  let activeJobs = [];
   while (Date.now() < deadline) {
     const database = new Database(eventDbPath, { readonly: true });
-    const active = Number(database
-      .prepare("SELECT COUNT(*) FROM actor_jobs WHERE status IN ('pending', 'running')")
-      .pluck()
-      .get());
+    activeJobs = database.prepare(`
+      SELECT id, kind, actor_id, status, attempts, available_at_ms, lease_until_ms, last_error
+      FROM actor_jobs
+      WHERE status IN ('pending', 'running')
+      ORDER BY id
+    `).all();
     database.close();
-    if (active === 0) return;
+    if (activeJobs.length === 0) return;
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
   }
-  throw new Error("actor jobs did not become quiescent before pack migration");
+  throw new Error(
+    `actor jobs did not become quiescent before pack migration: ${JSON.stringify(activeJobs)}`,
+  );
 }
 
 function migratePack(operation, snapshotPath, eventDbPath, sourceRegistry, targetRegistry) {

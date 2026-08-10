@@ -10028,6 +10028,18 @@ async function main() {
     ), null, { timeout: 35_000 });
     if (body?.ok !== true) {
       const responsePath = new URL(response.url()).pathname;
+      const currentActorId = Number(await page.evaluate(() => (
+        localStorage.getItem("cosyworld.actorId") || 0
+      )));
+      const playerDefeated = (body?.events || []).some((event) => (
+        event?.type === "combat.knockout"
+          && Number(event?.target_actor_id || 0) === currentActorId
+      ));
+      if (runLivingWorldStress && playerDefeated) {
+        throw new Error(
+          `RETRYABLE_FRONTIER_DEFEAT: ${label} was overtaken by a committed player knockout`,
+        );
+      }
       const retryableConflict = Number(body?.status || response.status()) === 409
         && (
           (body?.events || []).some((event) => (
@@ -14505,6 +14517,11 @@ async function main() {
           if (!action) {
             return {
               ok: false,
+              actionHand: {
+                capacity: Number(state?.action_hand?.capacity || 0),
+                deckSize: Number(state?.action_hand?.deck_size || 0),
+                generation: Number(state?.action_hand?.generation || 0),
+              },
               hand: visible.map((candidate) => {
                 const source = actions[candidate.actionIndex];
                 return {
@@ -14513,6 +14530,12 @@ async function main() {
                   strategyId: String(source?.project?.strategy_id || ""),
                 };
               }),
+              eligibleProjectOffers: (state?.action_offers || [])
+                .filter((offer) => offer?.project?.id === "moonlit-trail:quiet-the-echo")
+                .map((offer) => ({
+                  offerId: String(offer?.offer_id || ""),
+                  strategyId: String(offer?.project?.strategy_id || ""),
+                })),
             };
           }
           const source = actions[action.actionIndex];
@@ -14539,7 +14562,7 @@ async function main() {
           await assertNoVisibleOverflow();
           return result.text;
         }
-        lastHand = result.hand;
+        lastHand = result;
         const combatOnlyHand = result.hand.length > 0
           && result.hand.every((entry) => entry.text.startsWith("flee "));
         if (combatOnlyHand && combatResets < 3) {
@@ -14935,10 +14958,24 @@ async function main() {
         const projectStudyPrimary = await drawMoonlitProjectStrategy("project authored study", {
           strategyId: "read-moonlit-signs",
           needles: ["read the moonlit signs"],
-          stopWhen: async () => (await moonlitProjectStatus()).completed,
+          stopWhen: async () => {
+            const project = await moonlitProjectStatus();
+            if (project.completed) return true;
+            if (!runLivingWorldStress) return false;
+            return !(project.current.action_offers || []).some((offer) => (
+              offer?.project?.id === "moonlit-trail:quiet-the-echo"
+                && offer?.project?.strategy_id === "read-moonlit-signs"
+            ));
+          },
         });
         if (!projectStudyPrimary) {
-          steps.push({ label: "shared project completed while drawing study", progress: "4/4" });
+          const sharedProject = await moonlitProjectStatus();
+          steps.push({
+            label: sharedProject.completed
+              ? "shared project completed while drawing study"
+              : "shared project advanced past once-per-target study",
+            progress: `${sharedProject.filled}/4`,
+          });
         }
         if (projectStudyPrimary) {
           const currentProject = await moonlitProjectStatus();
@@ -14998,9 +15035,24 @@ async function main() {
         assert(projectRecovery.job !== "failed", `project should not fail on the gentle completion path: ${JSON.stringify(projectRecovery)}`);
         if (projectRecovery.tired) {
           await leaveTrailTo("Rain-Soft Garden");
-          await travelTo("Moonlit Trail");
+          await travelPathTo("The Cosy Cottage");
+          const stillTired = await page.evaluate(() => (
+            (state?.tags || []).some((tag) => (
+              tag.label === "tired"
+                && Number(tag.scope_id || 0) === Number(actorId || 0)
+            ))
+          ));
+          if (!stillTired) {
+            steps.push({
+              label: "project recovery travel already cleared tired state",
+              attempt,
+            });
+            await travelPathTo("Moonlit Trail");
+            continue;
+          }
           await drawPrimaryMatching(`project recovery ${attempt}`, ["rest", "feel fresh"]);
           await clickPrimary(`rest before project completion ${attempt}`);
+          await travelPathTo("Moonlit Trail");
           continue;
         }
         const completionAction = await drawMoonlitProjectStrategy(`project completion ${attempt}`, {
