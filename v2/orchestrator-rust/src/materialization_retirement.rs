@@ -24,12 +24,12 @@ pub(super) fn receipt_inventory(runtime: &RuntimeWorld) -> MaterializationReceip
     let general_receipts = runtime
         .materialization_receipts
         .values()
-        .filter(|receipt| !proxim8::is_proxim8_receipt_id(&receipt.id))
+        .filter(|receipt| !proxim8::is_materialized_actor_receipt(runtime, receipt))
         .collect::<Vec<_>>();
     let retained_actor_materialization = runtime
         .materialization_receipts
         .values()
-        .filter(|receipt| proxim8::is_proxim8_receipt_id(&receipt.id))
+        .filter(|receipt| proxim8::is_materialized_actor_receipt(runtime, receipt))
         .count();
     let mut item_claims = BTreeMap::<u64, usize>::new();
     let mut active_card_claims = BTreeMap::<(u64, &str), usize>::new();
@@ -226,11 +226,11 @@ mod tests {
             ),
         );
         runtime.materialization_receipts.insert(
-            "project89:proxim8:asset".to_string(),
+            "project89:proxim8:legacy-item".to_string(),
             receipt(
-                "project89:proxim8:asset",
+                "project89:proxim8:legacy-item",
                 8000,
-                "asset",
+                "legacy-item",
                 90_006,
                 "materialized",
             ),
@@ -240,13 +240,13 @@ mod tests {
 
         let inventory = receipt_inventory(&runtime);
 
-        assert_eq!(inventory.total, 7);
+        assert_eq!(inventory.total, 8);
         assert_eq!(inventory.valid_active_world_item, 1);
-        assert_eq!(inventory.unmaterialized, 1);
+        assert_eq!(inventory.unmaterialized, 2);
         assert_eq!(inventory.already_returned, 1);
         assert_eq!(inventory.duplicate, 2);
         assert_eq!(inventory.ambiguous, 2);
-        assert_eq!(inventory.retained_actor_materialization, 1);
+        assert_eq!(inventory.retained_actor_materialization, 0);
         assert_eq!(runtime.world.item_count, before_items);
         assert_eq!(runtime.materialization_receipts, before_receipts);
     }
