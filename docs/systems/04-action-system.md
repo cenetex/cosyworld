@@ -209,13 +209,18 @@ This reuses the same inventory, artwork, provenance, trade, theft, loadout, and
 action-card UI instead of adding separate skill trees, spell books, and weapon
 panels.
 
-Collectibility and world authority are related but distinct:
+ADR 0006 supersedes the broad collectible-entitlement direction. Cards remain
+presentation and rules projections; item and location NFTs do not create
+world authority. The only external ownership bridge is one verified supported
+avatar asset linked exactly once to one durable autonomous actor.
+
+Presentation and world authority are distinct:
 
 | Collectible | What the card can represent | Authority boundary |
 | --- | --- | --- |
-| Location | Discovery, travel access, art, a route or scene-specific offer | Owning a card does not let a player rewrite a shared location. |
-| Avatar | A playable avatar, resident facet, relationship hook, or art/provenance | Owning a resident card does not grant control of the shared NPC. |
-| Item | An entitlement to materialize, equip, gift, or use an item profile | Account ownership is not the same as a shard-local world item. Materialization must be journaled and idempotent. |
+| Location | Discovery, art, a route, or a scene-specific offer | A card presents the shared location. Wallet ownership never grants access, topology, naming, or control. |
+| Avatar | A world actor, resident facet, relationship hook, or art/provenance | One allowlisted avatar NFT may establish one durable link; the actor remains autonomous and canonical. Other avatar cards grant no control. |
+| Item | A physical world item profile and its current authoritative instance | A card presents custody and use. Wallet ownership cannot materialize, reclaim, or duplicate the item. |
 | Weapon item | An equipped or played profile that qualifies or shapes Attack offers | The kernel derives the attack; the client or art never supplies damage. |
 | Skill-charm item | A physical skill and bonus worn in a bracelet slot, such as a lucky raven feather that grants `+1` to an eligible skill check | The skill and bonus belong to the charm instance and apply only while the actor possesses and equips it. |
 | Spell item | A card prepared or drawn from a spell deck that supplies one bounded Magic effect | It requires implemented targeting, timing, use, recovery, and resolver rules; prose alone has no authority. |
@@ -281,27 +286,27 @@ actor, item instance/version, exact binding/profile, settings, scene, payer,
 custody policy, and state revision before dispatch, then become busy or
 exhausted according to their mechanics.
 
-## Collection, Deck, Hand, and Card Zones
+## Items, Deck, Hand, And Legacy Card Zones
 
-The runtime uses an authoritative multi-card collection and deck model with
-clear zones:
+Physical items, prepared spells, and the action hand remain distinct. The
+current runtime also carries legacy Collection/materialization zones; ADR 0006
+freezes those as migration state for #682/#685 rather than product direction:
 
 | Zone | Meaning |
 | --- | --- |
-| Collection | Every card instance the account owns, including cards not carried by the active avatar. |
-| Carried deck | The item cards the avatar physically brings into play. Legality is derived from item weight/size, avatar carrying capacity, and equipped containers—not a fixed card count. |
+| Legacy Collection | Historical external-card/account state retained until #682 archives it; it grants no new world authority. |
+| Carried items | Physical items the avatar brings into play. Legality is derived from item weight/size, avatar carrying capacity, and equipped containers—not a fixed card count. |
 | Equipped | Persistent active cards in typed slots: bracelet charms, weapon, armor/tool, and similar roles. |
 | Spell deck/hand | Prepared spell cards and, under a declared draw profile, the currently playable subset. |
 | Action hand | Contextual server-authored offers produced from base rules, scene nouns, deck, and equipped cards. It is not itself the ownership ledger. |
 | Exhausted/discard | Temporarily unavailable item/spell cards with explicit recovery rules. |
-| World | A card instance materialized as a shard-local item at a location or in an avatar's possession. |
-| Escrow/transfer | A temporary authoritative zone used for an atomic gift, trade, or theft resolution. |
+| World | A canonical physical item at a location or in an avatar's possession. |
+| Transfer | A temporary authoritative custody state used for an atomic gift, trade, or theft resolution; it is not wallet/card ownership. |
 
-Every move between zones names the card instance, actor/account, source zone,
-destination zone, reason, and idempotency key. The server validates capacity,
-ownership, possession, access, and timing before journaling it. A client must
-never represent deck construction as a comma-separated item field or infer
-ownership from a rendered card.
+Every physical move names the item instance, actor, source zone, destination
+zone, reason, and idempotency key. The server validates capacity, custody,
+possession, access, and timing before journaling it. A client must never infer
+world ownership or possession from a rendered card.
 
 ## Scene Composition Contract
 
@@ -317,8 +322,8 @@ The composition inputs are:
 3. visible resident/avatar cards and materialized world-item cards;
 4. the active avatar's carried deck, equipped loadout, prepared spell cards,
    conditions, Calling, Bonds, and eligible Journal state; and
-5. access grants and pack contributions that are valid for this shard and
-   player.
+5. world-state requirements and pack contributions that are valid for this
+   composition and actor; wallet possession never supplies access.
 
 These inputs produce two different outputs:
 
@@ -419,11 +424,12 @@ The Menu contains:
 - **Deck & Loadout** — carried/current/max weight, size or container conflicts,
   bags, bracelet slots, equipped weapons/tools, spell deck/hand, exhausted
   cards, and validation warnings;
-- **Collection & Account** — owned cards, rarity/provenance, gifts/trades,
-  expansion entitlements, and account recovery;
-- **Sign in / Identity** — native identity, optional wallet bridge, sessions,
-  and delegated agents;
-- **World & Packs** — current shard, map, installed packs, gates, and profile;
+- **Linked Avatars & Account** — ordinary account recovery plus the optional
+  allowlisted avatar-link roster and chronicle; no item/location collection;
+- **Sign in / Identity** — native account identity, optional avatar-NFT wallet
+  link, sessions, and delegated agents;
+- **World & Packs** — current shard, map, installed packs, world-state gates,
+  and profile; wallet possession cannot mount or unlock content;
 - **Journal & Export** — Visit Ledger, public history, provenance, and journal
   export/import tools;
 - **Orbs** — balance, earn/spend history, and amplification controls; and
@@ -490,9 +496,9 @@ profile, and extension set used to produce them.
 | --- | --- | --- |
 | Rules authority | `cosyworld.srd5/1` under `cosyworld.rules/2`, startup validation, `/meta`, inspector, and exact conformance coverage. | SRD reference text remains non-executable; unsupported actions stay absent. |
 | Vocabulary and offers | Stable bindings, operations, authoritative envelopes, deterministic legal set/hand, source/target traces, and stale/tamper rejection. | Friendly labels remain pack presentation. |
-| Collectible binding | Item roles, physical zones/capacity, empty-storage-only bags, charms/slots, weapon profile, spell deck/exhaustion, receipts, theft, and provenance. | Broader armor, spell, and equipment catalogs require future authored contracts. |
+| Item/card binding | Item roles, physical zones/capacity, empty-storage-only bags, charms/slots, weapon profile, spell deck/exhaustion, receipts, theft, and provenance. | #682/#685 remove legacy collection/materialization authority; broader equipment catalogs require authored contracts. |
 | Pack composition | Reskin/offer/variant/extension schemas, mutation/conflict gates, exact deltas, fixtures, precedence, inspector output. | No implicit or load-order override path exists. |
-| Player shell | One Menu, Deck/loadout/Collection pages, materialize/return controls, terminal parity, server validation. | UI polish can evolve without changing rules. |
+| Player shell | One Menu, Deck/loadout pages, legacy Collection/materialize controls, terminal parity, server validation. | #682 removes legacy collection controls and adds the optional linked-avatar roster/chronicle. |
 | Licensing/provenance | Source/version/reference fields, compiled attributions, machine-readable modified-material report, and traceable offers. | Product-name/marketing claims still require independent review. |
 | Replay/tests | Append-only codes, profile/extension identity, offline golden replay, kernel/Rust/worldpack/browser/CLI/conformance/power gates. | A new mechanic must add its own protocol identity and fixtures. |
 

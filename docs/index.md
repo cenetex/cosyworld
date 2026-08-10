@@ -34,7 +34,11 @@ do not define V2 behavior.
   consolidated story, avatar, resident, faction, item, location, map, and
   relationship review, including the Signal Anchor contract.
 - **[Product Requirements](../PRD.md)** — current product law, including the
-  card-composed world, seventh-visit priority, and acceptance criteria.
+  card-composed world, wallet-optional avatar-link boundary, seventh-visit
+  priority, and acceptance criteria.
+- **[ADR 0006: Wallet-Optional Core and Avatar-NFT-Only Bridge](decisions/0006-avatar-nft-only-bridge.md)** —
+  accepted ownership boundary: one supported asset may link one durable
+  autonomous actor; items, locations, access, and cards remain world truth.
 - **[SRD-Backed Action and Collectible System](systems/04-action-system.md)** —
   card zones, scene composition, action offers, skill charms, weapons, spells,
   and rules/pack authority.
@@ -44,8 +48,8 @@ do not define V2 behavior.
 - **[ADR 0005: Thresholds, Trails, and the Strict Referee](decisions/0005-thresholds-trails-and-strict-referee.md)** —
   topology/legibility/access/safety ownership, discovery procedures, table
   authority, Anchor/foray law, and migration compatibility.
-- **[Economy](../ECONOMY.md)** — Orbs, Boxes, packs, provenance, and the optional
-  NFT bridge.
+- **[Economy](../ECONOMY.md)** — Orbs, shared media, the optional linked-avatar
+  adapter, and the legacy Box/collection migration inventory.
 - **[AI](../AI.md)** — inference, payer modes, media, and the boundary between AI
   proposals and authoritative world state.
 
