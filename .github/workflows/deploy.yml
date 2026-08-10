@@ -97,6 +97,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Guard primary volume free space
+        timeout-minutes: 2
         run: scripts/check-fly-volume-space.sh cosyworld /data 85
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -171,6 +172,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Guard Lonely Forest volume free space
+        timeout-minutes: 2
         run: scripts/check-fly-volume-space.sh cosyworld-lonelyforest /data 85
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
