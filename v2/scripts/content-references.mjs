@@ -100,6 +100,7 @@ export function buildContentReferenceMapping(candidates, mappingVersion, options
 const resourceIdentities = new Map([
   ["actors", { kind: "actor", identity: "id", legacy: true }],
   ["actor_model_bindings", { kind: "actor-model-binding", identity: "id" }],
+  ["avatar_level_tracks", { kind: "avatar-level-track", identity: "id" }],
   ["actor_facets", { kind: "actor-facet", identity: "id" }],
   ["items", { kind: "item", identity: "id", legacy: true }],
   ["locations", { kind: "location", identity: "id", legacy: true }],

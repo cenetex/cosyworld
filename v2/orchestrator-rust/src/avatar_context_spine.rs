@@ -65,6 +65,12 @@ pub(crate) struct AvatarContextActor {
     pub(crate) description: String,
     #[serde(default)]
     pub(crate) appearance: String,
+    #[serde(default)]
+    pub(crate) identity_mode: String,
+    #[serde(default)]
+    pub(crate) canonical_description: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) mutable_traits: Vec<String>,
     pub(crate) voice: String,
     pub(crate) calling: String,
     pub(crate) control_mode: String,
@@ -273,7 +279,7 @@ impl AvatarContextSpine {
                 options.max_words
             ),
             AvatarContextMode::SelfDescription => format!(
-                "Write {name}'s first-person self-description for level {level}. Evolve how the avatar understands their desires, preferences, dislikes, social instincts, lived changes, and observable appearance while preserving established identity. Use only supplied world and journal evidence. Do not invent possessions, companions, deeds, memories, or physical changes. Output one paragraph under {} words.",
+                "Write {name}'s first-person identity for level {level}. Evolve how the avatar understands their desires, preferences, dislikes, social instincts, lived changes, and observable appearance while preserving established identity. Use only supplied world and journal evidence. Do not invent possessions, companions, deeds, memories, or physical changes. Output exactly three lines beginning PERSONA:, APPEARANCE:, and CONTINUITY:, together under {} words. The APPEARANCE line must describe only observable traits.",
                 options.max_words,
                 level = self.speaker.level,
             ),
@@ -308,6 +314,23 @@ impl AvatarContextSpine {
                 96,
                 true,
             );
+
+        if mode == AvatarContextMode::SelfDescription {
+            let mutable = if self.speaker.mutable_traits.is_empty() {
+                "none".to_string()
+            } else {
+                self.speaker.mutable_traits.join(", ")
+            };
+            prompt = prompt.user(
+                format!(
+                    "IDENTITY AUTHORITY · mode {} · canonical {} · mutable traits {}",
+                    self.speaker.identity_mode, self.speaker.canonical_description, mutable
+                ),
+                PromptSegmentKind::UniqueEvidence,
+                100,
+                true,
+            );
+        }
 
         if !self.speaker.appearance.trim().is_empty() {
             prompt = prompt.user(
@@ -552,12 +575,17 @@ impl RuntimeWorld {
             .and_then(|other| self.context_spine_actor(other));
         let location_meta = self.location_meta_for(actor.location_id);
         let continuity = self.resident_continuity_for(actor);
-        let continuity = format_resident_continuity_for(&continuity, relationship_actor_id)
+        let mut continuity = format_resident_continuity_for(&continuity, relationship_actor_id)
             .lines()
             .map(str::trim)
             .filter(|line| !line.is_empty())
             .map(|line| line.replace(&authored_actor_name, &grounded_actor_name))
             .collect::<Vec<_>>();
+        if let Some(identity) = self.latest_avatar_level_identity(actor_id) {
+            if !identity.continuity.trim().is_empty() {
+                continuity.insert(0, identity.continuity);
+            }
+        }
         let recent_dialogue = self
             .recent_room_lines
             .get(&actor.location_id)
@@ -663,6 +691,8 @@ impl RuntimeWorld {
 
     fn context_spine_actor(&self, actor: CwActor) -> Option<AvatarContextActor> {
         let meta = self.actors.get(&actor.id)?;
+        let identity_policy = self.avatar_identity_policy(actor.id).unwrap_or_default();
+        let level_identity = self.latest_avatar_level_identity(actor.id);
         let control_mode = self
             .actor_autonomy
             .get(&actor.id)
@@ -684,8 +714,11 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Item {}", item.id))
             })
             .collect();
-        let description = self
-            .latest_world_entity_description(WorldEntityRef::avatar(actor.id))
+        let description = level_identity
+            .as_ref()
+            .map(|identity| identity.persona.clone())
+            .filter(|description| !description.trim().is_empty())
+            .or_else(|| self.latest_world_entity_description(WorldEntityRef::avatar(actor.id)))
             .or_else(|| {
                 self.event_log
                     .iter()
@@ -699,11 +732,20 @@ impl RuntimeWorld {
             })
             .filter(|description| !description.trim().is_empty())
             .unwrap_or_else(|| grounded_avatar_persona_for_prompt(actor.id, &meta.description));
-        let appearance = self
-            .character_identities
-            .get(&actor.id)
-            .map(|identity| identity.physical_description.clone())
+        let appearance = level_identity
+            .as_ref()
+            .map(|identity| identity.appearance.clone())
             .filter(|description| !description.trim().is_empty())
+            .or_else(|| {
+                (!identity_policy.appearance.trim().is_empty())
+                    .then(|| identity_policy.appearance.clone())
+            })
+            .or_else(|| {
+                self.character_identities
+                    .get(&actor.id)
+                    .map(|identity| identity.physical_description.clone())
+                    .filter(|description| !description.trim().is_empty())
+            })
             .unwrap_or_else(|| meta.description.clone());
         Some(AvatarContextActor {
             actor_id: actor.id,
@@ -711,6 +753,13 @@ impl RuntimeWorld {
             title: meta.title.clone(),
             description,
             appearance,
+            identity_mode: identity_policy.mode,
+            canonical_description: if identity_policy.canonical_description.trim().is_empty() {
+                meta.description.clone()
+            } else {
+                identity_policy.canonical_description
+            },
+            mutable_traits: identity_policy.mutable_traits,
             voice: self.authored_actor_voice(actor.id),
             calling: self
                 .calling_view(actor.id)
