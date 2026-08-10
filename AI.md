@@ -2,7 +2,11 @@
 
 ## Summary
 
-CosyWorld should use AI as a world actor, not as a private chatbot.
+CosyWorld should use AI inside the shared world, not as a private chatbot. A
+model may supply an authored actor's voice or bounded planning, or it may power
+an item device. The model is not automatically a person. Actor-versus-device
+embodiment follows
+[ADR 0007](docs/decisions/0007-model-bindings-and-item-devices.md).
 
 `Chat` is the player-facing friendship action. It appears only when the avatar
 has banked advancement and a nearby resident is eligible for a new Bond; playing
@@ -36,8 +40,11 @@ Relevant implementation points:
 - Every Elysium binding has explicit per-model interaction profiles. Ready
   models use native `Talk`, `Illustrate`, `Speak`, `Find resonance`, or
   `Rank echoes` routes with the exact checked-in model; unavailable modalities
-  are withheld instead of falling through to Chat. An image-only binding can
-  receive a grounded heartbeat as a visual prompt or be targeted by the
+  are withheld instead of falling through to Chat. The current actor-only
+  schema still presents tool endpoints as residents. ADR 0007 accepts an
+  additive item-binding migration: image, video, synthesis, transcription,
+  semantic, and music-only bindings become portable or installed devices. An
+  active image device receives a grounded visual prompt through its carrier's
   certified Illustrate action. The gateway buffers and decodes one bounded
   raster image, runs a fail-closed vision publication review, and journals an
   image event only after approval. The server-authored prompt and rejected
@@ -79,6 +86,15 @@ Official OpenRouter docs confirm the integration shape:
 ## Non-Negotiable Invariants
 
 - AI may propose text, media, and future content. The C kernel decides world state.
+- A provider model is execution metadata, not a world entity or proof of
+  personhood. Conversational actors and model-backed item devices retain their
+  distinct authored contracts.
+- Adapter and provider readiness never change actor-versus-item embodiment.
+- A dormant device remains inspectable with its reason but never occupies a
+  playable action-hand slot.
+- A device contributes only closed, certified actions or settings. It never
+  grants a free-form prompt, model picker, arbitrary provider tool call, or
+  undeclared target to either a human or inference controller.
 - Every player-visible AI result is committed as a shared room event.
 - Generated character speech remains a private candidate until the deterministic
   publication gate certifies its finish reason, voice budget, single-speaker
@@ -162,17 +178,18 @@ supports text, exact raster-image, embeddings, rerank, and speech-synthesis
 requests; the bounded transcription primitive remains dormant because the
 product has no player speech, microphone, or audio-upload surface. Selection
 uses versioned immutable capability facts, and each request pins one candidate
-plus its prompt-adapter and catalog versions. Elysium interactions also require
-an exact checked-in binding and a provider-available, runtime-ready interaction
-profile instead of a fallback model. Asynchronous video, mixed audio/music, and
-vector-only SVG output remain withheld until dedicated safe adapters exist.
+plus its prompt-adapter and catalog versions. Exact interactions also require
+a checked-in actor or item binding and a provider-available, runtime-ready
+interaction profile instead of a fallback model. Asynchronous video and music,
+two-way voice streaming, and vector-only SVG output remain withheld until their
+dedicated safe adapters exist.
 
 Raw Talk sends reasoning effort `none` only when the exact model advertises the
 reasoning parameter. One precise HTTP 400 may retry with mandatory reasoning
 enabled but excluded from visible output, or with an unsupported reasoning
 object omitted. Production operator-registry pools retain the strict
-no-retention/no-training gate. Exact Elysium Talk, Illustrate, Speak, Find
-resonance, and Rank echoes carry only server-authored world or catalog facts,
+no-retention/no-training gate. Exact Elysium Talk and device-backed Illustrate,
+Speak, Find resonance, and Rank echoes carry only server-authored world or catalog facts,
 so both ZDR and non-ZDR bindings are eligible. ZDR profiles add the provider
 privacy constraint; non-ZDR profiles remain truthfully non-ZDR. No path accepts
 player-authored speech or a free-form model prompt.
@@ -195,6 +212,9 @@ The first bounded world-content feature is `pathway_content`. When an Explorer f
 Responsibilities:
 
 - Select provider and payer for each AI feature.
+- Resolve the exact binding from the certified actor or item subject; never
+  infer that a model catalog entry is an actor or accept a client-selected
+  provider model.
 - Accept a transient player OpenRouter key only for explicit player actions.
 - Verify user key state through `/api/v1/key`.
 - Route text, structured, raster-image, embeddings, rerank, speech-synthesis,
@@ -410,11 +430,13 @@ Recommended provider path:
 3. Existing Google Gemini composition fallback for multi-reference scenes.
 4. Deterministic local placeholder only when no configured media provider exists.
 
-For text-to-image resident replies, CosyWorld sends `model` and `prompt` to
-`POST /images`, accepts one bounded `data[0].b64_json` result, validates its
-declared or detected image format and decoded dimensions, and writes it to
-stable immutable storage only after review. Reference-based composition remains
-a separate future media-job concern.
+For exact device-backed text-to-image actions, CosyWorld resolves the model and
+prompt from the frozen certified offer, sends them to `POST /images`, accepts
+one bounded `data[0].b64_json` result, validates its declared or detected image
+format and decoded dimensions, and writes it to stable immutable storage only
+after review. The acting avatar and source device remain explicit in
+attribution. Reference-based composition remains a separate future media-job
+concern.
 
 ### Image Ownership
 

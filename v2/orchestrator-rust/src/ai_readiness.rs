@@ -245,7 +245,7 @@ impl AiReadiness {
         AiReadinessGate::blocked(
             failure.kind.reason_code(),
             retry_at_unix,
-            failure.kind == RouteFailureKind::Incompatible,
+            failure.kind == RouteFailureKind::Incompatible && failure.retry_at.is_none(),
         )
     }
 
@@ -302,7 +302,7 @@ impl AiReadiness {
                 endpoint,
                 requested_model_id,
                 RouteFailureKind::Incompatible,
-                None,
+                Some(bounded_cooldown(retry_after)),
                 status,
                 now,
                 now_unix,
@@ -310,11 +310,20 @@ impl AiReadiness {
             402 => {
                 self.record_account_failure(AccountReadiness::CreditsExhausted, status, now_unix)
             }
-            400 | 404 => self.record_route_failure(
+            // A 400 is request-specific: one malformed prompt or unsupported
+            // option must not poison the shared endpoint/model route for every
+            // later request in this process.
+            400 => {
+                self.write_state().checked_at_unix = Some(now_unix);
+            }
+            // Models can be temporarily withdrawn or provider routing can
+            // briefly return 404. Re-probe after a bounded cooldown instead of
+            // requiring a process restart to clear the route.
+            404 => self.record_route_failure(
                 endpoint,
                 requested_model_id,
                 RouteFailureKind::Incompatible,
-                None,
+                Some(bounded_cooldown(retry_after)),
                 status,
                 now,
                 now_unix,
@@ -551,7 +560,7 @@ mod tests {
 
         let failed = readiness.gate("images", "openai/gpt-image-1");
         assert_eq!(failed.reason_code(), Some(AI_ROUTE_INCOMPATIBLE));
-        assert!(failed.is_terminal_block());
+        assert!(failed.is_retryable_block());
         assert!(readiness
             .gate("images", "openai/gpt-image-1-mini")
             .is_ready());
@@ -625,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    fn server_failures_cool_down_but_bad_routes_stay_incompatible() {
+    fn server_and_incompatible_route_failures_recover_after_cooldown() {
         let readiness = AiReadiness::default();
         let started = Instant::now();
         readiness.record_http_failure_at("rerank", "provider/transient", 503, None, started, 100);
@@ -645,19 +654,30 @@ mod tests {
                 130,
             )
             .is_ready());
-        assert_eq!(
-            readiness
-                .gate_at(
-                    "rerank",
-                    "provider/incompatible",
-                    started + Duration::from_secs(600),
-                    700,
-                )
-                .reason_code(),
-            Some(AI_ROUTE_INCOMPATIBLE)
+        assert!(readiness
+            .gate_at(
+                "rerank",
+                "provider/incompatible",
+                started + DEFAULT_ROUTE_COOLDOWN,
+                130,
+            )
+            .is_ready());
+    }
+
+    #[test]
+    fn request_specific_bad_request_does_not_open_a_shared_route_circuit() {
+        let readiness = AiReadiness::default();
+        readiness.record_http_failure_at(
+            "chat/completions",
+            "provider/model",
+            400,
+            None,
+            Instant::now(),
+            100,
         );
-        readiness.record_success("rerank", "provider/incompatible");
-        assert!(readiness.gate("rerank", "provider/incompatible").is_ready());
+        assert!(readiness
+            .gate("chat/completions", "provider/model")
+            .is_ready());
     }
 
     #[test]

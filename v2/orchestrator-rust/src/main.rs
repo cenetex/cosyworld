@@ -76,6 +76,7 @@ mod resident_image;
 mod resident_offer_scoring;
 mod residents;
 mod rest;
+mod room_memory;
 mod room_scene;
 mod routes;
 mod rpg;
@@ -174,6 +175,7 @@ use relationships::*;
 use resident_image::*;
 use residents::*;
 use rest::*;
+use room_memory::*;
 use room_scene::*;
 use rpg::*;
 use rules_context::*;
@@ -275,6 +277,7 @@ struct AppState {
     regional_presence: Arc<StdMutex<BTreeMap<u64, RegionalPresence>>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
+    room_memory_retries: Arc<StdMutex<RoomMemoryRetries>>,
     room_chat_heartbeats: Arc<StdMutex<BTreeSet<u64>>>,
     actor_job_notify: Arc<Notify>,
     avatar_chat_delay: Duration,
@@ -5351,6 +5354,7 @@ impl AppState {
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            room_memory_retries: Arc::new(StdMutex::new(BTreeMap::new())),
             room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
             actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay,
@@ -24295,6 +24299,9 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     if let Ok(mut jobs) = state.room_memory_jobs.lock() {
         jobs.clear();
     }
+    if let Ok(mut retries) = state.room_memory_retries.lock() {
+        retries.clear();
+    }
 
     let mut events = vec![reset_event];
     events.extend(placement_events);
@@ -29881,75 +29888,6 @@ fn event_is_room_memory_listen(event: &EventView) -> bool {
     event.type_name == "ability_check.rolled" && event.dc == Some(LISTEN_DC as i16)
 }
 
-fn schedule_room_memory_summary(
-    state: &AppState,
-    location: LocationView,
-    day_index: u64,
-    latest_seq: u64,
-    prior_chapters: Vec<RoomMemoryChapter>,
-    recent: Vec<RoomMemoryEntryView>,
-) {
-    let Some(config) = state.ai_config.as_ref().clone() else {
-        return;
-    };
-    let key = (location.id, day_index, latest_seq);
-    if let Ok(mut jobs) = state.room_memory_jobs.lock() {
-        if !jobs.insert(key) {
-            return;
-        }
-    }
-    let state = state.clone();
-    tokio::spawn(async move {
-        let started_at = Instant::now();
-        match request_ai_room_memory_summary(&config, &location, &prior_chapters, &recent).await {
-            Ok(summary) => {
-                cache_room_memory_summary(
-                    &state,
-                    location.id,
-                    day_index,
-                    latest_seq,
-                    &summary,
-                    "llm",
-                    prior_chapters,
-                );
-                record_ai_usage(
-                    &state,
-                    None,
-                    "room_memory_summary",
-                    "server",
-                    Some(&config),
-                    "ok",
-                    Some(latest_seq),
-                    0,
-                    None,
-                    started_at.elapsed(),
-                );
-            }
-            Err(error) => {
-                warn!(
-                    "AI room memory summary failed for location {}: {}",
-                    location.id, error
-                );
-                record_ai_usage(
-                    &state,
-                    None,
-                    "room_memory_summary",
-                    "server",
-                    Some(&config),
-                    "failed",
-                    Some(latest_seq),
-                    0,
-                    Some("summary_error"),
-                    started_at.elapsed(),
-                );
-            }
-        }
-        if let Ok(mut jobs) = state.room_memory_jobs.lock() {
-            jobs.remove(&key);
-        }
-    });
-}
-
 const ROOM_MEMORY_DAY_MS: u64 = 86_400_000;
 const ROOM_MEMORY_PRIOR_CHAPTER_LIMIT: usize = 6;
 
@@ -30793,10 +30731,10 @@ async fn request_ai_room_memory_summary(
     .await
     .map_err(|error| error.to_string())?;
     sanitize_room_memory_summary(&completion.text)
-        .ok_or_else(|| "AI room memory response was not usable".to_string())
+        .map_err(|code| format!("AI room memory response was not usable: {code}"))
 }
 
-fn sanitize_room_memory_summary(value: &str) -> Option<String> {
+fn sanitize_room_memory_summary(value: &str) -> Result<String, &'static str> {
     let text = value
         .trim()
         .trim_matches('"')
@@ -30804,10 +30742,10 @@ fn sanitize_room_memory_summary(value: &str) -> Option<String> {
         .collect::<Vec<_>>()
         .join(" ");
     if text.is_empty() {
-        return None;
+        return Err("empty");
     }
     if room_memory_summary_looks_like_listicle(&text) {
-        return None;
+        return Err("listicle_shape");
     }
     let lowered = format!(" {} ", text.to_lowercase());
     if [
@@ -30836,9 +30774,9 @@ fn sanitize_room_memory_summary(value: &str) -> Option<String> {
         // narrower phrase still catches an actual 4th-wall break.
         || lowered.contains("language model")
     {
-        return None;
+        return Err("system_vocabulary");
     }
-    Some(trim_to_chars(&text, 420))
+    Ok(trim_to_chars(&text, 420))
 }
 
 fn room_memory_summary_looks_like_listicle(value: &str) -> bool {
@@ -41974,8 +41912,6 @@ mod tests {
         );
         let convergence_a =
             start_canonical_capacity_scheduler(state_a.clone()).expect("hot-room convergence A");
-        let convergence_b =
-            start_canonical_capacity_scheduler(state_b.clone()).expect("hot-room convergence B");
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
             .build()
@@ -42040,6 +41976,8 @@ mod tests {
         .expect("read hot-room source lease")
         .expect("hot-room source owner");
         assert_eq!(source_hot_lease.owner_id, "hot-a:boot-a");
+        let convergence_b =
+            start_canonical_capacity_scheduler(state_b.clone()).expect("hot-room convergence B");
         let handoff_seq = current_world_seq(
             &open_event_store(&primary_path).expect("handoff store"),
             OFFICIAL_WORLD_ID,
@@ -44680,15 +44618,13 @@ mod tests {
         assert!(sanitize_room_memory_summary(
             "Rain gathers at the low doorway while candlelight keeps the room soft."
         )
-        .is_some());
-        assert!(sanitize_room_memory_summary("snowmelt tracks • branch-creak warnings").is_none());
+        .is_ok());
+        assert!(sanitize_room_memory_summary("snowmelt tracks • branch-creak warnings").is_err());
         assert!(sanitize_room_memory_summary(
             "Move: Wren went from Summit Trail to Alpine Forest; Chat: hello"
         )
-        .is_none());
-        assert!(
-            sanitize_room_memory_summary("Log room state / recent voices / movement").is_none()
-        );
+        .is_err());
+        assert!(sanitize_room_memory_summary("Log room state / recent voices / movement").is_err());
     }
 
     /// Elysium's canonical resident type is a "model avatar", and every one of
@@ -44702,11 +44638,11 @@ mod tests {
         assert!(sanitize_room_memory_summary(
             "The model avatar rests quietly beside the unlit marker tonight."
         )
-        .is_some());
+        .is_ok());
         assert!(sanitize_room_memory_summary(
             "The room recalls it is only a language model rendering this scene."
         )
-        .is_none());
+        .is_err());
     }
 
     #[test]
@@ -46443,6 +46379,11 @@ mod tests {
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
         assert!(INDEX_HTML.contains("const stateRequest = api(statePath())"));
         assert!(INDEX_HTML.contains("await Promise.all([pingPresence(), refresh()])"));
+        assert!(INDEX_HTML.contains("async function postResult(path, payload)"));
+        assert!(INDEX_HTML.contains("await postResult(\"/commands\""));
+        assert!(INDEX_HTML.contains("await postResult(\"/presence/ping\""));
+        assert!(!INDEX_HTML.contains("await post(\"/commands\""));
+        assert!(!INDEX_HTML.contains("await post(\"/presence/ping\""));
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
         assert!(INDEX_HTML.contains("window.solflare"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));
@@ -46722,7 +46663,7 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/fund-image"));
         assert!(INDEX_HTML.contains("fund community images only"));
         assert!(INDEX_HTML.contains("error.payload = payload && typeof payload === \"object\""));
-        assert!(INDEX_HTML.contains("result = error.payload"));
+        assert!(INDEX_HTML.contains("return error.payload"));
         assert!(!INDEX_HTML.contains("!viewerContributed && balance >= 1"));
         assert!(INDEX_HTML.contains("The saved image job needs repair before it can start."));
         assert!(INDEX_HTML.contains("retry the saved image review"));
@@ -70668,6 +70609,13 @@ mod tests {
             ownership_refresh_delay(Duration::from_secs(60), 8),
             Duration::from_secs(900)
         );
+        let low_jitter = ownership_refresh_delay_with_jitter(Duration::from_secs(60), 0, 0);
+        let high_jitter = ownership_refresh_delay_with_jitter(Duration::from_secs(60), 0, 12_000);
+        assert!(low_jitter >= Duration::from_secs(54));
+        assert!(low_jitter <= Duration::from_secs(66));
+        assert!(high_jitter >= Duration::from_secs(54));
+        assert!(high_jitter <= Duration::from_secs(66));
+        assert_ne!(low_jitter, high_jitter);
 
         server.abort();
     }
@@ -70851,6 +70799,7 @@ mod tests {
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            room_memory_retries: Arc::new(StdMutex::new(BTreeMap::new())),
             room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
             actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay: Duration::ZERO,

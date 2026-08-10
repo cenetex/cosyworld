@@ -12,6 +12,12 @@ do not define V2 behavior.
 - **[A Traveler's Guide To CosyWorld](travelers-guide.md)** — the concise
   player guide to the action hand, Callings, Friends, discovery, scouting,
   thresholds, rest, the six-function tale rhythm, and what is still direction.
+- **[Location Classes, Development Projects, and Buildings](location-development.md)** —
+  canonical product law for cairn-founded location classes, typed building
+  slots, project-derived levels, and equal human/AI civic agency.
+- **[ADR 0007: Model Bindings and Item Devices](decisions/0007-model-bindings-and-item-devices.md)** —
+  canonical embodiment law for conversational actors, portable/equipped/
+  installed model-backed items, dormant capabilities, and Elysium migration.
 - **[The CosyWorld Referee's Guide](dm-guide/README.md)** — source and build
   instructions for the illustrated guide to scenes, discovery, frontier
   forays, thresholds, tables, and strict AI refereeing.
@@ -154,4 +160,4 @@ current PRD take precedence:
 - [Legacy service documentation](services/)
 - [Deployment guide](deployment/07-deployment.md)
 
-Last reviewed: 2026-07-30.
+Last reviewed: 2026-08-09.

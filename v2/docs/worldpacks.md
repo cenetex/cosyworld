@@ -474,8 +474,12 @@ reveals the authorized next segment or target without moving. Travel is the
 separate movement commit. A cairn or worldpack-specific Signal Anchor can make
 a traversed return leg durable and authorize later branching, but cannot
 invent or reveal topology, settle a place, provide shelter, grant a rest grade,
-or create sanctuary. Generated-pathway familiarity and generated-place
-settlement remain separate versioned state.
+or create sanctuary. The accepted
+[location-development contract](../../docs/location-development.md) also uses
+an active Cairn as the permission boundary for originating a governed founding
+proposal; only completed construction can install a class building or advance
+the location. Generated-pathway familiarity and generated-place settlement
+remain separate versioned state until that universal flow ships.
 
 Snapshots, action-journal records, and stored world events now carry a
 `content_context` containing the mapping version, every relevant canonical
@@ -817,58 +821,96 @@ depends on Core and SRD 5.1, adds a five-room adventure with one progress/danger
 arc, and owns four level-one character archetypes through the character-creation
 contract above.
 
-## AI cast packs and Elysium
+## Exact-model packs, embodiment, and Elysium
 
-A world pack may declare `actor_model_bindings.json` together with
-`x-cosyworld-ai-cast` schema version 1. The extension pins the provider and
-catalog snapshot, requires a complete one-to-one actor mapping, and explicitly
-disables runtime catalog refresh. Each binding records the pack-owned actor
-reference, requested model ID, canonical catalog slug, modalities and limits,
-supported parameters, public price observations, zero-data-retention
-eligibility, and either `raw` or `unavailable` speech mode.
+[ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md)
+separates a provider model from the world subject that uses it. A model binding
+may embody an authored conversational actor or power a portable, equipped, or
+installed item device. It never creates personhood merely because a catalog row
+exists. Avatar, item, and location remain the three world entity nouns.
 
-An AI cast may also ship a generated `actor_interaction_profiles.json` snapshot.
-It gives every exact binding explicit endpoint profiles with accepted inputs,
-outputs, required parameters, provider availability, endpoint ZDR status, and
-runtime-adapter support. Provider availability alone never creates an offer:
-the profile must also have a ready adapter, an exact configured route, and pass
-the current runtime policy gates. A disabled or dormant modality stays visible
-with its reason and cannot be silently substituted with another model or
-relabeled as Talk.
+The current schema-version-1 compatibility resource is
+`actor_model_bindings.json` under `x-cosyworld-ai-cast`. It pins the provider
+and catalog snapshot, requires a complete one-to-one actor mapping, and disables
+runtime catalog refresh. Each row records the pack-owned actor reference,
+requested model ID, canonical catalog slug, modalities and limits, supported
+parameters, public price observations, zero-data-retention eligibility, and
+either `raw` or `unavailable` speech mode. Existing packs and replay continue to
+read this resource.
 
-The compiler rejects duplicate models, duplicate actors, partial casts,
-non-canonical actor references, snapshot drift, and speech modes that disagree
-with catalog modalities. Actor IDs are a stable hash mapping below the
-generated-content handle range, so catalog reordering cannot rename residents.
-The checked-in binding file is the authority for replay; refreshing a provider
-catalog is an explicit pack version and snapshot update.
+The accepted additive schema direction is a versioned `item_model_bindings`
+resource beside `actor_model_bindings`. Runtime loading normalizes both into one
+exact binding with a discriminated canonical subject reference. Actor bindings
+retain the ordinary persona, controller, action, memory, relationship, and
+presence contract. Item bindings retain one physical disposition plus their
+instance custody, activation, settings, uses, recovery, transfer, and
+provenance. A fixed model-backed facility is an item in the installed zone, not
+a location controller. Until the item resource and runtime path ship, a pack
+must not emit it or pretend that an actor-only binding is already a device.
 
-`cosyworld.elysium` is the first AI cast pack. Catalog snapshot
+An exact-model pack may also ship a generated interaction-profile snapshot.
+Each binding receives explicit endpoint profiles with accepted inputs, outputs,
+required parameters, defaults, provider availability, endpoint ZDR status,
+asynchronous/streaming facts, and runtime-adapter support. Provider availability
+alone never creates an offer: the profile must also have a ready adapter, an
+exact configured route, active item or actor requirements, and pass the current
+runtime policy gates. No profile may borrow a fallback model or be relabeled as
+Talk.
+
+Unavailable actor voice fails plainly without substitute speech. A disabled or
+dormant device remains visible and inspectable with its sanitized reason, but
+does not occupy either playable action-hand slot. Adapter or provider readiness
+never changes whether the authored subject is an actor or item.
+
+The compiler rejects duplicate models or subjects, non-canonical references,
+partial required binding sets, snapshot drift, and actor speech modes that
+disagree with their conversational profile. Stable canonical references and
+runtime handles survive catalog reordering. The checked-in binding and profile
+files are replay authority; refreshing a provider catalog is an explicit pack
+version and snapshot update.
+
+`cosyworld.elysium` is the first exact-model pack. Catalog snapshot
 `openrouter-2026-07-31.1` contains 485 exact OpenRouter bindings, and interaction
 snapshot `openrouter-interactions-2026-08-08.2` derives 496 profiles from them.
-Ready models use their native `Talk`, `Illustrate`, `Speak`, `Find resonance`,
-or `Rank echoes` profile. Talk is the existing bounded, raw, server-authored
-Chat exchange. Illustration prompts, speech text, and semantic descriptors are
-also derived only from frozen world and catalog facts; players cannot type
-speech or prompts, attach audio, or use a microphone.
+The snapshot contains 362 conversational bindings with `Talk` or two-way
+`VoiceChat` and 123 tool-only bindings. Seventy-five tool-only bindings have a
+provider-available runtime adapter; 48 are dormant. This count belongs to that
+frozen snapshot and changes only through an explicit pack update.
 
-The snapshot also declares unavailable profiles instead of guessing an
-adapter. `Transcribe` remains dormant despite its bounded STT gateway primitive,
-because the product has no human-speech or audio-upload surface. Asynchronous
-video, mixed audio/text voice chat, and music composition await their own
-persistence or streaming adapters. Vector-only illustration awaits a safe SVG
-rasterizer. Archived models and exact batch embedding IDs without an immediate
-route remain disabled. No such profile can fall through to Chat.
+The current generated resources still represent all 485 bindings as avatars
+because schema version 1 can bind only actors. This is migration state, not the
+accepted product ontology. The next Elysium content version should keep the 362
+conversational subjects as avatars and replace the 123 tool-only actors with
+model-backed devices by repurposing their existing Void Token items. It must
+retire each old actor canonical reference through an explicit content migration
+rather than changing entity kind in place. Room descriptions, aspects, boons,
+memory, and cards must then describe either a resident or a curious device and
+must not promise conversation in every void.
 
-Every avatar has one private void and one unique void token, with ambient
-autonomy disabled. Those room boundaries limit ordinary observation and belief
-exchange to the local avatar, visitor, and item. The 485 voids form a
-deterministic Fibonacci-Wythoff rhizome: a shallow golden-ratio branching tree
-guarantees reachability, while sparse phyllotactic cross-links make loops
-between branches without exceeding the fixed kernel exit budget. Every local
-filament is a reciprocal `discovery: "scout"` route. A player can Scout any
-unmapped filament at the current node, then Travel it after the existing
-journaled, replay-safe Scout authority reveals it exactly once.
+Ready conversational models use bounded raw, server-authored Talk or supported
+two-way voice chat. Ready device profiles use their native Illustrate, Speak,
+Find resonance, or Rank echoes action through the item that supplies it.
+Illustration prompts, speech text, and semantic descriptors are derived only
+from frozen world and catalog facts; players cannot type speech or prompts,
+attach audio, select a provider model, or invoke arbitrary tools.
+
+The snapshot declares unavailable profiles instead of guessing an adapter.
+`Transcribe` remains dormant despite its bounded STT gateway primitive because
+the product has no authorized human-speech or audio-upload input. Asynchronous
+video and music composition await their persistence adapters. Vector-only
+illustration awaits a safe SVG rasterizer. Archived models and exact batch
+embedding IDs without an immediate route remain disabled. No such profile can
+fall through to Chat. In Void 070, Seedance is therefore specified as a dormant
+motion-camera device until asynchronous video dispatch and persistence ship;
+the absence of a playable video card is truthful, while the device and reason
+remain discoverable.
+
+The 485 voids retain their deterministic Fibonacci-Wythoff rhizome: a shallow
+golden-ratio branching tree guarantees reachability, while sparse
+phyllotactic cross-links make loops without exceeding the fixed kernel exit
+budget. Every local filament is a reciprocal `discovery: "scout"` route. A
+player can Scout an unmapped filament at the current node, then Travel it after
+the existing journaled, replay-safe Scout authority reveals it exactly once.
 
 ## Factions
 

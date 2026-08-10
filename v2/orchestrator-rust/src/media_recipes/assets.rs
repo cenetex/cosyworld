@@ -206,6 +206,7 @@ struct MediaAssetRegistration {
     provenance: MediaAssetProvenance,
     source_kind: MediaAssetSourceKind,
     initial_moderation_state: MediaAssetModerationState,
+    reuse_matching_revision: bool,
     rights: MediaAssetRights,
     parents: Vec<MediaAssetParentInput>,
 }
@@ -332,6 +333,7 @@ pub(crate) fn register_generated_media_asset(
             provenance,
             source_kind: MediaAssetSourceKind::Generated,
             initial_moderation_state: MediaAssetModerationState::Pending,
+            reuse_matching_revision: false,
             rights: MediaAssetRights::generated_public_reference(),
             parents: Vec::new(),
         },
@@ -377,6 +379,7 @@ pub(crate) fn backfill_legacy_community_asset(
             provenance: backfill.provenance,
             source_kind: MediaAssetSourceKind::Generated,
             initial_moderation_state: MediaAssetModerationState::Approved,
+            reuse_matching_revision: true,
             rights: MediaAssetRights::generated_public_reference(),
             parents: Vec::new(),
         },
@@ -776,6 +779,7 @@ fn register_source_media_asset(
             provenance,
             source_kind,
             initial_moderation_state: moderation,
+            reuse_matching_revision: false,
             rights: rights.unwrap_or_else(|| MediaAssetRights::default_for(source_kind)),
             parents: Vec::new(),
         },
@@ -807,6 +811,7 @@ fn register_derived_media_asset(
             provenance,
             source_kind: MediaAssetSourceKind::Derived,
             initial_moderation_state: MediaAssetModerationState::Pending,
+            reuse_matching_revision: false,
             rights: MediaAssetRights::generated_public_reference(),
             parents,
         },
@@ -833,14 +838,40 @@ fn register_media_asset(root: &Path, input: MediaAssetRegistration) -> Result<St
         let revision = input
             .explicit_revision
             .unwrap_or_else(|| media_causal_revision(&input.provenance));
-        if revision == 0
-            || graph.assets.values().any(|asset| {
+        if revision == 0 {
+            return Err(format!(
+                "media asset revision {revision} already exists for {}:{} level {}",
+                input.subject_kind.as_str(),
+                input.subject_id,
+                input.level
+            ));
+        }
+        if let Some(existing) = graph
+            .assets
+            .values()
+            .find(|asset| {
                 asset.subject_kind == input.subject_kind
                     && asset.subject_id == input.subject_id
                     && asset.level == input.level
                     && asset.revision == revision
             })
+            .cloned()
         {
+            if input.reuse_matching_revision
+                && existing.content_digest == digest
+                && existing.source_kind == input.source_kind
+                && existing.parents == parents
+                && effective_moderation_state(graph, &existing)
+                    == MediaAssetModerationState::Approved
+            {
+                set_canonical_asset(
+                    graph,
+                    &existing.asset_id,
+                    existing.provenance.source_event_seq,
+                    input.created_at_ms,
+                )?;
+                return Ok(existing.asset_id);
+            }
             return Err(format!(
                 "media asset revision {revision} already exists for {}:{} level {}",
                 input.subject_kind.as_str(),
@@ -1780,9 +1811,9 @@ mod tests {
                 subject_id: 5000,
                 level: 1,
                 revision: 1,
-                image_path,
-                content_type_path,
-                metadata_path: Some(metadata_path),
+                image_path: image_path.clone(),
+                content_type_path: content_type_path.clone(),
+                metadata_path: Some(metadata_path.clone()),
                 created_at_ms: 10,
                 provenance: MediaAssetProvenance {
                     prediction_id: None,
@@ -1802,6 +1833,26 @@ mod tests {
             graph.assets[&asset_id].provenance.prediction_id.as_deref(),
             Some("legacy-flux1-prediction")
         );
+
+        let repeated = backfill_legacy_community_asset(
+            &root,
+            MediaAssetBackfill {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 1,
+                revision: 1,
+                image_path,
+                content_type_path,
+                metadata_path: Some(metadata_path),
+                created_at_ms: 20,
+                provenance: MediaAssetProvenance {
+                    prediction_id: None,
+                    ..provenance("cosyworld.core.updated", 30)
+                },
+            },
+        )
+        .expect("repeat backfill reuses matching immutable revision");
+        assert_eq!(repeated, asset_id);
         let _ = fs::remove_dir_all(root);
     }
 

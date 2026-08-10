@@ -253,6 +253,34 @@ descriptor, skill bonus or effect budget, uses/exhaustion/recovery, transfer/the
 policy, and instance provenance. The server turns that contract into action
 offers; the client never executes card text.
 
+### Model-backed devices
+
+A provider model is execution machinery, not automatically an avatar. Per
+[ADR 0007](../decisions/0007-model-bindings-and-item-devices.md), a worldpack
+may bind a non-agent model capability to an Item card. Cameras, voiceboxes,
+listeners, semantic instruments, and music devices remain ordinary tool or
+relic items rather than a fourth entity kind.
+
+A device declares whether it is active while `carried`, `equipped` in a typed
+slot, or `installed` at a location. It also declares its exact model/profile
+binding, closed settings schema, target predicate, use and recovery rules,
+transfer policy, and unavailable-state presentation. The active item may
+contribute certified action offers or a bounded avatar settings overlay. A
+voicebox, for example, may select the voice used when its carrier speaks; the
+carrier remains the actor and the item/model receives truthful attribution.
+
+Device actions never expose a provider prompt, arbitrary tool call, model
+picker, or undeclared setting. Directly controlled and inference-controlled
+avatars receive the same legal offers. Removing, containing, exhausting,
+transferring, or deactivating the contributing item removes future offers on
+recomposition.
+
+A dormant device remains visible and inspectable with its sanitized reason but
+does not occupy a playable action-hand slot. Asynchronous devices freeze the
+actor, item instance/version, exact binding/profile, settings, scene, payer,
+custody policy, and state revision before dispatch, then become busy or
+exhausted according to their mechanics.
+
 ## Collection, Deck, Hand, and Card Zones
 
 The runtime uses an authoritative multi-card collection and deck model with

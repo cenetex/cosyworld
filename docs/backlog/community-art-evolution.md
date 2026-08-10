@@ -21,6 +21,13 @@ Orbs exist to help the community make shared images. They do not pay for Chat or
 
 Every eligible generated collectible has one community generation available at each authoritative level. The pooled Orb price is exactly the level. A level-3 location therefore needs three community contributions in total, not three from every player. Funding never changes ownership, access, mechanics, rarity, success, or level.
 
+For locations, the authoritative level is defined by
+[Location Classes, Development Projects, and Buildings](../location-development.md):
+only unique credited development-project completions advance it. Chat volume,
+service jobs, model activity, and art funding never do. A cairned location with
+no completed identity building is **Unsettled** and does not advertise a
+numbered level portrait.
+
 The generated image belongs to the public card. Its prompt uses the card identity and public event history through the funding sequence. When the collectible later reaches a new level, the newly unlocked image can evolve in response to the history accumulated since its previous image.
 
 ## Implemented slice
@@ -59,7 +66,10 @@ should reference.
 
 ### Collectible-model horizon
 
-- Make level authoritative for generated items and locations, not just avatars. Define the gameplay event that advances each type; Orb funding must never advance it.
+- Make level authoritative for generated items and locations, not just avatars.
+  Item advancement remains use-derived; location advancement consumes unique,
+  replay-safe development-project receipts. Orb funding must never advance
+  either type.
 - Decide whether one level unlock applies per card identity, per shard-local instance, or per canonical collectible. Default: canonical shared subject for locations/avatars; instance for materially distinct crafted items.
 - Add history-delta prompt construction so level N emphasizes events since level N-1 while retaining stable visual identity.
 - Add optional reference-image composition from the prior ready level to preserve recognizability across evolution.

@@ -41,13 +41,21 @@ replace or privately own the shared subject. A **pass** explains access to a
 gated place. A **bundle** is a one-time collection reveal from a Box. A
 **world pack** is mounted experience content.
 
+Some unusual items are **curious devices**: cameras, voiceboxes, listeners,
+instruments, or stranger tools powered by an exact model. Carrying one may add
+a bounded action; equipping one may apply a setting such as a voice; an
+installed device may be available to everyone permitted to use that place.
+The traveler remains the actor. A dormant device stays inspectable and explains
+what is unavailable, but it is not dealt as an action until it can really work.
+
 Jobs, clocks, tags, rules profiles, and claim keys exist behind the surface.
 You should not need those terms to decide what to do.
 
 ## Reading An Action
 
-Every legal action comes from the server. The two suggestions in the hand come
-from that same set; they are not a limit on what you may do.
+Every legal action comes from the server. Exactly two are playable in the
+current hand. If neither fits, **Think** commits a Pass and deals the next two;
+there is no hidden full-action chooser around the hand.
 
 - **Target** says exactly which person, item, feature, or place the action
   concerns.
@@ -161,6 +169,14 @@ This makes cairns meaningful infrastructure rather than a breadcrumb tax. The
 Anchor, return-chain, and cairn contract is accepted, and the descriptor
 foundation exists. Perishable Leads and full foray enforcement remain backlog
 work rather than current long-range Scout behavior.
+
+The accepted location-development direction gives a cairn one additional,
+carefully bounded role: it is where either a human- or AI-controlled avatar may
+originate a legal founding proposal. Governance and a completed construction
+project are still required before a building, location class, capability, or
+level appears. This broader founding flow is not yet shipped for every authored
+and generated location; a cairn still does not itself count as settlement,
+shelter, lodging, or Hearth.
 
 ## Doors, Keys, And Thresholds
 

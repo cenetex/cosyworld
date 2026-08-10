@@ -985,7 +985,7 @@ impl AiGatewayError {
         match self.kind {
             AiFailureKind::Timeout | AiFailureKind::Transport => false,
             AiFailureKind::ProviderHttp { status, .. } => {
-                !matches!(status, 408 | 425 | 429 | 500..=599)
+                !matches!(status, 401 | 404 | 408 | 425 | 429 | 500..=599)
             }
             AiFailureKind::Readiness { terminal, .. } => terminal,
             AiFailureKind::Unconfigured
@@ -5877,8 +5877,10 @@ mod tests {
     fn actor_job_failure_classification_separates_permanent_and_transient_outages() {
         for status in [
             reqwest::StatusCode::REQUEST_TIMEOUT,
+            reqwest::StatusCode::UNAUTHORIZED,
             reqwest::StatusCode::TOO_EARLY,
             reqwest::StatusCode::TOO_MANY_REQUESTS,
+            reqwest::StatusCode::NOT_FOUND,
             reqwest::StatusCode::BAD_GATEWAY,
             reqwest::StatusCode::SERVICE_UNAVAILABLE,
         ] {
@@ -5889,9 +5891,7 @@ mod tests {
         }
         for status in [
             reqwest::StatusCode::BAD_REQUEST,
-            reqwest::StatusCode::UNAUTHORIZED,
             reqwest::StatusCode::PAYMENT_REQUIRED,
-            reqwest::StatusCode::NOT_FOUND,
         ] {
             let error =
                 AiGatewayError::provider_http("test", status, None, None, 1, Duration::ZERO);
@@ -5929,7 +5929,8 @@ mod tests {
             "test",
             exact_route.gate(CHAT_COMPLETIONS_ENDPOINT, "provider/model"),
         );
-        assert!(incompatible.terminal_for_model_interaction());
+        assert!(incompatible.retryable_for_model_interaction());
+        assert!(!incompatible.terminal_for_model_interaction());
     }
 
     #[test]

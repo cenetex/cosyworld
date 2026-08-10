@@ -71,6 +71,13 @@ approved building IDs. The latent potential table remains private. This gives
 #154 and #160 a bounded eligibility input without mixing natural resources into
 aggregate room capacities or creating physical stock.
 
+Natural eligibility is only one input to the location loadout described in
+[Location Classes, Development Projects, and Buildings](location-development.md).
+A revealed resource does not choose a location class, open a slot, start a
+project, install a building, or advance level. The selected archetype must also
+fit the completed identity class, an available typed slot, installed capability
+requirements, access policy, and governance decision.
+
 Natural state, clocks, causal evidence, and revealed features are included in
 snapshots and regenerated deterministically during journal replay. Pack
 unmount migration removes location-scoped natural state, clocks, and jobs

@@ -482,7 +482,13 @@ async fn complete_avatar_reflection_entry(
         reflection_gate(job),
     )
     .await
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| {
+        crate::ai_publication::record_ai_publication_rejections_with_logs(
+            state,
+            error.rejections(),
+        );
+        error.to_string()
+    })?;
     let (content, receipt) = into_recorded_speech_parts(state, speech);
 
     let events = {
@@ -605,7 +611,13 @@ async fn complete_avatar_self_description(
         },
     )
     .await
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| {
+        crate::ai_publication::record_ai_publication_rejections_with_logs(
+            state,
+            error.rejections(),
+        );
+        error.to_string()
+    })?;
     let (content, receipt) = into_recorded_speech_parts(state, speech);
     let events = {
         let mut runtime = state.inner.lock().await;
@@ -737,7 +749,13 @@ async fn complete_world_entity_self_description(
         },
     )
     .await
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| {
+        crate::ai_publication::record_ai_publication_rejections_with_logs(
+            state,
+            error.rejections(),
+        );
+        error.to_string()
+    })?;
     let (content, receipt) = into_recorded_speech_parts(state, speech);
     let events = {
         let mut runtime = state.inner.lock().await;
