@@ -9925,6 +9925,7 @@ async function main() {
         : (kind === "trade" ? "/actions/trade-item" : "");
       const target = (state?.actors || []).find((actor) => Number(actor.id || 0) === Number(targetActorId));
       return {
+        actorId: Number(actorId || localStorage.getItem("cosyworld.actorId") || 0),
         offerIds,
         focusKey,
         command: String(selected?.command || ""),
@@ -10046,9 +10047,10 @@ async function main() {
     ), null, { timeout: 35_000 });
     if (body?.ok !== true) {
       const responsePath = new URL(response.url()).pathname;
-      const currentActorId = Number(await page.evaluate(() => (
-        localStorage.getItem("cosyworld.actorId") || 0
-      )));
+      // A knockout can clear or replace the active browser actor while the
+      // rejected action is settling. Classify the response against the actor
+      // that actually submitted the certified action, not mutable UI state.
+      const currentActorId = Number(submission.actorId || 0);
       const playerDefeated = (body?.events || []).some((event) => (
         event?.type === "combat.knockout"
           && Number(event?.target_actor_id || 0) === currentActorId
@@ -15115,11 +15117,7 @@ async function main() {
             && refreshInFlight === null
             && document.querySelector("#action-modal")?.hidden === true
         ), null, { timeout: 35_000 });
-        const projectComplete = await page.evaluate(() => {
-          const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
-          const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
-          return Number(progress?.filled || 0) === 4 && job?.status === "completed";
-        });
+        const projectComplete = (await moonlitProjectStatus()).completed;
         if (projectComplete) break;
         const projectRecovery = await page.evaluate(() => {
           const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
@@ -15160,11 +15158,7 @@ async function main() {
         const completionAction = await drawMoonlitProjectStrategy(`project completion ${attempt}`, {
           strategyId: "steady-trail",
           needles: ["steady the trail"],
-          stopWhen: () => page.evaluate(() => {
-            const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
-            const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
-            return Number(progress?.filled || 0) === 4 && job?.status === "completed";
-          }),
+          stopWhen: async () => (await moonlitProjectStatus()).completed,
         });
         if (!completionAction) break;
         const completionResult = await commitMoonlitProjectWithRetry(`complete project ${attempt}`, {
@@ -15182,6 +15176,13 @@ async function main() {
       }
     }
     const authoritativeProjectBeforeReconcile = await moonlitProjectStatus();
+    assert(
+      authoritativeProjectBeforeReconcile.completed,
+      `the completion path should finish the authoritative shared project before testing browser reconciliation: ${JSON.stringify({
+        filled: authoritativeProjectBeforeReconcile.filled,
+        job: authoritativeProjectBeforeReconcile.status,
+      })}`,
+    );
     await reconcileActionHand();
     const reconciledProjectPresentation = await page.evaluate(() => {
       const progress = (state?.clocks || []).find(
