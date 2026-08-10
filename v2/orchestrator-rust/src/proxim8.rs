@@ -464,6 +464,27 @@ mod tests {
         let item_inventory = materialization_retirement::receipt_inventory(&runtime);
         assert_eq!(item_inventory.total, 0);
         assert_eq!(item_inventory.retained_actor_materialization, 1);
+        let actor_before = serde_json::to_value(runtime.actor_by_id(actor_id)).unwrap();
+        let memory_before = runtime
+            .materialization_receipts
+            .values()
+            .find(|receipt| receipt.actor_id == actor_id)
+            .and_then(|receipt| runtime.item_by_id(receipt.item_id));
+        materialization_retirement::migrate_legacy_receipts(&mut runtime)
+            .expect("linked-avatar receipt is excluded from item migration");
+        assert!(runtime.item_materialization_migrations.is_empty());
+        assert_eq!(
+            serde_json::to_value(runtime.actor_by_id(actor_id)).unwrap(),
+            actor_before
+        );
+        assert_eq!(
+            runtime
+                .materialization_receipts
+                .values()
+                .find(|receipt| receipt.actor_id == actor_id)
+                .and_then(|receipt| runtime.item_by_id(receipt.item_id)),
+            memory_before
+        );
         assert!(proxim8_materialization_record(&runtime, wallet, asset_id, &config).is_none());
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)

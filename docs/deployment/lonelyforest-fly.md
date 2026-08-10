@@ -149,16 +149,17 @@ token is unnecessary.
 The Lonely Forest app requires these independently provisioned secrets:
 
 ```text
-COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER
+COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER
 COSYWORLD_MODERATION_TOKEN
 OPENROUTER_API_KEY
 COSYWORLD_REPLICATE_API_TOKEN
 REPLICATE_API_TOKEN
 ```
 
-Optional model aliases and Box-verifier secrets may be copied when those
-features are enabled. Secret values must never enter the repository or command
-output.
+The avatar-ownership bearer is needed only when the adapter URL is configured;
+ordinary play does not depend on it. Optional model aliases may be copied when
+those features are enabled. Secret values must never enter the repository or
+command output.
 
 ## Provisioning and cutover
 
