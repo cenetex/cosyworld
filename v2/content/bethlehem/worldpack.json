@@ -10,7 +10,8 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
-      "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df"
+      "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df",
+      "sha256:0d989794764b86a1b3067a3c1ca43078dbacfece38a84371039d5a16af80e2f3"
     ]
   },
   "pack_lifecycle": {
