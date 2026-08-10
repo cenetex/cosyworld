@@ -18,6 +18,9 @@ do not define V2 behavior.
 - **[ADR 0007: Model Bindings and Item Devices](decisions/0007-model-bindings-and-item-devices.md)** —
   canonical embodiment law for conversational actors, portable/equipped/
   installed model-backed items, dormant capabilities, and Elysium migration.
+- **[ADR 0008: Projection Mutations Declare Their Writes](decisions/0008-projection-mutations-declare-their-writes.md)** —
+  why each `ProjectionMutation` carries a payload that owns its `apply` and
+  declares, under test, the projection state it may touch.
 - **[The CosyWorld Referee's Guide](dm-guide/README.md)** — source and build
   instructions for the illustrated guide to scenes, discovery, frontier
   forays, thresholds, tables, and strict AI refereeing.

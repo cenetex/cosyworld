@@ -207,4 +207,13 @@
 #
 # 71371 -> 71047: delete the remaining compiler-proven dead merged-inline
 # resident continuity copies; the live implementations stay in continuity.rs.
-71047
+# 71047 -> 71037: the first three ProjectionMutation variants become newtype
+# payloads owning their own apply, and the interpreter's seven positional
+# arguments collapse into one ProjectionContext. ResolveTransferOffer,
+# ConsumeGiftAutoAccept, and SetItemEquipped land; SetJobStatus was reverted
+# because seeding a JobState fixture is more than this change should carry, and
+# an unverified write-set declaration is worth less than none. Net -10 lines
+# with the context block added, so the remaining ~62 variants should each pay
+# for themselves. Payloads and their declared write sets live in projection.rs;
+# no behaviour changes and the journal encoding is pinned by test.
+71037
