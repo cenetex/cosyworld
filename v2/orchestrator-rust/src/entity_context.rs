@@ -77,6 +77,16 @@ pub(crate) struct WorldEntityMemoryAtom {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct AvatarLevelIdentity {
+    #[serde(default)]
+    pub(crate) persona: String,
+    #[serde(default)]
+    pub(crate) appearance: String,
+    #[serde(default)]
+    pub(crate) continuity: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct WorldEntityMemoryState {
     #[serde(default)]
     pub(crate) use_count: u32,
@@ -88,6 +98,8 @@ pub(crate) struct WorldEntityMemoryState {
     pub(crate) memories: Vec<WorldEntityMemoryAtom>,
     #[serde(default)]
     pub(crate) descriptions_by_level: BTreeMap<u8, String>,
+    #[serde(default)]
+    pub(crate) identity_by_level: BTreeMap<u8, AvatarLevelIdentity>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -363,6 +375,16 @@ impl RuntimeWorld {
             .filter(|description| !description.trim().is_empty())
     }
 
+    pub(crate) fn latest_avatar_level_identity(
+        &self,
+        actor_id: u64,
+    ) -> Option<AvatarLevelIdentity> {
+        self.entity_memories
+            .get(&WorldEntityRef::avatar(actor_id).key())
+            .and_then(|state| state.identity_by_level.iter().next_back())
+            .map(|(_, identity)| identity.clone())
+    }
+
     pub(crate) fn world_entity_self_description_due(&self, subject: WorldEntityRef) -> bool {
         let Some(level) = self.world_entity_level(subject) else {
             return false;
@@ -397,11 +419,21 @@ impl RuntimeWorld {
             WorldEntityKind::Avatar => {
                 let actor = self.actor_by_id(subject.id)?;
                 let meta = self.actors.get(&subject.id)?;
-                let appearance = self
-                    .character_identities
-                    .get(&subject.id)
-                    .map(|identity| identity.physical_description.clone())
+                let policy = self.avatar_identity_policy(subject.id).unwrap_or_default();
+                let level_identity = self.latest_avatar_level_identity(subject.id);
+                let appearance = level_identity
+                    .as_ref()
+                    .map(|identity| identity.appearance.clone())
                     .filter(|description| !description.trim().is_empty())
+                    .or_else(|| {
+                        (!policy.appearance.trim().is_empty()).then(|| policy.appearance.clone())
+                    })
+                    .or_else(|| {
+                        self.character_identities
+                            .get(&subject.id)
+                            .map(|identity| identity.physical_description.clone())
+                            .filter(|description| !description.trim().is_empty())
+                    })
                     .unwrap_or_else(|| meta.description.clone());
                 let held = self
                     .actor_held_items(subject.id)
@@ -410,8 +442,18 @@ impl RuntimeWorld {
                     .filter_map(|item| self.item_name(item.id))
                     .collect::<Vec<_>>();
                 (
-                    format!("{} — {}", meta.title, meta.description),
-                    grounded_avatar_persona_for_prompt(subject.id, &meta.description),
+                    if policy.canonical_description.trim().is_empty() {
+                        format!("{} — {}", meta.title, meta.description)
+                    } else {
+                        policy.canonical_description
+                    },
+                    level_identity
+                        .map(|identity| identity.persona)
+                        .filter(|persona| !persona.trim().is_empty())
+                        .or_else(|| (!policy.persona.trim().is_empty()).then_some(policy.persona))
+                        .unwrap_or_else(|| {
+                            grounded_avatar_persona_for_prompt(subject.id, &meta.description)
+                        }),
                     appearance,
                     vec![
                         format!(

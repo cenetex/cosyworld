@@ -45,6 +45,7 @@
   "resources": {
     "actors": "actors.json",
     "actor_model_bindings": "actor_model_bindings.json",
+    "avatar_level_tracks": "avatar_level_tracks.json",
     "items": "items.json",
     "locations": "locations.json",
     "exits": "exits.json",

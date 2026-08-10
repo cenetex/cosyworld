@@ -187,6 +187,7 @@ impl ContentRegistry {
             card_bindings: take_resource(&mut resources, "card_bindings")?,
             lifecycle_hooks: take_resource(&mut resources, "lifecycle_hooks")?,
             evolution_tracks: take_resource(&mut resources, "evolution_tracks")?,
+            avatar_level_tracks: take_resource(&mut resources, "avatar_level_tracks")?,
             recipes: take_resource(&mut resources, "recipes")?,
             rules: document.rules,
             contributions: document.contributions,
@@ -1681,6 +1682,25 @@ mod tests {
         assert_eq!(services.entry_location_id(), None);
         assert!(services.content().locations.is_empty());
         assert!(services.content().actors.is_empty());
+    }
+
+    #[test]
+    fn elysium_mounts_its_self_authored_avatar_level_track() {
+        let registry = ContentRegistry::from_json(
+            &fs::read_to_string(configured_content_root().join("elysium-only/registry.json"))
+                .expect("Elysium registry reads"),
+            env!("CARGO_PKG_VERSION"),
+        )
+        .expect("Elysium registry mounts");
+        let track = registry
+            .content()
+            .avatar_level_tracks
+            .first()
+            .expect("Elysium avatar level track");
+        assert_eq!(track.id, "elysium.embodiment");
+        assert_eq!(track.identity.mode, "self_authored");
+        assert_eq!(track.max_level, 3);
+        assert_eq!(track.levels.last().map(|level| level.level), Some(3));
     }
 
     #[test]

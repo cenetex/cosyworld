@@ -87,9 +87,12 @@ One spine has four projections:
   surreal association, but dream events do not become waking facts.
 - `self_description` uses the large projection to write one first-person identity
   evolution per level, opportunistically after the next successful thought or dream
-  reflection. The description is journaled as `avatar.self_description`; later spines may
-  use that committed description. A stable actor-and-level generation key and a second
-  commit-time due check prevent duplicates.
+  reflection. It returns typed `PERSONA`, `APPEARANCE`, and `CONTINUITY` fields. For an
+  exact-bound AI avatar, this generation is pinned to that avatar's own text model; it
+  never borrows a fallback identity model. The description is journaled as
+  `avatar.self_description`, and the typed fields become the next spine's persona,
+  observable appearance, and continuity. A stable actor-and-level generation key and a
+  second commit-time due check prevent duplicates.
 
 Recollection candidates are deduplicated and ranked deterministically against the current
 beat, Calling, place, incoming turn, and freshest dialogue, with relevance, salience,

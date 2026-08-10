@@ -10,6 +10,7 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
+      "sha256:3b89e4cae565d664488218ce98eef3baa3a9c26d374bb4c6633e30db126d6e38",
       "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548",
       "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf",
       "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e"
@@ -18,7 +19,7 @@
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
-  "bundle_hash": "sha256:3b89e4cae565d664488218ce98eef3baa3a9c26d374bb4c6633e30db126d6e38",
+  "bundle_hash": "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -79,6 +80,7 @@
         "recipes": 0,
         "sentences": 0,
         "actor_model_bindings": 0,
+        "avatar_level_tracks": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -162,6 +164,7 @@
         "recipes": 0,
         "sentences": 0,
         "actor_model_bindings": 0,
+        "avatar_level_tracks": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 112,
@@ -247,6 +250,7 @@
         "recipes": 0,
         "sentences": 0,
         "actor_model_bindings": 485,
+        "avatar_level_tracks": 1,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -275,7 +279,7 @@
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:f396ee2ae66128930d7e9d6eaa8ad700816d118e93322a5dc416a6f82b52872c"
+      "integrity": "sha256:f91dd332ba1576d8ed26596a2a6a205564fd8f24a4233e40758fa279689ce77d"
     }
   ],
   "files": {
@@ -299,7 +303,8 @@
     "evolution_tracks": "evolution_tracks.json",
     "recipes": "recipes.json",
     "sentences": "sentences.json",
-    "actor_model_bindings": "actor_model_bindings.json"
+    "actor_model_bindings": "actor_model_bindings.json",
+    "avatar_level_tracks": "avatar_level_tracks.json"
   },
   "external_cards": "external_cards.json",
   "assets": "assets.json",
