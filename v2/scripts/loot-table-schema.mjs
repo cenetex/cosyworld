@@ -35,6 +35,7 @@ const naturalResources = new Set([
 ]);
 const templateIdPattern = /^[a-z][a-z0-9_]{1,47}$/;
 const tableIdPattern = /^[a-z][a-z0-9.-]*:loot\/[a-z][a-z0-9-]{1,63}$/;
+const deliveryTagPattern = /^[a-z][a-z0-9-]{0,47}$/;
 
 function nonEmpty(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -85,6 +86,14 @@ export function lootTableValidationErrors(config, label = "loot tables") {
     if (!itemKinds.has(template.kind)) errors.push(`${templateLabel} kind is invalid`);
     if (!itemRoles.has(template.role ?? "generic")) errors.push(`${templateLabel} role is invalid`);
     if (!itemSizes.has(template.size ?? "small")) errors.push(`${templateLabel} size is invalid`);
+    if (
+      template.delivery_tags !== undefined
+      && (!uniqueStrings(template.delivery_tags)
+        || template.delivery_tags.length > 16
+        || template.delivery_tags.some((tag) => !deliveryTagPattern.test(tag)))
+    ) {
+      errors.push(`${templateLabel} delivery_tags must contain up to 16 unique canonical tags`);
+    }
     if (!Number.isInteger(template.charges) || template.charges < 0 || template.charges > 20) {
       errors.push(`${templateLabel} charges must be an integer from 0-20`);
     }

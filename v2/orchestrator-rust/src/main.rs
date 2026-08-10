@@ -41,6 +41,8 @@ mod content_policy;
 mod content_registry;
 mod contributions;
 mod crafting;
+#[cfg(test)]
+mod delivery_matching_tests;
 mod discovery_pipeline;
 mod entity_context;
 mod first_tale;
@@ -6575,6 +6577,8 @@ impl RuntimeWorld {
                 continue;
             }
 
+            let item_facts = self.physical_item_delivery_facts(evidence.item_id);
+
             let matching_jobs = self
                 .jobs
                 .values()
@@ -6582,7 +6586,7 @@ impl RuntimeWorld {
                 .filter(|job| {
                     job.delivery
                         .as_ref()
-                        .is_some_and(|delivery| delivery.accepts(&evidence))
+                        .is_some_and(|delivery| delivery.accepts(&evidence, &item_facts))
                 })
                 .map(|job| job.id.clone())
                 .collect::<Vec<_>>();
@@ -16908,6 +16912,9 @@ The relationship statement they are preserving is: {statement}"
                     "{destination_name} needs a represented item, carried there by an actor."
                 );
             }
+            return None;
+        }
+        if !mounted_delivery_item_tag(&trade.resource) {
             return None;
         }
 
@@ -47256,7 +47263,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.11");
+        assert_eq!(location_reference.pack_version, "1.3.12");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -70720,174 +70727,6 @@ mod tests {
             restored.world_simulation_view().recent_history.len(),
             first.world_simulation_view().recent_history.len()
         );
-    }
-
-    #[test]
-    fn aggregate_scarcity_creates_a_physical_delivery_job_without_claiming_completion() {
-        let mut runtime = RuntimeWorld::seeded();
-        let pulse = WorldPulse {
-            pulse_index: 4,
-            source_world_tick: 24,
-            weather: WeatherShift {
-                class: PulseEffectClass::Ambient,
-                location_id: MOONLIT_TRAIL_LOCATION_ID,
-                before: "settled".to_string(),
-                after: "settled".to_string(),
-                intensity: 0,
-                changed: false,
-                notable: false,
-            },
-            trade: TradeOutcome {
-                class: PulseEffectClass::Opportunity,
-                from_location_id: MOONLIT_TRAIL_LOCATION_ID,
-                to_location_id: COSY_COTTAGE_LOCATION_ID,
-                resource: "herbs".to_string(),
-                moved: false,
-                amount: 0,
-                reason: "useful stores are running thin".to_string(),
-                needs_delivery: true,
-            },
-            faction: None,
-            conflict: ConflictOutcome {
-                class: PulseEffectClass::Opportunity,
-                location_id: MOONLIT_TRAIL_LOCATION_ID,
-                before: 0,
-                after: 0,
-                escalated: false,
-                front_ids: Vec::new(),
-                faction_ids: Vec::new(),
-                reason: "quiet".to_string(),
-            },
-            public_beat: Some(PulseBeatKind::DeliveryNeed),
-        };
-        let event = runtime
-            .ensure_delivery_need_job(&pulse, Some(1), Some(77))
-            .expect("a new need creates one public opportunity");
-        assert_eq!(event.type_name, "world.delivery.needed");
-        assert_eq!(event.location_id, Some(MOONLIT_TRAIL_LOCATION_ID));
-        assert_eq!(
-            event.destination_location_id,
-            Some(COSY_COTTAGE_LOCATION_ID)
-        );
-        assert_eq!(event.caused_by_event_seq, Some(77));
-        assert!(!runtime
-            .event_log
-            .iter()
-            .any(|event| event.type_name == "world.logistics.completed"));
-        let job = runtime
-            .jobs
-            .values()
-            .find(|job| job.delivery.is_some())
-            .expect("the opportunity has a concrete job");
-        assert_eq!(runtime.job_status(job), "active");
-        let progress_clock = &runtime.clocks[&job.progress_clock_id];
-        assert_eq!(progress_clock.segments, 1);
-        assert_eq!(progress_clock.presentation.rhythm, "immediate");
-        assert!(job.premise.contains("physical"));
-        assert!(job.action_copy.summary.contains("Pick up a physical item"));
-        assert!(
-            runtime
-                .active_progress_clock_id_for_location(COSY_COTTAGE_LOCATION_ID)
-                .is_none(),
-            "generic Work cannot abstractly complete a physical delivery"
-        );
-        assert!(
-            runtime
-                .ensure_delivery_need_job(&pulse, Some(1), Some(78))
-                .is_none(),
-            "the same active need updates silently instead of duplicating public news"
-        );
-    }
-
-    #[test]
-    fn causal_delivery_evidence_completes_the_matching_delivery_job() {
-        let mut runtime = RuntimeWorld::seeded();
-        let pulse = WorldPulse {
-            pulse_index: 5,
-            source_world_tick: 30,
-            weather: WeatherShift {
-                class: PulseEffectClass::Ambient,
-                location_id: MOONLIT_TRAIL_LOCATION_ID,
-                before: "settled".to_string(),
-                after: "settled".to_string(),
-                intensity: 0,
-                changed: false,
-                notable: false,
-            },
-            trade: TradeOutcome {
-                class: PulseEffectClass::Opportunity,
-                from_location_id: MOONLIT_TRAIL_LOCATION_ID,
-                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-                resource: "herbs".to_string(),
-                moved: false,
-                amount: 0,
-                reason: "useful stores are running thin".to_string(),
-                needs_delivery: true,
-            },
-            faction: None,
-            conflict: ConflictOutcome {
-                class: PulseEffectClass::Opportunity,
-                location_id: MOONLIT_TRAIL_LOCATION_ID,
-                before: 0,
-                after: 0,
-                escalated: false,
-                front_ids: Vec::new(),
-                faction_ids: Vec::new(),
-                reason: "quiet".to_string(),
-            },
-            public_beat: Some(PulseBeatKind::DeliveryNeed),
-        };
-        runtime
-            .ensure_delivery_need_job(&pulse, Some(COSY_COTTAGE_LOCATION_ID), Some(77))
-            .expect("delivery need");
-        let job_id = runtime
-            .jobs
-            .values()
-            .find(|job| job.delivery.is_some())
-            .map(|job| job.id.clone())
-            .expect("delivery job");
-
-        let projected = runtime.apply_actor_causal_logistics(vec![DeliveryEvidence {
-            actor_id: RATI_ACTOR_ID,
-            item_id: DEWBRIGHT_BUTTON_ITEM_ID,
-            origin_location_id: MOONLIT_TRAIL_LOCATION_ID,
-            destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-            acquisition_event_seq: 80,
-            movement_event_seqs: vec![81],
-            delivery_event_seq: 82,
-        }]);
-
-        assert_eq!(runtime.job_status(&runtime.jobs[&job_id]), "completed");
-        assert!(projected.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.caused_by_event_seq == Some(82)
-                && event.clock_delta == Some(1)
-        }));
-        assert!(projected
-            .iter()
-            .any(|event| event.type_name == "job.updated"));
-        assert_eq!(
-            projected
-                .iter()
-                .filter(|event| event.type_name == "world.logistics.completed")
-                .count(),
-            1
-        );
-        let receipt = command_response_output(None, &projected)
-            .expect("physical delivery returns one causal receipt");
-        assert!(receipt.contains("The need is answered (1/1)"));
-        assert!(receipt.contains("contribution is remembered here"));
-        assert!(!receipt.contains("The work is done."));
-        let completed = runtime
-            .shared_question_views(RAIN_SOFT_GARDEN_LOCATION_ID, Some(RATI_ACTOR_ID))
-            .into_iter()
-            .find(|question| question.id == job_id)
-            .expect("the completed delivery remains legible at its destination");
-        assert_eq!(completed.presentation_state, "completed_memory");
-        assert!(completed.completion_memory.is_some());
-        assert_eq!(completed.recent_contributions.len(), 1);
-        assert_eq!(completed.recent_contributions[0].actor_id, RATI_ACTOR_ID);
-        assert_eq!(completed.recent_contributions[0].event_seq, 82);
     }
 
     #[test]

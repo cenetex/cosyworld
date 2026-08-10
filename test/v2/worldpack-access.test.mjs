@@ -96,6 +96,26 @@ describe("worldpack progression access validation", () => {
     );
   });
 
+  it("rejects an unsupported authored delivery matcher", () => {
+    const root = worldpackFixture();
+    const jobs = JSON.parse(fs.readFileSync(path.join(root, "jobs.json"), "utf8"));
+    const [originLocationId, destinationLocationId = originLocationId] = jobs[0].location_ids;
+    jobs[0].delivery = {
+      resource: "fish",
+      origin_location_id: originLocationId,
+      destination_location_id: destinationLocationId,
+      requirement: { kind: "anything", tag: "fish" },
+      created_world_tick: 0,
+      updated_world_tick: 0,
+    };
+    writeJson(root, "jobs.json", jobs);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`job ${jobs[0].id} has an unsupported delivery matcher`);
+  });
+
   it("rejects an evolution item seeded behind an undeclared access gate", () => {
     const root = worldpackFixture();
     const items = JSON.parse(fs.readFileSync(path.join(root, "items.json"), "utf8"));
@@ -140,7 +160,7 @@ describe("worldpack Manifest v1 validation", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.11",
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.12",
     );
   });
 
