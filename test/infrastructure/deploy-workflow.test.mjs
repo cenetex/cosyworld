@@ -234,8 +234,14 @@ describe('deploy workflow', () => {
     const primaryFly = job('primary-fly', 'lonelyforest-fly');
     const lonelyForestFly = job('lonelyforest-fly', 'github-release');
     expect(primaryFly).toContain('check-fly-volume-space.sh cosyworld /data 85');
+    expect(primaryFly).toMatch(
+      /- name: Guard primary volume free space\s+timeout-minutes: 2\s+run:/
+    );
     expect(lonelyForestFly).toContain(
       'check-fly-volume-space.sh cosyworld-lonelyforest /data 85'
+    );
+    expect(lonelyForestFly).toMatch(
+      /- name: Guard Lonely Forest volume free space\s+timeout-minutes: 2\s+run:/
     );
     expect(80).toBeLessThan(85);
   });

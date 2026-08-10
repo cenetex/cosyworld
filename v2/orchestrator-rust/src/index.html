@@ -5888,7 +5888,8 @@
         focus: "illustrate",
         detail: "one visual interpretation",
         modalTitle: "illustrate with",
-        modalSummary: (targetName) => `${targetName}'s image model interprets this frozen scene.`,
+        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
+        modalSummary: (targetName) => `${targetName}'s exact image model will interpret the current world scene. There is no typed prompt or spoken line.`,
         effect: (targetName) => `${targetName} publishes one moderated visual interpretation of this place`,
         busyLabel: "illustrating",
         busyDetail: "reading the current scene…",
@@ -5910,7 +5911,8 @@
         focus: "resonance",
         detail: "three neighboring model resonances",
         modalTitle: "find resonance with",
-        modalSummary: (targetName) => `${targetName}'s embedding model compares neighboring model descriptors.`,
+        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
+        modalSummary: (targetName) => `${targetName}'s exact embedding model will compare its authoritative model descriptor with neighboring model descriptors. There is no typed prompt or spoken line.`,
         effect: (targetName) => `${targetName} publishes three resonant neighboring model profiles`,
         busyLabel: "finding resonance",
         busyDetail: "comparing neighboring model profiles…",
@@ -5932,7 +5934,8 @@
         focus: "echoes",
         detail: "three ranked model echoes",
         modalTitle: "rank echoes with",
-        modalSummary: (targetName) => `${targetName}'s rerank model orders neighboring model descriptors.`,
+        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
+        modalSummary: (targetName) => `${targetName}'s exact rerank model will order neighboring model descriptors against its own authoritative descriptor. There is no typed prompt or spoken line.`,
         effect: (targetName) => `${targetName} publishes three provider-ranked neighboring model echoes`,
         busyLabel: "ranking echoes",
         busyDetail: "ordering neighboring model profiles…",
@@ -5954,7 +5957,8 @@
         focus: "speak",
         detail: "one server-authored spoken line",
         modalTitle: "speak with",
-        modalSummary: (targetName) => `${targetName}'s voice speaks from frozen world details.`,
+        // writing-register: allow-long-modal-summary -- required modality and input-boundary disclosure.
+        modalSummary: (targetName) => `${targetName}'s exact speech model and voice will speak one short line derived only from frozen target and location details. There is no typed prompt or player-authored line.`,
         effect: (targetName) => `${targetName} publishes one server-authored spoken line as audio`,
         busyLabel: "speaking",
         busyDetail: "preparing one server-authored line…",
