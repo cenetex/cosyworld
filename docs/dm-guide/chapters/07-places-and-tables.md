@@ -90,6 +90,49 @@ Every room should ask at least one useful question: What do we risk? What can
 we learn? Whom can we help? What can we change? Which route opens? What can we
 carry home? What will later visitors find different?
 
+### The Dungeons situation-board motif {#cosyworld-dungeons-motif}
+
+::: {.target}
+**PROPOSED MOTIF - Situation boards.** A future spatial projection may make a
+dungeon legible as a card-driven board game without adding a second action
+system. Until a versioned scene-board schema ships, use this as an authoring
+and presentation target rather than runtime law.
+:::
+
+The board shows what is currently true. The two-card hand asks what the active
+traveler will do about it. The kernel resolves one exact offer, and the Journal
+keeps the durable difference.
+
+Draw the board from semantic facts:
+
+- **sites** are significant positions, not arbitrary floor squares;
+- **links** connect sites and name whether they are known and accessible;
+- **tokens** show visible actors, items, features, and Signs;
+- **constraints** explain why a link or relation is blocked;
+- **clocks** apply visible changes when their thresholds fill; and
+- **memory marks** show public consequences that later visitors can observe.
+
+Isometric coordinates, textures, lighting, and decorative props are
+presentation. They do not create position, range, exits, cover, or collision
+rules. If the art fails, the same scene remains playable through its semantic
+board and exact action offers.
+
+Treat the two dealt cards as one authored fork. Prefer pairs that point toward
+different situational futures: route against route, force against
+reconciliation, speed against preparation, knowledge against risk, pursuit
+against care, or spending against preservation. Two differently worded cards
+that leave the board in the same meaningful state are not a useful fork.
+
+Before presenting a pair, make its divergence readable. Highlight the exact
+target or relation for each card. Name cost, known risk, expected effect, and
+any urgency. Keep discoveries and motives hidden when appropriate, but never
+hide a known irreversible commitment.
+
+Do not author free grid movement around the hand. Travel, Scout, Use, Help,
+Attack, Defend, Flee, and every other state-changing intention remain exact
+server offers. The board gives those cards visible context; it never becomes a
+client-side action catalogue.
+
 On return, preserve opened and broken Gates, spent Hazards, removed items,
 claims, reactions, cairns, public discoveries, clocks, and Journaled
 consequences. Restocking is an authored world event, never a fresh description.
