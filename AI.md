@@ -909,6 +909,6 @@ Current status: partially implemented. Moonlit Trail exposes `Attack`, `Defend`,
 ## Open Decisions
 
 - Whether player OpenRouter mode should be allowed to contribute provider credit instead of Orbs to the same public pool. Recommendation: defer; one level-based currency rule is clearer.
-- How non-avatar collectibles gain levels. Recommendation: make level an authoritative card/evolution property, never infer it from Orb contributions.
+- How non-avatar world-subject cards gain levels. Recommendation: make level an authoritative world/evolution property, never infer it from Orb contributions or external ownership.
 - Whether OpenRouter key storage should remain browser-only. Recommendation: browser-only MVP; encrypted vault later only if cross-device "connected" state matters.
 - Whether resident reply should wait in the same request to reuse a transient key. Recommendation: finish avatar line plus immediate resident reply within the same action transaction for player-key turns; keep async scheduling for server-paid ambient turns.

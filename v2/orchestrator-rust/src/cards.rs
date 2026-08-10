@@ -2,15 +2,7 @@ use super::*;
 
 #[derive(Debug, Serialize)]
 pub(super) struct AccountView {
-    pub(super) wallet_address: Option<String>,
-    pub(super) owned_cards: Vec<CardView>,
-    pub(super) active_box_ids: Vec<String>,
-    pub(super) unopened_pack_ids: Vec<String>,
-    pub(super) recent_box_receipts: Vec<WoodenBoxReceiptView>,
-    pub(super) recent_pack_openings: Vec<AvatarPackOpeningView>,
-    pub(super) materialization_receipts: Vec<MaterializationReceiptState>,
-    pub(super) item_materialization_migrations:
-        Vec<materialization_retirement::ItemMaterializationMigrationReceipt>,
+    pub(super) linked_wallet_address: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,10 +51,6 @@ pub(super) struct CardView {
     pub(super) terrain: Vec<String>,
     pub(super) image_url: Option<String>,
     pub(super) chain_image_uri: Option<String>,
-    pub(super) requires_ownership: bool,
-    pub(super) owned: bool,
-    pub(super) accessible: bool,
-    pub(super) access_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) generation_policy: Option<GeneratedPolicyBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,33 +71,6 @@ pub(super) struct CommunityArtView {
     pub(super) retryable_without_orbs: bool,
 }
 
-#[derive(Debug, Serialize)]
-pub(super) struct AccessView {
-    pub(super) mode: String,
-    pub(super) shared_world: bool,
-    pub(super) owner_wallet_address: Option<String>,
-    pub(super) owned_card_ids: Vec<String>,
-    pub(super) owned_box_ids: Vec<String>,
-    pub(super) unopened_pack_ids: Vec<String>,
-    pub(super) granted_entitlement_ids: Vec<String>,
-    pub(super) accessible_card_ids: Vec<String>,
-    pub(super) locked_card_ids: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct PackOpenRequest {
-    pub(super) wallet_session: Option<String>,
-    pub(super) pack_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub(super) struct PackOpenResponse {
-    pub(super) ok: bool,
-    pub(super) status: u16,
-    pub(super) opening: Option<AvatarPackOpeningView>,
-    pub(super) error: Option<String>,
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct AvatarPackOpeningView {
     pub(super) idempotency_key: String,
@@ -123,125 +84,40 @@ pub(super) struct AvatarPackOpeningView {
     pub(super) created_at_ms: u64,
 }
 
-pub(super) fn pack_id_for_box(box_asset_address: &str) -> String {
-    format!(
-        "cosy-pack-{}",
-        stable_hash_hex(&["box-pack", box_asset_address])
-    )
-}
-
-pub(super) fn pack_opening_idempotency_key(pack_id: &str) -> String {
-    format!("pack-open:{pack_id}")
-}
-
-pub(super) fn avatar_pack_catalog() -> &'static [&'static str] {
-    &[
-        "rati",
-        "cosy-whiskerwind",
-        "cosy-skull",
-        "lyra",
-        "sami",
-        "ravi",
-        "indra",
-        "captain-null",
-    ]
-}
-
-pub(super) fn avatar_pack_catalog_hash() -> String {
-    stable_hash_hex(&[
-        "avatar-pack-catalog-v2-weighted",
-        &avatar_pack_catalog().join("|"),
-    ])
-}
-
-pub(super) fn reveal_seed_for_pack(
+#[cfg(test)]
+pub(super) fn insert_avatar_pack_opening(
+    path: &Path,
     owner_wallet_address: &str,
-    pack_id: &str,
     box_asset_address: Option<&str>,
-) -> String {
-    stable_hash_hex(&[
-        "avatar-pack-reveal-v2-weighted",
-        owner_wallet_address,
-        pack_id,
-        box_asset_address.unwrap_or("external-pack"),
-    ])
-}
-
-pub(super) fn avatar_pack_card_rarity(card_id: &str) -> &str {
-    external_card_spec(card_id)
-        .map(|card| card.rarity.as_str())
-        .or_else(|| seed_card_rarity_for_card_id(card_id))
-        .unwrap_or("common")
-}
-
-pub(super) fn seed_card_rarity_for_card_id(card_id: &str) -> Option<&'static str> {
-    active_content()
-        .cards
-        .iter()
-        .find(|card| card.card_id == card_id)
-        .map(|card| card.rarity.as_str())
-}
-
-pub(super) fn avatar_pack_card_weight(card_id: &str) -> u64 {
-    match avatar_pack_card_rarity(card_id)
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "ultra-rare" | "ultra_rare" | "ultrarare" | "mythic" | "legendary" => 4,
-        "super-rare" | "super_rare" | "superrare" => 10,
-        "rare" => 25,
-        "uncommon" => 40,
-        _ => 60,
-    }
-}
-
-pub(super) fn deterministic_pack_cards(
+    pack_id: &str,
     reveal_seed: &str,
-    already_owned: &BTreeSet<String>,
-) -> Vec<String> {
-    let catalog = avatar_pack_catalog();
-    let count = 3.min(catalog.len());
-    let mut cards = Vec::with_capacity(count);
-    let mut nonce = 0_u64;
-    while cards.len() < count {
-        let mut candidates = catalog
-            .iter()
-            .copied()
-            .filter(|card_id| !cards.iter().any(|chosen| chosen == card_id))
-            .filter(|card_id| !already_owned.contains(*card_id))
-            .collect::<Vec<_>>();
-        if candidates.is_empty() {
-            candidates = catalog
-                .iter()
-                .copied()
-                .filter(|card_id| !cards.iter().any(|chosen| chosen == card_id))
-                .collect();
-        }
-        if candidates.is_empty() {
-            break;
-        }
-        let total_weight = candidates
-            .iter()
-            .map(|card_id| avatar_pack_card_weight(card_id))
-            .sum::<u64>()
-            .max(1);
-        let nonce_text = nonce.to_string();
-        let mut roll =
-            stable_hash_u64(&["weighted-avatar-pack", reveal_seed, &nonce_text]) % total_weight;
-        let mut selected = candidates[0];
-        for card_id in candidates {
-            let weight = avatar_pack_card_weight(card_id);
-            if roll < weight {
-                selected = card_id;
-                break;
-            }
-            roll = roll.saturating_sub(weight);
-        }
-        cards.push(selected.to_string());
-        nonce = nonce.saturating_add(1);
-    }
-    cards
+    catalog_hash: &str,
+    card_ids: &[String],
+    provenance_json: &str,
+) -> io::Result<()> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let card_ids_json = serde_json::to_string(card_ids)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    conn.execute(
+        "INSERT INTO avatar_pack_openings
+            (idempotency_key, owner_wallet_address, box_asset_address, pack_id, reveal_seed,
+             catalog_hash, card_ids_json, provenance_json, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            format!("pack-open:{pack_id}"),
+            owner_wallet_address,
+            box_asset_address,
+            pack_id,
+            reveal_seed,
+            catalog_hash,
+            card_ids_json,
+            provenance_json,
+            now_millis() as i64,
+        ],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
 }
 
 impl RuntimeWorld {
@@ -567,114 +443,22 @@ pub(super) fn seed_pack_id_for_location(location_id: u64) -> Option<String> {
         .and_then(|location| non_empty_pack_id(&location.pack_id))
 }
 
-pub(super) fn location_id_for_card_id(card_id: &str) -> Option<u64> {
-    active_content()
-        .cards
-        .iter()
-        .find(|card| {
-            card.subject_kind == "location"
-                && (card.card_id == card_id || card.external_card_id.as_deref() == Some(card_id))
-        })
-        .map(|card| card.subject_id)
-}
-
 pub(super) fn generated_seed_card_image_url(card_id: &str) -> String {
     format!("/assets/generated/cards/{card_id}.webp")
 }
 
 pub(super) fn apply_location_access(
-    mut card: CardView,
-    location_id: u64,
-    access: &AccessContext,
+    card: CardView,
+    _location_id: u64,
+    _access: &AccessContext,
 ) -> CardView {
-    let rule = location_access_rule(location_id);
-    let owned = access.owns_card(&card.card_id)
-        || rule
-            .required_grant_id
-            .map(|grant_id| access.has_grant(grant_id))
-            .or_else(|| {
-                rule.required_card_id
-                    .map(|card_id| access.owns_card(card_id))
-            })
-            .unwrap_or(false);
-    card.requires_ownership = rule.required_grant_id.is_some() || rule.required_card_id.is_some();
-    card.owned = owned;
-    card.accessible = location_access_allowed(location_id, access);
-    card.access_reason = if card.accessible {
-        None
-    } else {
-        rule.reason.map(ToString::to_string)
-    };
     card
 }
 
-pub(super) fn access_view(
-    access: &AccessContext,
-    location_cards: &BTreeMap<u64, CardView>,
-) -> AccessView {
-    let accessible_card_ids = location_cards
-        .values()
-        .filter(|card| card.accessible)
-        .map(|card| card.card_id.clone())
-        .collect();
-    let locked_card_ids = location_cards
-        .values()
-        .filter(|card| !card.accessible)
-        .map(|card| card.card_id.clone())
-        .collect();
-
-    AccessView {
-        mode: if access.signed_wallet_session {
-            "signed_wallet_entitlements".to_string()
-        } else if access.unsigned_wallet_claim {
-            "unsigned_dev_wallet".to_string()
-        } else {
-            "public_cottage".to_string()
-        },
-        shared_world: true,
-        owner_wallet_address: access.owner_wallet_address.clone(),
-        owned_card_ids: access.owned_card_ids.iter().cloned().collect(),
-        owned_box_ids: access.owned_box_ids.iter().cloned().collect(),
-        unopened_pack_ids: access.unopened_pack_ids.iter().cloned().collect(),
-        granted_entitlement_ids: access.granted_entitlement_ids.iter().cloned().collect(),
-        accessible_card_ids,
-        locked_card_ids,
-    }
-}
-
 pub(super) fn account_view(access: &AccessContext) -> AccountView {
-    let owned_cards = access
-        .owned_card_ids
-        .iter()
-        .filter_map(|card_id| owned_account_card(card_id, access))
-        .collect();
     AccountView {
-        wallet_address: access.owner_wallet_address.clone(),
-        owned_cards,
-        active_box_ids: access.owned_box_ids.iter().cloned().collect(),
-        unopened_pack_ids: access.unopened_pack_ids.iter().cloned().collect(),
-        recent_box_receipts: Vec::new(),
-        recent_pack_openings: Vec::new(),
-        materialization_receipts: Vec::new(),
-        item_materialization_migrations: Vec::new(),
+        linked_wallet_address: access.owner_wallet_address.clone(),
     }
-}
-
-pub(super) fn owned_account_card(card_id: &str, access: &AccessContext) -> Option<CardView> {
-    let mut card = active_content()
-        .cards
-        .iter()
-        .find(|card| card.card_id == card_id || card.external_card_id.as_deref() == Some(card_id))
-        .map(card_from_seed_content)
-        .or_else(|| external_card_by_id(card_id))?;
-    if let Some(location_id) = location_id_for_card_id(card_id) {
-        card = apply_location_access(card, location_id, access);
-    } else {
-        card.owned = true;
-        card.accessible = true;
-        card.access_reason = None;
-    }
-    Some(card)
 }
 
 pub(super) fn parse_card_ids(value: &str) -> Vec<String> {
@@ -1076,10 +860,6 @@ pub(super) fn card_from_seed_content(card: &SeedCardContent) -> CardView {
         terrain: Vec::new(),
         image_url,
         chain_image_uri: card.chain_image_uri.clone(),
-        requires_ownership: card.requires_ownership,
-        owned: false,
-        accessible: true,
-        access_reason: None,
         generation_policy: None,
         community_art: None,
     }
@@ -1172,10 +952,6 @@ pub(super) fn external_card_view(spec: &ExternalCardSpec) -> CardView {
         terrain: Vec::new(),
         image_url: Some(spec.image_url.clone()),
         chain_image_uri: Some(spec.chain_image_uri.clone()),
-        requires_ownership: false,
-        owned: false,
-        accessible: true,
-        access_reason: None,
         generation_policy: None,
         community_art: None,
     }
@@ -1224,330 +1000,9 @@ pub(super) fn seed_card(spec: SeedCardSpec<'_>) -> CardView {
         terrain: Vec::new(),
         image_url,
         chain_image_uri: None,
-        requires_ownership: false,
-        owned: false,
-        accessible: true,
-        access_reason: None,
         generation_policy: None,
         community_art: None,
     }
-}
-
-pub(super) async fn pack_open(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<PackOpenRequest>,
-) -> Json<PackOpenResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("nft-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return Json(PackOpenResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS as u16,
-            opening: None,
-            error: Some("NFT action rate limited".to_string()),
-        });
-    }
-    let Some(path) = state.event_store_path.as_deref() else {
-        return Json(PackOpenResponse {
-            ok: false,
-            status: 503,
-            opening: None,
-            error: Some("event store is required for avatar bundle opening".to_string()),
-        });
-    };
-    let Some(wallet_address) = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token))
-    else {
-        return Json(PackOpenResponse {
-            ok: false,
-            status: 401,
-            opening: None,
-            error: Some("signed wallet session required".to_string()),
-        });
-    };
-    let Some(pack_id) = normalize_asset_id(&payload.pack_id) else {
-        return Json(PackOpenResponse {
-            ok: false,
-            status: 400,
-            opening: None,
-            error: Some("avatar bundle id is required".to_string()),
-        });
-    };
-
-    match avatar_pack_opening_by_pack(path, &pack_id) {
-        Ok(Some(opening)) if opening.owner_wallet_address == wallet_address => {
-            if let Ok(mut ownership) = state.ownership_index.try_write() {
-                ownership.apply_pack_opening(&wallet_address, &pack_id, &opening.card_ids);
-            }
-            return Json(PackOpenResponse {
-                ok: true,
-                status: 200,
-                opening: Some(opening),
-                error: None,
-            });
-        }
-        Ok(Some(_)) => {
-            return Json(PackOpenResponse {
-                ok: false,
-                status: 409,
-                opening: None,
-                error: Some("avatar bundle already opened by another wallet".to_string()),
-            });
-        }
-        Ok(None) => {}
-        Err(error) => {
-            return Json(PackOpenResponse {
-                ok: false,
-                status: 500,
-                opening: None,
-                error: Some(error.to_string()),
-            });
-        }
-    }
-
-    let receipt = match wooden_box_receipt_by_pack(path, &pack_id) {
-        Ok(receipt) => receipt,
-        Err(error) => {
-            return Json(PackOpenResponse {
-                ok: false,
-                status: 500,
-                opening: None,
-                error: Some(error.to_string()),
-            });
-        }
-    };
-    let ownership = state.ownership_snapshot().await;
-    let trusted_pack = ownership
-        .packs_for_wallet(&wallet_address)
-        .contains(&pack_id);
-    if let Some(receipt) = receipt.as_ref() {
-        if receipt.owner_wallet_address != wallet_address {
-            return Json(PackOpenResponse {
-                ok: false,
-                status: 403,
-                opening: None,
-                error: Some("avatar bundle receipt belongs to another wallet".to_string()),
-            });
-        }
-        if receipt.status != "burned" {
-            return Json(PackOpenResponse {
-                ok: false,
-                status: 409,
-                opening: None,
-                error: Some("avatar bundle is not unopened".to_string()),
-            });
-        }
-    } else if !trusted_pack {
-        return Json(PackOpenResponse {
-            ok: false,
-            status: 403,
-            opening: None,
-            error: Some("avatar bundle is not active in the trusted ownership feed".to_string()),
-        });
-    }
-
-    let box_asset_address = receipt
-        .as_ref()
-        .map(|receipt| receipt.box_asset_address.as_str());
-    let reveal_seed = reveal_seed_for_pack(&wallet_address, &pack_id, box_asset_address);
-    let catalog_hash = avatar_pack_catalog_hash();
-    let already_owned = ownership.cards_for_wallet(&wallet_address);
-    let card_ids = deterministic_pack_cards(&reveal_seed, &already_owned);
-    let provenance_json = serde_json::json!({
-        "version": 1,
-        "source": "cosyworld_v2_staging",
-        "verification_status": receipt
-            .as_ref()
-            .map(|receipt| receipt.verification_status.as_str())
-            .unwrap_or("trusted_feed_external_pack"),
-        "box_asset_address": box_asset_address,
-        "pack_id": pack_id,
-        "catalog_hash": catalog_hash,
-        "reveal_seed": reveal_seed,
-    })
-    .to_string();
-
-    match insert_avatar_pack_opening(
-        path,
-        &wallet_address,
-        box_asset_address,
-        &pack_id,
-        &reveal_seed,
-        &catalog_hash,
-        &card_ids,
-        &provenance_json,
-    ) {
-        Ok(opening) => {
-            if receipt.is_some() {
-                if let Err(error) = mark_wooden_box_receipt_opened(path, &pack_id) {
-                    warn!("failed to mark Wooden Box receipt opened for {pack_id}: {error}");
-                }
-            }
-            if let Ok(mut ownership) = state.ownership_index.try_write() {
-                ownership.apply_pack_opening(&wallet_address, &pack_id, &opening.card_ids);
-            }
-            Json(PackOpenResponse {
-                ok: true,
-                status: 200,
-                opening: Some(opening),
-                error: None,
-            })
-        }
-        Err(error) => Json(PackOpenResponse {
-            ok: false,
-            status: 409,
-            opening: None,
-            error: Some(error.to_string()),
-        }),
-    }
-}
-
-pub(super) fn insert_avatar_pack_opening(
-    path: &Path,
-    owner_wallet_address: &str,
-    box_asset_address: Option<&str>,
-    pack_id: &str,
-    reveal_seed: &str,
-    catalog_hash: &str,
-    card_ids: &[String],
-    provenance_json: &str,
-) -> io::Result<AvatarPackOpeningView> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    let idempotency_key = pack_opening_idempotency_key(pack_id);
-    let card_ids_json = serde_json::to_string(card_ids)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    conn.execute(
-        "INSERT INTO avatar_pack_openings
-            (idempotency_key, owner_wallet_address, box_asset_address, pack_id, reveal_seed,
-             catalog_hash, card_ids_json, provenance_json, created_at_ms)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![
-            idempotency_key,
-            owner_wallet_address,
-            box_asset_address,
-            pack_id,
-            reveal_seed,
-            catalog_hash,
-            card_ids_json,
-            provenance_json,
-            now_millis() as i64,
-        ],
-    )
-    .map_err(sqlite_error)?;
-    avatar_pack_opening_by_pack(path, pack_id)?
-        .ok_or_else(|| io::Error::other("avatar pack opening insert did not return a row"))
-}
-
-pub(super) fn avatar_pack_opening_by_pack(
-    path: &Path,
-    pack_id: &str,
-) -> io::Result<Option<AvatarPackOpeningView>> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    conn.query_row(
-        "SELECT idempotency_key, owner_wallet_address, box_asset_address, pack_id,
-                reveal_seed, catalog_hash, card_ids_json, provenance_json, created_at_ms
-         FROM avatar_pack_openings
-         WHERE pack_id = ?1",
-        params![pack_id],
-        |row| {
-            let card_ids_json: String = row.get(6)?;
-            let card_ids = serde_json::from_str(&card_ids_json).unwrap_or_default();
-            Ok(AvatarPackOpeningView {
-                idempotency_key: row.get(0)?,
-                owner_wallet_address: row.get(1)?,
-                box_asset_address: row.get(2)?,
-                pack_id: row.get(3)?,
-                reveal_seed: row.get(4)?,
-                catalog_hash: row.get(5)?,
-                card_ids,
-                provenance_json: row.get(7)?,
-                created_at_ms: row.get::<_, i64>(8)?.max(0) as u64,
-            })
-        },
-    )
-    .optional()
-    .map_err(sqlite_error)
-}
-
-pub(super) fn load_account_activity_view(
-    path: &Path,
-    access: &AccessContext,
-    limit: usize,
-) -> io::Result<AccountView> {
-    let mut account = account_view(access);
-    let Some(wallet) = access.owner_wallet_address.as_deref() else {
-        return Ok(account);
-    };
-    let limit = i64::try_from(limit.min(25)).unwrap_or(25);
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-
-    {
-        let mut stmt = conn
-            .prepare(
-                "SELECT box_asset_address, owner_wallet_address, status, burn_signature,
-                        verification_status, pack_id, created_at_ms, updated_at_ms
-                 FROM wooden_box_receipts
-                 WHERE owner_wallet_address = ?1
-                 ORDER BY updated_at_ms DESC, created_at_ms DESC
-                 LIMIT ?2",
-            )
-            .map_err(sqlite_error)?;
-        let rows = stmt
-            .query_map(params![wallet, limit], |row| {
-                Ok(WoodenBoxReceiptView {
-                    box_asset_address: row.get(0)?,
-                    owner_wallet_address: row.get(1)?,
-                    status: row.get(2)?,
-                    burn_signature: row.get(3)?,
-                    verification_status: row.get(4)?,
-                    pack_id: row.get(5)?,
-                    created_at_ms: row.get::<_, i64>(6)?.max(0) as u64,
-                    updated_at_ms: row.get::<_, i64>(7)?.max(0) as u64,
-                })
-            })
-            .map_err(sqlite_error)?;
-        account.recent_box_receipts = rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?;
-    }
-
-    {
-        let mut stmt = conn
-            .prepare(
-                "SELECT idempotency_key, owner_wallet_address, box_asset_address, pack_id,
-                        reveal_seed, catalog_hash, card_ids_json, provenance_json, created_at_ms
-                 FROM avatar_pack_openings
-                 WHERE owner_wallet_address = ?1
-                 ORDER BY created_at_ms DESC
-                 LIMIT ?2",
-            )
-            .map_err(sqlite_error)?;
-        let rows = stmt
-            .query_map(params![wallet, limit], |row| {
-                let card_ids_json: String = row.get(6)?;
-                let card_ids = serde_json::from_str(&card_ids_json).unwrap_or_default();
-                Ok(AvatarPackOpeningView {
-                    idempotency_key: row.get(0)?,
-                    owner_wallet_address: row.get(1)?,
-                    box_asset_address: row.get(2)?,
-                    pack_id: row.get(3)?,
-                    reveal_seed: row.get(4)?,
-                    catalog_hash: row.get(5)?,
-                    card_ids,
-                    provenance_json: row.get(7)?,
-                    created_at_ms: row.get::<_, i64>(8)?.max(0) as u64,
-                })
-            })
-            .map_err(sqlite_error)?;
-        account.recent_pack_openings = rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?;
-    }
-
-    Ok(account)
 }
 
 impl RuntimeWorld {

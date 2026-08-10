@@ -44,18 +44,13 @@ fly deploy
 Before the production machine boots, set the required secrets:
 
 ```bash
-fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
+fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
 ```
 
-Before enabling production Box burns, set the chain verifier secrets:
-
-```bash
-fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
-fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
-```
-
-The Fly config runs with `COSYWORLD_DEPLOY_PROFILE=production`, persistent `/data` storage, the SQLite event journal, and the protected Ruby High ownership feed.
+The Fly config runs with `COSYWORLD_DEPLOY_PROFILE=production`, persistent
+`/data` storage, and the SQLite event journal. The protected linked-avatar feed
+is optional; ordinary play boots without it.
 
 Passkey authentication also requires an exact WebAuthn relying-party configuration. The RP ID is the deployment hostname without a scheme; the origin is the public HTTPS origin:
 
@@ -90,9 +85,8 @@ Create a `.env` file with:
 - **Storage:** `S3_API_ENDPOINT`, `S3_API_KEY`, `S3_API_SECRET`, `CLOUDFRONT_DOMAIN`
 - **Discord:** `DISCORD_BOT_TOKEN`
 - **Performance:** `MEMORY_CACHE_SIZE`, `MAX_CONCURRENT_REQUESTS`
-- **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`, `COSYWORLD_MODERATION_TOKEN`
+- **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_MODERATION_TOKEN`, and optional `COSYWORLD_AVATAR_OWNERSHIP_FEED_URL` plus `COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER` for linked-avatar discovery.
 - **V2 Passkeys:** `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional comma-separated `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS`. Production refuses to boot without the RP ID and origin.
-- **V2 Box Burns:** `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`, `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until these are configured, production Box burn endpoints stay closed.
 - **V2 Process Label:** `COSYWORLD_PROCESS_ID` is the unique replaceable process
   label shown in `/meta`. `COSYWORLD_V2_SHARD_ID` remains a matching legacy
   alias during migration. Neither may be used as a world, room, actor,
@@ -114,10 +108,8 @@ Create a `.env` file with:
 
 ### Retiring legacy item materialization
 
-The item collectible bridge is a read-only compatibility surface. Deploy the
-route freeze before a build that performs receipt conversion; never run a build
-that can accept new `POST /collection/materialize` mutations while conversion
-is active.
+The item collectible bridge is an archived, read-only compatibility surface.
+There is no materialize or return mutation route.
 
 On boot, after snapshot or journal replay and before accepting traffic, the V2
 runtime deterministically classifies every legacy item receipt. It writes one
@@ -135,7 +127,7 @@ versioned migration receipt for each non-avatar receipt:
   its dedicated adapter.
 
 Inspect `GET /meta` at the release boundary. Under
-`nft.item_materialization.receipts`, `migration_receipts` must equal the sum of
+`migration_archive.item_materialization.receipts`, `migration_receipts` must equal the sum of
 `preserved_ordinary_world_items`, `archived_collection_returns`, and
 `quarantined`. Review every non-zero quarantine count against the preserved
 legacy receipt coordinates before continuing removal work.
@@ -148,11 +140,8 @@ contains the item. Repeated migration is a no-op. Boot fails closed if a stored
 migration receipt no longer matches its retained legacy coordinates or typed
 outcome.
 
-During the compatibility window, repeated return requests are stable: an
-already returned receipt remains a successful no-op, while a preserved or
-quarantined receipt returns `410` with its typed migration receipt and cannot
-delete the ordinary world item. Do not remove this audit state until a separate
-retention policy explicitly authorizes deletion.
+No player return request is accepted. Do not remove this audit state until a
+separate retention policy explicitly authorizes deletion.
 
 ---
 

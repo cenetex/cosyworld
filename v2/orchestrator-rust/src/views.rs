@@ -305,7 +305,6 @@ pub(super) struct StateResponse {
     #[allow(dead_code)]
     #[serde(skip_serializing)]
     pub(super) card_transactions: Vec<CardTransactionView>,
-    pub(super) access: AccessView,
     pub(super) account: AccountView,
     pub(super) economy: EconomyView,
     pub(super) deck: DeckView,
@@ -934,8 +933,6 @@ pub(super) struct EconomyView {
     pub(super) listen_attempted_here: bool,
     pub(super) openrouter_connected: bool,
     pub(super) chat_payer: String,
-    pub(super) wooden_boxes: usize,
-    pub(super) unopened_packs: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -989,7 +986,6 @@ pub(super) struct WorldResponse {
     pub(super) shared_world: bool,
     pub(super) current_actor_id: Option<u64>,
     pub(super) current_location_id: Option<u64>,
-    pub(super) access: AccessView,
     pub(super) factions: Vec<FactionView>,
     pub(super) simulation: WorldSimulationView,
     pub(super) locations: Vec<WorldLocationView>,
@@ -1049,9 +1045,6 @@ pub(super) struct WorldLocationView {
     pub(super) simulation: LocationSimulationView,
     pub(super) public: bool,
     pub(super) accessible: bool,
-    pub(super) required_grant_id: Option<String>,
-    pub(super) required_card_id: Option<String>,
-    pub(super) access_reason: Option<String>,
     pub(super) card: CardView,
     pub(super) actor_count: usize,
     pub(super) direct_input_actor_count: usize,
@@ -1118,9 +1111,6 @@ pub(super) struct ExitView {
     pub(super) distance: u8,
     pub(super) locked: bool,
     pub(super) accessible: bool,
-    pub(super) required_grant_id: Option<String>,
-    pub(super) required_card_id: Option<String>,
-    pub(super) access_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) threshold: Option<ThresholdOfferBinding>,
 }
@@ -2730,7 +2720,6 @@ impl RuntimeWorld {
                     .as_ref()
                     .map(|(_, allowed)| !allowed)
                     .unwrap_or(exit.flags & CW_EXIT_LOCKED != 0);
-                let access_rule = location_access_rule(exit.to_location_id);
                 let accessible = location_access_allowed(exit.to_location_id, access);
                 Some(ExitView {
                     route_id: route.id.clone(),
@@ -2745,13 +2734,6 @@ impl RuntimeWorld {
                     distance: self.pathway_distance(exit.from_location_id, exit.to_location_id),
                     locked,
                     accessible,
-                    required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
-                    required_card_id: access_rule.required_card_id.map(ToString::to_string),
-                    access_reason: if accessible {
-                        None
-                    } else {
-                        access_rule.reason.map(ToString::to_string)
-                    },
                     threshold: threshold.map(|(binding, _)| binding),
                 })
             })
@@ -2845,7 +2827,6 @@ impl RuntimeWorld {
             self.card_registry_for(&location, &actors, &items, &exits, access, client_actor_id);
         let card_transactions =
             self.card_transaction_views(location_id, &actors, &items, &exits, &cards);
-        let access_view = access_view(access, &cards.locations);
         let orbs = client_actor_id.map(|id| self.orb_balance(id)).unwrap_or(0);
         let listen_reward_claimable = client_actor_id
             .map(|id| self.listen_reward_claimable(id))
@@ -2973,7 +2954,6 @@ impl RuntimeWorld {
             chat_bond_claimed_target_ids,
             cards,
             card_transactions,
-            access: access_view,
             account: account_view(access),
             economy: EconomyView {
                 orbs,
@@ -3004,8 +2984,6 @@ impl RuntimeWorld {
                 listen_attempted_here,
                 openrouter_connected: false,
                 chat_payer: "cosyworld_system".to_string(),
-                wooden_boxes: access.owned_box_ids.len(),
-                unopened_packs: access.unopened_pack_ids.len(),
             },
             deck: self.deck_view(client_actor_id),
             combat: client_actor_id.and_then(|id| self.combat_view(id, access)),
@@ -4374,8 +4352,6 @@ impl RuntimeWorld {
                 ),
             );
         }
-        let access_view = access_view(access, &location_cards);
-
         let locations = self.world.locations[..self.world.location_count]
             .iter()
             .filter(|location| visible_location_ids.contains(&location.id))
@@ -4384,7 +4360,6 @@ impl RuntimeWorld {
                     .location_name(location.id)
                     .unwrap_or_else(|| format!("Location {}", location.id));
                 let meta = self.location_meta_for(location.id);
-                let access_rule = location_access_rule(location.id);
                 let accessible = location_access_allowed(location.id, access);
                 let actors_in_location: Vec<CwActor> = self.world.actors[..self.world.actor_count]
                     .iter()
@@ -4475,16 +4450,8 @@ impl RuntimeWorld {
                     interior_view: meta.interior_view,
                     factions: faction_refs_for_location(location.id),
                     simulation: self.location_simulation_view(location.id),
-                    public: access_rule.required_grant_id.is_none()
-                        && access_rule.required_card_id.is_none(),
+                    public: true,
                     accessible,
-                    required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
-                    required_card_id: access_rule.required_card_id.map(ToString::to_string),
-                    access_reason: if accessible {
-                        None
-                    } else {
-                        access_rule.reason.map(ToString::to_string)
-                    },
                     card,
                     actor_count,
                     direct_input_actor_count,
@@ -4506,7 +4473,6 @@ impl RuntimeWorld {
             shared_world: true,
             current_actor_id: client_actor_id,
             current_location_id,
-            access: access_view,
             factions: faction_views(),
             simulation: self.world_simulation_view(),
             locations,

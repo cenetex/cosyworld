@@ -131,9 +131,6 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(wallet_claim_challenge),
         )
         .route("/wallet/claim/{claim_id}/finish", post(wallet_claim_finish))
-        .route("/nft/boxes/burn-prepare", post(box_burn_prepare))
-        .route("/nft/boxes/burn-confirm", post(box_burn_confirm))
-        .route("/nft/packs/open", post(pack_open))
         .route("/state", get(state_view))
         .route(
             "/story/world-beat-exposures",
@@ -154,14 +151,14 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/invites", post(create_canonical_invite))
         .route("/invites/{invite_id}", get(canonical_invite))
         .route("/invites/{invite_id}/follow", post(follow_canonical_invite))
-        .route("/parties/{party_id}/leave", post(leave_hosted_party))
+        .route("/parties/{party_id}/leave", post(leave_rendezvous_party))
         .route(
             "/parties/{party_id}/members/{guest_actor_id}/remove",
-            post(remove_hosted_party_member_action),
+            post(remove_rendezvous_party_member_action),
         )
         .route(
             "/parties/{party_id}/revoke",
-            post(revoke_hosted_party_action),
+            post(revoke_rendezvous_party_action),
         )
         .route("/moderation/activation", get(activation_metrics_view))
         .route(
@@ -292,11 +289,6 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/set-spell-prepared", post(set_spell_prepared))
         .route("/actions/set-item-equipped", post(set_item_equipped))
         .route("/actions/set-item-contained", post(set_item_contained))
-        .route("/collection/materialize", post(materialize_collection_item))
-        .route(
-            "/collection/unmaterialize",
-            post(unmaterialize_collection_item),
-        )
         .route(
             "/actions/resolve-bond",
             post(legacy_action_requires_certificate),
