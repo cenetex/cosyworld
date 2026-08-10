@@ -47,6 +47,7 @@ pub(super) struct SeedContent {
     pub(super) card_bindings: Vec<SeedCardBindingContent>,
     pub(super) lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     pub(super) evolution_tracks: Vec<SeedEvolutionTrack>,
+    pub(super) avatar_level_tracks: Vec<SeedAvatarLevelTrackContent>,
     pub(super) recipes: Vec<SeedRecipeContent>,
     pub(super) rules: Vec<SeedRuleBundle>,
     pub(super) contributions: Vec<SeedContributionBundle>,
@@ -713,6 +714,10 @@ pub(super) struct SeedActorContent {
     pub(super) title: String,
     pub(super) description: String,
     #[serde(default)]
+    pub(super) identity: Option<SeedActorIdentityContent>,
+    #[serde(default)]
+    pub(super) level_track_id: Option<String>,
+    #[serde(default)]
     pub(super) voice: String,
     #[serde(default)]
     pub(super) ambient_autonomy: Option<bool>,
@@ -728,6 +733,37 @@ pub(super) struct SeedActorContent {
     pub(super) attachments: Vec<SeedResidentAttachmentContent>,
     #[serde(default)]
     pub(super) relationship: Option<SeedRelationshipContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedActorIdentityContent {
+    #[serde(default = "default_actor_identity_mode")]
+    pub(super) mode: String,
+    #[serde(default)]
+    pub(super) canonical_description: String,
+    #[serde(default)]
+    pub(super) appearance: String,
+    #[serde(default)]
+    pub(super) persona: String,
+    #[serde(default)]
+    pub(super) mutable_traits: Vec<String>,
+}
+
+fn default_actor_identity_mode() -> String {
+    "authored".to_string()
+}
+
+impl Default for SeedActorIdentityContent {
+    fn default() -> Self {
+        Self {
+            mode: default_actor_identity_mode(),
+            canonical_description: String::new(),
+            appearance: String::new(),
+            persona: String::new(),
+            mutable_traits: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1087,6 +1123,79 @@ pub(super) struct SeedEvolutionRequirementContent {
     pub(super) item_id: u64,
     pub(super) target_kind: String,
     pub(super) target_id: u64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedAvatarLevelTrackContent {
+    #[serde(default)]
+    pub(super) pack_id: String,
+    pub(super) id: String,
+    #[serde(default)]
+    pub(super) actor_ids: Vec<u64>,
+    #[serde(default)]
+    pub(super) actor_pack_id: Option<String>,
+    #[serde(default)]
+    pub(super) speech_modes: Vec<String>,
+    #[serde(default)]
+    pub(super) identity: SeedActorIdentityContent,
+    pub(super) max_level: u8,
+    pub(super) levels: Vec<SeedAvatarLevelContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedAvatarLevelContent {
+    pub(super) level: u8,
+    pub(super) label: String,
+    #[serde(default)]
+    pub(super) requirements: Vec<SeedAvatarLevelRequirementContent>,
+    #[serde(default)]
+    pub(super) chance: Option<SeedAvatarLevelChanceContent>,
+    #[serde(default)]
+    pub(super) effects: Vec<SeedAvatarLevelEffectContent>,
+    #[serde(default)]
+    pub(super) appearance_changes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedAvatarLevelRequirementContent {
+    pub(super) event_type: String,
+    #[serde(default = "default_level_requirement_count")]
+    pub(super) count: u16,
+    #[serde(default = "default_level_requirement_role")]
+    pub(super) actor_role: String,
+    #[serde(default)]
+    pub(super) distinct_locations: u8,
+}
+
+fn default_level_requirement_count() -> u16 {
+    1
+}
+
+fn default_level_requirement_role() -> String {
+    "actor".to_string()
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedAvatarLevelChanceContent {
+    pub(super) ability: String,
+    pub(super) dc: u16,
+    #[serde(default = "default_level_retry_policy")]
+    pub(super) retry: String,
+}
+
+fn default_level_retry_policy() -> String {
+    "new_evidence".to_string()
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SeedAvatarLevelEffectContent {
+    pub(super) kind: String,
+    pub(super) amount: i16,
 }
 
 fn default_recipe_schema_version() -> u8 {
@@ -2161,6 +2270,9 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 actor.id
             ));
         }
+        if let Some(identity) = actor.identity.as_ref() {
+            validate_actor_identity(&format!("seed actor {}", actor.id), identity)?;
+        }
         let Some(stats) = actor.stats.as_ref() else {
             return Err(format!("seed actor {} is missing stats", actor.id));
         };
@@ -2222,6 +2334,150 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         if bound_actor_count != actor_count {
             return Err(format!(
                 "actor model bindings for {pack_id} cover {bound_actor_count} of {actor_count} actors"
+            ));
+        }
+    }
+
+    let mut avatar_level_track_ids = BTreeSet::new();
+    for track in &content.avatar_level_tracks {
+        if track.pack_id.trim().is_empty()
+            || track.id.trim().is_empty()
+            || track.id.chars().count() > 128
+            || !avatar_level_track_ids.insert(track.id.as_str())
+            || track.max_level == 0
+            || track.max_level > 20
+            || track.levels.len() != usize::from(track.max_level)
+            || (track.actor_ids.is_empty() && track.actor_pack_id.is_none())
+        {
+            return Err(format!("invalid avatar level track {}", track.id));
+        }
+        validate_actor_identity(&format!("avatar level track {}", track.id), &track.identity)?;
+        if track
+            .actor_ids
+            .iter()
+            .any(|actor_id| !actor_ids.contains(actor_id))
+            || track
+                .actor_pack_id
+                .as_ref()
+                .is_some_and(|pack_id| pack_id.trim().is_empty())
+            || track.speech_modes.iter().any(|mode| {
+                !matches!(
+                    mode.as_str(),
+                    "raw" | "prose" | "emoji_only" | "emote_only" | "silent" | "unavailable"
+                )
+            })
+        {
+            return Err(format!("invalid avatar selector for track {}", track.id));
+        }
+        let selected_actors = content
+            .actors
+            .iter()
+            .filter(|actor| avatar_level_track_matches_actor(track, actor))
+            .collect::<Vec<_>>();
+        if selected_actors.is_empty()
+            || track.identity.mode != "authored"
+                && selected_actors
+                    .iter()
+                    .any(|actor| actor.speech_mode != "raw" || !model_actor_ids.contains(&actor.id))
+        {
+            return Err(format!(
+                "avatar level track {} selects no eligible actors",
+                track.id
+            ));
+        }
+        for (index, level) in track.levels.iter().enumerate() {
+            let expected_level = u8::try_from(index + 1).unwrap_or(u8::MAX);
+            if level.level != expected_level
+                || level.label.trim().is_empty()
+                || level.label.chars().count() > 80
+                || level
+                    .appearance_changes
+                    .iter()
+                    .any(|value| value.trim().is_empty() || value.chars().count() > 500)
+            {
+                return Err(format!(
+                    "invalid level {} in avatar level track {}",
+                    level.level, track.id
+                ));
+            }
+            if level.level == 1 && (!level.requirements.is_empty() || level.chance.is_some()) {
+                return Err(format!(
+                    "avatar level track {} level 1 cannot have requirements or a chance gate",
+                    track.id
+                ));
+            }
+            for requirement in &level.requirements {
+                if requirement.event_type.trim().is_empty()
+                    || avatar_level_event_is_disallowed(&requirement.event_type)
+                    || requirement.count == 0
+                    || !matches!(
+                        requirement.actor_role.as_str(),
+                        "actor" | "target" | "either"
+                    )
+                    || u16::from(requirement.distinct_locations) > requirement.count
+                {
+                    return Err(format!(
+                        "invalid requirement in avatar level track {} level {}",
+                        track.id, level.level
+                    ));
+                }
+            }
+            if let Some(chance) = level.chance.as_ref() {
+                if !matches!(
+                    chance.ability.as_str(),
+                    "strength"
+                        | "dexterity"
+                        | "constitution"
+                        | "intelligence"
+                        | "wisdom"
+                        | "charisma"
+                ) || !(1..=30).contains(&chance.dc)
+                    || chance.retry != "new_evidence"
+                {
+                    return Err(format!(
+                        "invalid chance gate in avatar level track {} level {}",
+                        track.id, level.level
+                    ));
+                }
+            }
+            if level
+                .effects
+                .iter()
+                .any(|effect| effect.kind != "hp_base_delta" || !(1..=100).contains(&effect.amount))
+            {
+                return Err(format!(
+                    "invalid effect in avatar level track {} level {}",
+                    track.id, level.level
+                ));
+            }
+        }
+    }
+    for actor in &content.actors {
+        if actor
+            .level_track_id
+            .as_ref()
+            .is_some_and(|track_id| !avatar_level_track_ids.contains(track_id.as_str()))
+            || actor.identity.as_ref().is_some_and(|identity| {
+                identity.mode != "authored"
+                    && (actor.speech_mode != "raw" || !model_actor_ids.contains(&actor.id))
+            })
+        {
+            return Err(format!(
+                "seed actor {} has an invalid identity or level track",
+                actor.id
+            ));
+        }
+        if actor.level_track_id.is_none()
+            && content
+                .avatar_level_tracks
+                .iter()
+                .filter(|track| avatar_level_track_matches_actor(track, actor))
+                .count()
+                > 1
+        {
+            return Err(format!(
+                "seed actor {} matches multiple avatar level tracks",
+                actor.id
             ));
         }
     }
@@ -3744,6 +4000,54 @@ fn validate_lantern_clock_effect_contract(content: &SeedContent) -> Result<(), S
         ));
     }
     Ok(())
+}
+
+fn validate_actor_identity(owner: &str, identity: &SeedActorIdentityContent) -> Result<(), String> {
+    if !matches!(
+        identity.mode.as_str(),
+        "authored" | "self_authored" | "hybrid"
+    ) || identity.canonical_description.chars().count() > 1_000
+        || identity.appearance.chars().count() > 1_000
+        || identity.persona.chars().count() > 1_000
+        || identity.mutable_traits.len() > 12
+        || identity
+            .mutable_traits
+            .iter()
+            .any(|trait_name| trait_name.trim().is_empty() || trait_name.chars().count() > 80)
+    {
+        return Err(format!("{owner} has an invalid identity policy"));
+    }
+    Ok(())
+}
+
+fn avatar_level_track_matches_actor(
+    track: &SeedAvatarLevelTrackContent,
+    actor: &SeedActorContent,
+) -> bool {
+    (track.actor_ids.is_empty() || track.actor_ids.contains(&actor.id))
+        && track
+            .actor_pack_id
+            .as_ref()
+            .is_none_or(|pack_id| pack_id == &actor.pack_id)
+        && (track.speech_modes.is_empty() || track.speech_modes.contains(&actor.speech_mode))
+}
+
+fn avatar_level_event_is_disallowed(event_type: &str) -> bool {
+    let event_type = event_type.trim().to_ascii_lowercase();
+    [
+        "message.",
+        "chat.",
+        "model.",
+        "ai.",
+        "orb.",
+        "currency.",
+        "avatar.self_description",
+        "avatar.reflection",
+        "thought.",
+        "dream.",
+    ]
+    .iter()
+    .any(|prefix| event_type.starts_with(prefix))
 }
 
 fn validate_seed_stats(actor_id: u64, stats: &SeedStatBlockContent) -> Result<(), String> {

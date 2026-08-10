@@ -19,6 +19,7 @@ import {
 } from "./content-references.mjs";
 import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
 import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
+import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
 import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
 import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
@@ -80,6 +81,7 @@ const resourceFiles = {
 };
 const optionalResourceFiles = {
   actor_model_bindings: "actor_model_bindings.json",
+  avatar_level_tracks: "avatar_level_tracks.json",
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
@@ -1077,6 +1079,13 @@ for (const { manifest: packManifest } of packs) {
   )) {
     assert(false, error);
   }
+}
+for (const error of avatarLevelSchemaValidationErrors({
+  actors: resources.actors,
+  tracks: resources.avatar_level_tracks,
+  actorModelBindings: resources.actor_model_bindings,
+})) {
+  assert(false, error);
 }
 validateCompiledFirstTale(firstTale, resources);
 const packManifestById = new Map(packs.map((pack) => [pack.manifest.id, pack.manifest]));

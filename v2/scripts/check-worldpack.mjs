@@ -18,6 +18,7 @@ import {
 } from "./content-references.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { actorModelBindingValidationErrors } from "./actor-model-binding-schema.mjs";
+import { avatarLevelSchemaValidationErrors } from "./avatar-level-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { lanternClockEffectValidationErrors } from "./lantern-clock-contract.mjs";
@@ -378,6 +379,9 @@ function placementTargetKind(kind) {
 const manifest = readJson("worldpack.json");
 if (manifest?.files?.actor_model_bindings === "actor_model_bindings.json") {
   expectedFiles.actor_model_bindings = "actor_model_bindings.json";
+}
+if (manifest?.files?.avatar_level_tracks === "avatar_level_tracks.json") {
+  expectedFiles.avatar_level_tracks = "avatar_level_tracks.json";
 }
 if (!isObject(manifest)) {
   throw new Error("worldpack.json could not be parsed");
@@ -1255,6 +1259,13 @@ for (const pack of packs) {
   )) {
     fail(error);
   }
+}
+for (const error of avatarLevelSchemaValidationErrors({
+  actors,
+  tracks: content.avatar_level_tracks,
+  actorModelBindings,
+})) {
+  fail(error);
 }
 const actorFacets = content.actor_facets;
 const accessGates = content.access_gates;

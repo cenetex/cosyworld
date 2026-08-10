@@ -53,7 +53,8 @@ a logbook, not an epigraph.
 ### 4. Journal (current place, open threads, and story so far)
 
 The production Journal is a player chronicle, not an event inspector. Its
-compact presentation may resemble a logbook, but its copy never exposes event
+presentation resembles a warm storybook: a short chapter recap followed by
+small, turnable pages of remembered moments. Its copy never exposes event
 types, tags, payload grammar, source sequence numbers, or debug fallbacks.
 
 The three Journal regions have different jobs:
@@ -64,17 +65,20 @@ The three Journal regions have different jobs:
   Vague encouragement such as "lets what happened shape what comes next" is
   omitted until the choice can be named.
 - **Story so far** records meaningful committed outcomes in chronological
-  order. One entry may group several canonical events.
+  order. One entry may group several canonical events. The chapter recap names
+  the dominant themes and latest turn using only those curated beats; it does
+  not call a language model or invent connective lore.
 
 History headlines use named third-person past tense, an explicit subject, and
 a meaningful verb: "Elsie discovered a path to the Old Oak Tree." They never
 use `event`, `tag`, dotted machine keys, arrow movement, or subjectless
 fragments such as "is now path to…".
 
-A collapsed entry answers what happened. Expansion is offered only when it
-adds a distinct fact: context, durable change, consequence, or unresolved
-matter. Repeating the headline with punctuation is not detail. The room-header
-ticker uses the exact latest visible headline rather than a second formatter.
+Each page carries no more than six beats so history reads as a sequence of
+leaves rather than an event wall. A clipped entry may unfold to reveal the same
+complete, authoritative sentence; that responsive disclosure is a reading aid,
+not a second layer of facts. The room-header ticker uses the exact latest
+visible headline rather than a second formatter.
 
 Journal copy is a deterministic projection of committed state. Unknown source
 events stay out of player copy and become presentation-coverage diagnostics;

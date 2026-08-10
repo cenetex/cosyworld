@@ -3,7 +3,7 @@ use crate::ai_voice_routing::{route_certified_voice, VoiceAttemptRequest};
 
 const AVATAR_THOUGHT_PROMPT_VERSION: &str = "avatar-thought-context-spine-v2";
 const AVATAR_DREAM_PROMPT_VERSION: &str = "avatar-dream-context-spine-v2";
-const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v2";
+const AVATAR_SELF_DESCRIPTION_PROMPT_VERSION: &str = "avatar-self-description-context-spine-v3";
 const REASONING_THOUGHT_MEMORY_MAX_WORDS: usize = 45;
 const ITEM_SELF_DESCRIPTION_PROMPT_VERSION: &str = "item-self-description-context-spine-v2";
 const LOCATION_SELF_DESCRIPTION_PROMPT_VERSION: &str = "location-self-description-context-spine-v2";
@@ -22,6 +22,8 @@ pub(super) struct AvatarSelfDescriptionProjection {
     pub(super) caused_by_event_seq: Option<u64>,
     pub(super) source_world_tick: u64,
     pub(super) observed_through_seq: u64,
+    #[serde(default)]
+    pub(super) identity: AvatarLevelIdentity,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -339,6 +341,11 @@ impl RuntimeWorld {
             .get(&projection.content_id)
             .cloned()
             .unwrap_or_default();
+        self.entity_memories
+            .entry(WorldEntityRef::avatar(actor_id).key())
+            .or_default()
+            .identity_by_level
+            .insert(projection.level, projection.identity.clone());
         self.append_avatar_self_description_event(
             actor_id,
             projection.content_id,
@@ -350,6 +357,36 @@ impl RuntimeWorld {
             Some(projection.observed_through_seq),
         )
     }
+}
+
+fn parse_avatar_level_identity(content: &str) -> Result<AvatarLevelIdentity, String> {
+    let mut identity = AvatarLevelIdentity::default();
+    for line in content
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let Some((label, value)) = line.split_once(':') else {
+            continue;
+        };
+        let value = value.trim();
+        match label.trim().to_ascii_uppercase().as_str() {
+            "PERSONA" => identity.persona = value.to_string(),
+            "APPEARANCE" => identity.appearance = value.to_string(),
+            "CONTINUITY" => identity.continuity = value.to_string(),
+            _ => {}
+        }
+    }
+    if identity.persona.trim().is_empty()
+        || identity.appearance.trim().is_empty()
+        || identity.continuity.trim().is_empty()
+    {
+        return Err(
+            "avatar self-description must contain PERSONA, APPEARANCE, and CONTINUITY lines"
+                .to_string(),
+        );
+    }
+    Ok(identity)
 }
 
 fn reflection_context_spine(job: &AvatarReflectionJob) -> AvatarContextSpine {
@@ -542,7 +579,7 @@ async fn complete_avatar_self_description(
     state: &AppState,
     source_job: &AvatarReflectionJob,
 ) -> Result<(), String> {
-    let spine = {
+    let (spine, model_binding) = {
         let runtime = state.inner.lock().await;
         let actor = runtime
             .actor_by_id(source_job.actor_id)
@@ -551,7 +588,7 @@ async fn complete_avatar_self_description(
         if !runtime.avatar_self_description_due(actor.id, level) {
             return Ok(());
         }
-        runtime
+        let spine = runtime
             .avatar_context_spine(
                 actor.id,
                 None,
@@ -561,12 +598,36 @@ async fn complete_avatar_self_description(
                     source_job.actor_name
                 ),
             )
-            .ok_or_else(|| "self-description context could not be constructed".to_string())?
+            .ok_or_else(|| "self-description context could not be constructed".to_string())?;
+        let model_binding = active_content()
+            .actor_model_bindings
+            .iter()
+            .find(|binding| {
+                binding.actor_id == actor.id
+                    && binding.input_modalities.iter().any(|mode| mode == "text")
+                    && binding.output_modalities.iter().any(|mode| mode == "text")
+            })
+            .cloned();
+        if runtime
+            .avatar_identity_policy(actor.id)
+            .is_some_and(|identity| identity.mode != "authored")
+            && model_binding.is_none()
+        {
+            return Err(
+                "self-authored identity requires the avatar's exact text model".to_string(),
+            );
+        }
+        (spine, model_binding)
     };
     let level = spine.speaker.level;
+    let speech_mode = if model_binding.is_some() {
+        SpeechMode::Raw
+    } else {
+        SpeechMode::Prose
+    };
     let prompt = spine.prompt(AvatarContextPromptOptions {
         mode: AvatarContextMode::SelfDescription,
-        speech_mode: SpeechMode::Prose,
+        speech_mode,
         max_words: SELF_DESCRIPTION_MAX_WORDS,
         response_job: "Describe the current self from lived evidence. Preserve continuity; make any change an interpretation, not a newly invented deed or fact.".to_string(),
     });
@@ -592,7 +653,7 @@ async fn complete_avatar_self_description(
             temperature: 0.86,
             max_tokens: SELF_DESCRIPTION_MAX_TOKENS,
             referer: "http://127.0.0.1:3102",
-            model_binding: None,
+            model_binding,
             room_id: Some(source_job.source_location_id),
         },
         SpeechGateContext {
@@ -601,7 +662,7 @@ async fn complete_avatar_self_description(
             speaker_actor_id: source_job.actor_id,
             speaker_name: source_job.actor_name.clone(),
             other_speaker_names: source_job.other_speaker_names.clone(),
-            mode: SpeechMode::Prose,
+            mode: speech_mode,
             max_words: SELF_DESCRIPTION_MAX_WORDS,
             anchors: spine.anchors(AvatarContextMode::SelfDescription),
             recent_lines: spine
@@ -624,6 +685,7 @@ async fn complete_avatar_self_description(
         error.to_string()
     })?;
     let (content, receipt) = into_recorded_speech_parts(state, speech);
+    let identity = parse_avatar_level_identity(&content)?;
     let events = {
         let mut runtime = state.inner.lock().await;
         if !runtime.avatar_self_description_due(source_job.actor_id, level) {
@@ -655,6 +717,7 @@ async fn complete_avatar_self_description(
                     caused_by_event_seq: source_job.caused_by_event_seq,
                     source_world_tick: source_job.source_world_tick,
                     observed_through_seq: spine.observed_through_seq,
+                    identity,
                 },
             ));
         let (status, events) = commit_journal_record(state, &mut runtime, record)
@@ -925,6 +988,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn avatar_identity_output_is_split_into_typed_fields() {
+        let identity = parse_avatar_level_identity(
+            "PERSONA: I am curious and deliberate.\nAPPEARANCE: I wear a silver-edged silhouette.\nCONTINUITY: I remember the first threshold I crossed.",
+        )
+        .expect("typed identity");
+        assert_eq!(identity.persona, "I am curious and deliberate.");
+        assert_eq!(identity.appearance, "I wear a silver-edged silhouette.");
+        assert_eq!(
+            identity.continuity,
+            "I remember the first threshold I crossed."
+        );
+    }
+
+    #[test]
+    fn avatar_identity_output_requires_persona_appearance_and_continuity() {
+        assert!(parse_avatar_level_identity("PERSONA: I am still forming.").is_err());
+    }
+
+    #[test]
     fn readable_reasoning_becomes_a_bounded_actor_thought_memory() {
         let mut runtime = RuntimeWorld::seeded();
         let actor_id = 1002;
@@ -1177,6 +1259,7 @@ mod tests {
                     caused_by_event_seq: Some(77),
                     source_world_tick: runtime.world.tick,
                     observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+                    identity: AvatarLevelIdentity::default(),
                 },
             ));
         let (status, events) = runtime.apply_journal_record(&record);

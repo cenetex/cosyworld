@@ -8248,6 +8248,14 @@
       "runtime_handle": 99878812095
     },
     {
+      "canonical_ref": "pack://cosyworld.elysium/avatar-level-track/elysium.embodiment",
+      "pack_id": "cosyworld.elysium",
+      "pack_version": "0.2.0",
+      "kind": "avatar-level-track",
+      "local_id": "elysium.embodiment",
+      "runtime_handle": 5208166688697899
+    },
+    {
       "canonical_ref": "pack://cosyworld.elysium/item/6520000",
       "pack_id": "cosyworld.elysium",
       "pack_version": "0.2.0",

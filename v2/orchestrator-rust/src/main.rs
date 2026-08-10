@@ -17,6 +17,7 @@ mod ai_resident_planning;
 mod ai_voice_routing;
 mod avatar_context_spine;
 mod avatar_identity;
+mod avatar_levels;
 mod avatar_reflections;
 #[cfg(test)]
 mod beliefs_tests;
@@ -324,13 +325,11 @@ impl EventStoreHealth {
         self.consecutive_append_failures = 0;
         self.refresh_error_code();
     }
-
     fn record_read_success(&mut self) {
         self.last_read_success_at_unix = Some(now_unix_secs());
         self.consecutive_read_failures = 0;
         self.refresh_error_code();
     }
-
     fn record_append_failure(&mut self, error: &io::Error) {
         self.last_failure_at_unix = Some(now_unix_secs());
         self.consecutive_append_failures = self.consecutive_append_failures.saturating_add(1);
@@ -9775,6 +9774,7 @@ impl RuntimeWorld {
             }
             let committed_events = events.clone();
             events.extend(self.apply_rules_context_transition_projection(&committed_events));
+            events.extend(self.apply_avatar_level_progression(record.seed, &events.clone()));
             self.record_autonomous_action(record);
             self.refresh_craft_event_presentation(&mut events);
             self.append_lantern_story_receipt(record, &mut events);
