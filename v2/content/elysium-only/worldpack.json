@@ -10,13 +10,14 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
-      "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf"
+      "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf",
+      "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
-  "bundle_hash": "sha256:a7080f42667d80fc2d43ea31900fc096b869784ad10ac5ec712d6a9012b7557e",
+  "bundle_hash": "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -273,7 +274,7 @@
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:faad197a624e2d4f66801cf1f2303845df03b9fa4db12b4b907fc4fae58b5ec0"
+      "integrity": "sha256:52f8b700af98c365bf74a4a8e4ae928c456002e9291ca21b6a83ee42c8aa3a00"
     }
   ],
   "files": {
