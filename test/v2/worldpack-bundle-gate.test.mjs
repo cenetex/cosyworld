@@ -36,7 +36,8 @@ const CANDIDATE_HASH = digest("candidate-bundle");
 const OLDER_HASH = digest("older-declared-bundle");
 const LANTERN_ACTIVE_HASH = "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd";
 const LANTERN_PERSISTED_HASH = "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911";
-const ELYSIUM_ACTIVE_HASH = "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548";
+const ELYSIUM_ACTIVE_HASH = "sha256:3b89e4cae565d664488218ce98eef3baa3a9c26d374bb4c6633e30db126d6e38";
+const ELYSIUM_PREVIOUS_ACTIVE_HASH = "sha256:c70da6c7f66140154fcd8038a03b650ecad5edcb500f61b985299f698a28c548";
 const ELYSIUM_PERSISTED_HASH = "sha256:f4579bd48d2dfb99498c1af83a9008702ce7f54dd2b036e446c98d38a991fbbf";
 
 function registry(overrides = {}) {
@@ -294,6 +295,7 @@ describe("worldpack deploy gate CLI", () => {
     const registry = JSON.parse(await readFile(elysiumRegistryPath, "utf8"));
     const candidate = candidateFromRegistry(registry);
     expect(candidate.bundleHash).toBe(ELYSIUM_ACTIVE_HASH);
+    expect(candidate.replayCompatible).toContain(ELYSIUM_PREVIOUS_ACTIVE_HASH);
     expect(candidate.replayCompatible).toContain(ELYSIUM_PERSISTED_HASH);
     expect(evaluateWorldpackGate({
       candidateHash: candidate.bundleHash,

@@ -52,6 +52,25 @@ function normalizeStringArray(value) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+function exactRouteHasZeroDataRetention(modelId, zdrIds) {
+  // OpenRouter's ZDR-filtered model catalog can advertise a base model's ZDR
+  // availability on its `:free` variant even when the exact free endpoint has
+  // none. Exact requests to both Nemotron 3 free variants returned "No
+  // endpoints found matching your data policy (Zero data retention)" on
+  // 2026-08-09. Elysium binds exact route ids, so keep the conservative exact
+  // route interpretation until the endpoint inventory exposes that distinction.
+  return zdrIds.has(modelId) && !modelId.endsWith(":free");
+}
+
+function normalizeExactRoutePolicies(bindings) {
+  return bindings.map((binding) =>
+    binding.requested_model_id.endsWith(":free") &&
+    binding.zero_data_retention
+      ? { ...binding, zero_data_retention: false }
+      : binding,
+  );
+}
+
 function bindingsFromCatalog(catalog, zdrCatalog, snapshotVersion) {
   assert(Array.isArray(catalog?.data), "OpenRouter catalog must contain a data array");
   const zdrIds = new Set((zdrCatalog?.data ?? []).map((model) => model.id));
@@ -85,7 +104,7 @@ function bindingsFromCatalog(catalog, zdrCatalog, snapshotVersion) {
         supported_parameters: normalizeStringArray(model.supported_parameters),
         input_cost_per_million: costPerMillion(model.pricing?.prompt),
         output_cost_per_million: costPerMillion(model.pricing?.completion),
-        zero_data_retention: zdrIds.has(model.id),
+        zero_data_retention: exactRouteHasZeroDataRetention(model.id, zdrIds),
         speech_mode: textChat ? "raw" : "unavailable",
       };
     })
@@ -396,10 +415,16 @@ async function main() {
             : readJson(path.resolve(option("--zdr-catalog"))),
           snapshotVersion,
         )
-      : readJson(path.join(packRoot, "actor_model_bindings.json"));
+      : normalizeExactRoutePolicies(
+          readJson(path.join(packRoot, "actor_model_bindings.json")),
+        );
     const resources = generatedResources(bindings);
     assertVoidTopology(bindings, resources);
-    if (refreshBindings) {
+    if (
+      refreshBindings ||
+      json(bindings) !==
+        json(readJson(path.join(packRoot, "actor_model_bindings.json")))
+    ) {
       fs.writeFileSync(path.join(packRoot, "actor_model_bindings.json"), json(bindings));
     }
     for (const [resource, rows] of Object.entries(resources)) {
@@ -415,6 +440,14 @@ async function main() {
   const resources = generatedResources(bindings);
   assertVoidTopology(bindings, resources);
   assert(bindings.length > 0, "Elysium model binding snapshot is empty");
+  assert(
+    bindings.every(
+      (binding) =>
+        !binding.requested_model_id.endsWith(":free") ||
+        binding.zero_data_retention === false,
+    ),
+    "Elysium free variants must not inherit base-model ZDR availability",
+  );
   assert(
     bindings.every((binding) => binding.catalog_snapshot_version === snapshotVersion),
     "Elysium bindings use a stale catalog snapshot version",

@@ -78,12 +78,12 @@ static SERVER_PAID_INFERENCE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::
 const TRANSCRIPTION_MAX_AUDIO_BYTES: usize = 8 * 1024 * 1024;
 #[allow(dead_code)]
 const TRANSCRIPTION_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
-// When a raw actor's catalog entry explicitly advertises the unified reasoning
-// parameter, ask for the smallest reasoning budget and retain any readable
-// trace separately from visible speech. This must never be sent to every raw
-// model: some endpoints reject reasoning controls, while those endpoints need
-// the bounded compatibility fallback below.
-const RAW_DIALOGUE_REASONING_EFFORT: &str = "minimal";
+// Raw residents have a deliberately small visible-speech budget. Even a
+// "minimal" reasoning request can consume that entire budget and return a
+// reasoning-only choice with `content: null` (observed from Qwen 3.6 through
+// OpenRouter). Disable optional reasoning for speech; endpoints where reasoning
+// is mandatory use the bounded compatibility fallback below.
+const RAW_DIALOGUE_REASONING_EFFORT: &str = "none";
 const REASONING_TRACE_MAX_CHARS: usize = 2_048;
 const REASONING_MANDATORY_ERROR: &str =
     "reasoning is mandatory for this endpoint and cannot be disabled";
@@ -3190,6 +3190,38 @@ fn bounded_reasoning_trace(value: &str) -> Option<String> {
     Some(bounded)
 }
 
+/// Chat-completion providers normally return a string, but OpenAI-compatible
+/// gateways also emit text-part arrays. Accept both without treating tool,
+/// image, or opaque parts as resident speech.
+fn readable_message_content(message: &Value) -> Option<String> {
+    let content = message.get("content")?;
+    let text = if let Some(text) = content.as_str() {
+        text.to_string()
+    } else {
+        content
+            .as_array()?
+            .iter()
+            .filter_map(|part| {
+                part.as_str().or_else(|| {
+                    if part
+                        .get("type")
+                        .and_then(Value::as_str)
+                        .is_some_and(|kind| !matches!(kind, "text" | "output_text"))
+                    {
+                        return None;
+                    }
+                    part.get("text")
+                        .and_then(Value::as_str)
+                        .or_else(|| part.get("content").and_then(Value::as_str))
+                })
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
+}
+
 /// Extracts only readable reasoning. Structured summaries are preferred over
 /// raw text, while encrypted or redacted blocks are deliberately ignored.
 fn readable_reasoning_trace(message: &Value) -> Option<String> {
@@ -3336,7 +3368,12 @@ async fn request_completion(
         }
         add_openrouter_room_session(config, &mut payload, room_id);
         if let Some(reasoning_effort) = reasoning_effort {
-            payload["reasoning"] = json!({ "effort": reasoning_effort });
+            payload["reasoning"] = if raw_mode && reasoning_effort == RAW_DIALOGUE_REASONING_EFFORT
+            {
+                json!({ "enabled": false })
+            } else {
+                json!({ "effort": reasoning_effort })
+            };
         }
         if enforce_zero_data_retention {
             let mut provider = payload
@@ -3474,24 +3511,21 @@ async fn request_completion(
             attempts: attempt,
             latency: started_at.elapsed(),
         })?;
-        let text = message
-            .get("content")
-            .and_then(|content| content.as_str())
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .map(ToString::to_string)
-            .ok_or_else(|| AiGatewayError {
-                kind: AiFailureKind::InvalidResponse,
-                message: format!("{feature} response did not include message content"),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            })?;
-        let reasoning_trace = readable_reasoning_trace(message);
         let finish_reason = first_choice
             .get("finish_reason")
             .and_then(Value::as_str)
             .unwrap_or("unknown")
             .to_string();
+        let reasoning_trace = readable_reasoning_trace(message);
+        let text = readable_message_content(message).ok_or_else(|| AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{feature} response did not include message content (finish_reason={finish_reason}, reasoning_only={})",
+                    reasoning_trace.is_some()
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            })?;
         let usage = body.get("usage");
         let usage = AiTokenUsage {
             prompt_tokens: usage
@@ -6295,8 +6329,33 @@ mod tests {
         );
     }
 
+    #[test]
+    fn readable_message_content_accepts_string_and_text_part_shapes() {
+        assert_eq!(
+            readable_message_content(&json!({ "content": "  hello there  " })).as_deref(),
+            Some("hello there")
+        );
+        assert_eq!(
+            readable_message_content(&json!({
+                "content": [
+                    { "type": "output_text", "text": "first line" },
+                    { "type": "image", "image_url": "ignored" },
+                    { "type": "tool_call", "text": "also ignored" },
+                    { "type": "text", "content": "second line" }
+                ]
+            }))
+            .as_deref(),
+            Some("first line\nsecond line")
+        );
+        assert!(readable_message_content(&json!({
+            "content": null,
+            "reasoning": "thinking only"
+        }))
+        .is_none());
+    }
+
     #[tokio::test]
-    async fn raw_actor_minimal_reasoning_uses_one_bounded_shape_fallback() {
+    async fn raw_actor_disables_optional_reasoning_and_enables_it_once_when_mandatory() {
         use std::sync::Mutex;
 
         let request_bodies = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -6317,7 +6376,7 @@ mod tests {
                                 StatusCode::BAD_REQUEST,
                                 Json(json!({
                                     "error": {
-                                        "message": "Invalid reasoning effort: minimal"
+                                        "message": "Reasoning is mandatory and cannot be disabled"
                                     }
                                 })),
                             )
@@ -6397,7 +6456,7 @@ mod tests {
             &selection,
         )
         .await
-        .expect("minimal reasoning fallback succeeds");
+        .expect("mandatory reasoning fallback succeeds");
 
         assert_eq!(completion.attempts, 1);
         assert_eq!(
@@ -6408,12 +6467,17 @@ mod tests {
         assert_eq!(bodies.len(), 2, "one 400 gets exactly one shape fallback");
         assert_eq!(
             bodies[0]
-                .pointer("/reasoning/effort")
-                .and_then(Value::as_str),
-            Some("minimal")
+                .pointer("/reasoning/enabled")
+                .and_then(Value::as_bool),
+            Some(false)
         );
         assert!(bodies[0].pointer("/reasoning/exclude").is_none());
-        assert!(bodies[1].get("reasoning").is_none());
+        assert_eq!(
+            bodies[1]
+                .pointer("/reasoning/enabled")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
         for body in bodies.iter() {
             assert_eq!(
                 body.pointer("/provider/data_collection")

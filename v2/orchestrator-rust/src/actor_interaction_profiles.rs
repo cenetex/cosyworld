@@ -8,7 +8,7 @@ use std::{
 };
 
 const PROFILE_SCHEMA_VERSION: u32 = 1;
-const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-08.4";
+const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-09.5";
 const PROFILE_BINDING_COUNT: usize = 485;
 
 // Interaction profiles describe operational provider routes, not authored or
@@ -396,7 +396,7 @@ mod tests {
                 .iter()
                 .filter(|profile| profile.provider_available)
                 .count(),
-            481
+            453
         );
         assert_eq!(
             profiles
@@ -410,7 +410,7 @@ mod tests {
                 .iter()
                 .filter(|profile| profile.ready_before_policy())
                 .count(),
-            442
+            414
         );
     }
 

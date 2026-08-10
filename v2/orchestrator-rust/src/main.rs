@@ -25779,6 +25779,27 @@ async fn complete_queued_orb_chat_attempt(
     )
     .await;
     if let Err(error) = exchange_result {
+        if error == CHAT_CONTEXT_CHANGED_ERROR {
+            tracing::info!(
+                actor_id,
+                target_actor_id,
+                location_id = plan.location_id,
+                "avatar chat ended cleanly after a participant left the room"
+            );
+            let _ = commit_chat_status(
+                state,
+                actor_id,
+                target_actor_id,
+                "completed",
+                "the conversation moved out of reach",
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                Some(plan.location_id),
+            )
+            .await;
+            return Ok(());
+        }
         let config = state.ai_config.as_ref().as_ref();
         let readiness_retry = chat_target_route_retry_floor_ms(config, target_actor_id) > 0;
         let will_retry = state.event_store_path.is_some()
@@ -30700,96 +30721,6 @@ fn sentence_fragment(value: &str) -> String {
         .trim()
         .trim_end_matches(&['.', '!', '?'][..])
         .to_string()
-}
-
-async fn request_ai_room_memory_summary(
-    config: &AiConfig,
-    location: &LocationView,
-    prior_chapters: &[RoomMemoryChapter],
-    entries: &[RoomMemoryEntryView],
-) -> Result<String, String> {
-    let (system, user) = room_memory_prompt(location, prior_chapters, entries);
-    let completion = request_chat_completion(
-        config,
-        ChatCompletionRequest {
-            feature: "room_memory",
-            prompt_version: "room-memory-v2",
-            capability: ModelCapability::Voice,
-            system: &system,
-            user: &user,
-            temperature: 0.45,
-            max_tokens: 110,
-            timeout: Duration::from_secs(10),
-            max_attempts: 2,
-            referer: "https://cosyworld.fly.dev",
-            response_format: None,
-            room_id: Some(location.id),
-        },
-    )
-    .await
-    .map_err(|error| error.to_string())?;
-    sanitize_room_memory_summary(&completion.text)
-        .map_err(|code| format!("AI room memory response was not usable: {code}"))
-}
-
-fn sanitize_room_memory_summary(value: &str) -> Result<String, &'static str> {
-    let text = value
-        .trim()
-        .trim_matches('"')
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    if text.is_empty() {
-        return Err("empty");
-    }
-    if room_memory_summary_looks_like_listicle(&text) {
-        return Err("listicle_shape");
-    }
-    let lowered = format!(" {} ", text.to_lowercase());
-    if [
-        " ai ",
-        " advancement ",
-        " archive ",
-        " chapter ",
-        " event ",
-        " ledger ",
-        " log ",
-        " policy ",
-        " prompt ",
-        " rag ",
-        " roll ",
-        " summary ",
-        " system ",
-        " ui ",
-    ]
-    .iter()
-    .any(|needle| lowered.contains(needle))
-        // Elysium's canonical resident type is a "model avatar", and every one
-        // of its locations says so in its own authored memory (see location
-        // 652052, "Void 053"). A bare " model " ban meant that location could
-        // never pass this filter: the prompt hands the model its own memory
-        // text verbatim, so summarizing it necessarily reuses that phrase. The
-        // narrower phrase still catches an actual 4th-wall break.
-        || lowered.contains("language model")
-    {
-        return Err("system_vocabulary");
-    }
-    Ok(trim_to_chars(&text, 420))
-}
-
-fn room_memory_summary_looks_like_listicle(value: &str) -> bool {
-    let trimmed = value.trim();
-    trimmed.contains('\u{2022}')
-        || trimmed.contains(';')
-        || trimmed.contains(" / ")
-        || trimmed.contains(" | ")
-        || trimmed.contains(" - ")
-        || trimmed.contains(':')
-        || trimmed
-            .split('.')
-            .filter(|sentence| !sentence.trim().is_empty())
-            .count()
-            > 2
 }
 
 fn trim_to_chars(value: &str, max_chars: usize) -> String {

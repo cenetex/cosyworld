@@ -110,6 +110,111 @@ pub(super) fn schedule_room_memory_summary(
     });
 }
 
+async fn request_ai_room_memory_summary(
+    config: &AiConfig,
+    location: &LocationView,
+    prior_chapters: &[RoomMemoryChapter],
+    entries: &[RoomMemoryEntryView],
+) -> Result<String, String> {
+    let (system, base_user) = room_memory_prompt(location, prior_chapters, entries);
+    let mut last_shape_error = "empty";
+    for shape_attempt in 1..=2 {
+        let user = if shape_attempt == 1 {
+            base_user.clone()
+        } else {
+            format!(
+                "{base_user}\nRewrite as natural prose only: one or two complete unlabelled sentences, with no bullets, colons, semicolons, slashes, or dashes."
+            )
+        };
+        let completion = request_chat_completion(
+            config,
+            ChatCompletionRequest {
+                feature: "room_memory",
+                prompt_version: "room-memory-v3",
+                capability: ModelCapability::Voice,
+                system: &system,
+                user: &user,
+                temperature: if shape_attempt == 1 { 0.45 } else { 0.2 },
+                max_tokens: 110,
+                timeout: Duration::from_secs(10),
+                max_attempts: 2,
+                referer: "https://cosyworld.fly.dev",
+                response_format: None,
+                room_id: Some(location.id),
+            },
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+        match sanitize_room_memory_summary(&completion.text) {
+            Ok(summary) => return Ok(summary),
+            Err(code) => last_shape_error = code,
+        }
+    }
+    Err(format!(
+        "AI room memory response was not usable after one shape retry: {last_shape_error}"
+    ))
+}
+
+pub(super) fn sanitize_room_memory_summary(value: &str) -> Result<String, &'static str> {
+    let text = value
+        .trim()
+        .trim_matches('"')
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if text.is_empty() {
+        return Err("empty");
+    }
+    if room_memory_summary_looks_like_listicle(&text) {
+        return Err("listicle_shape");
+    }
+    let lowered = format!(" {} ", text.to_lowercase());
+    if [
+        " ai ",
+        " advancement ",
+        " archive ",
+        " chapter ",
+        " event ",
+        " ledger ",
+        " log ",
+        " policy ",
+        " prompt ",
+        " rag ",
+        " roll ",
+        " summary ",
+        " system ",
+        " ui ",
+    ]
+    .iter()
+    .any(|needle| lowered.contains(needle))
+        // Elysium's canonical resident type is a "model avatar", and every one
+        // of its locations says so in its own authored memory (see location
+        // 652052, "Void 053"). A bare " model " ban meant that location could
+        // never pass this filter: the prompt hands the model its own memory
+        // text verbatim, so summarizing it necessarily reuses that phrase. The
+        // narrower phrase still catches an actual 4th-wall break.
+        || lowered.contains("language model")
+    {
+        return Err("system_vocabulary");
+    }
+    Ok(trim_to_chars(&text, 420))
+}
+
+fn room_memory_summary_looks_like_listicle(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.contains('\u{2022}')
+        || trimmed.contains(';')
+        || trimmed.contains(" / ")
+        || trimmed.contains(" | ")
+        || trimmed.contains(" - ")
+        || trimmed.contains(':')
+        || trimmed
+            .split('.')
+            .filter(|sentence| !sentence.trim().is_empty())
+            .count()
+            > 2
+}
+
 fn room_memory_retry_delay(consecutive_failures: u32) -> Duration {
     let multiplier = 1_u32 << consecutive_failures.saturating_sub(1).min(4);
     ROOM_MEMORY_RETRY_BASE

@@ -5256,7 +5256,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
@@ -5341,7 +5341,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
@@ -5823,7 +5823,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
@@ -9081,7 +9081,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
@@ -9201,7 +9201,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
@@ -9280,7 +9280,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
@@ -11995,7 +11995,7 @@
     ],
     "input_cost_per_million": 0,
     "output_cost_per_million": 0,
-    "zero_data_retention": true,
+    "zero_data_retention": false,
     "speech_mode": "raw",
     "pack_id": "cosyworld.elysium"
   },
