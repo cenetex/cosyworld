@@ -141,6 +141,7 @@ const worldCases = [
     scoutDestination: "Void 002",
     additionalScoutDestination: "Void 003",
     multiStepScoutPath: true,
+    connectionItem: "Void Token 001",
   },
 ];
 
@@ -1308,6 +1309,7 @@ async function runWorldLoop(spec) {
     let discovered = initial;
     let discoveryEventCount = 0;
     let revealedMoveTarget = spec.scoutDestination;
+    let exactConnection = null;
     if (spec.scoutDestination) {
       if (spec.additionalScoutDestination) {
         const initialScoutTargets = initial.action_offers
@@ -1364,6 +1366,63 @@ async function runWorldLoop(spec) {
         repeated.ok === false,
         `${spec.label} allowed its already-discovered route to be scouted again`,
       );
+
+      if (spec.connectionItem) {
+        await command(
+          first.baseUrl,
+          actorId,
+          actorSession,
+          `take ${spec.connectionItem}`,
+        );
+        await command(
+          first.baseUrl,
+          actorId,
+          actorSession,
+          `go ${revealedMoveTarget}`,
+        );
+        const atWaypoint = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+        const activeConnection = atWaypoint.shared_questions?.find((question) =>
+          question.question?.includes(spec.connectionItem)
+            && question.question.includes(spec.location));
+        assert(
+          activeConnection?.resolution === "active"
+            && activeConnection.filled === 0
+            && activeConnection.strategies?.some((strategy) =>
+              strategy.label?.includes(spec.connectionItem)
+                && strategy.availability_reason?.includes(spec.connectionItem)),
+          `${spec.label} did not expose its exact physical Connection: ${JSON.stringify(atWaypoint.shared_questions)}`,
+        );
+
+        const dropped = await command(
+          first.baseUrl,
+          actorId,
+          actorSession,
+          `drop ${spec.connectionItem}`,
+        );
+        assert(
+          dropped.events?.filter((event) => event.type === "job.updated").length === 1
+            && dropped.events?.filter((event) => event.type === "world.logistics.completed").length === 1,
+          `${spec.label} exact Connection did not commit one causal completion: ${JSON.stringify(dropped)}`,
+        );
+        const connected = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+        const completedConnection = connected.shared_questions?.find((question) =>
+          question.id === activeConnection.id);
+        assert(
+          completedConnection?.resolution === "completed"
+            && completedConnection.presentation_state === "completed_memory"
+            && completedConnection.filled === completedConnection.segments
+            && completedConnection.completion_memory?.includes(spec.connectionItem)
+            && completedConnection.completion_memory.includes(spec.location),
+          `${spec.label} exact Connection was not visible as completed history: ${JSON.stringify(completedConnection)}`,
+        );
+        finalLocationName = connected.location?.name || finalLocationName;
+        finalLocationPack = connected.rules_context?.location_pack_id || finalLocationPack;
+        exactConnection = {
+          jobId: activeConnection.id,
+          itemName: spec.connectionItem,
+          originName: spec.location,
+        };
+      }
     }
 
     if (!spec.goldenJourney) {
@@ -1433,7 +1492,7 @@ async function runWorldLoop(spec) {
         compaction: inspection.compaction,
       })}`,
     );
-    if (spec.scoutDestination) {
+    if (spec.scoutDestination && !exactConnection) {
       const replayedMove = await dealOffer(
         restarted.baseUrl,
         actorId,
@@ -1451,15 +1510,34 @@ async function runWorldLoop(spec) {
       );
       events = await fetchAllActorEvents(restarted.baseUrl, actorId, actorSession);
     }
+    if (exactConnection) {
+      const completedConnection = replayed.shared_questions?.find((question) =>
+        question.id === exactConnection.jobId);
+      assert(
+        completedConnection?.resolution === "completed"
+          && completedConnection.presentation_state === "completed_memory"
+          && completedConnection.completion_memory?.includes(exactConnection.itemName)
+          && completedConnection.completion_memory.includes(exactConnection.originName),
+        `${spec.label} restart lost its exact Connection memory: ${JSON.stringify(completedConnection)}`,
+      );
+      events = await fetchAllActorEvents(restarted.baseUrl, actorId, actorSession);
+      assert(
+        events.filter((event) =>
+          event.type === "world.logistics.completed"
+            && event.item_name === exactConnection.itemName).length === 1,
+        `${spec.label} restart lost or duplicated its exact physical delivery`,
+      );
+    }
     assert(
       replayed.world_seq >= committed.world_seq,
       `${spec.label} restart regressed ${committed.world_seq} to ${replayed.world_seq}`,
     );
     const durableEvents = readDurableWorldEvents(eventDbPath);
     if (spec.scoutDestination) {
+      const durableRouteDiscoveries = durableEvents.filter(routeDiscoveryEvent);
       assert(
-        events.filter(routeDiscoveryEvent).length === 1,
-        `${spec.label} replay did not retain exactly one route discovery`,
+        durableRouteDiscoveries.length === 1,
+        `${spec.label} replay did not retain exactly one durable route discovery: ${JSON.stringify(durableRouteDiscoveries)}`,
       );
     }
     if (goldenJourney) {

@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) const GENERATED_PLACE_SCHEMA_VERSION: u8 = 1;
+pub(super) const GENERATED_PLACE_SCHEMA_VERSION: u8 = 2;
 const GENERATED_PLACE_ANCHOR_SEGMENTS: u8 = 1;
 const GENERATED_PLACE_CONNECTION_SEGMENTS: u8 = 1;
 const GENERATED_PLACE_SETTLEMENT_SEGMENTS: u8 = 3;
@@ -41,6 +41,8 @@ pub(super) struct GeneratedPlaceState {
     pub(super) anchor_job_id: String,
     pub(super) connection_job_id: String,
     pub(super) settlement_job_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) connection_item_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) building_proposal: Option<GeneratedBuildingProposalState>,
 }
@@ -189,6 +191,41 @@ fn generated_place_strategy(
 }
 
 impl RuntimeWorld {
+    fn generated_place_connection_item_id(
+        &self,
+        source_location_id: u64,
+        discovering_actor_id: u64,
+    ) -> Option<u64> {
+        self.world.items[..self.world.item_count]
+            .iter()
+            .filter(|item| item.id != 0 && item.container_item_id == 0)
+            .filter(|item| {
+                !matches!(
+                    item.zone,
+                    CW_CARD_ZONE_CONTAINED | CW_CARD_ZONE_ESCROW | CW_CARD_ZONE_INSTALLED
+                )
+            })
+            .filter(|item| {
+                opt_id(item.holder_actor_id)
+                    .and_then(|actor_id| self.actor_by_id(actor_id))
+                    .map(|actor| actor.location_id)
+                    .or_else(|| opt_id(item.location_id))
+                    == Some(source_location_id)
+            })
+            .min_by_key(|item| {
+                let holder_actor_id = opt_id(item.holder_actor_id);
+                let availability = if holder_actor_id == Some(discovering_actor_id) {
+                    0
+                } else if holder_actor_id.is_none() {
+                    1
+                } else {
+                    2
+                };
+                (availability, item.id)
+            })
+            .map(|item| item.id)
+    }
+
     pub(super) fn generated_place_connection_source(
         &self,
         pathway: &GeneratedPathwayState,
@@ -236,6 +273,31 @@ impl RuntimeWorld {
         };
         let pack_id = pathway.owner_pack_id.clone();
         let pack_version = pathway.owner_pack_version.clone();
+        let connection_item_id = self
+            .generated_places
+            .get(&location_id)
+            .and_then(|place| place.connection_item_id)
+            .or_else(|| {
+                self.jobs
+                    .get(&generated_place_connection_job_id(location_id))
+                    .and_then(|job| job.delivery.as_ref())
+                    .and_then(|delivery| delivery.requirement.as_ref())
+                    .map(|requirement| match requirement {
+                        DeliveryRequirement::ExactItem { item_id } => *item_id,
+                    })
+            })
+            .or_else(|| {
+                (!self
+                    .jobs
+                    .contains_key(&generated_place_connection_job_id(location_id)))
+                .then(|| {
+                    self.generated_place_connection_item_id(
+                        connected_from_location_id,
+                        pathway.created_by_actor_id,
+                    )
+                })
+                .flatten()
+            });
         let state =
             self.generated_places
                 .entry(location_id)
@@ -257,12 +319,16 @@ impl RuntimeWorld {
                     anchor_job_id: generated_place_anchor_job_id(location_id),
                     connection_job_id: generated_place_connection_job_id(location_id),
                     settlement_job_id: generated_place_settlement_job_id(location_id),
+                    connection_item_id,
                     building_proposal: None,
                 });
         state.schema_version = GENERATED_PLACE_SCHEMA_VERSION;
         state.canonical_id = waypoint.canonical_id.clone();
         if state.generation_policy.is_empty() {
             state.generation_policy = pathway.generation_policy.clone();
+        }
+        if state.connection_item_id.is_none() {
+            state.connection_item_id = connection_item_id;
         }
         let state = state.clone();
         self.ensure_generated_place_projection(&state, &waypoint);
@@ -274,6 +340,56 @@ impl RuntimeWorld {
         waypoint: &GeneratedWaypointState,
     ) {
         let anchor_terminology = generated_place_anchor_terminology(&state.generation_policy);
+        let connection_item_id = state.connection_item_id.or_else(|| {
+            self.jobs
+                .get(&state.connection_job_id)
+                .and_then(|job| job.delivery.as_ref())
+                .and_then(|delivery| delivery.requirement.as_ref())
+                .map(|requirement| match requirement {
+                    DeliveryRequirement::ExactItem { item_id } => *item_id,
+                })
+                .or_else(|| {
+                    (!self.jobs.contains_key(&state.connection_job_id))
+                        .then(|| {
+                            self.generated_place_connection_item_id(
+                                state.connected_from_location_id,
+                                state.discovered_by_actor_id,
+                            )
+                        })
+                        .flatten()
+                })
+        });
+        if state.connection_item_id.is_none() {
+            if let (Some(place), Some(item_id)) = (
+                self.generated_places.get_mut(&state.location_id),
+                connection_item_id,
+            ) {
+                place.connection_item_id = Some(item_id);
+            }
+        }
+        let connection_item = connection_item_id.map(|item_id| {
+            let item_name = self
+                .item_name(item_id)
+                .unwrap_or_else(|| format!("Item {item_id}"));
+            let origin_name = self
+                .location_name(state.connected_from_location_id)
+                .unwrap_or_else(|| format!("Location {}", state.connected_from_location_id));
+            (item_id, item_name, origin_name)
+        });
+        let connection_question = connection_item
+            .as_ref()
+            .map(|(_, item_name, origin_name)| {
+                format!("Can someone carry {item_name} here from {origin_name}?")
+            })
+            .unwrap_or_else(|| {
+                "Which represented item can make the physical connection?".to_string()
+            });
+        let connection_memory = connection_item
+            .as_ref()
+            .map(|(_, item_name, origin_name)| {
+                format!("A traveler carried {item_name} here from {origin_name}.")
+            })
+            .unwrap_or_else(|| "No physical connection has been made yet.".to_string());
         self.clocks
             .entry(state.anchor_clock_id.clone())
             .or_insert_with(|| {
@@ -294,10 +410,19 @@ impl RuntimeWorld {
                     state.location_id,
                     "Connection",
                     GENERATED_PLACE_CONNECTION_SEGMENTS,
-                    "Can someone carry a useful item here from the connected place?",
-                    "A physical delivery connects the place.",
+                    &connection_question,
+                    &connection_memory,
                 )
             });
+        if let Some(clock) = self.clocks.get_mut(&state.connection_clock_id) {
+            if clock.filled < clock.segments {
+                clock.presentation.question = connection_question.clone();
+                clock.presentation.situation =
+                    connection_question.trim_end_matches('?').to_string();
+                clock.presentation.outcome = connection_memory.clone();
+                clock.presentation.completion_memory = connection_memory.clone();
+            }
+        }
         self.clocks
             .entry(state.settlement_clock_id.clone())
             .or_insert_with(|| {
@@ -367,13 +492,16 @@ impl RuntimeWorld {
                 focused_profile: None,
                 focused_encounter: None,
             });
-        self.jobs
-            .entry(state.connection_job_id.clone())
-            .or_insert_with(|| JobState {
+        if let Some((item_id, item_name, origin_name)) = connection_item {
+            self.jobs
+                .entry(state.connection_job_id.clone())
+                .or_insert_with(|| JobState {
                 pack_id: state.pack_id.clone(),
                 id: state.connection_job_id.clone(),
-                premise: "Carry something here from the connected place.".to_string(),
-                stakes: "Only an actor-causal physical delivery counts.".to_string(),
+                premise: format!("Carry {item_name} here from {origin_name}."),
+                stakes: format!(
+                    "Only that exact {item_name}, carried here by an actor, can make the Connection."
+                ),
                 location_ids: vec![state.location_id],
                 participant_ids: Vec::new(),
                 progress_clock_id: state.connection_clock_id.clone(),
@@ -381,18 +509,21 @@ impl RuntimeWorld {
                 status: "active".to_string(),
                 reward: JobReward::Label("The place gains a Connection.".to_string()),
                 consequence: "The place remains disconnected.".to_string(),
-                memory_summary: "A traveler carried a useful item into the place.".to_string(),
+                memory_summary: connection_memory,
                 action_copy: JobActionCopy {
-                    label: "Carry something here".to_string(),
-                    summary: "Bring and put down an item from the connected place.".to_string(),
+                    label: format!("Carry {item_name} here"),
+                    summary: format!(
+                        "Pick up {item_name} at {origin_name}, travel with it, then put it down here."
+                    ),
                 },
                 contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
                 contribution_strategies: Vec::new(),
                 narrated_thresholds: Vec::new(),
                 delivery: Some(DeliveryJobSpec {
-                    resource: "useful carried item".to_string(),
+                    resource: item_name,
                     origin_location_id: state.connected_from_location_id,
                     destination_location_id: state.location_id,
+                    requirement: Some(DeliveryRequirement::ExactItem { item_id }),
                     created_world_tick: self.world.tick,
                     updated_world_tick: self.world.tick,
                 }),
@@ -400,6 +531,7 @@ impl RuntimeWorld {
                 focused_profile: None,
                 focused_encounter: None,
             });
+        }
 
         self.reconcile_generated_place_durable_progress(state);
         let settlement_strategies = self
