@@ -56,6 +56,7 @@ mod keys;
 mod lantern_keeper_tests;
 mod legacy_import;
 mod local_leads;
+mod materialization_retirement;
 mod media_evolution;
 mod media_recipes;
 mod model_audio;
@@ -253,10 +254,9 @@ struct AppState {
     generated_asset_dir: Arc<PathBuf>,
     #[cfg(test)]
     ambient: AmbientConfig,
-    box_burn_verifier: Arc<Option<BoxBurnVerifierConfig>>,
     ownership_feed: Arc<OwnershipFeedConfig>,
     ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
-    hosted_access_config: Arc<HostedAccessConfig>,
+    rendezvous_party_config: Arc<RendezvousPartyConfig>,
     last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
@@ -486,7 +486,6 @@ const BELIEF_TUNING: BeliefTuning = BeliefTuning {
 };
 const RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_REPLY_REPEAT_EVENT_WINDOW: u64 = 96;
-const RESIDENT_PLACEMENT_ROTATION_TICKS: u64 = 96;
 const ENCOUNTER_RESET_PLAYER_TICKS: u64 = 36;
 const LOW_DOORWAY_FEATURE_KEY: &str = "low_doorway";
 const SCARF_BASKET_FEATURE_KEY: &str = "scarf_basket";
@@ -1709,6 +1708,8 @@ struct RuntimeWorld {
     local_leads: BTreeMap<String, LocalLeadState>,
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
+    item_materialization_migrations:
+        BTreeMap<String, materialization_retirement::ItemMaterializationMigrationReceipt>,
     craft_receipts: BTreeMap<String, CraftReceiptState>,
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
@@ -1848,6 +1849,9 @@ struct RuntimeSnapshot {
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     #[serde(default)]
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
+    #[serde(default)]
+    item_materialization_migrations:
+        BTreeMap<String, materialization_retirement::ItemMaterializationMigrationReceipt>,
     #[serde(default)]
     craft_receipts: BTreeMap<String, CraftReceiptState>,
     #[serde(default)]
@@ -2396,8 +2400,8 @@ struct MetaResponse {
     features: MetaFeatureFlags,
     ai: MetaAi,
     persistence: MetaPersistence,
-    ownership_feed: MetaOwnershipFeed,
-    nft: MetaNftConfig,
+    linked_avatar_adapter: MetaLinkedAvatarAdapter,
+    migration_archive: MetaMigrationArchive,
     combat: MetaCombat,
     worldpack: MetaWorldpack,
     world: MetaWorldCounters,
@@ -2448,8 +2452,6 @@ struct MetaFeatureFlags {
     pathway_content_mode: &'static str,
     ambient_enabled: bool,
     dev_reset_enabled: bool,
-    unsigned_wallet_claims_enabled: bool,
-    trust_client_card_ids: bool,
     moderation_audit_enabled: bool,
     avatar_chat_delay_ms: u128,
     default_event_replay_limit: usize,
@@ -2522,7 +2524,7 @@ struct PersistenceStorageReport {
 }
 
 #[derive(Debug, Serialize)]
-struct MetaOwnershipFeed {
+struct MetaLinkedAvatarAdapter {
     inline_configured: bool,
     path_configured: bool,
     remote_configured: bool,
@@ -2538,8 +2540,17 @@ struct MetaOwnershipFeed {
 }
 
 #[derive(Debug, Serialize)]
-struct MetaNftConfig {
-    box_burn_verifier_configured: bool,
+struct MetaMigrationArchive {
+    item_materialization: MetaItemMaterialization,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaItemMaterialization {
+    status: &'static str,
+    compatibility_mode: &'static str,
+    new_materialization_enabled: bool,
+    return_endpoint_enabled: bool,
+    receipts: materialization_retirement::MaterializationReceiptInventory,
 }
 
 #[derive(Debug, Serialize)]
@@ -2572,11 +2583,7 @@ struct ResetResponse {
 struct StateQuery {
     actor_id: Option<u64>,
     actor_session: Option<String>,
-    wallet_address: Option<String>,
-    wallet: Option<String>,
     wallet_session: Option<String>,
-    owned_card_ids: Option<String>,
-    cards: Option<String>,
     #[allow(dead_code)] // Legacy query; server AI configuration is authoritative.
     openrouter_connected: Option<String>,
 }
@@ -2587,11 +2594,7 @@ struct EventsQuery {
     limit: Option<usize>,
     actor_id: Option<u64>,
     actor_session: Option<String>,
-    wallet_address: Option<String>,
-    wallet: Option<String>,
     wallet_session: Option<String>,
-    owned_card_ids: Option<String>,
-    cards: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2644,7 +2647,7 @@ struct CanonicalInviteView {
     created_location_ref: String,
     created_world_seq: u64,
     expires_at_ms: u64,
-    hosted_access: HostedAccessTerms,
+    rendezvous: RendezvousPartyTerms,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2665,7 +2668,7 @@ struct CanonicalInviteFollowResponse {
     rendezvous_location_ref: Option<String>,
     through_seq: u64,
     events: Vec<EventView>,
-    party: Option<HostedPartyView>,
+    party: Option<RendezvousPartyView>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2675,7 +2678,7 @@ struct HostedPartyActionRequest {
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct HostedPartyActionResponse {
+struct RendezvousPartyActionResponse {
     ok: bool,
     status: u32,
     party_id: String,
@@ -3425,11 +3428,7 @@ struct MoveRequest {
     actor_id: u64,
     actor_session: Option<String>,
     destination_location_id: u64,
-    wallet_address: Option<String>,
-    wallet: Option<String>,
     wallet_session: Option<String>,
-    owned_card_ids: Option<String>,
-    cards: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -3518,52 +3517,6 @@ struct WalletQrStatusResponse {
     wallet_address: Option<String>,
     wallet_session: Option<String>,
     expires_at_unix: Option<u64>,
-    error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct BoxBurnPrepareRequest {
-    wallet_session: Option<String>,
-    box_asset_address: String,
-}
-
-#[derive(Debug, Serialize)]
-struct BoxBurnPrepareResponse {
-    ok: bool,
-    status: u16,
-    wallet_address: Option<String>,
-    box_asset_address: Option<String>,
-    pack_id: Option<String>,
-    burn_message: Option<String>,
-    burn_transaction: Option<BoxBurnTransactionView>,
-    verification_mode: String,
-    error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct BoxBurnTransactionView {
-    transaction: String,
-    transaction_encoding: String,
-    message: String,
-    message_encoding: String,
-    recent_blockhash: String,
-    last_valid_block_height: u64,
-    program_id: String,
-    instruction: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct BoxBurnConfirmRequest {
-    wallet_session: Option<String>,
-    box_asset_address: String,
-    burn_signature: String,
-}
-
-#[derive(Debug, Serialize)]
-struct BoxBurnConfirmResponse {
-    ok: bool,
-    status: u16,
-    receipt: Option<WoodenBoxReceiptView>,
     error: Option<String>,
 }
 
@@ -3669,36 +3622,6 @@ struct SetItemContainedRequest {
     actor_session: Option<String>,
     item_id: u64,
     container_item_id: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MaterializeItemRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    receipt_id: String,
-    card_id: String,
-    wallet_address: Option<String>,
-    wallet: Option<String>,
-    wallet_session: Option<String>,
-    owned_card_ids: Option<String>,
-    cards: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct UnmaterializeItemRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    receipt_id: String,
-}
-
-#[derive(Debug, Serialize)]
-struct MaterializationResponse {
-    ok: bool,
-    status: u32,
-    receipt: Option<MaterializationReceiptState>,
-    item: Option<ItemView>,
-    events: Vec<EventView>,
-    error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -4844,7 +4767,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     resume_pending_community_art_generations(&state);
     start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
-    start_hosted_access_scheduler(state.clone());
     start_moderation_retention_scheduler(state.clone());
     start_story_metrics_retention_scheduler(state.clone());
     start_command_receipt_retention_scheduler(state.clone());
@@ -5004,9 +4926,15 @@ impl AppState {
             }
             hydrate_runtime_canonical_state(&mut runtime, path)?;
         }
+        // The public item-materialization route is already frozen. Convert the
+        // final replayed state before accepting traffic so no request can race
+        // receipt classification. This projection is deterministic and
+        // idempotent: a journal-only recovery derives the same typed receipts,
+        // while snapshots retain the original migration-point evidence.
+        materialization_retirement::migrate_legacy_receipts(&mut runtime)?;
 
         let ownership_feed = OwnershipFeedConfig::from_env();
-        let hosted_access_config = Arc::new(HostedAccessConfig::from_env());
+        let rendezvous_party_config = Arc::new(RendezvousPartyConfig::from_env());
         let trust_client_card_ids = std::env::var("COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS")
             .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(false);
@@ -5045,7 +4973,6 @@ impl AppState {
         fs::create_dir_all(generated_avatar_dir(&generated_asset_dir))?;
         #[cfg(test)]
         let ambient = AmbientConfig::from_env();
-        let box_burn_verifier = BoxBurnVerifierConfig::from_env()?;
         deployment.validate_runtime_options(
             &ownership_feed,
             trust_client_card_ids,
@@ -5054,9 +4981,8 @@ impl AppState {
             avatar_chat_delay,
             event_store_path.is_some(),
             moderation_token.is_some(),
-            box_burn_verifier.is_some(),
         )?;
-        let (mut ownership_index, ownership_feed_health) =
+        let (ownership_index, ownership_feed_health) =
             ownership_feed.load_best_effort_with_health().await;
         if let Some(path) = event_store_path.as_deref() {
             let external_snapshot_loaded = ownership_feed.remote_url.is_none()
@@ -5089,23 +5015,21 @@ impl AppState {
                 }
             }
             match load_receipt_ownership_index(path) {
-                Ok(receipt_index) => ownership_index.merge(receipt_index),
+                Ok(_) => {}
                 Err(error) if deployment.profile.is_production() => {
                     return Err(io::Error::other(format!(
-                        "production profile failed to load CosyWorld v2 NFT receipts from {}: {}",
+                        "production profile failed to validate archived CosyWorld v2 NFT receipts from {}: {}",
                         path.display(),
                         error
                     )));
                 }
                 Err(error) => warn!(
-                    "failed to load CosyWorld v2 NFT receipt ownership from {}: {}",
+                    "failed to validate archived CosyWorld v2 NFT receipts from {}: {}",
                     path.display(),
                     error
                 ),
             }
         }
-        let placement_rotation = placement_rotation_index_for_runtime(&runtime);
-        runtime.apply_wallet_overlap_placements(&ownership_index, placement_rotation);
         if let Some(path) = resident_continuity_path.as_deref() {
             match runtime.load_resident_continuity_snapshot(path) {
                 Ok(count) => info!(
@@ -5318,10 +5242,9 @@ impl AppState {
             generated_asset_dir: Arc::new(generated_asset_dir),
             #[cfg(test)]
             ambient,
-            box_burn_verifier: Arc::new(box_burn_verifier),
             ownership_feed: Arc::new(ownership_feed),
             ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
-            hosted_access_config,
+            rendezvous_party_config,
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -5575,7 +5498,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 17,
+            version: 18,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -5634,6 +5557,7 @@ impl RuntimeSnapshot {
             local_leads: runtime.local_leads.clone(),
             item_provenance: runtime.item_provenance.clone(),
             materialization_receipts: runtime.materialization_receipts.clone(),
+            item_materialization_migrations: runtime.item_materialization_migrations.clone(),
             craft_receipts: runtime.craft_receipts.clone(),
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
@@ -5920,6 +5844,7 @@ impl RuntimeSnapshot {
             local_leads: self.local_leads,
             item_provenance: self.item_provenance,
             materialization_receipts: self.materialization_receipts,
+            item_materialization_migrations: self.item_materialization_migrations,
             craft_receipts: self.craft_receipts,
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
@@ -6342,6 +6267,7 @@ impl RuntimeWorld {
             local_leads: BTreeMap::new(),
             item_provenance: BTreeMap::new(),
             materialization_receipts: BTreeMap::new(),
+            item_materialization_migrations: BTreeMap::new(),
             craft_receipts: BTreeMap::new(),
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
@@ -12690,6 +12616,13 @@ impl RuntimeWorld {
         let Some(receipt) = self.materialization_receipts.get(receipt_id).cloned() else {
             return Vec::new();
         };
+        if self
+            .item_materialization_migrations
+            .contains_key(receipt_id)
+            || proxim8::is_materialized_actor_receipt(self, &receipt)
+        {
+            return Vec::new();
+        }
         let Some(index) = self.world.items[..self.world.item_count]
             .iter()
             .position(|item| item.id == receipt.item_id)
@@ -21529,13 +21462,6 @@ The relationship statement they are preserving is: {statement}"
     }
 }
 
-#[derive(Clone, Copy)]
-struct LocationAccessRule {
-    required_grant_id: Option<&'static str>,
-    required_card_id: Option<&'static str>,
-    reason: Option<&'static str>,
-}
-
 fn seed_entitlement_grant(grant_id: &str) -> Option<&'static SeedEntitlementGrant> {
     active_content()
         .manifest
@@ -21544,14 +21470,6 @@ fn seed_entitlement_grant(grant_id: &str) -> Option<&'static SeedEntitlementGran
         .filter_map(|pack| pack.entitlements.as_ref())
         .flat_map(|entitlements| entitlements.grants.iter())
         .find(|grant| grant.id == grant_id)
-}
-
-fn entitlement_grant_asset_id(grant_id: &str) -> Option<&'static str> {
-    seed_entitlement_grant(grant_id)?
-        .match_rule
-        .as_ref()?
-        .asset_id
-        .as_deref()
 }
 
 fn entitlement_grants_for_assets(asset_ids: &BTreeSet<String>) -> BTreeSet<String> {
@@ -21572,242 +21490,30 @@ fn entitlement_grants_for_assets(asset_ids: &BTreeSet<String>) -> BTreeSet<Strin
         .collect()
 }
 
-fn location_access_rule(location_id: u64) -> LocationAccessRule {
-    active_content()
-        .access_gates
-        .iter()
-        .find(|gate| gate.location_id == location_id)
-        .map(|gate| {
-            let required_grant_id = (!gate.required_grant_id.trim().is_empty())
-                .then_some(gate.required_grant_id.as_str());
-            LocationAccessRule {
-                required_grant_id,
-                required_card_id: gate
-                    .required_card_id
-                    .as_deref()
-                    .or_else(|| required_grant_id.and_then(entitlement_grant_asset_id)),
-                reason: Some(gate.reason.as_str()),
-            }
-        })
-        .unwrap_or(LocationAccessRule {
-            required_grant_id: None,
-            required_card_id: None,
-            reason: None,
-        })
-}
-
-fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
-    let rule = location_access_rule(location_id);
-    rule.required_grant_id
-        .map(|grant_id| access.has_grant(grant_id))
-        .or_else(|| {
-            rule.required_card_id
-                .map(|card_id| access.owns_card(card_id))
-        })
-        .unwrap_or(true)
+fn location_access_allowed(_location_id: u64, _access: &AccessContext) -> bool {
+    true
 }
 
 #[derive(Clone, Debug)]
 struct ResolvedMovementAccess {
     view: MovementAccessView,
-    hosted_candidate: Option<HostedAccessCandidate>,
     guest_actor_id: u64,
-    guest_actor_ref: String,
     location_id: u64,
-    location_ref: String,
-    required_grant_id: Option<String>,
-    reason_code: &'static str,
-}
-
-impl ResolvedMovementAccess {
-    fn hosted_journal_grant(&self) -> Option<HostedAccessJournalGrant> {
-        self.hosted_candidate
-            .as_ref()
-            .map(|candidate| HostedAccessJournalGrant {
-                candidate: candidate.clone(),
-                guest_actor_ref: self.guest_actor_ref.clone(),
-                location_ref: self.location_ref.clone(),
-                required_grant_id: self.required_grant_id.clone().unwrap_or_default(),
-            })
-    }
-}
-
-fn hosted_access_grant_runtime_valid(
-    state: &AppState,
-    runtime: &RuntimeWorld,
-    actor_id: u64,
-    destination_location_id: u64,
-    grant: &HostedAccessJournalGrant,
-) -> bool {
-    if runtime.canonical_ref("actor", actor_id) != Some(grant.guest_actor_ref.as_str())
-        || runtime.runtime_handle_for_canonical_ref("location", &grant.location_ref)
-            != Some(destination_location_id)
-    {
-        return false;
-    }
-    let Some(host_actor_id) =
-        runtime.runtime_handle_for_canonical_ref("actor", &grant.candidate.host_actor_ref)
-    else {
-        return false;
-    };
-    if !active_actor_ids_for_state(state).contains(&host_actor_id)
-        || runtime
-            .actor_by_id(host_actor_id)
-            .is_none_or(|actor| actor.location_id != destination_location_id)
-    {
-        return false;
-    }
-    let Ok(ownership) = state.ownership_index.try_read() else {
-        return false;
-    };
-    let host_access =
-        AccessContext::for_linked_actor_with_ownership(state, host_actor_id, &ownership);
-    location_access_allowed(destination_location_id, &host_access)
 }
 
 fn resolve_movement_access(
-    state: &AppState,
-    runtime: &RuntimeWorld,
-    ownership: &OwnershipIndex,
+    _state: &AppState,
+    _runtime: &RuntimeWorld,
+    _ownership: &OwnershipIndex,
     actor_id: u64,
     destination_location_id: u64,
-    direct_access: &AccessContext,
-    now_ms: u64,
+    _direct_access: &AccessContext,
+    _now_ms: u64,
 ) -> ResolvedMovementAccess {
-    let rule = location_access_rule(destination_location_id);
-    let guest_actor_ref = runtime
-        .canonical_ref("actor", actor_id)
-        .map(ToString::to_string)
-        .unwrap_or_else(|| format!("runtime://actor/{actor_id}"));
-    let location_ref = runtime
-        .canonical_ref("location", destination_location_id)
-        .map(ToString::to_string)
-        .unwrap_or_else(|| format!("runtime://location/{destination_location_id}"));
-    let required_grant_id = rule.required_grant_id.map(ToString::to_string);
-    let gated = rule.required_grant_id.is_some() || rule.required_card_id.is_some();
-    if !gated {
-        return ResolvedMovementAccess {
-            view: MovementAccessView::public(),
-            hosted_candidate: None,
-            guest_actor_id: actor_id,
-            guest_actor_ref,
-            location_id: destination_location_id,
-            location_ref,
-            required_grant_id,
-            reason_code: "public_location",
-        };
-    }
-    if location_access_allowed(destination_location_id, direct_access) {
-        return ResolvedMovementAccess {
-            view: MovementAccessView::solo(rule.required_grant_id),
-            hosted_candidate: None,
-            guest_actor_id: actor_id,
-            guest_actor_ref,
-            location_id: destination_location_id,
-            location_ref,
-            required_grant_id,
-            reason_code: "direct_entitlement",
-        };
-    }
-    let Some(path) = state.event_store_path.as_deref() else {
-        return ResolvedMovementAccess {
-            view: MovementAccessView::denied(
-                rule.required_grant_id,
-                "Hosted access is unavailable without canonical persistence.",
-            ),
-            hosted_candidate: None,
-            guest_actor_id: actor_id,
-            guest_actor_ref,
-            location_id: destination_location_id,
-            location_ref,
-            required_grant_id,
-            reason_code: "canonical_store_unavailable",
-        };
-    };
-    let candidates = match active_hosted_access_candidates(
-        path,
-        OFFICIAL_WORLD_ID,
-        OFFICIAL_WORLD_EPOCH,
-        &guest_actor_ref,
-        now_ms,
-    ) {
-        Ok(candidates) => candidates,
-        Err(error) => {
-            warn!("failed to resolve hosted access candidates: {}", error);
-            return ResolvedMovementAccess {
-                view: MovementAccessView::denied(
-                    rule.required_grant_id,
-                    "Hosted access could not be verified.",
-                ),
-                hosted_candidate: None,
-                guest_actor_id: actor_id,
-                guest_actor_ref,
-                location_id: destination_location_id,
-                location_ref,
-                required_grant_id,
-                reason_code: "hosted_verification_error",
-            };
-        }
-    };
-    let active_actors = active_actor_ids_for_state(state);
-    let mut denial_reason = "No active hosted party grants entry to this location.";
-    let mut denial_reason_code = "no_eligible_hosted_party";
-    for candidate in candidates {
-        let Some(host_actor_id) =
-            runtime.runtime_handle_for_canonical_ref("actor", &candidate.host_actor_ref)
-        else {
-            denial_reason = "The party host is unavailable.";
-            denial_reason_code = "host_identity_unavailable";
-            continue;
-        };
-        if !active_actors.contains(&host_actor_id) {
-            denial_reason = "The party host is disconnected or inactive.";
-            denial_reason_code = "host_inactive";
-            continue;
-        }
-        if runtime
-            .actor_by_id(host_actor_id)
-            .is_none_or(|actor| actor.location_id != destination_location_id)
-        {
-            denial_reason = "The party host must be present in the gated location.";
-            denial_reason_code = "host_not_present";
-            continue;
-        }
-        let host_access =
-            AccessContext::for_linked_actor_with_ownership(state, host_actor_id, ownership);
-        if !location_access_allowed(destination_location_id, &host_access) {
-            denial_reason = "The host entitlement is missing or has been revoked.";
-            denial_reason_code = "host_entitlement_missing";
-            continue;
-        }
-        let shared_grant = rule
-            .required_grant_id
-            .map(ToString::to_string)
-            .or_else(|| {
-                rule.required_card_id
-                    .map(|card_id| format!("card:{card_id}"))
-            })
-            .unwrap_or_else(|| "public".to_string());
-        return ResolvedMovementAccess {
-            view: MovementAccessView::hosted(&candidate, &shared_grant),
-            hosted_candidate: Some(candidate),
-            guest_actor_id: actor_id,
-            guest_actor_ref,
-            location_id: destination_location_id,
-            location_ref,
-            required_grant_id: Some(shared_grant),
-            reason_code: "active_entitled_host",
-        };
-    }
     ResolvedMovementAccess {
-        view: MovementAccessView::denied(rule.required_grant_id, denial_reason),
-        hosted_candidate: None,
+        view: MovementAccessView::public(),
         guest_actor_id: actor_id,
-        guest_actor_ref,
         location_id: destination_location_id,
-        location_ref,
-        required_grant_id,
-        reason_code: denial_reason_code,
     }
 }
 
@@ -21819,402 +21525,16 @@ fn record_movement_access_outcome(
     let Some(path) = state.event_store_path.as_deref() else {
         return;
     };
-    let result = if resolved.hosted_candidate.is_some() {
-        if outcome == "allowed" {
-            Ok(())
-        } else {
-            record_gated_access_outcome(
-                path,
-                OFFICIAL_WORLD_ID,
-                OFFICIAL_WORLD_EPOCH,
-                &resolved.guest_actor_ref,
-                &resolved.location_ref,
-                resolved.required_grant_id.as_deref(),
-                "hosted_guest",
-                outcome,
-                "movement_failed",
-                now_millis(),
-            )
-        }
-    } else if resolved.view.mode == "solo_entitled" || resolved.view.mode == "denied" {
-        record_gated_access_outcome(
-            path,
-            OFFICIAL_WORLD_ID,
-            OFFICIAL_WORLD_EPOCH,
-            &resolved.guest_actor_ref,
-            &resolved.location_ref,
-            resolved.required_grant_id.as_deref(),
-            &resolved.view.mode,
-            outcome,
-            resolved.reason_code,
-            now_millis(),
-        )
-    } else {
-        Ok(())
-    };
-    if let Err(error) = result {
-        warn!("failed to persist gated access telemetry: {}", error);
-    }
     if let Err(error) = record_story_access_outcome(
         path,
         resolved.guest_actor_id,
         resolved.location_id,
-        &resolved.view.mode,
+        "public",
         outcome,
         now_millis(),
     ) {
         warn!("failed to persist story access metric: {}", error);
     }
-}
-
-fn hosted_guest_action_restricted(
-    state: &AppState,
-    runtime: &RuntimeWorld,
-    actor_id: u64,
-    action_kind: u8,
-) -> bool {
-    if !matches!(
-        action_kind,
-        CW_ACTION_PICK_UP_ITEM
-            | CW_ACTION_USE_ITEM
-            | CW_ACTION_RULES_UTILIZE_ITEM
-            | CW_ACTION_GIVE_ITEM
-            | CW_ACTION_DROP_ITEM
-            | CW_ACTION_TRADE_ITEM
-            | CW_ACTION_CRAFT
-            | CW_ACTION_SEARCH
-            | CW_ACTION_ATTACK
-            | CW_ACTION_COMBAT_START
-            | CW_ACTION_COMBAT_JOIN
-            | CW_ACTION_COMBAT_ATTACK
-            | CW_ACTION_COMBAT_FINESSE_ATTACK
-    ) {
-        return false;
-    }
-    actor_is_restricted_hosted_guest(state, runtime, actor_id)
-}
-
-fn actor_is_restricted_hosted_guest(
-    state: &AppState,
-    runtime: &RuntimeWorld,
-    actor_id: u64,
-) -> bool {
-    let Some(path) = state.event_store_path.as_deref() else {
-        return false;
-    };
-    let Some(actor_ref) = runtime.canonical_ref("actor", actor_id) else {
-        return false;
-    };
-    let Some(location_id) = runtime.actor_by_id(actor_id).map(|actor| actor.location_id) else {
-        return false;
-    };
-    let Some(location_ref) = runtime.canonical_ref("location", location_id) else {
-        return false;
-    };
-    let direct_access = AccessContext::for_linked_actor_receipt(state, actor_id);
-    if location_access_allowed(location_id, &direct_access) {
-        return false;
-    }
-    actor_has_active_hosted_entry(
-        path,
-        OFFICIAL_WORLD_ID,
-        OFFICIAL_WORLD_EPOCH,
-        actor_ref,
-        location_ref,
-    )
-    .unwrap_or_else(|error| {
-        warn!(
-            "failed to verify hosted guest action restriction: {}",
-            error
-        );
-        true
-    })
-}
-
-fn hosted_guest_progression_mutation_restricted(mutation: &ProjectionMutation) -> bool {
-    matches!(
-        mutation,
-        ProjectionMutation::UpgradePathwayIfReady { .. }
-            | ProjectionMutation::SearchFeature { .. }
-            | ProjectionMutation::SearchLocation { .. }
-            | ProjectionMutation::DiscoverSeedExit { .. }
-            | ProjectionMutation::DiscoverHiddenExit { .. }
-            | ProjectionMutation::DiscoverAvatar { .. }
-            | ProjectionMutation::RememberSearchItem { .. }
-            | ProjectionMutation::PassivePerceiveItem { .. }
-            | ProjectionMutation::UseFeature { .. }
-            | ProjectionMutation::FocusedControl { .. }
-            | ProjectionMutation::AdvanceClock { .. }
-            | ProjectionMutation::SetJobStatus { .. }
-            | ProjectionMutation::LegacyAcceptQuest { .. }
-            | ProjectionMutation::BankVisitLedger { .. }
-            | ProjectionMutation::SettleVisitLedgerAfterDiscovery { .. }
-            | ProjectionMutation::MarkVisitLedger { .. }
-            | ProjectionMutation::ReviseCalling { .. }
-            | ProjectionMutation::CreateBond { .. }
-            | ProjectionMutation::ReviseBond { .. }
-            | ProjectionMutation::TrainSkill { .. }
-            | ProjectionMutation::UnlockCharmSlot { .. }
-            | ProjectionMutation::UnlockCharmSlotForCharm { .. }
-            | ProjectionMutation::DeepenBond { .. }
-            | ProjectionMutation::ResolveBond { .. }
-    )
-}
-
-fn hosted_guest_record_restricted(
-    state: &AppState,
-    runtime: &RuntimeWorld,
-    record: &JournalRecord,
-) -> bool {
-    matches!(
-        record.origin,
-        JournalOrigin::PlayerCard | JournalOrigin::PlayerControl
-    ) && (hosted_guest_action_restricted(
-        state,
-        runtime,
-        record.action.actor_id,
-        record.action.kind,
-    ) || (record
-        .projection_mutations
-        .iter()
-        .any(hosted_guest_progression_mutation_restricted)
-        && actor_is_restricted_hosted_guest(state, runtime, record.action.actor_id)))
-}
-
-async fn reconcile_hosted_access(state: &AppState) -> Vec<EventView> {
-    let Some(path) = state.event_store_path.as_deref() else {
-        return Vec::new();
-    };
-    let entries = match hosted_access_entries_for_reconciliation(
-        path,
-        OFFICIAL_WORLD_ID,
-        OFFICIAL_WORLD_EPOCH,
-    ) {
-        Ok(entries) => entries,
-        Err(error) => {
-            warn!("failed to inspect hosted access entries: {}", error);
-            return Vec::new();
-        }
-    };
-    if entries.is_empty() {
-        return Vec::new();
-    }
-    let _guard = state.canonical_command_lock.lock().await;
-    let ownership = state.ownership_snapshot().await;
-    let active_actors = active_actor_ids_for_state(state);
-    let now = now_millis();
-    let mut committed_events = Vec::new();
-    for entry in entries {
-        let candidates = active_hosted_access_candidates(
-            path,
-            OFFICIAL_WORLD_ID,
-            OFFICIAL_WORLD_EPOCH,
-            &entry.guest_actor_ref,
-            now,
-        )
-        .unwrap_or_default();
-        let party_active = candidates
-            .iter()
-            .any(|candidate| candidate.party_id == entry.party_id);
-        let evaluation = {
-            let runtime = state.inner.lock().await;
-            let guest_id =
-                runtime.runtime_handle_for_canonical_ref("actor", &entry.guest_actor_ref);
-            let host_id = runtime.runtime_handle_for_canonical_ref("actor", &entry.host_actor_ref);
-            let entry_location_id =
-                runtime.runtime_handle_for_canonical_ref("location", &entry.location_ref);
-            let safe_location_id = runtime
-                .runtime_handle_for_canonical_ref("location", &entry.formed_location_ref)
-                .or_else(|| {
-                    runtime
-                        .location_name(COSY_COTTAGE_LOCATION_ID)
-                        .map(|_| COSY_COTTAGE_LOCATION_ID)
-                });
-            match (guest_id, safe_location_id) {
-                (Some(guest_id), Some(safe_location_id)) => {
-                    let guest_location =
-                        runtime.actor_by_id(guest_id).map(|actor| actor.location_id);
-                    let guest_access =
-                        AccessContext::for_linked_actor_with_ownership(state, guest_id, &ownership);
-                    let reason = match entry_location_id {
-                        None => "gated_location_unavailable",
-                        Some(entry_location_id) if guest_location != Some(entry_location_id) => {
-                            "guest_left_location"
-                        }
-                        Some(entry_location_id)
-                            if location_access_allowed(entry_location_id, &guest_access) =>
-                        {
-                            "guest_now_entitled"
-                        }
-                        Some(_) if !party_active || entry.expires_at_ms <= now => {
-                            "party_removed_revoked_or_expired"
-                        }
-                        Some(entry_location_id) => match host_id {
-                            None => "host_identity_unavailable",
-                            Some(host_id) if !active_actors.contains(&host_id) => "host_inactive",
-                            Some(host_id)
-                                if runtime
-                                    .actor_by_id(host_id)
-                                    .is_none_or(|actor| actor.location_id != entry_location_id) =>
-                            {
-                                "host_departed"
-                            }
-                            Some(host_id)
-                                if !location_access_allowed(
-                                    entry_location_id,
-                                    &AccessContext::for_linked_actor_with_ownership(
-                                        state, host_id, &ownership,
-                                    ),
-                                ) =>
-                            {
-                                "host_entitlement_revoked"
-                            }
-                            Some(_) => "valid",
-                        },
-                    };
-                    Some((
-                        guest_id,
-                        safe_location_id,
-                        guest_location,
-                        reason,
-                        reason == "valid" || reason == "guest_now_entitled",
-                    ))
-                }
-                _ => None,
-            }
-        };
-        let Some((guest_id, safe_location_id, guest_location, reason, valid)) = evaluation else {
-            match update_hosted_entry_validity(
-                path,
-                &entry,
-                false,
-                "canonical_identity_missing",
-                now,
-                state.hosted_access_config.grace_ms,
-            ) {
-                Ok(true) => {
-                    if let Err(error) = mark_hosted_entry_ended(
-                        path,
-                        OFFICIAL_WORLD_ID,
-                        OFFICIAL_WORLD_EPOCH,
-                        &entry,
-                        "canonical_identity_missing",
-                        now,
-                    ) {
-                        warn!("failed to close unresolved hosted access entry: {}", error);
-                    }
-                }
-                Ok(false) => {}
-                Err(error) => warn!("failed to mark unresolved hosted access entry: {}", error),
-            }
-            continue;
-        };
-        if reason == "guest_left_location" || reason == "guest_now_entitled" {
-            if let Err(error) = mark_hosted_entry_ended(
-                path,
-                OFFICIAL_WORLD_ID,
-                OFFICIAL_WORLD_EPOCH,
-                &entry,
-                reason,
-                now,
-            ) {
-                warn!("failed to close completed hosted access entry: {}", error);
-            }
-            continue;
-        }
-        let evacuate = match update_hosted_entry_validity(
-            path,
-            &entry,
-            valid,
-            reason,
-            now,
-            state.hosted_access_config.grace_ms,
-        ) {
-            Ok(evacuate) => evacuate,
-            Err(error) => {
-                warn!("failed to update hosted access validity: {}", error);
-                false
-            }
-        };
-        if !evacuate {
-            continue;
-        }
-        if guest_location == Some(safe_location_id) {
-            if let Err(error) = mark_hosted_entry_ended(
-                path,
-                OFFICIAL_WORLD_ID,
-                OFFICIAL_WORLD_EPOCH,
-                &entry,
-                "guest_already_safe",
-                now,
-            ) {
-                warn!("failed to close safe hosted access entry: {}", error);
-            }
-            continue;
-        }
-        let events = {
-            let mut runtime = state.inner.lock().await;
-            let mut record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_NONE,
-                    actor_id: guest_id,
-                    destination_location_id: safe_location_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            )
-            .into_system();
-            record
-                .projection_mutations
-                .push(ProjectionMutation::RendezvousActor {
-                    actor_id: guest_id,
-                    location_id: safe_location_id,
-                    invite_id: entry.party_id.clone(),
-                });
-            match commit_journal_record(state, &mut runtime, record) {
-                Ok((CW_OK, events)) => events,
-                Ok((_status, _events)) => Vec::new(),
-                Err(error) => {
-                    warn!("failed to evacuate hosted guest {}: {}", guest_id, error);
-                    Vec::new()
-                }
-            }
-        };
-        if events.is_empty() {
-            continue;
-        }
-        if let Err(error) = mark_hosted_entry_evacuated(
-            path,
-            OFFICIAL_WORLD_ID,
-            OFFICIAL_WORLD_EPOCH,
-            &entry,
-            reason,
-            now,
-        ) {
-            warn!("hosted guest evacuated but entry audit failed: {}", error);
-        }
-        committed_events.extend(events);
-    }
-    if !committed_events.is_empty() {
-        broadcast_events(state, &committed_events);
-    }
-    committed_events
-}
-
-fn start_hosted_access_scheduler(state: AppState) {
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(Duration::from_secs(15)).await;
-            let _ = reconcile_hosted_access(&state).await;
-        }
-    });
-}
-
-fn schedule_hosted_access_reconciliation(state: &AppState) {
-    let state = state.clone();
-    tokio::spawn(async move {
-        let _ = reconcile_hosted_access(&state).await;
-    });
 }
 
 fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
@@ -22257,10 +21577,6 @@ fn evolution_item_belongs_to_another_resident(item_id: u64, actor_id: u64) -> bo
                 .iter()
                 .any(|requirement| requirement.item_id == item_id)
         })
-}
-
-fn placement_rotation_index_for_runtime(runtime: &RuntimeWorld) -> u64 {
-    runtime.world.tick / RESIDENT_PLACEMENT_ROTATION_TICKS.max(1)
 }
 
 fn event_store_readiness(state: &AppState) -> Result<(), String> {
@@ -22336,6 +21652,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let item_count = runtime.world.item_count;
     let location_count = runtime.world.location_count;
     let event_count = runtime.event_log.len();
+    let materialization_receipts = materialization_retirement::receipt_inventory(&runtime);
     drop(runtime);
     let (retained_command_receipts, retained_command_receipt_bytes) = state
         .event_store_path
@@ -22436,8 +21753,6 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             pathway_content_mode: state.generation_controls.mode("pathway_content").as_str(),
             ambient_enabled: false,
             dev_reset_enabled: state.dev_reset_enabled,
-            unsigned_wallet_claims_enabled: state.allow_unsigned_wallet_claims,
-            trust_client_card_ids: state.trust_client_card_ids,
             moderation_audit_enabled: state.moderation_token.is_some(),
             avatar_chat_delay_ms: state.avatar_chat_delay.as_millis(),
             default_event_replay_limit: DEFAULT_EVENT_REPLAY_LIMIT,
@@ -22498,7 +21813,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             checkpoint_rejections: state.checkpoint_rejections,
             last_checkpoint_rejection: state.last_checkpoint_rejection.clone(),
         },
-        ownership_feed: MetaOwnershipFeed {
+        linked_avatar_adapter: MetaLinkedAvatarAdapter {
             inline_configured: ownership_feed.inline_feed.is_some(),
             path_configured: ownership_feed.path_feed.is_some(),
             remote_configured: ownership_feed.remote_url.is_some(),
@@ -22514,8 +21829,14 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             consecutive_failures: ownership_feed_health.consecutive_failures,
             last_error_code: ownership_feed_health.last_error_code,
         },
-        nft: MetaNftConfig {
-            box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
+        migration_archive: MetaMigrationArchive {
+            item_materialization: MetaItemMaterialization {
+                status: "archived",
+                compatibility_mode: "audit_only",
+                new_materialization_enabled: false,
+                return_endpoint_enabled: false,
+                receipts: materialization_receipts,
+            },
         },
         combat: MetaCombat {
             protocol: "cosyworld.combat/4",
@@ -23016,340 +22337,6 @@ async fn wallet_challenge(
     })
 }
 
-async fn box_burn_prepare(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<BoxBurnPrepareRequest>,
-) -> Json<BoxBurnPrepareResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("nft-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return Json(BoxBurnPrepareResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS as u16,
-            wallet_address: None,
-            box_asset_address: None,
-            pack_id: None,
-            burn_message: None,
-            burn_transaction: None,
-            verification_mode: "trusted_feed_staging".to_string(),
-            error: Some("NFT action rate limited".to_string()),
-        });
-    }
-    if state.deployment.profile.is_production() && state.box_burn_verifier.as_ref().is_none() {
-        return Json(BoxBurnPrepareResponse {
-            ok: false,
-            status: 501,
-            wallet_address: None,
-            box_asset_address: None,
-            pack_id: None,
-            burn_message: None,
-            burn_transaction: None,
-            verification_mode: "chain_verification_required".to_string(),
-            error: Some("production Box burns require Solana/Core burn verification".to_string()),
-        });
-    }
-    let Some(wallet_address) = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token))
-    else {
-        return Json(BoxBurnPrepareResponse {
-            ok: false,
-            status: 401,
-            wallet_address: None,
-            box_asset_address: None,
-            pack_id: None,
-            burn_message: None,
-            burn_transaction: None,
-            verification_mode: "trusted_feed_staging".to_string(),
-            error: Some("signed wallet session required".to_string()),
-        });
-    };
-    let Some(box_asset_address) = normalize_asset_id(&payload.box_asset_address) else {
-        return Json(BoxBurnPrepareResponse {
-            ok: false,
-            status: 400,
-            wallet_address: Some(wallet_address),
-            box_asset_address: None,
-            pack_id: None,
-            burn_message: None,
-            burn_transaction: None,
-            verification_mode: "trusted_feed_staging".to_string(),
-            error: Some("box asset address is required".to_string()),
-        });
-    };
-    let pack_id = pack_id_for_box(&box_asset_address);
-
-    if let Some(path) = state.event_store_path.as_deref() {
-        match wooden_box_receipt_by_box(path, &box_asset_address) {
-            Ok(Some(receipt)) if receipt.owner_wallet_address == wallet_address => {
-                return Json(BoxBurnPrepareResponse {
-                    ok: true,
-                    status: 200,
-                    wallet_address: Some(wallet_address),
-                    box_asset_address: Some(box_asset_address),
-                    pack_id: Some(receipt.pack_id),
-                    burn_message: Some("Box already has a burn receipt.".to_string()),
-                    burn_transaction: None,
-                    verification_mode: receipt.verification_status,
-                    error: None,
-                });
-            }
-            Ok(Some(_)) => {
-                return Json(BoxBurnPrepareResponse {
-                    ok: false,
-                    status: 409,
-                    wallet_address: Some(wallet_address),
-                    box_asset_address: Some(box_asset_address),
-                    pack_id: None,
-                    burn_message: None,
-                    burn_transaction: None,
-                    verification_mode: "trusted_feed_staging".to_string(),
-                    error: Some("box already has a receipt for another wallet".to_string()),
-                });
-            }
-            Ok(None) => {}
-            Err(error) => {
-                return Json(BoxBurnPrepareResponse {
-                    ok: false,
-                    status: 500,
-                    wallet_address: Some(wallet_address),
-                    box_asset_address: Some(box_asset_address),
-                    pack_id: None,
-                    burn_message: None,
-                    burn_transaction: None,
-                    verification_mode: "trusted_feed_staging".to_string(),
-                    error: Some(error.to_string()),
-                });
-            }
-        }
-    }
-
-    let ownership = state.ownership_snapshot().await;
-    if !ownership
-        .boxes_for_wallet(&wallet_address)
-        .contains(&box_asset_address)
-    {
-        return Json(BoxBurnPrepareResponse {
-            ok: false,
-            status: 403,
-            wallet_address: Some(wallet_address),
-            box_asset_address: Some(box_asset_address),
-            pack_id: None,
-            burn_message: None,
-            burn_transaction: None,
-            verification_mode: "trusted_feed_staging".to_string(),
-            error: Some("box is not active in the trusted ownership feed".to_string()),
-        });
-    }
-
-    let burn_transaction = if let Some(verifier) = state.box_burn_verifier.as_ref().as_ref() {
-        match verifier
-            .prepare_box_burn(&wallet_address, &box_asset_address)
-            .await
-        {
-            Ok(transaction) => Some(BoxBurnTransactionView {
-                transaction: transaction.transaction_base64,
-                transaction_encoding: "base64".to_string(),
-                message: transaction.message_base58,
-                message_encoding: "base58".to_string(),
-                recent_blockhash: transaction.recent_blockhash,
-                last_valid_block_height: transaction.last_valid_block_height,
-                program_id: CORE_PROGRAM_ID.to_string(),
-                instruction: "BurnV1".to_string(),
-            }),
-            Err(error) => {
-                return Json(BoxBurnPrepareResponse {
-                    ok: false,
-                    status: 502,
-                    wallet_address: Some(wallet_address),
-                    box_asset_address: Some(box_asset_address),
-                    pack_id: None,
-                    burn_message: None,
-                    burn_transaction: None,
-                    verification_mode: "solana_core_burn_transaction_unavailable".to_string(),
-                    error: Some(error),
-                });
-            }
-        }
-    } else {
-        None
-    };
-
-    Json(BoxBurnPrepareResponse {
-        ok: true,
-        status: 200,
-        wallet_address: Some(wallet_address.clone()),
-        box_asset_address: Some(box_asset_address.clone()),
-        pack_id: Some(pack_id.clone()),
-        burn_message: Some(format!(
-            "Burn Wooden Box {box_asset_address} from {wallet_address} to create {pack_id}."
-        )),
-        burn_transaction,
-        verification_mode: if state.box_burn_verifier.as_ref().is_some() {
-            "solana_core_burn_transaction_required"
-        } else {
-            "trusted_feed_staging"
-        }
-        .to_string(),
-        error: None,
-    })
-}
-
-async fn box_burn_confirm(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<BoxBurnConfirmRequest>,
-) -> Json<BoxBurnConfirmResponse> {
-    if !state.allow_rate_limit(
-        rate_limit_key("nft-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS as u16,
-            receipt: None,
-            error: Some("NFT action rate limited".to_string()),
-        });
-    }
-    let Some(path) = state.event_store_path.as_deref() else {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 503,
-            receipt: None,
-            error: Some("event store is required for Box burns".to_string()),
-        });
-    };
-    let Some(wallet_address) = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token))
-    else {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 401,
-            receipt: None,
-            error: Some("signed wallet session required".to_string()),
-        });
-    };
-    let Some(box_asset_address) = normalize_asset_id(&payload.box_asset_address) else {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 400,
-            receipt: None,
-            error: Some("box asset address is required".to_string()),
-        });
-    };
-    let Some(burn_signature) = normalize_burn_signature(&payload.burn_signature) else {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 400,
-            receipt: None,
-            error: Some("valid burn signature is required".to_string()),
-        });
-    };
-
-    match wooden_box_receipt_by_box(path, &box_asset_address) {
-        Ok(Some(receipt))
-            if receipt.owner_wallet_address == wallet_address
-                && receipt.burn_signature == burn_signature =>
-        {
-            return Json(BoxBurnConfirmResponse {
-                ok: true,
-                status: 200,
-                receipt: Some(receipt),
-                error: None,
-            });
-        }
-        Ok(Some(_)) => {
-            return Json(BoxBurnConfirmResponse {
-                ok: false,
-                status: 409,
-                receipt: None,
-                error: Some("box already has a different burn receipt".to_string()),
-            });
-        }
-        Ok(None) => {}
-        Err(error) => {
-            return Json(BoxBurnConfirmResponse {
-                ok: false,
-                status: 500,
-                receipt: None,
-                error: Some(error.to_string()),
-            });
-        }
-    }
-
-    let ownership = state.ownership_snapshot().await;
-    if !ownership
-        .boxes_for_wallet(&wallet_address)
-        .contains(&box_asset_address)
-    {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            error: Some("box is not active in the trusted ownership feed".to_string()),
-        });
-    }
-
-    let verification_status = if let Some(verifier) = state.box_burn_verifier.as_ref().as_ref() {
-        match verifier
-            .verify_box_burn(&wallet_address, &box_asset_address, &burn_signature)
-            .await
-        {
-            Ok(verification) => verification.verification_status,
-            Err(error) => {
-                return Json(BoxBurnConfirmResponse {
-                    ok: false,
-                    status: 422,
-                    receipt: None,
-                    error: Some(error),
-                });
-            }
-        }
-    } else if state.deployment.profile.is_production() {
-        return Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 501,
-            receipt: None,
-            error: Some("production Box burns require Solana/Core burn verification".to_string()),
-        });
-    } else {
-        "trusted_feed_pending_chain_verification"
-    };
-
-    let pack_id = pack_id_for_box(&box_asset_address);
-    match insert_wooden_box_receipt(
-        path,
-        &wallet_address,
-        &box_asset_address,
-        &burn_signature,
-        verification_status,
-        &pack_id,
-    ) {
-        Ok(receipt) => {
-            if let Ok(mut ownership) = state.ownership_index.try_write() {
-                ownership.apply_box_burn_receipt(&wallet_address, &box_asset_address, &pack_id);
-            }
-            Json(BoxBurnConfirmResponse {
-                ok: true,
-                status: 200,
-                receipt: Some(receipt),
-                error: None,
-            })
-        }
-        Err(error) => Json(BoxBurnConfirmResponse {
-            ok: false,
-            status: 409,
-            receipt: None,
-            error: Some(error.to_string()),
-        }),
-    }
-}
-
 async fn converge_capacity_for_read(state: &AppState, actor_session: Option<&str>) {
     if let Some(token) = actor_session {
         if let Err(error) = refresh_actor_session_from_store(state, token) {
@@ -23408,16 +22395,6 @@ async fn state_view(
         &turn_humans,
     );
     drop(runtime);
-    if let Some(path) = state.event_store_path.as_deref() {
-        match load_account_activity_view(path, &access, 6) {
-            Ok(account) => response.account = account,
-            Err(error) => warn!(
-                "failed to load CosyWorld account activity from {}: {}",
-                path.display(),
-                error
-            ),
-        }
-    }
     response.room_memory =
         room_memory_view_for_state(&state, &response.location, &response.recent_events);
     Json(response)
@@ -23912,9 +22889,6 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     };
     let mut fresh = RuntimeWorld::seeded();
     let reset_event = fresh.append_world_reset_event();
-    let placement_rotation = placement_rotation_index_for_runtime(&fresh);
-    let placement_events =
-        fresh.apply_wallet_overlap_placements_with_events(&ownership, placement_rotation);
     if let Some(path) = state.event_store_path.as_deref() {
         if let Err(error) = reset_event_store(path, &fresh.event_log) {
             warn!(
@@ -23961,8 +22935,7 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
         retries.clear();
     }
 
-    let mut events = vec![reset_event];
-    events.extend(placement_events);
+    let events = vec![reset_event];
     broadcast_events(&state, &events);
     Json(ResetResponse {
         ok: true,
@@ -24491,7 +23464,6 @@ async fn leave_presence(
             broadcast_events(&state, &released_events);
             events.extend(released_events);
         }
-        schedule_hosted_access_reconciliation(&state);
     }
     Json(ActionResponse {
         ok,
@@ -24563,11 +23535,7 @@ async fn submit_action_offer(
         serde_json::from_value(submission.payload.clone()).unwrap_or(StateQuery {
             actor_id: Some(actor_id),
             actor_session: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             openrouter_connected: None,
         });
     let access = AccessContext::from_query(
@@ -25800,11 +24768,7 @@ async fn submit_narrative_move(
             actor_session: Some(actor_session),
             command: command_text,
             offer_id: None,
-            wallet_address: Some(wallet_address),
-            wallet: None,
             wallet_session: Some(session_id),
-            owned_card_ids: None,
-            cards: None,
             envelope: None,
         }),
     )
@@ -25881,15 +24845,12 @@ fn canonical_invite_id_valid(invite_id: &str) -> bool {
 fn canonical_invite_view(
     runtime: &RuntimeWorld,
     invite: &CanonicalInvite,
-    hosted_access_config: &HostedAccessConfig,
+    rendezvous_party_config: &RendezvousPartyConfig,
     now_ms: u64,
 ) -> Option<CanonicalInviteView> {
-    let hosted_access_eligible = runtime
+    let rendezvous_eligible = runtime
         .runtime_handle_for_canonical_ref("location", &invite.created_location_ref)
-        .is_some_and(|location_id| {
-            let rule = location_access_rule(location_id);
-            rule.required_grant_id.is_none() && rule.required_card_id.is_none()
-        });
+        .is_some();
     Some(CanonicalInviteView {
         invite_id: invite.invite_id.clone(),
         invite_url: format!("/invites/{}", invite.invite_id),
@@ -25899,9 +24860,9 @@ fn canonical_invite_view(
         created_location_ref: invite.created_location_ref.clone(),
         created_world_seq: invite.created_world_seq,
         expires_at_ms: invite.expires_at_ms,
-        hosted_access: hosted_access_terms(
-            hosted_access_config,
-            hosted_access_eligible,
+        rendezvous: rendezvous_party_terms(
+            rendezvous_party_config,
+            rendezvous_eligible,
             invite.expires_at_ms,
             now_ms,
         ),
@@ -25961,7 +24922,8 @@ async fn create_canonical_invite(
         }
     }
     let runtime = state.inner.lock().await;
-    let Some(invite) = canonical_invite_view(&runtime, &invite, &state.hosted_access_config, now)
+    let Some(invite) =
+        canonical_invite_view(&runtime, &invite, &state.rendezvous_party_config, now)
     else {
         return canonical_invite_response_error(&state, 500);
     };
@@ -26000,7 +24962,8 @@ async fn canonical_invite(
         }
     };
     let runtime = state.inner.lock().await;
-    let Some(invite) = canonical_invite_view(&runtime, &invite, &state.hosted_access_config, now)
+    let Some(invite) =
+        canonical_invite_view(&runtime, &invite, &state.rendezvous_party_config, now)
     else {
         return canonical_invite_response_error(&state, 404);
     };
@@ -26030,24 +24993,18 @@ fn canonical_invite_follow_error(
     })
 }
 
-fn hosted_party_for_invite_follow(
+fn rendezvous_party_for_invite_follow(
     state: &AppState,
     path: &Path,
     invite: &CanonicalInvite,
     guest_actor_ref: &str,
-    rendezvous_location_id: u64,
     rendezvous_location_ref: &str,
     now_ms: u64,
-) -> io::Result<Option<HostedPartyView>> {
+) -> io::Result<Option<RendezvousPartyView>> {
     if invite.created_location_ref != rendezvous_location_ref {
         return Ok(None);
     }
-    let rule = location_access_rule(rendezvous_location_id);
-    let eligible = rule.required_grant_id.is_none() && rule.required_card_id.is_none();
-    if !eligible {
-        return Ok(None);
-    }
-    join_hosted_party(
+    join_rendezvous_party(
         path,
         OFFICIAL_WORLD_ID,
         OFFICIAL_WORLD_EPOCH,
@@ -26057,7 +25014,7 @@ fn hosted_party_for_invite_follow(
         rendezvous_location_ref,
         now_ms,
         invite.expires_at_ms,
-        &state.hosted_access_config,
+        &state.rendezvous_party_config,
     )
     .map(Some)
 }
@@ -26197,12 +25154,11 @@ async fn follow_canonical_invite_with_forwarding(
             .world
             .next_event_seq
             .saturating_sub(1);
-        let party = match hosted_party_for_invite_follow(
+        let party = match rendezvous_party_for_invite_follow(
             &state,
             path,
             &invite,
             &actor_ref,
-            target_location_id,
             &target_location_ref,
             now_millis(),
         ) {
@@ -26287,7 +25243,7 @@ async fn follow_canonical_invite_with_forwarding(
         return canonical_invite_follow_error(&state, &invite_id, 503);
     }
 
-    let (status, events, through_seq, rendezvous_location_id, rendezvous_location_ref) = {
+    let (status, events, through_seq, rendezvous_location_ref) = {
         let mut runtime = state.inner.lock().await;
         let Some(inviter_id) = runtime.runtime_handle_for_canonical_ref("actor", &invite.actor_ref)
         else {
@@ -26330,7 +25286,6 @@ async fn follow_canonical_invite_with_forwarding(
             status,
             events,
             runtime.world.next_event_seq.saturating_sub(1),
-            current_target_location_id,
             rendezvous_location_ref,
         )
     };
@@ -26338,12 +25293,11 @@ async fn follow_canonical_invite_with_forwarding(
     let mut response_status = status;
     let party = if status == CW_OK {
         match rendezvous_location_ref.as_deref() {
-            Some(location_ref) => match hosted_party_for_invite_follow(
+            Some(location_ref) => match rendezvous_party_for_invite_follow(
                 &state,
                 path,
                 &invite,
                 &actor_ref,
-                rendezvous_location_id,
                 location_ref,
                 now_millis(),
             ) {
@@ -26375,8 +25329,11 @@ async fn follow_canonical_invite_with_forwarding(
     })
 }
 
-fn hosted_party_action_error(party_id: &str, status: u32) -> Json<HostedPartyActionResponse> {
-    Json(HostedPartyActionResponse {
+fn rendezvous_party_action_error(
+    party_id: &str,
+    status: u32,
+) -> Json<RendezvousPartyActionResponse> {
+    Json(RendezvousPartyActionResponse {
         ok: false,
         status,
         party_id: party_id.to_string(),
@@ -26384,17 +25341,17 @@ fn hosted_party_action_error(party_id: &str, status: u32) -> Json<HostedPartyAct
     })
 }
 
-async fn leave_hosted_party(
+async fn leave_rendezvous_party(
     State(state): State<AppState>,
     AxumPath(party_id): AxumPath<String>,
     Json(payload): Json<HostedPartyActionRequest>,
-) -> Json<HostedPartyActionResponse> {
+) -> Json<RendezvousPartyActionResponse> {
     if !canonical_invite_id_valid(&party_id) {
-        return hosted_party_action_error(&party_id, 400);
+        return rendezvous_party_action_error(&party_id, 400);
     }
     converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
     let Some(path) = state.event_store_path.as_deref() else {
-        return hosted_party_action_error(&party_id, 503);
+        return rendezvous_party_action_error(&party_id, 503);
     };
     let guest_actor_ref = {
         let runtime = state.inner.lock().await;
@@ -26404,14 +25361,14 @@ async fn leave_hosted_party(
             payload.actor_id,
             Some(&payload.actor_session),
         ) {
-            return hosted_party_action_error(&party_id, 403);
+            return rendezvous_party_action_error(&party_id, 403);
         }
         let Some(actor_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
-            return hosted_party_action_error(&party_id, 404);
+            return rendezvous_party_action_error(&party_id, 404);
         };
         actor_ref.to_string()
     };
-    match remove_hosted_party_member(
+    match remove_rendezvous_party_member(
         path,
         &party_id,
         &guest_actor_ref,
@@ -26419,32 +25376,31 @@ async fn leave_hosted_party(
         now_millis(),
     ) {
         Ok(true) => {}
-        Ok(false) => return hosted_party_action_error(&party_id, 404),
+        Ok(false) => return rendezvous_party_action_error(&party_id, 404),
         Err(error) => {
             warn!("failed to leave hosted party {}: {}", party_id, error);
-            return hosted_party_action_error(&party_id, 503);
+            return rendezvous_party_action_error(&party_id, 503);
         }
     }
-    let events = reconcile_hosted_access(&state).await;
-    Json(HostedPartyActionResponse {
+    Json(RendezvousPartyActionResponse {
         ok: true,
         status: 200,
         party_id,
-        events,
+        events: Vec::new(),
     })
 }
 
-async fn remove_hosted_party_member_action(
+async fn remove_rendezvous_party_member_action(
     State(state): State<AppState>,
     AxumPath((party_id, guest_actor_id)): AxumPath<(String, u64)>,
     Json(payload): Json<HostedPartyActionRequest>,
-) -> Json<HostedPartyActionResponse> {
+) -> Json<RendezvousPartyActionResponse> {
     if !canonical_invite_id_valid(&party_id) {
-        return hosted_party_action_error(&party_id, 400);
+        return rendezvous_party_action_error(&party_id, 400);
     }
     converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
     let Some(path) = state.event_store_path.as_deref() else {
-        return hosted_party_action_error(&party_id, 503);
+        return rendezvous_party_action_error(&party_id, 503);
     };
     let (host_actor_ref, guest_actor_ref) = {
         let runtime = state.inner.lock().await;
@@ -26454,26 +25410,26 @@ async fn remove_hosted_party_member_action(
             payload.actor_id,
             Some(&payload.actor_session),
         ) {
-            return hosted_party_action_error(&party_id, 403);
+            return rendezvous_party_action_error(&party_id, 403);
         }
         let Some(host_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
-            return hosted_party_action_error(&party_id, 404);
+            return rendezvous_party_action_error(&party_id, 404);
         };
         let Some(guest_ref) = runtime.canonical_ref("actor", guest_actor_id) else {
-            return hosted_party_action_error(&party_id, 404);
+            return rendezvous_party_action_error(&party_id, 404);
         };
         (host_ref.to_string(), guest_ref.to_string())
     };
-    match hosted_party_host(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH, &party_id) {
+    match rendezvous_party_host(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH, &party_id) {
         Ok(Some(stored_host)) if stored_host == host_actor_ref => {}
-        Ok(Some(_)) => return hosted_party_action_error(&party_id, 403),
-        Ok(None) => return hosted_party_action_error(&party_id, 404),
+        Ok(Some(_)) => return rendezvous_party_action_error(&party_id, 403),
+        Ok(None) => return rendezvous_party_action_error(&party_id, 404),
         Err(error) => {
             warn!("failed to authorize hosted party removal: {}", error);
-            return hosted_party_action_error(&party_id, 503);
+            return rendezvous_party_action_error(&party_id, 503);
         }
     }
-    match remove_hosted_party_member(
+    match remove_rendezvous_party_member(
         path,
         &party_id,
         &guest_actor_ref,
@@ -26481,32 +25437,31 @@ async fn remove_hosted_party_member_action(
         now_millis(),
     ) {
         Ok(true) => {}
-        Ok(false) => return hosted_party_action_error(&party_id, 404),
+        Ok(false) => return rendezvous_party_action_error(&party_id, 404),
         Err(error) => {
             warn!("failed to remove hosted party member: {}", error);
-            return hosted_party_action_error(&party_id, 503);
+            return rendezvous_party_action_error(&party_id, 503);
         }
     }
-    let events = reconcile_hosted_access(&state).await;
-    Json(HostedPartyActionResponse {
+    Json(RendezvousPartyActionResponse {
         ok: true,
         status: 200,
         party_id,
-        events,
+        events: Vec::new(),
     })
 }
 
-async fn revoke_hosted_party_action(
+async fn revoke_rendezvous_party_action(
     State(state): State<AppState>,
     AxumPath(party_id): AxumPath<String>,
     Json(payload): Json<HostedPartyActionRequest>,
-) -> Json<HostedPartyActionResponse> {
+) -> Json<RendezvousPartyActionResponse> {
     if !canonical_invite_id_valid(&party_id) {
-        return hosted_party_action_error(&party_id, 400);
+        return rendezvous_party_action_error(&party_id, 400);
     }
     converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
     let Some(path) = state.event_store_path.as_deref() else {
-        return hosted_party_action_error(&party_id, 503);
+        return rendezvous_party_action_error(&party_id, 503);
     };
     let host_actor_ref = {
         let runtime = state.inner.lock().await;
@@ -26516,14 +25471,14 @@ async fn revoke_hosted_party_action(
             payload.actor_id,
             Some(&payload.actor_session),
         ) {
-            return hosted_party_action_error(&party_id, 403);
+            return rendezvous_party_action_error(&party_id, 403);
         }
         let Some(host_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
-            return hosted_party_action_error(&party_id, 404);
+            return rendezvous_party_action_error(&party_id, 404);
         };
         host_ref.to_string()
     };
-    match revoke_hosted_party(
+    match revoke_rendezvous_party(
         path,
         &party_id,
         &host_actor_ref,
@@ -26531,18 +25486,17 @@ async fn revoke_hosted_party_action(
         now_millis(),
     ) {
         Ok(true) => {}
-        Ok(false) => return hosted_party_action_error(&party_id, 404),
+        Ok(false) => return rendezvous_party_action_error(&party_id, 404),
         Err(error) => {
             warn!("failed to revoke hosted party: {}", error);
-            return hosted_party_action_error(&party_id, 503);
+            return rendezvous_party_action_error(&party_id, 503);
         }
     }
-    let events = reconcile_hosted_access(&state).await;
-    Json(HostedPartyActionResponse {
+    Json(RendezvousPartyActionResponse {
         ok: true,
         status: 200,
         party_id,
-        events,
+        events: Vec::new(),
     })
 }
 
@@ -27725,11 +26679,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     destination_location_id,
-                    wallet_address: payload.wallet_address,
-                    wallet: payload.wallet,
                     wallet_session: payload.wallet_session,
-                    owned_card_ids: payload.owned_card_ids,
-                    cards: payload.cards,
                 }),
             )
             .await;
@@ -27745,11 +26695,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     destination_location_id,
-                    wallet_address: payload.wallet_address,
-                    wallet: payload.wallet,
                     wallet_session: payload.wallet_session,
-                    owned_card_ids: payload.owned_card_ids,
-                    cards: payload.cards,
                 }),
             )
             .await;
@@ -27765,11 +26711,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     destination_location_id,
-                    wallet_address: payload.wallet_address,
-                    wallet: payload.wallet,
                     wallet_session: payload.wallet_session,
-                    owned_card_ids: payload.owned_card_ids,
-                    cards: payload.cards,
                 }),
             )
             .await;
@@ -30786,17 +29728,12 @@ async fn move_actor(
         } else {
             CW_ACTION_SEARCH
         };
-        let hosted_access_grant = (action.destination_location_id
-            == payload.destination_location_id)
-            .then(|| resolved_access.hosted_journal_grant())
-            .flatten();
-        let response = apply_journey_transition_with_hosted_access(
+        let response = apply_journey_transition(
             state.clone(),
             action,
             *mutation,
             payload.actor_session.as_deref(),
             turn_action_kind,
-            hosted_access_grant,
         )
         .await;
         if response.0.ok {
@@ -30807,9 +29744,6 @@ async fn move_actor(
             &resolved_access,
             if response.0.ok { "allowed" } else { "failed" },
         );
-        if response.0.ok {
-            schedule_hosted_access_reconciliation(&state);
-        }
         return Json(MoveActionResponse::from_action(
             response.0,
             resolved_access.view,
@@ -30819,21 +29753,13 @@ async fn move_actor(
     let MovementPlan::Adjacent(action) = movement_plan else {
         unreachable!("journey movement returned above");
     };
-    let Json(response) = apply_and_broadcast_with_hosted_access(
-        state.clone(),
-        action,
-        payload.actor_session.as_deref(),
-        resolved_access.hosted_journal_grant(),
-    )
-    .await;
+    let Json(response) =
+        apply_and_broadcast(state.clone(), action, payload.actor_session.as_deref()).await;
     record_movement_access_outcome(
         &state,
         &resolved_access,
         if response.ok { "allowed" } else { "failed" },
     );
-    if response.ok {
-        schedule_hosted_access_reconciliation(&state);
-    }
     Json(MoveActionResponse::from_action(
         response,
         resolved_access.view,
@@ -33145,349 +32071,6 @@ async fn set_item_contained(
     })
 }
 
-async fn materialize_collection_item(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<MaterializeItemRequest>,
-) -> Json<MaterializationResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "action-actor",
-        GENERAL_ACTION_LIMIT,
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization rate limited".to_string()),
-        });
-    }
-    let receipt_id = payload.receipt_id.trim();
-    if receipt_id.is_empty()
-        || receipt_id.len() > 96
-        || !receipt_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':'))
-    {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 400,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("receipt_id must be a stable printable identifier".to_string()),
-        });
-    }
-    let ownership = state.ownership_snapshot().await;
-    let access = AccessContext::from_request_parts(
-        payload.wallet_session.as_deref(),
-        payload
-            .wallet_address
-            .as_deref()
-            .or(payload.wallet.as_deref()),
-        [
-            state
-                .trust_client_card_ids
-                .then_some(payload.owned_card_ids.as_deref())
-                .flatten(),
-            state
-                .trust_client_card_ids
-                .then_some(payload.cards.as_deref())
-                .flatten(),
-        ],
-        &ownership,
-        &state.wallet_sessions,
-        state.allow_unsigned_wallet_claims,
-    );
-    let Some(card) = active_content()
-        .cards
-        .iter()
-        .find(|card| card.card_id == payload.card_id && card.subject_kind == "item")
-    else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 404,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("card_id is not an item collectible".to_string()),
-        });
-    };
-    let owns_card = access.owned_card_ids.contains(&card.card_id)
-        || card
-            .external_card_id
-            .as_ref()
-            .is_some_and(|external_id| access.owned_card_ids.contains(external_id));
-    if !owns_card {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("the signed collection does not own this item card".to_string()),
-        });
-    }
-    let mut runtime = state.inner.lock().await;
-    if !client_actor_authorized_for_state(
-        &runtime,
-        &state,
-        payload.actor_id,
-        payload.actor_session.as_deref(),
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("actor session is not authorized".to_string()),
-        });
-    }
-    if let Some(existing) = runtime.materialization_receipts.get(receipt_id).cloned() {
-        let matching = existing.actor_id == payload.actor_id && existing.card_id == payload.card_id;
-        if !matching || existing.status == "materialized" {
-            return Json(MaterializationResponse {
-                ok: matching,
-                status: if matching { CW_OK } else { 409 },
-                item: matching
-                    .then(|| runtime.item_by_id(existing.item_id))
-                    .flatten()
-                    .map(|item| runtime.item_view(item)),
-                receipt: Some(existing),
-                events: Vec::new(),
-                error: (!matching)
-                    .then(|| "receipt_id is already bound to another materialization".to_string()),
-            });
-        }
-    }
-    if let Some(existing) = runtime
-        .materialization_receipts
-        .values()
-        .find(|receipt| {
-            receipt.actor_id == payload.actor_id
-                && receipt.card_id == payload.card_id
-                && receipt.status == "materialized"
-        })
-        .cloned()
-    {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 409,
-            item: runtime
-                .item_by_id(existing.item_id)
-                .map(|item| runtime.item_view(item)),
-            receipt: Some(existing),
-            events: Vec::new(),
-            error: Some("this collectible is already materialized for the avatar".to_string()),
-        });
-    }
-    let Some(seed_item) = active_content()
-        .items
-        .iter()
-        .find(|item| item.id == card.subject_id)
-    else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 409,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("item collectible has no playable item profile".to_string()),
-        });
-    };
-    let item_id = materialized_item_id(receipt_id);
-    let (max_charges, recovery, recovery_zone) = seed_item_recovery_profile(seed_item);
-    let item = CwItem {
-        id: item_id,
-        kind: seed_item_kind(seed_item).unwrap_or(CW_ITEM_KEEPSAKE),
-        charges: seed_item.charges,
-        max_charges,
-        recovery,
-        recovery_zone,
-        weight_tenths: seed_item.weight_tenths,
-        container_capacity_tenths: seed_item.container_capacity_tenths,
-        size_class: seed_item_size(seed_item).unwrap_or(CW_ITEM_SIZE_SMALL),
-        role: seed_item_role(seed_item).unwrap_or(CW_ITEM_ROLE_GENERIC),
-        zone: CW_CARD_ZONE_CARRIED,
-        holder_actor_id: payload.actor_id,
-        held_since_tick: runtime.world.tick,
-        reserved: seed_weapon_die_sides(seed_item),
-        ..CwItem::default()
-    };
-    if runtime.item_by_id(item_id).is_some()
-        || !runtime.actor_can_exchange_items(payload.actor_id, None, item)
-    {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 409,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("instance id collision or insufficient carried-deck capacity".to_string()),
-        });
-    }
-    let receipt = MaterializationReceiptState {
-        id: receipt_id.to_string(),
-        actor_id: payload.actor_id,
-        card_id: payload.card_id.clone(),
-        item_id,
-        status: "materialized".to_string(),
-        source_wallet: access.owner_wallet_address,
-        source_event_seq: runtime.world.next_event_seq,
-    };
-    let meta = ItemMeta {
-        name: seed_item.name.clone(),
-        description: seed_item.description.clone(),
-        skill_id: seed_item.skill_id.clone(),
-        skill_bonus: seed_item.skill_bonus,
-        mechanics: seed_item.mechanics.clone(),
-    };
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            item_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record.bind_offer_kind("materialize");
-    record
-        .projection_mutations
-        .push(ProjectionMutation::MaterializeItem {
-            receipt: receipt.clone(),
-            item,
-            meta,
-            reason: "collection_materialization".to_string(),
-        });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 500,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization commit failed".to_string()),
-        });
-    };
-    let committed_receipt = runtime.materialization_receipts.get(receipt_id).cloned();
-    let committed_item = runtime
-        .item_by_id(item_id)
-        .map(|item| runtime.item_view(item));
-    drop(runtime);
-    broadcast_events(&state, &events);
-    Json(MaterializationResponse {
-        ok: status == CW_OK && committed_receipt.is_some(),
-        status,
-        receipt: committed_receipt,
-        item: committed_item,
-        events,
-        error: None,
-    })
-}
-
-async fn unmaterialize_collection_item(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    Json(payload): Json<UnmaterializeItemRequest>,
-) -> Json<MaterializationResponse> {
-    if !allow_actor_mutation(
-        &state,
-        client_addr,
-        payload.actor_id,
-        "action-actor",
-        GENERAL_ACTION_LIMIT,
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: RATE_LIMITED_STATUS,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("unmaterialization rate limited".to_string()),
-        });
-    }
-    let mut runtime = state.inner.lock().await;
-    if !client_actor_authorized_for_state(
-        &runtime,
-        &state,
-        payload.actor_id,
-        payload.actor_session.as_deref(),
-    ) {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 403,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("actor session is not authorized".to_string()),
-        });
-    }
-    let Some(existing) = runtime
-        .materialization_receipts
-        .get(&payload.receipt_id)
-        .cloned()
-    else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 404,
-            receipt: None,
-            item: None,
-            events: Vec::new(),
-            error: Some("materialization receipt was not found".to_string()),
-        });
-    };
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id: payload.actor_id,
-            item_id: existing.item_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record.bind_offer_kind("materialize");
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UnmaterializeItem {
-            receipt_id: payload.receipt_id.clone(),
-            reason: "collection_unmaterialization".to_string(),
-        });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(MaterializationResponse {
-            ok: false,
-            status: 500,
-            receipt: Some(existing),
-            item: None,
-            events: Vec::new(),
-            error: Some("unmaterialization commit failed".to_string()),
-        });
-    };
-    let receipt = runtime
-        .materialization_receipts
-        .get(&payload.receipt_id)
-        .cloned();
-    drop(runtime);
-    broadcast_events(&state, &events);
-    let rejected = events.is_empty();
-    Json(MaterializationResponse {
-        ok: status == CW_OK && !rejected,
-        status: if rejected { 409 } else { status },
-        receipt,
-        item: None,
-        events,
-        error: rejected.then(|| {
-            "only an unequipped, uncontained card still held by the materializing avatar can return to Collection"
-                .to_string()
-        }),
-    })
-}
-
 async fn create_bond(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -33844,46 +32427,12 @@ async fn apply_and_broadcast(
     apply_and_broadcast_with_resident_reply(state, action, actor_session).await
 }
 
-async fn apply_and_broadcast_with_hosted_access(
-    state: AppState,
-    action: CwAction,
-    actor_session: Option<&str>,
-    hosted_access_grant: Option<HostedAccessJournalGrant>,
-) -> Json<ActionResponse> {
-    apply_and_broadcast_with_resident_reply_and_hosted_access(
-        state,
-        action,
-        actor_session,
-        hosted_access_grant,
-    )
-    .await
-}
-
 async fn apply_journey_transition(
     state: AppState,
     action: CwAction,
     mutation: ProjectionMutation,
     actor_session: Option<&str>,
     turn_action_kind: u8,
-) -> Json<ActionResponse> {
-    apply_journey_transition_with_hosted_access(
-        state,
-        action,
-        mutation,
-        actor_session,
-        turn_action_kind,
-        None,
-    )
-    .await
-}
-
-async fn apply_journey_transition_with_hosted_access(
-    state: AppState,
-    action: CwAction,
-    mutation: ProjectionMutation,
-    actor_session: Option<&str>,
-    turn_action_kind: u8,
-    hosted_access_grant: Option<HostedAccessJournalGrant>,
 ) -> Json<ActionResponse> {
     let actor_id = action.actor_id;
     let was_active = actor_session
@@ -33910,7 +32459,6 @@ async fn apply_journey_transition_with_hosted_access(
     }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.projection_mutations.push(mutation);
-    record.hosted_access_grant = hosted_access_grant;
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         drop(runtime);
         return Json(ActionResponse {
@@ -33951,7 +32499,7 @@ async fn apply_and_broadcast_with_resident_reply(
     action: CwAction,
     actor_session: Option<&str>,
 ) -> Json<ActionResponse> {
-    apply_and_broadcast_with_resident_reply_and_hosted_access(state, action, actor_session, None)
+    apply_and_broadcast_with_resident_reply_and_mutations(state, action, actor_session, Vec::new())
         .await
 }
 
@@ -33961,14 +32509,8 @@ async fn apply_and_broadcast_with_mutations(
     actor_session: Option<&str>,
     mutations: Vec<ProjectionMutation>,
 ) -> Json<ActionResponse> {
-    apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations(
-        state,
-        action,
-        actor_session,
-        None,
-        mutations,
-    )
-    .await
+    apply_and_broadcast_with_resident_reply_and_mutations(state, action, actor_session, mutations)
+        .await
 }
 
 fn causal_target_conflict_event(
@@ -34030,27 +32572,10 @@ fn causal_target_conflict_event(
     })
 }
 
-async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
+async fn apply_and_broadcast_with_resident_reply_and_mutations(
     state: AppState,
     action: CwAction,
     actor_session: Option<&str>,
-    hosted_access_grant: Option<HostedAccessJournalGrant>,
-) -> Json<ActionResponse> {
-    apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations(
-        state,
-        action,
-        actor_session,
-        hosted_access_grant,
-        Vec::new(),
-    )
-    .await
-}
-
-async fn apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations(
-    state: AppState,
-    action: CwAction,
-    actor_session: Option<&str>,
-    hosted_access_grant: Option<HostedAccessJournalGrant>,
     mutations: Vec<ProjectionMutation>,
 ) -> Json<ActionResponse> {
     let actor_id = action.actor_id;
@@ -34060,13 +32585,6 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
         return client_actor_rejected_response();
-    }
-    if hosted_guest_action_restricted(&state, &runtime, actor_id, action.kind) {
-        return Json(ActionResponse {
-            ok: false,
-            status: 403,
-            events: Vec::new(),
-        });
     }
     let released_events = release_inactive_direct_inventory_locked(&state, &mut runtime);
     let turn_location_id = runtime.actor_by_id(actor_id).map(|actor| actor.location_id);
@@ -34098,7 +32616,6 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations
                 reason: "discovery".to_string(),
             });
     }
-    record.hosted_access_grant = hosted_access_grant;
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         drop(runtime);
         if !released_events.is_empty() {
@@ -36061,23 +34578,7 @@ fn commit_journal_record(
     if !card_policy_preference_record_preconditions_hold(&record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
-    if hosted_guest_record_restricted(state, runtime, &record) {
-        return Ok((CW_ERR_RULE, Vec::new()));
-    }
-    if !actor_is_restricted_hosted_guest(state, runtime, record.action.actor_id) {
-        runtime.bind_passive_item_perception(&mut record);
-    }
-    if record.hosted_access_grant.as_ref().is_some_and(|grant| {
-        !hosted_access_grant_runtime_valid(
-            state,
-            runtime,
-            record.action.actor_id,
-            record.action.destination_location_id,
-            grant,
-        )
-    }) {
-        return Ok((CW_ERR_RULE, Vec::new()));
-    }
+    runtime.bind_passive_item_perception(&mut record);
     let pre_orb_balances = runtime.orb_balances.clone();
     let pre_orb_reward_claims = runtime.orb_reward_claims.clone();
     let pre_entity_versions = runtime.canonical_identities.entity_versions.clone();
@@ -36186,15 +34687,6 @@ fn commit_journal_record(
             persistence_phases.push(("journal_and_runtime", phase_started_at.elapsed()));
             phase_started_at = Instant::now();
             if status == CW_OK {
-                if let Some(grant) = record.hosted_access_grant.as_ref() {
-                    activate_hosted_access_entry_in_transaction(
-                        &tx,
-                        OFFICIAL_WORLD_ID,
-                        OFFICIAL_WORLD_EPOCH,
-                        grant,
-                        commit_time,
-                    )?;
-                }
                 let active_actor_ids = active_actor_ids_for_state(state);
                 let actor_location_id = runtime
                     .actor_by_id(record.action.actor_id)
@@ -36559,10 +35051,6 @@ fn rebuild_runtime_from_durable_state(
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => return Err(error),
         }
-    }
-    if let Ok(ownership) = state.ownership_index.try_read() {
-        let placement_rotation = placement_rotation_index_for_runtime(&restored);
-        restored.apply_wallet_overlap_placements(&ownership, placement_rotation);
     }
     Ok(Box::new(restored))
 }
@@ -38069,6 +36557,7 @@ fn append_ai_usage_ledger(path: &Path, record: &AiUsageLedgerRecord) -> io::Resu
     Ok(())
 }
 
+#[allow(dead_code)]
 fn insert_wooden_box_receipt(
     path: &Path,
     wallet_address: &str,
@@ -38099,6 +36588,7 @@ fn insert_wooden_box_receipt(
         .ok_or_else(|| io::Error::other("wooden box receipt insert did not return a row"))
 }
 
+#[allow(dead_code)]
 fn wooden_box_receipt_by_box(
     path: &Path,
     box_asset_address: &str,
@@ -38128,6 +36618,7 @@ fn wooden_box_receipt_by_box(
     .map_err(sqlite_error)
 }
 
+#[allow(dead_code)]
 fn wooden_box_receipt_by_pack(
     path: &Path,
     pack_id: &str,
@@ -38157,6 +36648,7 @@ fn wooden_box_receipt_by_pack(
     .map_err(sqlite_error)
 }
 
+#[allow(dead_code)]
 fn mark_wooden_box_receipt_opened(path: &Path, pack_id: &str) -> io::Result<()> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
@@ -38970,11 +37462,7 @@ mod tests {
             actor_session: None,
             command: command.to_string(),
             offer_id: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             envelope: None,
         }
     }
@@ -40003,238 +38491,9 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    #[tokio::test]
-    async fn hosted_party_entry_is_server_verified_restricted_and_evacuated_on_revocation() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-hosted-party-route-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Host");
-        create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "Guest");
-        let mut state = test_app_state(runtime, Some(path.clone()));
-        state.hosted_access_config = Arc::new(HostedAccessConfig {
-            grace_ms: 0,
-            ..HostedAccessConfig::default()
-        });
-        let (host_session, _) = issue_actor_session(&state, 5000);
-        let (guest_session, _) = issue_actor_session(&state, 5001);
-        assert_eq!(
-            actor_for_session(&state.actor_sessions, &host_session),
-            Some(5000)
-        );
-        assert_eq!(
-            actor_for_session(&state.actor_sessions, &guest_session),
-            Some(5001)
-        );
-
-        let gate = active_content()
-            .access_gates
-            .first()
-            .expect("official world has a gated location")
-            .clone();
-        let (host_ref, guest_ref, public_ref, gated_ref) = {
-            let runtime = state.inner.lock().await;
-            (
-                runtime.canonical_ref("actor", 5000).unwrap().to_string(),
-                runtime.canonical_ref("actor", 5001).unwrap().to_string(),
-                runtime
-                    .canonical_ref("location", COSY_COTTAGE_LOCATION_ID)
-                    .unwrap()
-                    .to_string(),
-                runtime
-                    .canonical_ref("location", gate.location_id)
-                    .unwrap()
-                    .to_string(),
-            )
-        };
-        let denied_without_party = {
-            let runtime = state.inner.lock().await;
-            resolve_movement_access(
-                &state,
-                &runtime,
-                &OwnershipIndex::default(),
-                5001,
-                gate.location_id,
-                &AccessContext::default(),
-                now_millis(),
-            )
-        };
-        assert_eq!(denied_without_party.view.mode, "denied");
-        record_movement_access_outcome(&state, &denied_without_party, "denied");
-
-        join_hosted_party(
-            &path,
-            OFFICIAL_WORLD_ID,
-            OFFICIAL_WORLD_EPOCH,
-            "party-hosted-test",
-            &host_ref,
-            &guest_ref,
-            &public_ref,
-            now_millis(),
-            now_millis() + 60_000,
-            &state.hosted_access_config,
-        )
-        .expect("form party in public room");
-        state
-            .wallet_actor_links
-            .lock()
-            .unwrap()
-            .insert("wallet-host".to_string(), 5000);
-        let ownership = OwnershipIndex::parse(&format!(
-            r#"{{"wallets":[{{"walletAddress":"wallet-host","grantIds":["{}"]}}]}}"#,
-            gate.required_grant_id
-        ));
-        *state.ownership_index.write().await = ownership.clone();
-        {
-            let mut runtime = state.inner.lock().await;
-            runtime.place_actor_location(5000, gate.location_id, false);
-        }
-        let missing_provider = {
-            let runtime = state.inner.lock().await;
-            resolve_movement_access(
-                &state,
-                &runtime,
-                &OwnershipIndex::default(),
-                5001,
-                gate.location_id,
-                &AccessContext::default(),
-                now_millis(),
-            )
-        };
-        assert_eq!(missing_provider.view.mode, "denied");
-        assert_eq!(missing_provider.reason_code, "host_entitlement_missing");
-        let hosted = {
-            let runtime = state.inner.lock().await;
-            resolve_movement_access(
-                &state,
-                &runtime,
-                &ownership,
-                5001,
-                gate.location_id,
-                &AccessContext::default(),
-                now_millis(),
-            )
-        };
-        assert_eq!(hosted.view.mode, "hosted_guest");
-        assert_eq!(hosted.view.party_id.as_deref(), Some("party-hosted-test"));
-        {
-            let mut runtime = state.inner.lock().await;
-            let mut entry = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_NONE,
-                    actor_id: 5001,
-                    destination_location_id: gate.location_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            )
-            .into_player_card();
-            entry.source_location_id = Some(COSY_COTTAGE_LOCATION_ID);
-            entry.hosted_access_grant = hosted.hosted_journal_grant();
-            entry
-                .projection_mutations
-                .push(ProjectionMutation::RendezvousActor {
-                    actor_id: 5001,
-                    location_id: gate.location_id,
-                    invite_id: "party-hosted-test".to_string(),
-                });
-            let (status, events) = commit_journal_record(&state, &mut runtime, entry).unwrap();
-            assert_eq!(status, CW_OK);
-            assert!(events.iter().any(|event| {
-                event.type_name == "actor.moved"
-                    && event.actor_id == Some(5001)
-                    && event.destination_location_id == Some(gate.location_id)
-            }));
-            assert!(hosted_guest_action_restricted(
-                &state,
-                &runtime,
-                5001,
-                CW_ACTION_PICK_UP_ITEM
-            ));
-            assert!(!hosted_guest_action_restricted(
-                &state,
-                &runtime,
-                5001,
-                CW_ACTION_SAY
-            ));
-            let mut progression = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_NONE,
-                    actor_id: 5001,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            )
-            .into_player_card();
-            progression
-                .projection_mutations
-                .push(ProjectionMutation::BankVisitLedger {
-                    reason: "hosted_access_test".to_string(),
-                });
-            let (status, events) =
-                commit_journal_record(&state, &mut runtime, progression).unwrap();
-            assert_eq!(status, CW_ERR_RULE);
-            assert!(events.is_empty());
-        }
-        assert!(actor_has_active_hosted_entry(
-            &path,
-            OFFICIAL_WORLD_ID,
-            OFFICIAL_WORLD_EPOCH,
-            &guest_ref,
-            &gated_ref,
-        )
-        .unwrap());
-
-        *state.ownership_index.write().await = OwnershipIndex::default();
-        let events = reconcile_hosted_access(&state).await;
-        assert!(events.iter().any(|event| {
-            event.type_name == "actor.moved"
-                && event.actor_id == Some(5001)
-                && event.destination_location_id == Some(COSY_COTTAGE_LOCATION_ID)
-        }));
-        assert_eq!(
-            state
-                .inner
-                .lock()
-                .await
-                .actor_by_id(5001)
-                .unwrap()
-                .location_id,
-            COSY_COTTAGE_LOCATION_ID
-        );
-        let conn = open_event_store(&path).unwrap();
-        assert_eq!(
-            conn.query_row(
-                "SELECT COUNT(*) FROM canonical_hosted_access_events
-                 WHERE access_mode = 'hosted_guest' AND outcome = 'allowed'",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .unwrap(),
-            1
-        );
-        assert_eq!(
-            conn.query_row(
-                "SELECT COUNT(*) FROM canonical_hosted_access_events
-                 WHERE access_mode = 'hosted_guest' AND outcome = 'evacuated'",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .unwrap(),
-            1
-        );
-        let story_metrics = read_recent_story_metrics(&conn, 100).unwrap();
-        assert!(story_metrics
-            .iter()
-            .any(|event| event.event_kind == "entitlement_denial"));
-        assert!(story_metrics
-            .iter()
-            .any(|event| event.event_kind == "hosted_guest_entry"));
-        drop(conn);
-        fs::remove_file(path).unwrap();
+    #[test]
+    fn official_world_has_no_wallet_gated_places() {
+        assert!(active_content().access_gates.is_empty());
     }
 
     #[tokio::test]
@@ -40286,11 +38545,7 @@ mod tests {
             Query(StateQuery {
                 actor_id: Some(5000),
                 actor_session: Some(actor_session.clone()),
-                wallet_address: None,
-                wallet: None,
                 wallet_session: None,
-                owned_card_ids: None,
-                cards: None,
                 openrouter_connected: None,
             }),
         )
@@ -40416,11 +38671,7 @@ mod tests {
             Query(StateQuery {
                 actor_id: Some(5000),
                 actor_session: Some(actor_session.clone()),
-                wallet_address: None,
-                wallet: None,
                 wallet_session: None,
-                owned_card_ids: None,
-                cards: None,
                 openrouter_connected: None,
             }),
         )
@@ -40542,11 +38793,7 @@ mod tests {
             actor_session: Some(actor_session.to_string()),
             command: command.to_string(),
             offer_id: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             envelope: Some(CanonicalCommandEnvelope {
                 world_id: OFFICIAL_WORLD_ID.to_string(),
                 intent_id: intent_id.to_string(),
@@ -41157,7 +39404,13 @@ mod tests {
         assert!(invite.ok, "{invite:?}");
         assert_eq!(invite.process_id, "process-a");
         let invite = invite.invite.expect("canonical invite");
-        assert!(invite.hosted_access.eligible);
+        assert!(invite.rendezvous.eligible);
+        assert_eq!(invite.rendezvous.scope, "party_rendezvous");
+        assert!(invite
+            .rendezvous
+            .restrictions
+            .iter()
+            .any(|restriction| restriction == "no_access_grants"));
         let resolved_on_b: CanonicalInviteResponse = client
             .get(format!("{url_b}/invites/{}", invite.invite_id))
             .send()
@@ -42912,11 +41165,7 @@ mod tests {
             Query(StateQuery {
                 actor_id: Some(actor_id),
                 actor_session: None,
-                wallet_address: None,
-                wallet: None,
                 wallet_session: None,
-                owned_card_ids: None,
-                cards: None,
                 openrouter_connected: None,
             }),
         )
@@ -42929,11 +41178,7 @@ mod tests {
             Query(StateQuery {
                 actor_id: Some(actor_id),
                 actor_session: None,
-                wallet_address: None,
-                wallet: None,
                 wallet_session: Some(wallet_session.to_string()),
-                owned_card_ids: None,
-                cards: None,
                 openrouter_connected: None,
             }),
         )
@@ -42987,11 +41232,7 @@ mod tests {
                 limit: Some(40),
                 actor_id: Some(actor_id),
                 actor_session: None,
-                wallet_address: None,
-                wallet: None,
                 wallet_session: Some(wallet_session.to_string()),
-                owned_card_ids: None,
-                cards: None,
             }),
         )
         .await
@@ -43317,13 +41558,13 @@ mod tests {
     }
 
     #[test]
-    fn production_deployment_requires_active_remote_entitlement_provider() {
+    fn production_deployment_allows_an_optional_linked_avatar_adapter() {
         let deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
             world_id: OFFICIAL_WORLD_ID.to_string(),
             process_id: "prod-test".to_string(),
         };
-        let error = deployment
+        deployment
             .validate_runtime_options(
                 &OwnershipFeedConfig::default(),
                 false,
@@ -43332,15 +41573,13 @@ mod tests {
                 Duration::ZERO,
                 true,
                 true,
-                true,
             )
-            .expect_err("production should reject missing remote entitlement provider");
-        assert!(error.to_string().contains("COSYWORLD_ENTITLEMENT_FEED_URL"));
+            .expect("production should boot without an ownership adapter");
 
         let error = deployment
             .validate_runtime_options(
                 &OwnershipFeedConfig {
-                    remote_url: Some("https://entitlements.example/feed".to_string()),
+                    remote_url: Some("https://avatars.example/feed".to_string()),
                     ..OwnershipFeedConfig::default()
                 },
                 false,
@@ -43349,12 +41588,11 @@ mod tests {
                 Duration::ZERO,
                 true,
                 true,
-                true,
             )
-            .expect_err("production should reject missing remote bearer");
+            .expect_err("a configured adapter should require its bearer");
         assert!(error
             .to_string()
-            .contains("COSYWORLD_ENTITLEMENT_FEED_BEARER"));
+            .contains("COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER"));
     }
 
     #[test]
@@ -43404,7 +41642,6 @@ mod tests {
                     delay,
                     true,
                     true,
-                    true,
                 )
                 .expect_err("production should reject dev-only switches");
             assert!(
@@ -43423,46 +41660,19 @@ mod tests {
         };
         let feed = production_feed_config();
         let no_store = deployment
-            .validate_runtime_options(
-                &feed,
-                false,
-                false,
-                false,
-                Duration::ZERO,
-                false,
-                true,
-                true,
-            )
+            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, false, true)
             .expect_err("production should require event store");
         assert!(no_store.to_string().contains("event store"));
 
         let no_moderation = deployment
-            .validate_runtime_options(
-                &feed,
-                false,
-                false,
-                false,
-                Duration::ZERO,
-                true,
-                false,
-                true,
-            )
+            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, false)
             .expect_err("production should require moderation token");
         assert!(no_moderation
             .to_string()
             .contains("COSYWORLD_MODERATION_TOKEN"));
 
         deployment
-            .validate_runtime_options(
-                &feed,
-                false,
-                false,
-                false,
-                Duration::ZERO,
-                true,
-                true,
-                false,
-            )
+            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, true)
             .expect("production config should accept remote feed plus guardrails");
     }
 
@@ -45916,7 +44126,8 @@ mod tests {
         assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("function deckPanelHtml"));
         assert!(INDEX_HTML.contains("[\"deck\", \"deck\"]"));
-        assert!(INDEX_HTML.contains("[\"collection\", \"collection & account\"]"));
+        assert!(INDEX_HTML.contains("[\"character\", \"character\"]"));
+        assert!(!INDEX_HTML.contains("[\"collection\", \"collection & account\"]"));
         assert!(INDEX_HTML.contains("[\"identity\", \"sign in / identity\"]"));
         assert!(INDEX_HTML.contains("[\"world\", \"worlds & packs\"]"));
         assert!(INDEX_HTML.contains("[\"journal\", \"journal\"]"));
@@ -45926,8 +44137,9 @@ mod tests {
         assert!(INDEX_HTML.contains("deck.charm_slot_expansion"));
         assert!(INDEX_HTML.contains("Make room"));
         assert!(INDEX_HTML.contains("Only prepared spell cards can be cast"));
-        assert!(INDEX_HTML.contains("data-materialize-card"));
-        assert!(INDEX_HTML.contains("data-unmaterialize-receipt"));
+        assert!(!INDEX_HTML.contains("data-materialize-card"));
+        assert!(!INDEX_HTML.contains("/collection/materialize"));
+        assert!(!INDEX_HTML.contains("data-unmaterialize-receipt"));
         assert!(INDEX_HTML.contains("function currentOfferForSubmission"));
         assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
@@ -45973,12 +44185,12 @@ mod tests {
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
         assert!(INDEX_HTML.contains("window.solflare"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));
-        assert!(INDEX_HTML.contains("function signAndSendBoxBurnTransaction"));
-        assert!(INDEX_HTML.contains("method: \"signAndSendTransaction\""));
-        assert!(INDEX_HTML.contains("params: { message: transaction.message }"));
+        assert!(!INDEX_HTML.contains("function signAndSendBoxBurnTransaction"));
+        assert!(!INDEX_HTML.contains("method: \"signAndSendTransaction\""));
+        assert!(!INDEX_HTML.contains("params: { message: transaction.message }"));
         assert!(INDEX_HTML.contains("const menuOpen = libraryPanelPinned || accountPanelPinned"));
         assert!(!INDEX_HTML.contains("parts.push(signed ? \"wallet\" : \"connect wallet\")"));
-        assert!(INDEX_HTML.contains("const accountName = identity?.authenticated"));
+        assert!(INDEX_HTML.contains("if (!identity?.authenticated) {"));
         assert!(INDEX_HTML.contains("data-passkey-continue"));
         assert!(!INDEX_HTML.contains("data-passkey-login"));
         assert!(!INDEX_HTML.contains("data-passkey-create"));
@@ -45986,12 +44198,12 @@ mod tests {
         assert!(!INDEX_HTML.contains("id=\"account-username\""));
         assert!(!INDEX_HTML.contains("id=\"account-display-name\""));
         assert!(INDEX_HTML.contains("data-wallet-link"));
-        assert!(INDEX_HTML.contains("claim NFT wallet"));
+        assert!(INDEX_HTML.contains("link avatar wallet"));
+        assert!(!INDEX_HTML.contains("claim NFT wallet"));
         assert!(INDEX_HTML.contains("/auth/wallet-claims/start"));
         assert!(INDEX_HTML.contains("https://phantom.app/ul/browse/"));
         assert!(INDEX_HTML.contains("https://solflare.com/ul/v1/browse/"));
         assert!(!INDEX_HTML.contains("linkAnotherWallet"));
-        assert!(INDEX_HTML.contains(": \"local tale\""));
         assert!(!INDEX_HTML.contains("walletless"));
         assert!(INDEX_HTML.contains("id=\"card-modal\""));
         assert!(INDEX_HTML.contains("data-card-key"));
@@ -46096,8 +44308,7 @@ mod tests {
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
         assert!(INDEX_HTML.contains("find a skill charm, then wear it from Deck"));
         assert!(INDEX_HTML.contains("someone new is waiting to meet you"));
-        assert!(INDEX_HTML.contains("room for ${smallNumberWord"));
-        assert!(INDEX_HTML.contains("local tale"));
+        assert!(INDEX_HTML.contains("makes room for ${actor}"));
         assert!(!INDEX_HTML.contains(": \"nothing yet\""));
         assert!(!INDEX_HTML.contains(": \"no one yet\""));
         assert!(INDEX_HTML.contains("Your first tale continues when you"));
@@ -46175,7 +44386,7 @@ mod tests {
         assert!(INDEX_HTML.contains("button.classList.add(\"has-copy\");"));
         assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-label\">"));
         assert!(INDEX_HTML.contains("cardImage(card) || fallbackCardImage(fallback)"));
-        assert!(INDEX_HTML.contains("CosyWorld keepsake art"));
+        assert!(INDEX_HTML.contains("CosyWorld item art"));
         assert!(INDEX_HTML.contains("function gardenHasDewbright"));
         assert!(INDEX_HTML.contains("A small pearled button catches the light."));
         assert!(INDEX_HTML.contains("where something pearled was lifted away"));
@@ -46320,7 +44531,7 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/give-item"));
         assert!(INDEX_HTML.contains("function mergeDuplicateUseCards"));
         assert!(INDEX_HTML.contains("useChoiceKind: \"mixed\""));
-        assert!(INDEX_HTML.contains("how you want to use the keepsake"));
+        assert!(INDEX_HTML.contains("how you want to use the item"));
         assert!(INDEX_HTML.contains("function selectedActionChoice"));
         assert!(INDEX_HTML.contains("function actionChoiceCard"));
         assert!(INDEX_HTML.contains("function syncActionChoicePreview"));
@@ -46349,18 +44560,18 @@ mod tests {
         assert!(INDEX_HTML.contains("soughtItem?.world_status"));
         assert!(INDEX_HTML.contains("currently with ${worldHolderName}"));
         assert!(!INDEX_HTML.contains("class=\"economy-row\""));
-        assert!(INDEX_HTML.contains("class=\"account-card-open\""));
-        assert!(INDEX_HTML.contains("class=\"account-asset-effect\""));
-        assert!(INDEX_HTML.contains("class=\"keepsake-call\""));
+        assert!(!INDEX_HTML.contains("class=\"account-card-open\""));
+        assert!(!INDEX_HTML.contains("class=\"account-asset-effect\""));
+        assert!(!INDEX_HTML.contains("class=\"keepsake-call\""));
         assert!(INDEX_HTML.contains("class=\"provider-call\""));
-        assert!(INDEX_HTML.contains("data-keepsake-guide"));
-        assert!(INDEX_HTML.contains("matching kept-close art:"));
-        assert!(INDEX_HTML.contains("kept close</span>"));
-        assert!(INDEX_HTML.contains("id=\"card-modal-keepsake\""));
-        assert!(INDEX_HTML.contains("function keepsakePromise"));
-        assert!(INDEX_HTML
+        assert!(!INDEX_HTML.contains("data-keepsake-guide"));
+        assert!(!INDEX_HTML.contains("matching kept-close art:"));
+        assert!(!INDEX_HTML.contains("kept close</span>"));
+        assert!(!INDEX_HTML.contains("id=\"card-modal-keepsake\""));
+        assert!(!INDEX_HTML.contains("function keepsakePromise"));
+        assert!(!INDEX_HTML
             .contains("This is a menu preference, not your physical carried deck or bracelet."));
-        assert!(INDEX_HTML.contains(
+        assert!(!INDEX_HTML.contains(
             "can appear beside matching choices. It does not change available actions or odds."
         ));
 
@@ -46431,11 +44642,7 @@ mod tests {
             limit: Some(10),
             actor_id: None,
             actor_session: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
         };
 
         let _ = events_view(State(state.clone()), Query(query)).await;
@@ -46475,11 +44682,7 @@ mod tests {
             limit: Some(10),
             actor_id: None,
             actor_session: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
         };
         let _ = events_view(State(state.clone()), Query(query)).await;
 
@@ -47855,11 +46058,7 @@ mod tests {
                     actor_id,
                     actor_session: Some(actor_session),
                     destination_location_id: 2,
-                    wallet_address: None,
-                    wallet: None,
                     wallet_session: None,
-                    owned_card_ids: None,
-                    cards: None,
                 }),
             )
             .await
@@ -48229,11 +46428,7 @@ mod tests {
             Query(StateQuery {
                 actor_id: None,
                 actor_session: None,
-                wallet_address: None,
-                wallet: None,
                 wallet_session: None,
-                owned_card_ids: None,
-                cards: None,
                 openrouter_connected: None,
             }),
         )
@@ -52887,126 +51082,6 @@ mod tests {
         let rematerialized = runtime.materialize_item(receipt, item, meta, "test-return");
         assert_eq!(rematerialized.len(), 1);
         assert_eq!(runtime.world.item_count, before_count + 1);
-    }
-
-    #[tokio::test]
-    async fn materialization_endpoint_requires_ownership_and_prevents_duplicates() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Collection Tester",
-        );
-        let mut state = test_app_state(runtime, None);
-        let (actor_session, _) = issue_actor_session(&state, 5000);
-        let addr = "127.0.0.1:44120".parse().expect("client address");
-        let request = |receipt_id: &str, card_id: &str| MaterializeItemRequest {
-            actor_id: 5000,
-            actor_session: Some(actor_session.clone()),
-            receipt_id: receipt_id.to_string(),
-            card_id: card_id.to_string(),
-            wallet_address: None,
-            wallet: None,
-            wallet_session: None,
-            owned_card_ids: Some(format!("item-patchwork-satchel,{card_id}")),
-            cards: None,
-        };
-
-        let spoofed = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
-        assert!(!spoofed.ok);
-        assert_eq!(spoofed.status, 403);
-        assert_eq!(
-            spoofed.error.as_deref(),
-            Some("the signed collection does not own this item card")
-        );
-
-        state.trust_client_card_ids = true;
-        let created = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
-        assert!(created.ok, "{created:?}");
-        assert_eq!(created.status, CW_OK);
-        assert_eq!(created.events.len(), 1);
-        let item_id = created.item.as_ref().expect("materialized item").id;
-
-        let retry = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
-        assert!(retry.ok, "{retry:?}");
-        assert_eq!(retry.item.as_ref().map(|item| item.id), Some(item_id));
-        assert!(
-            retry.events.is_empty(),
-            "retry must not create another item"
-        );
-
-        let rebound_receipt = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:1", "item-steady-light")),
-        )
-        .await
-        .0;
-        assert!(!rebound_receipt.ok);
-        assert_eq!(rebound_receipt.status, 409);
-
-        let duplicate_card = materialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(request("receipt:bag:2", "item-patchwork-satchel")),
-        )
-        .await
-        .0;
-        assert!(!duplicate_card.ok);
-        assert_eq!(duplicate_card.status, 409);
-
-        let returned = unmaterialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(UnmaterializeItemRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session.clone()),
-                receipt_id: "receipt:bag:1".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(returned.ok, "{returned:?}");
-        assert_eq!(
-            returned
-                .receipt
-                .as_ref()
-                .map(|receipt| receipt.status.as_str()),
-            Some("collection")
-        );
-
-        let repeat_return = unmaterialize_collection_item(
-            ConnectInfo(addr),
-            State(state.clone()),
-            Json(UnmaterializeItemRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-                receipt_id: "receipt:bag:1".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(!repeat_return.ok);
-        assert_eq!(repeat_return.status, 409);
     }
 
     #[test]
@@ -58894,7 +56969,7 @@ mod tests {
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
         assert_eq!(content.actors.len(), 56);
-        assert_eq!(content.access_gates.len(), 6);
+        assert!(content.access_gates.is_empty());
         assert_eq!(content.factions.len(), 12);
         assert_eq!(content.items.len(), 28);
         let satchel = content
@@ -63210,7 +61285,6 @@ mod tests {
         assert_eq!(gate.location.name, "The Cosy Cottage");
         assert_eq!(gate.primary_action.kind, "create_avatar");
         assert!(gate.exits.is_empty());
-        assert!(gate.access.locked_card_ids.is_empty());
         assert!(!gate.cards.locations.contains_key(&2));
         assert!(!gate.cards.locations.contains_key(&11));
         assert!(!gate.cards.locations.contains_key(&10));
@@ -68185,7 +66259,7 @@ mod tests {
     }
 
     #[test]
-    fn world_projection_is_access_aware_and_shared() {
+    fn world_projection_is_public_and_shared() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -68215,12 +66289,9 @@ mod tests {
         assert!(cottage.accessible);
         assert!(cottage.actors.iter().any(|actor| actor.name == "Rati"));
         assert!(public.locations.iter().all(|location| location.id != 12));
-        assert!(public.access.locked_card_ids.is_empty());
 
         discover_seed_exit_pair_for_test(&mut runtime, 12, 11);
-        let ownership = OwnershipIndex::parse("wallet-1:location-library");
-        let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-        let with_library = runtime.world_response(Some(5000), &access);
+        let with_library = runtime.world_response(Some(5000), &AccessContext::default());
         assert_eq!(with_library.current_actor_id, Some(5000));
         assert_eq!(with_library.current_location_id, Some(12));
         let library = with_library
@@ -68229,9 +66300,8 @@ mod tests {
             .find(|location| location.id == 12)
             .expect("library world location");
         assert!(library.accessible);
-        assert!(!library.public);
-        assert!(library.card.accessible);
-        assert!(library.card.owned);
+        assert!(library.public);
+        assert_eq!(library.card.card_id, "location-library");
         assert!(library.actors.iter().any(|actor| actor.id == 5000));
         assert!(library
             .exits
@@ -68558,64 +66628,12 @@ mod tests {
     }
 
     #[test]
-    fn location_access_rules_are_loaded_from_content_registry() {
-        let public = AccessContext::default();
-        let homeroom_rule = location_access_rule(11);
-        assert_eq!(homeroom_rule.required_card_id, Some("location-homeroom"));
-        assert_eq!(
-            homeroom_rule.reason,
-            Some("Ruby High: First Bell location pass required.")
-        );
-        assert!(!location_access_allowed(11, &public));
-        assert!(location_access_allowed(2, &public));
-
-        let ownership = OwnershipIndex::parse("wallet-1:location-homeroom");
-        let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-        assert!(location_access_allowed(11, &access));
-        assert!(!location_access_allowed(10, &access));
-        assert_eq!(location_id_for_card_id("location-homeroom"), Some(11));
-        assert_eq!(location_id_for_card_id("location-science-lab"), Some(10));
-    }
-
-    #[test]
-    fn owned_location_cards_are_visible_before_their_paths_are_found() {
-        let runtime = RuntimeWorld::seeded();
-        let ownership = OwnershipIndex::parse("wallet-1:location-homeroom,location-library");
-        let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-
-        let state = runtime.state_response(None, &access);
-        assert!(state.exits.is_empty());
-        let owned_ids = state
-            .account
-            .owned_cards
-            .iter()
-            .map(|card| card.card_id.as_str())
-            .collect::<BTreeSet<_>>();
-        assert_eq!(
-            owned_ids,
-            BTreeSet::from(["location-homeroom", "location-library"])
-        );
-        assert!(state
-            .account
-            .owned_cards
-            .iter()
-            .all(|card| card.owned && card.accessible));
-
-        let world = runtime.world_response(None, &access);
-        assert!(!world
-            .locations
-            .iter()
-            .any(|location| location.id == 11 || location.id == 12));
-    }
-
-    #[test]
-    fn free_world_locations_are_public_with_optional_card_ownership() {
+    fn ordinary_world_locations_are_public_without_wallet_ownership() {
         let mut runtime = RuntimeWorld::seeded();
         discover_seed_exit_pair_for_test(&mut runtime, 1, 2);
         discover_seed_exit_pair_for_test(&mut runtime, 1, 11);
         discover_all_seed_exits_for_test(&mut runtime);
-        let no_wallet = AccessContext::default();
-        let state = runtime.state_response(None, &no_wallet);
+        let state = runtime.state_response(None, &AccessContext::default());
         let cottage_exits: BTreeSet<u64> = state
             .exits
             .iter()
@@ -68623,120 +66641,35 @@ mod tests {
             .collect();
         assert!(cottage_exits.contains(&2));
         assert!(cottage_exits.contains(&11));
-        assert!(state.cards.locations[&2].accessible);
-        assert!(!state.cards.locations[&11].accessible);
-        assert_eq!(
-            state.cards.locations[&11].access_reason.as_deref(),
-            Some("Ruby High: First Bell location pass required.")
-        );
+        assert_eq!(state.cards.locations[&2].card_id, "cosy-rain-soft-garden");
+        assert_eq!(state.cards.locations[&11].card_id, "location-homeroom");
 
-        let world = runtime.world_response(None, &no_wallet);
-        for (location_id, card_id) in [
-            (2, "cosy-rain-soft-garden"),
-            (30, "location-the-heavens"),
-            (34, "location-goblin-cave"),
-            (50, "location-great-library"),
-            (63, "location-digital-realm"),
-        ] {
+        let world = runtime.world_response(None, &AccessContext::default());
+        for location_id in [2, 10, 11, 12, 13, 14, 15, 30, 34, 50, 63] {
             let location = world
                 .locations
                 .iter()
                 .find(|location| location.id == location_id)
-                .expect("free world location exists");
+                .expect("discovered location exists");
+            assert!(location.public);
             assert!(location.accessible);
-            assert!(location.card.accessible);
-            assert!(!location.card.owned);
-            assert!(!world.access.locked_card_ids.contains(&card_id.to_string()));
         }
-
-        for (location_id, card_id) in [
-            (10, "location-science-lab"),
-            (11, "location-homeroom"),
-            (12, "location-library"),
-            (13, "location-cafeteria"),
-            (14, "location-greenhouse"),
-            (15, "location-courtyard"),
-        ] {
-            let location = world
-                .locations
-                .iter()
-                .find(|location| location.id == location_id)
-                .expect("discovered Ruby High location exists");
-            assert!(!location.accessible);
-            assert!(!location.card.accessible);
-            assert!(world.access.locked_card_ids.contains(&card_id.to_string()));
-        }
-
-        let ownership = OwnershipIndex::parse(
-            "wallet-1:cosy-rain-soft-garden,location-homeroom,location-library,location-greenhouse",
-        );
-        let with_location_cards = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-        let state = runtime.state_response(None, &with_location_cards);
-        assert!(state.cards.locations[&2].accessible);
-        assert!(state.cards.locations[&2].owned);
-        assert!(state.cards.locations[&11].accessible);
-        assert!(state.cards.locations[&11].owned);
-
-        let world = runtime.world_response(None, &with_location_cards);
-        let library = world
-            .locations
-            .iter()
-            .find(|location| location.id == 12)
-            .expect("Library location exists");
-        assert!(library.card.accessible);
-        assert!(library.card.owned);
-        let greenhouse = world
-            .locations
-            .iter()
-            .find(|location| location.id == 14)
-            .expect("Greenhouse location exists");
-        assert!(greenhouse.card.accessible);
-        assert!(greenhouse.card.owned);
-        let science = world
-            .locations
-            .iter()
-            .find(|location| location.id == 10)
-            .expect("discovered Science Class exists");
-        assert!(!science.accessible);
-        assert!(!science.card.accessible);
-        assert_eq!(library.card.set_number.as_deref(), Some("FB-021"));
-        assert_eq!(
-            greenhouse.card.profile_id.as_deref(),
-            Some("location-greenhouse")
-        );
     }
 
     #[test]
-    fn client_card_claims_are_ignored_without_dev_trust() {
+    fn state_queries_have_no_unsigned_wallet_or_card_claim_surface() {
         let query = StateQuery {
             actor_id: None,
             actor_session: None,
-            wallet_address: Some("wallet-1".to_string()),
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: Some("location-science-lab".to_string()),
-            cards: None,
             openrouter_connected: None,
         };
         let empty_ownership = OwnershipIndex::default();
         let wallet_sessions = StdMutex::new(WalletSessions::default());
-        let untrusted =
+        let access =
             AccessContext::from_query(&query, &empty_ownership, false, &wallet_sessions, false);
-        assert!(!untrusted.owns_card("location-science-lab"));
-        assert!(untrusted.owner_wallet_address.is_none());
-
-        let trusted_cards =
-            AccessContext::from_query(&query, &empty_ownership, true, &wallet_sessions, false);
-        assert!(trusted_cards.owns_card("location-science-lab"));
-        assert!(trusted_cards.owner_wallet_address.is_none());
-
-        let trusted_wallet =
-            AccessContext::from_query(&query, &empty_ownership, false, &wallet_sessions, true);
-        assert_eq!(
-            trusted_wallet.owner_wallet_address.as_deref(),
-            Some("wallet-1")
-        );
-        assert!(trusted_wallet.unsigned_wallet_claim);
+        assert!(access.owner_wallet_address.is_none());
+        assert!(!access.signed_wallet_session);
     }
 
     #[test]
@@ -69471,609 +67404,9 @@ mod tests {
     }
 
     #[test]
-    fn state_reports_trusted_box_and_pack_counts_without_client_claims() {
-        let runtime = RuntimeWorld::seeded();
-        let ownership = OwnershipIndex::parse(
-            r#"{
-              "wallets": [
-                {
-                  "walletAddress": "wallet-boxes",
-                  "cardIds": ["location-library"],
-                  "boxes": ["box-1", {"assetId": "box-2", "status": "minted"}],
-                  "packs": [{"assetId": "pack-1", "status": "unopened"}]
-                }
-              ]
-            }"#,
-        );
-        let access = AccessContext::from_parts(Some("wallet-boxes"), [None], &ownership);
-        let state = runtime.state_response(None, &access);
-        assert_eq!(state.economy.wooden_boxes, 2);
-        assert_eq!(state.economy.unopened_packs, 1);
-        assert_eq!(state.access.owned_box_ids, vec!["box-1", "box-2"]);
-        assert_eq!(state.access.unopened_pack_ids, vec!["pack-1"]);
-
-        let client_claim_only = AccessContext::from_parts(
-            Some("wallet-empty"),
-            [Some("box-1,pack-1,location-library")],
-            &OwnershipIndex::default(),
-        );
-        let state = runtime.state_response(None, &client_claim_only);
-        assert_eq!(state.economy.wooden_boxes, 0);
-        assert_eq!(state.economy.unopened_packs, 0);
-    }
-
-    #[test]
-    fn avatar_pack_reveal_is_weighted_deterministic_and_collection_aware() {
-        let empty = BTreeSet::new();
-        let first = deterministic_pack_cards("weighted-pack-seed", &empty);
-        let repeated = deterministic_pack_cards("weighted-pack-seed", &empty);
-        assert_eq!(first, repeated);
-        assert_eq!(first.len(), 3);
-        assert_eq!(first.iter().collect::<BTreeSet<_>>().len(), 3);
-
-        let owned = ["lyra", "sami", "ravi", "cosy-whiskerwind", "cosy-skull"]
-            .into_iter()
-            .map(ToString::to_string)
-            .collect::<BTreeSet<_>>();
-        let completion_pack = deterministic_pack_cards("collection-completion", &owned);
-        assert_eq!(
-            completion_pack.iter().cloned().collect::<BTreeSet<_>>(),
-            ["indra", "rati", "captain-null"]
-                .into_iter()
-                .map(ToString::to_string)
-                .collect::<BTreeSet<_>>()
-        );
-
-        let mut counts = BTreeMap::<String, usize>::new();
-        for index in 0..4_000 {
-            for card_id in deterministic_pack_cards(&format!("weighted-sample-{index}"), &empty) {
-                *counts.entry(card_id).or_default() += 1;
-            }
-        }
-        let everyday_average = ["lyra", "sami", "ravi", "cosy-whiskerwind", "cosy-skull"]
-            .into_iter()
-            .map(|card_id| counts.get(card_id).copied().unwrap_or_default())
-            .sum::<usize>()
-            / 5;
-        let rare = counts.get("indra").copied().unwrap_or_default();
-        let super_rare = counts.get("rati").copied().unwrap_or_default();
-        let storybook = counts.get("captain-null").copied().unwrap_or_default();
-        assert!(
-            everyday_average > rare,
-            "everyday cards should be most familiar"
-        );
-        assert!(
-            rare > super_rare,
-            "rare cards should appear more than super-rare cards"
-        );
-        assert!(
-            super_rare > storybook,
-            "storybook cards should remain the quietest surprise"
-        );
-    }
-
-    #[test]
     fn default_chat_model_is_gpt_5_6_luna() {
         assert_eq!(DEFAULT_OPENROUTER_CHAT_MODEL, "openai/gpt-5.6-luna");
         assert_eq!(DEFAULT_OPENAI_CHAT_MODEL, "openai/gpt-5.6-luna");
-    }
-
-    #[tokio::test]
-    async fn box_burn_and_pack_open_are_signed_owned_and_idempotent() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-box-pack-flow-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-
-        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
-        *state.ownership_index.write().await = OwnershipIndex::parse(
-            r#"{
-              "wallets": [
-                {
-                  "walletAddress": "wallet-box",
-                  "boxes": ["box-1"]
-                }
-              ]
-            }"#,
-        );
-        let session = "wallet-box-session";
-        insert_wallet_session(&state, session, "wallet-box");
-
-        let pack_id = pack_id_for_box("box-1");
-        let prepare = box_burn_prepare(
-            ConnectInfo("127.0.0.1:45001".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnPrepareRequest {
-                wallet_session: Some(session.to_string()),
-                box_asset_address: " box-1 ".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(prepare.ok);
-        assert_eq!(prepare.status, 200);
-        assert_eq!(prepare.wallet_address.as_deref(), Some("wallet-box"));
-        assert_eq!(prepare.box_asset_address.as_deref(), Some("box-1"));
-        assert_eq!(prepare.pack_id.as_deref(), Some(pack_id.as_str()));
-        assert!(prepare
-            .burn_message
-            .as_deref()
-            .is_some_and(|message| { message.contains("Burn Wooden Box box-1 from wallet-box") }));
-
-        let confirm = box_burn_confirm(
-            ConnectInfo("127.0.0.1:45001".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnConfirmRequest {
-                wallet_session: Some(session.to_string()),
-                box_asset_address: "box-1".to_string(),
-                burn_signature: "BurnSig111".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(confirm.ok);
-        assert_eq!(confirm.status, 200);
-        let receipt = confirm.receipt.expect("burn receipt");
-        assert_eq!(receipt.owner_wallet_address, "wallet-box");
-        assert_eq!(receipt.box_asset_address, "box-1");
-        assert_eq!(receipt.pack_id, pack_id);
-        assert_eq!(
-            receipt.verification_status,
-            "trusted_feed_pending_chain_verification"
-        );
-
-        let confirm_again = box_burn_confirm(
-            ConnectInfo("127.0.0.1:45002".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnConfirmRequest {
-                wallet_session: Some(session.to_string()),
-                box_asset_address: "box-1".to_string(),
-                burn_signature: "BurnSig111".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(confirm_again.ok);
-        assert_eq!(
-            confirm_again.receipt.expect("same receipt").pack_id,
-            receipt.pack_id
-        );
-
-        let state_after_burn = state_view(
-            State(state.clone()),
-            Query(StateQuery {
-                actor_id: None,
-                actor_session: None,
-                wallet_address: None,
-                wallet: None,
-                wallet_session: Some(session.to_string()),
-                owned_card_ids: None,
-                cards: None,
-                openrouter_connected: None,
-            }),
-        )
-        .await
-        .0;
-        assert_eq!(state_after_burn.economy.wooden_boxes, 0);
-        assert_eq!(state_after_burn.economy.unopened_packs, 1);
-        assert_eq!(state_after_burn.access.owned_box_ids, Vec::<String>::new());
-        assert_eq!(
-            state_after_burn.access.unopened_pack_ids,
-            vec![pack_id.clone()]
-        );
-        assert_eq!(
-            state_after_burn.account.wallet_address.as_deref(),
-            Some("wallet-box")
-        );
-        assert_eq!(
-            state_after_burn.account.active_box_ids,
-            Vec::<String>::new()
-        );
-        assert_eq!(
-            state_after_burn.account.unopened_pack_ids,
-            vec![pack_id.clone()]
-        );
-        assert_eq!(state_after_burn.account.recent_box_receipts.len(), 1);
-        assert_eq!(
-            state_after_burn.account.recent_box_receipts[0].verification_status,
-            "trusted_feed_pending_chain_verification"
-        );
-        assert!(state_after_burn.account.recent_pack_openings.is_empty());
-
-        let opened = pack_open(
-            ConnectInfo("127.0.0.1:45003".parse().expect("client addr")),
-            State(state.clone()),
-            Json(PackOpenRequest {
-                wallet_session: Some(session.to_string()),
-                pack_id: pack_id.clone(),
-            }),
-        )
-        .await
-        .0;
-        assert!(opened.ok);
-        assert_eq!(opened.status, 200);
-        let opening = opened.opening.expect("pack opening");
-        assert_eq!(opening.owner_wallet_address, "wallet-box");
-        assert_eq!(opening.box_asset_address.as_deref(), Some("box-1"));
-        assert_eq!(opening.pack_id, pack_id);
-        assert_eq!(opening.card_ids.len(), 3);
-
-        let opened_again = pack_open(
-            ConnectInfo("127.0.0.1:45004".parse().expect("client addr")),
-            State(state.clone()),
-            Json(PackOpenRequest {
-                wallet_session: Some(session.to_string()),
-                pack_id: opening.pack_id.clone(),
-            }),
-        )
-        .await
-        .0;
-        assert!(opened_again.ok);
-        assert_eq!(
-            opened_again.opening.expect("same opening").card_ids,
-            opening.card_ids
-        );
-
-        let state_after_open = state_view(
-            State(state.clone()),
-            Query(StateQuery {
-                actor_id: None,
-                actor_session: None,
-                wallet_address: None,
-                wallet: None,
-                wallet_session: Some(session.to_string()),
-                owned_card_ids: None,
-                cards: None,
-                openrouter_connected: None,
-            }),
-        )
-        .await
-        .0;
-        assert_eq!(state_after_open.economy.wooden_boxes, 0);
-        assert_eq!(state_after_open.economy.unopened_packs, 0);
-        assert!(state_after_open.account.active_box_ids.is_empty());
-        assert!(state_after_open.account.unopened_pack_ids.is_empty());
-        assert_eq!(state_after_open.account.recent_box_receipts.len(), 1);
-        assert_eq!(
-            state_after_open.account.recent_box_receipts[0].status,
-            "opened"
-        );
-        assert_eq!(state_after_open.account.recent_pack_openings.len(), 1);
-        assert_eq!(
-            state_after_open.account.recent_pack_openings[0].card_ids,
-            opening.card_ids
-        );
-        for card_id in &opening.card_ids {
-            assert!(state_after_open.access.owned_card_ids.contains(card_id));
-        }
-        assert_eq!(table_count(&path, "wooden_box_receipts"), 1);
-        assert_eq!(table_count(&path, "avatar_pack_openings"), 1);
-
-        let _ = fs::remove_file(path);
-    }
-
-    #[tokio::test]
-    async fn box_burn_rejects_unsigned_and_unowned_boxes() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-box-pack-reject-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-
-        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
-        *state.ownership_index.write().await = OwnershipIndex::parse(
-            r#"{"wallets":[{"walletAddress":"wallet-owner","boxes":["box-owned"]}]}"#,
-        );
-        insert_wallet_session(&state, "wallet-owner-session", "wallet-owner");
-
-        let unsigned = box_burn_confirm(
-            ConnectInfo("127.0.0.1:45101".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnConfirmRequest {
-                wallet_session: None,
-                box_asset_address: "box-owned".to_string(),
-                burn_signature: "BurnSigUnsigned".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(!unsigned.ok);
-        assert_eq!(unsigned.status, 401);
-
-        let unowned = box_burn_confirm(
-            ConnectInfo("127.0.0.1:45102".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnConfirmRequest {
-                wallet_session: Some("wallet-owner-session".to_string()),
-                box_asset_address: "box-missing".to_string(),
-                burn_signature: "BurnSigMissing".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(!unowned.ok);
-        assert_eq!(unowned.status, 403);
-        assert_eq!(table_count(&path, "wooden_box_receipts"), 0);
-
-        let _ = fs::remove_file(path);
-    }
-
-    #[tokio::test]
-    async fn production_rejects_staging_box_burn_without_chain_verifier() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-box-pack-production-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-        init_event_store(&path).expect("init event store");
-
-        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
-        state.deployment = DeploymentConfig {
-            profile: DeploymentProfile::Production,
-            world_id: OFFICIAL_WORLD_ID.to_string(),
-            process_id: "prod-test".to_string(),
-        };
-        *state.ownership_index.write().await = OwnershipIndex::parse(
-            r#"{"wallets":[{"walletAddress":"wallet-prod","boxes":["box-prod"]}]}"#,
-        );
-        insert_wallet_session(&state, "wallet-prod-session", "wallet-prod");
-
-        let prepare = box_burn_prepare(
-            ConnectInfo("127.0.0.1:45201".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnPrepareRequest {
-                wallet_session: Some("wallet-prod-session".to_string()),
-                box_asset_address: "box-prod".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(!prepare.ok);
-        assert_eq!(prepare.status, 501);
-        assert_eq!(prepare.verification_mode, "chain_verification_required");
-
-        let confirm = box_burn_confirm(
-            ConnectInfo("127.0.0.1:45202".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnConfirmRequest {
-                wallet_session: Some("wallet-prod-session".to_string()),
-                box_asset_address: "box-prod".to_string(),
-                burn_signature: "BurnSigProd".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(!confirm.ok);
-        assert_eq!(confirm.status, 501);
-        assert!(confirm.receipt.is_none());
-        assert_eq!(table_count(&path, "wooden_box_receipts"), 0);
-
-        let ownership = state.ownership_snapshot().await;
-        assert!(ownership
-            .boxes_for_wallet("wallet-prod")
-            .contains("box-prod"));
-        assert!(ownership.packs_for_wallet("wallet-prod").is_empty());
-
-        let _ = fs::remove_file(path);
-    }
-
-    #[tokio::test]
-    async fn production_box_burn_prepare_fails_closed_when_rpc_cannot_build_transaction() {
-        let rpc_app = Router::new().route(
-            "/rpc",
-            post(|Json(body): Json<serde_json::Value>| async move {
-                assert_eq!(
-                    body.get("method").and_then(|value| value.as_str()),
-                    Some("getLatestBlockhash")
-                );
-                Json(serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
-                    "error": { "code": -32429, "message": "max usage reached" }
-                }))
-            }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind failing Solana RPC test server");
-        let addr = listener.local_addr().expect("RPC server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, rpc_app).await;
-        });
-
-        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES";
-        let box_asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
-        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
-        let mut state = test_app_state(RuntimeWorld::seeded(), None);
-        state.deployment = DeploymentConfig {
-            profile: DeploymentProfile::Production,
-            world_id: OFFICIAL_WORLD_ID.to_string(),
-            process_id: "prod-test".to_string(),
-        };
-        state.box_burn_verifier = Arc::new(Some(BoxBurnVerifierConfig {
-            rpc_url: format!("http://{addr}/rpc"),
-            collection_address: collection.to_string(),
-        }));
-        *state.ownership_index.write().await = OwnershipIndex::parse(&format!(
-            r#"{{"wallets":[{{"walletAddress":"{owner}","boxes":["{box_asset}"]}}]}}"#
-        ));
-        insert_wallet_session(&state, "wallet-rpc-failure-session", owner);
-
-        let prepare = box_burn_prepare(
-            ConnectInfo("127.0.0.1:45300".parse().expect("client addr")),
-            State(state),
-            Json(BoxBurnPrepareRequest {
-                wallet_session: Some("wallet-rpc-failure-session".to_string()),
-                box_asset_address: box_asset.to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(!prepare.ok);
-        assert_eq!(prepare.status, 502);
-        assert_eq!(
-            prepare.verification_mode,
-            "solana_core_burn_transaction_unavailable"
-        );
-        assert!(prepare.burn_transaction.is_none());
-        assert_eq!(prepare.error.as_deref(), Some("max usage reached"));
-
-        server.abort();
-    }
-
-    #[tokio::test]
-    async fn production_box_burn_uses_solana_core_verifier() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-box-pack-production-verified-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-
-        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES".to_string();
-        let box_asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string();
-        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string();
-        let burn_signature =
-            "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS".to_string();
-        let recent_blockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH".to_string();
-        let burn_data = bs58::encode([12_u8]).into_string();
-        let rpc_app = Router::new().route(
-            "/rpc",
-            post({
-                let owner = owner.clone();
-                let box_asset = box_asset.clone();
-                let collection = collection.clone();
-                let burn_signature = burn_signature.clone();
-                let recent_blockhash = recent_blockhash.clone();
-                let burn_data = burn_data.clone();
-                move |Json(body): Json<serde_json::Value>| {
-                    let owner = owner.clone();
-                    let box_asset = box_asset.clone();
-                    let collection = collection.clone();
-                    let burn_signature = burn_signature.clone();
-                    let recent_blockhash = recent_blockhash.clone();
-                    let burn_data = burn_data.clone();
-                    async move {
-                        let result = match body.get("method").and_then(|value| value.as_str()) {
-                            Some("getLatestBlockhash") => serde_json::json!({
-                                "context": { "slot": 122 },
-                                "value": {
-                                    "blockhash": recent_blockhash,
-                                    "lastValidBlockHeight": 999
-                                }
-                            }),
-                            Some("getTransaction") => serde_json::json!({
-                                "slot": 123,
-                                "blockTime": 456,
-                                "meta": {
-                                    "err": null,
-                                    "innerInstructions": []
-                                },
-                                "transaction": {
-                                    "signatures": [burn_signature],
-                                    "message": {
-                                        "instructions": [{
-                                            "programId": CORE_PROGRAM_ID,
-                                            "accounts": [box_asset, collection, owner],
-                                            "data": burn_data
-                                        }]
-                                    }
-                                }
-                            }),
-                            method => panic!("unexpected Solana RPC method: {method:?}"),
-                        };
-                        Json(serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
-                            "result": result
-                        }))
-                    }
-                }
-            }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind Solana RPC test server");
-        let addr = listener.local_addr().expect("RPC server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, rpc_app).await;
-        });
-
-        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
-        state.deployment = DeploymentConfig {
-            profile: DeploymentProfile::Production,
-            world_id: OFFICIAL_WORLD_ID.to_string(),
-            process_id: "prod-test".to_string(),
-        };
-        state.box_burn_verifier = Arc::new(Some(BoxBurnVerifierConfig {
-            rpc_url: format!("http://{addr}/rpc"),
-            collection_address: collection.clone(),
-        }));
-        *state.ownership_index.write().await = OwnershipIndex::parse(&format!(
-            r#"{{"wallets":[{{"walletAddress":"{owner}","boxes":["{box_asset}"]}}]}}"#
-        ));
-        insert_wallet_session(&state, "wallet-verified-session", &owner);
-
-        let prepare = box_burn_prepare(
-            ConnectInfo("127.0.0.1:45301".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnPrepareRequest {
-                wallet_session: Some("wallet-verified-session".to_string()),
-                box_asset_address: box_asset.clone(),
-            }),
-        )
-        .await
-        .0;
-        assert!(prepare.ok);
-        assert_eq!(prepare.status, 200);
-        assert_eq!(
-            prepare.verification_mode,
-            "solana_core_burn_transaction_required"
-        );
-        let burn_transaction = prepare
-            .burn_transaction
-            .as_ref()
-            .expect("production prepare returns an unsigned burn transaction");
-        assert_eq!(burn_transaction.transaction_encoding, "base64");
-        assert_eq!(burn_transaction.message_encoding, "base58");
-        assert_eq!(burn_transaction.recent_blockhash, recent_blockhash);
-        assert_eq!(burn_transaction.last_valid_block_height, 999);
-        assert_eq!(burn_transaction.program_id, CORE_PROGRAM_ID);
-        assert_eq!(burn_transaction.instruction, "BurnV1");
-        assert!(!burn_transaction.transaction.is_empty());
-        assert!(!burn_transaction.message.is_empty());
-
-        let confirm = box_burn_confirm(
-            ConnectInfo("127.0.0.1:45302".parse().expect("client addr")),
-            State(state.clone()),
-            Json(BoxBurnConfirmRequest {
-                wallet_session: Some("wallet-verified-session".to_string()),
-                box_asset_address: box_asset.clone(),
-                burn_signature: burn_signature.clone(),
-            }),
-        )
-        .await
-        .0;
-        assert!(confirm.ok, "unexpected verifier error: {:?}", confirm.error);
-        assert_eq!(confirm.status, 200);
-        let receipt = confirm.receipt.expect("verified burn receipt");
-        assert_eq!(receipt.verification_status, "solana_core_burn_verified");
-        assert_eq!(receipt.owner_wallet_address, owner);
-        assert_eq!(receipt.box_asset_address, box_asset);
-        assert_eq!(table_count(&path, "wooden_box_receipts"), 1);
-
-        let ownership = state.ownership_snapshot().await;
-        assert!(ownership.boxes_for_wallet(&owner).is_empty());
-        assert!(ownership
-            .packs_for_wallet(&owner)
-            .contains(&pack_id_for_box(&box_asset)));
-
-        server.abort();
-        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -70299,7 +67632,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ownership_refresh_replaces_feed_and_repositions_residents() {
+    async fn ownership_refresh_updates_adapter_without_mutating_world() {
         let feed_body = Arc::new(StdMutex::new(
             r#"{"wallets":[{"walletAddress":"wallet-1","cardIds":["rati"]}]}"#.to_string(),
         ));
@@ -70331,74 +67664,11 @@ mod tests {
         };
         let initial = feed.load_strict().await.expect("initial ownership feed");
         let mut runtime = RuntimeWorld::seeded();
-        runtime.apply_wallet_overlap_placements(&initial, 0);
-        assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 1);
-        let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
-
-        let (tx, _) = broadcast::channel(8);
-        let state = AppState {
-            inner: Arc::new(Mutex::new(runtime)),
-            tx,
-            deployment: DeploymentConfig::local(),
-            snapshot_path: None,
-            last_snapshot_at_ms: Arc::new(AtomicU64::new(0)),
-            resident_continuity_path: None,
-            snapshot_writer: None,
-            event_store_path: None,
-            event_store_writer: None,
-            event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
-            account_auth: AccountAuth::for_test(None),
-            ownership_index: Arc::new(RwLock::new(initial)),
-            trust_client_card_ids: false,
-            dev_reset_enabled: false,
-            card_policy: None,
-            ai_config: Arc::new(None),
-            generation_controls: Arc::new(GenerationControls::default()),
-            avatar_art_config: Arc::new(None),
-            generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
-            ambient: AmbientConfig {
-                quiet_after: Duration::from_secs(1),
-            },
-            box_burn_verifier: Arc::new(None),
-            ownership_feed: Arc::new(feed),
-            ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
-            hosted_access_config: Arc::new(HostedAccessConfig::default()),
-            last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
-            wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
-            qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
-            wallet_actor_links: Arc::new(StdMutex::new(BTreeMap::new())),
-            actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
-            actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
-            rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
-            transient_openrouter_keys: Arc::new(StdMutex::new(BTreeMap::new())),
-            inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
-            canonical_command_lock: Arc::new(Mutex::new(())),
-            canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
-            canonical_store_id: Arc::new(format!("test-memory:{}", random_hex(8))),
-            canonical_region_id: Arc::new(DEFAULT_CANONICAL_REGION_ID.to_string()),
-            canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
-            canonical_applied_journal_seq: Arc::new(AtomicU64::new(0)),
-            canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
-            canonical_fanout_lock: Arc::new(StdMutex::new(())),
-            canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
-            canonical_recovery: Arc::new(None),
-            regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
-            room_memory_retries: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
-            actor_job_notify: Arc::new(Notify::new()),
-            avatar_chat_delay: Duration::ZERO,
-            moderation_token: None,
-            moderation_report_retention: ModerationReportRetention {
-                days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
-            },
-            story_metrics_retention: StoryMetricsRetention::default(),
-            command_receipt_retention: CommandReceiptRetention::default(),
-            checkpoint_rejections: 0,
-            last_checkpoint_rejection: None,
-            allow_unsigned_wallet_claims: false,
-        };
+        runtime.force_actor_location(1001, 10);
+        let event_count = runtime.event_log.len();
+        let mut state = test_app_state(runtime, None);
+        state.ownership_feed = Arc::new(feed);
+        *state.ownership_index.write().await = initial;
         let mut rx = state.tx.subscribe();
 
         *feed_body.lock().expect("feed lock") =
@@ -70420,156 +67690,15 @@ mod tests {
         assert!(ownership
             .cards_for_wallet("wallet-1")
             .contains("location-science-lab"));
-        let mut runtime = state.inner.lock().await;
-        assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 10);
-        discover_seed_exit_pair_for_test(&mut runtime, 10, 11);
-        let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-        let world_view = runtime.world_response(None, &access);
-        let science = world_view
-            .locations
-            .iter()
-            .find(|location| location.id == 10)
-            .expect("Science Class exists in world map");
-        assert!(science.card.accessible);
-        assert!(science
-            .exits
-            .iter()
-            .any(|exit| exit.destination_location_id == 11 && !exit.accessible));
-        let movement = rx.try_recv().expect("resident movement broadcast");
-        assert_eq!(movement.type_name, "actor.moved");
-        assert_eq!(movement.actor_name.as_deref(), Some("Rati"));
-        assert_eq!(movement.location_name.as_deref(), Some("The Cosy Cottage"));
-        assert_eq!(
-            movement.destination_location_name.as_deref(),
-            Some("Science Class")
-        );
-
-        server.abort();
-    }
-
-    #[tokio::test]
-    async fn ownership_refresh_merges_durable_pack_opening_grants() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-refresh-receipts-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-
-        insert_wooden_box_receipt(
-            &path,
-            "wallet-pack",
-            "box-pack",
-            "burn-pack",
-            "test_verified",
-            "pack-rati",
-        )
-        .expect("insert box receipt");
-        mark_wooden_box_receipt_opened(&path, "pack-rati").expect("mark receipt opened");
-        insert_avatar_pack_opening(
-            &path,
-            "wallet-pack",
-            Some("box-pack"),
-            "pack-rati",
-            "seed-rati",
-            "catalog-rati",
-            &["rati".to_string()],
-            r#"{"source":"refresh-test"}"#,
-        )
-        .expect("insert pack opening");
-
-        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
-        state.ownership_feed = Arc::new(OwnershipFeedConfig {
-            inline_feed: Some(
-                r#"{"wallets":[{"walletAddress":"wallet-pack","cardIds":["location-science-lab"]}]}"#
-                    .to_string(),
-            ),
-            ..OwnershipFeedConfig::default()
-        });
-        *state.ownership_index.write().await =
-            OwnershipIndex::parse("wallet-pack:location-science-lab");
-
-        assert!(refresh_ownership_index_once(&state)
-            .await
-            .expect("refresh effective ownership"));
-        let ownership = state.ownership_snapshot().await;
-        let cards = ownership.cards_for_wallet("wallet-pack");
-        assert!(cards.contains("location-science-lab"));
-        assert!(cards.contains("rati"));
-        assert!(ownership.packs_for_wallet("wallet-pack").is_empty());
-        assert!(ownership.boxes_for_wallet("wallet-pack").is_empty());
-
         let runtime = state.inner.lock().await;
         assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 10);
+        assert_eq!(runtime.event_log.len(), event_count);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
 
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn actor_overlap_placement_scores_holder_location_sets() {
-        let ownership = OwnershipIndex::parse(
-            "w1:rati,location-science-lab|\
-             w2:rati,location-science-lab,cosy-rain-soft-garden|\
-             w3:rati,cosy-rain-soft-garden|\
-             w4:location-science-lab|\
-             w5:rati,location-library|\
-             w6:rati,location-library",
-        );
-
-        assert_eq!(actor_location_from_overlap("rati", &ownership, 0), Some(2));
-        assert_eq!(actor_location_from_overlap("rati", &ownership, 1), Some(10));
-        assert_eq!(actor_location_from_overlap("rati", &ownership, 2), Some(12));
-        assert_eq!(
-            actor_location_from_overlap("cosy-skull", &ownership, 0),
-            None
-        );
-    }
-
-    #[test]
-    fn actor_overlap_counts_unique_wallet_location_sets() {
-        let ownership = OwnershipIndex::parse(
-            "w1:rati,location-science-lab,location-science-lab|\
-             w2:rati,cosy-cottage|\
-             w3:rati,cosy-cottage",
-        );
-
-        assert_eq!(actor_location_from_overlap("rati", &ownership, 0), Some(1));
-        assert_eq!(actor_location_from_overlap("rati", &ownership, 1), Some(1));
-    }
-
-    #[test]
-    fn placement_events_make_resident_moves_auditable() {
-        let mut runtime = RuntimeWorld::seeded();
-        let ownership = OwnershipIndex::parse("w1:rati,location-science-lab");
-
-        let events = runtime.apply_wallet_overlap_placements_with_events(&ownership, 0);
-
-        assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 10);
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].type_name, "actor.moved");
-        assert_eq!(events[0].actor_name.as_deref(), Some("Rati"));
-        assert_eq!(events[0].location_id, Some(1));
-        assert_eq!(events[0].destination_location_id, Some(10));
-        assert!(runtime
-            .event_log
-            .iter()
-            .any(|event| event.seq == events[0].seq && event.type_name == "actor.moved"));
-    }
-
-    #[test]
-    fn resident_placement_defaults_to_cottage_without_overlap() {
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.force_actor_location(1001, 10);
-        runtime.apply_wallet_overlap_placements(&OwnershipIndex::default(), 0);
-        assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 1);
-
-        let ownership = OwnershipIndex::parse("w1:rati,location-science-lab");
-        runtime.apply_wallet_overlap_placements(&ownership, 0);
-        assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 10);
-
-        let unrelated_ownership = OwnershipIndex::parse("w1:location-science-lab|w2:cosy-skull");
-        runtime.apply_wallet_overlap_placements(&unrelated_ownership, 0);
-        assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 1);
+        server.abort();
     }
 
     #[test]

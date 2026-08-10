@@ -230,6 +230,7 @@ impl RuntimeWorld {
         }
         let mut runtime = Self::seeded();
         replay_action_journal_after!(runtime, path, 0);
+        materialization_retirement::migrate_legacy_receipts(&mut runtime)?;
         Ok(runtime)
     }
 
@@ -258,6 +259,7 @@ impl RuntimeWorld {
             )));
         }
         replay_action_journal_after!(runtime, journal_path, checkpoint_seq);
+        materialization_retirement::migrate_legacy_receipts(&mut runtime)?;
         Ok(runtime)
     }
 }

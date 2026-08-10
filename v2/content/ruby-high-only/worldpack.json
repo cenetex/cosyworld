@@ -7,7 +7,6 @@
   "version": 1,
   "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
   "entry_location": "ruby-high.first-bell:location/11",
-  "entry_grant_id": "ruby-high.first-bell:location-homeroom",
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
@@ -591,7 +590,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:83e2512b416589cde02590e3429bb928b12a522a547247427ae22bad52d36d14",
+  "bundle_hash": "sha256:06776efe7a4b53b6ed0f2482056bbc9fe1575ce40a45a6a3512d881209075461",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -754,8 +753,8 @@
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
-      "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-      "version": "1.3.5",
+      "description": "An independently bootable public school world, card catalog, and First Bell experience.",
+      "version": "1.3.6",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -779,11 +778,6 @@
         {
           "id": "ruby-high.first-bell/assets",
           "kind": "assets",
-          "version": "1.0.0"
-        },
-        {
-          "id": "ruby-high.first-bell/entitlements",
-          "kind": "entitlements",
           "version": "1.0.0"
         }
       ],
@@ -835,7 +829,7 @@
       "resource_counts": {
         "actors": 0,
         "actor_facets": 0,
-        "access_gates": 6,
+        "access_gates": 0,
         "factions": 1,
         "items": 0,
         "locations": 6,
@@ -867,66 +861,6 @@
         "canonicalization": "jcs",
         "permanence": "content-addressed"
       },
-      "entitlements": {
-        "schema_version": 1,
-        "authorities": [
-          {
-            "provider": "ruby-high.first-bell/entitlements",
-            "id": "first-bell-card-feed",
-            "type": "asset_feed",
-            "asset_kind": "nft",
-            "issuer": "ruby-high.ai",
-            "chain": "solana",
-            "network": "mainnet-beta",
-            "standard": "metaplex_core",
-            "collection_binding": "RUBY_HIGH_SOLANA_CORE_CARD_COLLECTION_ADDRESS"
-          }
-        ],
-        "grants": [
-          {
-            "id": "ruby-high.first-bell:location-science-lab",
-            "authority_id": "first-bell-card-feed",
-            "match": {
-              "asset_id": "location-science-lab"
-            }
-          },
-          {
-            "id": "ruby-high.first-bell:location-homeroom",
-            "authority_id": "first-bell-card-feed",
-            "match": {
-              "asset_id": "location-homeroom"
-            }
-          },
-          {
-            "id": "ruby-high.first-bell:location-library",
-            "authority_id": "first-bell-card-feed",
-            "match": {
-              "asset_id": "location-library"
-            }
-          },
-          {
-            "id": "ruby-high.first-bell:location-cafeteria",
-            "authority_id": "first-bell-card-feed",
-            "match": {
-              "asset_id": "location-cafeteria"
-            }
-          },
-          {
-            "id": "ruby-high.first-bell:location-greenhouse",
-            "authority_id": "first-bell-card-feed",
-            "match": {
-              "asset_id": "location-greenhouse"
-            }
-          },
-          {
-            "id": "ruby-high.first-bell:location-courtyard",
-            "authority_id": "first-bell-card-feed",
-            "match": {
-              "asset_id": "location-courtyard"
-            }
-          }
-        ]
-      },
       "extensions": {
         "x-cosyworld-rules-context": {
           "schema_version": 1,
@@ -957,7 +891,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:e8092c36fb9ef2880a19bfb111385137e9c0b635919ab78bd2f98910a0225847"
+      "integrity": "sha256:a6cd0983e10a75cf05abbc502a124f3d6b65079ade12c539c892a46def0a4104"
     }
   ],
   "files": {

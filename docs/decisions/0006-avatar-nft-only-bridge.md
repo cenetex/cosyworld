@@ -149,6 +149,11 @@ or actor.
    prove every supported linked avatar registers or recovers exactly once after
    wallet link.
 
+The #682/#685 implementation completes steps 1 and 3–6, removes the public
+routes/projections/UI and official access gates, preserves typed audit records,
+and proves the wallet-free journey. Step 2 and the linked-avatar half of step 7
+remain the focused #688 productization scope.
+
 The item bridge migration is tracked by
 [#685](https://github.com/cenetex/cosyworld/issues/685). Productizing the avatar
 bridge is tracked by [#688](https://github.com/cenetex/cosyworld/issues/688).

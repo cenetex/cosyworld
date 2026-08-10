@@ -42,23 +42,23 @@ async function inspectTarget(value) {
     meta.features?.card_policy_model_hash === "1e1002a4907456f2",
     `${baseUrl.origin} has the wrong card-policy model`,
   );
-  assert(meta.ownership_feed?.remote_configured === true, `${baseUrl.origin} has no remote Ruby High feed`);
-  assert(meta.ownership_feed?.bearer_configured === true, `${baseUrl.origin} has no Ruby High feed bearer`);
+  assert(meta.linked_avatar_adapter?.remote_configured === true, `${baseUrl.origin} has no remote linked-avatar feed`);
+  assert(meta.linked_avatar_adapter?.bearer_configured === true, `${baseUrl.origin} has no linked-avatar feed bearer`);
   assert(
-    Number.isInteger(meta.ownership_feed?.timeout_secs)
-      && meta.ownership_feed.timeout_secs >= 1
-      && meta.ownership_feed.timeout_secs <= 60,
-    `${baseUrl.origin} has no bounded Ruby High feed timeout`,
+    Number.isInteger(meta.linked_avatar_adapter?.timeout_secs)
+      && meta.linked_avatar_adapter.timeout_secs >= 1
+      && meta.linked_avatar_adapter.timeout_secs <= 60,
+    `${baseUrl.origin} has no bounded linked-avatar feed timeout`,
   );
   assert(
-    meta.ownership_feed?.status === "healthy",
-    `${baseUrl.origin} Ruby High feed is ${meta.ownership_feed?.status ?? "unobservable"}`
-      + ` (failures=${meta.ownership_feed?.consecutive_failures ?? "unknown"},`
-      + ` error=${meta.ownership_feed?.last_error_code ?? "unknown"})`,
+    meta.linked_avatar_adapter?.status === "healthy",
+    `${baseUrl.origin} linked-avatar feed is ${meta.linked_avatar_adapter?.status ?? "unobservable"}`
+      + ` (failures=${meta.linked_avatar_adapter?.consecutive_failures ?? "unknown"},`
+      + ` error=${meta.linked_avatar_adapter?.last_error_code ?? "unknown"})`,
   );
   assert(
-    Number.isInteger(meta.ownership_feed?.last_success_at_unix),
-    `${baseUrl.origin} has no recorded successful Ruby High feed fetch`,
+    Number.isInteger(meta.linked_avatar_adapter?.last_success_at_unix),
+    `${baseUrl.origin} has no recorded successful linked-avatar feed fetch`,
   );
 
   return {
@@ -67,10 +67,10 @@ async function inspectTarget(value) {
     card_policy_mode: meta.features.card_policy_mode,
     card_policy_top_k: meta.features.card_policy_top_k,
     card_policy_model_hash: meta.features.card_policy_model_hash,
-    ownership_feed_status: meta.ownership_feed.status,
-    wallet_count: meta.ownership_feed.wallet_count,
-    last_success_at_unix: meta.ownership_feed.last_success_at_unix,
-    consecutive_failures: meta.ownership_feed.consecutive_failures,
+    linked_avatar_adapter_status: meta.linked_avatar_adapter.status,
+    wallet_count: meta.linked_avatar_adapter.wallet_count,
+    last_success_at_unix: meta.linked_avatar_adapter.last_success_at_unix,
+    consecutive_failures: meta.linked_avatar_adapter.consecutive_failures,
   };
 }
 
