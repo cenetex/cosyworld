@@ -23,6 +23,8 @@ pub(super) struct LootItemTemplateDefinition {
     #[serde(default)]
     pub(super) container_capacity_tenths: u16,
     #[serde(default)]
+    pub(super) delivery_tags: Vec<String>,
+    #[serde(default)]
     pub(super) mechanics: Option<SeedPlayableItemMechanics>,
 }
 
@@ -180,7 +182,9 @@ struct ResolvedLootDestination {
     building_id: Option<String>,
 }
 
-fn parse_loot_catalog(pack: &SeedWorldpackPack) -> Result<Option<LootTableCatalog>, String> {
+pub(super) fn parse_loot_catalog(
+    pack: &SeedWorldpackPack,
+) -> Result<Option<LootTableCatalog>, String> {
     let Some(value) = pack.extensions.get(LOOT_CATALOG_EXTENSION).cloned() else {
         return Ok(None);
     };
@@ -271,6 +275,7 @@ pub(super) fn validate_seed_loot_tables(content: &SeedContent) -> Result<(), Str
         }
         let mut templates = BTreeMap::new();
         for template in &catalog.item_templates {
+            let delivery_tags = template.delivery_tags.iter().collect::<BTreeSet<_>>();
             if !valid_loot_template_id(&template.id)
                 || template.name.trim().is_empty()
                 || template.description.trim().is_empty()
@@ -278,6 +283,12 @@ pub(super) fn validate_seed_loot_tables(content: &SeedContent) -> Result<(), Str
                 || !valid_loot_item_role(&template.role)
                 || item_size_from_str(&template.size).is_none()
                 || template.weight_tenths == 0
+                || template.delivery_tags.len() > 16
+                || delivery_tags.len() != template.delivery_tags.len()
+                || template
+                    .delivery_tags
+                    .iter()
+                    .any(|tag| !valid_delivery_item_tag(tag))
                 || !templates.insert(template.id.clone(), template).is_none()
             {
                 return Err(format!(
@@ -432,6 +443,22 @@ pub(super) fn mounted_loot_item_template(template_id: &str) -> Option<MountedLoo
         }
     }
     None
+}
+
+pub(super) fn mounted_delivery_item_tag(tag: &str) -> bool {
+    valid_delivery_item_tag(tag)
+        && active_content().manifest.packs.iter().any(|pack| {
+            parse_loot_catalog(pack).is_ok_and(|catalog| {
+                catalog.is_some_and(|catalog| {
+                    catalog.item_templates.iter().any(|template| {
+                        template
+                            .delivery_tags
+                            .iter()
+                            .any(|candidate| candidate == tag)
+                    })
+                })
+            })
+        })
 }
 
 pub(super) fn loot_spec_for_table(table_id: &str, quest_template_id: &str) -> Option<JobLootSpec> {

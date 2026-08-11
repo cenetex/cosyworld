@@ -282,8 +282,10 @@ impl RuntimeWorld {
                     .get(&generated_place_connection_job_id(location_id))
                     .and_then(|job| job.delivery.as_ref())
                     .and_then(|delivery| delivery.requirement.as_ref())
-                    .map(|requirement| match requirement {
-                        DeliveryRequirement::ExactItem { item_id } => *item_id,
+                    .and_then(|requirement| match requirement {
+                        DeliveryRequirement::ExactItem { item_id } => Some(*item_id),
+                        DeliveryRequirement::ExactTemplate { .. }
+                        | DeliveryRequirement::ItemTag { .. } => None,
                     })
             })
             .or_else(|| {
@@ -345,8 +347,10 @@ impl RuntimeWorld {
                 .get(&state.connection_job_id)
                 .and_then(|job| job.delivery.as_ref())
                 .and_then(|delivery| delivery.requirement.as_ref())
-                .map(|requirement| match requirement {
-                    DeliveryRequirement::ExactItem { item_id } => *item_id,
+                .and_then(|requirement| match requirement {
+                    DeliveryRequirement::ExactItem { item_id } => Some(*item_id),
+                    DeliveryRequirement::ExactTemplate { .. }
+                    | DeliveryRequirement::ItemTag { .. } => None,
                 })
                 .or_else(|| {
                     (!self.jobs.contains_key(&state.connection_job_id))

@@ -226,4 +226,6 @@
 # 68166 -> 68154: move observational projection-cache response types and
 # lock-independent endpoint plumbing behind projection_cache.rs while keeping
 # the authoritative runtime boundary in main.rs.
-68154
+# 68154 -> 67993: move the actor-causal delivery matcher integration coverage
+# into delivery_matching_tests.rs beside the matcher/provenance seam.
+67993
