@@ -72,10 +72,10 @@ mod ownership;
 #[cfg(test)]
 mod project_push_tests;
 mod projection;
-mod projection_items;
 mod projection_cache;
 #[cfg(test)]
 mod projection_cache_tests;
+mod projection_items;
 mod prompts;
 mod proxim8;
 mod quest_loot;
