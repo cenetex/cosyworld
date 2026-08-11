@@ -94,6 +94,7 @@ mod semantic_receipts;
 mod settlement_buildings;
 mod snapshot_persistence;
 mod solana;
+mod spatial;
 mod story_metrics;
 #[cfg(test)]
 mod test_support;
@@ -191,9 +192,8 @@ use rpg::*;
 use rules_context::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use settlement_buildings::*;
-use snapshot_persistence::*;
 pub(crate) use solana::*;
+use {settlement_buildings::*, snapshot_persistence::*, spatial::*};
 
 #[cfg(test)]
 pub(crate) use config::{

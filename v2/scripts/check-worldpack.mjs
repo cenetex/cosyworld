@@ -36,6 +36,7 @@ import {
   routeDiscoveryValidationErrors,
 } from "./route-direction.mjs";
 import { progressionSafetyWorldValidationErrors } from "./progression-safety-schema.mjs";
+import { spatialSceneValidationErrors } from "./spatial-scene-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -385,6 +386,9 @@ if (manifest?.files?.actor_model_bindings === "actor_model_bindings.json") {
 }
 if (manifest?.files?.avatar_level_tracks === "avatar_level_tracks.json") {
   expectedFiles.avatar_level_tracks = "avatar_level_tracks.json";
+}
+if (manifest?.files?.spatial_scenes === "spatial_scenes.json") {
+  expectedFiles.spatial_scenes = "spatial_scenes.json";
 }
 if (!isObject(manifest)) {
   throw new Error("worldpack.json could not be parsed");
@@ -1280,6 +1284,7 @@ const locations = content.locations;
 const exits = content.exits;
 const hiddenExits = content.hidden_exits;
 const roomFeatures = content.room_features;
+const spatialScenes = content.spatial_scenes ?? [];
 const roomSheets = content.room_sheets;
 const clocks = content.clocks;
 const jobs = content.jobs;
@@ -1291,6 +1296,16 @@ const lifecycleHooks = content.lifecycle_hooks;
 const evolutionTracks = content.evolution_tracks;
 const recipes = content.recipes;
 const sentences = content.sentences;
+
+for (const error of spatialSceneValidationErrors({
+  scenes: spatialScenes,
+  locations,
+  actors,
+  roomFeatures,
+  exits,
+})) {
+  fail(error);
+}
 
 validateWritingRegister(content);
 reportWritingRegisterAdvisories({ actors, cards, locations });
@@ -1788,7 +1803,7 @@ for (const location of locations) {
   }
   if (
     location.interior_view !== undefined
-    && !["hex", "close"].includes(location.interior_view)
+    && !["hex", "close", "isometric"].includes(location.interior_view)
   ) {
     fail(`location ${location.id} has invalid interior_view ${location.interior_view}`);
   }

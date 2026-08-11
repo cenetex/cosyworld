@@ -15,7 +15,8 @@
       "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
       "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd",
       "sha256:b459f7f38512c3fae3c3a19c0491f8c97e0b0e22c760ec860288488d47381173",
-      "sha256:6f31a10d918f5c75c96b8b7d59130129cd2ca558e34b64d6feb37a1e3610a743"
+      "sha256:6f31a10d918f5c75c96b8b7d59130129cd2ca558e34b64d6feb37a1e3610a743",
+      "sha256:3d40e935661417ef62b27e753685a80308167d1715f0d13c7d2b042a506f6381"
     ]
   },
   "pack_lifecycle": {
@@ -751,7 +752,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:3d40e935661417ef62b27e753685a80308167d1715f0d13c7d2b042a506f6381",
+  "bundle_hash": "sha256:7d3b33f743bd50699fe013321e23cfe6b11476b4f457e41ee8525a10e7d72d72",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -811,6 +812,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -893,6 +895,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 112,
@@ -986,6 +989,7 @@
         "evolution_tracks": 3,
         "recipes": 9,
         "sentences": 21,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 2,
         "rules": 0,
@@ -2022,6 +2026,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -2043,7 +2048,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -2127,6 +2132,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 1,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -2274,7 +2280,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:e5609d396bd4b6ed5251ee46dab4a063266e79d1cb850270f59db1ebdb8d30cd"
+      "integrity": "sha256:c5de2288d001e41959156ff058754f6709b2c930c47927e392c93b09cbb42e9a"
     },
     {
       "id": "cosyworld.composition.core-lantern-keeper",
@@ -2355,6 +2361,7 @@
         "evolution_tracks": 0,
         "recipes": 0,
         "sentences": 0,
+        "spatial_scenes": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -2458,7 +2465,8 @@
     "lifecycle_hooks": "lifecycle_hooks.json",
     "evolution_tracks": "evolution_tracks.json",
     "recipes": "recipes.json",
-    "sentences": "sentences.json"
+    "sentences": "sentences.json",
+    "spatial_scenes": "spatial_scenes.json"
   },
   "external_cards": "external_cards.json",
   "assets": "assets.json",
