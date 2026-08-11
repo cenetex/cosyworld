@@ -64,8 +64,9 @@ test("classifies the pinned catalog into exact native interactions", () => {
     }
   }
   assert.deepEqual(Object.fromEntries(profileCounts), {
-    talk: 370,
+    talk: 342,
     create_video: 22,
+    batch_talk: 28,
     find_resonance: 34,
     illustrate: 42,
     speak: 19,
@@ -77,6 +78,7 @@ test("classifies the pinned catalog into exact native interactions", () => {
   assert.deepEqual(Object.fromEntries(providerAvailableCounts), {
     talk: 337,
     create_video: 22,
+    batch_talk: 28,
     find_resonance: 31,
     illustrate: 40,
     speak: 13,
@@ -86,8 +88,8 @@ test("classifies the pinned catalog into exact native interactions", () => {
     voice_chat: 2,
   });
   assert.deepEqual(Object.fromEntries(availabilityCounts), {
-    active: 458,
-    unsupported: 37,
+    active: 486,
+    unsupported: 9,
     archived: 5,
   });
 });
@@ -105,21 +107,32 @@ test("withholds Talk when the exact chat-completion endpoint is absent", () => {
   );
 });
 
-test("keeps legacy batch variants dormant without importing new ones", () => {
+test("routes legacy text batch variants through the asynchronous batch adapter", () => {
   const batchProfiles = document.bindings.filter((row) =>
     row.requested_model_id.endsWith(":batch"),
   );
   assert.equal(batchProfiles.length, 31);
+  const batchTalk = batchProfiles.filter((row) =>
+    row.profiles.some((profile) => profile.kind === "batch_talk"),
+  );
+  assert.equal(batchTalk.length, 28);
   assert(
-    batchProfiles.every((row) =>
-      row.profiles.every(
-        (profile) =>
-          profile.kind !== "talk" ||
-          (profile.provider_available === false &&
-            profile.disabled_reason ===
-              "exact_batch_model_id_requires_async_batch_route_2026-08-09"),
-      ),
-    ),
+    batchTalk.every((row) => {
+      const profile = row.profiles.find(
+        (candidate) => candidate.kind === "batch_talk",
+      );
+      return (
+        row.availability === "active" &&
+        profile.provider_available &&
+        profile.runtime_adapter_supported &&
+        profile.asynchronous &&
+        profile.endpoint_zdr === false &&
+        profile.endpoint === "/api/beta/batches" &&
+        profile.defaults.endpoint === "/v1/chat/completions" &&
+        profile.defaults.submission_model_id ===
+          row.requested_model_id.slice(0, -":batch".length)
+      );
+    }),
   );
 });
 
@@ -230,7 +243,7 @@ test("keeps provider availability separate from local adapter support", () => {
       ({ profile }) =>
         profile.provider_available && profile.runtime_adapter_supported,
     ).length,
-    425,
+    453,
   );
   const vectorProfiles = profiles.filter(
     ({ row, profile }) =>

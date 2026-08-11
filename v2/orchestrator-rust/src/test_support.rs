@@ -18,6 +18,7 @@ pub(super) fn initialize_test_event_store(path: &Path) {
         "world_events",
         "action_journal",
         "actor_jobs",
+        "model_interaction_batches",
         "canonical_store_identity",
         "canonical_commits",
         "canonical_compacted_commit_ranges",

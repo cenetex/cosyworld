@@ -3634,7 +3634,7 @@ fn uses_server_paid_openrouter(config: &AiConfig) -> bool {
     config.server_paid && ai_provider_name(Some(config)) == "openrouter"
 }
 
-async fn enforce_server_paid_daily_limit(
+pub(crate) async fn enforce_server_paid_daily_limit(
     config: &AiConfig,
     feature: &str,
 ) -> Result<Option<tokio::sync::MutexGuard<'static, ()>>, AiGatewayError> {

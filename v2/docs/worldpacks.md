@@ -883,15 +883,17 @@ version and snapshot update.
 
 `cosyworld.elysium` is the first exact-model pack. Catalog snapshot
 `openrouter-2026-08-10.1` contains 500 exact OpenRouter bindings, and interaction
-snapshot `openrouter-interactions-2026-08-10.6` derives 511 profiles from them.
+snapshot `openrouter-interactions-2026-08-10.7` derives 511 profiles from them.
 The snapshot contains 374 raw text-capable bindings and 126 tool-only bindings.
 Seventy-seven tool-only bindings have a provider-available runtime adapter; 49
 are dormant. The cast adds 15 current non-batch routes while retaining five
-retired routes and 31 legacy batch routes as disabled compatibility tombstones.
-New batch variants are not embodied: OpenRouter executes them through the
-asynchronous Batch API rather than Elysium's immediate Talk contract. These
-counts belong to the frozen snapshot and change only through an explicit pack
-update.
+retired routes and 31 legacy batch routes. Twenty-eight text batch routes expose
+the durable `Leave an echo` interaction; the three embedding batch routes stay
+disabled because they have no compatible batch input contract. New batch
+variants are not embodied automatically: catalog refresh remains explicit, and
+OpenRouter batch work is submitted and polled through the asynchronous Batch API
+rather than Elysium's immediate Talk contract. These counts belong to the frozen
+snapshot and change only through an explicit pack update.
 
 The current generated resources still represent all 500 bindings as avatars
 because schema version 1 can bind only actors. This is migration state, not the
@@ -911,8 +913,12 @@ Wisdom and Charisma gates supply genuine chances to level; further movement crea
 attempt after failure, while chat volume and Orb activity do not.
 
 Ready conversational models use bounded raw, server-authored Talk or supported
-two-way voice chat. Ready device profiles use their native Illustrate, Speak,
-Find resonance, or Rank echoes action through the item that supplies it.
+two-way voice chat. Exact text batch routes use `Leave an echo`: a server-authored
+world prompt is frozen in the durable actor queue, the provider batch id is
+persisted across restarts, operational polling advances no world time, and one
+later typed output is journaled against the originating event and location.
+Ready device profiles use their native Illustrate, Speak, Find resonance, or
+Rank echoes action through the item that supplies it.
 Illustration prompts, speech text, and semantic descriptors are derived only
 from frozen world and catalog facts; players cannot type speech or prompts,
 attach audio, select a provider model, or invoke arbitrary tools.
@@ -922,8 +928,11 @@ The snapshot declares unavailable profiles instead of guessing an adapter.
 the product has no authorized human-speech or audio-upload input. Asynchronous
 video and music composition await their persistence adapters. Vector-only
 illustration awaits a safe SVG rasterizer. Archived models and exact batch
-variants without an immediate route remain disabled. No such profile can fall
-through to Chat. In Void 070, Seedance is therefore specified as a dormant
+embedding variants without a supported batch contract remain disabled. Batch
+text profiles never fall through to immediate Chat and cannot use transient
+player keys because later polling requires durable credentials. OpenRouter's
+batch endpoint is non-ZDR and retains batch inputs and results for 30 days. In
+Void 070, Seedance is therefore specified as a dormant
 motion-camera device until asynchronous video dispatch and persistence ship;
 the absence of a playable video card is truthful, while the device and reason
 remain discoverable.

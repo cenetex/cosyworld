@@ -195,6 +195,18 @@ pub(super) fn fail_actor_job_for_runtime_state(
     error: &str,
     retry_floor_ms: u64,
 ) -> io::Result<()> {
+    if matches!(
+        &job.payload,
+        ActorJobPayload::ModelInteraction(interaction)
+            if model_interaction_batch_poll_pending(interaction, error)
+    ) {
+        return requeue_actor_job(
+            path,
+            job,
+            error,
+            retry_floor_ms.max(MODEL_INTERACTION_BATCH_POLL_DELAY_MS),
+        );
+    }
     let config = state.ai_config.as_ref().as_ref();
     let (provider_terminal, readiness_retry_floor_ms) = match &job.payload {
         ActorJobPayload::OrbChat(chat) => (

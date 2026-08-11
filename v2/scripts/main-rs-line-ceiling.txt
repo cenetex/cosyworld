@@ -236,4 +236,4 @@
 # like a property of event-appending handlers generally rather than the
 # item-specific effect ADR 0008 recorded for SetItemEquipped. No behaviour
 # changes; journal encoding pinned by test for each variant.
-67947
+67945

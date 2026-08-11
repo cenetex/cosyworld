@@ -5857,6 +5857,29 @@
         resultLabel: "spoken line",
         failure: "The spoken line could not finish. Try Speak again.",
       },
+      batch_talk: {
+        profile: "batch_talk",
+        intention: "echo",
+        label: "leave an echo",
+        commandVerb: "echo",
+        cardType: "chat",
+        focus: "echo",
+        detail: "one delayed in-world echo",
+        modalTitle: "leave an echo with",
+        // writing-register: allow-long-modal-summary -- required retention and input-boundary disclosure.
+        modalSummary: (targetName) => `${targetName}'s exact batch route will receive frozen, server-authored world context. The result may return later, OpenRouter retains batch inputs and results for 30 days, and there is no typed prompt or player-authored line.`,
+        effect: (targetName) => `${targetName} may publish one delayed echo tied to this place and moment`,
+        busyLabel: "waiting for an echo",
+        busyDetail: "the batch route is carrying the echo…",
+        pending: {
+          queued: "sealing this place and moment into an echo…",
+          generating: "the batch route is carrying the echo…",
+          retrying: "waiting for the delayed echo to return…",
+        },
+        pendingAria: (speaker, stage) => `${speaker}'s exact batch model is processing frozen world context without holding the current turn. ${stage}`,
+        resultLabel: "delayed echo",
+        failure: "The delayed echo could not return. Try Leave an echo again.",
+      },
       generic: {
         profile: "generic",
         intention: "model_interaction",
@@ -5891,6 +5914,7 @@
       if (normalized === "find_resonance" || normalized === "embeddings" || normalized.startsWith("find_resonance_")) return "embeddings";
       if (normalized === "rank_echoes" || normalized === "rerank" || normalized.startsWith("rank_echoes_")) return "rerank";
       if (normalized === "speak" || normalized === "speech" || normalized.startsWith("speak_")) return "speech";
+      if (normalized === "echo" || normalized === "batch_talk" || normalized.startsWith("batch_talk_")) return "batch_talk";
       return "";
     }
 
@@ -7883,6 +7907,7 @@
       if (label === "flee" || command.startsWith("flee") || risk.includes("danger")) return "danger";
       if (label === "travel" || command.startsWith("go ")) return "travel";
       if (label === "chat" || command.startsWith("chat ")) return "chat";
+      if (label === "leave an echo" || command.startsWith("echo ")) return "chat";
       if (label === "illustrate" || command.startsWith("illustrate ")) return "illustrate";
       if (label === "grow closer" || label === "bond" || label === "remember" || focusKey.includes("bond")) return "bond";
       if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command === "search" || command.startsWith("search ")) return "listen";
@@ -8260,7 +8285,14 @@
       const clearFirstTaleAfterAction = firstTalePayoffVisible()
         && path !== "/actions/timeout";
       const beforeOrbs = economyOrbCount();
-      const donatedPayload = path === "/actions/model-interaction" && openRouterApiKey()
+      const modelInteractionOffer = path === "/actions/model-interaction"
+        ? currentOfferForSubmission(path, withAccess(payload))
+        : null;
+      const durableBatchInteraction = modelInteractionOffer
+        && modelInteractionPresentation(modelInteractionOffer).profile === "batch_talk";
+      const donatedPayload = path === "/actions/model-interaction"
+        && openRouterApiKey()
+        && !durableBatchInteraction
         ? { ...payload, openrouter_api_key: openRouterApiKey() }
         : payload;
       const authoritativePayload = withAccess(donatedPayload);
@@ -11852,7 +11884,7 @@
         ? ` · $${remaining.toFixed(2)} key limit remaining`
         : "";
       const openRouterControls = openRouterConnected
-        ? `<div class="item-note"><strong>${escapeHtml(openRouterLabel)} connected</strong>${escapeHtml(remainingCopy)}<br>Player-started public model interactions use this key. Autonomous room voices stay on CosyWorld's protected daily budget.</div><div class="account-actions"><button class="account-button secondary" type="button" data-openrouter-disconnect>disconnect OpenRouter</button></div>`
+        ? `<div class="item-note"><strong>${escapeHtml(openRouterLabel)} connected</strong>${escapeHtml(remainingCopy)}<br>Eligible immediate public model interactions use this key. Delayed batch echoes and autonomous room voices stay on CosyWorld's protected daily budget.</div><div class="account-actions"><button class="account-button secondary" type="button" data-openrouter-disconnect>disconnect OpenRouter</button></div>`
         : `<div class="item-note">Connect OpenRouter to pay for model interactions you start. Their approved output is shared with the room, so your account contributes to the public world.</div><div class="account-actions"><button class="account-button" type="button" data-openrouter-connect>connect OpenRouter</button></div>`;
       return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link data-player-concept="linked-avatar" data-analytics-event="linked_avatar.link">link avatar wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section><section class="account-section" aria-label="OpenRouter connection"><div class="account-section-title">OpenRouter contribution</div>${openRouterControls}</section>`;
     }

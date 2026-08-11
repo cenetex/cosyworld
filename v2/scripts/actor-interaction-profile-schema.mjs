@@ -1,11 +1,12 @@
 export const ACTOR_INTERACTION_PROFILE_SCHEMA_VERSION = 1;
 export const ACTOR_INTERACTION_PROFILE_SNAPSHOT =
-  "openrouter-interactions-2026-08-10.6";
+  "openrouter-interactions-2026-08-10.7";
 export const PROVIDER_AVAILABILITY_SEMANTICS =
   "provider_available only records that the pinned exact model and provider endpoint were advertised in the profile snapshot; it does not mean CosyWorld has a runtime adapter. Action offers must require provider_available, runtime_adapter_supported, and the applicable runtime policy gates.";
 
 export const ACTOR_INTERACTION_KINDS = Object.freeze([
   "talk",
+  "batch_talk",
   "illustrate",
   "speak",
   "transcribe",
@@ -54,6 +55,7 @@ const svgRasterizerRequiredModelIds = new Set([
 ]);
 const runtimeAdapterSupportedKinds = new Set([
   "talk",
+  "batch_talk",
   "illustrate",
   "find_resonance",
   "rank_echoes",
@@ -81,6 +83,7 @@ export const TTS_DEFAULT_VOICES = Object.freeze({
 
 const profileEndpoints = Object.freeze({
   talk: "/api/v1/chat/completions",
+  batch_talk: "/api/beta/batches",
   illustrate: "/api/v1/images",
   speak: "/api/v1/audio/speech",
   transcribe: "/api/v1/audio/transcriptions",
@@ -94,6 +97,7 @@ const profileEndpoints = Object.freeze({
 
 const profileLabels = Object.freeze({
   talk: "Talk",
+  batch_talk: "Leave an echo",
   illustrate: "Illustrate",
   speak: "Speak",
   transcribe: "Transcribe",
@@ -110,8 +114,6 @@ const imageRouteReason =
   "exact_model_id_absent_from_openrouter_image_models_2026-08-08";
 const chatRouteReason =
   "exact_model_id_has_no_chat_completion_endpoint_2026-08-08";
-const batchChatRouteReason =
-  "exact_batch_model_id_requires_async_batch_route_2026-08-09";
 const embeddingRouteReason =
   "exact_batch_model_id_has_no_immediate_embeddings_route_2026-08-08";
 const ttsVoiceReason =
@@ -177,10 +179,10 @@ function interactionProfile(binding, kind, options = {}) {
     endpoint_zdr:
       kind === "unsupported"
         ? null
-        : kind === "create_video"
+        : kind === "create_video" || kind === "batch_talk"
           ? false
           : binding.zero_data_retention,
-    asynchronous: kind === "create_video",
+    asynchronous: kind === "create_video" || kind === "batch_talk",
     streaming: options.streaming ?? false,
     required_parameters: [...(options.required_parameters ?? ["model"])],
     defaults: structuredClone(options.defaults ?? {}),
@@ -191,11 +193,33 @@ function talkProfile(binding) {
   return interactionProfile(binding, "talk", {
     outputs: ["text"],
     required_parameters: ["model", "messages"],
-    disabled_reason: binding.requested_model_id.endsWith(":batch")
-      ? batchChatRouteReason
-      : chatRouteUnavailableModelIds.has(binding.requested_model_id)
+    disabled_reason: chatRouteUnavailableModelIds.has(
+      binding.requested_model_id,
+    )
         ? chatRouteReason
         : null,
+  });
+}
+
+function batchTalkProfile(binding) {
+  const submissionModelId = binding.requested_model_id.slice(
+    0,
+    -":batch".length,
+  );
+  return interactionProfile(binding, "batch_talk", {
+    accepted_inputs: ["text"],
+    outputs: ["text"],
+    required_parameters: [
+      "endpoint",
+      "model",
+      "requests",
+      "requests[].custom_id",
+      "requests[].body.messages",
+    ],
+    defaults: {
+      endpoint: "/v1/chat/completions",
+      submission_model_id: submissionModelId,
+    },
   });
 }
 
@@ -309,8 +333,13 @@ function unsupportedProfile(binding) {
 function profilesForBinding(binding) {
   switch (modalityKey(binding.output_modalities)) {
     case "text":
-      return [talkProfile(binding)];
+      return binding.requested_model_id.endsWith(":batch")
+        ? [batchTalkProfile(binding)]
+        : [talkProfile(binding)];
     case "image+text":
+      if (binding.requested_model_id.endsWith(":batch")) {
+        return [batchTalkProfile(binding)];
+      }
       return [talkProfile(binding), imageProfile(binding)];
     case "audio+text":
       if (voiceChatModelIds.has(binding.requested_model_id)) {
@@ -564,6 +593,19 @@ export function actorInteractionProfileValidationErrors(document, bindings) {
       if (profile.kind === "create_video" && profile.endpoint_zdr !== false) {
         errors.push(
           `actor interaction profile ${row.requested_model_id}/create_video must declare endpoint_zdr false`,
+        );
+      }
+      if (
+        profile.kind === "batch_talk" &&
+        (profile.endpoint_zdr !== false ||
+          !profile.asynchronous ||
+          profile.streaming ||
+          profile.defaults.endpoint !== "/v1/chat/completions" ||
+          profile.defaults.submission_model_id !==
+            row.requested_model_id.slice(0, -":batch".length))
+      ) {
+        errors.push(
+          `actor interaction profile ${row.requested_model_id}/batch_talk has an unsafe asynchronous route`,
         );
       }
       if (profile.kind === "speak") {
