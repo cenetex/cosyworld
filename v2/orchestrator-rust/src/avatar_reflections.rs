@@ -482,6 +482,7 @@ fn reflection_gate(job: &AvatarReflectionJob) -> SpeechGateContext {
             AvatarReflectionKind::Dream => 75,
         },
         anchors,
+        signpost_openers: Vec::new(),
         recent_lines: job.recent_lines.clone(),
         recent_speaker_shingle_hashes: Vec::new(),
         has_proposed_action: false,
@@ -665,6 +666,7 @@ async fn complete_avatar_self_description(
             mode: speech_mode,
             max_words: SELF_DESCRIPTION_MAX_WORDS,
             anchors: spine.anchors(AvatarContextMode::SelfDescription),
+            signpost_openers: Vec::new(),
             recent_lines: spine
                 .recent_dialogue
                 .iter()
@@ -805,6 +807,7 @@ async fn complete_world_entity_self_description(
             mode: SpeechMode::Prose,
             max_words,
             anchors: spine.anchors(),
+            signpost_openers: Vec::new(),
             recent_lines: spine
                 .selected_recollections
                 .iter()
@@ -1097,6 +1100,7 @@ mod tests {
                 mode: SpeechMode::Prose,
                 max_words: 8,
                 anchors: vec!["Teapot".to_string()],
+                signpost_openers: Vec::new(),
                 recent_lines: Vec::new(),
                 recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,

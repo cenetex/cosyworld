@@ -555,7 +555,7 @@ fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
             )
         } else {
             format!(
-                "Open a conversation with {} because {}'s controller selected Chat. Follow a concrete live detail, preference, curiosity, or open thread. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
+                "Open a conversation with {} because {}'s controller selected Chat. Begin with a concrete live detail, preference, curiosity, or open thread rather than announcing a place name. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
                 plan.target_actor_name, plan.actor_name
             )
         },
@@ -752,7 +752,7 @@ fn resident_voice_prompt(plan: &AvatarReplyPlan, planning_brief: &str) -> Prompt
         )
     } else {
         format!(
-            "Give {}'s immediate in-world response to the current beat. Prefer a concrete reaction, preference, or self-directed intention over generic assistance. {}",
+            "Give {}'s immediate in-world response to the current beat. Begin with a concrete reaction, preference, or self-directed intention rather than announcing a place name. {}",
             plan.speaker_name, planning_brief
         )
     };
@@ -832,6 +832,16 @@ fn resident_voice_action_brief(action: &AvatarProposedAction) -> String {
     action.kind.replace('_', " ")
 }
 
+fn opening_place_names(current: &str, spine: &AvatarContextSpine) -> Vec<String> {
+    let mut names = std::iter::once(current.to_string())
+        .chain(spine.known_place_names.iter().cloned())
+        .filter(|name| !name.trim().is_empty())
+        .collect::<Vec<_>>();
+    names.sort_by_key(|name| name.to_lowercase());
+    names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    names
+}
+
 fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGateContext {
     let recent_lines = if followup && !plan.exchange_turns.is_empty() {
         plan.exchange_turns
@@ -895,6 +905,11 @@ fn avatar_chat_gate_context(plan: &AvatarChatPlan, followup: bool) -> SpeechGate
         mode: SpeechMode::Prose,
         max_words: if followup { 28 } else { 34 },
         anchors,
+        signpost_openers: if followup {
+            Vec::new()
+        } else {
+            opening_place_names(&plan.location_name, &plan.context_spine)
+        },
         recent_lines,
         recent_speaker_shingle_hashes: plan.recent_speaker_shingle_hashes.clone(),
         has_proposed_action: false,
@@ -960,6 +975,11 @@ fn resident_gate_context(plan: &AvatarReplyPlan, has_proposed_action: bool) -> S
         mode: SpeechMode::from_name(&plan.speech_mode),
         max_words: resident_word_budget(plan),
         anchors,
+        signpost_openers: if plan.incoming_turn.is_some() {
+            Vec::new()
+        } else {
+            opening_place_names(&plan.location_name, &plan.context_spine)
+        },
         recent_lines: plan.recent_lines.clone(),
         recent_speaker_shingle_hashes: plan.resident_continuity.recent_voice_shingle_hashes.clone(),
         has_proposed_action,
@@ -1344,6 +1364,117 @@ mod publication_tests {
                 context.anchors
             );
         }
+    }
+
+    /// The residual #553 case after present-cast grounding shipped in #620:
+    /// pathway discovery is visible at both ends, so its narration enters the
+    /// current room's activity and anchor set while naming a different place.
+    /// The other place remains discussable, but cannot masquerade as the
+    /// speaker's location by opening a line like an arrival signpost.
+    #[test]
+    fn adjacent_pathway_place_is_context_not_an_arrival_signpost() {
+        let mut runtime = RuntimeWorld::seeded();
+        let current_name = runtime
+            .location_name(COSY_COTTAGE_LOCATION_ID)
+            .expect("seeded current place has a name");
+        let adjacent_name = runtime
+            .location_name(MOONLIT_TRAIL_LOCATION_ID)
+            .expect("seeded adjacent place has a name");
+        runtime.event_log.push(EventView {
+            seq: runtime.world.next_event_seq,
+            type_name: "pathway.discovered".to_string(),
+            success: true,
+            actor_id: Some(RATI_ACTOR_ID),
+            actor_name: Some("Rati".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            location_name: Some(current_name),
+            destination_location_id: Some(MOONLIT_TRAIL_LOCATION_ID),
+            destination_location_name: Some(adjacent_name.clone()),
+            content: Some(format!(
+                "Rati reads the ground beyond the cottage. A way into {adjacent_name} takes shape."
+            )),
+            ..EventView::default()
+        });
+
+        let chat = runtime
+            .avatar_chat_plan_for(RATI_ACTOR_ID, 1002)
+            .expect("seeded cottage avatars can chat");
+        let context = avatar_chat_gate_context(&chat, false);
+        assert!(
+            context
+                .anchors
+                .iter()
+                .any(|anchor| anchor.contains(&adjacent_name)),
+            "pathway narration really does put the adjacent place in the anchor set: {:?}",
+            context.anchors
+        );
+        assert!(
+            context
+                .signpost_openers
+                .iter()
+                .any(|name| name == &adjacent_name),
+            "typed place provenance must survive alongside the free-form anchor text: {:?}",
+            context.signpost_openers
+        );
+
+        let wrong_place_opening = format!("{adjacent_name} at last!");
+        let rejection = certify_speech(
+            None,
+            gate_completion(&wrong_place_opening),
+            &wrong_place_opening,
+            context.clone(),
+        )
+        .expect_err("an adjacent place cannot certify as the speaker's arrival location");
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceSignpostOpening
+        );
+        assert!(
+            rejection.receipt.checks.iter().any(|check| {
+                check.code == PublicationCheckCode::VoiceAnchorMissing && check.passed
+            }),
+            "the adjacent name would have passed the old anchor gate"
+        );
+
+        let current_place_opening = format!("{} at last!", chat.location_name);
+        let rejection = certify_speech(
+            None,
+            gate_completion(&current_place_opening),
+            &current_place_opening,
+            context.clone(),
+        )
+        .expect_err("the current room name is not a conversational opening either");
+        assert_eq!(
+            rejection.failure_code,
+            PublicationCheckCode::VoiceSignpostOpening
+        );
+
+        let grounded_reference = format!("The way into {adjacent_name} has opened; shall we look?");
+        certify_speech(
+            None,
+            gate_completion(&grounded_reference),
+            &grounded_reference,
+            context,
+        )
+        .expect("an adjacent place remains discussable as a discovered route");
+    }
+
+    #[test]
+    fn directed_replies_do_not_apply_the_opening_signpost_check() {
+        let (chat, reply) = seeded_plans();
+        assert!(
+            avatar_chat_gate_context(&chat, true)
+                .signpost_openers
+                .is_empty(),
+            "a follow-up line is not a conversation opening"
+        );
+        assert!(reply.incoming_turn.is_some());
+        assert!(
+            resident_gate_context(&reply, false)
+                .signpost_openers
+                .is_empty(),
+            "a directed reply is not an ambient opening"
+        );
     }
 
     #[test]
