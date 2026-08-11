@@ -906,6 +906,14 @@ compiled kernel capacities, and the mounted packs' exact license records. `GET
 notices, and bundled attribution text without authentication. `./v2/mvp.sh
 status` prints a one-line summary from `/meta`.
 
+`/world` and `/meta` are observational rather than transactional. They read an
+immutable runtime projection refreshed every two seconds, so they stay
+available while a mutation or persistence operation holds the authoritative
+runtime lock; their world counters may trail committed state by that short
+window. `/meta.projection` exposes the source world sequence, cache age, current
+and last authoritative-lock wait, cache-lock wait, and last refresh duration so
+operators can see a lock convoy without probing request latency.
+
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, and historical Box/pack audit rows without exposing player OpenRouter keys.
 
 `POST /moderation/community-art/{subject_kind}/{subject_id}/reject` invalidates

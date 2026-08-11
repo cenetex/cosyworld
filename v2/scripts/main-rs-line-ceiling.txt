@@ -223,6 +223,9 @@
 # projections, wallet-gated location and hosted-entry plumbing, live receipt
 # merging, and ownership-driven resident relocation for #682. Historical
 # receipts remain readable for audit, and the linked-avatar adapter remains.
-# 68166 -> 68005: move the actor-causal delivery matcher integration coverage
+# 68166 -> 68154: move observational projection-cache response types and
+# lock-independent endpoint plumbing behind projection_cache.rs while keeping
+# the authoritative runtime boundary in main.rs.
+# 68154 -> 67993: move the actor-causal delivery matcher integration coverage
 # into delivery_matching_tests.rs beside the matcher/provenance seam.
-68005
+67993
