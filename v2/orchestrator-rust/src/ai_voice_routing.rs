@@ -746,6 +746,9 @@ fn retry_instruction(
     if failed.contains(&PublicationCheckCode::VoiceObjectAgency) {
         clauses.push("objects don't think or choose".to_string());
     }
+    if failed.contains(&PublicationCheckCode::VoiceSignpostOpening) {
+        clauses.push("start with a person, object, action, or sensation · mention the place later only if it matters".to_string());
+    }
     (!clauses.is_empty()).then(|| format!("again · {}", clauses.join(" · ")))
 }
 
@@ -1863,6 +1866,7 @@ mod tests {
             mode: crate::ai_publication::SpeechMode::Prose,
             max_words: 20,
             anchors: vec!["teapot".to_string()],
+            signpost_openers: Vec::new(),
             recent_lines: Vec::new(),
             recent_speaker_shingle_hashes: Vec::new(),
             has_proposed_action: false,
@@ -2680,6 +2684,39 @@ mod tests {
         assert_eq!(
             users[1],
             "raw scene\nagain · one complete response · at most 64 words · touch something already present"
+        );
+    }
+
+    #[tokio::test]
+    async fn place_signpost_retry_names_a_non_location_way_to_begin() {
+        let config = single_candidate(VoiceRoutingConfig {
+            max_attempts: 2,
+            hedge_width: 1,
+            ..VoiceRoutingConfig::default()
+        });
+        let backend = MockBackend::with_outputs([
+            ("provider/tiny-a", "Moonlit Trail at last!", 0),
+            ("provider/tiny-a", "The teapot is warm.", 0),
+        ]);
+        let mut publication_gate = gate("signpost-feedback-beat");
+        publication_gate.anchors = vec!["Moonlit Trail".to_string(), "teapot".to_string()];
+        publication_gate.signpost_openers = vec!["Moonlit Trail".to_string()];
+
+        let certified = route_certified_voice_with(
+            &config,
+            None,
+            request("dialogue_avatar"),
+            publication_gate,
+            Arc::new(backend.clone()),
+        )
+        .await
+        .expect("the signpost-corrected retry certifies");
+
+        assert_eq!(certified.text(), "The teapot is warm.");
+        let (systems, _) = backend.rendered_prompts();
+        assert_eq!(
+            systems[1],
+            "Write one short anchored line.\nagain · start with a person, object, action, or sensation · mention the place later only if it matters"
         );
     }
 

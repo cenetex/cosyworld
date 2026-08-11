@@ -172,6 +172,12 @@ pub(crate) struct AvatarContextSpine {
     pub(crate) recent_dialogue: Vec<AvatarContextDialogueTurn>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) recent_activity: Vec<String>,
+    /// Current or non-local place names that are actually present in this
+    /// conversation context. The voice publication gate uses these as typed
+    /// provenance so an adjacent place mentioned by a pathway event cannot be
+    /// mistaken for the room the speaker currently occupies.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) known_place_names: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) recollection_candidates: Vec<AvatarContextRecollection>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -681,10 +687,52 @@ impl RuntimeWorld {
                 .into_iter()
                 .map(|line| line.replace(&authored_actor_name, &grounded_actor_name))
                 .collect(),
+            known_place_names: Vec::new(),
             recollection_candidates,
             selected_recollections: Vec::new(),
             self_description_due,
         };
+        let contextual_text = std::iter::once(spine.current_beat.as_str())
+            .chain(
+                spine
+                    .incoming_turn
+                    .iter()
+                    .flat_map(|turn| [turn.speaker_name.as_str(), turn.content.as_str()]),
+            )
+            .chain(
+                spine
+                    .location_evidence
+                    .iter()
+                    .map(|evidence| evidence.text.as_str()),
+            )
+            .chain(
+                spine
+                    .public_room_memory
+                    .iter()
+                    .map(|evidence| evidence.text.as_str()),
+            )
+            .chain(spine.recent_activity.iter().map(String::as_str))
+            .chain(
+                spine
+                    .recent_dialogue
+                    .iter()
+                    .map(|turn| turn.content.as_str()),
+            )
+            .chain(spine.goals.iter().map(String::as_str))
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase();
+        spine.known_place_names = self
+            .locations
+            .iter()
+            .filter(|(location_id, name)| {
+                **location_id == actor.location_id || contextual_text.contains(&name.to_lowercase())
+            })
+            .map(|(_, name)| name.clone())
+            .filter(|name| !name.trim().is_empty())
+            .collect();
+        spine.known_place_names.sort();
+        spine.known_place_names.dedup();
         spine.refresh_semantic_recollections();
         Some(spine)
     }

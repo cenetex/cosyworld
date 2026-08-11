@@ -63,6 +63,7 @@ pub(crate) enum PublicationCheckCode {
     // new variant never changes how an old rejection reads.
     VoiceObjectAgency,
     VoiceFallbackIdentity,
+    VoiceSignpostOpening,
 }
 
 impl PublicationCheckCode {
@@ -82,6 +83,7 @@ impl PublicationCheckCode {
             Self::VoiceProposedActionClaim => "voice_proposed_action_claim",
             Self::VoiceObjectAgency => "voice_object_agency",
             Self::VoiceFallbackIdentity => "voice_fallback_identity",
+            Self::VoiceSignpostOpening => "voice_signpost_opening",
         }
     }
 }
@@ -96,6 +98,10 @@ pub(crate) struct SpeechGateContext {
     pub(crate) mode: SpeechMode,
     pub(crate) max_words: usize,
     pub(crate) anchors: Vec<String>,
+    /// Place names that must not be used as the first words of a conversational
+    /// opening. They remain valid anchors later in the line; this only rejects
+    /// the repetitive signpost shape ("Mossbell Inn, I've arrived").
+    pub(crate) signpost_openers: Vec<String>,
     pub(crate) recent_lines: Vec<String>,
     pub(crate) recent_speaker_shingle_hashes: Vec<u64>,
     pub(crate) has_proposed_action: bool,
@@ -122,12 +128,16 @@ pub(crate) fn score_speech_candidate(
     let words = normalized_words(value);
     let candidate_words = words.iter().cloned().collect::<BTreeSet<_>>();
     let anchors = anchor_tokens(&context.anchors);
+    let place_name_tokens = anchor_tokens(&context.signpost_openers);
     let anchor_matches = candidate_words
         .iter()
         .filter(|word| {
-            anchors
+            !place_name_tokens
                 .iter()
-                .any(|anchor| anchor_words_match(word, anchor))
+                .any(|place| anchor_words_match(word, place))
+                && anchors
+                    .iter()
+                    .any(|anchor| anchor_words_match(word, anchor))
         })
         .count()
         // More than four scene references mostly rewards longer, anchor-stuffed
@@ -374,6 +384,7 @@ pub(crate) fn certified_test_speech(
         mode: SpeechMode::Prose,
         max_words: 80,
         anchors: vec!["Keeper Brass Key".to_string()],
+        signpost_openers: Vec::new(),
         recent_lines: Vec::new(),
         recent_speaker_shingle_hashes: Vec::new(),
         has_proposed_action: false,
@@ -665,11 +676,41 @@ fn evaluate_checks(
             PublicationCheckCode::VoiceFallbackIdentity,
             raw || !contains_numeric_traveler_identity(text),
         ),
+        (
+            PublicationCheckCode::VoiceSignpostOpening,
+            context.mode != SpeechMode::Prose
+                || !has_non_signpost_anchor(context)
+                || !starts_with_signpost_anchor(text, &context.signpost_openers),
+        ),
     ];
     checks
         .into_iter()
         .map(|(code, passed)| PublicationCheck { code, passed })
         .collect()
+}
+
+fn starts_with_signpost_anchor(value: &str, anchors: &[String]) -> bool {
+    let candidate = normalized_words(value);
+    anchors.iter().any(|anchor| {
+        let anchor = normalized_words(anchor);
+        !anchor.is_empty() && candidate.starts_with(&anchor)
+    })
+}
+
+fn has_non_signpost_anchor(context: &SpeechGateContext) -> bool {
+    let mut anchors = anchor_tokens(&context.anchors);
+    for signpost in &context.signpost_openers {
+        for word in normalized_words(signpost) {
+            anchors.remove(&word);
+        }
+    }
+    // The speaker's own name is prompt identity, not a natural scene detail.
+    // Counting it here would claim every solitary scene has an easy alternative
+    // and could turn the signpost check into a bounded but fruitless retry loop.
+    for word in normalized_words(&context.speaker_name) {
+        anchors.remove(&word);
+    }
+    !anchors.is_empty()
 }
 
 fn contains_numeric_traveler_identity(value: &str) -> bool {
@@ -1532,12 +1573,27 @@ mod tests {
             mode: SpeechMode::Prose,
             max_words: 8,
             anchors: anchors.to_vec(),
+            signpost_openers: Vec::new(),
             recent_lines: recent.to_vec(),
             recent_speaker_shingle_hashes: Vec::new(),
             has_proposed_action: false,
             envelope_valid: true,
             candidate_round: 1,
         }
+    }
+
+    #[test]
+    fn a_place_only_scene_does_not_enter_a_signpost_rejection_loop() {
+        let place = "Moonlit Trail".to_string();
+        let mut gate = context(std::slice::from_ref(&place), &[]);
+        gate.signpost_openers = vec![place.clone()];
+        certify_speech(
+            None,
+            completion("Moonlit Trail is quiet."),
+            "Moonlit Trail is quiet.",
+            gate,
+        )
+        .expect("without another usable anchor, the required place anchor remains eligible");
     }
 
     fn rejected_code(text: &str, context: SpeechGateContext) -> PublicationCheckCode {
@@ -2165,6 +2221,19 @@ mod tests {
     }
 
     #[test]
+    fn place_names_do_not_inflate_candidate_grounding_rank() {
+        let mut gate = context(&["Moonlit Trail".to_string(), "teapot".to_string()], &[]);
+        gate.signpost_openers = vec!["Moonlit Trail".to_string()];
+
+        let place_only = score_speech_candidate("I have reached Moonlit Trail.", &gate);
+        let scene_detail = score_speech_candidate("The teapot is warm.", &gate);
+
+        assert_eq!(place_only.anchor_matches, 0);
+        assert_eq!(scene_detail.anchor_matches, 1);
+        assert!(scene_detail > place_only);
+    }
+
+    #[test]
     fn voice_unsafe_tone_check_is_deterministic() {
         let anchors = vec!["teapot".to_string()];
         assert_eq!(
@@ -2430,6 +2499,7 @@ mod tests {
                 mode: SpeechMode::Prose,
                 max_words: 20,
                 anchors: vec!["teapot".to_string()],
+                signpost_openers: Vec::new(),
                 recent_lines: Vec::new(),
                 recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,
@@ -2492,6 +2562,7 @@ mod tests {
                 mode: SpeechMode::Prose,
                 max_words: 12,
                 anchors: vec!["teapot".to_string()],
+                signpost_openers: Vec::new(),
                 recent_lines: Vec::new(),
                 recent_speaker_shingle_hashes: Vec::new(),
                 has_proposed_action: false,
