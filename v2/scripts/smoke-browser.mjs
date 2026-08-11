@@ -808,7 +808,7 @@ async function main() {
             current_actor_name: "Mabel Crumblethorn",
           };
           const host = document.createElement("div");
-          host.innerHTML = turnPingPillHtml(turn);
+          host.innerHTML = turnPingPillHtml(turn, null);
           return {
             copy: host.querySelector(".turn-ping-copy")?.textContent || "",
             controls: turnBannerControlSpecs(turn).map((spec) => spec.label),
@@ -824,7 +824,7 @@ async function main() {
             need_time_extension_ms: 60000,
           };
           const host = document.createElement("div");
-          host.innerHTML = turnPingPillHtml(turn);
+          host.innerHTML = turnPingPillHtml(turn, null);
           return {
             copy: host.querySelector(".turn-ping-copy")?.textContent || "",
             controls: turnBannerControlSpecs(turn).map((spec) => spec.label),
@@ -4648,33 +4648,42 @@ async function main() {
     assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `the post-defeat action should be a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
   }
 
-  async function assertCombatHeadingOwnsBattleFormation() {
+  async function assertAvatarRailOwnsCombatTracker() {
     const previousViewport = page.viewportSize();
     await page.setViewportSize({ width: 360, height: 860 });
     await page.waitForTimeout(50);
     const result = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
-      const previousLogEvents = logEvents;
+      const previousActions = actions;
+      const previousActionConfirmAction = actionConfirmAction;
+      const previousAnnouncedTurnHandoffKey = announcedTurnHandoffKey;
       const previousTurnRuns = turnBannerControlRuns;
       try {
         actorId = 5000;
+        const actors = [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 2 } },
+          { id: 5001, name: "Moss Guard", kind: "human", status: "active", stats: { level: 1 } },
+          ...Array.from({ length: 10 }, (_, index) => ({
+            id: 1001 + index,
+            name: `Echo ${index + 1}`,
+            kind: "npc",
+            status: index >= 6 ? "knocked_out" : "active",
+            stats: { level: 1 },
+          })),
+          { id: 9999, name: "Uninvolved Onlooker", kind: "npc", status: "active", stats: { level: 1 } },
+        ];
+        const cards = Object.fromEntries(actors.map((actor) => [actor.id, {
+          card_id: `actor-${actor.id}`,
+          display_name: actor.name,
+          role: actor.kind === "npc" ? "resident" : "avatar",
+          aspect: "portrait",
+          image_url: "",
+        }]));
         state = {
           location: { id: 3, name: "Moonlit Trail" },
-          actors: [
-            { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 2 } },
-            { id: 5001, name: "Moss Guard", kind: "human", status: "active", stats: { level: 1 } },
-            { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 2 } },
-          ],
-          cards: {
-            actors: {
-              5000: { card_id: "lantern-stitch", display_name: "Lantern Stitch", role: "avatar", aspect: "portrait", image_url: "" },
-              5001: { card_id: "moss-guard", display_name: "Moss Guard", role: "avatar", aspect: "portrait", image_url: "" },
-              1004: { card_id: "moonlit-echo", display_name: "Moonlit Echo", role: "resident", aspect: "portrait", image_url: "" },
-            },
-            items: {},
-            locations: {},
-          },
+          actors,
+          cards: { actors: cards, items: {}, locations: {} },
           combat: {
             encounter_id: 88,
             round: 3,
@@ -4684,17 +4693,32 @@ async function main() {
             participants: [
               { actor_id: 5000, actor_name: "Lantern Stitch", side: 1, initiative: 12, status: "active", current_hp: 8, max_hp: 10 },
               { actor_id: 5001, actor_name: "Moss Guard", side: 1, initiative: 9, status: "active", current_hp: 6, max_hp: 8 },
-              { actor_id: 1004, actor_name: "Moonlit Echo", side: 2, initiative: 7, status: "active", current_hp: 5, max_hp: 12 },
+              { actor_id: 1001, actor_name: "Echo 1", side: 2, initiative: 8, status: "active", current_hp: 12, max_hp: 12 },
+              { actor_id: 1002, actor_name: "Echo 2", side: 2, initiative: 7, status: "active", current_hp: 9, max_hp: 12 },
+              { actor_id: 1003, actor_name: "Echo 3", side: 2, initiative: 6, status: "active", current_hp: 3, max_hp: 12 },
+              { actor_id: 1004, actor_name: "Echo 4", side: 2, initiative: 5, status: "active", current_hp: 5, max_hp: 12 },
+              { actor_id: 1005, actor_name: "Echo 5", side: 2, initiative: 4, status: "active", current_hp: 7, max_hp: 12 },
+              { actor_id: 1006, actor_name: "Echo 6", side: 2, initiative: 3, status: "active", current_hp: 11, max_hp: 12, dodging: true, escaped: true },
+              { actor_id: 1007, actor_name: "Echo 7", side: 2, initiative: 2, status: "knocked_out", current_hp: 0, max_hp: 12, unconscious: true },
+              { actor_id: 1008, actor_name: "Echo 8", side: 2, initiative: 1, status: "knocked_out", current_hp: 0, max_hp: 12, unconscious: true },
+              { actor_id: 1009, actor_name: "Echo 9", side: 2, initiative: 0, status: "knocked_out", current_hp: 0, max_hp: 12, unconscious: true },
+              { actor_id: 1010, actor_name: "Echo 10", side: 2, initiative: -1, status: "knocked_out", current_hp: 0, max_hp: 12, unconscious: true },
             ],
           },
           turn: {
             enabled: true,
             policy: "scene-turn",
+            current_actor_name: "Lantern Stitch",
             is_current_actor: true,
             can_need_time: true,
             need_time_extension_ms: 60000,
+            handoff_key: "combat-rail-fixture",
           },
           primary_action: { kind: "attack", options: [{ kind: "attack" }] },
+          action_offers: [
+            { offer_id: "attack:echo-4", kind: "attack", target: { id: 1004, kind: "actor" } },
+            { offer_id: "attack:echo-5", kind: "attack", target: { id: 1005, kind: "actor" } },
+          ],
           economy: {},
           ledger: {},
           bonds: [],
@@ -4703,82 +4727,177 @@ async function main() {
           room_features: [],
           access: {},
         };
-        renderCombatHeading();
-        renderTurnPingPill();
-        logEvents = [{
-          seq: 200,
-          type: "combat.encounter.started",
-          actor_id: 5000,
-          actor_name: "Lantern Stitch",
-          target_actor_id: 1004,
-          target_actor_name: "Moonlit Echo",
-          location_id: 3,
-          location_name: "Moonlit Trail",
-        }, {
-          seq: 201,
-          type: "combat.attack.attempt",
-          actor_id: 5000,
-          actor_name: "Lantern Stitch",
-          target_actor_id: 1004,
-          target_actor_name: "Moonlit Echo",
-          location_id: 3,
-          raw_roll: 14,
-          modifier: 3,
-          total: 17,
-          dc: 10,
-          combat_outcome: {
-            type: "combat.attack.hit",
-            target_actor_name: "Moonlit Echo",
-            damage: 4,
-            current_hp: 5,
-          },
-        }];
-        renderLog();
-        const heading = document.querySelector("#combat-heading");
-        const headingRect = heading.getBoundingClientRect();
-        const zoneNames = (key) => [...heading.querySelectorAll(`[data-combat-zone="${key}"] .combat-profile-name`)]
-          .map((node) => node.textContent.trim());
-        return {
-          headingVisible: !heading.hidden,
-          headingHeight: headingRect.height,
-          headingLeft: headingRect.left,
-          headingRight: headingRect.right,
-          heroHidden: getComputedStyle(document.querySelector("#room-hero")).display === "none",
-          left: zoneNames("left"),
-          close: zoneNames("close"),
-          right: zoneNames("right"),
-          zoneLabels: [...heading.querySelectorAll(".combat-zone-label")].map((node) => node.textContent.trim()),
-          footerBannerHidden: document.querySelector("#turn-banner").hidden,
-          needTimeInHeading: Boolean(heading.querySelector('[data-turn-control="need-time"]')),
-          battleLog: document.querySelector("#log [data-combat-beat]")?.textContent.replace(/\s+/g, " ").trim() || "",
-          battleRows: document.querySelectorAll("#log [data-combat-beat]").length,
-          documentWidth: document.documentElement.scrollWidth,
-          viewportWidth: window.innerWidth,
+        const attackAction = {
+          label: "attack",
+          offerKinds: ["attack"],
+          offerIds: ["attack:echo-4", "attack:echo-5"],
+          choices: [
+            { label: "Echo 4", value: "1004" },
+            { label: "Echo 5", value: "1005" },
+          ],
+          selectedChoice: "1004",
         };
+        attackAction.selectedPayload = () => ({
+          actor_id: actorId,
+          target_actor_id: Number(attackAction.selectedChoice),
+        });
+        const careAction = {
+          label: "use",
+          detail: "Hearth Tonic on Echo 7",
+          useChoiceKind: "care",
+          targetActorId: 1007,
+          card: { card_id: "hearth-tonic", display_name: "Hearth Tonic", role: "item", aspect: "square" },
+          selectedPayload: () => ({ actor_id: actorId, item_id: 2001, target_actor_id: 1007 }),
+          run: () => Promise.resolve({ ok: true }),
+        };
+        const chatAction = {
+          label: "chat",
+          targetActorId: 1007,
+          selectedPayload: () => ({ actor_id: actorId, target_actor_id: 1007 }),
+          run: () => Promise.resolve({ ok: true }),
+        };
+        actions = [chatAction, careAction];
+        actionConfirmAction = attackAction;
+        announcedTurnHandoffKey = "";
+        renderRoomAvatarRail();
+        renderTurnPingPill();
+        const rail = document.querySelector("#room-avatar-rail");
+        const rescueRow = document.querySelector("#room-rescue-row");
+        const participantIds = [...rail.querySelectorAll("[data-combat-participant-id]")]
+          .map((node) => Number(node.dataset.combatParticipantId));
+        const selected = rail.querySelector('[data-combat-participant-id="1004"]');
+        const legal = rail.querySelector('[data-combat-participant-id="1005"]');
+        const exactDetail = selected?.querySelector(".room-avatar-pfp")?.getAttribute("aria-label") || "";
+        const condition = rail.querySelector('[data-combat-participant-id="1006"]');
+        const conditionDetail = condition?.querySelector(".room-avatar-pfp")?.getAttribute("aria-label") || "";
+        const rescue = rescueRow.querySelector('[data-rescue-actor-id="1007"]');
+        const current = rail.querySelector('[data-combat-participant-id="5000"]');
+        const meter = selected?.querySelector('[role="meter"]');
+        const scrollable = rail.scrollWidth > rail.clientWidth;
+        rail.scrollLeft = rail.scrollWidth;
+        const lastRect = rail.lastElementChild?.getBoundingClientRect();
+        const railRect = rail.getBoundingClientRect();
+        const lastReachable = Boolean(lastRect && lastRect.right <= railRect.right + 1 && lastRect.left >= railRect.left - 1);
+        const combat = {
+          participantIds,
+          selectedClass: selected?.className || "",
+          legalClass: legal?.className || "",
+          currentClass: current?.className || "",
+          currentHealth: current?.dataset.combatHealthPercent || "",
+          selectedHealth: selected?.dataset.combatHealthPercent || "",
+          exactDetail,
+          conditionMarkers: condition?.querySelectorAll(".combat-condition-marker").length || 0,
+          conditionMarkerText: condition?.querySelector(".combat-condition-marker")?.textContent || "",
+          conditionDetail,
+          rescueClass: rescue?.className || "",
+          rescueDetail: rescue?.getAttribute("aria-label") || "",
+          rescueIsPortrait: rescue?.classList.contains("room-avatar-frame") || false,
+          rescueSeparate: rail.nextElementSibling === rescueRow && rescueRow.parentElement === rail.parentElement,
+          rescueSummary: rescueRow.querySelector(".room-rescue-summary")?.textContent || "",
+          visibleRescueCount: rescueRow.querySelectorAll(":scope > .combat-rescue-indicator").length,
+          overflowLabel: rescueRow.querySelector(".combat-rescue-overflow summary")?.textContent || "",
+          overflowAria: rescueRow.querySelector(".combat-rescue-overflow summary")?.getAttribute("aria-label") || "",
+          overflowInitiallyClosed: !rescueRow.querySelector(".combat-rescue-overflow")?.open,
+          meterNow: meter?.getAttribute("aria-valuenow") || "",
+          meterMax: meter?.getAttribute("aria-valuemax") || "",
+          scrollable,
+          lastReachable,
+          ariaLabel: rail.getAttribute("aria-label") || "",
+          heroVisible: getComputedStyle(document.querySelector("#room-hero")).display !== "none",
+          hasSecondStage: Boolean(document.querySelector("#combat-heading, [data-combat-zone]")),
+          footerBannerHidden: document.querySelector("#turn-banner").hidden,
+          needTimeInFooter: Boolean(document.querySelector('#turn-banner [data-turn-control="need-time"]')),
+          footerCopy: document.querySelector("#turn-ping-pill")?.textContent.replace(/\s+/g, " ").trim() || "",
+        };
+
+        const overflow = rescueRow.querySelector(".combat-rescue-overflow");
+        overflow.open = true;
+        const overflowRescue = rescueRow.querySelector('[data-rescue-actor-id="1010"]');
+        combat.overflowOperable = overflowRescue?.tagName === "BUTTON"
+          && overflowRescue.tabIndex === 0
+          && Boolean(overflowRescue.getAttribute("data-card-key"));
+        rescue.click();
+        combat.rescueSheetName = document.querySelector("#card-modal-name")?.textContent.trim() || "";
+        combat.careButton = Boolean(document.querySelector("#card-modal [data-avatar-care='1007']"));
+        document.querySelector("#card-modal [data-avatar-care='1007']")?.click();
+        combat.careTarget = Number(actionConfirmAction?.selectedPayload?.()?.target_actor_id || 0);
+        combat.careActionKind = String(actionConfirmAction?.useChoiceKind || "");
+        combat.careModalOpen = !document.querySelector("#action-modal")?.hidden;
+        closeActionModal();
+
+        state = { ...state, combat: null, turn: { enabled: false } };
+        actionConfirmAction = null;
+        renderRoomAvatarRail();
+        const ordinary = {
+          ariaLabel: rail.getAttribute("aria-label") || "",
+          portraitCount: rail.querySelectorAll(".room-avatar-frame").length,
+          hasOnlooker: [...rail.querySelectorAll(".room-avatar-pfp")]
+            .some((portrait) => portrait.getAttribute("aria-label")?.includes("Uninvolved Onlooker")),
+          staleCombatDecorations: rail.querySelectorAll("[data-combat-participant-id], .combat-health-ring").length,
+          rescueSummary: rescueRow.querySelector(".room-rescue-summary")?.textContent || "",
+          rescueCount: rescueRow.querySelectorAll(".combat-rescue-indicator").length,
+          railCombatClass: rail.classList.contains("combat"),
+        };
+        return { combat, ordinary };
       } finally {
         state = previousState;
         actorId = previousActorId;
-        logEvents = previousLogEvents;
+        actions = previousActions;
+        actionConfirmAction = previousActionConfirmAction;
+        announcedTurnHandoffKey = previousAnnouncedTurnHandoffKey;
         turnBannerControlRuns = previousTurnRuns;
-        renderCombatHeading();
+        renderRoomAvatarRail();
         renderTurnPingPill();
-        renderLog();
       }
     });
     if (previousViewport) await page.setViewportSize(previousViewport);
-    assert(result.headingVisible && result.heroHidden, `battle formation should replace the room hero in the heading: ${JSON.stringify(result)}`);
-    assert(result.headingHeight >= 110 && result.headingHeight <= 170
-      && result.headingLeft >= 0
-      && result.headingRight <= result.viewportWidth + 1
-      && result.documentWidth <= result.viewportWidth, `mobile battle heading should stay compact and inside the viewport: ${JSON.stringify(result)}`);
-    assert(result.left.join(",") === "Moss Guard"
-      && result.close.join(",") === "Lantern Stitch"
-      && result.right.join(",") === "Moonlit Echo", `battle profiles should stage allies left, the current actor close, and opponents right: ${JSON.stringify(result)}`);
-    assert(result.zoneLabels.join(",") === "range left,close combat,range right", `battle range zones should be explicit: ${JSON.stringify(result)}`);
-    assert(result.footerBannerHidden && result.needTimeInHeading, `battle timing controls should live in the heading instead of encroaching on the chat footer: ${JSON.stringify(result)}`);
-    assert(result.battleRows === 1
-      && result.battleLog.includes("Moonlit Echo takes 4 harm")
-      && result.battleLog.includes("5 HP remaining"), `battle narration should remain in the shared log: ${JSON.stringify(result)}`);
+    assert(result.combat.participantIds.length === 8
+      && !result.combat.participantIds.includes(9999), `combat rail must use authoritative encounter participants and exclude room onlookers: ${JSON.stringify(result)}`);
+    assert(result.combat.currentClass.includes("combat-current")
+      && result.combat.currentHealth === "80"
+      && result.combat.selectedHealth === "42", `combat rail should expose a separate active-turn outline and proportional health: ${JSON.stringify(result)}`);
+    assert(result.combat.selectedClass.includes("combat-selected-target")
+      && result.combat.selectedClass.includes("combat-legal-target")
+      && result.combat.legalClass.includes("combat-legal-target")
+      && !result.combat.legalClass.includes("combat-selected-target"), `combat rail should distinguish selected and legal targets from the current offer: ${JSON.stringify(result)}`);
+    assert(result.combat.exactDetail.includes("5 of 12 HP")
+      && result.combat.exactDetail.includes("waiting for their turn")
+      && result.combat.exactDetail.includes("selected legal target")
+      && result.combat.meterNow === "5"
+      && result.combat.meterMax === "12", `combatants should expose exact HP, turn, and target detail accessibly: ${JSON.stringify(result)}`);
+    assert(result.combat.conditionMarkers === 1
+      && result.combat.conditionMarkerText === "Away"
+      && result.combat.conditionDetail.includes("conditions Dodging, Escaped"), `combatants should show one urgent marker while accessible detail retains every projected condition: ${JSON.stringify(result)}`);
+    assert(result.combat.rescueClass === "combat-rescue-indicator"
+      && !result.combat.rescueIsPortrait
+      && result.combat.rescueSeparate
+      && result.combat.rescueDetail.includes("keepsake and rescue details")
+      && result.combat.rescueDetail.includes("Unconscious"), `knocked-out participants should move to the compact, inspectable rescue treatment: ${JSON.stringify(result)}`);
+    assert(result.combat.rescueSummary === "4 knocked out"
+      && result.combat.visibleRescueCount === 3
+      && result.combat.overflowLabel === "+1"
+      && result.combat.overflowAria.includes("Show 1 more")
+      && result.combat.overflowInitiallyClosed
+      && result.combat.overflowOperable, `crowded rescue state should remain bounded with an accessible, operable +N overflow: ${JSON.stringify(result)}`);
+    assert(result.combat.rescueSheetName === "Echo 7"
+      && result.combat.careButton
+      && result.combat.careTarget === 1007
+      && result.combat.careActionKind === "care"
+      && result.combat.careModalOpen, `rescue indicators should open the actor sheet and preserve the exact legal care target: ${JSON.stringify(result)}`);
+    assert(result.combat.scrollable && result.combat.lastReachable, `eight or more combatants must remain horizontally reachable on narrow mobile: ${JSON.stringify(result)}`);
+    assert(result.combat.ariaLabel === "Combatants in this encounter"
+      && result.combat.heroVisible
+      && !result.combat.hasSecondStage, `the existing room rail should be the only combat roster and must not synthesize range zones: ${JSON.stringify(result)}`);
+    assert(!result.combat.footerBannerHidden
+      && result.combat.needTimeInFooter
+      && result.combat.footerCopy.includes("ordered combat — your turn"), `ordered-combat timing and controls should remain in the banner above the hand: ${JSON.stringify(result)}`);
+    assert(result.ordinary.ariaLabel === "Avatars in this location"
+      && result.ordinary.portraitCount === 9
+      && result.ordinary.hasOnlooker
+      && result.ordinary.staleCombatDecorations === 0
+      && !result.ordinary.railCombatClass
+      && result.ordinary.rescueSummary === "4 knocked out"
+      && result.ordinary.rescueCount === 4, `leaving combat should restore the ordinary active rail while preserving the separate rescue row without stale combat decoration: ${JSON.stringify(result)}`);
   }
 
   async function assertRecoveryPromotionRequiresDealtRest() {
@@ -13917,7 +14036,7 @@ async function main() {
   await assertSpentPreparationSurfacesProjectPush();
   await assertCombatPotionDoesNotDefaultToEnemyHealing();
   await assertPlayerDefeatTransitionIsExplicit();
-  await assertCombatHeadingOwnsBattleFormation();
+  await assertAvatarRailOwnsCombatTracker();
   await assertRecoveryPromotionRequiresDealtRest();
   await assertCombatProjectActionsUseCompactTradeoffCopy();
   await assertCompactMetaCopyAvoidsSlashes();

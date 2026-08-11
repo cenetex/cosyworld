@@ -515,8 +515,7 @@
     .room.collapsed {
       padding-bottom: 0;
     }
-    .room.collapsed .room-hero,
-    .room.collapsed .combat-heading {
+    .room.collapsed .room-hero {
       margin-bottom: 0;
     }
     .room.collapsed .room-copy {
@@ -582,28 +581,16 @@
     .room-avatar-rail:empty {
       display: none;
     }
-    .combat-heading {
-      position: relative;
-      min-width: 0;
-      min-height: clamp(118px, 24vh, 210px);
-      margin: -14px -16px 12px;
-      border-bottom: 1px solid rgba(var(--type-combat-rgb), 0.34);
-      background:
-        radial-gradient(circle at 50% 72%, rgba(var(--type-combat-rgb), 0.13), transparent 30%),
-        linear-gradient(90deg, rgba(72, 98, 134, 0.16), rgba(17, 16, 13, 0.96) 34% 66%, rgba(134, 72, 72, 0.16)),
-        #11100d;
-      overflow: hidden;
+    .room-hero.has-rescue-row .room-avatar-rail {
+      bottom: 40px;
     }
-    .combat-heading[hidden] { display: none; }
-    .room.combat-room .room-hero:not(.spatial) { display: none; }
     .room-hero.spatial {
       height: clamp(210px, 36vh, 330px);
       background:
         radial-gradient(circle at 50% 92%, rgba(204, 159, 65, 0.13), transparent 38%),
         linear-gradient(180deg, #091210, #050908);
     }
-    .room-hero.spatial .room-hero-card,
-    .room-hero.spatial .room-avatar-rail {
+    .room-hero.spatial .room-hero-card {
       display: none;
     }
     .spatial-stage {
@@ -725,154 +712,32 @@
       background: #73e7a1;
     }
     .spatial-hand-key span + span::before { background: #efc96b; }
-    .combat-heading-bar {
-      min-height: 34px;
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 12px;
-      border-bottom: 1px solid rgba(var(--type-combat-rgb), 0.22);
-      background: rgba(8, 7, 5, 0.58);
-    }
-    .combat-heading-title {
-      color: var(--red);
-      font-size: 10px;
-      font-weight: 950;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-    .combat-heading-turn {
-      min-width: 0;
-      overflow: hidden;
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 850;
-      text-align: center;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .combat-heading-round {
-      color: var(--dim);
-      font-size: 10px;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .combat-formation {
-      min-height: 84px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(112px, 0.82fr) minmax(0, 1fr);
-      gap: 8px;
-      align-items: stretch;
-      padding: 8px 12px 10px;
-    }
-    .combat-zone {
-      min-width: 0;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      gap: 5px;
-      padding: 6px;
-      border: 1px solid rgba(216, 247, 220, 0.1);
-      background: rgba(5, 8, 6, 0.34);
-    }
-    .combat-zone.close {
-      border-color: rgba(var(--type-combat-rgb), 0.36);
-      background: rgba(var(--type-combat-rgb), 0.075);
-    }
-    .combat-zone-label {
-      color: var(--dim);
-      font-size: 9px;
-      font-weight: 900;
-      letter-spacing: 0.1em;
-      text-align: center;
-      text-transform: uppercase;
-    }
-    .combat-zone.close .combat-zone-label { color: var(--red); }
-    .combat-zone-profiles {
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      overflow-x: auto;
-      scrollbar-width: thin;
-    }
-    .combat-profile {
-      --combat-hp: 0%;
-      position: relative;
-      width: min(94px, 100%);
-      min-width: 58px;
-      min-height: 56px;
-      display: grid;
-      grid-template-columns: 34px minmax(0, 1fr);
-      grid-template-rows: auto auto;
-      gap: 2px 6px;
-      align-items: center;
-      border: 1px solid rgba(216, 247, 220, 0.2);
-      border-radius: 4px;
-      background: rgba(25, 22, 17, 0.92);
-      color: var(--text);
-      padding: 6px;
-      font: inherit;
-      text-align: left;
-      overflow: hidden;
-    }
-    .combat-profile.current {
-      border-color: rgba(var(--type-combat-rgb), 0.76);
-      box-shadow: inset 0 0 0 1px rgba(var(--type-combat-rgb), 0.22), 0 0 18px rgba(var(--type-combat-rgb), 0.12);
-    }
-    .combat-profile-avatar {
-      grid-row: 1 / span 2;
-      width: 34px;
-      height: 34px;
-      border: 2px solid rgba(216, 247, 220, 0.5);
-      border-radius: 999px;
-      background-color: rgba(13, 20, 15, 0.92);
-      background-position: center top;
-      background-size: cover;
-    }
-    .combat-profile.side-1 .combat-profile-avatar { border-color: rgba(139, 183, 255, 0.82); }
-    .combat-profile.side-2 .combat-profile-avatar { border-color: rgba(var(--type-combat-rgb), 0.82); }
-    .combat-profile-name {
-      min-width: 0;
-      align-self: end;
-      overflow: hidden;
-      font-size: 10px;
-      font-weight: 900;
-      line-height: 1.1;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .combat-profile-hp {
-      position: relative;
-      align-self: start;
-      height: 4px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.12);
-    }
-    .combat-profile-hp::after {
-      content: "";
+    .room-rescue-row {
       position: absolute;
-      inset: 0 auto 0 0;
-      width: var(--combat-hp);
-      background: var(--green);
-    }
-    .combat-profile.side-2 .combat-profile-hp::after { background: var(--red); }
-    .combat-heading-controls {
-      position: absolute;
-      right: 10px;
+      left: 14px;
+      right: 14px;
       bottom: 8px;
+      z-index: 4;
+      min-width: 0;
+      min-height: 26px;
       display: flex;
+      align-items: center;
       gap: 5px;
-      z-index: 2;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+      scrollbar-width: thin;
+      pointer-events: auto;
     }
-    .combat-heading-controls:empty { display: none; }
-    .combat-heading-controls .turn-banner-control {
-      min-height: 28px;
-      padding: 0 9px;
-      background: rgba(17, 16, 13, 0.94);
-      font-size: 10px;
+    .room-rescue-row[hidden] { display: none; }
+    .room-rescue-summary {
+      flex: 0 0 auto;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      text-shadow: 0 1px 3px #000;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
     .room-avatar-frame {
       position: relative;
@@ -883,6 +748,137 @@
       place-items: center;
       isolation: isolate;
     }
+    .combat-health-ring {
+      --combat-hp-angle: 0deg;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: 999px;
+      background: conic-gradient(
+        from -90deg,
+        var(--green) 0 var(--combat-hp-angle),
+        rgba(255, 255, 255, 0.2) var(--combat-hp-angle) 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      pointer-events: none;
+    }
+    .room-avatar-frame.combat-hurt .combat-health-ring {
+      background: conic-gradient(
+        from -90deg,
+        var(--amber) 0 var(--combat-hp-angle),
+        rgba(255, 255, 255, 0.2) var(--combat-hp-angle) 360deg
+      );
+    }
+    .room-avatar-frame.combat-critical .combat-health-ring {
+      background: conic-gradient(
+        from -90deg,
+        var(--red) 0 var(--combat-hp-angle),
+        rgba(255, 255, 255, 0.2) var(--combat-hp-angle) 360deg
+      );
+    }
+    .room-avatar-frame.combat-current::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      z-index: 4;
+      border: 2px solid #fff;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px rgba(var(--type-combat-rgb), 0.82), 0 0 14px rgba(var(--type-combat-rgb), 0.55);
+      pointer-events: none;
+    }
+    .room-avatar-frame.combat-legal-target .room-avatar-pfp {
+      box-shadow: 0 0 0 2px var(--amber), 0 8px 22px rgba(0, 0, 0, 0.44);
+    }
+    .room-avatar-frame.combat-selected-target .room-avatar-pfp {
+      box-shadow: 0 0 0 3px var(--blue), 0 0 16px rgba(139, 183, 255, 0.72);
+    }
+    .combat-condition-marker {
+      position: absolute;
+      right: -1px;
+      bottom: -1px;
+      z-index: 5;
+      min-width: 20px;
+      min-height: 16px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      border-radius: 999px;
+      background: #2b2112;
+      color: #fff;
+      padding: 1px 4px;
+      font-size: 8px;
+      font-weight: 950;
+      letter-spacing: 0.03em;
+      line-height: 1;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .combat-rescue-indicator {
+      position: relative;
+      flex: 0 0 auto;
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--red);
+      border-radius: 999px;
+      background: rgba(47, 16, 16, 0.94);
+      color: #fff;
+      padding: 2px;
+      font: inherit;
+      cursor: zoom-in;
+    }
+    .combat-rescue-indicator:focus-visible,
+    .room-avatar-frame.combat-legal-target .room-avatar-pfp:focus-visible,
+    .room-avatar-frame.combat-selected-target .room-avatar-pfp:focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 2px;
+    }
+    .combat-rescue-mark {
+      font-size: 8px;
+      font-weight: 950;
+      letter-spacing: 0.05em;
+    }
+    .combat-rescue-name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .combat-rescue-overflow {
+      flex: 0 0 auto;
+      min-width: 0;
+    }
+    .combat-rescue-overflow[open] {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .combat-rescue-overflow summary {
+      width: 28px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      border-radius: 999px;
+      background: rgba(47, 16, 16, 0.94);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 950;
+      cursor: pointer;
+      list-style: none;
+    }
+    .combat-rescue-overflow summary::-webkit-details-marker { display: none; }
+    .combat-rescue-overflow-list {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .combat-rescue-overflow:not([open]) .combat-rescue-overflow-list { display: none; }
     .room-avatar-pfp {
       width: 42px;
       height: 42px;
@@ -3401,42 +3397,14 @@
         height: clamp(92px, 22vh, 150px);
         margin: -11px -12px 10px;
       }
-      .combat-heading {
-        min-height: 122px;
-        margin: -11px -12px 10px;
-      }
-      .combat-heading-bar {
-        grid-template-columns: auto minmax(0, 1fr);
-        padding: 5px 8px;
-      }
-      .combat-heading-round { display: none; }
-      .combat-formation {
-        min-height: 86px;
-        grid-template-columns: minmax(0, 1fr) minmax(88px, 0.72fr) minmax(0, 1fr);
-        gap: 4px;
-        padding: 6px 7px 8px;
-      }
-      .combat-zone { gap: 3px; padding: 4px; }
-      .combat-zone-label { font-size: 8px; letter-spacing: 0.06em; }
-      .combat-zone-profiles { gap: 3px; }
-      .combat-profile {
-        width: min(76px, 100%);
-        min-width: 42px;
-        min-height: 50px;
-        grid-template-columns: 28px minmax(0, 1fr);
-        gap: 2px 4px;
-        padding: 4px;
-      }
-      .combat-profile-avatar { width: 28px; height: 28px; }
-      .combat-profile-name { font-size: 9px; }
-      .combat-heading-controls { right: 7px; bottom: 6px; }
-      .combat-heading-controls .turn-banner-control { min-height: 25px; padding: 0 7px; }
       .room-avatar-rail {
         left: 10px;
         right: 10px;
         bottom: 8px;
         gap: 5px;
       }
+      .room-hero.has-rescue-row .room-avatar-rail { bottom: 38px; }
+      .room-rescue-row { left: 10px; right: 10px; bottom: 6px; }
       .room-avatar-pfp {
         width: 34px;
         height: 34px;
@@ -4824,12 +4792,12 @@
             <img id="room-hero-image" alt="" />
           </button>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
+          <div class="room-rescue-row" id="room-rescue-row" aria-label="Knocked-out avatars needing rescue" hidden></div>
           <div class="spatial-stage" id="spatial-stage" role="img" hidden>
             <svg id="spatial-scene" viewBox="0 0 1000 230" aria-hidden="true"></svg>
             <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
           </div>
         </div>
-        <section class="combat-heading" id="combat-heading" aria-label="Battle formation" hidden></section>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -7360,7 +7328,7 @@
               command: offer.command || `use ${item.name} on ${targetName}`,
               focusKey: `use:${item.id}:${target.id}`, focusKeys: [`item:${item.id}`, `actor:${target.id}`],
               card: cardForItem(item.id), shape: "item", useChoiceKind: "care", itemName: item.name,
-              priority: candidate.requested ? 10 : undefined, targetName,
+              priority: candidate.requested ? 10 : undefined, targetName, targetActorId: target.id,
               modalTitle: target.id === actorId ? `use ${item.name}` : `help ${targetName} with ${item.name}`,
               modalSummary: target.id === actorId ? `Use ${item.name} and catch your breath.` : `Use ${item.name} to help ${targetName}.`,
               effect: candidate.reason || `${targetName} may feel steadier`,
@@ -7852,6 +7820,9 @@
           card: mode.card,
         })),
         selectedChoice: first.key,
+        targetActorChoices: Object.fromEntries(modes
+          .filter((mode) => Number(mode.source?.targetActorId || 0) > 0)
+          .map((mode) => [String(mode.source.targetActorId), mode.key])),
       };
       merged.selectedMode = () => selectMode(
         modes.find((mode) => mode.key === merged.selectedChoice) || first,
@@ -7871,12 +7842,13 @@
       builtActions.push(merged);
     }
 
-    function turnPingPillHtml(turn = state?.turn) {
-      if (state?.combat || !turn?.enabled) return "";
-      const currentName = turn.current_actor_name || "the current player";
-      // Combat keeps its own wording; other ordered policies still need the
-      // same status now that no card carries it. See issue #461.
-      const copy = turn.policy === "scene-turn"
+    function turnPingPillHtml(turn = state?.turn, combat = state?.combat) {
+      if (!turn?.enabled) return "";
+      const currentName = turn.current_actor_name || combat?.current_actor_name || "the current player";
+      // scene-turn is the ordered-combat protocol identity even when the
+      // adjacent combat projection has not arrived yet.
+      const combatCopy = Boolean(combat || turn.policy === "scene-turn");
+      const copy = combatCopy
         ? (turn.is_current_actor ? "ordered combat — your turn" : `ordered combat — ${currentName} acts now`)
         : (turn.is_current_actor ? "ordered scene — your turn" : `ordered scene — ${currentName} acts now`);
       const grace = Math.round(Number(turn.grace_period_ms || 0) / 1000);
@@ -7885,60 +7857,6 @@
         ? `<span class="turn-ping-mark" aria-hidden="true">&#9654;</span>`
         : "";
       return `${mark}<span class="turn-ping-copy">${escapeHtml(copy)}</span>${grace > 0 ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
-    }
-
-    function combatParticipantHtml(participant, combat) {
-      const actor = actorForId(participant.actor_id);
-      const name = participant.actor_name || (actor ? actorLabel(actor) : `Avatar ${participant.actor_id}`);
-      const card = cardForActor(participant.actor_id);
-      const fallback = card || {
-        display_name: name,
-        role: "avatar",
-        aspect: "portrait",
-      };
-      const image = cardImage(card) || fallbackCardImage(fallback);
-      const hp = Math.max(0, Number(participant.current_hp || 0));
-      const maxHp = Math.max(1, Number(participant.max_hp || 1));
-      const hpPercent = Math.max(0, Math.min(100, Math.round((hp / maxHp) * 100)));
-      const current = Number(participant.actor_id) === Number(combat.current_actor_id);
-      const inactive = participant.status !== "active" || participant.unconscious || participant.escaped;
-      const aria = `${name}. ${hp} of ${maxHp} HP.${current ? " Acting now." : ""}${inactive ? ` ${participant.status}.` : ""}`;
-      return `<button type="button" class="combat-profile side-${Number(participant.side) === 2 ? "2" : "1"}${current ? " current" : ""}${inactive ? " out" : ""}" style="--combat-hp:${hpPercent}%" aria-label="${escapeAttr(aria)}"${cardDataAttr(card)}><span class="combat-profile-avatar"${backgroundImageStyle(image)} aria-hidden="true"></span><span class="combat-profile-name">${escapeHtml(name)}</span><span class="combat-profile-hp" role="meter" aria-label="${escapeAttr(`${name} HP`)}" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"></span></button>`;
-    }
-
-    function combatHeadingHtml(view = state) {
-      const combat = view?.combat;
-      if (!combat) return "";
-      const zones = { left: [], close: [], right: [] };
-      const participants = Array.isArray(combat.participants)
-        ? combat.participants.slice().sort((left, right) => (
-            Number(right.initiative || 0) - Number(left.initiative || 0)
-              || Number(left.actor_id || 0) - Number(right.actor_id || 0)
-          ))
-        : [];
-      for (const participant of participants) {
-        const zone = Number(participant.actor_id) === Number(combat.current_actor_id)
-          ? "close"
-          : Number(participant.side) === 2 ? "right" : "left";
-        zones[zone].push(combatParticipantHtml(participant, combat));
-      }
-      const currentName = combat.current_actor_name || "The current fighter";
-      const turnCopy = combat.is_current_actor ? "Your turn" : `${currentName}'s turn`;
-      const controls = turnBannerControlSpecs()
-        .map((spec) => `<button type="button" class="turn-banner-control" data-turn-control="${escapeAttr(spec.key)}" title="${escapeAttr(spec.title)}">${escapeHtml(spec.label)}</button>`)
-        .join("");
-      const zoneHtml = (key, label) => `<section class="combat-zone ${key}" data-combat-zone="${key}" aria-label="${escapeAttr(label)}"><span class="combat-zone-label">${escapeHtml(label)}</span><div class="combat-zone-profiles">${zones[key].join("")}</div></section>`;
-      return `<div class="combat-heading-bar"><span class="combat-heading-title">Battle</span><span class="combat-heading-turn">${escapeHtml(turnCopy)}</span><span class="combat-heading-round">round ${Math.max(1, Number(combat.round || 1))}</span></div><div class="combat-formation">${zoneHtml("left", "range left")}${zoneHtml("close", "close combat")}${zoneHtml("right", "range right")}</div><div class="combat-heading-controls">${controls}</div>`;
-    }
-
-    function renderCombatHeading() {
-      const room = document.querySelector(".room");
-      const heading = $("combat-heading");
-      if (!heading) return;
-      const html = combatHeadingHtml(state);
-      room?.classList.toggle("combat-room", Boolean(html));
-      heading.hidden = !html;
-      if (heading.innerHTML !== html) heading.innerHTML = html;
     }
 
     function turnBannerControlSpecs(turn = state?.turn) {
@@ -10386,9 +10304,8 @@
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
       roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} card`);
       setCardTarget(roomHeroCard, locationCard);
-      $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
+      renderRoomAvatarRail();
       $("room-hero").classList.toggle("spatial", renderSpatialScene(state?.spatial_scene));
-      renderCombatHeading();
       $("location-name").textContent = location.name || "Unknown";
       const brand = $("brand");
       const menuOpen = libraryPanelPinned || accountPanelPinned;
@@ -10503,8 +10420,165 @@
       };
     }
 
+    function combatTargetPresentation(view) {
+      const currentAction = actionConfirmAction || visibleFocusedAction();
+      const attackAction = Boolean(
+        currentAction
+        && (
+          String(currentAction.label || "").toLowerCase() === "attack"
+          || (currentAction.offerKinds || []).includes("attack")
+        )
+      );
+      const legalTargetIds = new Set();
+      let selectedTargetId = 0;
+      if (!attackAction) return { legalTargetIds, selectedTargetId };
+
+      const offerIds = new Set((currentAction.offerIds || []).map(String));
+      for (const offer of (view.action_offers || [])) {
+        if (offerIds.size && !offerIds.has(String(offer?.offer_id || ""))) continue;
+        if (String(offer?.kind || "") !== "attack") continue;
+        const targetId = Number(offer?.target?.id || 0);
+        if (targetId > 0) legalTargetIds.add(targetId);
+      }
+      for (const choice of (currentAction.choices || [])) {
+        const targetId = Number(choice?.value || 0);
+        if (targetId > 0) legalTargetIds.add(targetId);
+      }
+      try {
+        selectedTargetId = Number(currentAction.selectedPayload?.()?.target_actor_id || 0);
+      } catch {
+        selectedTargetId = 0;
+      }
+      if (selectedTargetId > 0) legalTargetIds.add(selectedTargetId);
+      return { legalTargetIds, selectedTargetId };
+    }
+
+    function combatParticipantConditions(participant) {
+      const conditions = [];
+      if (participant.unconscious) conditions.push("Unconscious");
+      if (participant.dodging) conditions.push("Dodging");
+      if (participant.escaped) conditions.push("Escaped");
+      return conditions;
+    }
+
+    function urgentCombatCondition(participant) {
+      if (participant.unconscious) return "KO";
+      if (participant.escaped) return "Away";
+      if (participant.dodging) return "Dodge";
+      if (participant.status && participant.status !== "active") return "Out";
+      return "";
+    }
+
+    function actorIsDownedForRail(actor, participant = null) {
+      return Boolean(
+        participant?.unconscious
+        || participant?.status === "knocked_out"
+        || actor?.status === "knocked_out"
+      );
+    }
+
+    function combatParticipantLabel(participant, actor, combat, targetPresentation) {
+      const name = participant.actor_name || (actor ? actorLabel(actor) : `Avatar ${participant.actor_id}`);
+      const hp = Math.max(0, Number(participant.current_hp ?? 0));
+      const maxHp = Math.max(1, Number(participant.max_hp ?? 1));
+      const conditions = combatParticipantConditions(participant);
+      const parts = [name, `${hp} of ${maxHp} HP`];
+      if (combat) {
+        if (Number(participant.actor_id) === Number(combat.current_actor_id)) parts.push("acting now");
+        else parts.push("waiting for their turn");
+      }
+      if (participant.status && participant.status !== "active") parts.push(`status ${participant.status.replaceAll("_", " ")}`);
+      parts.push(conditions.length ? `conditions ${conditions.join(", ")}` : "no conditions");
+      if (combat) {
+        const targetId = Number(participant.actor_id);
+        if (targetPresentation.selectedTargetId === targetId) parts.push("selected legal target");
+        else if (targetPresentation.legalTargetIds.has(targetId)) parts.push("legal target");
+        else parts.push("not a legal target for the selected action");
+      }
+      return `${parts.join(". ")}.`;
+    }
+
+    function combatParticipantHtml(participant, view, targetPresentation) {
+      const combat = view.combat;
+      const actor = (view.actors || []).find((candidate) => Number(candidate.id) === Number(participant.actor_id));
+      const name = participant.actor_name || (actor ? actorLabel(actor) : `Avatar ${participant.actor_id}`);
+      const card = cardForActor(participant.actor_id);
+      const fallback = card || { display_name: name, role: "avatar", aspect: "portrait" };
+      const image = cardImage(card) || fallbackCardImage(fallback);
+      const hp = Math.max(0, Number(participant.current_hp ?? 0));
+      const maxHp = Math.max(1, Number(participant.max_hp ?? 1));
+      const hpPercent = Math.max(0, Math.min(100, Math.round((hp / maxHp) * 100)));
+      const current = Number(participant.actor_id) === Number(combat.current_actor_id);
+      const legalTarget = targetPresentation.legalTargetIds.has(Number(participant.actor_id));
+      const selectedTarget = targetPresentation.selectedTargetId === Number(participant.actor_id);
+      const label = combatParticipantLabel(participant, actor, combat, targetPresentation);
+      const healthClass = hpPercent <= 25 ? " combat-critical" : hpPercent < 100 ? " combat-hurt" : "";
+      const marker = urgentCombatCondition(participant);
+      return `<span class="room-avatar-frame combat-participant${healthClass}${current ? " combat-current" : ""}${legalTarget ? " combat-legal-target" : ""}${selectedTarget ? " combat-selected-target" : ""}" data-combat-participant-id="${Number(participant.actor_id)}" data-combat-health-percent="${hpPercent}" data-combat-target="${selectedTarget ? "selected" : legalTarget ? "legal" : "none"}"><button class="room-avatar-pfp" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="${escapeAttr(`Open combatant details. ${label}`)}" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button><span class="combat-health-ring" style="--combat-hp-angle:${hpPercent * 3.6}deg" role="meter" aria-label="${escapeAttr(`${name} health: ${hp} of ${maxHp} HP`)}" aria-valuemin="0" aria-valuemax="${maxHp}" aria-valuenow="${hp}"></span>${marker ? `<span class="combat-condition-marker" aria-hidden="true">${escapeHtml(marker)}</span>` : ""}</span>`;
+    }
+
+    function rescueIndicatorHtml(participant, view, targetPresentation) {
+      const actor = (view.actors || []).find((candidate) => Number(candidate.id) === Number(participant.actor_id));
+      const name = participant.actor_name || (actor ? actorLabel(actor) : `Avatar ${participant.actor_id}`);
+      const card = cardForActor(participant.actor_id);
+      const combat = view.combat || null;
+      const label = combatParticipantLabel(participant, actor, combat, targetPresentation);
+      return `<button class="combat-rescue-indicator" type="button" data-rescue-actor-id="${Number(participant.actor_id)}" data-combat-rescue="true"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="${escapeAttr(`Open ${name}'s keepsake and rescue details. ${label}`)}" data-player-concept="card" data-analytics-event="card.open"><span class="combat-rescue-mark" aria-hidden="true">KO</span><span class="combat-rescue-name">${escapeHtml(name)}</span></button>`;
+    }
+
+    function rescueRowEntries(view) {
+      if (view.combat) {
+        return (view.combat.participants || [])
+          .filter((participant) => {
+            const actor = (view.actors || []).find((candidate) => Number(candidate.id) === Number(participant.actor_id));
+            return actorIsDownedForRail(actor, participant);
+          });
+      }
+      return (view.actors || [])
+        .filter((actor) => actorIsDownedForRail(actor))
+        .map((actor) => ({
+          actor_id: actor.id,
+          actor_name: actorLabel(actor),
+          status: actor.status,
+          current_hp: Number(actor.hp ?? 0),
+          max_hp: Math.max(1, Number(actor.stats?.hp_base ?? 1)),
+          unconscious: true,
+        }));
+    }
+
+    function rescueRowHtml(view, targetPresentation) {
+      const entries = rescueRowEntries(view);
+      if (!entries.length) return "";
+      const visibleLimit = 3;
+      const visible = entries.slice(0, visibleLimit);
+      const overflow = entries.slice(visibleLimit);
+      const count = entries.length;
+      const summary = `<span class="room-rescue-summary">${count} knocked out</span>`;
+      const visibleHtml = visible
+        .map((participant) => rescueIndicatorHtml(participant, view, targetPresentation))
+        .join("");
+      const overflowHtml = overflow.length
+        ? `<details class="combat-rescue-overflow"><summary aria-label="Show ${overflow.length} more knocked-out avatars">+${overflow.length}</summary><span class="combat-rescue-overflow-list">${overflow.map((participant) => rescueIndicatorHtml(participant, view, targetPresentation)).join("")}</span></details>`
+        : "";
+      return `${summary}${visibleHtml}${overflowHtml}`;
+    }
+
     function roomAvatarRailHtml(view) {
-      const actors = [...(view.actors || [])].sort((a, b) => {
+      if (view.combat) {
+        const targetPresentation = combatTargetPresentation(view);
+        return [...(view.combat.participants || [])]
+          .filter((participant) => {
+            const actor = (view.actors || []).find((candidate) => Number(candidate.id) === Number(participant.actor_id));
+            return !actorIsDownedForRail(actor, participant);
+          })
+          .sort((left, right) => (
+            Number(right.initiative || 0) - Number(left.initiative || 0)
+              || Number(left.actor_id || 0) - Number(right.actor_id || 0)
+          ))
+          .map((participant) => combatParticipantHtml(participant, view, targetPresentation))
+          .join("");
+      }
+      const actors = [...(view.actors || [])].filter((actor) => !actorIsDownedForRail(actor)).sort((a, b) => {
         if (a.id === actorId) return -1;
         if (b.id === actorId) return 1;
         return String(a.name || "").localeCompare(String(b.name || ""));
@@ -10524,6 +10598,22 @@
         const ring = expeditionRingPresentation(actor, stateRevision);
         return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} card" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
       }).join("");
+    }
+
+    function renderRoomAvatarRail(view = state) {
+      const rail = $("room-avatar-rail");
+      const rescueRow = $("room-rescue-row");
+      if (!rail || !rescueRow) return;
+      const targetPresentation = view?.combat
+        ? combatTargetPresentation(view)
+        : { legalTargetIds: new Set(), selectedTargetId: 0 };
+      const rescueHtml = rescueRowHtml(view, targetPresentation);
+      rail.classList.toggle("combat", Boolean(view?.combat));
+      rail.setAttribute("aria-label", view?.combat ? "Combatants in this encounter" : "Avatars in this location");
+      rail.innerHTML = roomAvatarRailHtml(view);
+      rescueRow.innerHTML = rescueHtml;
+      rescueRow.hidden = !rescueHtml;
+      $("room-hero")?.classList.toggle("has-rescue-row", Boolean(rescueHtml));
     }
 
     function journalSentence(value) {
@@ -13782,6 +13872,20 @@
       )) || null;
     }
 
+    function careActionForActor(targetActorId) {
+      const actorKey = String(Number(targetActorId || 0));
+      return (actions || []).find((candidate) => (
+        (
+          candidate?.useChoiceKind === "care"
+          && Number(candidate?.targetActorId || 0) === Number(targetActorId || 0)
+        )
+        || (
+          candidate?.useChoiceKind === "mixed"
+          && Boolean(candidate?.targetActorChoices?.[actorKey])
+        )
+      )) || null;
+    }
+
     function itemActionForActor(kind, targetActorId, itemId) {
       const actorKey = `actor:${Number(targetActorId || 0)}`;
       const itemKey = `item:${Number(itemId || 0)}`;
@@ -13837,8 +13941,10 @@
     function actorSafetyPanelHtml(actor) {
       if (!actor || Number(actor.id || 0) === Number(actorId || 0)) return "";
       const actorNumericId = Number(actor.id || 0);
+      const downed = actorIsDownedForRail(actor);
       const economyKnown = Boolean(actor?.economy);
-      const giftAvailable = Boolean(transferActionForActor("give", actorNumericId));
+      const giftAvailable = !downed && Boolean(transferActionForActor("give", actorNumericId));
+      const careAvailable = actorNeedsHealing(actor) && Boolean(careActionForActor(actorNumericId));
       const incoming = (state?.safety?.incoming_offers || [])
         .filter((offer) => Number(offer.offered_by_actor_id || 0) === actorNumericId);
       const outgoing = (state?.safety?.outgoing_offers || [])
@@ -13857,13 +13963,16 @@
       ].join("");
       const muteVerb = actor.muted_by_you ? "unmute" : "mute";
       const blockVerb = actor.blocked_by_you ? "unblock" : "block";
-      const noticeButton = economyKnown
+      const noticeButton = economyKnown || downed
         ? ""
         : `<button class="account-button avatar-icon-action" type="button" data-avatar-notice="${actorNumericId}">${iconSvg("notice")}<span>notice</span></button>`;
       const giftButton = giftAvailable
         ? `<button class="account-button avatar-icon-action" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}">${iconSvg("gift")}<span>gift</span></button>`
         : "";
-      const primaryActions = `${noticeButton}${giftButton}`;
+      const careButton = careAvailable
+        ? `<button class="account-button avatar-icon-action" type="button" data-avatar-care="${actorNumericId}">${iconSvg("utility")}<span>help</span></button>`
+        : "";
+      const primaryActions = `${careButton}${noticeButton}${giftButton}`;
       return `${offerHtml}<div class="avatar-interactions" aria-label="Interactions with ${escapeAttr(actorLabel(actor))}">${primaryActions ? `<div class="avatar-action-strip">${primaryActions}</div>` : ""}${avatarKnownItemsHtml(actor, giftRequests)}<div class="avatar-safety-strip" aria-label="Safety controls"><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${iconSvg("mute")}<span>${muteVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${iconSvg("block")}<span>${blockVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-report="${actorNumericId}">${iconSvg("report")}<span>report</span></button></div></div>`;
     }
 
@@ -14614,6 +14723,7 @@
       $("action-modal-summary").textContent = journalSentence(actionSummary(action));
       renderActionModalRows(action);
       renderActionChoices(action);
+      renderRoomAvatarRail();
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
       $("action-modal-cancel").textContent = action?.creationStage === "origin" ? "back" : "cancel";
       openModal("action-modal", $("action-modal-confirm"));
@@ -14676,6 +14786,7 @@
       renderActionChoices(action);
       syncActionChoicePreview(action, choice);
       renderActionModalRows(action);
+      renderRoomAvatarRail();
     }
 
     function closeActionModal() {
@@ -14687,6 +14798,7 @@
       $("action-modal-choices").innerHTML = "";
       $("action-modal-cancel").textContent = "cancel";
       actionConfirmAction = null;
+      renderRoomAvatarRail();
     }
 
     async function confirmActionModal() {
@@ -15270,6 +15382,7 @@
       const action = visible[next];
       focusIndex = action.actionIndex;
       focusedKey = action.focusKey || "";
+      renderRoomAvatarRail();
       renderCommands();
       $((["primary", "secondary"])[next])?.focus();
     }
@@ -15957,6 +16070,23 @@
     });
 
     $("card-modal").addEventListener("click", (event) => {
+      const care = event.target.closest("[data-avatar-care]");
+      if (care) {
+        event.preventDefault();
+        event.stopPropagation();
+        const targetActorId = Number(care.getAttribute("data-avatar-care") || 0);
+        const careAction = careActionForActor(targetActorId);
+        if (!careAction) {
+          setError("That care option is no longer available. The room was refreshed.");
+          void refresh();
+          return;
+        }
+        const targetChoice = careAction.targetActorChoices?.[String(targetActorId)];
+        if (targetChoice) careAction.selectedChoice = targetChoice;
+        closeCardModal();
+        openActionModal(careAction);
+        return;
+      }
       const notice = event.target.closest("[data-avatar-notice]");
       if (notice) {
         event.preventDefault();

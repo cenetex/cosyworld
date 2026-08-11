@@ -44290,7 +44290,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("id=\"journal-activity-tray\""));
         assert!(INDEX_HTML.contains("id=\"journal-activity\""));
         assert!(INDEX_HTML.contains("id=\"error\""));
-        assert!(INDEX_HTML.contains("id=\"combat-heading\""));
+        assert!(!INDEX_HTML.contains("id=\"combat-heading\""));
         assert!(INDEX_HTML.contains("enqueueImportantNotification"));
         assert!(INDEX_HTML.contains("function combatAttackEventsShareBeat"));
         assert!(
