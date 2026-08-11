@@ -13,9 +13,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = resolve(__dirname, "../orchestrator-rust");
 const binaryPath = resolve(orchestratorDir, "target/debug/cosyworld-orchestrator");
 const feedToken = "cosyworld-production-profile-smoke-token";
-const boxAssetAddress = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
-const boxCollectionAddress = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
-const recentBlockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
 const productionAiRegistry = JSON.stringify({
   schema_version: 1,
   snapshot_version: "production-profile-smoke-v1",
@@ -78,8 +75,11 @@ async function productionFeedServer(walletAddress) {
     wallets: [
       {
         walletAddress,
-        cardIds: ["rati", "location-science-lab", "location-library"],
-        boxes: [boxAssetAddress],
+        collectionAssets: [{
+          assetId: "8GwrpeSH4TpAGEJsmoF35J8DY6RNCdyjCBZsEnTySEKd",
+          collectionAddress: "2diR5VnnHR5L7xwwsyKYTe4qhCAQSLaajgfkxJBfsfJh",
+          collectionVerified: true,
+        }],
       },
     ],
   });
@@ -106,41 +106,6 @@ async function productionFeedServer(walletAddress) {
     stats,
     url: `http://127.0.0.1:${port}/ownership`,
   };
-}
-
-async function productionRpcServer() {
-  const stats = { requests: 0, latestBlockhash: 0 };
-  const server = createServer(async (request, response) => {
-    if (request.method !== "POST" || request.url !== "/rpc") {
-      response.writeHead(404).end();
-      return;
-    }
-    stats.requests += 1;
-    let raw = "";
-    for await (const chunk of request) raw += chunk;
-    const body = JSON.parse(raw || "{}");
-    if (body.method !== "getLatestBlockhash") {
-      response.writeHead(400, { "content-type": "application/json" });
-      response.end(JSON.stringify({
-        jsonrpc: "2.0",
-        id: body.id ?? null,
-        error: { code: -32601, message: "unsupported smoke RPC method" },
-      }));
-      return;
-    }
-    stats.latestBlockhash += 1;
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({
-      jsonrpc: "2.0",
-      id: body.id ?? null,
-      result: {
-        context: { slot: 123 },
-        value: { blockhash: recentBlockhash, lastValidBlockHeight: 999 },
-      },
-    }));
-  });
-  const port = await listen(server);
-  return { server, stats, url: `http://127.0.0.1:${port}/rpc` };
 }
 
 async function fetchJson(url, init) {
@@ -251,7 +216,6 @@ async function main() {
   const wallet = nacl.sign.keyPair();
   const walletAddress = bs58.encode(wallet.publicKey);
   const feed = await productionFeedServer(walletAddress);
-  const rpc = await productionRpcServer();
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const outputLines = [];
@@ -260,6 +224,8 @@ async function main() {
   for (const key of [
     "COSYWORLD_ENTITLEMENT_FEED",
     "COSYWORLD_ENTITLEMENT_FEED_PATH",
+    "COSYWORLD_AVATAR_OWNERSHIP_FEED",
+    "COSYWORLD_AVATAR_OWNERSHIP_FEED_PATH",
     "COSYWORLD_RUBY_HIGH_WALLET_CARDS",
     "COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH",
     "COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS",
@@ -273,14 +239,12 @@ async function main() {
     COSYWORLD_DEPLOY_PROFILE: "production",
     COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
-    COSYWORLD_ENTITLEMENT_FEED_URL: feed.url,
-    COSYWORLD_ENTITLEMENT_FEED_BEARER: feedToken,
-    COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS: "0",
+    COSYWORLD_AVATAR_OWNERSHIP_FEED_URL: feed.url,
+    COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER: feedToken,
+    COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS: "0",
     COSYWORLD_MODERATION_TOKEN: "production-profile-smoke-moderator",
     COSYWORLD_WEBAUTHN_RP_ID: "localhost",
     COSYWORLD_WEBAUTHN_ORIGIN: `http://localhost:${port}`,
-    COSYWORLD_BOX_BURN_SOLANA_RPC_URL: rpc.url,
-    COSYWORLD_BOX_CORE_COLLECTION_ADDRESS: boxCollectionAddress,
     COSYWORLD_AI_REGISTRY_JSON: productionAiRegistry,
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
@@ -305,20 +269,17 @@ async function main() {
     assert(meta.deployment?.world_epoch === 1, `expected canonical world epoch: ${JSON.stringify(meta.deployment)}`);
     assert(meta.deployment?.process_id === "public-1", `expected production process id: ${JSON.stringify(meta.deployment)}`);
     assert(meta.deployment?.shard_id === meta.deployment?.process_id, `expected matching shard compatibility alias: ${JSON.stringify(meta.deployment)}`);
-    assert(meta.ownership_feed?.remote_configured === true, `expected remote feed: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(meta.ownership_feed?.bearer_configured === true, `expected bearer feed: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(meta.ownership_feed?.timeout_secs === 15, `expected bounded remote timeout: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(meta.ownership_feed?.wallet_count === 1, `expected remote wallet count: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(meta.ownership_feed?.status === "healthy", `expected healthy remote feed: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(Number.isInteger(meta.ownership_feed?.last_success_at_unix), `expected remote feed success timestamp: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(meta.ownership_feed?.consecutive_failures === 0, `expected no remote feed failures: ${JSON.stringify(meta.ownership_feed)}`);
-    assert(meta.ownership_feed?.last_error_code == null, `expected no remote feed error: ${JSON.stringify(meta.ownership_feed)}`);
+    assert(meta.linked_avatar_adapter?.remote_configured === true, `expected remote linked-avatar feed: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.bearer_configured === true, `expected linked-avatar feed bearer: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.timeout_secs === 15, `expected bounded remote timeout: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.wallet_count === 1, `expected remote wallet count: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.status === "healthy", `expected healthy remote feed: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(Number.isInteger(meta.linked_avatar_adapter?.last_success_at_unix), `expected remote feed success timestamp: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.consecutive_failures === 0, `expected no remote feed failures: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.last_error_code == null, `expected no remote feed error: ${JSON.stringify(meta.linked_avatar_adapter)}`);
     assert(meta.features?.dev_reset_enabled === false, `dev reset must be off: ${JSON.stringify(meta.features)}`);
-    assert(meta.features?.unsigned_wallet_claims_enabled === false, `unsigned wallets must be off: ${JSON.stringify(meta.features)}`);
-    assert(meta.features?.trust_client_card_ids === false, `client card trust must be off: ${JSON.stringify(meta.features)}`);
     assert(meta.features?.moderation_audit_enabled === true, `moderation must be configured: ${JSON.stringify(meta.features)}`);
     assert(meta.persistence?.event_store_enabled === true, `event store must be enabled: ${JSON.stringify(meta.persistence)}`);
-    assert(meta.nft?.box_burn_verifier_configured === true, `Box burn verifier must be configured: ${JSON.stringify(meta.nft)}`);
     assert(feed.stats.requests >= 1, "production profile should fetch the remote ownership feed");
     assert(feed.stats.authorized >= 1, "production profile should use the feed bearer token");
     const challenge = await fetchJson(
@@ -332,35 +293,17 @@ async function main() {
       signature: Array.from(signature),
     });
     assert(session.ok && session.wallet_session, `wallet session should verify: ${JSON.stringify(session)}`);
-    const prepared = await postJson(`${baseUrl}/nft/boxes/burn-prepare`, {
-      wallet_session: session.wallet_session,
-      box_asset_address: boxAssetAddress,
-    });
-    assert(prepared.ok, `production Box burn should prepare: ${JSON.stringify(prepared)}`);
-    assert(
-      prepared.verification_mode === "solana_core_burn_transaction_required",
-      `expected production BurnV1 mode: ${JSON.stringify(prepared)}`,
-    );
-    assert(prepared.burn_transaction?.transaction_encoding === "base64", "expected base64 burn transaction");
-    assert(prepared.burn_transaction?.message_encoding === "base58", "expected base58 burn message");
-    assert(prepared.burn_transaction?.recent_blockhash === recentBlockhash, "expected RPC blockhash");
-    assert(prepared.burn_transaction?.instruction === "BurnV1", "expected Core BurnV1 instruction");
-    assert(prepared.burn_transaction?.program_id === "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d", "expected Core program");
-    assert(rpc.stats.latestBlockhash === 1, "production burn prepare should fetch one blockhash");
     console.log(JSON.stringify({
       ok: true,
       profile: meta.deployment.profile,
-      wallet_count: meta.ownership_feed.wallet_count,
-      ownership_feed_status: meta.ownership_feed.status,
+      wallet_count: meta.linked_avatar_adapter.wallet_count,
+      ownership_feed_status: meta.linked_avatar_adapter.status,
       feed_requests: feed.stats.requests,
       authorized_feed_requests: feed.stats.authorized,
-      box_burn_prepare: prepared.burn_transaction.instruction,
-      burn_rpc_requests: rpc.stats.requests,
     }, null, 2));
   } finally {
     await terminate(proc);
     await closeServer(feed.server);
-    await closeServer(rpc.server);
     await rm(tempDir, { recursive: true, force: true });
   }
 }

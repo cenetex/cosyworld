@@ -23,14 +23,10 @@ HOST="${COSYWORLD_V2_HOST:-127.0.0.1}"
 PORT="${COSYWORLD_V2_PORT:-3102}"
 COSYWORLD_BROWSER_CHECK_RUNTIME=""
 BASE_URL="${COSYWORLD_V2_BASE_URL:-http://${HOST}:${PORT}}"
-WALLET="${COSYWORLD_MVP_WALLET:-dev-wallet}"
-SIGNED_SMOKE_WALLET="${COSYWORLD_SIGNED_SMOKE_WALLET:-DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES}"
-DEFAULT_CARDS="{\"wallets\":[{\"walletAddress\":\"${WALLET}\",\"cardIds\":[\"cosy-rain-soft-garden\",\"cosy-moonlit-trail\",\"location-homeroom\",\"location-science-lab\"]},{\"walletAddress\":\"rati-wallet\",\"cardIds\":[\"rati\",\"location-science-lab\"]},{\"walletAddress\":\"library-wallet\",\"cardIds\":[\"location-library\"]},{\"walletAddress\":\"${SIGNED_SMOKE_WALLET}\",\"cardIds\":[\"location-homeroom\",\"location-library\"],\"boxes\":[\"box-smoke-1\"]}]}"
-CARDS="${COSYWORLD_RUBY_HIGH_WALLET_CARDS:-$DEFAULT_CARDS}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
 DETACHED_SHELL="${COSYWORLD_V2_DETACHED_SHELL:-$(command -v bash)}"
-URL="${BASE_URL}/?wallet=${WALLET}"
+URL="${BASE_URL}/"
 
 usage() {
   cat <<EOF
@@ -51,12 +47,7 @@ Commands:
 
 Environment:
   COSYWORLD_V2_HOST / COSYWORLD_V2_PORT
-  COSYWORLD_MVP_WALLET
-  COSYWORLD_SIGNED_SMOKE_WALLET
-  COSYWORLD_RUBY_HIGH_WALLET_CARDS
   OPENROUTER_API_KEY / OPENROUTER_CHAT_MODEL
-  COSYWORLD_BOX_BURN_SOLANA_RPC_URL
-  COSYWORLD_BOX_CORE_COLLECTION_ADDRESS
 EOF
 }
 
@@ -134,7 +125,7 @@ start_server() {
     echo "screen is required for detached local MVP serving on this machine." >&2
     exit 1
   fi
-  screen -dmS "$SESSION" "$DETACHED_SHELL" -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' COSYWORLD_RUBY_HIGH_WALLET_CARDS='${CARDS}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
+  screen -dmS "$SESSION" "$DETACHED_SHELL" -lc "cd '$ROOT/orchestrator-rust' && COSYWORLD_V2_ADDR='${HOST}:${PORT}' COSYWORLD_DISABLE_CTRL_C_SHUTDOWN=1 COSYWORLD_ENABLE_DEV_RESET=1 COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS='${COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS:-450}' COSYWORLD_MODERATION_TOKEN='${COSYWORLD_MODERATION_TOKEN:-dev-moderator-token}' ./target/debug/cosyworld-orchestrator > '${LOG}' 2>&1"
   if ! wait_ready; then
     echo "CosyWorld v2 did not become ready. Last log lines:" >&2
     tail -60 "$LOG" >&2 || true
@@ -207,10 +198,10 @@ start_deterministic_smoke_server() {
 }
 
 run_smoke() {
-  COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" node "$ROOT/scripts/smoke-browser.mjs"
+  COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" node "$ROOT/scripts/smoke-browser.mjs"
   local attempt status
   for attempt in 1 2 3; do
-    if COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" \
+    if COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" \
       COSYWORLD_SMOKE_LIVING_WORLD_STRESS=1 \
       node "$ROOT/scripts/smoke-browser.mjs"; then
       return 0

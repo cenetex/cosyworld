@@ -220,7 +220,7 @@ Presentation and world authority are distinct:
 | --- | --- | --- |
 | Location | Discovery, art, a route, or a scene-specific offer | A card presents the shared location. Wallet ownership never grants access, topology, naming, or control. |
 | Avatar | A world actor, resident facet, relationship hook, or art/provenance | One allowlisted avatar NFT may establish one durable link; the actor remains autonomous and canonical. Other avatar cards grant no control. |
-| Item | A physical world item profile and its current authoritative instance | A card presents custody and use. Wallet ownership cannot materialize, reclaim, or duplicate the item. |
+| Item | A physical world item profile, its current authoritative instance, and legacy entitlement metadata | A card presents custody and use. Wallet ownership cannot create, reclaim, or duplicate an item; existing materialization receipts remain read-only except for idempotent return. |
 | Weapon item | An equipped or played profile that qualifies or shapes Attack offers | The kernel derives the attack; the client or art never supplies damage. |
 | Skill-charm item | A physical skill and bonus worn in a bracelet slot, such as a lucky raven feather that grants `+1` to an eligible skill check | The skill and bonus belong to the charm instance and apply only while the actor possesses and equips it. |
 | Spell item | A card prepared or drawn from a spell deck that supplies one bounded Magic effect | It requires implemented targeting, timing, use, recovery, and resolver rules; prose alone has no authority. |
@@ -300,7 +300,7 @@ freezes those as migration state for #682/#685 rather than product direction:
 | Spell deck/hand | Prepared spell cards and, under a declared draw profile, the currently playable subset. |
 | Action hand | Contextual server-authored offers produced from base rules, scene nouns, deck, and equipped cards. It is not itself the ownership ledger. |
 | Exhausted/discard | Temporarily unavailable item/spell cards with explicit recovery rules. |
-| World | A canonical physical item at a location or in an avatar's possession. |
+| World | A canonical physical item at a location or in an avatar's possession. Legacy materialization receipts may still identify that item during migration. |
 | Transfer | A temporary authoritative custody state used for an atomic gift, trade, or theft resolution; it is not wallet/card ownership. |
 
 Every physical move names the item instance, actor, source zone, destination
@@ -319,7 +319,7 @@ The composition inputs are:
 1. the selected base rules profile and kernel invariants;
 2. the current location card, room sheet, features, exits, clocks, conditions,
    and location-scoped rules contributions;
-3. visible resident/avatar cards and materialized world-item cards;
+3. visible resident/avatar cards and authoritative world-item cards;
 4. the active avatar's carried deck, equipped loadout, prepared spell cards,
    conditions, Calling, Bonds, and eligible Journal state; and
 5. world-state requirements and pack contributions that are valid for this
@@ -496,9 +496,9 @@ profile, and extension set used to produce them.
 | --- | --- | --- |
 | Rules authority | `cosyworld.srd5/1` under `cosyworld.rules/2`, startup validation, `/meta`, inspector, and exact conformance coverage. | SRD reference text remains non-executable; unsupported actions stay absent. |
 | Vocabulary and offers | Stable bindings, operations, authoritative envelopes, deterministic legal set/hand, source/target traces, and stale/tamper rejection. | Friendly labels remain pack presentation. |
-| Item/card binding | Item roles, physical zones/capacity, empty-storage-only bags, charms/slots, weapon profile, spell deck/exhaustion, receipts, theft, and provenance. | #682/#685 remove legacy collection/materialization authority; broader equipment catalogs require authored contracts. |
+| Item/card binding | Item roles, physical zones/capacity, empty-storage-only bags, charms/slots, weapon profile, spell deck/exhaustion, read-only legacy receipt returns, theft, and provenance. | New item materialization is retired; #682 archives the remaining legacy collection surface, while broader equipment catalogs require authored contracts. |
 | Pack composition | Reskin/offer/variant/extension schemas, mutation/conflict gates, exact deltas, fixtures, precedence, inspector output. | No implicit or load-order override path exists. |
-| Player shell | One Menu, Deck/loadout pages, legacy Collection/materialize controls, terminal parity, server validation. | #682 removes legacy collection controls and adds the optional linked-avatar roster/chronicle. |
+| Player shell | One Menu, Deck/loadout pages, legacy return controls, terminal parity, server validation. | New materialization controls are removed; #682 removes the remaining Collection surface and adds the optional linked-avatar roster/chronicle. |
 | Licensing/provenance | Source/version/reference fields, compiled attributions, machine-readable modified-material report, and traceable offers. | Product-name/marketing claims still require independent review. |
 | Replay/tests | Append-only codes, profile/extension identity, offline golden replay, kernel/Rust/worldpack/browser/CLI/conformance/power gates. | A new mechanic must add its own protocol identity and fixtures. |
 

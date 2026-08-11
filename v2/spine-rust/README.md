@@ -12,7 +12,7 @@ the Rust layer around them.
 
 | Seam | Here | Replaces in `main.rs` |
 | --- | --- | --- |
-| One commit pipeline | `pipeline.rs`: `commit()` runs authorize → turn preflight → projection preflight → kernel apply → journal append → projection apply → turn advance → publish | the `apply_and_broadcast_*` wrapper family (`_with_resident_reply`, `_with_hosted_access`, `_with_mutations`, …). Cross-cutting concerns are fields on `CommitEnvelope`, not function-name suffixes. |
+| One commit pipeline | `pipeline.rs`: `commit()` runs authorize → turn preflight → projection preflight → kernel apply → journal append → projection apply → turn advance → publish | the `apply_and_broadcast_*` wrapper family (`_with_resident_reply`, `_with_mutations`, …). Cross-cutting concerns are fields on `CommitEnvelope`, not function-name suffixes. |
 | Kernel port | `kernel.rs`: `KernelPort` mirrors `cw_world_apply` semantics — action + caller-supplied seed in, status + events out | the direct FFI calls at the mutation site. A production adapter wraps the real C kernel; `FakeKernel` proves the pipeline against a deterministic world. |
 | Projection registry | `projection.rs`: each projection owns `check` / `apply` / `snapshot` / `restore` / `schema_version`; claim keys are registry-level and journaled | the ~60 `BTreeMap` fields on `RuntimeWorld`. `check` runs before the kernel commits, so a projection can never contradict it after. |
 | Journal trait | `journal.rs`: `append` / `read_from` / `latest_seq` / `health`, SQLite-backed, append-only by construction | the free functions over paths (`append_action_journal(path, …)`, `read_event_store_*`). Health/degraded policy attaches to the trait. |

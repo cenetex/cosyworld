@@ -1,6 +1,6 @@
 # ADR-001: SRD 5.2.1 Action-Card Profile
 
-- Status: accepted for internal development
+- Status: accepted for internal development; collectible policy superseded by ADR 0006
 - Date: 2026-07-19
 - Profile: `cosyworld.srd5/1`
 - Source rules: System Reference Document 5.2.1
@@ -38,18 +38,19 @@ The physical carried deck is constrained by item weight, item size, avatar
 size and Strength-derived capacity, and equipped containers. Containers are
 bounded and non-recursive: a stored container contributes no capacity.
 
-## Collectible power policy
+## Card and ownership policy
 
-The official shard permits collectible cards to be cosmetic, access keys, or
-earned/equip-budgeted mechanical items. Purchasing or importing a card cannot
-grant advancement, bracelet slots, automatic success, extra turns, or
-exclusive best-in-slot numerical power. Core remains complete and free without
-a wallet or NFT.
+[ADR 0006](0006-avatar-nft-only-bridge.md) supersedes the earlier broad
+collectible policy. Cards present world actors, places, items, and actions;
+they are not wallet access keys or a second item plane. Physical items remain
+ordinary shard state, and every shared location is public regardless of wallet
+ownership.
 
-An account entitlement is not a shard-local item. Materialization,
-unmaterialization, transfer, and theft require durable server-authored receipts
-or journaled operations. Owning a location or resident card never grants edit
-or signing authority over the shared location or resident.
+The only supported NFT bridge is an allowlisted avatar adapter. Verified
+ownership may register or recover that linked actor, but it grants no command
+authority, power, item, reward, or location access. Historical item
+materialization receipts remain readable for audit and cannot create new live
+items.
 
 ## Pack compatibility
 

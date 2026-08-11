@@ -6,6 +6,49 @@ const PROXIM8_COLLECTION_ADDRESS: &str = "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3
 const PROXIM8_ENTRY_LOCATION_ID: u64 = 8900;
 const PROXIM8_PILOT_ASSET_ID: &str = "Bcw1nuJtSXQcXTs7jBc5iN5v51Zm2vAsY2QcHNJVgvgo";
 
+pub(super) fn is_materialized_actor_receipt(
+    runtime: &RuntimeWorld,
+    receipt: &MaterializationReceiptState,
+) -> bool {
+    let expected_receipt_id = proxim8_receipt_id(&receipt.card_id);
+    let expected_item_id = materialized_item_id(&format!("{expected_receipt_id}:memory"));
+    let expected_actor_name = proxim8_name(&receipt.card_id);
+    let expected_origin = format!("collection:{}", receipt.card_id);
+    let Some(actor) = runtime.actor_by_id(receipt.actor_id) else {
+        return false;
+    };
+    let Some(actor_meta) = runtime.actors.get(&receipt.actor_id) else {
+        return false;
+    };
+    let Some(item) = runtime.item_by_id(receipt.item_id) else {
+        return false;
+    };
+    let Some(item_meta) = runtime.items.get(&receipt.item_id) else {
+        return false;
+    };
+
+    receipt.id == expected_receipt_id
+        && receipt.item_id == expected_item_id
+        && receipt.status == "materialized"
+        && receipt
+            .source_wallet
+            .as_deref()
+            .is_some_and(|wallet| !wallet.trim().is_empty())
+        && actor.kind == CW_ACTOR_NPC
+        && runtime.actor_control_mode(receipt.actor_id) == ActorControlMode::LocalAi
+        && actor_meta.name == expected_actor_name
+        && actor_meta.title == "Materialized Proxim8"
+        && item.kind == CW_ITEM_KEEPSAKE
+        && item.role == CW_ITEM_ROLE_RELIC
+        && item_meta
+            .description
+            .contains(&format!("asset {}", receipt.card_id))
+        && runtime
+            .item_provenance
+            .get(&receipt.item_id)
+            .is_some_and(|provenance| provenance.origin == expected_origin)
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct Proxim8MaterializationConfig {
     schema_version: u32,
@@ -417,6 +460,30 @@ mod tests {
         assert_eq!(
             runtime.actor_control_mode(actor_id),
             ActorControlMode::LocalAi
+        );
+        let item_inventory = materialization_retirement::receipt_inventory(&runtime);
+        assert_eq!(item_inventory.total, 0);
+        assert_eq!(item_inventory.retained_actor_materialization, 1);
+        let actor_before = serde_json::to_value(runtime.actor_by_id(actor_id)).unwrap();
+        let memory_before = runtime
+            .materialization_receipts
+            .values()
+            .find(|receipt| receipt.actor_id == actor_id)
+            .and_then(|receipt| runtime.item_by_id(receipt.item_id));
+        materialization_retirement::migrate_legacy_receipts(&mut runtime)
+            .expect("linked-avatar receipt is excluded from item migration");
+        assert!(runtime.item_materialization_migrations.is_empty());
+        assert_eq!(
+            serde_json::to_value(runtime.actor_by_id(actor_id)).unwrap(),
+            actor_before
+        );
+        assert_eq!(
+            runtime
+                .materialization_receipts
+                .values()
+                .find(|receipt| receipt.actor_id == actor_id)
+                .and_then(|receipt| runtime.item_by_id(receipt.item_id)),
+            memory_before
         );
         assert!(proxim8_materialization_record(&runtime, wallet, asset_id, &config).is_none());
 

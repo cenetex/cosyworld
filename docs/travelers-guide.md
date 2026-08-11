@@ -43,10 +43,6 @@ an autonomous world actor rather than a puppet or stat grant. A **world pack**
 is mounted experience content, and wallet possession cannot mount it or open a
 shared place.
 
-Legacy keepsake, Box, bundle, and wallet-pass controls may still appear while
-their receipts are migrated safely. They are compatibility surfaces, not
-future play, and they never replace world truth.
-
 Some unusual items are **curious devices**: cameras, voiceboxes, listeners,
 instruments, or stranger tools powered by an exact model. Carrying one may add
 a bounded action; equipping one may apply a setting such as a voice; an
