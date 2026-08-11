@@ -212,6 +212,11 @@ impl RuntimeWorld {
                     "declared worldpack migration retired routes the active bundle no longer declares"
                 );
             }
+            // The snapshot kernel still contains the historical authored
+            // edges. Rebuild it from the reconciled route projection so a
+            // compatible topology replacement cannot retain removed roads or
+            // omit newly authored ones.
+            self.rebuild_kernel_exits_from_routes();
         }
         self.validate_canonical_route_records()
     }
@@ -3928,6 +3933,112 @@ mod tests {
             .into_runtime()
             .expect("the retired checkpoint is idempotent");
         assert_eq!(replayed.routes, restored.routes);
+    }
+
+    #[test]
+    fn declared_worldpack_migration_retires_replaced_authored_topology() {
+        let runtime = RuntimeWorld::seeded();
+        let location_ids = runtime.world.locations[..runtime.world.location_count]
+            .iter()
+            .map(|location| location.id)
+            .collect::<Vec<_>>();
+        let (left, right) = location_ids
+            .iter()
+            .enumerate()
+            .find_map(|(index, left)| {
+                location_ids[index + 1..].iter().find_map(|right| {
+                    runtime
+                        .route_for_edge_in_any_lifecycle(*left, *right)
+                        .is_none()
+                        .then_some((*left, *right))
+                })
+            })
+            .expect("two authored locations without a current direct route");
+        let template = runtime
+            .routes
+            .values()
+            .find(|route| route.provenance == "authored_exit")
+            .expect("authored route fixture");
+        let retired_route_id =
+            canonical_authored_route_id(&active_content().manifest.id, left, right);
+        let retired_route = RouteRecordState {
+            id: retired_route_id.clone(),
+            canonical_id: retired_route_id.clone(),
+            edges: vec![
+                RouteEdgeState {
+                    from_location_id: left,
+                    to_location_id: right,
+                    flags: 0,
+                },
+                RouteEdgeState {
+                    from_location_id: right,
+                    to_location_id: left,
+                    flags: 0,
+                },
+            ],
+            owner: template.owner.clone(),
+            owner_pack_id: template.owner_pack_id.clone(),
+            owner_pack_version: "historical-topology".to_string(),
+            generation_policy: None,
+            provenance: "authored_exit".to_string(),
+            directionality: RouteDirectionality::Reciprocal,
+            fallback_location_id: None,
+            lifecycle: RouteLifecycle::Blocked,
+            discovery: Some(RouteDiscoveryState {
+                actor_id: RATI_ACTOR_ID,
+                event_seq: 19_381,
+                reason: "retired-production-road".to_string(),
+            }),
+            unlocks: Vec::new(),
+            entity_version: 7,
+        };
+        let snapshot_with_retired_route = || {
+            let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+            snapshot
+                .routes
+                .insert(retired_route_id.clone(), retired_route.clone());
+            snapshot.world_exits.extend([
+                CwExit {
+                    from_location_id: left,
+                    to_location_id: right,
+                    flags: 0,
+                },
+                CwExit {
+                    from_location_id: right,
+                    to_location_id: left,
+                    flags: 0,
+                },
+            ]);
+            snapshot
+        };
+
+        assert!(snapshot_with_retired_route().into_runtime().is_err());
+
+        let mut historical = snapshot_with_retired_route();
+        historical.worldpack_bundle_hash =
+            "sha256:94464a2d997bfa589f39091a6644444f879b8f1a3a3e81c054951ba51b153170".to_string();
+        let restored = historical
+            .into_runtime()
+            .expect("declared migration retires a replaced authored road");
+        assert!(!restored.routes.contains_key(&retired_route_id));
+        assert!(!restored.world.exits[..restored.world.exit_count]
+            .iter()
+            .any(|exit| {
+                (exit.from_location_id == left && exit.to_location_id == right)
+                    || (exit.from_location_id == right && exit.to_location_id == left)
+            }));
+        restored
+            .validate_canonical_route_records()
+            .expect("reconciled topology is canonical");
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("the reconciled current checkpoint is idempotent");
+        assert_eq!(replayed.routes, restored.routes);
+        assert_eq!(
+            replayed.world.exits[..replayed.world.exit_count],
+            restored.world.exits[..restored.world.exit_count]
+        );
     }
 
     #[test]
