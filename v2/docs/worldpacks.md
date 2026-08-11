@@ -892,22 +892,27 @@ files are replay authority; refreshing a provider catalog is an explicit pack
 version and snapshot update.
 
 `cosyworld.elysium` is the first exact-model pack. Catalog snapshot
-`openrouter-2026-07-31.1` contains 485 exact OpenRouter bindings, and interaction
-snapshot `openrouter-interactions-2026-08-08.2` derives 496 profiles from them.
-The snapshot contains 362 conversational bindings with `Talk` or two-way
-`VoiceChat` and 123 tool-only bindings. Seventy-five tool-only bindings have a
-provider-available runtime adapter; 48 are dormant. This count belongs to that
-frozen snapshot and changes only through an explicit pack update.
+`openrouter-2026-08-10.1` contains 500 exact OpenRouter bindings, and interaction
+snapshot `openrouter-interactions-2026-08-10.6` derives 511 profiles from them.
+The snapshot contains 374 raw text-capable bindings and 126 tool-only bindings.
+Seventy-seven tool-only bindings have a provider-available runtime adapter; 49
+are dormant. The cast adds 15 current non-batch routes while retaining five
+retired routes and 31 legacy batch routes as disabled compatibility tombstones.
+New batch variants are not embodied: OpenRouter executes them through the
+asynchronous Batch API rather than Elysium's immediate Talk contract. These
+counts belong to the frozen snapshot and change only through an explicit pack
+update.
 
-The current generated resources still represent all 485 bindings as avatars
+The current generated resources still represent all 500 bindings as avatars
 because schema version 1 can bind only actors. This is migration state, not the
-accepted product ontology. The next Elysium content version should keep the 362
-conversational subjects as avatars and replace the 123 tool-only actors with
-model-backed devices by repurposing their existing Void Token items. It must
-retire each old actor canonical reference through an explicit content migration
-rather than changing entity kind in place. Room descriptions, aspects, boons,
-memory, and cards must then describe either a resident or a curious device and
-must not promise conversation in every void.
+accepted product ontology. A future item-binding migration should keep immediate
+conversational subjects as avatars, replace current non-conversational subjects
+with model-backed devices by repurposing their existing Void Token items, and
+retire legacy batch and absent-model actors explicitly. It must retire each old
+actor canonical reference through a content migration rather than changing
+entity kind in place. Room descriptions, aspects, boons, memory, and cards must
+then describe either a resident or a curious device and must not promise
+conversation in every void.
 
 Elysium's conversational avatars share the `elysium.embodiment` level track. They begin
 `Unwritten`, use their own exact model to author persona and observable appearance, and can
@@ -927,13 +932,13 @@ The snapshot declares unavailable profiles instead of guessing an adapter.
 the product has no authorized human-speech or audio-upload input. Asynchronous
 video and music composition await their persistence adapters. Vector-only
 illustration awaits a safe SVG rasterizer. Archived models and exact batch
-embedding IDs without an immediate route remain disabled. No such profile can
-fall through to Chat. In Void 070, Seedance is therefore specified as a dormant
+variants without an immediate route remain disabled. No such profile can fall
+through to Chat. In Void 070, Seedance is therefore specified as a dormant
 motion-camera device until asynchronous video dispatch and persistence ship;
 the absence of a playable video card is truthful, while the device and reason
 remain discoverable.
 
-The 485 voids retain their deterministic Fibonacci-Wythoff rhizome: a shallow
+The 500 voids retain their deterministic Fibonacci-Wythoff rhizome: a shallow
 golden-ratio branching tree guarantees reachability, while sparse
 phyllotactic cross-links make loops without exceeding the fixed kernel exit
 budget. Every local filament is a reciprocal `discovery: "scout"` route. A

@@ -1,6 +1,6 @@
 export const ACTOR_INTERACTION_PROFILE_SCHEMA_VERSION = 1;
 export const ACTOR_INTERACTION_PROFILE_SNAPSHOT =
-  "openrouter-interactions-2026-08-09.5";
+  "openrouter-interactions-2026-08-10.6";
 export const PROVIDER_AVAILABILITY_SEMANTICS =
   "provider_available only records that the pinned exact model and provider endpoint were advertised in the profile snapshot; it does not mean CosyWorld has a runtime adapter. Action offers must require provider_available, runtime_adapter_supported, and the applicable runtime policy gates.";
 
@@ -21,6 +21,7 @@ export const ARCHIVED_MODEL_IDS = Object.freeze([
   "inclusionai/ling-3.0-flash:free",
   "mistralai/devstral-2512",
   "openai/gpt-5.1-chat",
+  "openai/gpt-5.3-chat",
   "openai/text-embedding-3-small:batch",
 ]);
 
@@ -104,7 +105,7 @@ const profileLabels = Object.freeze({
   unsupported: "Unavailable",
 });
 
-const archivedReason = "model_id_absent_from_openrouter_inventory_2026-08-08";
+const archivedReason = "model_id_absent_from_openrouter_inventory_2026-08-10";
 const imageRouteReason =
   "exact_model_id_absent_from_openrouter_image_models_2026-08-08";
 const chatRouteReason =

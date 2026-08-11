@@ -1768,7 +1768,7 @@
   },
   {
     "id": 309595674008,
-    "name": "DeepSeek: DeepSeek V4 Flash",
+    "name": "DeepSeek: DeepSeek V4 Flash 0423",
     "speech_mode": "raw",
     "title": "deepseek/deepseek-v4-flash",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8722,7 +8722,7 @@
   },
   {
     "id": 386226671144,
-    "name": "xAI: Grok 4.20",
+    "name": "SpaceXAI: Grok 4.20",
     "speech_mode": "raw",
     "title": "x-ai/grok-4.20",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8741,7 +8741,7 @@
   },
   {
     "id": 535562095399,
-    "name": "xAI: Grok 4.20 Multi-Agent",
+    "name": "SpaceXAI: Grok 4.20 Multi-Agent",
     "speech_mode": "raw",
     "title": "x-ai/grok-4.20-multi-agent",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8760,7 +8760,7 @@
   },
   {
     "id": 41277238266,
-    "name": "xAI: Grok 4.3",
+    "name": "SpaceXAI: Grok 4.3",
     "speech_mode": "raw",
     "title": "x-ai/grok-4.3",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8779,7 +8779,7 @@
   },
   {
     "id": 965672221588,
-    "name": "xAI: Grok 4.5",
+    "name": "SpaceXAI: Grok 4.5",
     "speech_mode": "raw",
     "title": "x-ai/grok-4.5",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8798,7 +8798,7 @@
   },
   {
     "id": 48118457654,
-    "name": "xAI: Grok Build 0.1",
+    "name": "SpaceXAI: Grok Build 0.1",
     "speech_mode": "raw",
     "title": "x-ai/grok-build-0.1",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8817,7 +8817,7 @@
   },
   {
     "id": 772593545070,
-    "name": "xAI: Grok Imagine Image Quality",
+    "name": "SpaceXAI: Grok Imagine Image Quality",
     "speech_mode": "unavailable",
     "title": "x-ai/grok-imagine-image-quality",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8836,7 +8836,7 @@
   },
   {
     "id": 562291652424,
-    "name": "xAI: Grok Imagine Video",
+    "name": "SpaceXAI: Grok Imagine Video",
     "speech_mode": "unavailable",
     "title": "x-ai/grok-imagine-video",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8855,7 +8855,7 @@
   },
   {
     "id": 2009133688,
-    "name": "xAI: Grok Imagine Video 1.5",
+    "name": "SpaceXAI: Grok Imagine Video 1.5",
     "speech_mode": "unavailable",
     "title": "x-ai/grok-imagine-video-1.5",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8874,7 +8874,7 @@
   },
   {
     "id": 165437510305,
-    "name": "xAI: Grok STT 1.0",
+    "name": "SpaceXAI: Grok STT 1.0",
     "speech_mode": "unavailable",
     "title": "x-ai/grok-stt-1.0",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -8893,7 +8893,7 @@
   },
   {
     "id": 302048756099,
-    "name": "xAI: Grok Voice TTS 1.0",
+    "name": "SpaceXAI: Grok Voice TTS 1.0",
     "speech_mode": "unavailable",
     "title": "x-ai/grok-voice-tts-1.0",
     "description": "An avatar with an exact OpenRouter model binding.",
@@ -9203,6 +9203,291 @@
     "description": "An avatar with an exact OpenRouter model binding.",
     "ambient_autonomy": true,
     "location_id": 652484,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 264308647603,
+    "name": "DeepSeek V4 Flash Latest",
+    "speech_mode": "raw",
+    "title": "~deepseek/deepseek-v4-flash-latest",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652485,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 318436398791,
+    "name": "Black Forest Labs: FLUX.3 Video",
+    "speech_mode": "unavailable",
+    "title": "black-forest-labs/flux-3-video",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652486,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 391775019155,
+    "name": "ByteDance: Seedance 2.5",
+    "speech_mode": "unavailable",
+    "title": "bytedance/seedance-2.5",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652487,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 702601863727,
+    "name": "DeepSeek: DeepSeek V4 Flash 0731",
+    "speech_mode": "raw",
+    "title": "deepseek/deepseek-v4-flash-0731",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652488,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 215905853348,
+    "name": "Ling-3.0-flash",
+    "speech_mode": "raw",
+    "title": "inclusionai/ling-3.0-flash",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652489,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 65140427789,
+    "name": "inclusionAI: Ling 3.0 Tiny (free)",
+    "speech_mode": "raw",
+    "title": "inclusionai/ling-3.0-tiny:free",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652490,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 196706105335,
+    "name": "Meta: Muse Glimmer 30B",
+    "speech_mode": "raw",
+    "title": "meta/muse-glimmer-30b",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652491,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 396529365244,
+    "name": "Meta: Muse Spark 1.2",
+    "speech_mode": "raw",
+    "title": "meta/muse-spark-1.2",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652492,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 969761257207,
+    "name": "OpenAI: GPT Transcribe",
+    "speech_mode": "unavailable",
+    "title": "openai/gpt-transcribe",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652493,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 556216260299,
+    "name": "Qwen: Qwen Image 3",
+    "speech_mode": "unavailable",
+    "title": "qwen/qwen-image-3",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652494,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 67439371594,
+    "name": "Qwen: Qwen Image 3 Pro",
+    "speech_mode": "unavailable",
+    "title": "qwen/qwen-image-3-pro",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652495,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 28640122095,
+    "name": "Qwen: Qwen3.8 Max",
+    "speech_mode": "raw",
+    "title": "qwen/qwen3.8-max",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652496,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 651934913197,
+    "name": "Sakana: Namazu",
+    "speech_mode": "raw",
+    "title": "sakana/namazu",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652497,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 492349726549,
+    "name": "Thinking Machines: Inkling Small",
+    "speech_mode": "raw",
+    "title": "thinkingmachines/inkling-small",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652498,
+    "stats": {
+      "strength": 10,
+      "dexterity": 10,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10,
+      "hp_base": 1,
+      "level": 1
+    }
+  },
+  {
+    "id": 150525412570,
+    "name": "Upstage: Solar Pro 4",
+    "speech_mode": "raw",
+    "title": "upstage/solar-pro4",
+    "description": "An avatar with an exact OpenRouter model binding.",
+    "ambient_autonomy": true,
+    "location_id": 652499,
     "stats": {
       "strength": 10,
       "dexterity": 10,

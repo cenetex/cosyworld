@@ -6591,7 +6591,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+      "3 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6613,7 +6613,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "2 local void paths can be revealed by Scout and then travelled segment by segment"
+      "4 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6635,7 +6635,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "2 local void paths can be revealed by Scout and then travelled segment by segment"
+      "3 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6657,7 +6657,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+      "3 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6679,7 +6679,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+      "2 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6701,7 +6701,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "2 local void paths can be revealed by Scout and then travelled segment by segment"
+      "4 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6723,7 +6723,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "2 local void paths can be revealed by Scout and then travelled segment by segment"
+      "4 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6745,7 +6745,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+      "2 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -6767,7 +6767,7 @@
       "scoutable passage through a deterministic fractal web"
     ],
     "hooks": [
-      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+      "3 local void paths can be revealed by Scout and then travelled segment by segment"
     ],
     "resources": {
       "void_items": 1
@@ -10651,6 +10651,336 @@
     "id": "room:652484",
     "location_id": 652484,
     "name": "Void 485",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652485",
+    "location_id": 652485,
+    "name": "Void 486",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652486",
+    "location_id": 652486,
+    "name": "Void 487",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652487",
+    "location_id": 652487,
+    "name": "Void 488",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652488",
+    "location_id": 652488,
+    "name": "Void 489",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652489",
+    "location_id": 652489,
+    "name": "Void 490",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652490",
+    "location_id": 652490,
+    "name": "Void 491",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652491",
+    "location_id": 652491,
+    "name": "Void 492",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652492",
+    "location_id": 652492,
+    "name": "Void 493",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652493",
+    "location_id": 652493,
+    "name": "Void 494",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652494",
+    "location_id": 652494,
+    "name": "Void 495",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652495",
+    "location_id": 652495,
+    "name": "Void 496",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652496",
+    "location_id": 652496,
+    "name": "Void 497",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652497",
+    "location_id": 652497,
+    "name": "Void 498",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652498",
+    "location_id": 652498,
+    "name": "Void 499",
+    "safety": "safe",
+    "zone": "frontier",
+    "aspects": [
+      "one model avatar at a private node in the dark rhizome"
+    ],
+    "boons": [
+      "direct conversation with one exactly bound model",
+      "scoutable passage through a deterministic fractal web"
+    ],
+    "hooks": [
+      "1 local void paths can be revealed by Scout and then travelled segment by segment"
+    ],
+    "resources": {
+      "void_items": 1
+    },
+    "projects": [],
+    "pack_id": "cosyworld.elysium"
+  },
+  {
+    "id": "room:652499",
+    "location_id": 652499,
+    "name": "Void 500",
     "safety": "safe",
     "zone": "frontier",
     "aspects": [

@@ -5333,5 +5333,170 @@
     "role": "relic",
     "weight_tenths": 1,
     "size": "tiny"
+  },
+  {
+    "id": 6520485,
+    "name": "Void Token 486",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652485,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520486,
+    "name": "Void Token 487",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652486,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520487,
+    "name": "Void Token 488",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652487,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520488,
+    "name": "Void Token 489",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652488,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520489,
+    "name": "Void Token 490",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652489,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520490,
+    "name": "Void Token 491",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652490,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520491,
+    "name": "Void Token 492",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652491,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520492,
+    "name": "Void Token 493",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652492,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520493,
+    "name": "Void Token 494",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652493,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520494,
+    "name": "Void Token 495",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652494,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520495,
+    "name": "Void Token 496",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652495,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520496,
+    "name": "Void Token 497",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652496,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520497,
+    "name": "Void Token 498",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652497,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520498,
+    "name": "Void Token 499",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652498,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 6520499,
+    "name": "Void Token 500",
+    "description": "A small inert marker unique to the model avatar in this private cell.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 652499,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
   }
 ]

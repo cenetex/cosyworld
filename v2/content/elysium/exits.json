@@ -6737,10 +6737,42 @@
   },
   {
     "from_location_id": 652299,
+    "to_location_id": 652486,
+    "flags": 0,
+    "distance": 5,
+    "direction": "northeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652299,
+    "to_location_id": 652485,
+    "flags": 0,
+    "distance": 3,
+    "direction": "northwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652299,
     "to_location_id": 652184,
     "flags": 0,
     "distance": 5,
     "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652300,
+    "to_location_id": 652488,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652300,
+    "to_location_id": 652487,
+    "flags": 0,
+    "distance": 5,
+    "direction": "northwest",
     "discovery": "scout"
   },
   {
@@ -6761,6 +6793,14 @@
   },
   {
     "from_location_id": 652301,
+    "to_location_id": 652489,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652301,
     "to_location_id": 652185,
     "flags": 0,
     "distance": 4,
@@ -6777,6 +6817,22 @@
   },
   {
     "from_location_id": 652302,
+    "to_location_id": 652491,
+    "flags": 0,
+    "distance": 3,
+    "direction": "northeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652302,
+    "to_location_id": 652490,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652302,
     "to_location_id": 652186,
     "flags": 0,
     "distance": 4,
@@ -6785,10 +6841,34 @@
   },
   {
     "from_location_id": 652303,
+    "to_location_id": 652492,
+    "flags": 0,
+    "distance": 3,
+    "direction": "northwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652303,
     "to_location_id": 652186,
     "flags": 0,
     "distance": 3,
     "direction": "southwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652304,
+    "to_location_id": 652494,
+    "flags": 0,
+    "distance": 5,
+    "direction": "northeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652304,
+    "to_location_id": 652493,
+    "flags": 0,
+    "distance": 3,
+    "direction": "northwest",
     "discovery": "scout"
   },
   {
@@ -6809,6 +6889,22 @@
   },
   {
     "from_location_id": 652305,
+    "to_location_id": 652496,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652305,
+    "to_location_id": 652495,
+    "flags": 0,
+    "distance": 5,
+    "direction": "northwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652305,
     "to_location_id": 652187,
     "flags": 0,
     "distance": 5,
@@ -6825,10 +6921,34 @@
   },
   {
     "from_location_id": 652306,
+    "to_location_id": 652497,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652306,
     "to_location_id": 652188,
     "flags": 0,
     "distance": 5,
     "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652307,
+    "to_location_id": 652499,
+    "flags": 0,
+    "distance": 3,
+    "direction": "northeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652307,
+    "to_location_id": 652498,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northwest",
     "discovery": "scout"
   },
   {
@@ -8253,6 +8373,126 @@
     "flags": 0,
     "distance": 3,
     "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652485,
+    "to_location_id": 652299,
+    "flags": 0,
+    "distance": 3,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652486,
+    "to_location_id": 652299,
+    "flags": 0,
+    "distance": 5,
+    "direction": "southwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652487,
+    "to_location_id": 652300,
+    "flags": 0,
+    "distance": 5,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652488,
+    "to_location_id": 652300,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652489,
+    "to_location_id": 652301,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652490,
+    "to_location_id": 652302,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652491,
+    "to_location_id": 652302,
+    "flags": 0,
+    "distance": 3,
+    "direction": "southwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652492,
+    "to_location_id": 652303,
+    "flags": 0,
+    "distance": 3,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652493,
+    "to_location_id": 652304,
+    "flags": 0,
+    "distance": 3,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652494,
+    "to_location_id": 652304,
+    "flags": 0,
+    "distance": 5,
+    "direction": "southwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652495,
+    "to_location_id": 652305,
+    "flags": 0,
+    "distance": 5,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652496,
+    "to_location_id": 652305,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southwest",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652497,
+    "to_location_id": 652306,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652498,
+    "to_location_id": 652307,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southeast",
+    "discovery": "scout"
+  },
+  {
+    "from_location_id": 652499,
+    "to_location_id": 652307,
+    "flags": 0,
+    "distance": 3,
+    "direction": "southwest",
     "discovery": "scout"
   }
 ]

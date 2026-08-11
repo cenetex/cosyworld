@@ -8,8 +8,8 @@ use std::{
 };
 
 const PROFILE_SCHEMA_VERSION: u32 = 1;
-const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-09.5";
-const PROFILE_BINDING_COUNT: usize = 485;
+const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-10.6";
+const PROFILE_BINDING_COUNT: usize = 500;
 
 // Interaction profiles describe operational provider routes, not authored or
 // persisted world state. Embedding this separately avoids changing worldpack
@@ -22,10 +22,11 @@ const EMBEDDED_INTERACTION_PROFILES: &str =
 const EMBEDDED_ACTOR_MODEL_BINDINGS: &str =
     include_str!("../../content/elysium/actor_model_bindings.json");
 
-const ARCHIVED_MODEL_IDS: [&str; 4] = [
+const ARCHIVED_MODEL_IDS: [&str; 5] = [
     "inclusionai/ling-3.0-flash:free",
     "mistralai/devstral-2512",
     "openai/gpt-5.1-chat",
+    "openai/gpt-5.3-chat",
     "openai/text-embedding-3-small:batch",
 ];
 const TTS_VOICE_UNAVAILABLE_REASON: &str =
@@ -389,28 +390,28 @@ mod tests {
             .iter()
             .flat_map(|binding| binding.profiles.iter())
             .collect::<Vec<_>>();
-        assert_eq!(document.bindings.len(), 485);
-        assert_eq!(profiles.len(), 496);
+        assert_eq!(document.bindings.len(), 500);
+        assert_eq!(profiles.len(), 511);
         assert_eq!(
             profiles
                 .iter()
                 .filter(|profile| profile.provider_available)
                 .count(),
-            453
+            467
         );
         assert_eq!(
             profiles
                 .iter()
                 .filter(|profile| profile.runtime_adapter_supported)
                 .count(),
-            451
+            463
         );
         assert_eq!(
             profiles
                 .iter()
                 .filter(|profile| profile.ready_before_policy())
                 .count(),
-            414
+            425
         );
     }
 
