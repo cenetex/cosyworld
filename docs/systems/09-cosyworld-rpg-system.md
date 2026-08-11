@@ -9,10 +9,11 @@ Visit Ledger, and advancement projections are implemented in Rust over the C
 kernel. `cosyworld.srd5/1` now supplies the active stable-action profile:
 Search/Study, Influence, Help/Ready/Utilize project bindings, Attack/Dodge,
 bounded Magic, and explicit unsupported actions. The item-card layer has
-authoritative Collection/Carried/Equipped/Spell deck/Exhausted/Contained/World/
-Escrow zones, weight and size, equipped non-recursive containers, bracelet
+authoritative Carried/Equipped/Spell deck/Exhausted/Contained/World zones,
+weight and size, equipped non-recursive containers, bracelet
 slots, possession-bound skill charms, weapon profiles, executable spell cards,
-idempotent collection materialization, theft, and provenance. Deterministic
+read-only legacy materialization receipts with idempotent returns, theft, and
+provenance. New item collectible materialization is retired. Deterministic
 scene composition produces an internal legal deck and the current two-card
 hand for browser and terminal clients. Certified Think/Pass rotates by two and yields the turn;
 there is no complete client chooser. Legacy
@@ -28,7 +29,8 @@ Anchor files:
 - [C kernel rules](../../v2/core-c/src/cosy_kernel.c)
 - [Rust kernel bridge](../../v2/orchestrator-rust/src/kernel.rs)
 - [RPG reference shelf](../../reference-library/rpg-systems/README.md)
-- [Signal chain substrate](../../../signal/docs/decentralization-synthesis.md) — the signed-provenance-log model CosyWorld reuses for ownership (see [Ownership, Cards, And Secret Poems](#ownership-cards-and-secret-poems))
+- [ADR 0006](../decisions/0006-avatar-nft-only-bridge.md) — the accepted
+  wallet-optional, avatar-NFT-only ownership boundary.
 
 ## One-Sentence Design
 
@@ -42,7 +44,7 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
 - Every player-visible AI output is committed as a shared room event.
 - **The home is a sanctuary.** A player's cottage and equivalent starting homes never decay, are never invaded, and reject combat by default. Pressure is something you choose to walk toward, not something that comes to you at home.
 - **Progression is earned, never bought.** Advancement comes from play; currency buys amplification and cosmetics, never power, success, access, or rules outcomes.
-- **The collectible subject cosmology is avatar, item, and location.** Skills,
+- **The presentation subject cosmology is avatar, item, and location.** Skills,
   weapons, spells, tools, and relics are roles of playable Item cards, not new
   entity families with separate interfaces.
 - **The core loop is free.** A player with zero currency can always do the meaningful thing — listen, help, bond, travel — without paying.
@@ -55,9 +57,15 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
 - **The world degrades gracefully without AI.** Core world actions remain deterministic and playable when generation is unavailable. Explicit dialogue fails visibly without charge or substitute speech; incidental dialogue is skipped.
 - There are no private resident conversations in the main world loop.
 - The client never decides affordability, model access, combat outcomes, rewards, room access, inventory grants, or quest completion.
-- **Ownership is native and token-free.** Cards, items, and avatars are owned through CosyWorld's own signed provenance log (an Ed25519 + content-addressed chain, not a blockchain or token). External NFTs are an optional *bridge* that gates official expansions — never the base game's ownership layer.
-- **A private key is never a poem.** Identity and ownership are real Ed25519 keypairs held by the client. Poems unlock and gift; they do not control keys.
-- CosyWorld Core must remain playable without NFTs. Official NFTs unlock expansions, not the base game.
+- **World truth owns itself.** Actors, physical items, locations, cards, and
+  Journal history are canonical world facts. Wallet custody cannot own or gate
+  them. One verified allowlisted avatar NFT may link to one durable autonomous
+  actor without granting control or mechanical advantage.
+- **A private key is never a poem.** Poems may be authored public
+  incantations or replay-safe claim receipts; they never derive identity keys
+  or a transferable ownership layer.
+- CosyWorld Core and expansion play remain fully playable without NFTs. Wallet
+  ownership never unlocks a shared place or worldpack.
 - Rules text is original CosyWorld writing. Where adapting source wording is unavoidable, prefer CC-BY material with attribution and treat CC-BY-SA material as reference-first unless we intentionally accept share-alike obligations.
 
 ## The Player Fantasy
@@ -659,9 +667,17 @@ Keys include `actor_id`, so two players earning at the same clock in the same ti
 
 ## Ownership, Cards, And Secret Poems
 
-CosyWorld owns its things without a blockchain or a token. Ownership rides a **signed, content-addressed, append-only provenance log** — the same substrate Signal already ships ([decentralization synthesis](../../../signal/docs/decentralization-synthesis.md)): Ed25519 identity everywhere, content hashes with merkle provenance, a per-authority signed event log, and Arweave for permanence. It is closer to "git with signatures and provenance" than to Ethereum: no consensus, no gas, no token, no global state machine.
+**Ownership boundary update (2026-08-09):** ADR 0006 supersedes the
+transferable card-ownership, wallet-gated expansion, item/location NFT, and
+portable-item direction in this section. The signed provenance substrate and
+trading-card design below are retained as historical design evidence, not
+current product scope. Canonical world entities, physical item custody,
+worldpack composition, craft receipts, Journal history, and public
+incantations remain. The only supported external ownership bridge is an
+optional allowlisted avatar NFT linked exactly once to one durable autonomous
+actor.
 
-### The substrate
+### Historical signed ownership substrate — superseded
 
 - **Identity** is an Ed25519 keypair held by the client. Players and authorities (the kernel, a covenant) are pubkeys.
 - **Assets are content-addressed.** A card *type* is the hash of its definition `{art, name, tags, edition}`; a card *instance* is `card_type + serial + mint_event`, carrying a `parent_merkle` that records exactly where it came from.
@@ -670,7 +686,7 @@ CosyWorld owns its things without a blockchain or a token. Ownership rides a **s
 
 Be precise about the claim: in federation this is **verifiable and permanent**, not yet **trustless** — players trust the operator not to rewrite the log, but signatures make tampering detectable. Full trustlessness is the P2P endpoint.
 
-### Trading cards
+### Historical transferable cards — superseded
 
 A trading card is an `Item` with a chain instance behind it. Mint is bound to the moment it was earned (`because: event_id`), so a card carries its own story — *minted by calming the Moonlit Echo, Season 3*. Value is **provenance, not artificial scarcity**.
 
@@ -682,8 +698,9 @@ CosyWorld defaults to a **provenance-preserving** stance — the cozy middle bet
 
 ### Playable item cards
 
-Weapon, skill, and spell collection uses the same Item-card language as the
-rest of the world:
+Weapon, skill, and spell presentation uses the same Item-card language as the
+rest of the world while physical world instances and their custody remain
+authoritative:
 
 - A **weapon card** is equipped or played to supply an authoritative Attack
   profile.
@@ -707,17 +724,29 @@ best-in-slot power; progression remains earned through play.
 
 ### Secret poems
 
-Poems are the cozy face of cryptographic unlocks — the principle that *short phrases are mechanically real*, taken to its end. They do three distinct jobs, and the security of each is different:
+Poems remain the cozy face of authored incantations and claim receipts. The
+former transferable-card claim/gift design is superseded with the native
+ownership chain; public world-gate incantations remain valid when the kernel
+can verify them without treating the poem as a key.
 
-- **Claiming and gifting → commit-reveal claim ticket (consumable).** A card minted as a reward can carry a claim poem. To claim, you first commit `hash(poem + your_pubkey)`, then reveal — so a watcher scraping the public log cannot front-run you. Reciting binds the card to your key *once*; afterward the poem is spent and inert. Gifting a card can be as simple as whispering its poem.
+- **Historical card claiming/gifting — superseded.** The commit-reveal card
+  ticket design does not create a transferable ownership plane in the accepted
+  product. Historical receipts remain auditable.
 - **World gates → public incantation (repeatable).** A poem can be lore, not a secret: reciting it as a validated Say/Chat action triggers a kernel-checked unlock (a hidden exit, a covenant boon). Repeatable and shared — a covenant learns the Hearth-Song together. No key risk, because there is no key.
 - **Never poem-as-key.** A poem must never *derive* the owning keypair. Low-entropy brainwallets are drained by bots that pre-hash every poem ever written, and in a world where everything is public a spoken poem would be a published private key. Keys are keys; poems are tickets and incantations.
 
 Rule of thumb: card claims are **consumable** (first reciter binds it, then spent); world gates are **repeatable** (lore that spreads).
 
-### External NFT bridge
+### External avatar-NFT bridge
 
-External Solana NFTs (Ruby High cards, burnable Boxes) are an **optional bridge that gates official expansions**, not the base game's ownership layer. A held NFT can be projected into the native chain as a card and can count toward expansion access; the base game's cards, gifting, trading, and poems never require a wallet. This satisfies the invariant that CosyWorld Core is fully playable, ownable, and tradeable without NFTs.
+External ownership has one narrow effect: a protected allowlisted adapter may
+register or recover one durable autonomous actor for one verified avatar asset.
+Wallet custody supplies provenance and association, not direct control, stats,
+actions, items, rewards, location access, or worldpack mounting. Transfer and
+unlink preserve the actor's history and apply presence changes only at safe
+boundaries. Item/location NFTs, burnable Boxes, general card collections, and
+wallet-gated expansions are legacy compatibility surfaces removed through
+#682/#685. Ordinary play requires no wallet.
 
 ## Combat And Conflict
 
@@ -799,7 +828,7 @@ This is enforced as an acceptance criterion for core world rules: reaction-state
 
 ## Data Migration Direction
 
-Suggested new projection stores: `tags`, `clocks`, `bonds`, `callings`, `jobs`, `fronts`, `room_sheets`, `resident_sheets`, `covenants`, `ledger_marks`, `season_turns`, plus the ownership chain: `identities` (pubkeys), `card_instances` (with `parent_merkle`), `card_events` (the signed mint/transfer/gift/swap log), and `poem_claims` (commit-reveal state). For SQLite, flexible JSON columns are fine for effect descriptors and sheets, but index lookup fields: `scope`, `scope_id`, `status`, `zone`, `visible_to_players`, `updated_at_ms`. Keep kernel state small and deterministic; projection state can be richer as long as it cannot contradict the kernel.
+Suggested new projection stores: `tags`, `clocks`, `bonds`, `callings`, `jobs`, `fronts`, `room_sheets`, `resident_sheets`, `covenants`, `ledger_marks`, and `season_turns`. The optional avatar adapter additionally owns immutable `avatar_links`, first-link receipts, verified custody associations, and safe-boundary presence state; legacy card/Box/materialization records remain read-only migration data. For SQLite, flexible JSON columns are fine for effect descriptors and sheets, but index lookup fields: `scope`, `scope_id`, `status`, `zone`, `visible_to_players`, `updated_at_ms`. Keep kernel state small, deterministic, and wallet-blind; projection state can be richer as long as it cannot contradict the kernel.
 
 ## Implementation Roadmap
 
@@ -809,7 +838,7 @@ Clock and tag projection state in Rust; Moonlit Trail clocks; sanctuary/frontier
 
 ### Phase 2: Motivation Core (landed foundation)
 
-Default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger marks for Search/Study/Calling/Helped/bond/frontier-return, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision, claim-key gating, sanctuary/frontier zones, bracelet slots, equipped skill-charm bonuses, and the complete card-zone/materialization lifecycle are landed. Legacy avatar skill steps remain replay-compatible but are no longer the ordinary new progression path. Covenant contribution and additional advancement choices remain future breadth.
+Default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger marks for Search/Study/Calling/Helped/bond/frontier-return, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision, claim-key gating, sanctuary/frontier zones, bracelet slots, equipped skill-charm bonuses, and the physical card-zone lifecycle are landed. Historical materialization receipts remain replay-compatible and returnable, but cannot create new world items. Legacy avatar skill steps remain replay-compatible but are no longer the ordinary new progression path. Covenant contribution and additional advancement choices remain future breadth.
 
 ### Phase 3: Stable Verbs (landed foundation)
 
@@ -829,7 +858,7 @@ Covenant sheets with boons/hooks/resources/reputation/loyalty; room sheets; cove
 
 Objective clocks in danger rooms, nonlethal outcomes, container contents and
 size validation, equipped weapon profiles, executable bounded spell cards,
-authoritative materialization/theft/transfer, bracelet-slot progression,
+legacy receipt returns plus authoritative theft/transfer, bracelet-slot progression,
 skill-charm equipment, and weight-based carrying capacity are landed.
 Durability/armor and broader Calling milestones remain possible future systems.
 

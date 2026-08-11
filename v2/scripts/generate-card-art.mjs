@@ -210,7 +210,7 @@ function buildPrompt(card, indexes) {
     return [
       ...shared,
       `Primary request: Create an item portrait for ${card.display_name}.`,
-      `Subject: ${visualSubject}. ${sentence(subject?.description || card.blurb)} Kind: ${subject?.kind || "keepsake"}.`,
+      `Subject: ${visualSubject}. ${sentence(subject?.description || card.blurb)} Kind: ${subject?.kind || "item"}.`,
       "Composition: object-only catalog icon, exactly one nonliving object centered as a magical still life, clear silhouette, plain uncluttered background, simple cloth/wood/stone surface, enough padding for a square crop.",
       "The object should fill about 75 percent of the frame while remaining fully visible.",
       "Do not add an environment scene, room, landscape, animals, mascots, faces, eyes, hands, characters, shelves, books, clocks, labels, packaging, duplicate copies, readable engravings, signatures, or extra main objects.",

@@ -1,7 +1,12 @@
 # ADR 0001: cards are entitlements, never world entities
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-07-16
+- Superseded: 2026-08-09 by
+  [ADR 0006](0006-avatar-nft-only-bridge.md). Its separation of cards from
+  canonical world entities remains authoritative; its external-card,
+  entitlement-gated-place, portable-item, Box/bundle, and general collectible
+  product direction does not.
 - Decision owners: CosyWorld maintainers
 - Related: #20, #23, #24, #25, #26, #27, #48, #51, #52
 
@@ -17,7 +22,11 @@ The same ambiguity applies to locations and items. A wallet can prove access or
 provenance, but it cannot authoritatively say that a shared NPC disappeared, a
 door moved, or a canonical world item changed hands.
 
-## Decision
+## Historical decision
+
+The text below records the retired entitlement model. Only the separation of
+card presentation/external provenance from canonical world entities remains
+authoritative; ADR 0006 governs all current ownership behavior.
 
 The chain records what a player is entitled to everywhere. The canonical
 journal and deterministic kernel record what is true in the world. A card is an
@@ -81,16 +90,15 @@ Ruby-only composition omits both dependency-conditioned rows. Removing Ruby
 therefore removes the school facet and external binding without changing Rati's
 world identity, location, dialogue authority, or Core availability.
 
-## Runtime and API projection
+## Current runtime and API projection
 
 - `registry.resources.actors`, `.items`, and `.locations` hold world truth and
   retain their authoring `pack_id`.
 - `registry.external_cards`, `.resources.card_bindings`, and
   `.resources.actor_facets` hold the three separate expansion records.
-- `/state.access.owned_card_ids` reports verified wallet cards and
-  `/state.access.granted_entitlement_ids` reports resolved grants. Neither is a
-  world-entity collection or actor-control list.
-- `/content-packs` reports mounted pack access and resource counts; mount state,
+- `/state` presents world cards but reports no owned-card, entitlement, Box,
+  pack, or materialization projection.
+- `/content-packs` reports every mounted pack publicly; operator composition,
   not wallet possession, decides whether a facet exists.
 - Server-authored shared-resident lines remain authoritative. A play-as license
   can only apply in a separate world installation that explicitly
@@ -98,14 +106,10 @@ world identity, location, dialogue authority, or Core availability.
 
 ## Consequences and follow-ups
 
-Core and Ruby extraction (#24 and #27) implement and test the migration above.
-Location-scoped rules (#26) must call the removable records *facets* and must
-not persist expansion membership into the Core actor. The action hand (#48)
-must call wallet-owned influences *keepsakes* or *passes*, not actors/items in
-the scene. The [player lexicon](../../v2/docs/player-lexicon.md) reserves
-*action* for a scene choice, *keepsake/pass* for collection and entitlement
-surfaces, *world item* for kernel state, *bundle* for a collectible reveal, and
-*world pack* for mounted content.
+Core and Ruby extraction (#24 and #27) implement and test the entity/facet
+separation above. The [player lexicon](../../v2/docs/player-lexicon.md) now uses
+*action*, *card*, *item*, *linked avatar*, *Journal*, and *world pack*; the old
+collection/pass/bundle vocabulary is retained only in historical records.
 
 The trade-off is deliberate indirection. Packs must declare bindings, facets,
 and grants instead of copying wallet coordinates onto entity rows. In return,

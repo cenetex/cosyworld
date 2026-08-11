@@ -8,6 +8,7 @@ pub(super) struct AccessContext {
     pub(super) owned_box_ids: BTreeSet<String>,
     pub(super) unopened_pack_ids: BTreeSet<String>,
     pub(super) signed_wallet_session: bool,
+    #[allow(dead_code)]
     pub(super) unsigned_wallet_claim: bool,
 }
 
@@ -79,24 +80,29 @@ impl OwnershipFeedHealth {
 
 impl OwnershipFeedConfig {
     pub(super) fn from_env() -> Self {
-        let inline_feed = std::env::var("COSYWORLD_ENTITLEMENT_FEED")
+        let inline_feed = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED").ok())
             .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS").ok())
             .filter(|value| !value.trim().is_empty());
-        let path_feed = std::env::var("COSYWORLD_ENTITLEMENT_FEED_PATH")
+        let path_feed = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_PATH")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_PATH").ok())
             .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH").ok())
             .map(PathBuf::from);
-        let remote_url = std::env::var("COSYWORLD_ENTITLEMENT_FEED_URL")
+        let remote_url = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_URL")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_URL").ok())
             .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL").ok())
             .filter(|value| !value.trim().is_empty());
-        let remote_bearer = std::env::var("COSYWORLD_ENTITLEMENT_FEED_BEARER")
+        let remote_bearer = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_BEARER").ok())
             .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER").ok())
             .filter(|value| !value.trim().is_empty());
-        let remote_timeout = std::env::var("COSYWORLD_ENTITLEMENT_FEED_TIMEOUT_SECS")
+        let remote_timeout = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_TIMEOUT_SECS")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_TIMEOUT_SECS").ok())
             .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_TIMEOUT_SECS").ok());
         let remote_timeout = ownership_feed_timeout(remote_timeout.as_deref());
         let refresh_every = ownership_refresh_interval(remote_url.is_some(), path_feed.is_some());
@@ -321,7 +327,7 @@ pub(super) async fn load_base_ownership_index(state: &AppState) -> io::Result<Ow
 pub(super) async fn load_effective_ownership_index_strict(
     state: &AppState,
 ) -> io::Result<OwnershipIndex> {
-    let mut ownership = state.ownership_feed.load_strict().await?;
+    let ownership = state.ownership_feed.load_strict().await?;
     if let Some(path) = state.event_store_path.as_deref() {
         let reconciliation = record_economy_reconciliation(path, &ownership, "refresh")?;
         if reconciliation.anomaly_count > 0 {
@@ -335,7 +341,9 @@ pub(super) async fn load_effective_ownership_index_strict(
                 }
             );
         }
-        ownership.merge(load_receipt_ownership_index(path)?);
+        // Historical Box and pack receipts remain readable by moderation and
+        // reconciliation, but they are not live ownership grants.
+        let _ = load_receipt_ownership_index(path)?;
     }
     Ok(ownership)
 }
@@ -857,21 +865,14 @@ impl AccessContext {
     pub(super) fn from_query(
         query: &StateQuery,
         ownership: &OwnershipIndex,
-        trust_client_card_ids: bool,
+        _trust_client_card_ids: bool,
         wallet_sessions: &StdMutex<WalletSessions>,
         allow_unsigned_wallet_claims: bool,
     ) -> Self {
         Self::from_request_parts(
             query.wallet_session.as_deref(),
-            query.wallet_address.as_deref().or(query.wallet.as_deref()),
-            [
-                trust_client_card_ids
-                    .then_some(query.owned_card_ids.as_deref())
-                    .flatten(),
-                trust_client_card_ids
-                    .then_some(query.cards.as_deref())
-                    .flatten(),
-            ],
+            None,
+            [None, None],
             ownership,
             wallet_sessions,
             allow_unsigned_wallet_claims,
@@ -881,24 +882,14 @@ impl AccessContext {
     pub(super) fn from_move_request(
         payload: &MoveRequest,
         ownership: &OwnershipIndex,
-        trust_client_card_ids: bool,
+        _trust_client_card_ids: bool,
         wallet_sessions: &StdMutex<WalletSessions>,
         allow_unsigned_wallet_claims: bool,
     ) -> Self {
         Self::from_request_parts(
             payload.wallet_session.as_deref(),
-            payload
-                .wallet_address
-                .as_deref()
-                .or(payload.wallet.as_deref()),
-            [
-                trust_client_card_ids
-                    .then_some(payload.owned_card_ids.as_deref())
-                    .flatten(),
-                trust_client_card_ids
-                    .then_some(payload.cards.as_deref())
-                    .flatten(),
-            ],
+            None,
+            [None, None],
             ownership,
             wallet_sessions,
             allow_unsigned_wallet_claims,
@@ -908,24 +899,14 @@ impl AccessContext {
     pub(super) fn from_command_request(
         payload: &CommandRequest,
         ownership: &OwnershipIndex,
-        trust_client_card_ids: bool,
+        _trust_client_card_ids: bool,
         wallet_sessions: &StdMutex<WalletSessions>,
         allow_unsigned_wallet_claims: bool,
     ) -> Self {
         Self::from_request_parts(
             payload.wallet_session.as_deref(),
-            payload
-                .wallet_address
-                .as_deref()
-                .or(payload.wallet.as_deref()),
-            [
-                trust_client_card_ids
-                    .then_some(payload.owned_card_ids.as_deref())
-                    .flatten(),
-                trust_client_card_ids
-                    .then_some(payload.cards.as_deref())
-                    .flatten(),
-            ],
+            None,
+            [None, None],
             ownership,
             wallet_sessions,
             allow_unsigned_wallet_claims,
@@ -935,21 +916,14 @@ impl AccessContext {
     pub(super) fn from_events_query(
         query: &EventsQuery,
         ownership: &OwnershipIndex,
-        trust_client_card_ids: bool,
+        _trust_client_card_ids: bool,
         wallet_sessions: &StdMutex<WalletSessions>,
         allow_unsigned_wallet_claims: bool,
     ) -> Self {
         Self::from_request_parts(
             query.wallet_session.as_deref(),
-            query.wallet_address.as_deref().or(query.wallet.as_deref()),
-            [
-                trust_client_card_ids
-                    .then_some(query.owned_card_ids.as_deref())
-                    .flatten(),
-                trust_client_card_ids
-                    .then_some(query.cards.as_deref())
-                    .flatten(),
-            ],
+            None,
+            [None, None],
             ownership,
             wallet_sessions,
             allow_unsigned_wallet_claims,
@@ -1071,14 +1045,6 @@ impl AccessContext {
             unsigned_wallet_claim: false,
         }
     }
-
-    pub(super) fn owns_card(&self, card_id: &str) -> bool {
-        self.owned_card_ids.contains(card_id)
-    }
-
-    pub(super) fn has_grant(&self, grant_id: &str) -> bool {
-        self.granted_entitlement_ids.contains(grant_id)
-    }
 }
 
 pub(super) async fn wallet_session(
@@ -1198,87 +1164,12 @@ impl AppState {
     }
 }
 
-impl RuntimeWorld {
-    pub(super) fn apply_wallet_overlap_placements(
-        &mut self,
-        ownership: &OwnershipIndex,
-        day_index: u64,
-    ) {
-        let _ = self.apply_wallet_overlap_placements_inner(ownership, day_index, false);
-    }
-
-    pub(super) fn apply_wallet_overlap_placements_with_events(
-        &mut self,
-        ownership: &OwnershipIndex,
-        day_index: u64,
-    ) -> Vec<EventView> {
-        self.apply_wallet_overlap_placements_inner(ownership, day_index, true)
-    }
-
-    pub(super) fn apply_wallet_overlap_placements_inner(
-        &mut self,
-        ownership: &OwnershipIndex,
-        day_index: u64,
-        emit_events: bool,
-    ) -> Vec<EventView> {
-        let mut events = Vec::new();
-        for (actor_id, actor_card_id) in [
-            (1001, "rati"),
-            (1002, "cosy-whiskerwind"),
-            (1003, "cosy-skull"),
-        ] {
-            let location_id =
-                actor_location_from_overlap(actor_card_id, ownership, day_index).unwrap_or(1);
-            if let Some(event) = self.place_actor_location(actor_id, location_id, emit_events) {
-                events.push(event);
-            }
-        }
-        events
-    }
-}
-
-pub(super) fn actor_location_from_overlap(
-    actor_card_id: &str,
-    ownership: &OwnershipIndex,
-    day_index: u64,
-) -> Option<u64> {
-    let mut scores: BTreeMap<u64, u32> = BTreeMap::new();
-
-    for wallet in &ownership.wallets {
-        if !wallet.card_ids.contains(actor_card_id) {
-            continue;
-        }
-
-        let mut contributed_locations = BTreeSet::new();
-        for card_id in &wallet.card_ids {
-            if let Some(location_id) = location_id_for_card_id(card_id) {
-                contributed_locations.insert(location_id);
-            }
-        }
-
-        // Each wallet contributes its unique location set once; duplicate card copies do not
-        // weight resident placement unless we choose that economy explicitly later.
-        for location_id in contributed_locations {
-            *scores.entry(location_id).or_insert(0) += 1;
-        }
-    }
-
-    let max_score = scores.values().copied().max()?;
-    let candidates: Vec<u64> = scores
-        .into_iter()
-        .filter_map(|(location_id, score)| (score == max_score).then_some(location_id))
-        .collect();
-    if candidates.is_empty() {
-        return None;
-    }
-    Some(candidates[(day_index as usize) % candidates.len()])
-}
-
 pub(super) fn ownership_refresh_interval(
     has_remote_feed: bool,
     _has_path_feed: bool,
 ) -> Option<Duration> {
-    if let Ok(value) = std::env::var("COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS")
+    if let Ok(value) = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS")
+        .or_else(|_| std::env::var("COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS"))
         .or_else(|_| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS"))
     {
         let secs = value.trim().parse::<u64>().unwrap_or(0);
@@ -1300,7 +1191,7 @@ pub(super) fn start_ownership_refresh_scheduler(state: AppState) {
                 Ok(_) => 0,
                 Err(error) => {
                     warn!(
-                        "entitlement provider refresh failed; keeping last good feed: {}",
+                        "linked-avatar ownership refresh failed; keeping last good feed: {}",
                         error
                     );
                     state
@@ -1345,29 +1236,13 @@ pub(super) async fn refresh_ownership_index_once(state: &AppState) -> io::Result
         }
     };
 
-    let mut runtime = state.inner.lock().await;
-    let placement_rotation = placement_rotation_index_for_runtime(&runtime);
-    let placement_events =
-        runtime.apply_wallet_overlap_placements_with_events(&refreshed, placement_rotation);
-    persist_runtime(state, &runtime);
-    persist_events(state, &placement_events);
-    if !placement_events.is_empty() {
-        state.mark_activity();
-    }
-    drop(runtime);
-
-    if !placement_events.is_empty() {
-        broadcast_events(state, &placement_events);
-    }
-    schedule_hosted_access_reconciliation(state);
-
     if changed {
         info!(
-            "refreshed entitlement provider feed: {} wallet(s)",
+            "refreshed linked-avatar ownership feed: {} wallet(s)",
             refreshed.wallet_count()
         );
     }
-    Ok(changed || !placement_events.is_empty())
+    Ok(changed)
 }
 
 pub(super) fn ownership_refresh_delay(base: Duration, consecutive_failures: u32) -> Duration {

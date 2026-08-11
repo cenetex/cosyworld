@@ -1,100 +1,103 @@
 # Player lexicon
 
-CosyWorld uses different nouns for a choice, a collectible memory, access, a
-collection reveal, installed world content, and the chronicle of a place.
-Internal schemas retain their stable `card_*`, `*_card_ids`, and `pack_*`
-fields; this glossary governs player-facing copy, accessibility labels, and
-analytics names.
+ADR 0006 accepts a wallet-optional core with one narrow external concept:
+**linked avatar**. Cards present authoritative world state; items and locations
+remain shared-world facts. New player copy does not call actor/item/location
+cards owned keepsakes, does not reveal bundles, and does not describe wallet
+possession as place access.
+
+Historical schemas retain stable receipt and legacy ownership fields for
+replay and moderation audit. Those implementation names do not define player
+vocabulary or appear in ordinary state.
 
 ## Canonical concepts
 
 | Concept | Player-facing noun | Ownership and authority | Lifecycle | Primary affordance |
 | --- | --- | --- | --- | --- |
 | A verb offered by the action controller | **action** | The engine derives legal actions from authoritative room state. A player chooses one; it is not owned or collected. | Replaced when room state changes; exactly two are dealt at a time. | Command-shaped button in the two-action hand; `data-player-concept="action"`. |
-| The voluntary end-of-hand control | **Think** (ordinary) / **Pass** (focused turn) | The engine certifies the actor, scene/focus, state revision, and hand generation before accepting it. It is neither an entitlement pass nor a free redeal. | Consumes one turn, journals the next deterministic hand, and becomes stale when the scene changes. | Third hand control; `data-player-concept="pass"`. |
-| An actor, item, or location representation in the collection | **keepsake** | A wallet or local collection may hold the representation. It may supply matching art or cosmetic annotation, but never replaces the world entity or changes action eligibility, order, rank, cost, odds, or effect. | Persists in the collection; up to three may be kept close. | Illustrated collection tile and details dialog; `data-player-concept="keepsake"`. |
-| Permission to enter a gated place | **pass** or **access** | A mounted world pack declares the grant; a verified entitlement provider proves it. The kernel receives only allowed/denied movement. | Dormant if its consuming world pack is unmounted; does not alter world state. | Locked-place badge reading “pass required”; `data-player-concept="pass"`. |
-| A revealable group of keepsakes | **bundle** | A verified Box receipt or trusted ownership feed associates the unopened bundle with an account. | Opened once; yields keepsakes and leaves a durable receipt. | Avatar Bundle tile and “open bundle” action; `data-player-concept="bundle"`. |
-| Installable or mounted experience content | **world pack** | The canonical world composition owns the mount decision; wallet possession cannot mount code or content. | Installed, mounted, unmounted, and version-locked by operators. | World Library entry; `data-player-concept="world-pack"`. |
-| The player-facing chronicle of a place | **Journal** | Canonical events remain world authority; the server deterministically groups their meaningful outcomes for presentation. | Current context and open threads change with state; story history remains ordered and replay-derived. | Journal toggle, semantic history entries, and useful disclosures; `data-player-concept="journal"`. |
+| The voluntary end-of-hand control | **Think** (ordinary) / **Pass** (focused turn) | The engine certifies the actor, scene/focus, state revision, and hand generation before accepting it. It is not an entitlement or a free redeal. | Consumes one turn, journals the next deterministic hand, and becomes stale when the scene changes. | Third hand control; `data-player-concept="pass"`. |
+| A visual or interaction representation | **card** | A card projects an actor, item, location, spell, or action. It never owns or replaces its subject and cannot create authority from art or text. | Reprojects from canonical state; historical art/provenance may remain inspectable. | Illustrated subject/action surface; target `data-player-concept="card"`. |
+| A supported NFT-backed actor association | **linked avatar** | A protected adapter verifies one allowlisted asset and binds it to one durable autonomous actor. Wallet custody grants association, not command authority, power, items, rewards, or access. | First link creates one binding; later links and transfers recover the same actor and history. | Linked-avatar roster/chronicle; target `data-player-concept="linked-avatar"`. |
+| A physical thing in the shared world | **item** | Custody and location come from the canonical world. A wallet cannot spawn, reclaim, or duplicate it. | May be found, carried, equipped, traded, dropped, installed, consumed, lost, or stolen under world rules. | Item card/inspector plus exact world actions; `data-player-concept="item"`. |
+| Installable or mounted experience content | **world pack** | The canonical world composition owns the mount decision. Wallet possession cannot mount content or grant access. | Installed, mounted, unmounted, and version-locked by operators. | World Library entry; `data-player-concept="world-pack"`. |
+| The player-facing chronicle of a place | **Journal** | Canonical events remain world authority; the server deterministically groups meaningful outcomes for presentation. | Current context and open threads change with state; story history remains ordered and replay-derived. | Journal toggle and semantic history; `data-player-concept="journal"`. |
 
-A **Box** keeps its proper name. It is the on-chain object consumed by the
-receipted flow that creates an Avatar Bundle; it is neither the bundle nor a
-world pack.
+Access is explained through the fiction and exact world requirement: a key,
+relationship, completed Job, represented permission, or mounted composition.
+There is no wallet-owned location **pass** in the accepted target.
+
+## Retired compatibility vocabulary
+
+**Keepsake**, **bundle**, **Box**, and wallet **pass** are retired player nouns.
+They may occur in immutable historical records, migration fixtures, or an
+operator audit result, but not in current product copy, analytics producers,
+accessibility concepts, routes, state projections, or worldpack requirements.
 
 ## Copy rules
 
 - Use **action** in hand instructions, turn cues, and action accessibility
   labels. “Action card” is acceptable only in developer documentation that is
   explicitly discussing the deck/hand implementation.
-- Use **keepsake** for collection tiles, entity art/details, and the “kept
-  close” loadout. Owning a keepsake never means owning the shared entity.
-- Use **pass** when the missing entitlement corresponds to a location. Use
-  **access** when no player-facing pass representation exists.
-- Use **bundle** for the one-time group revealed by the Box flow. Do not call it
-  a pack in player copy.
-- Use **world pack** in the World Library and content architecture. Do not use
-  bare “pack” when a bundle could be meant.
-- Use **Journal** for the player chronicle. Its three regions are current
-  place, open threads, and story so far. Do not call it an event Log, debug
-  console, quest dashboard, or raw history.
+- Use **card** for a visual or interaction representation. Never say that a
+  player owns the represented resident, item, or location.
+- Use **linked avatar** for a supported NFT-backed actor association. Prefer
+  “link this avatar” and “this avatar joined the world”; never “materialize,”
+  “mint,” “play as,” or “control” unless a later decision explicitly creates
+  that authority.
+- Use **item** for a physical world object. Custody is described with ordinary
+  verbs such as carry, equip, give, trade, drop, install, consume, lose, or
+  recover.
+- Explain access with the exact world requirement. Do not use wallet, NFT,
+  card ownership, or a generic pass as a substitute for world truth.
+- Use **world pack** in the World Library and content architecture.
+- Use **Journal** for the player chronicle. Its regions are current place, open
+  threads, and story so far; it is not an event log or quest dashboard.
 - Journal category labels come from the closed set **story**, **discovery**,
   **travel**, **search**, **relationship**, **growth**, **work**, **item**, and
-  **consequence**. The implementation may group multiple source events beneath
-  one entry; “story beat” is projection terminology, not required player copy.
-- Never expose **event**, **tag**, dotted event keys, source sequence numbers,
-  payload delimiters, arrow movement, or “Something changed” as Journal copy.
-  An unmapped source is omitted and reported as missing presentation coverage.
-- A Journal row is expandable only when the expanded content adds a fact. The
-  header ticker repeats the latest visible entry headline exactly.
+  **consequence**.
+- Never expose dotted event keys, source sequence numbers, payload delimiters,
+  arrow movement, or “Something changed” as Journal copy.
 
-The internal API remains compatible: `cards`, `card_id`, `required_card_id`,
-`unopened_pack_ids`, `/nft/packs/open`, and related database names do not change.
-Adapters may also continue to recognize legacy error text such as “card
-required,” but new player-visible errors use this glossary.
+The public API keeps card presentation (`cards`, `card_id`) but has no
+`required_card_id`, Box/pack inventory, owned-card projection, NFT burn/open,
+or collection-materialization route. Related database names remain unchanged
+only where needed to replay and audit historical records.
 
 ## Accessibility and analytics
 
-Interactive surfaces expose the same concept nouns through
-`data-player-concept`. Analytics hooks use namespaced event names rather than a
-generic `card.click` or `pack.open`:
+Target interactive surfaces expose the same concept nouns through
+`data-player-concept`. New analytics use these namespaces:
 
 | Event | Meaning |
 | --- | --- |
-| `action.select`, `action.confirm`, `action.pass` | choose, confirm, or certified Think/Pass through the two suggestions |
-| `keepsake.collection.open`, `keepsake.open`, `keepsake.toggle` | inspect the collection, inspect a keepsake, or change the kept-close loadout |
-| `bundle.open` | reveal one Avatar Bundle |
+| `action.select`, `action.confirm`, `action.pass` | choose, confirm, or Think/Pass through the two suggestions |
+| `card.open` | inspect the presentation of one world subject |
+| `linked_avatar.open`, `linked_avatar.link` | inspect or initiate the protected linked-avatar flow |
 | `world_pack.library.open` | open the mounted World Library |
 | `journal.open`, `journal.close` | open or close the player Journal |
 | `journal.entry.expand` | reveal additive context for one Journal entry |
 
-Pass requirements are currently read-only badges, so they expose a concept but
-do not emit a click event. If a pass-purchase or claim flow is added, its event
-namespace is `pass.*`. Journal entries expose no raw event identity through
-accessibility labels; the accessible headline and detail follow the same
-semantic projection as the visual row.
+Legacy collection analytics remain readable but have no current producers.
+Journal entries expose no raw event identity through accessibility labels.
 
 ## Six-task comprehension check
-
-The UI copy contract answers these six tasks without relying on art or layout:
 
 | Task | The player should choose or identify | Required cue |
 | --- | --- | --- |
 | Make the avatar do something now | an **action** | “Choose an action below” and action-labelled hand buttons |
-| Inspect or keep a collected memory close | a **keepsake** | “your keepsakes,” “keepsake details,” and “keep close” |
-| Explain why a school room is locked | a **pass** | “Ruby High: First Bell location pass required” |
-| Reveal the contents produced by a Box | an Avatar **Bundle** | “open bundle” and “Opened avatar bundle” |
-| Find or inspect mounted experience content | a **world pack** | the World Library count and world-pack entries |
-| Review what changed in the current place | the **Journal** | current place, open threads, and story-so-far entries written as player-facing outcomes |
+| Inspect the person, thing, or place being shown | a **card** | the subject's name, kind, and inspectable world facts |
+| Understand why a wallet-linked character appears | a **linked avatar** | “linked avatar,” its authored arrival, and its continuing chronicle |
+| Explain why a route or room is unavailable | the exact world requirement | the key, relationship, Job, permission, or composition condition |
+| Find mounted experience content | a **world pack** | World Library count and world-pack entries |
+| Review what changed in the current place | the **Journal** | current place, open threads, and story-so-far outcomes |
 
-Regression tests check all six cues together and reject the former ambiguous
-phrases. A future moderated usability study can add human evidence without
-changing these baseline nouns.
+The browser comprehension test covers these six target tasks and rejects the
+retired collection vocabulary.
 
 ## Architecture relationship
 
 This is the player-facing layer of
-[ADR 0001](../../docs/decisions/0001-cards-are-entitlements.md). The ADR defines
-world entity, external card, facet, and entitlement identity. This glossary
-names how those records appear to players. World-pack compilation and API
-fields are documented separately in [Worldpacks](worldpacks.md).
+[ADR 0006](../../docs/decisions/0006-avatar-nft-only-bridge.md), which
+supersedes ADR 0001's broader external-card, entitlement, and portable-item
+product direction. World entities, physical custody, Journal events, and
+worldpack composition remain canonical authority.

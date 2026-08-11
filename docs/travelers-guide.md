@@ -35,11 +35,13 @@ people take turns so one player cannot silently act over another.
 | **Orbs** | An optional contribution to shared images, never a price on play or power. |
 
 An **action** is a legal choice you can make now. It is not owned or collected.
-An **item** is a physical thing in the shared world. A **keepsake** is an
-actor, item, or location represented in your collection; owning it does not
-replace or privately own the shared subject. A **pass** explains access to a
-gated place. A **bundle** is a one-time collection reveal from a Box. A
-**world pack** is mounted experience content.
+A **card** is the illustrated way CosyWorld presents an action, person, item,
+or place; it does not make the subject privately owned. An **item** is a
+physical thing in the shared world. A **linked avatar** is one supported
+NFT-backed character associated with a verified wallet. The character remains
+an autonomous world actor rather than a puppet or stat grant. A **world pack**
+is mounted experience content, and wallet possession cannot mount it or open a
+shared place.
 
 Some unusual items are **curious devices**: cameras, voiceboxes, listeners,
 instruments, or stranger tools powered by an exact model. Carrying one may add
@@ -50,6 +52,27 @@ what is unavailable, but it is not dealt as an action until it can really work.
 
 Jobs, clocks, tags, rules profiles, and claim keys exist behind the surface.
 You should not need those terms to decide what to do.
+
+## Wallets And Linked Avatars
+
+A wallet is optional. Linking one asks a protected adapter whether it contains
+an avatar from an allowlisted collection. One supported asset registers or
+recovers one durable actor:
+
+1. A new actor arrives through its worldpack-authored threshold when the world
+   has room; otherwise it waits offstage.
+2. The actor uses the same legal actions, resident autonomy, consequences, and
+   Journal rules as everyone else. The wallet holder cannot command it.
+3. Reconnecting or transferring the asset recovers the same actor, history,
+   Bonds, advancement, and inventory rather than creating a copy.
+4. Unlink, revocation, or uncertain custody changes association only at a safe
+   boundary; it never interrupts an active consequence or deletes the actor.
+
+Item custody is earned and changed through world actions such as Take, Give,
+Trade, Drop, Use, and crafting. A wallet cannot spawn or reclaim an item.
+Places belong to the shared world's topology and history: they can be
+discovered, founded, changed, and remembered through play, but never owned or
+gated by an item or location NFT.
 
 ## Reading An Action
 

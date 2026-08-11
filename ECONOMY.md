@@ -1,14 +1,21 @@
-# CosyWorld 2.0 Economy And NFT Integration
+# CosyWorld Economy And Legacy NFT Migration
 
 ## Summary
 
-CosyWorld should use two currency-like resources with different trust models:
+ADR 0006 accepts a wallet-optional core with one narrow external bridge:
+supported avatar NFTs may register or recover one durable autonomous actor.
+Wallet ownership does not grant actor control, world items, place access,
+progression, rewards, or private media.
 
-- `Orbs`: fungible, off-chain game currency held in the v2 account ledger. Orbs are earned by solving challenges, completing puzzles, winning small encounters, or advancing world goals. Their only player spend is community image generation for generated collectible cards.
-- `Intricately Carved Wooden Boxes`: wallet-owned NFTs. A Box is an irreversible burn voucher. Burning one creates an avatar card pack in the Ruby High card-pack style; opening that pack reveals avatar cards from the CosyWorld/Ruby High world catalog.
+- `Orbs`: non-transferable, off-chain game currency held in the v2 account ledger. Their only player spend is community image generation for shared world subjects.
+- `Linked avatars`: an optional allowlisted adapter verifies an avatar NFT and binds it idempotently to one canonical actor. The actor is autonomous by default and keeps the same identity and history across custody changes.
 - AI provider accounts and server budgets are operational concerns, not a second in-world price for conversation. Chat is public and Orb-free, but is an advancement-backed friendship action rather than an always-available free verb.
 
-This is deliberately not one generic wallet balance. Orbs are MMO play energy. Boxes are on-chain collectible inventory. Avatar cards, item cards, and location cards remain shared-world inputs, not private instances.
+Intricately Carved Wooden Boxes, pack reveals, keepsake collections, item/location
+NFTs, wallet-gated places, native transferable card ownership, and collection
+item materialization have no player or ordinary-runtime surface. Their durable
+rows remain read-only replay and operator-audit data; they are not ownership
+grants and must not receive new feature work.
 
 ## Source Findings
 
@@ -21,7 +28,7 @@ Relevant systems:
 - `src/services/battle/combatEncounterService.mjs` contains D&D-shaped turn/combat mechanics, rate limits, HP/AC/damage, and encounter cleanup. V2 should pull combat rules into the C kernel and award Orbs from committed outcomes.
 - `src/services/web/server/routes/claims.js` has an `orbGate` claim policy, but that gate means "hold an Orb NFT collection token." It is not a fungible game-currency ledger and should not be reused as the new Orbs balance.
 - `src/services/payment/pricingService.mjs`, `src/services/payment/x402Service.mjs`, and `src/services/payment/marketplaceService.mjs` are external payment rails using USDC/x402 or service marketplace pricing. They should stay outside the in-world Orb economy.
-- `src/services/crossmint/crossmintService.mjs` and token routes are useful migration references for legacy avatar/item/location NFT issuance, but the v2 pack and burn path should follow Ruby High's Solana/Core pattern.
+- `src/services/crossmint/crossmintService.mjs` and token routes are useful migration references for inventorying and archiving legacy avatar/item/location NFT issuance; they are not templates for new pack/burn product work.
 
 Migration reading: legacy CosyWorld knows how to make the game objects interesting. It does not yet have the right economy boundary for a shared MMO.
 
@@ -36,7 +43,9 @@ Relevant systems:
 - `../app-ruby-high/src/services/ruby-high-service.ts` has the durable account-side mutations: `recordHallPassPackMint`, `openHallPassPack`, `convertBurnedHallPassCardsToHallPasses`, and `cosyWorldWalletCards`.
 - `../app-ruby-high/src/viewer-parts/card-burn-selector.ts`, `billing-products.ts`, `pack-mint-progress.ts`, and `account-hall-pass-cards-panel.ts` show the right UX boundary: card pack and burn operations live in an account/card surface, not inside the primary world transcript.
 
-Migration reading: Ruby High already has the pack, burn, ownership, idempotency, and proof patterns. CosyWorld should consume or adapt those patterns, not recreate them in the C kernel.
+Migration reading: Ruby High's ownership, idempotency, and proof patterns remain
+useful for verified avatar custody and legacy receipt audit. CosyWorld does not
+recreate pack/burn or broad collection logic in the C kernel.
 
 ## Product Model
 
@@ -50,7 +59,7 @@ Rules:
 - The C kernel may emit rule outcomes that cause Orb awards, but it does not own the wallet ledger.
 - Orbs are awarded only from committed game events: challenge solved, puzzle solved, encounter resolved, daily room contribution, or world goal contribution.
 - Orbs never pay for Chat, Say, Listen/Notice, combat, travel, access, success, progression, resident heartbeats, or any other ordinary world verb.
-- A generated collectible may receive one community-funded image at each level.
+- An eligible world subject may receive one community-funded image at each level.
 - The total pooled price of that image is exactly its level in Orbs: level 1 costs 1, level 2 costs 2, and so on.
 - Contributions are journaled per avatar and capped at the remaining pooled price. Once fully funded, retries never take more Orbs.
 - The generation prompt includes public history through the funding event, so later-level images can visibly evolve with the card's story.
@@ -65,7 +74,10 @@ Current v2 implementation:
 - Automatic rule rewards are claim-key gated by actor/context, so replaying the same Listen/combat/flee outcome does not mint duplicate Orbs.
 - `ai_usage_ledger` records system-funded resident inference and community image jobs as `community_orbs`, with feature, status, source event id, Orb delta, and latency.
 - Player OpenRouter keys remain transient. The ledger records payer mode, not secrets.
-- Trusted ownership feeds can include active Wooden Boxes and unopened avatar packs; `/state` exposes compact counts and asset ids without trusting client query params.
+- The optional linked-avatar feed is server-authenticated and supplies only
+  allowlisted avatar custody to gameplay. Legacy Box, pack, and card fields may
+  still parse for compatibility/audit but are absent from `/state` and cannot
+  grant play.
 - Development reset clears projected events, action journal, sessions, wallet links, suspensions, Orb ledger rows, and AI usage rows together.
 
 UI implication:
@@ -76,44 +88,39 @@ UI implication:
 - A fully funded or failed job can be nudged/retried without another debit. A completed card says that its next image unlocks at the next level.
 - The Orb balance can be visible as compact status text, but it must not turn the MUD into a dashboard.
 
-### Intricately Carved Wooden Boxes
-
-Boxes are NFTs and should be treated as scarce wallet assets.
+### Linked Avatar Bridge
 
 Rules:
 
-- A Box is discovered from the wallet ownership feed, not trusted from client query params.
-- A Box can be focused in an account/inventory surface.
-- The action is `Open Box` or `Burn Box`, depending on the final copy. The backend semantics are burn-first.
-- Burning a Box requires wallet signature, on-chain verification, and an idempotent burn receipt.
-- A burn creates an avatar card pack receipt. The pack can be immediately opened by the same UX flow, but the backend should keep pack creation and pack reveal as separate events.
-- Opening the pack reveals avatar cards from the world catalog with provenance: catalog hash, reveal seed, box asset, burn signature, card ids, and timestamps.
-- Duplicate burn confirmations are harmless and return the previous result.
-- Burned Boxes never re-enter the active ownership index.
+- Linking a wallet is optional and ordinary play never requires it.
+- A protected allowlisted adapter, never browser claims, verifies network,
+  collection authority, asset id, current custody, and the authored actor
+  profile.
+- One verified asset registers or recovers exactly one durable actor and one
+  immutable first-link receipt.
+- The actor arrives through its authored worldpack threshold when presence
+  permits; otherwise it remains offstage.
+- The actor is autonomous by default. Wallet custody grants association and
+  chronicle visibility, not direct commands or mechanical advantage.
+- Transfer, unlink, revocation, or stale ownership changes association only at
+  a safe boundary. The actor's identity, Journal, Bonds, advancement, and
+  world inventory persist.
+- Only reviewed cosmetic appearance fields may refresh. Metadata cannot author
+  prompts, personality, mechanics, items, access, rewards, or pack ids.
 
-UI implication:
+### Legacy Box And Pack Receipt Archive
 
-- Box operations are account/inventory moments, not normal room chat controls.
-- The main transcript can show a compact room event after a pack reveal, for example: `[System] Lantern Stitch opened a Wooden Box. Three avatar cards joined the world archive.`
-- The one-button room rule still holds. If the player focuses a Box, the one contextual button can become `Open Box`; otherwise it remains world play.
-
-### Avatar Cards From Packs
-
-Avatar cards are collectible and world-influencing, but they do not create private NPC copies.
-
-Rules:
-
-- A card for Rati, Whiskerwind, Skull, or future residents contributes to global placement voting when paired with location cards in the same wallet.
-- Resident actors remain single global world actors. Two wallets holding Rati do not create two Ratis.
-- Avatar cards can unlock cosmetics, relationship affordances, evolution hints, or placement influence.
-- Location cards unlock entry to the shared location channel.
-- Item cards can seed item availability or crafting/evolution opportunities, but item instances used in the kernel remain explicit world objects.
+The `wooden_box_receipts` and `avatar_pack_openings` tables preserve shipped
+history. They may be replayed, reconciled, retained, searched, and resolved by
+protected moderation tooling. There is no player burn/open route, Box or pack
+projection, collection control, card grant, resident-placement vote, or access
+effect. No archive row is merged into current linked-avatar ownership.
 
 ### Shared World Item Scarcity
 
 Each authored world-item id is one shard-local object. Resident desires, attachments, evolution requirements, and recipe inputs can deliberately overlap; they are reasons to move and negotiate over the shared object, not separate reservations or promises that every demand can be satisfied at once. Giving, trading, evolution placement, and crafting preserve their input objects, so the same singleton can support several stories in sequence. The browser shows a sought item's authoritative current availability beside the resident's fallible memory, making current contention legible.
 
-Wallet keepsakes are a separate ownership plane and never inflate this count. The worldpack inspector's `world_item_economy` audit reports only kernel-owned world supply against authored demand.
+Legacy wallet keepsakes never inflate this count and are being archived. The worldpack inspector's `world_item_economy` audit reports only kernel-owned world supply against authored demand.
 
 ## Integration Points
 
@@ -147,8 +154,9 @@ Add services/modules:
 
 - `economy`: Orb balance, idempotent ledger mutations, spend/award policies.
 - `ai_gateway`: player OpenRouter payer verification, AI usage ledger entries, model routing, and media calls.
-- `wallet_assets`: signed wallet sessions, ownership feed hydration, Box/card/location projections.
-- `packs`: Box burn prepare/confirm, pack creation, pack open/reveal, card grants.
+- `avatar_links`: signed wallet sessions, allowlisted avatar ownership verification, exactly-once actor binding, custody association, and safe offstage policy.
+- Legacy receipt archive: read-only Box/pack/materialization replay,
+  reconciliation, retention, and protected moderation inspection.
 - `challenges`: one-button challenge selection, kernel submission, Orb awards.
 
 Update existing flows:
@@ -160,7 +168,8 @@ Update existing flows:
 - `/world` and room state include newly granted avatar cards through the same card projection map.
 - `/meta` exposes economy feature flags without secrets.
 
-Recommended new routes:
+Avatar-link routes are narrow, protected, and adapter-owned. The ordinary
+economy/AI/action routes below remain normal product surface:
 
 ```text
 GET  /economy
@@ -168,36 +177,29 @@ GET  /ai/account
 POST /ai/openrouter/verify
 POST /ai/openrouter/disconnect
 POST /actions/combat
-POST /nft/boxes/burn-prepare
-POST /nft/boxes/burn-confirm
-POST /nft/packs/open
 ```
 
-The route names can change, but the phases should not collapse into an unaudited one-shot mutation.
+### Linked-Avatar Ownership Feed
 
-### Ownership Feed
+The v2 adapter consumes a bearer-protected server export of verified,
+allowlisted avatar assets and current owner wallets. It does not consume
+browser card claims. Box, pack, item, location, pass, and general-card records
+are ignored for gameplay even when an older provider shape includes them.
 
-The current v2 `OwnershipIndex` already consumes Ruby High-style wallet card exports. Extend the feed contract rather than adding a second source of truth.
-
-Needed additions:
-
-- `boxes`: active Box NFTs by wallet with asset address, metadata URI, serial, collection, and status.
-- `packs`: unopened/opened avatar packs by wallet with asset address or receipt id.
-- `card_status`: active, redeemed, burned, opened, revoked.
-- `roles`: avatar, location, item, special, box, pack.
-- `source`: Ruby High, CosyWorld seed, CosyWorld chain collection.
-
-Existing Ruby High export endpoint to build from:
+The deployed Ruby High-compatible endpoint is:
 
 ```text
 /api/apps/ruby-high/nft/internal/cosyworld/wallet-cards
 ```
 
-The feed should remain bearer-protected in production. The client never supplies authoritative ownership.
+Use the `COSYWORLD_AVATAR_OWNERSHIP_FEED_*` configuration names. Older
+`COSYWORLD_ENTITLEMENT_FEED_*` and Ruby High aliases remain accepted during
+operator migration, but do not change the avatar-only contract.
 
 ### SQLite/Event Store
 
-Add append-only tables before adding gameplay that spends or burns assets.
+Orb and AI usage tables are active economy state. The Box/pack tables below are
+retained historical schema and accept no new player mutations.
 
 Suggested tables:
 
@@ -268,7 +270,9 @@ CREATE TABLE avatar_pack_openings (
 );
 ```
 
-All external transaction signatures should be unique where applicable. Every mutation should be idempotent by a stable key derived from the signed transaction, chat action, media job, or pack id. Do not store raw player OpenRouter API keys in these tables.
+Historical external transaction signatures remain unique. Active mutations are
+idempotent by stable action or media-job keys. Do not store raw player
+OpenRouter API keys in these tables.
 
 ### Browser UX
 
@@ -280,8 +284,8 @@ Rules:
 - No chat composer.
 - No permanent economy panel.
 - At most three dealt action cards plus shuffle at rest; no system may replace the hand except required onboarding or an urgent safety gate.
-- Economy/account operations appear only when focused through a small account/card/inventory affordance.
-- The account surface can borrow Ruby High's card selector and pack progress patterns, but should be visually tuned to CosyWorld's terminal MUD shell.
+- Economy operations appear only when focused through a small card or settings
+  affordance.
 - If one card needs a target or mode choice, show a temporary action sheet and return to the dealt hand after selection.
 
 Primary command examples:
@@ -297,27 +301,15 @@ Use
 Listen
 Give Item
 Travel
-Open Box
 Continue
 ```
 
-### Ruby High Adapter
+### Avatar Adapter
 
-Do not import Ruby High as the runtime. Build an adapter around its proven mechanics:
-
-- Reuse ownership export shape and bearer-protected remote hydration.
-- Reuse Solana prepare/submit/confirm phasing.
-- Reuse Core pack metadata/update patterns for unopened/opened pack art.
-- Reuse Hall Pass card burn verification patterns for Box burn verification.
-- Reuse pack reveal provenance concepts: catalog hash, commitment, seed, proof.
-- Reuse account/card UI patterns only in account surfaces, not the room transcript.
-
-CosyWorld-specific changes:
-
-- Burn object is a Wooden Box NFT, not a Ruby High Hall Pass card.
-- Burn output is an avatar card pack, not Hall Passes.
-- Pack card catalog is the CosyWorld world catalog, including Ruby High-sourced characters where appropriate.
-- Revealed cards feed back into shared resident placement and access projections.
+Do not import another application as the runtime. The adapter reuses only a
+bearer-protected custody export and maps allowlisted avatar assets to authored
+actor profiles. It performs no burn, mint, pack, location-access, item-supply,
+or resident-placement operation.
 
 ### Legacy Migration
 
@@ -327,7 +319,7 @@ Migrate concepts, not old runtime coupling:
 - From `quests`: condition model and daily challenge generation.
 - From `combat`: stats, action cooldowns, encounter outcomes, and combat-derived Orb awards.
 - From `claims`: wallet signature and collection policy ideas, but not `orbGate` as Orbs.
-- From `payment`: external purchase rails only. USDC/x402 can later sell Boxes or premium bundles, but it must not be the in-world Orb ledger.
+- From `payment`: external purchase rails remain outside the in-world Orb ledger. They do not sell Boxes, item/location NFTs, access, or progression in the accepted core product.
 - From Discord routes: none of the v2 economy should depend on Discord channel objects.
 
 ## Migration Plan
@@ -335,8 +327,8 @@ Migrate concepts, not old runtime coupling:
 ### Stage 0: Schema And Fixtures
 
 - Add this economy doc to the v2 contract.
-- Add seed fixture entries for Orbs, Boxes, and avatar packs.
-- Extend smoke-owned wallet fixtures with one active Box.
+- Keep Orb seed fixtures. Legacy Box/avatar-pack fixtures remain only until
+  #682/#685 replace them with linked-avatar and archival-migration coverage.
 
 ### Stage 1: Orbs Ledger
 
@@ -365,82 +357,34 @@ Current status: Chat is advancement-backed and Orb-free; the delayed resident re
 - Keep challenge content tied to location, resident, item, and stat context.
 Current status: partially implemented in the Moonlit Trail sparring loop. The remaining work is richer encounter lifecycle and balancing.
 
-### Stage 4: Box Ownership Projection
+### Stage 4: Legacy Archival And Removal
 
-Current status: implemented for trusted feed projection.
+Current status: player/runtime removal landed; historical audit retained.
 
-- Extended the Ruby High/CosyWorld ownership feed parser to include active Boxes and unopened packs.
-- Returned Box and unopened pack counts from `/state`.
-- Returned exact trusted Box/pack asset ids in the access payload.
-- Added a minimal top-economy account focus in the browser shell; normal room play remains transcript plus one contextual command.
-- Added a compact terminal account panel for active Boxes, unopened packs, recent burn receipts, and recent pack reveals.
-- Current account surfaces show active Boxes, unopened packs, recent burn
-  receipts, recent pack reveals, and open actions without polluting the room
-  transcript. Support-grade provenance inspection can build on the same durable
-  receipt/opening rows.
-
-### Stage 5: Box Burn And Pack Creation
-
-Current status: implemented as a signed-wallet route flow with production transaction construction and confirm-side chain verification.
-
-- Added `/nft/boxes/burn-prepare` and `/nft/boxes/burn-confirm`.
-- Requires a signed wallet session and trusted active Box ownership.
-- Local mode can record staging receipts for fast development.
-- Production mode requires `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; `burn-confirm` verifies a confirmed Metaplex Core burn transaction for the Box asset, connected owner, and configured collection before recording the receipt.
-- Records the burn receipt idempotently by Box asset and burn signature.
-- Creates an unopened avatar pack receipt and projects it back into wallet access.
-- With a configured production verifier, `burn-prepare` fetches a confirmed recent blockhash and
-  returns an unsigned legacy Solana transaction containing the owner-paid Metaplex Core BurnV1
-  instruction for the trusted Box and configured collection. It includes full base64 wire bytes
-  for adapters and a base58 compiled message for injected wallet providers.
-- The browser shows an irreversible-action confirmation, asks the wallet to sign and send that
-  transaction, then submits its chain signature to `burn-confirm`.
-- Confirmed receipts reconcile back into ownership through the durable receipt store. Successful
-  external snapshots are also compared with those receipts before merge; protected moderator
-  resolution notes persist the operator disposition of reported contradictions.
-
-### Stage 6: Pack Reveal And Card Grants
-
-Current status: implemented as deterministic local reveal provenance.
-
-- Added `/nft/packs/open`.
-- Opens packs with deterministic provenance: catalog hash, reveal seed, Box asset, pack id, and card ids.
-- Grants avatar cards into the ownership/card index.
-- Merges durable Box/pack receipts back into ownership refreshes so locally opened packs remain effective after wallet-feed polling.
-- Projects recent wallet-scoped pack reveals into the focused account panel.
-- Duplicate opens return the same card ids.
-- The focused account/card panel is live for packs, reveals, and recent
-  provenance. Transcript polish and production pack catalog policy are tracked
-  as content/operations follow-up, not blockers for the signed-wallet route
-  contract.
-
-### Stage 7: Production Chain Hardening
-
-- Restore Ruby High's upstream Solana RPC capacity, deploy feed-health telemetry, and rerun the
-  hosted smoke against the actual protected export.
-- Active Boxes and unopened packs already follow each successful trusted snapshot, so transfers,
-  external burns, and externally opened packs disappear from the effective base index on refresh.
-- Successful startup and refresh snapshots are now compared with durable local burn/opening
-  receipts before receipt grants are merged. Each comparison is appended to
-  `economy_reconciliation_runs`; impossible active-after-burn/open states and duplicate external
-  owners are retained as structured anomalies in the protected `/moderation/economy` audit.
-- Protected moderators can resolve open anomaly runs with an identity and note through the API or
-  economy panel in `/moderation`; clear runs are non-actionable and repeated resolution is
-  idempotent.
-- Continue the operator workflow with support-facing search, retention policy, and alerts for new
-  anomalies.
-- Add alerting for duplicate signatures, impossible balances, and failed pack reveals.
+- Box burn, pack open, collection materialization, and unmaterialization routes
+  are absent.
+- Ordinary state and browser/terminal surfaces expose no Box, pack, owned-card,
+  wallet-pass, kept-close, or materialization controls.
+- Startup and refresh may compare protected provider snapshots with historical
+  rows and append `economy_reconciliation_runs`; historical rows are never
+  promoted into current ownership.
+- Protected moderators can inspect and resolve reconciliation anomalies.
+- Existing materialized-item migration receipts remain replayable and
+  auditable without accepting new item-materialization mutations.
+- Retention and alerting cover duplicate signatures, contradictory historical
+  ownership, and unreadable receipts; no collection product is rebuilt around
+  the archive.
 
 ## Invariants
 
 - The Cosy Cottage remains public.
-- NFT ownership unlocks shared rooms and influences shared residents; it does not create private rooms.
+- Wallet ownership never unlocks, owns, or controls a shared room, item, action, reward, or resident.
 - Human players do not type chat.
 - AI speech is one-to-many through room events.
 - Orbs are spent only for committed community image generation.
 - Automatic Orb rewards are claim-gated by stable actor/context keys.
 - Player OpenRouter payment changes payer only, never room visibility.
-- Boxes are burned only through verified irreversible wallet actions.
-- Production Box burn receipts must come from verified Solana/Core burn confirmations, not the local staging trust path.
-- Every burn, pack, and Orb mutation is idempotent and replayable.
+- New Box burns and pack reveals have no player route.
+- Historical Box/pack receipts remain idempotent, replayable, and auditable through migration.
+- One supported avatar asset maps to one actor; retries, restarts, wallets, and custody transfers cannot clone it.
 - The C kernel never parses wallet data.

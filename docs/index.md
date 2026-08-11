@@ -12,12 +12,18 @@ do not define V2 behavior.
 - **[A Traveler's Guide To CosyWorld](travelers-guide.md)** — the concise
   player guide to the action hand, Callings, Friends, discovery, scouting,
   thresholds, rest, the six-function tale rhythm, and what is still direction.
+- **[CosyWorld:Dungeons](cosyworld-dungeons.md)** — the situation-board motif:
+  semantic world and scene boards, meaningful two-card forks, visible
+  constraints and clocks, deterministic authority, and AI presentation limits.
 - **[Location Classes, Development Projects, and Buildings](location-development.md)** —
   canonical product law for cairn-founded location classes, typed building
   slots, project-derived levels, and equal human/AI civic agency.
 - **[ADR 0007: Model Bindings and Item Devices](decisions/0007-model-bindings-and-item-devices.md)** —
   canonical embodiment law for conversational actors, portable/equipped/
   installed model-backed items, dormant capabilities, and Elysium migration.
+- **[ADR 0008: Projection Mutations Declare Their Writes](decisions/0008-projection-mutations-declare-their-writes.md)** —
+  why each `ProjectionMutation` carries a payload that owns its `apply` and
+  declares, under test, the projection state it may touch.
 - **[The CosyWorld Referee's Guide](dm-guide/README.md)** — source and build
   instructions for the illustrated guide to scenes, discovery, frontier
   forays, thresholds, tables, and strict AI refereeing.
@@ -31,7 +37,11 @@ do not define V2 behavior.
   consolidated story, avatar, resident, faction, item, location, map, and
   relationship review, including the Signal Anchor contract.
 - **[Product Requirements](../PRD.md)** — current product law, including the
-  card-composed world, seventh-visit priority, and acceptance criteria.
+  card-composed world, wallet-optional avatar-link boundary, seventh-visit
+  priority, and acceptance criteria.
+- **[ADR 0006: Wallet-Optional Core and Avatar-NFT-Only Bridge](decisions/0006-avatar-nft-only-bridge.md)** —
+  accepted ownership boundary: one supported asset may link one durable
+  autonomous actor; items, locations, access, and cards remain world truth.
 - **[SRD-Backed Action and Collectible System](systems/04-action-system.md)** —
   card zones, scene composition, action offers, skill charms, weapons, spells,
   and rules/pack authority.
@@ -41,8 +51,8 @@ do not define V2 behavior.
 - **[ADR 0005: Thresholds, Trails, and the Strict Referee](decisions/0005-thresholds-trails-and-strict-referee.md)** —
   topology/legibility/access/safety ownership, discovery procedures, table
   authority, Anchor/foray law, and migration compatibility.
-- **[Economy](../ECONOMY.md)** — Orbs, Boxes, packs, provenance, and the optional
-  NFT bridge.
+- **[Economy](../ECONOMY.md)** — Orbs, shared media, the optional linked-avatar
+  adapter, and the legacy Box/collection migration inventory.
 - **[AI](../AI.md)** — inference, payer modes, media, and the boundary between AI
   proposals and authoritative world state.
 
@@ -160,4 +170,4 @@ current PRD take precedence:
 - [Legacy service documentation](services/)
 - [Deployment guide](deployment/07-deployment.md)
 
-Last reviewed: 2026-08-09.
+Last reviewed: 2026-08-10.

@@ -2674,11 +2674,7 @@ mod tests {
             actor_session: None,
             command: command.to_string(),
             offer_id: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             envelope: None,
         }
     }
@@ -2814,7 +2810,7 @@ mod tests {
     }
 
     #[test]
-    fn revealed_but_inaccessible_journey_segment_does_not_offer_scout_again() {
+    fn revealed_public_journey_segment_does_not_offer_scout_again() {
         const ALPINE_FOREST_LOCATION_ID: u64 = 50;
         const LIBRARY_LOCATION_ID: u64 = 12;
 
@@ -2862,7 +2858,7 @@ mod tests {
             .iter()
             .find(|exit| exit.destination_location_id == LIBRARY_LOCATION_ID)
             .expect("the revealed Library edge stays projected");
-        assert!(!library_exit.accessible);
+        assert!(library_exit.accessible);
         assert!(!state
             .action_offers
             .iter()

@@ -7,10 +7,9 @@ import { describe, expect, it } from "vitest";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 const index = read("v2/orchestrator-rust/src/index.html");
-const gates = read("v2/content/ruby-high-first-bell/access_gates.json");
 const glossary = read("v2/docs/player-lexicon.md");
 
-describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal lexicon", () => {
+describe("player-facing action, card, linked-avatar, world-pack, and Journal lexicon", () => {
   it("passes the six-task comprehension copy contract", () => {
     const tasks = [
       {
@@ -20,21 +19,21 @@ describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal 
         analytics: 'data-analytics-event="action.select"',
       },
       {
-        task: "inspect or keep a collected memory close",
-        concept: 'data-player-concept="keepsake"',
-        cue: "your keepsakes",
-        analytics: 'data-analytics-event="keepsake.open"',
+        task: "inspect the person, item, or place being shown",
+        concept: 'data-player-concept="card"',
+        cue: "Open current location card",
+        analytics: 'data-analytics-event="card.open"',
       },
       {
-        task: "explain why a school room is locked",
-        concept: 'data-player-concept="pass"',
-        cue: "pass required",
+        task: "understand why a wallet-linked character appears",
+        concept: 'data-player-concept="linked-avatar"',
+        cue: "link avatar wallet",
+        analytics: 'data-analytics-event="linked_avatar.link"',
       },
       {
-        task: "reveal the contents produced by a Box",
-        concept: 'data-player-concept="bundle"',
-        cue: "open bundle",
-        analytics: 'data-analytics-event="bundle.open"',
+        task: "understand official place access",
+        concept: 'data-player-concept="world-pack"',
+        cue: "Ordinary places are public and need no wallet.",
       },
       {
         task: "find mounted experience content",
@@ -52,33 +51,31 @@ describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal 
 
     for (const task of tasks) {
       expect(index, task.task).toContain(task.concept);
-      expect(`${index}\n${gates}`, task.task).toContain(task.cue);
+      expect(index, task.task).toContain(task.cue);
       if (task.analytics) expect(index, task.task).toContain(task.analytics);
     }
   });
 
-  it("uses the same distinctions in accessibility labels and collection copy", () => {
-    expect(index).toContain('aria-label="Open current location keepsake"');
-    expect(index).toContain('aria-label="Close keepsake details"');
-    expect(index).toContain("Open ${escapeAttr(cardName)} keepsake details");
-    expect(index).toContain("Keep a few keepsakes close—up to three.");
-    expect(index).toContain("Opened avatar bundle:");
-    expect(gates).toContain("Ruby High: First Bell location pass required.");
+  it("uses the same distinctions in accessibility labels and identity copy", () => {
+    expect(index).toContain('aria-label="Open current location card"');
+    expect(index).toContain('aria-label="Close card details"');
+    expect(index).toContain("supported linked avatars");
+    expect(index).toContain("portable account, optional linked avatars");
   });
 
-  it("removes the former ambiguous player copy while preserving API compatibility", () => {
-    for (const ambiguous of [
-      "Choose a card below",
-      "Your next cards are ready",
-      "location card required",
-      "Opened pack",
-      "Avatar Pack",
-      "your first card",
-      "Keep a few cards close",
-      "The card passes the room turn",
-      "fresh pack of avatar cards",
+  it("removes the retired collection and wallet-gate surface", () => {
+    for (const retired of [
+      'data-player-concept="keepsake"',
+      'data-player-concept="bundle"',
+      "keepsake.open",
+      "bundle.open",
+      "/nft/packs/open",
+      "data-account-open-pack",
+      "required_card_id",
+      "owned_card_ids",
+      "materialize",
     ]) {
-      expect(`${index}\n${gates}`).not.toContain(ambiguous);
+      expect(index).not.toContain(retired);
     }
 
     expect(index).not.toContain('id="all-actions-title">all actions</h2>');
@@ -87,10 +84,6 @@ describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal 
     expect(index).toContain('data-player-concept="pass"');
     expect(index).toContain('aria-label="Think: pass these two actions and commit the turn"');
     expect(index).toContain("free redeal command has retired");
-    expect(index).toContain('${packs === 1 ? "bundle" : "bundles"}');
-    expect(index).toContain('/nft/packs/open');
-    expect(index).toContain("data-account-open-pack");
-    expect(index).toContain("required_card_id");
   });
 
   it("checks in ownership, lifecycle, affordance, accessibility, and analytics guidance", () => {
@@ -105,7 +98,7 @@ describe("player-facing action, keepsake, pass, bundle, world-pack, and Journal 
     ]) {
       expect(glossary).toContain(section);
     }
-    for (const noun of ["**action**", "**keepsake**", "**pass**", "**bundle**", "**world pack**", "**Journal**"]) {
+    for (const noun of ["**action**", "**card**", "**linked avatar**", "**item**", "**world pack**", "**Journal**"]) {
       expect(glossary).toContain(noun);
     }
   });

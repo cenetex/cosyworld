@@ -29,11 +29,7 @@ fn live_command_request(actor_id: u64, actor_session: &str, offer_id: String) ->
         // identity, not reparsed prose, selects the authoritative action.
         command: "card identity selects this action".to_string(),
         offer_id: Some(offer_id),
-        wallet_address: None,
-        wallet: None,
         wallet_session: None,
-        owned_card_ids: None,
-        cards: None,
         envelope: None,
     }
 }

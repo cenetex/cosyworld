@@ -27,11 +27,7 @@ pub(crate) struct CommandRequest {
     pub(crate) command: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) offer_id: Option<String>,
-    pub(crate) wallet_address: Option<String>,
-    pub(crate) wallet: Option<String>,
     pub(crate) wallet_session: Option<String>,
-    pub(crate) owned_card_ids: Option<String>,
-    pub(crate) cards: Option<String>,
     #[serde(default)]
     pub(crate) envelope: Option<CanonicalCommandEnvelope>,
 }
@@ -3917,11 +3913,7 @@ mod tests {
             actor_session: None,
             command: command.to_string(),
             offer_id: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             envelope: None,
         }
     }

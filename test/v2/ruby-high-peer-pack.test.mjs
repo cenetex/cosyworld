@@ -22,7 +22,7 @@ describe("Ruby High: First Bell peer pack", () => {
     ]);
     expect(rubyOnly.manifest.rules_profile).toBe("cosyworld.srd5/1");
     expect(rubyOnly.manifest.entry_location).toBe("ruby-high.first-bell:location/11");
-    expect(rubyOnly.manifest.entry_grant_id).toBe("ruby-high.first-bell:location-homeroom");
+    expect(rubyOnly.manifest.entry_grant_id).toBeUndefined();
     const rubyPack = rubyOnly.manifest.packs.find((pack) => pack.id === "ruby-high.first-bell");
     expect(rubyPack.kind).toBe("world");
     expect(rubyPack.default_ruleset).toBe("ruby-high.first-bell/rules");
@@ -77,10 +77,10 @@ describe("Ruby High: First Bell peer pack", () => {
     expect(coreRati.source).toBe("cosyworld_core");
   });
 
-  it("owns every gated school resource instead of leaking it through Core", () => {
-    const gatedLocationIds = new Set(official.resources.access_gates.map((gate) => gate.location_id));
-    expect([...gatedLocationIds]).toEqual([10, 11, 12, 13, 14, 15]);
-    for (const locationId of gatedLocationIds) {
+  it("owns every public school resource instead of leaking it through Core", () => {
+    expect(official.resources.access_gates).toEqual([]);
+    const schoolLocationIds = new Set([10, 11, 12, 13, 14, 15]);
+    for (const locationId of schoolLocationIds) {
       expect(official.resources.locations.find((location) => location.id === locationId)?.pack_id)
         .toBe("ruby-high.first-bell");
       expect(official.resources.cards.find((card) =>
@@ -88,7 +88,7 @@ describe("Ruby High: First Bell peer pack", () => {
         .toBe("ruby-high.first-bell");
     }
     expect(official.resources.exits
-      .filter((exit) => gatedLocationIds.has(exit.from_location_id) || gatedLocationIds.has(exit.to_location_id))
+      .filter((exit) => schoolLocationIds.has(exit.from_location_id) || schoolLocationIds.has(exit.to_location_id))
       .every((exit) => [
         "ruby-high.first-bell",
         "cosyworld.composition.core-ruby",
