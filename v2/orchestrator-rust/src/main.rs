@@ -21644,7 +21644,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     let item_count = runtime.world.item_count;
     let location_count = runtime.world.location_count;
     let event_count = runtime.event_log.len();
-    let materialization_receipts = materialization_retirement::receipt_inventory(&runtime);
+    let materialization_receipts = materialization_retirement::receipt_inventory(runtime);
     let (retained_command_receipts, retained_command_receipt_bytes) = state
         .event_store_path
         .as_deref()
