@@ -70,4 +70,8 @@ the quest's clocks, be unique, and occur before the clock fills.
 Generated pathway jobs receive the same versioned Work and Help strategy
 schema. Delivery jobs remain evidence-driven: physical possession-chain
 delivery evidence completes them instead of pretending that generic Work
-delivered an item.
+delivered an item. Their optional closed requirement may select one exact item,
+one immutable loot/craft template, or one canonical tag authored by a versioned
+loot template. New worldpack-authored deliveries must include a supported typed
+requirement; a missing requirement is accepted only from historical persisted
+state.

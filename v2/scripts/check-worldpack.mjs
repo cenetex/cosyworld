@@ -559,6 +559,7 @@ for (const pack of packs) {
 
 const mountedLootTableIds = new Set();
 const mountedLootTemplateIds = new Set();
+const mountedLootDeliveryTags = new Set();
 const mountedBuildingCapabilities = new Set();
 const mountedBuildingRecipeTags = new Set();
 const mountedBuildingArchetypes = [];
@@ -568,6 +569,7 @@ for (const pack of packs) {
       fail(`loot item template ${template.id} is mounted more than once`);
     }
     mountedLootTemplateIds.add(template.id);
+    for (const tag of template.delivery_tags ?? []) mountedLootDeliveryTags.add(tag);
   }
   for (const table of pack.extensions?.["x-cosyworld-loot-tables"]?.tables ?? []) {
     if (mountedLootTableIds.has(table.id)) {
@@ -2283,6 +2285,49 @@ for (const job of jobs) {
   }
   if (!has(clockIds, job.progress_clock_id) || !has(clockIds, job.danger_clock_id)) {
     fail(`job ${job.id} references missing clock`);
+  }
+  if (job.delivery !== undefined) {
+    const delivery = job.delivery;
+    const requirement = delivery?.requirement;
+    const deliveryFields = new Set([
+      "resource",
+      "origin_location_id",
+      "destination_location_id",
+      "requirement",
+      "created_world_tick",
+      "updated_world_tick",
+    ]);
+    if (!isObject(delivery)
+        || Object.keys(delivery).some((field) => !deliveryFields.has(field))
+        || !isNonEmptyString(delivery.resource)
+        || !has(locationIds, delivery.origin_location_id)
+        || !has(locationIds, delivery.destination_location_id)
+        || !Number.isSafeInteger(delivery.created_world_tick)
+        || delivery.created_world_tick < 0
+        || !Number.isSafeInteger(delivery.updated_world_tick)
+        || delivery.updated_world_tick < delivery.created_world_tick
+        || !isObject(requirement)) {
+      fail(`job ${job.id} has an invalid typed delivery specification`);
+    } else {
+      const expectedFields = {
+        exact_item: new Set(["kind", "item_id"]),
+        exact_template: new Set(["kind", "template_id"]),
+        item_tag: new Set(["kind", "tag"]),
+      }[requirement.kind];
+      const matcherIsValid = expectedFields !== undefined
+        && Object.keys(requirement).every((field) => expectedFields.has(field))
+        && Object.keys(requirement).length === expectedFields.size
+        && (
+          (requirement.kind === "exact_item" && has(itemIds, requirement.item_id))
+          || (requirement.kind === "exact_template"
+            && mountedLootTemplateIds.has(requirement.template_id))
+          || (requirement.kind === "item_tag"
+            && mountedLootDeliveryTags.has(requirement.tag))
+        );
+      if (!matcherIsValid) {
+        fail(`job ${job.id} has an unsupported delivery matcher`);
+      }
+    }
   }
   if (job.contribution_schema_version !== 1
       || !Array.isArray(job.contribution_strategies)

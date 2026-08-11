@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.core",
   "name": "CosyWorld Core",
-  "version": "1.3.11",
+  "version": "1.3.12",
   "kind": "world",
   "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
   "license": "MIT",
@@ -431,6 +431,7 @@
           "role": "consumable",
           "weight_tenths": 5,
           "size": "small",
+          "delivery_tags": ["broth", "herbs", "medicine", "tea", "warmth"],
           "mechanics": {
             "binding": "srd5.2.1:utilize",
             "equipment_profile": "carried",
@@ -452,7 +453,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 4,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["fish", "provisions"]
         },
         {
           "id": "smoked_river_sprat",
@@ -462,7 +464,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 3,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["fish", "provisions"]
         },
         {
           "id": "glassfin_scale",
@@ -472,7 +475,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 1,
-          "size": "tiny"
+          "size": "tiny",
+          "delivery_tags": ["fish"]
         },
         {
           "id": "iron_nodule",
@@ -482,7 +486,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 20,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["ore"]
         },
         {
           "id": "iron_bloom",
@@ -492,7 +497,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 14,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["ore"]
         },
         {
           "id": "waystone_bracket",
@@ -502,7 +508,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 12,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["ore"]
         },
         {
           "id": "quartz_chip",
@@ -512,7 +519,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 5,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["ore"]
         },
         {
           "id": "orchard_apple",
@@ -522,7 +530,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 3,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["provisions"]
         },
         {
           "id": "amber_pear",
@@ -532,7 +541,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 4,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["provisions"]
         },
         {
           "id": "garden_beans",
@@ -542,7 +552,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 3,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["provisions"]
         },
         {
           "id": "moon_carrot",
@@ -552,7 +563,8 @@
           "charges": 1,
           "role": "generic",
           "weight_tenths": 2,
-          "size": "small"
+          "size": "small",
+          "delivery_tags": ["provisions"]
         }
       ],
       "tables": [
