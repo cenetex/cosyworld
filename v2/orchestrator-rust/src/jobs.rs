@@ -64,17 +64,44 @@ pub(super) struct JobState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(deny_unknown_fields, tag = "kind", rename_all = "snake_case")]
 pub(super) enum DeliveryRequirement {
     ExactItem { item_id: u64 },
+    ExactTemplate { template_id: String },
+    ItemTag { tag: String },
 }
 
 impl DeliveryRequirement {
-    pub(super) fn accepts(&self, evidence: &DeliveryEvidence) -> bool {
+    pub(super) fn accepts(
+        &self,
+        evidence: &DeliveryEvidence,
+        item_facts: &DeliveryItemFacts,
+    ) -> bool {
         match self {
             Self::ExactItem { item_id } => evidence.item_id == *item_id,
+            Self::ExactTemplate { template_id } => {
+                item_facts.template_id.as_deref() == Some(template_id.as_str())
+            }
+            Self::ItemTag { tag } => item_facts.tags.contains(tag),
         }
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct DeliveryItemFacts {
+    pub(super) template_id: Option<String>,
+    pub(super) tags: BTreeSet<String>,
+}
+
+pub(super) fn valid_delivery_item_tag(value: &str) -> bool {
+    let mut characters = value.chars();
+    characters
+        .next()
+        .is_some_and(|character| character.is_ascii_lowercase())
+        && value.len() <= 48
+        && characters.all(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+        })
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -95,26 +122,29 @@ impl DeliveryJobSpec {
         destination_location_id: u64,
         world_tick: u64,
     ) -> Self {
-        // World-simulation resources are aggregate pressure rather than
-        // represented item identities. They retain the historical
-        // any-physical-item contract until content supplies a typed binding.
         Self {
+            requirement: Some(DeliveryRequirement::ItemTag {
+                tag: resource.clone(),
+            }),
             resource,
             origin_location_id,
             destination_location_id,
-            requirement: None,
             created_world_tick: world_tick,
             updated_world_tick: world_tick,
         }
     }
 
-    pub(super) fn accepts(&self, evidence: &DeliveryEvidence) -> bool {
+    pub(super) fn accepts(
+        &self,
+        evidence: &DeliveryEvidence,
+        item_facts: &DeliveryItemFacts,
+    ) -> bool {
         self.origin_location_id == evidence.origin_location_id
             && self.destination_location_id == evidence.destination_location_id
             && self
                 .requirement
                 .as_ref()
-                .is_none_or(|requirement| requirement.accepts(evidence))
+                .is_none_or(|requirement| requirement.accepts(evidence, item_facts))
     }
 }
 
@@ -142,6 +172,13 @@ mod tests {
         }
     }
 
+    fn facts(template_id: Option<&str>, tags: &[&str]) -> DeliveryItemFacts {
+        DeliveryItemFacts {
+            template_id: template_id.map(str::to_string),
+            tags: tags.iter().map(|tag| (*tag).to_string()).collect(),
+        }
+    }
+
     #[test]
     fn exact_item_requirement_rejects_another_item_on_the_same_route() {
         let delivery = DeliveryJobSpec {
@@ -153,8 +190,49 @@ mod tests {
             updated_world_tick: 1,
         };
 
-        assert!(delivery.accepts(&evidence(4)));
-        assert!(!delivery.accepts(&evidence(5)));
+        assert!(delivery.accepts(&evidence(4), &DeliveryItemFacts::default()));
+        assert!(!delivery.accepts(&evidence(5), &DeliveryItemFacts::default()));
+    }
+
+    #[test]
+    fn immutable_template_and_authored_tag_requirements_match_resolved_facts() {
+        let evidence = evidence(4);
+        let item_facts = facts(Some("river_sprat"), &["fish", "provisions"]);
+        assert!(DeliveryRequirement::ExactTemplate {
+            template_id: "river_sprat".to_string(),
+        }
+        .accepts(&evidence, &item_facts));
+        assert!(!DeliveryRequirement::ExactTemplate {
+            template_id: "iron_nodule".to_string(),
+        }
+        .accepts(&evidence, &item_facts));
+        assert!(DeliveryRequirement::ItemTag {
+            tag: "fish".to_string(),
+        }
+        .accepts(&evidence, &item_facts));
+        assert!(!DeliveryRequirement::ItemTag {
+            tag: "ore".to_string(),
+        }
+        .accepts(&evidence, &item_facts));
+    }
+
+    #[test]
+    fn delivery_requirement_rejects_unknown_matchers_and_fields() {
+        assert!(
+            serde_json::from_value::<DeliveryRequirement>(serde_json::json!({
+                "kind": "anything",
+                "tag": "fish"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<DeliveryRequirement>(serde_json::json!({
+                "kind": "item_tag",
+                "tag": "fish",
+                "fallback": true
+            }))
+            .is_err()
+        );
     }
 
     #[test]
@@ -169,7 +247,7 @@ mod tests {
         .expect("legacy delivery decodes");
 
         assert!(delivery.requirement.is_none());
-        assert!(delivery.accepts(&evidence(4)));
+        assert!(delivery.accepts(&evidence(4), &DeliveryItemFacts::default()));
     }
 
     #[test]
@@ -250,8 +328,10 @@ mod tests {
                 .delivery
                 .as_ref()
                 .and_then(|delivery| delivery.requirement.as_ref())
-                .map(|requirement| match requirement {
-                    DeliveryRequirement::ExactItem { item_id } => *item_id,
+                .and_then(|requirement| match requirement {
+                    DeliveryRequirement::ExactItem { item_id } => Some(*item_id),
+                    DeliveryRequirement::ExactTemplate { .. }
+                    | DeliveryRequirement::ItemTag { .. } => None,
                 }),
             Some(DEWBRIGHT_BUTTON_ITEM_ID)
         );

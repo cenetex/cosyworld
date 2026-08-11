@@ -609,7 +609,7 @@
       "public_trace": "marked the first uncovered stone so the next visitor can trust the washed path"
     }
   },
-  "bundle_hash": "sha256:aa32fc4a74c3768d89f8b27fa50beea55f6fc3987a4a64a7c15ab90ee1ccea78",
+  "bundle_hash": "sha256:06faab50ec5a0439d3d84ac83f22680b766c795a2ac7bf59b1e9a6c3b44b8945",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -773,7 +773,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.11",
+      "version": "1.3.12",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -918,6 +918,12 @@
               "from_policy_id": "cosyworld.compatibility.host-generation/1",
               "from_migration_version": 0,
               "from_pack_version": "1.3.10",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.core/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.3.11",
               "mode": "preserve_descendants"
             }
           ],
@@ -1480,6 +1486,13 @@
               "role": "consumable",
               "weight_tenths": 5,
               "size": "small",
+              "delivery_tags": [
+                "broth",
+                "herbs",
+                "medicine",
+                "tea",
+                "warmth"
+              ],
               "mechanics": {
                 "binding": "srd5.2.1:utilize",
                 "equipment_profile": "carried",
@@ -1503,7 +1516,11 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "fish",
+                "provisions"
+              ]
             },
             {
               "id": "smoked_river_sprat",
@@ -1513,7 +1530,11 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "fish",
+                "provisions"
+              ]
             },
             {
               "id": "glassfin_scale",
@@ -1523,7 +1544,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 1,
-              "size": "tiny"
+              "size": "tiny",
+              "delivery_tags": [
+                "fish"
+              ]
             },
             {
               "id": "iron_nodule",
@@ -1533,7 +1557,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 20,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "iron_bloom",
@@ -1543,7 +1570,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 14,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "waystone_bracket",
@@ -1553,7 +1583,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 12,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "quartz_chip",
@@ -1563,7 +1596,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 5,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "orchard_apple",
@@ -1573,7 +1609,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             },
             {
               "id": "amber_pear",
@@ -1583,7 +1622,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             },
             {
               "id": "garden_beans",
@@ -1593,7 +1635,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             },
             {
               "id": "moon_carrot",
@@ -1603,7 +1648,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 2,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             }
           ],
           "tables": [
@@ -1772,7 +1820,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:04a333d2b519d3bf580b6adc75100b2573546567efb35ae764090872c5a82f2c"
+      "integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93"
     }
   ],
   "files": {

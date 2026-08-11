@@ -5,11 +5,7 @@ pub(super) struct ScoutRequest {
     pub(super) actor_id: u64,
     pub(super) actor_session: Option<String>,
     pub(super) destination_location_id: u64,
-    pub(super) wallet_address: Option<String>,
-    pub(super) wallet: Option<String>,
     pub(super) wallet_session: Option<String>,
-    pub(super) owned_card_ids: Option<String>,
-    pub(super) cards: Option<String>,
 }
 
 pub(super) async fn scout_access_context(
@@ -21,11 +17,7 @@ pub(super) async fn scout_access_context(
         &StateQuery {
             actor_id: Some(payload.actor_id),
             actor_session: payload.actor_session.clone(),
-            wallet_address: payload.wallet_address.clone(),
-            wallet: payload.wallet.clone(),
             wallet_session: payload.wallet_session.clone(),
-            owned_card_ids: payload.owned_card_ids.clone(),
-            cards: payload.cards.clone(),
             openrouter_connected: None,
         },
         &ownership,
@@ -1382,24 +1374,21 @@ mod tests {
     }
 
     #[test]
-    fn scout_choice_uses_the_same_gated_access_as_its_offer() {
+    fn scout_choice_does_not_require_wallet_access() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
             actor_id,
             MOONLIT_TRAIL_LOCATION_ID,
-            "Gated Scout",
+            "Public Scout",
         );
         discover_seed_exit_pair_for_test(
             &mut runtime,
             MOONLIT_TRAIL_LOCATION_ID,
             GREAT_LIBRARY_LOCATION_ID,
         );
-        let access = AccessContext {
-            owned_card_ids: BTreeSet::from(["location-library".to_string()]),
-            ..AccessContext::default()
-        };
+        let access = AccessContext::default();
         assert!(
             runtime
                 .state_response(Some(actor_id), &access)
@@ -1412,13 +1401,13 @@ mod tests {
                             .as_ref()
                             .is_some_and(|target| target.id == Some(GREAT_LIBRARY_LOCATION_ID))
                 }),
-            "the owned destination should produce a legal Scout offer"
+            "the destination should produce a legal Scout offer without wallet ownership"
         );
         assert!(
             runtime
                 .plan_scout_choice_action_with_access(actor_id, GREAT_LIBRARY_LOCATION_ID, &access,)
                 .is_ok(),
-            "the submitted Scout choice must resolve with the offer's access context"
+            "the submitted Scout choice must remain wallet-free"
         );
     }
 

@@ -44,6 +44,10 @@ impl StateKey {
     pub(super) const GIFT_AUTO_ACCEPTS: Self = Self("gift_auto_accepts");
     pub(super) const WORLD_ITEMS: Self = Self("world_items");
     pub(super) const ACTOR_RULES_FACETS: Self = Self("actor_rules_facets");
+    pub(super) const ADVANCEMENT_SPENDS: Self = Self("advancement_spends");
+    pub(super) const CHARM_SLOTS: Self = Self("charm_slots");
+    pub(super) const EQUIPPED_CHARMS: Self = Self("equipped_charms");
+    pub(super) const PREPARED_SPELLS: Self = Self("prepared_spells");
     /// Appending an event is itself durable projection state. Any handler that
     /// returns events writes these two, which is easy to miss by inspection and
     /// is why the declaration is derived from a run rather than from reading.
@@ -214,6 +218,71 @@ mod projection_write_set_tests {
                     "item_id": 7,
                     "equipped": true,
                     "reason": "equipment_configuration",
+                }),
+            ),
+            (
+                ProjectionMutation::SetItemContained(projection_items::SetItemContained {
+                    item_id: 13,
+                    container_item_id: Some(12),
+                    reason: "container_configuration".to_string(),
+                }),
+                json!({
+                    "kind": "set_item_contained",
+                    "item_id": 13,
+                    "container_item_id": 12,
+                    "reason": "container_configuration",
+                }),
+            ),
+            (
+                ProjectionMutation::SetCharmEquipped(projection_items::SetCharmEquipped {
+                    item_id: 2003,
+                    equipped: true,
+                    reason: "deck_configuration".to_string(),
+                }),
+                json!({
+                    "kind": "set_charm_equipped",
+                    "item_id": 2003,
+                    "equipped": true,
+                    "reason": "deck_configuration",
+                }),
+            ),
+            (
+                ProjectionMutation::UnlockCharmSlot(projection_items::UnlockCharmSlot {
+                    cost: 1,
+                    reason: "deck_loadout".to_string(),
+                }),
+                json!({
+                    "kind": "unlock_charm_slot",
+                    "cost": 1,
+                    "reason": "deck_loadout",
+                }),
+            ),
+            (
+                ProjectionMutation::UnlockCharmSlotForCharm(
+                    projection_items::UnlockCharmSlotForCharm {
+                        item_id: 2901,
+                        cost: 1,
+                        reason: "deck_loadout".to_string(),
+                    },
+                ),
+                json!({
+                    "kind": "unlock_charm_slot_for_charm",
+                    "item_id": 2901,
+                    "cost": 1,
+                    "reason": "deck_loadout",
+                }),
+            ),
+            (
+                ProjectionMutation::SetSpellPrepared(projection_items::SetSpellPrepared {
+                    item_id: 2014,
+                    prepared: true,
+                    reason: "spell_deck_configuration".to_string(),
+                }),
+                json!({
+                    "kind": "set_spell_prepared",
+                    "item_id": 2014,
+                    "prepared": true,
+                    "reason": "spell_deck_configuration",
                 }),
             ),
         ];

@@ -1895,15 +1895,6 @@
       display: grid;
       gap: 6px;
     }
-    .account-asset.kept-close {
-      border-color: rgba(255, 211, 106, 0.72);
-      box-shadow: inset 0 0 0 1px rgba(255, 211, 106, 0.16);
-      background: rgba(255, 211, 106, 0.07);
-    }
-    .account-asset.kept-close .account-asset-title::before {
-      content: "✦ ";
-      color: var(--amber);
-    }
     .account-card-open {
       width: 100%;
       border: 0;
@@ -1962,7 +1953,7 @@
       font-weight: 900;
       text-transform: uppercase;
     }
-    .keepsake-note {
+    .item-note {
       color: var(--dim);
       font-size: 11px;
       line-height: 1.45;
@@ -2120,28 +2111,11 @@
         inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.46),
         inset 0 0 0 1px rgba(255,255,255,0.018);
     }
-    .cmd.keepsake-guided {
-      box-shadow:
-        inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.46),
-        inset 0 0 0 1px rgba(255, 211, 106, 0.24);
-    }
     .cmd.story-guided {
       box-shadow:
         inset 3px 0 0 rgba(var(--cmd-accent-rgb), 0.54),
         inset 0 0 0 1px rgba(139, 183, 255, 0.38),
         0 0 0 1px rgba(139, 183, 255, 0.12);
-    }
-    .keepsake-call {
-      display: block;
-      min-width: 0;
-      color: var(--amber);
-      font-size: 10px;
-      font-weight: 900;
-      line-height: 1.15;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      opacity: 0.92;
     }
     .story-call {
       display: block;
@@ -2893,24 +2867,6 @@
       border-radius: 4px;
       font-size: 12px;
     }
-    .card-keepsake {
-      margin-top: 10px;
-      border-top: 1px solid rgba(129, 255, 167, 0.18);
-      padding-top: 8px;
-      color: var(--text);
-      font-size: 12px;
-      line-height: 1.35;
-      overflow-wrap: anywhere;
-    }
-    .card-keepsake:empty { display: none; }
-    .card-keepsake span {
-      display: block;
-      margin-bottom: 3px;
-      color: var(--amber);
-      font-size: 11px;
-      font-weight: 900;
-      text-transform: uppercase;
-    }
     .card-section-label {
       color: var(--amber);
       font-size: 11px;
@@ -3059,12 +3015,12 @@
       background: transparent;
     }
     .avatar-known-items,
-    .nearby-keepsakes {
+    .nearby-cards {
       display: grid;
       gap: 6px;
     }
     .avatar-items-label,
-    .nearby-keepsakes-label {
+    .nearby-cards-label {
       color: var(--amber);
       font-size: 11px;
       font-weight: 900;
@@ -3072,13 +3028,13 @@
       text-transform: uppercase;
     }
     .avatar-item-rail,
-    .nearby-keepsake-rail {
+    .nearby-card-rail {
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
     }
     .avatar-item-chip,
-    .nearby-keepsake-chip {
+    .nearby-card-chip {
       width: 50px;
       min-width: 50px;
       height: 50px;
@@ -3091,12 +3047,12 @@
     }
     .avatar-item-chip:hover,
     .avatar-item-chip[aria-expanded="true"],
-    .nearby-keepsake-chip:hover {
+    .nearby-card-chip:hover {
       border-color: var(--amber);
       box-shadow: 0 0 0 1px rgba(255, 211, 106, 0.2);
     }
     .avatar-item-art,
-    .nearby-keepsake-art {
+    .nearby-card-art {
       width: 100%;
       height: 100%;
       display: grid;
@@ -3107,7 +3063,7 @@
       background-size: cover;
     }
     .avatar-item-art .ui-icon,
-    .nearby-keepsake-art .ui-icon {
+    .nearby-card-art .ui-icon {
       width: 22px;
       height: 22px;
     }
@@ -3270,12 +3226,6 @@
         grid-row: 6;
         margin-top: 4px;
         font-size: 15px;
-        line-height: 1.45;
-      }
-      .card-dialog.portrait-card .card-keepsake {
-        grid-column: 1 / -1;
-        grid-row: 7;
-        font-size: 14px;
         line-height: 1.45;
       }
       .card-dialog.portrait-card .card-economy-row {
@@ -4396,7 +4346,6 @@
     body.large-text .card-dialog :is(
       .card-title,
       .card-blurb,
-      .card-keepsake,
       .card-economy-row,
       .card-art-status strong,
       .card-more > summary,
@@ -4411,7 +4360,7 @@
       .card-section-label,
       .card-art-status span,
       .avatar-items-label,
-      .nearby-keepsakes-label,
+      .nearby-cards-label,
       .avatar-icon-action.account-button
     ) {
       font-size: 0.85em;
@@ -4742,7 +4691,7 @@
     <main class="terminal">
       <section class="room">
         <div class="room-hero" id="room-hero">
-          <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open">
+          <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location card" data-player-concept="card" data-analytics-event="card.open">
             <img id="room-hero-image" alt="" />
           </button>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
@@ -4800,8 +4749,8 @@
     </footer>
   </div>
   <div class="card-modal" id="card-modal" hidden>
-    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1" data-player-concept="keepsake">
-      <button class="card-close" type="button" data-card-close aria-label="Close keepsake details">x</button>
+    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1" data-player-concept="card">
+      <button class="card-close" type="button" data-card-close aria-label="Close card details">x</button>
       <div class="card-dialog-scroll">
         <div class="card-art-column">
           <div class="card-art"><img id="card-modal-image" alt="" aria-describedby="card-modal-art-workshop" /></div>
@@ -4812,7 +4761,6 @@
           <div class="card-title" id="card-modal-title"></div>
           <div class="card-blurb" id="card-modal-blurb"></div>
           <div class="card-meta" id="card-modal-meta"></div>
-          <div class="card-keepsake" id="card-modal-keepsake"></div>
           <div class="card-economy" id="card-modal-economy"></div>
         </div>
       </div>
@@ -4998,7 +4946,6 @@
     const openRouterConnectionStorage = "cosyworld.openrouterConnection";
     const openRouterOauthVerifierStorage = "cosyworld.openrouterOauthVerifier";
     let openRouterConnection = loadOpenRouterConnection();
-    let openingBoxId = "";
     let roomCopyExpanded = false;
     let journalOpen = false;
     let journalPageIndex = -1;
@@ -5028,12 +4975,8 @@
     const modalReturnFocus = new Map();
     let walletAddress = bootParams.get("wallet") || bootParams.get("wallet_address") || localStorage.getItem("cosyworld.wallet") || "";
     let walletSession = bootParams.get("wallet_session") || localStorage.getItem("cosyworld.walletSession") || "";
-    let ownedCardIds = parseCardIds(bootParams.get("cards") || bootParams.get("owned_card_ids") || localStorage.getItem("cosyworld.cards") || "");
-    const keepsakeCapacity = 3;
-    let equippedCardIds = loadKeepsakeLoadout();
     if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
     if (walletSession) localStorage.setItem("cosyworld.walletSession", walletSession);
-    if (ownedCardIds.length) localStorage.setItem("cosyworld.cards", ownedCardIds.join(","));
     sessionStorage.removeItem("cosyworld.openrouterApiKey");
     sessionStorage.removeItem("cosyworld.openrouterLabel");
     sessionStorage.removeItem("cosyworld.openrouterOauthReturn");
@@ -5367,7 +5310,6 @@
         localStorage.removeItem("cosyworld.walletSession");
         if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
       }
-      equippedCardIds = loadKeepsakeLoadout();
       return identity;
     }
 
@@ -5558,7 +5500,6 @@
       await contentPacksRequest;
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
-      reconcileKeepsakeLoadout();
       const nextHandCompositionSignature = authoritativeHandSignature(state);
       if (nextHandCompositionSignature !== handCompositionSignature) {
         handKeys = [];
@@ -5637,8 +5578,6 @@
       if (actorId) params.set("actor_id", String(actorId));
       if (actorSession) params.set("actor_session", actorSession);
       if (walletSession) params.set("wallet_session", walletSession);
-      if (walletAddress) params.set("wallet_address", walletAddress);
-      if (ownedCardIds.length) params.set("owned_card_ids", ownedCardIds.join(","));
       return params;
     }
 
@@ -5753,8 +5692,6 @@
         ...payload,
         ...(actorSession ? { actor_session: actorSession } : {}),
         ...(walletSession ? { wallet_session: walletSession } : {}),
-        ...(walletAddress ? { wallet_address: walletAddress } : {}),
-        ...(ownedCardIds.length ? { owned_card_ids: ownedCardIds.join(",") } : {}),
       };
     }
 
@@ -5796,60 +5733,6 @@
       if (!actorId || !actorSession) return;
       pingPresence();
       presenceHeartbeatTimer = window.setInterval(pingPresence, presenceHeartbeatMs);
-    }
-
-    function parseCardIds(value) {
-      return String(value || "")
-        .split(/[\s,;]+/)
-        .map((part) => part.trim())
-        .filter(Boolean);
-    }
-
-    function keepsakeStorageKey() {
-      const owner = String(walletAddress || "guest").trim().toLowerCase() || "guest";
-      return `cosyworld.keepsakes:${owner}`;
-    }
-
-    function loadKeepsakeLoadout() {
-      try {
-        const value = JSON.parse(localStorage.getItem(keepsakeStorageKey()) || "[]");
-        return Array.isArray(value)
-          ? [...new Set(value.map((cardId) => String(cardId || "").trim()).filter(Boolean))].slice(0, keepsakeCapacity)
-          : [];
-      } catch {
-        return [];
-      }
-    }
-
-    function saveKeepsakeLoadout() {
-      localStorage.setItem(keepsakeStorageKey(), JSON.stringify(equippedCardIds.slice(0, keepsakeCapacity)));
-    }
-
-    function ownedCollectionCards() {
-      return Array.isArray(state?.account?.owned_cards) ? state.account.owned_cards : [];
-    }
-
-    function reconcileKeepsakeLoadout() {
-      const owned = new Set(ownedCollectionCards().map((card) => card.card_id).filter(Boolean));
-      const next = equippedCardIds.filter((cardId) => owned.has(cardId)).slice(0, keepsakeCapacity);
-      if (JSON.stringify(next) === JSON.stringify(equippedCardIds)) return false;
-      equippedCardIds = next;
-      saveKeepsakeLoadout();
-      return true;
-    }
-
-    function toggleKeepsakeCard(cardId) {
-      const normalized = String(cardId || "").trim();
-      if (!normalized || !ownedCollectionCards().some((card) => card.card_id === normalized)) return false;
-      if (equippedCardIds.includes(normalized)) {
-        equippedCardIds = equippedCardIds.filter((entry) => entry !== normalized);
-      } else {
-        if (equippedCardIds.length >= keepsakeCapacity) return false;
-        equippedCardIds = [...equippedCardIds, normalized];
-      }
-      saveKeepsakeLoadout();
-      render();
-      return true;
     }
 
     function solanaProvider() {
@@ -6943,7 +6826,7 @@
             label: swapping ? "swap" : "take",
             detail: oneItem
               ? (swapping ? `${heldItemName} for ${firstItem.name}` : firstItem.name)
-              : (swapping ? `choose what replaces ${heldItemName}` : "choose a keepsake"),
+              : (swapping ? `choose what replaces ${heldItemName}` : "choose an item"),
             command: oneItem ? `take ${firstItem.name}` : "take",
             focusKey: oneItem
               ? `item:${firstItem.id}`
@@ -6959,13 +6842,13 @@
                 : `Tuck ${firstItem.name} into your keeping.`)
               : (swapping
                 ? `Choose what to keep. ${heldItemName} stays here in its place.`
-                : "Take one of the room's keepsakes."),
+                : "Take one of the room's items."),
             effect: oneItem
               ? (swapping
                 ? `${firstItem.name} comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
                 : `${firstItem.name} joins your carried deck until you use, give, trade, or drop it`)
               : (swapping
-                ? `the keepsake you choose comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
+                ? `the item you choose comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
                 : "the card you choose joins your carried deck until you use, give, trade, or drop it"),
             ...(oneItem ? {} : {
               choices: takeCandidates.map((candidate) => {
@@ -6974,8 +6857,8 @@
                 return {
                   label: item.name,
                   detail: candidate.exchangeItem
-                    ? `${item.description || card?.title || "a room keepsake"} · leaves ${candidate.exchangeItem.name}`
-                    : (item.description || card?.title || "a room keepsake"),
+                    ? `${item.description || card?.title || "a room item"} · leaves ${candidate.exchangeItem.name}`
+                    : (item.description || card?.title || "a room item"),
                   value: String(item.id),
                   card,
                 };
@@ -7027,7 +6910,7 @@
               dropOffers.find((offer) => Number(offer.target.id) === Number(item.id))?.offer_id
             )).filter(Boolean),
             label: "drop",
-            detail: oneItem ? firstItem.name : "choose a keepsake",
+            detail: oneItem ? firstItem.name : "choose an item",
             command: oneItem ? `drop ${firstItem.name}` : "drop",
             focusKey: oneItem
               ? `item:${firstItem.id}`
@@ -7038,14 +6921,14 @@
             modalTitle: oneItem ? undefined : "choose what to drop",
             modalSummary: oneItem
               ? `Leave ${firstItem.name} here for someone else to find.`
-              : "Leave one carried keepsake in this room.",
+              : "Leave one carried item in this room.",
             effect: oneItem
               ? `${firstItem.name} stays in ${view.location?.name || "the room"}`
-              : "the keepsake you choose stays in this room",
+              : "the item you choose stays in this room",
             ...(oneItem ? {} : {
               choices: dropCandidates.map((item) => ({
                 label: item.name,
-                detail: item.description || cardForItem(item.id)?.title || "a carried keepsake",
+                detail: item.description || cardForItem(item.id)?.title || "a carried item",
                 value: String(item.id),
                 card: cardForItem(item.id),
               })),
@@ -7751,7 +7634,7 @@
           : [null];
         sourceChoices.forEach((choice, choiceIndex) => {
           const rawDetail = String(choice?.detail || source.detail || "").trim();
-          const itemName = String(source.itemName || rawDetail.split("·")[0].split(/\s+(?:with|on)\s+/i)[0] || "keepsake").trim();
+          const itemName = String(source.itemName || rawDetail.split("·")[0].split(/\s+(?:with|on)\s+/i)[0] || "item").trim();
           const feature = source.useChoiceKind === "feature";
           const targetLabel = String(choice?.label || source.targetName || "you").trim();
           const label = feature
@@ -7800,7 +7683,7 @@
         modalTitle: sameItem ? `choose how to use ${itemNames[0]}` : "choose what to use",
         modalSummary: sameItem
           ? `Choose what ${itemNames[0]} should do here.`
-          : "Choose a keepsake and how to use it.",
+          : "Choose an item and how to use it.",
         effect: "the use you choose changes the scene",
         choices: modes.map((mode) => ({
           label: mode.label,
@@ -8062,18 +7945,18 @@
       $("wallet-app-links").hidden = false;
     }
 
-    async function claimNftWallet() {
+    async function linkAvatarWallet() {
       if (!identity?.authenticated) throw new Error("Sign in with a passkey first.");
-      setStatus("Create a portable NFT wallet claim.", "ok");
+      setStatus("Create a portable linked-avatar wallet claim.", "ok");
       const started = await post("/auth/wallet-claims/start", {});
       if (!started.ok || !started.claim_id || !started.poll_token) {
         throw new Error(started.error || "Wallet claim could not start.");
       }
       const portableUrl = new URL(started.mobile_path || `/wallet/claim/${started.claim_id}`, window.location.href).toString();
       const qrSvgUrl = new URL(started.qr_svg_path || `/wallet/claim/${started.claim_id}/code.svg`, window.location.href).toString();
-      $("wallet-modal-title").textContent = "claim NFT wallet";
-      $("wallet-modal").querySelector(".wallet-copy").textContent = "Open this link in Phantom or Solflare. Sign one message there; this passkey browser stays signed in here.";
-      $("wallet-qr-image").alt = "NFT wallet claim QR code";
+      $("wallet-modal-title").textContent = "link avatar wallet";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Open this link in Phantom or Solflare. Sign one message to discover supported linked avatars; this passkey browser stays signed in here.";
+      $("wallet-qr-image").alt = "Linked-avatar wallet claim QR code";
       $("wallet-qr-image").src = qrSvgUrl;
       $("wallet-mobile-url").textContent = portableUrl;
       configureWalletAppLinks(portableUrl);
@@ -8087,8 +7970,7 @@
             const status = await api(`/auth/wallet-claims/status?claim_id=${encodeURIComponent(started.claim_id)}&poll_token=${encodeURIComponent(started.poll_token)}`);
             if (status.ok && status.state === "complete" && status.wallet_address) {
               applyIdentity(await api("/auth/account"));
-              equippedCardIds = loadKeepsakeLoadout();
-              setStatus(status.moved ? "NFT wallet claim moved here." : "NFT wallet claimed.", "ok");
+              setStatus(status.moved ? "Avatar wallet link moved here." : "Avatar wallet linked.", "ok");
               focusIndex = 0;
               focusedKey = "";
               playerPromotedHandKey = "";
@@ -8133,7 +8015,6 @@
             if (status.ok && status.state === "complete" && status.wallet_session) {
               walletAddress = status.wallet_address || walletAddress;
               walletSession = status.wallet_session;
-              equippedCardIds = loadKeepsakeLoadout();
               if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
               localStorage.setItem("cosyworld.walletSession", walletSession);
               setStatus("Wallet connected.", "ok");
@@ -8198,7 +8079,6 @@
         }
         walletAddress = session.wallet_address || nextWallet;
         walletSession = session.wallet_session;
-        equippedCardIds = loadKeepsakeLoadout();
         localStorage.setItem("cosyworld.wallet", walletAddress);
         localStorage.setItem("cosyworld.walletSession", walletSession);
         setStatus("Wallet connected.", "ok");
@@ -8214,126 +8094,12 @@
       }
     }
 
-    async function openBox(boxAssetAddress) {
-      if (!walletSession) {
-        const connected = await connectWallet();
-        if (!connected) {
-          setError("Connect a wallet to open this Box.");
-          return;
-        }
-      }
-      setError("");
-      setStatus("Opening Box...", "ok");
-      openingBoxId = boxAssetAddress;
-      accountPanelPinned = true;
-      render();
-      try {
-        const prepared = await post("/nft/boxes/burn-prepare", {
-          wallet_session: walletSession,
-          box_asset_address: boxAssetAddress,
-        });
-        if (!prepared.ok) {
-          throw new Error(prepared.error || "Box cannot be opened.");
-        }
-        let packId = prepared.pack_id || "";
-        if (!String(prepared.burn_message || "").startsWith("Box already")) {
-          const burnSignature = prepared.burn_transaction
-            ? await signAndSendBoxBurnTransaction(prepared.burn_transaction)
-            : await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
-          const confirmed = await post("/nft/boxes/burn-confirm", {
-            wallet_session: walletSession,
-            box_asset_address: boxAssetAddress,
-            burn_signature: burnSignature,
-          });
-          if (!confirmed.ok) {
-            throw new Error(confirmed.error || "The Box could not be opened.");
-          }
-          packId = confirmed.receipt?.pack_id || packId;
-        }
-        if (!packId) throw new Error("Box did not create an avatar bundle.");
-        await openPack(packId);
-      } finally {
-        openingBoxId = "";
-        render();
-      }
-    }
-
-    async function openPack(packId) {
-      if (!walletSession) {
-        const connected = await connectWallet();
-        if (!connected) {
-          setError("Connect a wallet to open this avatar bundle.");
-          return;
-        }
-      }
-      setError("");
-      setStatus("Opening avatar bundle...", "ok");
-      const opened = await post("/nft/packs/open", {
-        wallet_session: walletSession,
-        pack_id: packId,
-      });
-      if (!opened.ok) {
-        throw new Error(opened.error || "Avatar bundle could not be opened.");
-      }
-      const cards = opened.opening?.card_ids || [];
-      setStatus(cards.length ? `Opened avatar bundle: ${cards.join(", ")}` : "Opened avatar bundle.", "ok");
-      focusIndex = 0;
-      focusedKey = "";
-      playerPromotedHandKey = "";
-      accountPanelPinned = true;
-      await refresh();
-    }
-
-    async function signAndSendBoxBurnTransaction(transaction) {
-      const provider = solanaProvider();
-      if (!provider?.request) {
-        throw new Error("A Solana wallet with transaction signing is needed to burn this Box.");
-      }
-      if (transaction?.message_encoding !== "base58" || !transaction?.message) {
-        throw new Error("The Box burn transaction could not be read safely.");
-      }
-      setStatus("Confirm the irreversible Box burn in your Solana wallet.", "ok");
-      const signed = await withTimeout(
-        provider.request({
-          method: "signAndSendTransaction",
-          params: { message: transaction.message },
-        }),
-        walletRequestTimeoutMs,
-        "Wallet transaction timed out."
-      );
-      const signature = String(signed?.signature || signed?.hash || signed || "").trim();
-      if (!signature) throw new Error("Wallet did not return a transaction signature.");
-      return signature;
-    }
-
     function avatarFailureMessage(result = {}) {
       const status = Number(result.status || 0);
       if (status === 429) return "Avatar creation is moving too quickly. Try again in a moment.";
       if (status === 403) return "That avatar cannot be used right now.";
       if (status === 502) return "AI could not shape that avatar.";
       return "Avatar could not be generated.";
-    }
-
-    async function signWalletMessage(message) {
-      const provider = solanaProvider();
-      if (!provider?.signMessage) {
-        throw new Error("Solana wallet signature is needed to open a Box.");
-      }
-      const encoded = new TextEncoder().encode(message);
-      const signed = await withTimeout(
-        provider.signMessage(encoded, "utf8"),
-        walletRequestTimeoutMs,
-        "Wallet signature timed out."
-      );
-      const bytes = Array.from(signed?.signature || signed || []);
-      if (!bytes.length) throw new Error("Wallet did not return a signature.");
-      return bytesToHex(bytes);
-    }
-
-    function bytesToHex(bytes) {
-      return bytes
-        .map((byte) => Number(byte).toString(16).padStart(2, "0"))
-        .join("");
     }
 
     function offerKindsForPath(path, actionCard = pendingAction) {
@@ -8961,17 +8727,9 @@
           return true;
         }
         const previousLocationId = state?.location?.id || null;
-        const previousAccess = state?.access || null;
-        const previousAccount = state?.account || null;
         state = receipt.state;
         state.world_tick = Number(receipt.world_tick || 0);
         state.state_revision = Number(receipt.state_revision || 0);
-        if (previousAccess && !(state.access?.owned_card_ids || []).length) {
-          state.access = previousAccess;
-        }
-        if (previousAccount && !state.account?.authenticated) {
-          state.account = previousAccount;
-        }
         const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
         if (locationChanged) {
           pendingChats = [];
@@ -10300,7 +10058,7 @@
       const roomHeroImage = $("room-hero-image");
       roomHeroImage.src = locationArt;
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
-      roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} keepsake`);
+      roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} card`);
       setCardTarget(roomHeroCard, locationCard);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       renderCombatHeading();
@@ -10334,8 +10092,6 @@
       const parts = [
         `<span class="economy-stat orbs">${iconSvg("orb")}<strong>${orbs}</strong> <span class="economy-unit">Orbs</span></span>`,
       ];
-      const boxes = Array.isArray(state?.account?.active_box_ids) ? state.account.active_box_ids.length : 0;
-      const packs = Array.isArray(state?.account?.unopened_pack_ids) ? state.account.unopened_pack_ids.length : 0;
       const compact = window.matchMedia("(max-width: 900px)").matches;
       if (economyFlash) {
         parts.push(`<span class="economy-flash ${escapeAttr(economyFlash.kind)}">${escapeHtml(economyFlash.text)}</span>`);
@@ -10345,10 +10101,6 @@
         const capacity = Number(state.deck.carrying_capacity_tenths || 0) / 10;
         parts.push(`<span class="economy-stat carry">${iconSvg("bag")}<strong>${carried.toFixed(1)}</strong> <span>/ ${capacity.toFixed(1)} lb</span></span>`);
       }
-      if (!compact) {
-        if (boxes) parts.push(`<span class="economy-stat">${iconSvg("box")}<strong>${boxes}</strong> <span>${boxes === 1 ? "Box" : "Boxes"}</span></span>`);
-        if (packs) parts.push(`<span class="economy-stat">${iconSvg("cards")}<strong>${packs}</strong> <span>${packs === 1 ? "bundle" : "bundles"}</span></span>`);
-      }
       const economyNode = $("economy");
       economyNode.innerHTML = parts.join("");
       economyNode.setAttribute("aria-label", `${orbs} Orbs and carried deck status`);
@@ -10357,16 +10109,9 @@
     function exitUnavailable(exit, view = state) {
       if (!exit) return true;
       if (truthyFlag(exit.locked) || falseyFlag(exit.accessible)) return true;
-      if (exitLockText(exit)) return true;
       const destinationCard = cardForLocationInView(view, exit.destination_location_id);
       if (falseyFlag(destinationCard?.accessible)) return true;
-      const requiredCardId = String(exit.required_card_id || "").trim();
-      if (!requiredCardId) return false;
-      const access = view?.access || {};
-      const lockedCardIds = Array.isArray(access.locked_card_ids) ? access.locked_card_ids.map(String) : [];
-      if (lockedCardIds.includes(requiredCardId)) return true;
-      const accessibleCardIds = Array.isArray(access.accessible_card_ids) ? access.accessible_card_ids.map(String) : null;
-      return Boolean(accessibleCardIds && !accessibleCardIds.includes(requiredCardId));
+      return false;
     }
 
     function truthyFlag(value) {
@@ -10379,21 +10124,6 @@
       if (value === false || value === 0) return true;
       const text = String(value || "").trim().toLowerCase();
       return text === "false" || text === "0" || text === "no" || text === "locked";
-    }
-
-    function exitLockText(exit) {
-      const text = [
-        exit.status,
-        exit.state,
-        exit.reason,
-        exit.access_reason,
-        exit.kicker,
-      ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean).join(" ");
-      return text.includes("pass required")
-        || text.includes("access required")
-        || text.includes("card locked")
-        || text.includes("wallet needed")
-        || text.includes("card required");
     }
 
     function cardForLocationInView(view, id) {
@@ -10465,7 +10195,7 @@
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
         const ring = expeditionRingPresentation(actor, stateRevision);
-        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
+        return `<span class="room-avatar-frame${ring.needsRest ? " needs-rest" : ""}"><button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} card" data-player-concept="card" data-analytics-event="card.open"${backgroundImageStyle(image)}></button>${ring.html}</span>`;
       }).join("");
     }
 
@@ -10741,7 +10471,7 @@
         const gift = String(give.detail || "").match(/^(.+?)\s+to\s+(.+)$/i);
         return makeThread(
           give,
-          gift ? `${gift[2]} is waiting for ${gift[1]}` : "A nearby avatar is hoping for one of your keepsakes",
+          gift ? `${gift[2]} is waiting for ${gift[1]}` : "A nearby avatar is hoping for one of your items",
           "gift",
         );
       }
@@ -10750,7 +10480,7 @@
           && Number(actionRank(action)) <= 10
       ));
       if (urgentUse) {
-        return makeThread(urgentUse, "One of your keepsakes could help someone right now", "care");
+        return makeThread(urgentUse, "One of your items could help someone right now", "care");
       }
       const sharedWork = findIntention("contribute") || findAction("prepare");
       if (sharedWork) {
@@ -10995,7 +10725,7 @@
       relationship: "bonds and promises",
       growth: "quiet changes in who people are becoming",
       work: "work carried together",
-      item: "keepsakes found, made, and shared",
+      item: "items found, made, and shared",
       consequence: "choices that left a mark",
     };
     const journalPageTitles = {
@@ -11738,7 +11468,7 @@
       document.querySelector(".prompt").hidden = Boolean(panelMode);
       if (panelMode) {
         log.setAttribute("role", "region");
-        log.setAttribute("aria-label", panelMode === "library" ? "World Library" : "Your avatar and collection");
+        log.setAttribute("aria-label", panelMode === "library" ? "World Library" : "Your avatar menu");
         log.removeAttribute("aria-live");
         log.removeAttribute("aria-relevant");
       } else {
@@ -11788,7 +11518,7 @@
     function menuNavHtml(active = menuSection) {
       const entries = [
         ["deck", "deck"],
-        ["collection", "collection & account"],
+        ["character", "character"],
         ["identity", "sign in / identity"],
         ["world", "worlds & packs"],
         ["journal", "journal"],
@@ -11796,7 +11526,7 @@
       ];
       const icons = {
         deck: "cards",
-        collection: "collection",
+        character: "avatar",
         identity: "key",
         world: "world",
         journal: "journal",
@@ -11837,7 +11567,7 @@
       const slots = Number(deck.bracelet_slots || 0);
       const expansion = deck.charm_slot_expansion || null;
       const unlock = expansion
-        ? `<div class="keepsake-note"><strong>${escapeHtml(expansion.label || "Make room")}</strong><br>${escapeHtml(expansion.explanation || "")}</div><button class="account-button secondary" type="button" data-unlock-charm-slot>${escapeHtml(expansion.label || "Make room")} · ${Number(expansion.advancement_cost || 1)} advancement</button>`
+        ? `<div class="item-note"><strong>${escapeHtml(expansion.label || "Make room")}</strong><br>${escapeHtml(expansion.explanation || "")}</div><button class="account-button secondary" type="button" data-unlock-charm-slot>${escapeHtml(expansion.label || "Make room")} · ${Number(expansion.advancement_cost || 1)} advancement</button>`
         : "";
       const charmRows = [
         ...equipped.map((card) => deckCardRow(card, `<button class="account-button secondary" type="button" data-set-charm="${card.id}" data-equipped="false">remove</button>`)),
@@ -11845,9 +11575,6 @@
       ].join("");
       const firstContainer = containers[0]?.container || null;
       const carriedRows = carried.length ? carried.map((card) => {
-        const receipt = (state?.account?.materialization_receipts || []).find((entry) => (
-          Number(entry.item_id) === Number(card.id) && entry.status === "materialized"
-        ));
         const actionParts = [];
         if (["weapon", "container", "tool"].includes(String(card.role || ""))) {
           const equipped = card.zone === "equipped";
@@ -11856,9 +11583,6 @@
           actionParts.push(`<button class="account-button secondary" type="button" data-set-contained="${card.id}" data-container="">take out</button>`);
         } else if (firstContainer && !["skill_charm", "spell"].includes(String(card.role || ""))) {
           actionParts.push(`<button class="account-button secondary" type="button" data-set-contained="${card.id}" data-container="${firstContainer.id}">put in ${escapeHtml(firstContainer.name)}</button>`);
-        }
-        if (receipt && card.zone === "carried") {
-          actionParts.push(`<button class="account-button secondary" type="button" data-unmaterialize-receipt="${escapeAttr(receipt.id)}">return to collection</button>`);
         }
         return deckCardRow(card, actionParts.join(""));
       }).join("") : `<div class="deck-empty">Your carried deck is empty. Pick up item cards in the world.</div>`;
@@ -11876,14 +11600,14 @@
         .join("");
       const containerRows = containers.map((entry) => {
         const contentNames = (entry.contents || []).map((card) => card.name).join(", ") || "empty";
-        return `<div class="keepsake-note"><strong>${escapeHtml(entry.container?.name || "container")}</strong> · ${entry.equipped ? "equipped" : "inactive"} · opening ${escapeHtml(entry.opening_size || "none")} · contents: ${escapeHtml(contentNames)}</div>`;
+        return `<div class="item-note"><strong>${escapeHtml(entry.container?.name || "container")}</strong> · ${entry.equipped ? "equipped" : "inactive"} · opening ${escapeHtml(entry.opening_size || "none")} · contents: ${escapeHtml(contentNames)}</div>`;
       }).join("");
       const validation = validationErrors.map((message) => `<div class="deck-empty">${escapeHtml(message)}</div>`).join("");
-      const previews = bagPreviews.map((message) => `<div class="keepsake-note">${escapeHtml(message)}</div>`).join("");
+      const previews = bagPreviews.map((message) => `<div class="item-note">${escapeHtml(message)}</div>`).join("");
       const exhaustedRows = exhaustedCards.length
         ? exhaustedCards.map((card) => deckCardRow(card, `<span class="account-wallet">exhausted</span>`)).join("")
         : `<div class="deck-empty">No cards are exhausted.</div>`;
-      return `<div class="account-title"><h2 id="account-panel-title">your deck</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>carried weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spell cards</small></div></div>${validation}${previews}<div class="account-section-title">equipped loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">spell deck</div><div class="keepsake-note">Only prepared spell cards can be cast. Spent cards remain in the deck as exhausted until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">exhausted / discard</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">all carried cards</div><div class="deck-card-list">${carriedRows}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">your deck</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>carried weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spell cards</small></div></div>${validation}${previews}<div class="account-section-title">equipped loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">spell deck</div><div class="item-note">Only prepared spell cards can be cast. Spent cards remain in the deck as exhausted until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">exhausted / discard</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">all carried cards</div><div class="deck-card-list">${carriedRows}</div>`;
     }
 
     function journalPanelHtml() {
@@ -11895,7 +11619,7 @@
       const deck = state?.deck || {};
       const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
       const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
-      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="keepsake-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", openRouterApiKey() ? "your OpenRouter connection" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="item-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "a short avatar and resident exchange")}${accountRow("Befriend", "uses advancement to begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", openRouterApiKey() ? "your OpenRouter connection" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
     }
 
     function libraryPanelHtml() {
@@ -11912,12 +11636,12 @@
         : `<div class="account-empty">No playable world is available yet.</div>`;
       const supportingCards = supporting.map(libraryPackHtml).join("");
       const bundleDetails = bundle
-        ? `<details class="library-technical"><summary>bundle details</summary><code>${escapeHtml(bundle)}</code></details>`
+        ? `<details class="library-technical"><summary>world pack details</summary><code>${escapeHtml(bundle)}</code></details>`
         : "";
       const systemPacks = supportingCards
         ? `<details class="menu-disclosure library-system-packs"><summary>${iconSvg("settings")}<span>About this world</span><small>${escapeHtml(`${supporting.length} supporting ${supporting.length === 1 ? "pack" : "packs"}`)}</small></summary><div class="menu-disclosure-body"><div class="library-grid">${supportingCards}</div>${bundleDetails}</div></details>`
         : bundleDetails;
-      return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">Worlds</h2><small>${escapeHtml(`${playable.length} playable ${playable.length === 1 ? "world" : "worlds"} · ${packs.length} world packs mounted`)}</small></div><div class="library-intro">Continue through an open world, or see which keepsake unlocks a new place.</div>${worldChronicleHtml()}<div class="library-grid featured">${cards}</div>${systemPacks}</section>`;
+      return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">Worlds</h2><small>${escapeHtml(`${playable.length} playable ${playable.length === 1 ? "world" : "worlds"} · ${packs.length} world packs mounted`)}</small></div><div class="library-intro">Continue through any mounted world. Ordinary places are public and need no wallet.</div>${worldChronicleHtml()}<div class="library-grid featured">${cards}</div>${systemPacks}</section>`;
     }
 
     function worldChronicleHtml() {
@@ -11937,15 +11661,9 @@
     }
 
     function libraryPackHtml(pack) {
-      const stateName = String(pack.access_state || "included");
       const locations = Array.isArray(pack.locations) ? pack.locations : [];
       const shownLocations = locations.slice(0, 6).map((location) => {
-        const open = location.accessible !== false;
-        const stateLabel = open ? "open" : (location.required_card_id ? "pass required" : "access required");
-        const conceptAttr = open
-          ? 'data-player-concept="world-pack"'
-          : 'data-player-concept="pass"';
-        return `<div class="library-location${open ? " accessible" : ""}" ${conceptAttr}><span>${escapeHtml(location.name || `Location ${location.id}`)}</span><span class="library-location-state">${escapeHtml(stateLabel)}</span></div>`;
+        return `<div class="library-location accessible" data-player-concept="world-pack"><span>${escapeHtml(location.name || `Location ${location.id}`)}</span><span class="library-location-state">open</span></div>`;
       }).join("");
       const remaining = Math.max(0, locations.length - 6);
       const locationList = shownLocations
@@ -11954,34 +11672,16 @@
       const dependencies = Array.isArray(pack.dependencies) && pack.dependencies.length
         ? ` · depends on ${pack.dependencies.map(shortPackName).join(", ")}`
         : "";
-      const authority = libraryPackAuthoritySummary(pack);
-      const badgeLabel = stateName === "partial" ? "some open" : (stateName === "included" ? "included" : stateName);
       const technical = [
         `${pack.kind || "world pack"} · v${pack.version || "?"} · ${pack.license || "unlicensed"}${dependencies}`,
-        authority,
+        pack.distribution?.permanence === "content-addressed" ? "content-addressed release" : "",
       ].filter(Boolean).join(" · ");
       const technicalDetails = technical
         ? `<details class="library-technical"><summary>technical details</summary><div>${escapeHtml(technical)}</div></details>`
         : "";
       const kind = String(pack.kind || "world pack").toLowerCase();
-      const icon = ["world", "campaign"].includes(kind) ? "world" : (kind === "assets" ? "collection" : "settings");
-      return `<article class="library-pack" data-player-concept="world-pack"><div class="library-pack-top"><div><div class="library-pack-name">${iconSvg(icon)}${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(kind)}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(badgeLabel)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}${technicalDetails}</article>`;
-    }
-
-    function libraryPackAuthoritySummary(pack) {
-      const authorities = Array.isArray(pack.entitlement_authorities) ? pack.entitlement_authorities : [];
-      const labels = authorities.map((authority) => {
-        if (authority.type === "solana_collection") return `Solana collection ${compactAssetId(authority.collection_address || "")}`;
-        if (authority.type === "signed_set") return `private set signed by ${compactAssetId(authority.public_key || "")}`;
-        if (authority.type === "asset_feed") return `${authority.issuer || "trusted"} verified asset feed`;
-        return authority.type || "entitlement authority";
-      });
-      const permanence = pack.distribution?.permanent_uri
-        ? `permanent ${compactAssetId(pack.distribution.permanent_uri)}`
-        : pack.distribution?.permanence === "content-addressed"
-          ? "content-addressed release"
-          : "";
-      return [...labels, permanence].filter(Boolean).join(" · ");
+      const icon = ["world", "campaign"].includes(kind) ? "world" : "settings";
+      return `<article class="library-pack" data-player-concept="world-pack"><div class="library-pack-top"><div><div class="library-pack-name">${iconSvg(icon)}${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(kind)}</div></div><span class="library-access-badge included">public</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">Included with this world.</div>${locationList}${technicalDetails}</article>`;
     }
 
     function shortPackName(value) {
@@ -11995,11 +11695,11 @@
         ["locations", "places"],
         ["actors", "avatars"],
         ["items", "items"],
-        ["cards", "keepsakes"],
-        ["external_cards", "catalog keepsakes"],
+        ["cards", "items"],
+        ["external_cards", "catalog items"],
         ["character_creation", "character paths"],
         ["rules", "rules references"],
-        ["assets", "asset collections"],
+        ["assets", "art assets"],
       ];
       const visible = entries
         .map(([key, label]) => [Number(counts[key] || 0), label])
@@ -12067,7 +11767,7 @@
         : `${actor} was defeated by ${opponent}.`;
       const cue = knockedOut
         ? "Their body is still where it fell, and the world keeps it. Choose begin again below when you are ready."
-        : "This avatar is gone. Any linked account and keepsakes are still here. Choose begin again below when you are ready.";
+        : "This avatar is gone. Any linked account and items are still here. Choose begin again below when you are ready.";
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene defeat-scene" role="alert" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
@@ -12123,69 +11823,9 @@
         return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${settingsPanelHtml()}</section>`;
       }
       if (menuSection === "identity") {
-        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">sign in & identity</h2><span class="account-wallet">portable account, optional NFT access</span></div>${identitySectionHtml()}</section>`;
+        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">sign in & identity</h2><span class="account-wallet">portable account, optional linked avatars</span></div>${identitySectionHtml()}</section>`;
       }
-      const account = state?.account || {};
-      const wallet = account.wallet_address || state?.access?.owner_wallet_address || "";
-      const ownedCards = Array.isArray(account.owned_cards) ? account.owned_cards : [];
-      const boxes = Array.isArray(account.active_box_ids) ? account.active_box_ids : [];
-      const packs = Array.isArray(account.unopened_pack_ids) ? account.unopened_pack_ids : [];
-      const receipts = Array.isArray(account.recent_box_receipts) ? account.recent_box_receipts : [];
-      const openings = Array.isArray(account.recent_pack_openings) ? account.recent_pack_openings : [];
-      const signed = state?.access?.mode === "signed_wallet_entitlements" && Boolean(walletSession);
-      const assets = [];
-      const displayedCards = ownedCards
-        .slice()
-        .sort((left, right) => (
-          Number(equippedCardIds.includes(right.card_id)) - Number(equippedCardIds.includes(left.card_id))
-          || String(left.display_name || left.card_id).localeCompare(String(right.display_name || right.card_id))
-        ));
-      for (const card of displayedCards.slice(0, 24)) {
-        assets.push(accountOwnedCard(card));
-      }
-      for (const boxId of boxes.slice(0, 6)) {
-        assets.push(accountBoxCard(boxId, openingBoxId === boxId ? "opening" : "closed"));
-      }
-      for (const packId of packs.slice(0, 6)) {
-        assets.push(accountPackCard(packId));
-      }
-      const inventoryRows = [
-        accountRow("favorites", equippedCardIds.length
-          ? `${equippedCardIds.map(cardDisplayName).join(", ")} · ${equippedCardIds.length >= keepsakeCapacity
-            ? "all three collection favorites pinned"
-            : `room for ${smallNumberWord(keepsakeCapacity - equippedCardIds.length)} more`}`
-          : "choose a few collection cards to pin"),
-        accountRow("cards", ownedCards.length ? `${smallNumberWord(ownedCards.length)} in your collection` : "waiting to be found"),
-        accountRow("boxes", boxes.length ? `${smallNumberWord(boxes.length)} waiting to open` : "a wooden box may turn up"),
-        accountRow("bundles", packs.length ? `${smallNumberWord(packs.length)} waiting to open` : "an avatar bundle may turn up"),
-      ];
-      for (const receipt of receipts.slice(0, 3)) {
-        inventoryRows.push(accountRow("opened box", "a wooden box became an avatar bundle"));
-      }
-      for (const opening of openings.slice(0, 3)) {
-        const cards = (opening.card_ids || []).map(cardDisplayName).join(", ");
-        inventoryRows.push(accountRow("opened bundle", cards || "a few new keepsakes"));
-      }
-      const actions = [];
-      if (signed) {
-        if (boxes.length) {
-          actions.push(`<button class="account-button secondary" type="button" data-account-open-box="first">open box</button>`);
-        }
-        if (packs.length) {
-          actions.push(`<button class="account-button secondary" type="button" data-account-open-pack="first" data-player-concept="bundle" data-analytics-event="bundle.open">open bundle</button>`);
-        }
-      }
-      const inventory = assets.length
-        ? `<div class="account-assets">${assets.join("")}</div>`
-        : `<div class="account-empty">your collection is waiting for its first keepsake</div>`;
-      const accountActions = actions.length ? `<div class="account-actions">${actions.join("")}</div>` : "";
-      const keepsakeNote = ownedCards.length
-        ? `<div class="keepsake-note">Keep a few keepsakes close—up to three. This is a menu preference, not your physical carried deck or bracelet.</div>`
-        : "";
-      const accountName = identity?.authenticated
-        ? "CosyWorld account"
-        : (signed ? (compactAssetId(wallet) || "linked account") : "local tale");
-      return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">collection & account</h2><span class="account-wallet">${escapeHtml(accountName)}</span></div>${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">owned collection</div><div class="keepsake-note">Collection ownership is separate from world, carried, equipped, spell-deck, exhausted, and transfer zones. Materializing an eligible item creates one durable shard instance; it does not grant a slot or advancement.</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></section>`;
+      return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">character</h2><span class="account-wallet">story identity and growth</span></div>${characterSheetHtml()}</section>`;
     }
 
     function identitySectionHtml() {
@@ -12198,9 +11838,9 @@
         ? wallets.map((entry) => {
             const wallet = String(entry.wallet_address || "");
             const active = wallet === identity.active_wallet;
-            return `<div class="account-wallet-entry${active ? " active" : ""}"><code>${escapeHtml(compactAssetId(wallet))}</code><div class="account-wallet-controls">${active ? `<span class="account-auth-copy">NFT access active</span>` : `<button class="account-button secondary" type="button" data-wallet-select="${escapeAttr(wallet)}">use</button>`}<button class="account-button secondary" type="button" data-wallet-unlink="${escapeAttr(wallet)}">release</button></div></div>`;
+            return `<div class="account-wallet-entry${active ? " active" : ""}"><code>${escapeHtml(compactAssetId(wallet))}</code><div class="account-wallet-controls">${active ? `<span class="account-auth-copy">linked-avatar discovery active</span>` : `<button class="account-button secondary" type="button" data-wallet-select="${escapeAttr(wallet)}">use</button>`}<button class="account-button secondary" type="button" data-wallet-unlink="${escapeAttr(wallet)}">release</button></div></div>`;
           }).join("")
-        : `<div class="account-empty">No NFT wallet claimed. Public play still works.</div>`;
+        : `<div class="account-empty">No avatar wallet linked. Public play still works.</div>`;
       const passkeyCopy = passkeys.length === 1
         ? "1 passkey — add a second for recovery"
         : `${passkeys.length} passkeys`;
@@ -12212,9 +11852,9 @@
         ? ` · $${remaining.toFixed(2)} key limit remaining`
         : "";
       const openRouterControls = openRouterConnected
-        ? `<div class="keepsake-note"><strong>${escapeHtml(openRouterLabel)} connected</strong>${escapeHtml(remainingCopy)}<br>Player-started public model interactions use this key. Autonomous room voices stay on CosyWorld's protected daily budget.</div><div class="account-actions"><button class="account-button secondary" type="button" data-openrouter-disconnect>disconnect OpenRouter</button></div>`
-        : `<div class="keepsake-note">Connect OpenRouter to pay for model interactions you start. Their approved output is shared with the room, so your account contributes to the public world.</div><div class="account-actions"><button class="account-button" type="button" data-openrouter-connect>connect OpenRouter</button></div>`;
-      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>claim NFT wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section><section class="account-section" aria-label="OpenRouter connection"><div class="account-section-title">OpenRouter contribution</div>${openRouterControls}</section>`;
+        ? `<div class="item-note"><strong>${escapeHtml(openRouterLabel)} connected</strong>${escapeHtml(remainingCopy)}<br>Player-started public model interactions use this key. Autonomous room voices stay on CosyWorld's protected daily budget.</div><div class="account-actions"><button class="account-button secondary" type="button" data-openrouter-disconnect>disconnect OpenRouter</button></div>`
+        : `<div class="item-note">Connect OpenRouter to pay for model interactions you start. Their approved output is shared with the room, so your account contributes to the public world.</div><div class="account-actions"><button class="account-button" type="button" data-openrouter-connect>connect OpenRouter</button></div>`;
+      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link data-player-concept="linked-avatar" data-analytics-event="linked_avatar.link">link avatar wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section><section class="account-section" aria-label="OpenRouter connection"><div class="account-section-title">OpenRouter contribution</div>${openRouterControls}</section>`;
     }
 
     function characterSheetHtml() {
@@ -12226,7 +11866,7 @@
       const avatarBlurb = String(avatarCard?.blurb || avatar?.description || "").trim();
       const avatarImage = cardImage(avatarCard);
       const portrait = avatarImage
-        ? `<button class="account-portrait" type="button"${cardDataAttr(avatarCard)} aria-label="Open ${escapeAttr(avatarName)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"><img src="${escapeAttr(avatarImage)}" alt="" /></button>`
+        ? `<button class="account-portrait" type="button"${cardDataAttr(avatarCard)} aria-label="Open ${escapeAttr(avatarName)} card" data-player-concept="card" data-analytics-event="card.open"><img src="${escapeAttr(avatarImage)}" alt="" /></button>`
         : "";
       const identity = `<div class="account-identity${portrait ? "" : " no-portrait"}">${portrait}<div class="account-identity-copy"><span class="account-identity-name">${escapeHtml(avatarName)}</span>${avatarTitle ? `<span class="account-identity-title">${escapeHtml(avatarTitle)}</span>` : ""}${avatarBlurb ? `<span class="account-identity-blurb">${escapeHtml(avatarBlurb)}</span>` : ""}</div></div>`;
       const purpose = String(state?.calling?.statement || "").trim() || "still choosing what trouble to get into";
@@ -12281,87 +11921,13 @@
       return `${identity}<div class="account-section">${rows.join("")}${markList}</div>`;
     }
 
-    function accountBoxCard(boxId, stateName) {
-      const title = "Intricately Carved Wooden Box";
-      const subtitle = stateName === "opening" ? "opening" : "open box";
-      return `<div class="account-asset"><img src="${escapeAttr(boxImageUrl(boxId, stateName))}" alt="${escapeAttr(`${title} ${stateName}`)}" data-card-key="box:${escapeAttr(boxId)}" /><div class="account-asset-title">${emojiHtml("🧰")}${escapeHtml(title)}</div><div class="account-asset-subtitle">${escapeHtml(compactAssetId(boxId))}</div><button class="account-button secondary" type="button" data-account-open-box="${escapeAttr(boxId)}"${stateName === "opening" ? " disabled" : ""}>${escapeHtml(subtitle)}</button></div>`;
-    }
-
-    function accountPackCard(packId) {
-      const image = fallbackCardImage(accountCard("Avatar Bundle"));
-      return `<div class="account-asset" data-player-concept="bundle"><img src="${escapeAttr(image)}" alt="Avatar Bundle" data-card-key="pack:${escapeAttr(packId)}" /><div class="account-asset-title">${emojiHtml("🎴")}Avatar Bundle</div><div class="account-asset-subtitle">${escapeHtml(compactAssetId(packId))}</div><button class="account-button secondary" type="button" data-account-open-pack="${escapeAttr(packId)}" data-analytics-event="bundle.open">open bundle</button></div>`;
-    }
-
-    function accountOwnedCard(card) {
-      const image = cardImage(card) || fallbackCardImage(card);
-      const shape = shapeForCard(card);
-      const equipped = equippedCardIds.includes(card.card_id);
-      const full = equippedCardIds.length >= keepsakeCapacity;
-      const rarity = friendlyCardRarity(card.rarity);
-      const buttonLabel = equipped ? "put away" : "keep close";
-      const cardName = card.display_name || card.card_id || "Owned keepsake";
-      const cardNameHtml = `${emojiHtml(cardEmoji(card, shape))}${escapeHtml(cardName)}`;
-      const itemCard = ["item", "weapon", "spell", "container", "skill charm", "skill_charm", "tool", "consumable", "relic"]
-        .some((role) => String(card.role || "").toLowerCase().includes(role));
-      const receipt = (state?.account?.materialization_receipts || []).find((entry) => entry.card_id === card.card_id);
-      const materialized = receipt?.status === "materialized";
-      const materializeButton = itemCard && actorId
-        ? materialized
-          ? `<button class="account-button secondary" type="button" data-unmaterialize-receipt="${escapeAttr(receipt.id)}">return from carried deck</button>`
-          : `<button class="account-button secondary" type="button" data-materialize-card="${escapeAttr(card.card_id || "")}">materialize to carried deck</button>`
-        : "";
-      const zoneCopy = itemCard ? `<div class="account-asset-effect"><span>authoritative zone</span>${materialized ? "carried in this shard" : "collection"}</div>` : "";
-      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}" data-player-concept="keepsake"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} keepsake details" data-analytics-event="keepsake.open"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "keepsake")}</div>${zoneCopy}<div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}" data-analytics-event="keepsake.toggle"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button>${materializeButton}</div>`;
-    }
-
-    function materializationReceiptId(cardId) {
-      const left = handHash(cardId, Number(actorId || 0)).toString(16).padStart(8, "0");
-      const right = handHash([...String(cardId)].reverse().join(""), Number(actorId || 0) ^ 0x9e3779b9).toString(16).padStart(8, "0");
-      return `web:${actorId}:${left}${right}`;
-    }
-
-    function boxImageUrl(boxId, stateName = "closed") {
-      return `/assets/generated/boxes/${encodeURIComponent(stateName)}/${encodeURIComponent(boxId)}.svg`;
-    }
-
     function accountRow(key, value) {
       const empty = [
-        "waiting to be found",
-        "a wooden box may turn up",
-        "an avatar bundle may turn up",
         "your first little moment is waiting",
         "found skill charms will appear here",
         "someone new is waiting to meet you",
       ].includes(value);
       return `<div class="account-row"><span class="account-key">${escapeHtml(key)}</span><span class="account-value${empty ? " account-empty" : ""}">${escapeHtml(value)}</span></div>`;
-    }
-
-    function cardDisplayName(cardId) {
-      for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations, state?.account?.owned_cards]) {
-        if (!group) continue;
-        for (const card of Array.isArray(group) ? group : Object.values(group)) {
-          if (card?.card_id === cardId) return card.display_name || cardId;
-        }
-      }
-      return cardId;
-    }
-
-    function hasAccountPanelContent() {
-      const account = state?.account || {};
-      const ledger = state?.ledger || {};
-      return Boolean(
-        account.wallet_address
-          || (account.owned_cards || []).length
-          || (account.active_box_ids || []).length
-          || (account.unopened_pack_ids || []).length
-          || (account.recent_box_receipts || []).length
-          || (account.recent_pack_openings || []).length
-          || state?.calling
-          || (state?.skills || []).length
-          || (state?.bonds || []).length
-          || Number(ledger.unbanked_count || 0) > 0
-          || Number(ledger.banked_count || 0) > 0
-      );
     }
 
     const DEWBRIGHT_BUTTON_ITEM_ID = 2002;
@@ -12552,21 +12118,21 @@
         return `${actor} tucks ${event.item_name || "the little find"} safely away.`;
       }
       if (type === "item.dropped") {
-        return `${actor} leaves ${event.item_name || "the keepsake"} where the room can find it again.`;
+        return `${actor} leaves ${event.item_name || "the item"} where the room can find it again.`;
       }
       if (type === "item.used") {
         const target = event.target_actor_name || "";
         const steadier = Number(event.damage || 0) < 0 && target ? ` ${target} looks steadier for it.` : "";
-        return `${event.item_name || "The keepsake"} finds its moment in ${possessive(actor)} hands.${steadier}`;
+        return `${event.item_name || "The item"} finds its moment in ${possessive(actor)} hands.${steadier}`;
       }
       if (type === "item.given") {
         const returned = event.target_item_name
           ? ` ${event.target_actor_name || "Their friend"} sends ${event.target_item_name} back in return.`
           : "";
-        return `${event.item_name || "A keepsake"} passes from ${actor} to ${event.target_actor_name || "a friend"}.${returned}`;
+        return `${event.item_name || "An item"} passes from ${actor} to ${event.target_actor_name || "a friend"}.${returned}`;
       }
       if (type === "item.traded") {
-        return `${actor} and ${event.target_actor_name || "a friend"} swap ${event.item_name || "one keepsake"} for ${event.target_item_name || "another"}; both leave with something meant for them.`;
+        return `${actor} and ${event.target_actor_name || "a friend"} swap ${event.item_name || "one item"} for ${event.target_item_name || "another"}; both leave with something meant for them.`;
       }
       if (type === "skill.stepped") {
         const skill = abilityLabel(String(event.content || "").split(":")[0], "an ability");
@@ -13491,7 +13057,7 @@
     }
 
     function itemNameForId(id) {
-      const knownKeepsakes = {
+      const knownItems = {
         2001: "Hearth Tonic",
         2002: "Dewbright Button",
         2003: "Wolfprint Charm",
@@ -13503,7 +13069,7 @@
         2009: "Abbey Bookmark",
         2010: "Mossglass Bead",
       };
-      return itemForId(id)?.name || knownKeepsakes[Number(id)] || "an unknown keepsake";
+      return itemForId(id)?.name || knownItems[Number(id)] || "an unknown item";
     }
 
     function actorForId(id) {
@@ -13513,15 +13079,6 @@
     function actorNameForId(id) {
       const actor = actorForId(id);
       return actor ? actorLabel(actor) : `Avatar ${id}`;
-    }
-
-    function accountCard(displayName) {
-      return {
-        display_name: displayName,
-        role: "item",
-        aspect: "square",
-        image_url: "",
-      };
     }
 
     function cardImage(card) {
@@ -13549,37 +13106,7 @@
     }
 
     function cardByKey(key) {
-      if (key.startsWith("box:")) {
-        const boxId = key.slice(4);
-        return {
-          card_id: boxId,
-          display_name: "Intricately Carved Wooden Box",
-          title: "sealed world seed",
-          blurb: "A little wooden box with a fresh bundle of avatar keepsakes tucked inside.",
-          rarity: "mystery",
-          role: "item",
-          aspect: "square",
-          source: "cosyworld_box",
-          owned: true,
-          image_url: boxImageUrl(boxId, openingBoxId === boxId ? "opening" : "closed"),
-        };
-      }
-      if (key.startsWith("pack:")) {
-        const packId = key.slice(5);
-        return {
-          card_id: packId,
-          display_name: "Avatar Bundle",
-          title: "unopened keepsake bundle",
-          blurb: "A fresh bundle of avatar keepsakes waiting to be opened.",
-          rarity: "pack",
-          role: "item",
-          aspect: "square",
-          source: "cosyworld_pack",
-          owned: true,
-          image_url: fallbackCardImage(accountCard("Avatar Bundle")),
-        };
-      }
-      for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations, state?.account?.owned_cards]) {
+      for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations]) {
         if (!group) continue;
         for (const card of Array.isArray(group) ? group : Object.values(group)) {
           if (cardKey(card) === key) return card;
@@ -13733,7 +13260,7 @@
             medicine: "medicine",
             useful: "useful here",
             tradeable: "open to trade",
-          }[disposition] || "kept close";
+          }[disposition] || "held";
           return `${itemName}: ${dispositionLabel}`;
         });
         if (held.length > labels.length) labels.push(`+${held.length - labels.length} more`);
@@ -13876,7 +13403,7 @@
         return targetActor ? actorLabel(targetActor) : "someone in the shared world";
       }
       if (targetKind === "item") {
-        return targetId ? itemNameForId(targetId) : "a lasting keepsake";
+        return targetId ? itemNameForId(targetId) : "a lasting item";
       }
       return "the shared world";
     }
@@ -13886,7 +13413,7 @@
       return {
         exploration: `Discovered ${target}.`,
         craft: `Made or transformed ${target}.`,
-        delivery: `Delivered a keepsake to ${target}.`,
+        delivery: `Delivered an item to ${target}.`,
         stewardship: `Completed meaningful work for ${target}.`,
         care: `Protected or restored ${target}.`,
         mediation: `Helped resolve a strain involving ${target}.`,
@@ -13946,7 +13473,7 @@
       const actorNumericId = Number(actor.id || 0);
       const heldItems = Array.isArray(actor.economy.held_items) ? actor.economy.held_items : [];
       if (!heldItems.length) {
-        return `<div class="avatar-known-items"><span class="avatar-items-label">known items</span><span class="avatar-items-empty">No carried keepsakes have been disclosed.</span></div>`;
+        return `<div class="avatar-known-items"><span class="avatar-items-label">known items</span><span class="avatar-items-empty">No carried items have been disclosed.</span></div>`;
       }
       const chips = [];
       const details = [];
@@ -13973,9 +13500,9 @@
           actionButtons.push(`<button class="account-button avatar-icon-action" type="button" data-avatar-item-action="steal" data-avatar-id="${actorNumericId}" data-avatar-item-id="${itemId}">${iconSvg("steal")}<span>steal</span></button>`);
         }
         chips.push(`<button class="avatar-item-chip" type="button" data-avatar-item-toggle="${itemId}" aria-expanded="false" aria-controls="avatar-item-detail-${actorNumericId}-${itemId}" aria-label="${escapeAttr(`Actions for ${itemName}`)}" title="${escapeAttr(itemName)}"><span class="avatar-item-art" aria-hidden="true" style="background-image:url('${escapeAttr(image)}')"></span></button>`);
-        const disposition = cleanEconomyText(held.disposition || "kept close");
+        const disposition = cleanEconomyText(held.disposition || "held");
         const reason = cleanEconomyText(held.reason || "");
-        details.push(`<div class="avatar-item-detail" id="avatar-item-detail-${actorNumericId}-${itemId}" data-avatar-item-detail="${itemId}" hidden><strong>${escapeHtml(itemName)}</strong>${disposition || reason ? `<small>${escapeHtml([disposition, reason].filter(Boolean).join(" · "))}</small>` : ""}${actionButtons.length ? `<div class="avatar-item-actions">${actionButtons.join("")}</div>` : `<span class="avatar-items-empty">No action is available for this keepsake right now.</span>`}</div>`);
+        details.push(`<div class="avatar-item-detail" id="avatar-item-detail-${actorNumericId}-${itemId}" data-avatar-item-detail="${itemId}" hidden><strong>${escapeHtml(itemName)}</strong>${disposition || reason ? `<small>${escapeHtml([disposition, reason].filter(Boolean).join(" · "))}</small>` : ""}${actionButtons.length ? `<div class="avatar-item-actions">${actionButtons.join("")}</div>` : `<span class="avatar-items-empty">No action is available for this item right now.</span>`}</div>`);
       }
       return `<div class="avatar-known-items"><span class="avatar-items-label">known items</span><div class="avatar-item-rail">${chips.join("")}</div>${details.join("")}</div>`;
     }
@@ -14046,7 +13573,7 @@
       if (Number.isFinite(inventoryCount) && Number.isFinite(carryingCapacity) && carryingCapacity > 0) {
         const carrying = inventoryCount === 0
           ? "Nothing right now."
-          : `${inventoryCount} keepsake${inventoryCount === 1 ? "" : "s"} · ${deckWeightLabel(carriedWeight)} / ${deckWeightLabel(carryingCapacity)}`;
+          : `${inventoryCount} item${inventoryCount === 1 ? "" : "s"} · ${deckWeightLabel(carriedWeight)} / ${deckWeightLabel(carryingCapacity)}`;
         detailRows.push(economyRowHtml("carrying", escapeHtml(carrying)));
       }
       const sought = Array.isArray(economy.sought_items) ? economy.sought_items : [];
@@ -14088,9 +13615,9 @@
       if (!nearby.length) return "";
       const chips = nearby.map((nearbyCard) => {
         const image = cardImage(nearbyCard) || fallbackCardImage(nearbyCard);
-        return `<button class="nearby-keepsake-chip" type="button"${cardDataAttr(nearbyCard)} aria-label="${escapeAttr(`Open ${nearbyCard.display_name || "nearby location"} keepsake`)}" title="${escapeAttr(nearbyCard.display_name || "Nearby location")}"><span class="nearby-keepsake-art" aria-hidden="true" style="background-image:url('${escapeAttr(image)}')"></span></button>`;
+        return `<button class="nearby-card-chip" type="button"${cardDataAttr(nearbyCard)} aria-label="${escapeAttr(`Open ${nearbyCard.display_name || "nearby location"} card`)}" title="${escapeAttr(nearbyCard.display_name || "Nearby location")}"><span class="nearby-card-art" aria-hidden="true" style="background-image:url('${escapeAttr(image)}')"></span></button>`;
       }).join("");
-      return `<div class="nearby-keepsakes"><span class="nearby-keepsakes-label">nearby</span><div class="nearby-keepsake-rail">${chips}</div></div>`;
+      return `<div class="nearby-cards"><span class="nearby-cards-label">nearby</span><div class="nearby-card-rail">${chips}</div></div>`;
     }
 
     function openCardModal(card, preservePosition = false) {
@@ -14112,8 +13639,8 @@
       modalImage.dataset.artRole = card.role || "card";
       modalImage.dataset.artPlaceholder = communityArtPlaceholderLabel(card);
       modalImage.src = image;
-      modalImage.alt = card.display_name || "CosyWorld keepsake";
-      $("card-modal-name").innerHTML = `${iconSvg(cardRoleIconName(card))}${escapeHtml(card.display_name || "CosyWorld Keepsake")}`;
+      modalImage.alt = card.display_name || "CosyWorld card";
+      $("card-modal-name").innerHTML = `${iconSvg(cardRoleIconName(card))}${escapeHtml(card.display_name || "CosyWorld Card")}`;
       $("card-modal-title").textContent = card.title || card.role || "";
       $("card-modal-blurb").textContent = card.blurb || "";
       const meta = [
@@ -14121,15 +13648,9 @@
         card.role,
         card.biome ? `biome: ${card.biome}` : "",
         Array.isArray(card.terrain) && card.terrain.length ? `terrain: ${card.terrain.join(" · ")}` : "",
-        card.owned ? "owned" : "",
-        equippedCardIds.includes(card.card_id) ? "kept close" : "",
-        card.accessible === false ? "locked" : "",
+        card.accessible === false ? "unavailable" : "",
       ].filter(Boolean);
       $("card-modal-meta").innerHTML = meta.map((value) => `<span>${escapeHtml(value)}</span>`).join("");
-      const promise = keepsakePromise(card);
-      $("card-modal-keepsake").innerHTML = promise
-        ? `<span>companion art · cosmetic</span>${escapeHtml(promise)}`
-        : "";
       $("card-modal-art-workshop").innerHTML = communityArtPanelHtml(card);
       $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${nearbyLocationPanelHtml(card)}`;
       openModal("card-modal", $("card-modal").querySelector(".card-close"), !preservePosition);
@@ -14162,7 +13683,6 @@
       closeModal("card-modal");
       $("card-modal-image").removeAttribute("src");
       $("card-modal-art-workshop").innerHTML = "";
-      $("card-modal-keepsake").innerHTML = "";
       $("card-modal-economy").innerHTML = "";
     }
 
@@ -14236,7 +13756,6 @@
         world: "<circle cx='12' cy='12' r='8.5'/><path d='M3.7 12h16.6M12 3.5c2.5 2.3 3.7 5.1 3.7 8.5s-1.2 6.2-3.7 8.5M12 3.5C9.5 5.8 8.3 8.6 8.3 12s1.2 6.2 3.7 8.5'/>",
         settings: "<path d='M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6'/>",
         cards: "<rect x='5' y='4' width='13' height='16' rx='2'/><path d='M8 7h7M8 10h5M3 8v10a2 2 0 0 0 2 2'/>",
-        collection: "<rect x='4' y='4' width='6' height='6' rx='1'/><rect x='14' y='4' width='6' height='6' rx='1'/><rect x='4' y='14' width='6' height='6' rx='1'/><rect x='14' y='14' width='6' height='6' rx='1'/>",
         key: "<circle cx='8' cy='15' r='3.5'/><path d='M10.5 12.5L19 4m-3 3l3 3m-6-1l2 2'/>",
         travel: "<path d='M5 18c3-5 6-8 9-8h5'/><path d='M16 6l3 4-3 4'/><circle cx='6' cy='18' r='1.5'/>",
         notice: "<path d='M2.8 12s3.4-5.5 9.2-5.5 9.2 5.5 9.2 5.5-3.4 5.5-9.2 5.5S2.8 12 2.8 12z'/><circle cx='12' cy='12' r='2.5'/>",
@@ -14331,12 +13850,6 @@
 
     function emojiHtml(emoji) {
       return `<span class="card-emoji" aria-hidden="true">${escapeHtml(emoji)}</span>`;
-    }
-
-    function keepsakePromise(card) {
-      if (["cosyworld_box", "cosyworld_pack"].includes(card?.source)) return "";
-      const name = String(card?.display_name || card?.card_id || "This keepsake").trim();
-      return `${name} can appear beside matching choices. It does not change available actions or odds.`;
     }
 
     function handProviderReason(action) {
@@ -14609,7 +14122,7 @@
       if (String(action?.label || "").toLowerCase() === "use" && action?.choices?.length) {
         if (action.useChoiceKind === "mixed") {
           return [
-            ["Choose", "how you want to use the keepsake"],
+            ["Choose", "how you want to use the item"],
             ["Then", "the use you chose changes the scene"],
           ];
         }
@@ -14620,8 +14133,8 @@
       }
       if (String(action?.label || "").toLowerCase() === "trade" && action?.choices?.length) {
         return [
-          ["Choose", "the avatar and keepsake swap"],
-          ["Then", "both keepsakes change hands"],
+          ["Choose", "the avatar and item swap"],
+          ["Then", "both items change hands"],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "attack" && action?.choices?.length) {
@@ -14872,7 +14385,7 @@
         : role === "item"
           ? "<circle cx='160' cy='88' r='44' fill='#efc96b' opacity='.28'/><path d='M121 99 C134 65 186 65 199 99 C183 116 137 116 121 99 Z' fill='#d8f7dc' opacity='.72'/><circle cx='160' cy='91' r='18' fill='#efc96b' opacity='.82'/>"
           : "<circle cx='160' cy='74' r='36' fill='#d8f7dc' opacity='.72'/><path d='M88 150 C102 108 128 95 160 95 C192 95 218 108 232 150 Z' fill='#65e68a' opacity='.38'/><path d='M112 78 C130 45 190 45 208 78' fill='none' stroke='#efc96b' stroke-width='8' stroke-linecap='round' opacity='.82'/>";
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-label="CosyWorld keepsake art"><defs><radialGradient id="glow" cx="50%" cy="35%" r="65%"><stop offset="0" stop-color="#efc96b" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient></defs><rect width="320" height="180" fill="${color}"/><rect width="320" height="180" fill="url(#glow)"/><rect x="10" y="10" width="300" height="160" fill="none" stroke="#efc96b" stroke-width="4" opacity=".82"/>${motif}</svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-label="CosyWorld item art"><defs><radialGradient id="glow" cx="50%" cy="35%" r="65%"><stop offset="0" stop-color="#efc96b" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient></defs><rect width="320" height="180" fill="${color}"/><rect width="320" height="180" fill="url(#glow)"/><rect x="10" y="10" width="300" height="160" fill="none" stroke="#efc96b" stroke-width="4" opacity=".82"/>${motif}</svg>`;
       return `data:image/svg+xml,${encodeURIComponent(svg).replaceAll("'", "%27")}`;
     }
 
@@ -14968,56 +14481,10 @@
       return String(action?.focusKey || action?.command || `${action?.label || ""}:${action?.detail || ""}`).trim();
     }
 
-    function equippedCollectionCards() {
-      const byId = new Map(ownedCollectionCards().map((card) => [card.card_id, card]));
-      return equippedCardIds.map((cardId) => byId.get(cardId)).filter(Boolean);
-    }
-
-    function subjectFocusKeysForCard(card) {
-      const keys = [];
-      for (const [prefix, group] of [
-        ["actor", state?.cards?.actors],
-        ["item", state?.cards?.items],
-        ["location", state?.cards?.locations],
-      ]) {
-        if (!group) continue;
-        for (const [subjectId, subjectCard] of Object.entries(group)) {
-          if (subjectCard?.card_id !== card?.card_id) continue;
-          keys.push(`${prefix}:${subjectId}`);
-          if (prefix === "actor") keys.push(`talk:${subjectId}`);
-          if (prefix === "location") keys.push(`exit:${subjectId}`);
-        }
-      }
-      return keys;
-    }
-
     function actionFocusKeys(action) {
       return [action?.focusKey, ...(Array.isArray(action?.focusKeys) ? action.focusKeys : [])]
         .map((key) => String(key || ""))
         .filter(Boolean);
-    }
-
-    function keepsakeMatchScore(card, action) {
-      if (!card || !action) return 0;
-      if (action?.card?.card_id === card.card_id) return 3;
-      const actionKeys = actionFocusKeys(action);
-      if (subjectFocusKeysForCard(card).some((subjectKey) => (
-        actionKeys.some((actionKey) => actionKey === subjectKey || actionKey.startsWith(`${subjectKey}:`))
-      ))) return 3;
-
-      const shape = shapeForCard(card);
-      const type = actionCardType(action);
-      if (shape === "avatar" && ["chat", "illustrate", "bond", "trade"].includes(type)) return 1;
-      if (shape === "item" && ["item", "craft", "trade", "project"].includes(type)) return 1;
-      if (shape === "location" && ["travel", "notice", "inspect", "scout", "listen", "project"].includes(type)) return 1;
-      return 0;
-    }
-
-    function keepsakeGuideForAction(action) {
-      return equippedCollectionCards()
-        .map((card) => ({ card, score: keepsakeMatchScore(card, action) }))
-        .filter((entry) => entry.score > 0)
-        .sort((left, right) => right.score - left.score)[0]?.card || null;
     }
 
     function firstThreadModel(view = state, availableActions = actions) {
@@ -15333,11 +14800,9 @@
         button.removeAttribute("data-hand-key");
         button.removeAttribute("data-card-type");
         button.removeAttribute("data-card-rarity");
-        button.removeAttribute("data-keepsake-guide");
         button.removeAttribute("data-story-guide");
         button.classList.remove(...actionCardAccentClasses);
         button.classList.remove("dealt");
-        button.classList.remove("keepsake-guided");
         button.classList.remove("story-guided");
         button.setAttribute("aria-label", "wait");
         button.classList.remove("has-copy");
@@ -15360,8 +14825,6 @@
       else button.removeAttribute("data-command");
       button.classList.remove(...actionCardAccentClasses);
       const { cardType, rarity, className } = actionCardAccentClass(action);
-      const keepsakeGuide = action.keepsakeGuide || keepsakeGuideForAction(action);
-      const keepsakeName = keepsakeGuide?.display_name || keepsakeGuide?.card_id || "";
       const storyGuide = action.storyGuide === true;
       const storyGuideLabel = storyGuide
         ? String(action.storyGuideLabel || "next tale beat")
@@ -15370,10 +14833,7 @@
       if (rarity) button.dataset.cardRarity = rarity;
       else button.removeAttribute("data-card-rarity");
       button.classList.add(className);
-      button.classList.toggle("keepsake-guided", Boolean(keepsakeGuide));
       button.classList.toggle("story-guided", storyGuide);
-      if (keepsakeName) button.dataset.keepsakeGuide = keepsakeName;
-      else button.removeAttribute("data-keepsake-guide");
       if (storyGuide) button.dataset.storyGuide = storyGuideLabel;
       else button.removeAttribute("data-story-guide");
       if (Number.isInteger(action.actionIndex)) button.dataset.actionIndex = String(action.actionIndex);
@@ -15396,7 +14856,6 @@
         handProviderReason(action),
         friendlyActionText(action.effect),
         friendlyActionText(action.risk),
-        keepsakeName ? `${keepsakeName} appears as matching art` : "",
       ].filter(Boolean).join("; ");
       if (title) button.title = title;
       else button.removeAttribute("title");
@@ -15416,7 +14875,6 @@
           detail,
           handProviderReason(action),
           storyGuideLabel,
-          keepsakeName ? `matching kept-close art: ${keepsakeName}` : "",
           count ? `suggestion ${count}` : "",
           action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
@@ -15430,9 +14888,6 @@
       button.classList.add("has-copy");
       const labelText = compactActionLabel(action) || String(action.command || "action").toLowerCase();
       const detailHtml = detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "";
-      const keepsakeHtml = keepsakeName
-        ? `<span class="keepsake-call">✦ ${escapeHtml(keepsakeName)} kept close</span>`
-        : "";
       const storyHtml = storyGuide
         ? `<span class="story-call">✦ ${escapeHtml(storyGuideLabel)}</span>`
         : "";
@@ -15443,7 +14898,7 @@
       const busyHtml = action.busy
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml}</span>${busyHtml}`;
     }
 
     function actionBarActions() {
@@ -15464,7 +14919,6 @@
           ...actions[index],
           actionIndex: index,
           handKey: key,
-          keepsakeGuide: keepsakeGuideForAction(actions[index]),
           storyGuide: storyActionKeys.has(actionHandKey(actions[index])),
           storyGuideLabel: storyActionKeys.has(actionHandKey(actions[index]))
             ? storyGuide?.label || "next tale beat"
@@ -16037,7 +15491,7 @@
         } else {
           libraryPanelPinned = false;
           accountPanelPinned = true;
-          if (section === "collection" || section === "identity") void loadIdentity();
+          if (section === "identity") void loadIdentity();
           render();
         }
         return;
@@ -16081,29 +15535,6 @@
         }).then(() => refresh());
         return;
       }
-      const materializeTarget = event.target.closest("[data-materialize-card]");
-      if (materializeTarget) {
-        event.preventDefault();
-        const cardId = materializeTarget.getAttribute("data-materialize-card") || "";
-        if (!cardId) return;
-        action("/collection/materialize", {
-          actor_id: actorId,
-          card_id: cardId,
-          receipt_id: materializationReceiptId(cardId),
-        }).then(() => refresh());
-        return;
-      }
-      const unmaterializeTarget = event.target.closest("[data-unmaterialize-receipt]");
-      if (unmaterializeTarget) {
-        event.preventDefault();
-        const receiptId = unmaterializeTarget.getAttribute("data-unmaterialize-receipt") || "";
-        if (!receiptId) return;
-        action("/collection/unmaterialize", {
-          actor_id: actorId,
-          receipt_id: receiptId,
-        }).then(() => refresh());
-        return;
-      }
       if (event.target.closest("[data-unlock-charm-slot]")) {
         event.preventDefault();
         action("/actions/unlock-charm-slot", { actor_id: actorId }).then(() => refresh());
@@ -16135,7 +15566,7 @@
       const walletLink = event.target.closest("[data-wallet-link]");
       if (walletLink) {
         event.preventDefault();
-        runIdentityTask("Open this claim in your Solana wallet.", claimNftWallet);
+        runIdentityTask("Open this linked-avatar claim in your Solana wallet.", linkAvatarWallet);
         return;
       }
       const walletSelect = event.target.closest("[data-wallet-select]");
@@ -16164,17 +15595,6 @@
         runIdentityTask("Disconnecting OpenRouter.", disconnectOpenRouter);
         return;
       }
-      const keepsake = event.target.closest("[data-account-toggle-keepsake]");
-      if (keepsake) {
-        event.preventDefault();
-        const cardId = keepsake.getAttribute("data-account-toggle-keepsake") || "";
-        if (!toggleKeepsakeCard(cardId)) {
-          setError(`Keep at most ${keepsakeCapacity} keepsakes close.`);
-        } else {
-          setError("");
-        }
-        return;
-      }
       const connect = event.target.closest("[data-account-connect]");
       if (connect) {
         event.preventDefault();
@@ -16187,41 +15607,6 @@
           run: () => connectWallet(),
         });
         return;
-      }
-      const box = event.target.closest("[data-account-open-box]");
-      if (box) {
-        event.preventDefault();
-        let boxId = box.getAttribute("data-account-open-box") || "";
-        if (boxId === "first") boxId = (state?.account?.active_box_ids || [])[0] || "";
-        if (!boxId) return;
-        accountPanelPinned = true;
-        runAction({
-          label: "open box",
-          detail: compactAssetId(boxId),
-          card: cardByKey(`box:${boxId}`),
-          shape: "item",
-          modalTitle: "burn this Box?",
-          modalSummary: "Destroy this on-chain Box into one keepsake bundle.",
-          effect: "one unopened avatar keepsake bundle joins this account",
-          risk: "the Box burn is irreversible",
-          run: () => openBox(boxId),
-        });
-        return;
-      }
-      const pack = event.target.closest("[data-account-open-pack]");
-      if (pack) {
-        event.preventDefault();
-        let packId = pack.getAttribute("data-account-open-pack") || "";
-        if (packId === "first") packId = (state?.account?.unopened_pack_ids || [])[0] || "";
-        if (!packId) return;
-        accountPanelPinned = true;
-        runAction({
-          label: "open bundle",
-          detail: compactAssetId(packId),
-          card: cardByKey(`pack:${packId}`),
-          shape: "item",
-          run: () => openPack(packId),
-        });
       }
     });
 

@@ -19,7 +19,6 @@ const binaryPath = process.env.COSYWORLD_COMPOSITION_SMOKE_BINARY
   ? resolve(process.env.COSYWORLD_COMPOSITION_SMOKE_BINARY)
   : resolve(orchestratorDir, "target/debug/cosyworld-orchestrator");
 const contentRoot = resolve(v2Root, "content");
-const walletAddress = "standalone-composition-smoke";
 const worldCases = [
   {
     label: "Core only",
@@ -283,18 +282,11 @@ async function startServer(tempDir, registryPath, entryLocationId) {
     RUST_LOG: "cosyworld_orchestrator=info",
     COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
-    COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET: "1",
     COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
     COSYWORLD_V2_GENERATED_ASSET_DIR: resolve(tempDir, "generated"),
-    COSYWORLD_RUBY_HIGH_WALLET_CARDS: JSON.stringify({
-      wallets: [{
-        walletAddress,
-        cardIds: ["location-homeroom"],
-      }],
-    }),
   });
   if (entryLocationId) {
     env.COSYWORLD_ENTRY_LOCATION_ID = String(entryLocationId);
@@ -323,7 +315,6 @@ function stateUrl(baseUrl, actorId, actorSession) {
   const query = new URLSearchParams({
     actor_id: String(actorId),
     actor_session: actorSession,
-    wallet_address: walletAddress,
   });
   return `${baseUrl}/state?${query}`;
 }
@@ -336,7 +327,6 @@ async function fetchAllActorEvents(baseUrl, actorId, actorSession) {
     const query = new URLSearchParams({
       actor_id: String(actorId),
       actor_session: actorSession,
-      wallet_address: walletAddress,
       after: String(after),
       limit: "500",
     });
@@ -402,7 +392,6 @@ async function dealOffer(baseUrl, actorId, actorSession, predicate, description)
     const passPayload = {
       actor_id: actorId,
       actor_session: actorSession,
-      wallet_address: walletAddress,
       command: "pass",
       offer_id: passOffer.offer_id,
       envelope: offerEnvelope(state, actorId, passOffer.offer_id),
@@ -455,7 +444,6 @@ async function command(baseUrl, actorId, actorSession, value) {
     const payload = {
       actor_id: actorId,
       actor_session: actorSession,
-      wallet_address: walletAddress,
       command: dealt.offer?.command ?? value,
       ...(dealt.offer && {
         offer_id: dealt.offer.offer_id,
@@ -478,7 +466,6 @@ async function passCurrentHand(baseUrl, actorId, actorSession) {
   const passed = await postJsonWithStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     command: "pass",
     offer_id: passOffer.offer_id,
     envelope: offerEnvelope(state, actorId, passOffer.offer_id),
@@ -766,7 +753,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const shortcut = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     command: "work",
   }, 409);
   assert(
@@ -885,7 +871,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const tamperedOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     offer_id: `${initialWorkOffer.offer_id}:tampered`,
     command: initialWorkOffer.command,
   }, 404);
@@ -901,7 +886,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const staleOffer = await postJsonExpectingStatus(`${baseUrl}/commands`, {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     offer_id: initialWorkOffer.offer_id,
     command: initialWorkOffer.command,
   }, 409);
@@ -950,7 +934,6 @@ async function beginLanternGoldenJourney(baseUrl, actorId, actorSession, initial
   const finalePayload = {
     actor_id: actorId,
     actor_session: actorSession,
-    wallet_address: walletAddress,
     offer_id: freshWorkOffer.offer_id,
     command: freshWorkOffer.command,
     envelope: { ...offerEnvelope(towerReady, actorId, freshWorkOffer.offer_id), intent_id: "smoke:lantern-golden-finale" },
@@ -1246,7 +1229,6 @@ async function runWorldLoop(spec) {
         `${first.baseUrl}/avatar`,
         {
           name: `${spec.label} Walker`,
-          wallet_address: walletAddress,
           ...spec.characterCreation,
         },
         spec.seedActorCount ? 10_000 : undefined,
@@ -1359,7 +1341,6 @@ async function runWorldLoop(spec) {
       const repeated = await postJsonExpectingStatus(`${first.baseUrl}/commands`, {
         actor_id: actorId,
         actor_session: actorSession,
-        wallet_address: walletAddress,
         command: `scout ${spec.scoutDestination}`,
       }, 404);
       assert(
@@ -1616,7 +1597,6 @@ async function assertServicesContract(server, expectedPackIds) {
   );
   const rejected = await postJsonExpectingStatus(`${server.baseUrl}/avatar`, {
     name: "No World Walker",
-    wallet_address: walletAddress,
   }, 503);
   assert(
     rejected.ok === false

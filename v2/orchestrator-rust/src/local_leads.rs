@@ -515,11 +515,7 @@ mod tests {
                     actor_session: Some(session),
                     command: "this prose must not select the action".to_string(),
                     offer_id: Some(offer_id),
-                    wallet_address: None,
-                    wallet: None,
                     wallet_session: None,
-                    owned_card_ids: None,
-                    cards: None,
                     envelope: None,
                 }),
             ))

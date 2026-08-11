@@ -7,7 +7,7 @@ Companion documents:
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative mechanics design: Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, ownership, and poems. This PRD does not restate it.
 - `docs/systems/04-action-system.md` — authoritative target for card zones, deterministic scene composition, rules-bound offers, loadouts, and pack extensions.
 - `ENG.md` — architecture and engineering priorities.
-- `ECONOMY.md` — Orbs, shared media funding, the avatar-NFT bridge, and the legacy Box/collection migration inventory.
+- `ECONOMY.md` — Orbs, shared media funding, the avatar-NFT bridge, and the read-only legacy receipt archive.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
 - `docs/backlog/community-art-evolution.md` — shipped slice, production gaps, and acceptance invariants for the image-only Orb economy.
 
@@ -21,13 +21,13 @@ The product should feel like living in a small fantasy world that remembers you 
 
 CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
 
-- CosyWorld Core and Ruby High: First Bell, with compiled cards and complete room sheets validated by the content gate. Legacy card-gated access remains migration inventory; the accepted target never makes wallet possession a condition of ordinary or expansion play. Release counts are generated from the compiled worldpack rather than maintained in this prose.
+- CosyWorld Core and Ruby High: First Bell, with compiled cards and complete room sheets validated by the content gate. Every mounted place is independent of wallet possession. Release counts are generated from the compiled worldpack rather than maintained in this prose.
 - The full verb surface: advancement-backed Chat (begin a friendship), Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
 - The card-hand control surface: exactly two dealt action cards with art and labels plus a certified **Think**/**Pass** control. Pass commits the turn and deals the next deterministic hand; it is never a free redeal.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.
 - Resident autonomy on played time: residents wander, remember, and hunt the items they desire — a resident reclaiming her own lost cherished item is now an observed, emergent story beat.
 - The RPG retention layer: Callings, first-class Bonds, sanctuary/frontier zoning, progress and danger clocks, seeded Jobs and Fronts, factions, the Visit Ledger with growth banking into skill steps and bond slots — all rendered in the shared transcript (arrivals, callings, clues, dice, growth).
-- An economy MVP: starter Orbs, claim-key-gated rewards, image-only community spends, and durable Orb/AI-usage ledgers. The shipped Wooden Box and pack-reveal bridge is legacy compatibility scheduled for replay-safe removal under #682/#685.
+- An economy MVP: starter Orbs, claim-key-gated rewards, image-only community spends, and durable Orb/AI-usage ledgers. Historical Wooden Box, pack, and materialization records remain available only to replay and operator audit.
 - Moderation basics: player reports, an operator console, protected all-room replay, actor suspension, and report retention.
 - Browser and terminal clients over the same API, with a Playwright smoke, visual baselines, and a production deployment profile with strict guardrails.
 
@@ -101,7 +101,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 4. **Turn cadence legibility.** The shipped room-turn system (one committed card per active human, ping/pong pacing, speech always turn-exempt) needs its remaining visibility work: a visible ping countdown for both sides, a clear "you've been pinged — play or pass" signal, and warm copy when a room's action hand genuinely offers only exits.
 5. **Economy circulation and public art.** Wire the already-designed job Orb payouts; add witness credit; recover world items from inactive avatars; scope faucets to played-time seasons; complete the generalized community media queue. Each eligible world subject unlocks one shared image per authoritative level, with pooled cost equal to that level and history-aware visual evolution.
 6. **Real faces and public-traffic safety.** Replace deterministic SVG placeholders with generated avatar portraits and card art through the media pipeline, while completing pre-commit filtering, operator resolution workflows, resident line-variety cooldowns, and abuse review.
-7. **Ownership-boundary migration.** Keep ordinary play wallet-free, freeze new keepsake/Box/item-location NFT scope, disable and archive legacy collection flows without duplicating or deleting live world items, and isolate the supported linked-avatar adapter.
+7. **Linked-avatar productization.** Keep ordinary play wallet-free and finish the optional allowlisted avatar adapter: exactly-once actor binding, custody transfer, safe offstage presence, and recovery without exposing legacy collection concepts.
 
 ### Next — a world that makes things
 

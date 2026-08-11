@@ -24,10 +24,22 @@ source action sequence when it advances the local danger clock.
 `trade_stock`, local use, and supply pressure are aggregate regional state.
 They never represent cargo and never emit a delivery-completed event. When
 scarcity becomes playable, the projection creates or updates a delivery job
-that names an origin, destination, and needed resource. Generic Work/Help
-cannot complete that job: the visible instructions require picking up a
-physical item, traveling with it, and giving, dropping, or using it at the
-destination.
+that names an origin, destination, and needed resource. A job is created only
+when an immutable loot template authors that resource in `delivery_tags`; its
+frozen requirement is the closed `item_tag` matcher. Aggregate resource labels
+without an authored item binding remain simulation pressure and do not create
+an impossible or broad delivery job. Generic Work/Help cannot complete a job:
+the visible instructions require picking up a matching physical item,
+traveling with it, and giving, dropping, or using it at the destination.
+
+Delivery requirements are closed and typed: `exact_item` matches one runtime
+instance, `exact_template` matches the immutable template ID recorded by loot
+or crafting provenance, and `item_tag` matches a canonical authored
+`delivery_tags` value on that versioned template. Seed item names and mutable
+runtime copy are never interpreted as tags. Worldpack validation rejects
+unknown matcher kinds, extra matcher fields, missing referenced templates or
+items, and tags not supplied by a mounted template. Historical persisted jobs
+without a requirement retain their recorded broad behavior for replay only.
 
 `world.logistics.completed` is derived only when the journal proves:
 
@@ -35,7 +47,9 @@ destination.
 2. one or more continuous `actor.moved` events carried that avatar from the
    acquisition room to a different destination; and
 3. the same avatar completed `item.given`, `item.dropped`, or `item.used` there
-   without an intervening transfer that broke possession.
+   without an intervening transfer that broke possession; and
+4. the delivered instance's immutable loot/craft provenance satisfies the
+   job's template or tag requirement, when present.
 
 The completion event stores actor id, item id, origin, destination, acquisition
 sequence, every movement sequence, the delivery sequence, source world tick,

@@ -110,7 +110,12 @@ fn natural_resource_id(kind: NaturalResourceKind) -> &'static str {
 
 impl RuntimeWorld {
     pub(super) fn physical_item_template_id(&self, item_id: u64) -> Option<String> {
-        self.loot_allocations
+        self.physical_item_delivery_facts(item_id).template_id
+    }
+
+    pub(super) fn physical_item_delivery_facts(&self, item_id: u64) -> DeliveryItemFacts {
+        let provenance = self
+            .loot_allocations
             .values()
             .find_map(|allocation| {
                 allocation
@@ -118,14 +123,37 @@ impl RuntimeWorld {
                     .iter()
                     .position(|candidate| *candidate == item_id)
                     .and_then(|index| allocation.selected_template_ids.get(index))
-                    .cloned()
+                    .map(|template_id| {
+                        (
+                            template_id.clone(),
+                            allocation.pack_id.clone(),
+                            allocation.pack_version.clone(),
+                        )
+                    })
             })
             .or_else(|| {
                 self.craft_receipts
                     .values()
                     .find(|receipt| receipt.output_item_id == item_id)
-                    .map(|receipt| receipt.output_template_id.clone())
-            })
+                    .map(|receipt| {
+                        (
+                            receipt.output_template_id.clone(),
+                            receipt.pack_id.clone(),
+                            receipt.pack_version.clone(),
+                        )
+                    })
+            });
+        let Some((template_id, pack_id, pack_version)) = provenance else {
+            return DeliveryItemFacts::default();
+        };
+        let tags = mounted_loot_item_template(&template_id)
+            .filter(|mounted| mounted.pack_id == pack_id && mounted.pack_version == pack_version)
+            .map(|mounted| mounted.template.delivery_tags.into_iter().collect())
+            .unwrap_or_default();
+        DeliveryItemFacts {
+            template_id: Some(template_id),
+            tags,
+        }
     }
 
     fn versioned_recipe_capability_source(
@@ -1147,7 +1175,7 @@ mod tests {
         );
         assert_eq!(
             runtime.item_provenance[&bloom_item_id].origin,
-            "craft:refine-iron-bloom@2:cosyworld.core@1.3.11"
+            "craft:refine-iron-bloom@2:cosyworld.core@1.3.12"
         );
         assert_eq!(
             events

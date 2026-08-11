@@ -559,6 +559,7 @@ for (const pack of packs) {
 
 const mountedLootTableIds = new Set();
 const mountedLootTemplateIds = new Set();
+const mountedLootDeliveryTags = new Set();
 const mountedBuildingCapabilities = new Set();
 const mountedBuildingRecipeTags = new Set();
 const mountedBuildingArchetypes = [];
@@ -568,6 +569,7 @@ for (const pack of packs) {
       fail(`loot item template ${template.id} is mounted more than once`);
     }
     mountedLootTemplateIds.add(template.id);
+    for (const tag of template.delivery_tags ?? []) mountedLootDeliveryTags.add(tag);
   }
   for (const table of pack.extensions?.["x-cosyworld-loot-tables"]?.tables ?? []) {
     if (mountedLootTableIds.has(table.id)) {
@@ -1704,63 +1706,6 @@ for (const item of items) {
   }
 }
 const itemById = new Map(items.map((item) => [item.id, item]));
-const collectiblePowerWarnings = [];
-function mechanicalPowerScore(value, key = "") {
-  if (typeof value === "number") return Math.max(0, value);
-  if (typeof value === "string") {
-    const die = value.match(/^(\d+)d(\d+)$/i);
-    return die ? Number(die[1]) * Number(die[2]) : 0;
-  }
-  if (!isObject(value)) return 0;
-  return Object.entries(value).reduce((score, [childKey, child]) => (
-    score + mechanicalPowerScore(child, childKey || key)
-  ), 0);
-}
-function auditCollectiblePower(cardRows, itemRows, equipmentRows) {
-  const warnings = [];
-  for (const profile of equipmentRows) {
-    if (/purchas|wallet|ownership|card|entitlement/i.test(String(profile.unlock || ""))) {
-      warnings.push(`equipment profile ${profile.id} purchases or imports slots through ${profile.unlock}`);
-    }
-  }
-  const itemMap = new Map(itemRows.map((item) => [item.id, item]));
-  const freeMaximumByRole = new Map();
-  for (const card of cardRows.filter((card) => card.subject_kind === "item" && card.requires_ownership !== true)) {
-    const item = itemMap.get(card.subject_id);
-    if (!item?.mechanics) continue;
-    const score = mechanicalPowerScore(item.mechanics.effect_budget);
-    freeMaximumByRole.set(item.role, Math.max(freeMaximumByRole.get(item.role) || 0, score));
-  }
-  for (const card of cardRows.filter((card) => card.subject_kind === "item" && card.requires_ownership === true)) {
-    const item = itemMap.get(card.subject_id);
-    if (!item?.mechanics) continue;
-    const serialized = JSON.stringify(item.mechanics.effect_budget || {});
-    if (/advancement|bracelet.?slot|spell.?slot|extra.?turn|automatic.?success/i.test(serialized)) {
-      warnings.push(`ownership-gated card ${card.card_id} grants forbidden progression or action economy`);
-    }
-    const score = mechanicalPowerScore(item.mechanics.effect_budget);
-    if (score > (freeMaximumByRole.get(item.role) || 0)) {
-      warnings.push(`ownership-gated card ${card.card_id} exceeds the free ${item.role} power budget`);
-    }
-  }
-  return warnings;
-}
-const equipmentRows = ruleBundles.flatMap((bundle) => bundle.resources?.equipment_profiles ?? []);
-collectiblePowerWarnings.push(...auditCollectiblePower(cards, items, equipmentRows));
-const powerMutationWarnings = auditCollectiblePower(
-  [
-    { card_id: "fixture-free", subject_kind: "item", subject_id: 1, requires_ownership: false },
-    { card_id: "fixture-paid", subject_kind: "item", subject_id: 2, requires_ownership: true },
-  ],
-  [
-    { id: 1, role: "skill_charm", mechanics: { effect_budget: { skill_bonus: 1 } } },
-    { id: 2, role: "skill_charm", mechanics: { effect_budget: { skill_bonus: 2, bracelet_slot: 1 } } },
-  ],
-  [],
-);
-if (powerMutationWarnings.length < 2) fail("collectible power mutation gate did not flag paid slots and numerical superiority");
-for (const warning of collectiblePowerWarnings) fail(`collectible power policy: ${warning}`);
-
 for (const location of locations) {
   try {
     validateWorldEntityResource(location.pack_id, "locations", location);
@@ -2340,6 +2285,49 @@ for (const job of jobs) {
   }
   if (!has(clockIds, job.progress_clock_id) || !has(clockIds, job.danger_clock_id)) {
     fail(`job ${job.id} references missing clock`);
+  }
+  if (job.delivery !== undefined) {
+    const delivery = job.delivery;
+    const requirement = delivery?.requirement;
+    const deliveryFields = new Set([
+      "resource",
+      "origin_location_id",
+      "destination_location_id",
+      "requirement",
+      "created_world_tick",
+      "updated_world_tick",
+    ]);
+    if (!isObject(delivery)
+        || Object.keys(delivery).some((field) => !deliveryFields.has(field))
+        || !isNonEmptyString(delivery.resource)
+        || !has(locationIds, delivery.origin_location_id)
+        || !has(locationIds, delivery.destination_location_id)
+        || !Number.isSafeInteger(delivery.created_world_tick)
+        || delivery.created_world_tick < 0
+        || !Number.isSafeInteger(delivery.updated_world_tick)
+        || delivery.updated_world_tick < delivery.created_world_tick
+        || !isObject(requirement)) {
+      fail(`job ${job.id} has an invalid typed delivery specification`);
+    } else {
+      const expectedFields = {
+        exact_item: new Set(["kind", "item_id"]),
+        exact_template: new Set(["kind", "template_id"]),
+        item_tag: new Set(["kind", "tag"]),
+      }[requirement.kind];
+      const matcherIsValid = expectedFields !== undefined
+        && Object.keys(requirement).every((field) => expectedFields.has(field))
+        && Object.keys(requirement).length === expectedFields.size
+        && (
+          (requirement.kind === "exact_item" && has(itemIds, requirement.item_id))
+          || (requirement.kind === "exact_template"
+            && mountedLootTemplateIds.has(requirement.template_id))
+          || (requirement.kind === "item_tag"
+            && mountedLootDeliveryTags.has(requirement.tag))
+        );
+      if (!matcherIsValid) {
+        fail(`job ${job.id} has an unsupported delivery matcher`);
+      }
+    }
   }
   if (job.contribution_schema_version !== 1
       || !Array.isArray(job.contribution_strategies)
@@ -3274,7 +3262,6 @@ function buildWorldpackReport() {
     })))),
     rules_conformance: rulesConformance,
     modified_material: modifiedMaterial,
-    collectible_power_warnings: collectiblePowerWarnings,
     jobs: sorted(jobs, (a, b) => a.id.localeCompare(b.id)).map((job) => ({
       id: job.id,
       status: job.status || "active",

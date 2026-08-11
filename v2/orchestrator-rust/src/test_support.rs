@@ -6,11 +6,7 @@ pub(super) fn command_request(actor_id: u64, command: &str) -> CommandRequest {
         actor_session: None,
         command: command.to_string(),
         offer_id: None,
-        wallet_address: None,
-        wallet: None,
         wallet_session: None,
-        owned_card_ids: None,
-        cards: None,
         envelope: None,
     }
 }
@@ -87,8 +83,10 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         .transpose()
         .expect("open test WAL keepalive")
         .map(|connection| Arc::new(StdMutex::new(connection)));
+    let projection_cache = Arc::new(ProjectionCache::new(&runtime));
     AppState {
         inner: Arc::new(Mutex::new(runtime)),
+        projection_cache,
         tx,
         deployment: DeploymentConfig::local(),
         snapshot_path: None,
@@ -111,10 +109,9 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         ambient: AmbientConfig {
             quiet_after: Duration::from_secs(1),
         },
-        box_burn_verifier: Arc::new(None),
         ownership_feed: Arc::new(OwnershipFeedConfig::default()),
         ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
-        hosted_access_config: Arc::new(HostedAccessConfig::default()),
+        rendezvous_party_config: Arc::new(RendezvousPartyConfig::default()),
         last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
         wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
         qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
