@@ -3472,7 +3472,7 @@ async function main() {
       const previousActorId = actorId;
       const previousActions = actions;
       const fakeState = {
-        location: { id: 1, name: "The Cosy Cottage" },
+        location: { id: 1, name: "Bethlehem" },
         primary_action: {
           kind: "move",
           options: [{ kind: "move" }],
@@ -3481,15 +3481,15 @@ async function main() {
           {
             offer_id: "move:rain-soft-garden",
             kind: "move",
-            target: { kind: "location", id: 2, label: "Rain-Soft Garden" },
-            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+            target: { kind: "location", id: 2, label: "Rain-Silver Crossing" },
+            provider: { kind: "location", id: "location:1", label: "Bethlehem" },
             effect: "moves to an accessible adjacent room",
           },
           {
             offer_id: "move:homeroom",
             kind: "move",
-            target: { kind: "location", id: 11, label: "Homeroom" },
-            provider: { kind: "location", id: "location:1", label: "The Cosy Cottage" },
+            target: { kind: "location", id: 11, label: "Rain-Silver Crossing" },
+            provider: { kind: "location", id: "location:1", label: "Bethlehem" },
             effect: "moves to an accessible adjacent room",
           },
         ],
@@ -3502,16 +3502,16 @@ async function main() {
         exits: [
           {
             destination_location_id: 2,
-            destination_location_name: "Rain-Soft Garden",
-            route_label: "Route from The Cosy Cottage to Rain-Soft Garden",
+            destination_location_name: "Rain-Silver Crossing",
+            route_label: "Route from Bethlehem to Jerusalem",
             direction: "east",
             accessible: true,
             locked: false,
           },
           {
             destination_location_id: 11,
-            destination_location_name: "Homeroom",
-            route_label: "Route from The Cosy Cottage to Homeroom",
+            destination_location_name: "Rain-Silver Crossing",
+            route_label: "Route from Bethlehem to Emmaus",
             direction: "north",
             accessible: true,
             locked: false,
@@ -3522,9 +3522,9 @@ async function main() {
           actors: {},
           items: {},
           locations: {
-            1: { card_id: "cosy-cottage", display_name: "The Cosy Cottage", role: "location", aspect: "wide", image_url: "/choice-cottage.png" },
-            2: { card_id: "rain-soft-garden", display_name: "Rain-Soft Garden", role: "location", aspect: "wide", image_url: "/choice-garden.png" },
-            11: { card_id: "homeroom", display_name: "Homeroom", role: "location", aspect: "wide", image_url: "/choice-homeroom.png" },
+            1: { card_id: "bethlehem", display_name: "Bethlehem", role: "location", aspect: "wide", image_url: "/choice-cottage.png" },
+            2: { card_id: "rain-silver-east", display_name: "Rain-Silver Crossing", role: "location", aspect: "wide", image_url: "/choice-garden.png" },
+            11: { card_id: "rain-silver-north", display_name: "Rain-Silver Crossing", role: "location", aspect: "wide", image_url: "/choice-homeroom.png" },
           },
         },
         access: {},
@@ -3563,6 +3563,8 @@ async function main() {
             .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
           choices: [...document.querySelectorAll("#action-modal-choices .action-choice")]
             .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+          choiceAria: [...document.querySelectorAll("#action-modal-choices input[name='action-choice']")]
+            .map((node) => node.getAttribute("aria-label") || ""),
         };
         if (route?.choices?.length > 1) chooseActionModalChoice(1);
         const selectedPreview = {
@@ -3606,6 +3608,7 @@ async function main() {
           modal,
           selectedPreview,
           single: single ? {
+            accessibleLabel: single.accessibleLabel,
             detail: single.detail,
             command: single.command,
             choices: single.choices || [],
@@ -3624,8 +3627,8 @@ async function main() {
     assert(result.detail === "choose a path" && result.command === "go", `grouped Travel should carry its destination choice: ${JSON.stringify(result)}`);
     assert(
       [
-        "Route from The Cosy Cottage to Rain-Soft Garden",
-        "Route from The Cosy Cottage to Homeroom",
+        "Route from Bethlehem to Jerusalem",
+        "Route from Bethlehem to Emmaus",
       ].every((name) => result.choices.some((choice) => choice.label === name)),
       `Travel should distinguish routes from their next location cards: ${JSON.stringify(result)}`,
     );
@@ -3634,20 +3637,20 @@ async function main() {
       `grouped Travel should retain every exit focus anchor: ${JSON.stringify(result)}`,
     );
     assert(result.selectedChoice === "11" && result.selectedPayload?.destination_location_id === 11, `Travel confirmation should use the selected destination: ${JSON.stringify(result)}`);
-    assert(result.busyLabel === "travelling" && result.busyDetail === "following the path to Homeroom…", `Travel should name the destination while it is in progress: ${JSON.stringify(result)}`);
+    assert(result.busyLabel === "travelling" && result.busyDetail === "following the path to Rain-Silver Crossing…", `Travel should name the destination while it is in progress: ${JSON.stringify(result)}`);
     assert(
       result.busy?.ariaBusy === "true"
         && result.busy?.ariaLabel.includes("in progress")
         && result.busy?.progressBars === 1
         && result.busy?.opacity === "1"
         && result.busy?.cursor === "progress"
-        && /travelling.*following the path to Homeroom/i.test(result.busy?.text || ""),
+        && /travelling.*following the path to Rain-Silver Crossing/i.test(result.busy?.text || ""),
       `Travel should remain legible and show an accessible progress rail while pending: ${JSON.stringify(result)}`,
     );
     assert(result.choices.every((choice) => choice.card?.role === "location"), `each Travel destination should carry its own Location card: ${JSON.stringify(result)}`);
     assert(
       result.selectedPreview.src === "/choice-homeroom.png"
-        && result.selectedPreview.alt === "Homeroom"
+        && result.selectedPreview.alt === "Rain-Silver Crossing"
         && result.selectedPreview.shape.includes("location")
         && result.selectedPreview.objectFit === "cover",
       `selecting a Travel destination should preview that Location card: ${JSON.stringify(result)}`,
@@ -3665,8 +3668,21 @@ async function main() {
       `action modals should place a full-width red Cancel button below the confirmation: ${JSON.stringify(result)}`,
     );
     assert(result.modal.rows.length === 0, `Travel confirmation should stay to one sentence plus the destination choices: ${JSON.stringify(result)}`);
-    assert(["Rain-Soft Garden", "Homeroom"].every((name) => result.modal.choices.some((choice) => choice.includes(name))), `Travel modal should render both destinations: ${JSON.stringify(result)}`);
-    assert(result.single?.detail === "to Rain-Soft Garden" && result.single?.command === "go Rain-Soft Garden", `a single open path should stay a target-bearing Travel card: ${JSON.stringify(result)}`);
+    assert(
+      ["Route from Bethlehem to Jerusalem", "Route from Bethlehem to Emmaus"]
+        .every((name) => result.modal.choices.some((choice) => choice.includes(name))
+          && result.modal.choiceAria.some((label) => label.includes(name))),
+      `Travel modal and accessibility labels should distinguish same-named waypoints by route: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.single?.detail === "to Rain-Silver Crossing · Route from Bethlehem to Jerusalem"
+        && result.single?.command === "go Rain-Silver Crossing",
+      `a single open path should stay target-bearing while retaining route context: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.single?.accessibleLabel === "Travel to Rain-Silver Crossing via Route from Bethlehem to Jerusalem",
+      `single-route accessibility copy should carry the same direction-aware identity: ${JSON.stringify(result)}`,
+    );
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
   }
 

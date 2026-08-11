@@ -162,6 +162,41 @@ fn generated_route_id(pathway: &GeneratedPathwayState, left: u64, right: u64) ->
     Some(format!("{pathway_id}/route/{segment}"))
 }
 
+pub(super) fn rename_generated_waypoint_prose(waypoint: &mut GeneratedWaypointState, name: String) {
+    let previous_name = std::mem::replace(&mut waypoint.name, name.clone());
+    if previous_name == name {
+        return;
+    }
+    waypoint.meta.title = waypoint.meta.title.replace(&previous_name, &name);
+    waypoint.meta.description = waypoint.meta.description.replace(&previous_name, &name);
+    waypoint.meta.persona = waypoint.meta.persona.replace(&previous_name, &name);
+    for memory in &mut waypoint.meta.memory {
+        *memory = memory.replace(&previous_name, &name);
+    }
+    if let Some(art_prompt) = waypoint.meta.art_prompt.as_mut() {
+        *art_prompt = art_prompt.replace(&previous_name, &name);
+    }
+}
+
+fn reserve_pathway_names_in_namespace(
+    pathway: &mut GeneratedPathwayState,
+    occupied_names: &mut BTreeSet<String>,
+) {
+    let pathway_canonical_id = pathway.canonical_id.clone();
+    for (index, waypoint) in pathway.waypoints.iter_mut().enumerate() {
+        let proposed_name = waypoint.name.clone();
+        let fallback_name = deterministic_pathway_fallback_name(&pathway_canonical_id, index);
+        let reserved_name = reserve_unique_pathway_name(
+            occupied_names,
+            &proposed_name,
+            &fallback_name,
+            &pathway_canonical_id,
+            index,
+        );
+        rename_generated_waypoint_prose(waypoint, reserved_name);
+    }
+}
+
 impl RouteRecordState {
     pub(super) fn contains_edge(&self, from_location_id: u64, to_location_id: u64) -> bool {
         self.edges.iter().any(|edge| {
@@ -330,6 +365,7 @@ impl RuntimeWorld {
         historical_bundle_hash: &str,
     ) -> Result<(), String> {
         let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
+        let mut pathways = BTreeMap::new();
         for pathway_id in pathway_ids {
             let mut pathway = self
                 .generated_pathways
@@ -341,8 +377,32 @@ impl RuntimeWorld {
                 snapshot_version < 14,
                 Some(historical_bundle_hash),
             )?;
-            self.generated_pathways.insert(pathway_id, pathway);
+            pathways.insert(pathway_id, pathway);
         }
+        let generated_location_ids = pathways
+            .values()
+            .flat_map(|pathway| pathway.waypoints.iter())
+            .map(|waypoint| waypoint.id)
+            .collect::<BTreeSet<_>>();
+        let mut occupied_names = self
+            .locations
+            .iter()
+            .filter(|(location_id, _)| !generated_location_ids.contains(location_id))
+            .map(|(_, name)| name.to_ascii_lowercase())
+            .collect::<BTreeSet<_>>();
+        for pathway in pathways.values_mut() {
+            reserve_pathway_names_in_namespace(pathway, &mut occupied_names);
+        }
+        for pathway in pathways.values() {
+            for waypoint in &pathway.waypoints {
+                if let Some(location_name) = self.locations.get_mut(&waypoint.id) {
+                    *location_name = waypoint.name.clone();
+                    self.location_meta
+                        .insert(waypoint.id, waypoint.meta.clone());
+                }
+            }
+        }
+        self.generated_pathways = pathways;
         self.validate_generated_pathway_identity_claims()?;
         self.validate_journey_topology()?;
         if snapshot_version < 13 {
@@ -763,6 +823,20 @@ impl RuntimeWorld {
         historical_bundle_hash: Option<&str>,
     ) -> Result<(), String> {
         pathway.way_class = PathwayWayClass::for_traffic(pathway.traffic_count);
+        let origin_name = self
+            .location_name(pathway.origin_location_id)
+            .unwrap_or_default();
+        let destination_name = self
+            .location_name(pathway.destination_location_id)
+            .unwrap_or_default();
+        for waypoint in &mut pathway.waypoints {
+            let legacy_name = waypoint.name.clone();
+            if let Some(name) =
+                strip_legacy_pathway_endpoint_prefix(&legacy_name, &origin_name, &destination_name)
+            {
+                rename_generated_waypoint_prose(waypoint, name);
+            }
+        }
         if pathway.origin_location_id == pathway.destination_location_id
             || !(2..=8).contains(&pathway.distance)
             || pathway.waypoints.len() != usize::from(pathway.distance.saturating_sub(1))
@@ -1176,6 +1250,72 @@ impl RuntimeWorld {
         .is_ok()
     }
 
+    pub(super) fn reserve_unique_generated_pathway_names(
+        &self,
+        pathway: &mut GeneratedPathwayState,
+    ) {
+        let waypoint_ids = pathway
+            .waypoints
+            .iter()
+            .map(|waypoint| waypoint.id)
+            .collect::<BTreeSet<_>>();
+        let mut occupied_names = self
+            .generated_pathways
+            .values()
+            .filter(|existing| existing.id != pathway.id)
+            .flat_map(|existing| existing.waypoints.iter())
+            .map(|waypoint| waypoint.name.to_ascii_lowercase())
+            .chain(
+                self.locations
+                    .iter()
+                    .filter(|(location_id, _)| !waypoint_ids.contains(location_id))
+                    .map(|(_, name)| name.to_ascii_lowercase()),
+            )
+            .collect::<BTreeSet<_>>();
+        reserve_pathway_names_in_namespace(pathway, &mut occupied_names);
+    }
+
+    pub(super) fn reserve_refined_generated_pathway_names(
+        &self,
+        current: &GeneratedPathwayState,
+        refined: &mut GeneratedPathwayState,
+    ) {
+        let current_waypoint_ids = current
+            .waypoints
+            .iter()
+            .map(|waypoint| waypoint.id)
+            .collect::<BTreeSet<_>>();
+        let mut occupied_names = self
+            .generated_pathways
+            .values()
+            .filter(|existing| existing.id != refined.id)
+            .flat_map(|existing| existing.waypoints.iter())
+            .map(|waypoint| waypoint.name.to_ascii_lowercase())
+            .chain(
+                self.locations
+                    .iter()
+                    .filter(|(location_id, _)| !current_waypoint_ids.contains(location_id))
+                    .map(|(_, name)| name.to_ascii_lowercase()),
+            )
+            .collect::<BTreeSet<_>>();
+        let pathway_canonical_id = refined.canonical_id.clone();
+        for (index, (waypoint, fallback)) in refined
+            .waypoints
+            .iter_mut()
+            .zip(&current.waypoints)
+            .enumerate()
+        {
+            let reserved_name = reserve_unique_pathway_name(
+                &mut occupied_names,
+                &waypoint.name,
+                &fallback.name,
+                &pathway_canonical_id,
+                index,
+            );
+            rename_generated_waypoint_prose(waypoint, reserved_name);
+        }
+    }
+
     pub(super) fn generated_pathway(
         &self,
         actor_id: u64,
@@ -1214,26 +1354,27 @@ impl RuntimeWorld {
         let pathway_id = generated_pathway_canonical_id(source_route);
         let generation_policy =
             generated_policy_binding(source_route, origin_location_id, destination_location_id)?;
-        let seed = stable_pathway_hash(&pathway_id);
         let waypoint_count = usize::from(distance.saturating_sub(1));
-        let names = [
-            "Lantern Bend",
-            "Mossy Verge",
-            "Rain-Silver Crossing",
-            "Foxglove Turn",
-            "Quiet Rise",
-            "Bramble Mile",
-        ];
-        let route_name_prefix = format!(
-            "{}-{}",
-            pathway_anchor_name_token(&origin_name),
-            pathway_anchor_name_token(&destination_name),
-        );
+        let mut occupied_names = self
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| pathway.waypoints.iter())
+            .map(|waypoint| waypoint.name.to_ascii_lowercase())
+            .chain(
+                self.locations
+                    .values()
+                    .map(|name| name.to_ascii_lowercase()),
+            )
+            .collect::<BTreeSet<_>>();
         let waypoints = (0..waypoint_count)
             .map(|index| {
-                let landmark_name = format!(
-                    "{route_name_prefix} {}",
-                    names[(seed as usize + index) % names.len()]
+                let fallback_name = deterministic_pathway_fallback_name(&pathway_id, index);
+                let landmark_name = reserve_unique_pathway_name(
+                    &mut occupied_names,
+                    &fallback_name,
+                    &fallback_name,
+                    &pathway_id,
+                    index,
                 );
                 let canonical_id = generated_waypoint_canonical_id(&pathway_id, index);
                 let id = generated_pathway_location_id(&canonical_id);
@@ -3324,7 +3465,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_generated_names_fall_back_by_endpoint_and_replay_identically() {
+    fn route_grounding_repeated_names_use_prose_fallbacks_and_replay_identically() {
         let seed = RuntimeWorld::seeded();
         let pathway_a = seed
             .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
@@ -3341,7 +3482,7 @@ mod tests {
         let fallback_b = pathway_b.waypoints[0].name.clone();
         let repeated_name = "Rain-Silver Crossing";
         let first_collision_name =
-            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, &fallback_b, 0);
+            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, 0);
         pathway_c.waypoints[0].name = fallback_b.clone();
         pathway_d.waypoints[0].name = first_collision_name.clone();
         let discovery_record = |pathway: &GeneratedPathwayState, seed| JournalRecord {
@@ -3349,7 +3490,7 @@ mod tests {
                 pathway: pathway.clone(),
                 journey: None,
                 reveal_edges: vec![(pathway.origin_location_id, pathway.waypoints[0].id)],
-                narration: "A route becomes shared geography.".to_string(),
+                narration: format!("The way reaches {}.", pathway.waypoints[0].name),
                 event_type: "pathway.discovered".to_string(),
             }],
             ..JournalRecord::new(
@@ -3402,9 +3543,10 @@ mod tests {
             committed.generated_pathways[&pathway_a.id].waypoints[0].name,
             repeated_name
         );
+        let committed_b_name = deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, 1);
         assert_eq!(
             committed.generated_pathways[&pathway_b.id].waypoints[0].name,
-            deterministic_pathway_collision_name(&pathway_b.canonical_id, 0, &fallback_b, 1)
+            committed_b_name
         );
         assert_eq!(
             committed.generated_pathways[&pathway_d.id].waypoints[0].name,
@@ -3421,20 +3563,35 @@ mod tests {
             names.len(),
             "every simultaneously offered generated destination stays unique"
         );
-        let endpoint_prefix = format!(
-            "{}-{}",
-            pathway_anchor_name_token(
-                &committed
-                    .location_name(pathway_b.origin_location_id)
-                    .expect("origin name"),
-            ),
-            pathway_anchor_name_token(
-                &committed
-                    .location_name(pathway_b.destination_location_id)
-                    .expect("destination name"),
-            ),
+        let origin_name = committed
+            .location_name(pathway_b.origin_location_id)
+            .expect("origin name");
+        let destination_name = committed
+            .location_name(pathway_b.destination_location_id)
+            .expect("destination name");
+        assert!(generated_pathway_name_avoids_anchors(
+            &fallback_b,
+            &[&origin_name, &destination_name],
+        ));
+        assert!(sanitize_generated_pathway_name(&fallback_b).is_some());
+        let committed_b_narration = committed
+            .event_log
+            .iter()
+            .rev()
+            .find(|event| event.type_name == "pathway.discovered")
+            .and_then(|event| event.content.as_deref())
+            .expect("committed discovery narration");
+        assert!(committed_b_narration.contains(&committed_b_name));
+        assert!(!committed_b_narration.contains(&fallback_b));
+        assert_eq!(
+            replayed
+                .event_log
+                .iter()
+                .rev()
+                .find(|event| event.type_name == "pathway.discovered")
+                .and_then(|event| event.content.as_deref()),
+            Some(committed_b_narration),
         );
-        assert!(fallback_b.starts_with(&endpoint_prefix));
 
         let stable_projection = |runtime: &RuntimeWorld| {
             serde_json::to_vec(&(
@@ -3454,6 +3611,181 @@ mod tests {
             .into_runtime()
             .expect("restart collision fixture");
         assert_eq!(stable_projection(&restarted), committed_bytes);
+    }
+
+    #[test]
+    fn route_grounding_migrates_endpoint_prefixed_prose_without_changing_identity() {
+        let seed = RuntimeWorld::seeded();
+        let mut pathway = seed
+            .generated_pathway(RATI_ACTOR_ID, 1, 700, 3)
+            .expect("Core-to-Bethlehem bridge route");
+        let waypoint = pathway
+            .waypoints
+            .first_mut()
+            .expect("distance three has a waypoint");
+        waypoint.name = "Cosy-Bethlehem Bramble Mile".to_string();
+        waypoint.meta.description =
+            "At Cosy-Bethlehem Bramble Mile, wet stones hold the evening light.".to_string();
+        waypoint.meta.persona =
+            "Cosy-Bethlehem Bramble Mile gathers quiet footprints after rain.".to_string();
+        waypoint.meta.art_prompt =
+            Some("cozy storybook landscape, Cosy-Bethlehem Bramble Mile".to_string());
+        let pathway_identity = (
+            pathway.id.clone(),
+            pathway.canonical_id.clone(),
+            pathway.source_route_id.clone(),
+            pathway.source_route_version,
+            pathway
+                .waypoints
+                .iter()
+                .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                .collect::<Vec<_>>(),
+        );
+        let record = JournalRecord {
+            projection_mutations: vec![ProjectionMutation::JourneyTransition {
+                pathway: pathway.clone(),
+                journey: None,
+                reveal_edges: vec![(pathway.origin_location_id, pathway.waypoints[0].id)],
+                narration: "The way reaches Cosy-Bethlehem Bramble Mile.".to_string(),
+                event_type: "pathway.discovered".to_string(),
+            }],
+            ..JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: RATI_ACTOR_ID,
+                    ..CwAction::default()
+                },
+                333_100,
+            )
+        };
+        let replay_record: JournalRecord = serde_json::from_slice(
+            &serde_json::to_vec(&record).expect("serialize legacy-name record"),
+        )
+        .expect("deserialize legacy-name record");
+
+        let mut committed = RuntimeWorld::seeded();
+        let mut replayed = RuntimeWorld::seeded();
+        assert_eq!(committed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(replayed.apply_journal_record(&replay_record).0, CW_OK);
+        let migrated = &committed.generated_pathways[&pathway.id];
+        assert_eq!(migrated.waypoints[0].name, "Bramble Mile");
+        assert!(!migrated.waypoints[0]
+            .meta
+            .description
+            .contains("Cosy-Bethlehem"));
+        assert!(!migrated.waypoints[0]
+            .meta
+            .persona
+            .contains("Cosy-Bethlehem"));
+        assert!(!migrated.waypoints[0]
+            .meta
+            .art_prompt
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Cosy-Bethlehem"));
+        let narration = committed
+            .event_log
+            .iter()
+            .rev()
+            .find(|event| event.type_name == "pathway.discovered")
+            .and_then(|event| event.content.as_deref())
+            .expect("migrated pathway narration");
+        assert_eq!(narration, "The way reaches Bramble Mile.");
+        assert_eq!(
+            (
+                migrated.id.clone(),
+                migrated.canonical_id.clone(),
+                migrated.source_route_id.clone(),
+                migrated.source_route_version,
+                migrated
+                    .waypoints
+                    .iter()
+                    .map(|waypoint| (waypoint.id, waypoint.canonical_id.clone()))
+                    .collect::<Vec<_>>(),
+            ),
+            pathway_identity,
+        );
+        assert_eq!(
+            serde_json::to_vec(&replayed.generated_pathways[&pathway.id])
+                .expect("serialize replayed pathway"),
+            serde_json::to_vec(migrated).expect("serialize committed pathway"),
+        );
+        let restarted = RuntimeSnapshot::from_runtime(&committed)
+            .into_runtime()
+            .expect("restart migrated pathway");
+        assert_eq!(
+            restarted.generated_pathways[&pathway.id].waypoints[0].name,
+            "Bramble Mile"
+        );
+    }
+
+    #[test]
+    fn route_grounding_snapshot_migration_re_reserves_collapsed_legacy_names() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut cottage_route = runtime
+            .generated_pathway(RATI_ACTOR_ID, 1, 700, 2)
+            .expect("Core-to-Bethlehem bridge route");
+        let mut jerusalem_route = runtime
+            .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
+            .expect("Bethlehem-to-Jerusalem route");
+        rename_generated_waypoint_prose(
+            &mut cottage_route.waypoints[0],
+            "Cosy-Bethlehem Bramble Mile".to_string(),
+        );
+        rename_generated_waypoint_prose(
+            &mut jerusalem_route.waypoints[0],
+            "Bethlehem-Jerusalem Bramble Mile".to_string(),
+        );
+        for pathway in [&mut cottage_route, &mut jerusalem_route] {
+            let edge = (pathway.origin_location_id, pathway.waypoints[0].id);
+            pathway
+                .revealed_edges
+                .insert(pathway_edge_key(edge.0, edge.1));
+            runtime.ensure_generated_pathway_route_records(pathway);
+            runtime.ensure_generated_pathway_edge(pathway, edge.0, edge.1);
+            runtime
+                .generated_pathways
+                .insert(pathway.id.clone(), pathway.clone());
+        }
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("migrate colliding legacy waypoint prose");
+        let waypoint_names = [
+            cottage_route.waypoints[0].id,
+            jerusalem_route.waypoints[0].id,
+        ]
+        .map(|location_id| {
+            restored
+                .location_name(location_id)
+                .expect("restored waypoint name")
+        });
+        assert_eq!(
+            waypoint_names
+                .iter()
+                .map(|name| name.to_ascii_lowercase())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            2,
+        );
+        assert!(waypoint_names.iter().all(|name| {
+            sanitize_generated_pathway_name(name).is_some()
+                && !name.contains("Cosy-Bethlehem")
+                && !name.contains("Bethlehem-Jerusalem")
+        }));
+        let stable_projection = |runtime: &RuntimeWorld| {
+            serde_json::to_vec(&(
+                runtime.generated_pathways.clone(),
+                runtime.locations.clone(),
+                runtime.location_meta.clone(),
+            ))
+            .expect("serialize migrated names")
+        };
+        let restored_bytes = stable_projection(&restored);
+        let restarted = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("restart migrated collision fixture");
+        assert_eq!(stable_projection(&restarted), restored_bytes);
     }
 
     #[test]

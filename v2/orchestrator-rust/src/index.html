@@ -7228,8 +7228,11 @@
           const routeTargetPrefix = searchingPathway
             ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
-          const routeAccessibleLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeLabel = String(firstExit.route_label || "").trim();
+          const routeTargetLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
+          const routeAccessibleLabel = onePath && routeLabel
+            ? `${routeTargetLabel} via ${routeLabel}`
+            : routeTargetLabel;
           const routeGuidance = onePath
             && !searchingPathway
             && !fleeing

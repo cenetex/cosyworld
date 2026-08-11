@@ -148,7 +148,7 @@ impl PathwayWayClass {
     }
 }
 
-pub(super) fn pathway_anchor_name_token(name: &str) -> String {
+fn legacy_pathway_anchor_name_token(name: &str) -> String {
     name.split_whitespace()
         .find_map(|word| {
             let word = word
@@ -160,32 +160,108 @@ pub(super) fn pathway_anchor_name_token(name: &str) -> String {
         .unwrap_or_else(|| "Known".to_string())
 }
 
+const PATHWAY_NAME_ADJECTIVES: &[&str] = &[
+    "Amber",
+    "Autumn",
+    "Bright",
+    "Dappled",
+    "Dawnlit",
+    "Dewy",
+    "Fern-Green",
+    "Golden",
+    "Heathered",
+    "Hushed",
+    "Lantern-Lit",
+    "Misty",
+    "Moonlit",
+    "Mossy",
+    "Rain-Silver",
+    "Reed-Green",
+    "Russet",
+    "Shaded",
+    "Soft",
+    "Starry",
+    "Sunlit",
+    "Twilight",
+    "Warm",
+    "Willow-Pale",
+];
+
+const PATHWAY_NAME_ECOLOGY: &[&str] = &[
+    "Bluebell", "Bramble", "Cedar", "Clover", "Fern", "Foxglove", "Hawthorn", "Heather", "Juniper",
+    "Lantern", "Lichen", "Meadow", "Moss", "Orchard", "Pine", "Primrose", "Reed", "Rosemary",
+    "Rowan", "Sage", "Thistle", "Willow", "Woodbine", "Yarrow",
+];
+
+const PATHWAY_NAME_FEATURES: &[&str] = &[
+    "Bend",
+    "Brook",
+    "Crossing",
+    "Dell",
+    "Fold",
+    "Glade",
+    "Grove",
+    "Hollow",
+    "Mile",
+    "Reach",
+    "Rise",
+    "Run",
+    "Steps",
+    "Turn",
+    "Vale",
+    "Verge",
+    "Walk",
+    "Way",
+    "Wold",
+    "Meander",
+    "Passage",
+    "Promenade",
+    "Terrace",
+    "Trace",
+];
+
+const PATHWAY_PROSE_NAME_VARIANTS: u64 = (PATHWAY_NAME_ADJECTIVES.len()
+    * PATHWAY_NAME_ECOLOGY.len()
+    * PATHWAY_NAME_FEATURES.len()) as u64;
+
+pub(super) fn deterministic_pathway_fallback_name(
+    pathway_canonical_id: &str,
+    waypoint_index: usize,
+) -> String {
+    deterministic_pathway_prose_name(pathway_canonical_id, waypoint_index, 0)
+}
+
+fn deterministic_pathway_prose_name(
+    pathway_canonical_id: &str,
+    waypoint_index: usize,
+    variant: u64,
+) -> String {
+    assert!(
+        variant < PATHWAY_PROSE_NAME_VARIANTS,
+        "pathway prose-name namespace exhausted"
+    );
+    let seed = stable_pathway_hash(&format!("{pathway_canonical_id}:{waypoint_index}"));
+    let slot = (seed % PATHWAY_PROSE_NAME_VARIANTS + variant) % PATHWAY_PROSE_NAME_VARIANTS;
+    let slot = slot as usize;
+    let ecology_and_feature_slots = PATHWAY_NAME_ECOLOGY.len() * PATHWAY_NAME_FEATURES.len();
+    format!(
+        "{} {} {}",
+        PATHWAY_NAME_ADJECTIVES[slot / ecology_and_feature_slots],
+        PATHWAY_NAME_ECOLOGY[(slot / PATHWAY_NAME_FEATURES.len()) % PATHWAY_NAME_ECOLOGY.len()],
+        PATHWAY_NAME_FEATURES[slot % PATHWAY_NAME_FEATURES.len()],
+    )
+}
+
 pub(super) fn deterministic_pathway_collision_name(
     pathway_canonical_id: &str,
     waypoint_index: usize,
-    fallback_name: &str,
     collision_attempt: u64,
 ) -> String {
-    let mut value = stable_pathway_hash(&format!("{pathway_canonical_id}:{waypoint_index}"));
-    let mut token = String::with_capacity(5);
-    for _ in 0..5 {
-        token.push(char::from(b'a' + (value % 26) as u8));
-        value /= 26;
-    }
-    if collision_attempt == 0 {
-        return format!("{fallback_name}-{token}");
-    }
-    let mut attempt = collision_attempt - 1;
-    let mut attempt_token = String::new();
-    loop {
-        attempt_token.push(char::from(b'a' + (attempt % 26) as u8));
-        if attempt < 26 {
-            break;
-        }
-        attempt = attempt / 26 - 1;
-    }
-    let attempt_token = attempt_token.chars().rev().collect::<String>();
-    format!("{fallback_name}-{token}-{attempt_token}")
+    deterministic_pathway_prose_name(
+        pathway_canonical_id,
+        waypoint_index,
+        collision_attempt.saturating_add(1),
+    )
 }
 
 pub(super) fn reserve_unique_pathway_name(
@@ -206,7 +282,6 @@ pub(super) fn reserve_unique_pathway_name(
         let candidate = deterministic_pathway_collision_name(
             pathway_canonical_id,
             waypoint_index,
-            fallback_name,
             collision_attempt,
         );
         if occupied_names.insert(candidate.to_ascii_lowercase()) {
@@ -216,6 +291,22 @@ pub(super) fn reserve_unique_pathway_name(
             .checked_add(1)
             .expect("pathway collision namespace exhausted");
     }
+}
+
+pub(super) fn strip_legacy_pathway_endpoint_prefix(
+    name: &str,
+    origin_name: &str,
+    destination_name: &str,
+) -> Option<String> {
+    let prefix = format!(
+        "{}-{} ",
+        legacy_pathway_anchor_name_token(origin_name),
+        legacy_pathway_anchor_name_token(destination_name),
+    );
+    name.strip_prefix(&prefix)
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
 }
 
 fn generated_pathway_edge_direction(
@@ -563,8 +654,11 @@ impl RuntimeWorld {
         );
         offer.verb = verb.clone();
         offer.label = label.clone();
-        offer.accessible_label =
-            self.action_offer_accessible_label(&offer.kind, &verb, &label, Some(&target), None);
+        offer.accessible_label = format!(
+            "{} via {}",
+            self.action_offer_accessible_label(&offer.kind, &verb, &label, Some(&target), None),
+            exit.route_label,
+        );
         offer.command = normalize_command_text(&format!(
             "{} {}",
             if offer.kind == "flee" {
@@ -753,7 +847,7 @@ mod tests {
     }
 
     #[test]
-    fn route_labels_are_directional_and_traffic_does_not_reallocate_identity() {
+    fn route_grounding_labels_are_directional_and_traffic_preserves_identity() {
         let mut runtime = RuntimeWorld::seeded();
         let mut pathway = runtime
             .generated_pathway(RATI_ACTOR_ID, 700, 712, 2)
@@ -867,6 +961,18 @@ mod tests {
             runtime.route_label_for_edge(712, waypoint_id),
             "Highway from Jerusalem to Bethlehem"
         );
+    }
+
+    #[test]
+    fn route_grounding_collision_namespace_does_not_cycle_at_ten_thousand_names() {
+        let canonical_id = "generated-pathway:route://test/example@1";
+        let names = (0..10_000)
+            .map(|attempt| deterministic_pathway_collision_name(canonical_id, 0, attempt))
+            .collect::<BTreeSet<_>>();
+        assert_eq!(names.len(), 10_000);
+        assert!(names
+            .iter()
+            .all(|name| sanitize_generated_pathway_name(name).is_some()));
     }
 
     #[test]
@@ -1013,6 +1119,19 @@ mod tests {
                         .as_deref()
                         .is_some_and(|label| offer.label.contains(label))
             }) && offer.route.is_some()
+        }));
+        assert!(direct_offers.iter().all(|offer| {
+            let target = offer.target.as_ref().expect("route target");
+            let exit = exits
+                .iter()
+                .find(|exit| Some(exit.destination_location_id) == target.id)
+                .expect("matching exit");
+            offer.accessible_label
+                == format!(
+                    "Travel to {} via {}",
+                    target.label.as_deref().unwrap(),
+                    exit.route_label
+                )
         }));
         assert!(
             direct_offers.iter().all(|offer| {
