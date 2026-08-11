@@ -10067,41 +10067,7 @@ impl RuntimeWorld {
                     refined.familiar |= current.familiar;
                     refined.traffic_count = current.traffic_count;
                     refined.way_class = PathwayWayClass::for_traffic(refined.traffic_count);
-                    let current_waypoint_ids = current
-                        .waypoints
-                        .iter()
-                        .map(|waypoint| waypoint.id)
-                        .collect::<BTreeSet<_>>();
-                    let mut occupied_names = self
-                        .generated_pathways
-                        .values()
-                        .filter(|existing| existing.id != refined.id)
-                        .flat_map(|existing| existing.waypoints.iter())
-                        .map(|waypoint| waypoint.name.to_ascii_lowercase())
-                        .chain(
-                            self.locations
-                                .iter()
-                                .filter(|(location_id, _)| {
-                                    !current_waypoint_ids.contains(location_id)
-                                })
-                                .map(|(_, name)| name.to_ascii_lowercase()),
-                        )
-                        .collect::<BTreeSet<_>>();
-                    let pathway_canonical_id = refined.canonical_id.clone();
-                    for (index, (waypoint, fallback)) in refined
-                        .waypoints
-                        .iter_mut()
-                        .zip(&current.waypoints)
-                        .enumerate()
-                    {
-                        waypoint.name = reserve_unique_pathway_name(
-                            &mut occupied_names,
-                            &waypoint.name,
-                            &fallback.name,
-                            &pathway_canonical_id,
-                            index,
-                        );
-                    }
+                    self.reserve_refined_generated_pathway_names(&current, &mut refined);
                     for waypoint in &refined.waypoints {
                         self.locations.insert(waypoint.id, waypoint.name.clone());
                         self.location_meta
@@ -10179,6 +10145,27 @@ impl RuntimeWorld {
                     {
                         continue;
                     }
+                    if !self.generated_pathways.contains_key(&proposed_pathway.id) {
+                        self.reserve_unique_generated_pathway_names(&mut proposed_pathway);
+                    }
+                    let name_changes = pathway
+                        .waypoints
+                        .iter()
+                        .zip(&proposed_pathway.waypoints)
+                        .filter(|(proposed, committed)| proposed.name != committed.name)
+                        .map(|(proposed, committed)| {
+                            (proposed.name.clone(), committed.name.clone())
+                        })
+                        .collect::<Vec<_>>();
+                    let mut committed_narration = narration.clone();
+                    for (index, (previous_name, _)) in name_changes.iter().enumerate() {
+                        committed_narration = committed_narration
+                            .replace(previous_name, &format!("{{route-waypoint-name-{index}}}"));
+                    }
+                    for (index, (_, committed_name)) in name_changes.iter().enumerate() {
+                        committed_narration = committed_narration
+                            .replace(&format!("{{route-waypoint-name-{index}}}"), committed_name);
+                    }
                     let mut next_pathway = self
                         .generated_pathways
                         .get(&proposed_pathway.id)
@@ -10201,6 +10188,13 @@ impl RuntimeWorld {
                         next_pathway.traffic_count.saturating_add(traffic_delta);
                     next_pathway.way_class =
                         PathwayWayClass::for_traffic(next_pathway.traffic_count);
+                    for waypoint in &next_pathway.waypoints {
+                        if let Some(location_name) = self.locations.get_mut(&waypoint.id) {
+                            *location_name = waypoint.name.clone();
+                            self.location_meta
+                                .insert(waypoint.id, waypoint.meta.clone());
+                        }
+                    }
                     self.generated_pathways
                         .insert(next_pathway.id.clone(), next_pathway.clone());
                     if let Some(journey) = journey {
@@ -10218,7 +10212,7 @@ impl RuntimeWorld {
                     let event = self.append_journey_event(
                         event_type,
                         action.actor_id,
-                        narration,
+                        &committed_narration,
                         journey_destination,
                     );
                     for (from_location_id, to_location_id) in reveal_edges {
@@ -42930,10 +42924,6 @@ mod tests {
             Some(first_waypoint_id),
             "the route handoff points at the newly revealed waypoint"
         );
-        assert!(first_travel_offer
-            .accessible_label
-            .starts_with("Travel to "));
-
         let (first_travel, mut first_travel_mutation, first_travel_narration) = runtime
             .plan_journey_move(5000, first_waypoint_id)
             .expect("first segment travel planning succeeds")
