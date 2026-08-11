@@ -8,10 +8,10 @@ The older Node service remains in the repository as a legacy companion for
 integrations and migration work. Gameplay truth lives here.
 
 ADR 0006 accepts a wallet-optional core with an avatar-NFT-only bridge. The
-Box/pack, keepsake, wallet-gate, and item/location materialization routes
-documented below are live legacy compatibility surfaces being removed through
-#682/#685; they are not product direction. New external-ownership work belongs
-only in the optional linked-avatar adapter.
+Box/pack, keepsake, wallet-gate, and item/location materialization player
+surfaces are removed. Their historical rows remain replayable operator-audit
+data. New external-ownership work belongs only in the optional linked-avatar
+adapter.
 
 For Orbs, linked avatars, legacy receipt inventory, and the migration plan, see
 `../ECONOMY.md`.
@@ -41,7 +41,7 @@ For free public Chat, community-funded evolving card art, combat rewards, and se
 
 The reference packs remain non-authoritative; the official world selects the
 versioned `cosyworld.srd5/1` profile through `cosyworld.rules/2`. Stable SRD
-5.2.1 action identities sit beneath collectible avatar/item/location cards,
+5.2.1 action identities sit beneath presentation cards for avatars, items, and locations,
 with weapons, skill charms, spells, and containers as playable Item roles. The
 implemented architecture is documented in
 [`docs/systems/04-action-system.md`](../docs/systems/04-action-system.md) and
@@ -84,11 +84,10 @@ Seed world content:
 - Location `2`: Rain-Soft Garden.
 - Location `3`: Moonlit Trail.
 - Locations `2` and `3`: Rain-Soft Garden and Moonlit Trail, public CosyWorld Core rooms.
-- Locations `10`-`15`: Ruby High: First Bell expansion rooms. Science Class, Homeroom, Library, Cafeteria, Greenhouse, and Courtyard require their matching Ruby High location cards in the official world.
+- Locations `10`-`15`: public Ruby High: First Bell expansion rooms: Science Class, Homeroom, Library, Cafeteria, Greenhouse, and Courtyard.
 - Locations `30`-`36`, `40`-`44`, `50`, and `60`-`65`: public CosyWorld Core seed rooms for free-world breadth.
-- Exits: `1 <-> 2 <-> 3`, plus Cottage hub doors to public seed rooms and locked Ruby High expansion doors.
-- Default public room: everyone can enter The Cosy Cottage without an NFT.
-- Official expansion exits: Ruby High: First Bell locations require their matching location card in the request access context; each expansion room is still one shared global channel, never a private copy.
+- Exits: `1 <-> 2 <-> 3`, plus Cottage hub doors to public seed and Ruby High rooms.
+- Every official room is shared and independent of wallet or NFT ownership.
 - NPC `1001`: Rati.
 - NPC `1002`: Whiskerwind.
 - NPC `1003`: Skull.
@@ -106,23 +105,16 @@ Seed world content:
 
 ## Access Model
 
-CosyWorld Core is free and should feel complete: players can create an avatar, chat, listen, earn and spend Orbs, collect seed items, travel through public rooms, and resolve the public practice/combat loop without holding an NFT.
+CosyWorld Core and mounted expansions are complete ordinary play without a
+wallet. Players can create an avatar, chat, listen, earn and spend Orbs, collect
+physical world items, travel, and resolve practice/combat through world rules.
+Cards present actors, items, locations, spells, and actions; they are not an
+ownership or access plane.
 
-Official NFTs unlock official expansions, not the base game. Pack resources
-name grants rather than chains: the pack maps verified NFT assets or private
-set claims to those grants, and movement checks the resulting grant. The first
-expansion is **Ruby High: First Bell**. In the official world, Ruby High rooms
-use the trusted ownership feed and require their matching Ruby High location
-card grants:
-
-- `location-science-lab` unlocks Science Class.
-- `location-homeroom` unlocks Homeroom.
-- `location-library` unlocks Library.
-- `location-cafeteria` unlocks Cafeteria.
-- `location-greenhouse` unlocks Greenhouse.
-- `location-courtyard` unlocks Courtyard.
-
-Locked expansion doors can be shown as previews in room state, but the server validates access again when a current Travel or Flee card is submitted through `/actions/submit`. Self-hosted installations can define a separate world with their own public rooms, gated rooms, and ownership adapters, while the official hosted world only trusts official collection feeds.
+The one optional external boundary is the linked-avatar adapter. A signed
+wallet can discover a supported avatar NFT and recover its one durable,
+autonomous world actor. Custody grants no direct control, place access, item,
+action, reward, progression, or private media.
 
 The C kernel currently resolves:
 
@@ -154,8 +146,9 @@ The Rust orchestrator currently owns:
 - Rules-bound legal-action envelopes, deterministic ranked two-card hands plus
   certified Think/Pass rotation, composition traces, and stale/tampered
   submission rejection.
-- Signed-ownership item materialization with durable receipts, reversible
-  Collection returns, and possession provenance.
+- Read-only legacy item-materialization migration receipts and possession
+  provenance. No materialize or Collection-return mutation remains; the
+  verified avatar-NFT actor adapter is a separate seam.
 - Session-touched and heartbeat-refreshed direct-input presence, so stale
   directly controlled avatars do not crowd active rooms.
 - Controller-based safety policy: directly controlled avatars cannot be theft
@@ -169,8 +162,8 @@ The Rust orchestrator currently owns:
 - SQLite action journal and projected event feed.
 - Durable Orb ledger rows for avatar grants, rule rewards, flee rewards, and community image contributions; image generation is the sole Orb sink.
 - Durable AI usage ledger rows for system-funded resident and community-image payer/provider/model/status accounting without storing player OpenRouter keys.
-- Trusted ownership-feed projection for active Wooden Box NFTs and unopened avatar packs in `/state`.
-- Signed-wallet staging routes for Wooden Box burn receipts and avatar pack opening/card grants.
+- Optional protected ownership adapter for supported linked avatars; legacy
+  Box/pack receipts are visible only in protected moderation audit.
 - Resident replies are submitted back through the kernel as actor actions and broadcast one-to-many to everyone in the room.
 - Every sixth committed player world tick advances one deterministic frontier pulse. Ambient weather is harmless; opportunity effects move or strain authored stock, affect faction momentum/influence, and change visible conflict pressure. Pressure cannot cross into stakes unless that same turn records a relevant action at the affected frontier; only then may the pulse advance its active danger clock. The journal replays this history and its exact causal link, snapshots persist it, and `/state` exposes only locally visible conditions. See `docs/world-simulation.md`.
 
@@ -178,14 +171,17 @@ The Rust orchestrator currently owns:
 
 AI agents should play through the same server rules as browser players:
 
-1. A real wallet signs in through `/wallet/challenge` and `/wallet/session`.
-2. The wallet creates or recovers an avatar through `POST /avatar`.
-3. The wallet signs a short-lived narrative move delegation for an ephemeral autosign key.
-4. The agent observes with `GET /state?actor_id=<id>&wallet_session=<wallet_session>`.
-5. The agent submits commands through `POST /actions/narrative-move`.
-6. The agent watches room changes with `/events` or `/stream` using the same `actor_id` and `wallet_session`.
+1. Create or recover an ordinary avatar through `POST /avatar` and retain its
+   `actor_session`.
+2. Observe with `GET /state?actor_id=<id>&actor_session=<actor_session>`.
+3. Submit commands through the same certified action endpoints as other
+   clients.
+4. Watch room changes with `/events` or `/stream` using the same actor session.
 
-The owner wallet signs the delegation once:
+A wallet session is needed only when discovering or recovering a supported
+linked avatar; it is not the general agent authentication path.
+
+For the optional linked-avatar narrative delegation, the owner wallet signs once:
 
 ```text
 CosyWorld narrative move delegation
@@ -220,7 +216,9 @@ For the browser MVP, from the repository root:
 ./v2/mvp.sh
 ```
 
-That script builds the Rust orchestrator, starts it detached on `127.0.0.1:3102` with the dev wallet cards needed for the current playable loop, enables `/dev/reset`, opens `http://127.0.0.1:3102/?wallet=dev-wallet`, and prints health/status. Useful commands:
+That script builds the Rust orchestrator, starts it detached on
+`127.0.0.1:3102`, enables `/dev/reset`, opens the wallet-free first tale, and
+prints health/status. Useful commands:
 
 ```sh
 ./v2/mvp.sh check
@@ -258,22 +256,16 @@ The server listens on `127.0.0.1:3102` by default.
 
 The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
 
-The production Fly profile expects the active pack's protected entitlement feed, moderation token, and event store to be configured before boot:
+The production Fly profile requires moderation and the event store. Configure
+the protected avatar feed only when linked-avatar discovery is enabled:
 
 ```sh
 fly secrets set COSYWORLD_PROCESS_ID=public-1
 # During migration the old alias may remain, but must match:
 fly secrets set COSYWORLD_V2_SHARD_ID=public-1
-fly secrets set COSYWORLD_ENTITLEMENT_FEED_BEARER=...
+fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
 fly deploy
-```
-
-Before enabling production Box burns, set the chain verifier secrets:
-
-```sh
-fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
-fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
 ```
 
 If the Node companion service is also deployed, set `COSYWORLD_V2_PUBLIC_URL` there so `/api/runtime` and the launch bridge point at this V2 service.
@@ -318,20 +310,15 @@ The planned rest-bound authored-page model—one sentence per short rest, one fu
 
 Generated avatar titles are short portable card epithets rather than room descriptions. Model-added suffixes such as `at The Cosy Cottage` are removed on creation and when older profiles are replayed, so arrival copy names the room once and the title still makes sense after travel. Identity generation asks for a small fondness, harmless habit, and gentle curiosity; a server-side tone guard repairs titles, descriptions, visual prompts, and older profiles that drift into grudges, ravenous scheming, hostility, cruelty, or villain language.
 
-Wallet-owned cards form a three-slot **Keepsake collection** alongside the room's contextual scene cards. Keeping a card close can place its art beside a matching choice, but it does not change available actions, ordering, effects, costs, or odds. The account sheet and card detail view state that cosmetic promise before the player chooses `keep close`; owned card art is a keyboard-accessible detail button. The loadout is stored per wallet in the browser and can be changed from the account sheet without recomposing the action hand. Player-facing rarity is compressed to `everyday`, `curious`, `rare`, and `storybook`; signed Box pack reveals use deterministic rarity weights, never repeat a card within a pack, and prefer cards the wallet does not already own until the eight-card avatar catalog is complete.
-
-When a kept-close card matches an action, the action can name the cosmetic connection—for example, `✦ Homeroom kept close`. The card's authoritative reason—such as `From your Calling`, `From what your Journal remembers`, or `Because Rati trusts you`—is independently shown on the card and repeated in its accessible name, hover copy, and confirmation. The top-bar collection control remains visibly named `account` even on narrow screens, changes to `close` while the sheet is open, exposes its expanded state, and returns to room chat on a second activation or Escape.
-
 After `Your first tale` finishes, the client may derive one grounded **room thread** from projected world state: a wanted gift, urgent care, shared work, danger, an open path, something still hidden, a nearby voice, or finally the room's authored hook. That client-only suggestion cannot reorder or annotate the authoritative two-card hand. The server-authored first-tale projection is the only story guide that may pin and label a matching scene card.
 
 Choice-bearing cards keep one confirmation flow while making the selected option feel concrete. Avatar, Item, Location, Give, Trade, Travel, Take, Attack, friendship, and mixed Use choices carry their corresponding cards; selecting another option immediately swaps the preview and accessible image name. Portrait and square art use a contained preview instead of being cropped into the wide action frame.
 
-For the current browser MVP smoke, run the single-writer service with a dev wallet that can reach the Garden, Trail, Homeroom, and Science. `./v2/mvp.sh check` also seeds a deterministic throwaway signed smoke wallet with `location-library` so the smoke can verify the production-style wallet challenge/session path:
+For the current browser MVP smoke, run the single-writer service without wallet
+or ownership configuration:
 
 ```sh
 COSYWORLD_ENABLE_DEV_RESET=1 \
-COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 \
-COSYWORLD_ENTITLEMENT_FEED='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab|DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES:location-homeroom,location-library' \
 cargo run
 ```
 
@@ -344,15 +331,14 @@ node v2/scripts/smoke-browser.mjs
 The browser smoke uses Playwright from `v2` when available, or the sibling
 `../app-ruby-high` workspace in this development checkout. `npm run v2:smoke`
 runs both the deterministic visual/accessibility pass and the longer
-living-world journey. Together they verify runtime metadata, signed wallet
-challenge/session access and avatar recovery, avatar creation, actor-session
-continuity, walletless `connect wallet`, one-button normal play, zero-Orb
+living-world journey. Together they verify runtime metadata, avatar creation,
+actor-session continuity, one-button wallet-free play, zero-Orb
 earning-action priority, no-typing `listen`, bounded Chat, advancement-backed Befriend,
 contextual resident heartbeats, moderation/report flows, two-browser
 fanout and presence leave, compass/typed command behavior, weighted-deck item
 take/drop/retake behavior, multiple loose cards at one location, reload
-continuity, contextual verb labels, viewport fit, seed-card art, card-gated
-travel, resident keepsake handoffs, project-clue use and completion,
+continuity, contextual verb labels, viewport fit, seed-card art, public travel,
+resident item handoffs, project-clue use and completion,
 autonomous resident delivery, emoji-only speech accessibility, and protected
 resident/human action boundaries.
 
@@ -557,9 +543,12 @@ The MVP economy is enabled by default:
 - Automatic Orb rewards are claim-key gated by actor/context so repeated identical outcomes cannot mint duplicate rewards.
 - Eligible generated card modals pool one Orb per contribution until the total equals the card's level; each level unlocks one history-aware shared image.
 - Orb mutations and AI usage are persisted to SQLite ledger tables when the event store is enabled.
-- Trusted ownership feeds may include active Wooden Boxes and unopened avatar packs; the main room UI keeps those out of the normal transcript, while the top economy chip can focus account inventory/provenance and change the one contextual command to `Open Box` or `Open Pack`.
-- `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` exist as signed-wallet endpoints. Local mode can still create staging receipts for fast development. With a configured Solana/Core verifier, production `burn-prepare` fetches a current blockhash and returns an unsigned owner-paid Metaplex Core BurnV1 transaction for the trusted Box and configured collection. The browser confirms the irreversible action, asks the wallet to sign and send it, and passes the returned chain signature to `burn-confirm`, which verifies the transaction before creating a receipt. Receipts and pack openings are durable, idempotent, merged back into the ownership projection, and shown in account state.
-- `/moderation/economy` returns recent Orb/AI ledgers, Box receipts, pack reveals, and pre-merge ownership reconciliation runs. Open anomaly runs can be resolved idempotently with moderator identity and notes through `/moderation/economy/reconciliations/{run_id}/resolve`; the moderation console exposes the same economy workflow.
+- Historical Box and pack rows remain absent from ordinary state and have no
+  burn/open route or current ownership effect.
+- `/moderation/economy` returns recent Orb/AI ledgers, historical Box/pack rows,
+  and ownership reconciliation runs. Open anomaly runs can be resolved
+  idempotently with moderator identity and notes through
+  `/moderation/economy/reconciliations/{run_id}/resolve`.
 
 CosyWorld mechanical time is player-powered: clocks, danger, placement, seasons, and resident actions do not advance merely because wall-clock seconds pass. A committed scene card may arm one speech-only room heartbeat after a short delay. The durable player-tick observation is stored atomically with the card outcome; later cards while that room heartbeat is pending or running do not stack another reply. When the heartbeat runs, it selects the next active resident in stable authored card order and supplies both the triggering card and the latest authoritative room log. When inference is unavailable or invalid, the deterministic card outcome remains committed and speech is skipped rather than replaced with stock dialogue. Group chat contains only committed speech; card outcomes remain in Journal. Player actions can also fan out into lifecycle hooks, frontier danger/progress clocks, and player-turn encounter resets through the audited journal path.
 
@@ -663,61 +652,70 @@ Visible actors, items, and locations now resolve through `state.cards`:
 - items use square card art;
 - locations use wide card art in the top tab and travel controls;
 - Ruby High cards carry First Bell catalog/on-chain metadata;
-- CosyWorld seed cards use the same shape with generated mini art served from `/assets/generated/cards/{card_id}.webp` until the card pipeline adds full NFT records.
+- CosyWorld seed cards use the same shape with generated mini art served from `/assets/generated/cards/{card_id}.webp` until the card pipeline adds full reviewed media records.
 
 The `ruby-high.first-bell` pack supplies the 24 live Ruby High: First Bell card profiles, covering students, teachers, special cards, items, and locations. Exposed First Bell cards use `/assets/cards/{card_id}.png`; the active registry resolves that prefix through the pack's `ruby-high.first-bell/assets` capability. A materialized asset is served locally when present, otherwise the mount's declared `external_uri` fallback redirects to the catalog's pinned chain image URI. The runtime projects the matching set number, profile id, subject, rarity, aspect, and Arweave image URI into `state.cards` without reading a sibling repository.
 
-For the current dev slice, the server owns wallet/card access through an ownership snapshot:
-
-```sh
-COSYWORLD_ENTITLEMENT_FEED='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' cargo run
-```
-
-By default, a browser can only claim a wallet after signing a Solana wallet challenge:
+The browser needs no wallet for ordinary play. A supported linked-avatar flow
+starts only after signing a wallet challenge:
 
 - `GET /wallet/challenge?wallet_address=<base58 public key>` returns the exact message to sign.
 - `POST /wallet/session` verifies the Ed25519 signature and returns a short-lived `wallet_session`.
-- `/state` and current Travel/Flee offer submission use `wallet_session` to resolve server-owned Ruby High: First Bell expansion access.
+- The linked-avatar adapter uses `wallet_session` to discover verified
+  allowlisted avatar assets and recover their durable actor bindings.
 
-The one-button browser shell exposes this as a contextual `connect wallet` command when a locked Ruby High expansion door is focused and no signed wallet session is present.
+The Identity surface exposes this as **link avatar wallet**. Travel, items,
+actions, and mounted content do not inspect wallet ownership.
 
-For local smoke/demo only, enable unsigned wallet hints explicitly, then open `http://127.0.0.1:3102/?wallet=dev-wallet`:
+For local adapter development, provide an avatar-only fixture:
 
 ```sh
-COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 \
-COSYWORLD_ENTITLEMENT_FEED='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' \
+COSYWORLD_AVATAR_OWNERSHIP_FEED='rati-wallet:rati' \
 cargo run
 ```
 
-`wallet` and signed `wallet_session` values are persisted in browser local storage after first load. The browser may still send `cards` or `owned_card_ids`, but the server ignores client-provided card claims by default. Use `COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS=1` only for throwaway local debugging.
-
-The same snapshot can be loaded from a file:
+The same protected adapter snapshot can be loaded from a file:
 
 ```sh
-COSYWORLD_ENTITLEMENT_FEED_PATH=.runtime/entitlements.txt cargo run
+COSYWORLD_AVATAR_OWNERSHIP_FEED_PATH=.runtime/avatar-ownership.json cargo run
 ```
 
 Production-style deployments can point at a trusted server-owned JSON feed:
 
 ```sh
-COSYWORLD_ENTITLEMENT_FEED_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
-COSYWORLD_ENTITLEMENT_FEED_BEARER=... \
+COSYWORLD_AVATAR_OWNERSHIP_FEED_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
+COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=... \
 cargo run
 ```
 
-Ruby High protects that endpoint with `RUBY_HIGH_COSYWORLD_EXPORT_TOKEN` and exports only active, minted Hall Pass card NFTs with an owner wallet address. The remote feed is fetched on v2 startup, merged with inline/path feeds, and refreshed every 60 seconds by default. Startup and refresh both merge durable local Box/pack receipts into the effective ownership index, so opened-pack card grants stay visible between provider updates. Refresh failures keep the last good ownership index so a transient provider/network outage does not lock players out. Requests use a 15-second total timeout by default, bounded to 1–60 seconds through `COSYWORLD_ENTITLEMENT_FEED_TIMEOUT_SECS`; `/meta` reports that bound plus transport-aware `last_error_code` values such as `dns`, `tls`, `connect`, `timeout`, `http_502`, and `invalid_response`. Tune the loop with `COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS`; set it to `0` to disable background refresh. The former `COSYWORLD_RUBY_HIGH_WALLET_CARDS*` names remain accepted as deployment-compatibility aliases.
+The remote feed is fetched on startup and refreshed every 60 seconds by
+default. Refresh failures keep the last good avatar index and do not affect
+ordinary play. Requests use a 15-second total timeout by default, bounded to
+1–60 seconds through `COSYWORLD_AVATAR_OWNERSHIP_FEED_TIMEOUT_SECS`; `/meta`
+reports the linked-avatar adapter status and transport-aware error code. Tune
+the loop with `COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS`; set it to `0` to
+disable background refresh. Former `COSYWORLD_ENTITLEMENT_FEED_*` and Ruby High
+names remain deployment aliases only. Historical Box/pack receipts are never
+merged into this adapter index.
 
 For a public deployment, turn on the explicit production profile:
 
 ```sh
 COSYWORLD_DEPLOY_PROFILE=production \
-COSYWORLD_ENTITLEMENT_FEED_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
-COSYWORLD_ENTITLEMENT_FEED_BEARER=... \
 COSYWORLD_MODERATION_TOKEN=... \
 cargo run --release
 ```
 
-`COSYWORLD_DEPLOY_PROFILE=production` makes startup require a protected remote feed and bearer only when the active registry declares an `asset_feed` entitlement authority. When AI credentials or a loopback AI endpoint enable inference, it also requires an explicit, reviewed `COSYWORLD_AI_REGISTRY_JSON`; omit all AI credentials and the local endpoint to disable AI. Startup still aborts if the entitlement provider is unavailable, the SQLite event store is disabled, moderation is not configured, or local dev shortcuts such as unsigned wallet hints, dev reset, trusted client card ids, or avatar chat delay are enabled. A public pack with no entitlement provider can boot independently. Configure Box burn verification with `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until those are present, production Box burn endpoints stay closed with `501` responses. `/meta` exposes the active deployment profile and `nft.box_burn_verifier_configured` so deploy smoke checks can confirm whether chain verification is enabled.
+Add the avatar feed URL and bearer only when that optional adapter is enabled.
+
+`COSYWORLD_DEPLOY_PROFILE=production` boots the default composition with no
+wallet, chain, or ownership feed. When AI credentials or a loopback AI endpoint
+enable inference, it also requires an explicit, reviewed
+`COSYWORLD_AI_REGISTRY_JSON`; omit all AI credentials and the local endpoint to
+disable AI. Startup still aborts if the SQLite event store is disabled,
+moderation is not configured, or local dev shortcuts are enabled. When an
+avatar feed URL is configured, production requires its bearer and reports the
+sanitized adapter state under `/meta.linked_avatar_adapter`.
 
 Runtime event-store health is exposed at `/meta.persistence.event_store` and in the moderation console. Failed secondary appends are retained by sequence and retried every five seconds; SQLite insertion is idempotent, so recovery drains the queue without duplicating events. A `degraded` status, nonzero pending count, or consecutive read/append failures is an operator incident: restore volume capacity/permissions before restarting the process, then confirm the status returns to `healthy` and the pending count reaches zero. Journal-backed player mutations already fail atomically when their SQLite transaction cannot commit.
 
@@ -728,43 +726,10 @@ cargo build
 node v2/scripts/smoke-production-profile.mjs
 ```
 
-It launches temporary bearer-protected ownership and Solana RPC fixtures, starts the orchestrator with `COSYWORLD_DEPLOY_PROFILE=production`, and verifies `/meta` reports production mode, remote ownership, moderation, persistence, configured Box burn verification for the smoke process, and disabled dev shortcuts. It then signs a real wallet-session challenge, prepares a trusted fixture Box, and verifies the live process returns a current-blockhash Core BurnV1 transaction.
-
-The file uses the same line format:
-
-```text
-wallet-a:rati,location-science-lab
-wallet-b:rati,cosy-rain-soft-garden
-```
-
-The same path or env var also accepts trusted JSON exports:
-
-```json
-[
-  { "walletAddress": "wallet-a", "cardIds": ["rati", "location-science-lab"] },
-  { "wallet_address": "wallet-b", "cards": "location-library location-greenhouse" },
-  {
-    "walletAddress": "wallet-c",
-    "hallPassCards": [
-      { "characterId": "location-courtyard", "status": "active" },
-      { "characterId": "location-library", "status": "burned" }
-    ]
-  }
-]
-```
-
-or:
-
-```json
-{
-  "wallet-a": ["rati", "location-science-lab"],
-  "wallet-b": "location-library location-greenhouse"
-}
-```
-
-This is the adapter seam for replacing the dev snapshot with Ruby High wallet/session NFT ownership. The feed is server-owned; browser `cards` query params remain ignored unless the explicit local debug flag is enabled.
-
-The world remains shared: `location-science-lab`, `location-homeroom`, `location-library`, `location-cafeteria`, `location-greenhouse`, and `location-courtyard` unlock travel to their one global rooms. They do not create per-wallet rooms or teacher DMs.
+It launches a temporary bearer-protected avatar-only ownership fixture, starts
+the orchestrator with `COSYWORLD_DEPLOY_PROFILE=production`, and verifies
+production mode, moderation, persistence, disabled dev shortcuts, a signed
+wallet challenge/session, and the sanitized linked-avatar adapter contract.
 
 Chat is a bounded avatar-to-resident exchange, not a human text box, branch picker, or friendship purchase:
 
@@ -788,25 +753,13 @@ Items can now drive resident evolution through the C kernel:
 - The C kernel rejects wrong-resident gifts before transfer. In the current seed, Rati needs `Moonwool Thread` plus `Story Button`; Whiskerwind needs `Dewbright Button` plus `Wolfprint Charm`; Skull needs `Hearthstone Tag` plus `Watch Bell`.
 - Evolved residents project into the same card system with `level`, `evolved`, evolved rarity, and updated title/blurb. The browser reflects this in compact room chips and action details instead of a stats table.
 
-World items use explicit shared scarcity. Each canonical item id is one world object regardless of which capacity process serves a player, so overlapping desires are competing social hooks rather than private quest reservations. Pickup, gifting, trade, evolution placement, and crafting move or reference that same object; evolution and crafting do not consume their inputs. A resident's economy panel reports the item's authoritative current state—waiting in a room, not yet found near its seed room, currently held by someone, or already spent—in addition to the resident's fallible memory. Wallet keepsakes remain a separate ownership plane and are not counted as world supply. `npm run v2:worldpack:inspect` prints demand against the canonical world for every desired, attached, evolution, or recipe input item, and `--report-json` exposes the same audit as `world_item_economy`.
+World items use explicit shared scarcity. Each canonical item id is one world object regardless of which capacity process serves a player, so overlapping desires are competing social hooks rather than private quest reservations. Pickup, gifting, trade, evolution placement, and crafting move or reference that same object; evolution and crafting do not consume their inputs. A resident's economy panel reports the item's authoritative current state—waiting in a room, not yet found near its seed room, currently held by someone, or already spent—in addition to the resident's fallible memory. External ownership never contributes world supply. `npm run v2:worldpack:inspect` prints demand against the canonical world for every desired, attached, evolution, or recipe input item, and `--report-json` exposes the same audit as `world_item_economy`.
 
 The Rust host loads seed actor placement/stats, faction definitions, item descriptions/placement/kinds, location labels, directed exits, combat flags, access gates, complete room RPG sheets, jobs/fronts, lifecycle/effect descriptors, and level-2 evolution tracks from the compiled `content/official/` worldpack. `worlds/official/world.json` selects independently versioned source packs and `pack.lock.json` pins their exact versions, hashes, dependency closure, capabilities, ID-mapping version, licenses, and provenance. The compiler also emits deterministic `pack://` content references and compact runtime handles in `content_refs.json`; snapshots, journals, and stored events persist those canonical identities with pack and ruleset context while the C ABI continues to use numeric handles. Startup tests and `npm run v2:worldpack` validate the Manifest v1 contract, a current lock and byte-deterministic bundle, unique ids, valid references, canonical one-direction-per-room exits, every location having a complete room sheet, seeded kernel parity, faction opposition links, frontier-only front links to jobs and danger clocks, lifecycle hook and clock-fill effect descriptors with reasons, and exactly two unique items for each evolution track. The validator also warns when a combat-capable room has no active local encounter or when a faction has neither seeded members nor an explicit player-facing role. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution, with its evolution track table configured from the worldpack at boot.
 
 Factions are content-backed opposing forces rather than hard-coded teams. `content/core/factions.json` defines each faction's axis, mirrored opposition, protected truth, shadow failure mode, verbs, motifs, home locations, member actors, and whether players can embody a faction that intentionally has no seeded resident. Global faction state remains internal; players learn about factions through their current room, cards, and Journal rather than a world-inspection API.
 
 Those factions now move through played-time world pulses rather than remaining metadata. A pulse changes ambient weather and opportunity-level trade on a distant frontier route, lets influence propagate, and derives visible conflict pressure from the combined result. The World Library shows each beat's class and response, and entering an affected room reveals its present weather, supplies, faction signs, or tension in story language. Automatic pulses never mutate sanctuary state, never create stakes from an unrelated action, and never run while the world is idle.
-
-Resident placement can be simulated with an aggregate ownership snapshot:
-
-```sh
-COSYWORLD_ENTITLEMENT_FEED='w1:rati,location-science-lab|w2:rati,cosy-rain-soft-garden' cargo run
-```
-
-Each wallet holding a resident avatar card contributes the unique location cards in that wallet. The resident appears in the highest-scoring shared location, with deterministic tie rotation based on world-tick placement seasons rather than wall-clock days. With no overlap, residents default to The Cosy Cottage. Placement is recomputed from the server-owned ownership index on boot, reset, and ownership refresh, so stale snapshots cannot strand a resident in a gated room after ownership changes.
-
-Access and gravity are separate: The Cosy Cottage is public even without a card, but a `cosy-cottage` card can still count as a placement vote when a wallet also holds a resident avatar card.
-
-Live refreshes and dev resets emit normal `actor.moved` events when placement moves a resident, then persist and broadcast those events through the shared room timeline. Boot-time placement stays quiet so process restarts do not replay movement noise.
 
 Resolved frontier encounters can reopen on later player turns. The Moonlit Trail reset path waits for a player-powered season gap, then a committed player action in that frontier clears the spent progress/danger clocks, clears resolved-state tags such as `quieted moonlight`, revives the encounter participant, emits `encounter.reset`, and makes combat/project actions available again for late arrivals.
 
@@ -867,8 +820,11 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /actions/set-spell-prepared`
 - `POST /actions/set-item-equipped`
 - `POST /actions/set-item-contained`
-- `POST /collection/materialize`
-- `POST /collection/unmaterialize`
+There is no collection materialize/unmaterialize route. `GET /meta` exposes
+`migration_archive.item_materialization`: the permanent `archived` / `audit_only`
+state, disabled mutation flags, and read-only migration receipt counts. Verified
+linked-avatar actor receipts are counted separately because the retained actor
+adapter is not the retired general item bridge.
 `POST /actions/submit` is the canonical scene-mutation gateway. Callers send
 the authenticated actor handle and an exact offer from the current two-card
 hand. The offer payload includes its stable envelope:
@@ -944,13 +900,13 @@ provider outage. `/meta` is the deploy/smoke metadata endpoint: package version,
 debug/release build profile, deployment profile, canonical
 `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`,
 non-secret dialogue feature flags, sanitized `/meta.ai` readiness, persistence
-mode, moderation report retention, ownership-feed mode, current world counters,
+mode, moderation report retention, linked-avatar adapter mode, current world counters,
 compiled kernel capacities, and the mounted packs' exact license records. `GET
 /licenses` exposes those pack versions, license links, provenance, modification
 notices, and bundled attribution text without authentication. `./v2/mvp.sh
 status` prints a one-line summary from `/meta`.
 
-Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
+Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, and historical Box/pack audit rows without exposing player OpenRouter keys.
 
 `POST /moderation/community-art/{subject_kind}/{subject_id}/reject` invalidates
 ready generated art, removes its served bytes, restores the deterministic

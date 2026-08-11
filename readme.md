@@ -32,8 +32,8 @@ npm run dev:node
 
 - `v2/`: canonical CosyWorld runtime, content, smoke tests, and deployment docs.
 - `v2/core-c/`: deterministic C kernel for world rules and event emission.
-- `v2/orchestrator-rust/`: Rust host, browser shell, HTTP routes, SSE, wallets,
-  ownership feeds, AI calls, persistence, moderation, and NFT pack flow.
+- `v2/orchestrator-rust/`: Rust host, browser shell, HTTP routes, SSE, optional
+  linked-avatar ownership, AI calls, persistence, moderation, and legacy audit.
 - `v2/content/core/`: authored source pack for first-party rooms, actors, items,
   cards, factions, fronts, clocks, jobs, and access gates.
 - `v2/worlds/official/`: official seed-world selection and integrity lock.
@@ -55,12 +55,11 @@ durable journal, routing, and failover gates in
 compatibility aliases; neither value is world identity.
 
 The current public world mounts CosyWorld Core and Ruby High: First Bell as peer
-world packs. Ruby owns its school rooms, rules context, cards, faction, assets,
-and location-card gates; optional bridge rows connect its resources to Core
+world packs. Ruby owns its school rooms, rules context, cards, faction, and assets;
+optional bridge rows connect its resources to Core
 when both packs are mounted. Players can create avatars, chat through
 server-authored avatar lines, use moderated room speech, move, collect and trade
-items, earn and spend Orbs, report players, and unlock avatar cards through the
-Wooden Box and pack flow.
+items, earn and spend Orbs, report players, and inspect card presentations.
 
 Generated avatar personas are first-person streams of consciousness: desires,
 preferences, dislikes, and social instincts grounded in the character's actual
@@ -80,20 +79,18 @@ production profile with `/data` mounted for generated assets and SQLite state.
 
 Production profile rejects dev shortcuts. It requires:
 
-- Remote trusted entitlement feed URL and bearer token when the active pack
-  registry declares an `asset_feed` authority.
+- Optional protected avatar-ownership feed URL and bearer token when the
+  linked-avatar adapter is configured.
 - SQLite event store.
 - Moderation token.
 - A unique `COSYWORLD_PROCESS_ID` per deployed process. If the legacy
   `COSYWORLD_V2_SHARD_ID` alias is also set, it must have the same value. Never
   use either label as world, player, room, or save identity.
-- Signed wallet sessions for account-sensitive endpoints.
-- Solana/Core Box burn verifier before production Box burns can create receipts.
+- Signed wallet sessions for linked-avatar discovery and recovery.
 
-The server verifies submitted burn signatures and creates durable receipts and
-pack openings. Wallet-specific transaction construction remains a client/wallet
-adapter concern; the server boundary is prepare, verify, receipt, reconcile into
-ownership, and expose account/card state.
+Historical Box, pack, and item-materialization rows remain read-only audit
+evidence. The runtime has no burn, reveal, collection, or materialization player
+endpoint.
 
 ## Legacy Node Companion
 

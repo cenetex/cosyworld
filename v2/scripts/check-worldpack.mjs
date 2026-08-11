@@ -1706,63 +1706,6 @@ for (const item of items) {
   }
 }
 const itemById = new Map(items.map((item) => [item.id, item]));
-const collectiblePowerWarnings = [];
-function mechanicalPowerScore(value, key = "") {
-  if (typeof value === "number") return Math.max(0, value);
-  if (typeof value === "string") {
-    const die = value.match(/^(\d+)d(\d+)$/i);
-    return die ? Number(die[1]) * Number(die[2]) : 0;
-  }
-  if (!isObject(value)) return 0;
-  return Object.entries(value).reduce((score, [childKey, child]) => (
-    score + mechanicalPowerScore(child, childKey || key)
-  ), 0);
-}
-function auditCollectiblePower(cardRows, itemRows, equipmentRows) {
-  const warnings = [];
-  for (const profile of equipmentRows) {
-    if (/purchas|wallet|ownership|card|entitlement/i.test(String(profile.unlock || ""))) {
-      warnings.push(`equipment profile ${profile.id} purchases or imports slots through ${profile.unlock}`);
-    }
-  }
-  const itemMap = new Map(itemRows.map((item) => [item.id, item]));
-  const freeMaximumByRole = new Map();
-  for (const card of cardRows.filter((card) => card.subject_kind === "item" && card.requires_ownership !== true)) {
-    const item = itemMap.get(card.subject_id);
-    if (!item?.mechanics) continue;
-    const score = mechanicalPowerScore(item.mechanics.effect_budget);
-    freeMaximumByRole.set(item.role, Math.max(freeMaximumByRole.get(item.role) || 0, score));
-  }
-  for (const card of cardRows.filter((card) => card.subject_kind === "item" && card.requires_ownership === true)) {
-    const item = itemMap.get(card.subject_id);
-    if (!item?.mechanics) continue;
-    const serialized = JSON.stringify(item.mechanics.effect_budget || {});
-    if (/advancement|bracelet.?slot|spell.?slot|extra.?turn|automatic.?success/i.test(serialized)) {
-      warnings.push(`ownership-gated card ${card.card_id} grants forbidden progression or action economy`);
-    }
-    const score = mechanicalPowerScore(item.mechanics.effect_budget);
-    if (score > (freeMaximumByRole.get(item.role) || 0)) {
-      warnings.push(`ownership-gated card ${card.card_id} exceeds the free ${item.role} power budget`);
-    }
-  }
-  return warnings;
-}
-const equipmentRows = ruleBundles.flatMap((bundle) => bundle.resources?.equipment_profiles ?? []);
-collectiblePowerWarnings.push(...auditCollectiblePower(cards, items, equipmentRows));
-const powerMutationWarnings = auditCollectiblePower(
-  [
-    { card_id: "fixture-free", subject_kind: "item", subject_id: 1, requires_ownership: false },
-    { card_id: "fixture-paid", subject_kind: "item", subject_id: 2, requires_ownership: true },
-  ],
-  [
-    { id: 1, role: "skill_charm", mechanics: { effect_budget: { skill_bonus: 1 } } },
-    { id: 2, role: "skill_charm", mechanics: { effect_budget: { skill_bonus: 2, bracelet_slot: 1 } } },
-  ],
-  [],
-);
-if (powerMutationWarnings.length < 2) fail("collectible power mutation gate did not flag paid slots and numerical superiority");
-for (const warning of collectiblePowerWarnings) fail(`collectible power policy: ${warning}`);
-
 for (const location of locations) {
   try {
     validateWorldEntityResource(location.pack_id, "locations", location);
@@ -3319,7 +3262,6 @@ function buildWorldpackReport() {
     })))),
     rules_conformance: rulesConformance,
     modified_material: modifiedMaterial,
-    collectible_power_warnings: collectiblePowerWarnings,
     jobs: sorted(jobs, (a, b) => a.id.localeCompare(b.id)).map((job) => ({
       id: job.id,
       status: job.status || "active",

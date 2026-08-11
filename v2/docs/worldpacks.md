@@ -138,11 +138,11 @@ official composition, First Bell binds its Rati card and school facet to
 `pack://cosyworld.core/actor/1001`; both resources disappear from the standalone
 Ruby registry, while Core's Rati remains valid and uses its local card surface.
 The accepted identity, cardinality, persistence, and one-plane item rules are
-recorded in [ADR 0001](../../docs/decisions/0001-cards-are-entitlements.md).
-Player copy calls these collection representations **keepsakes**, location
-entitlements **passes**, collectible reveals **bundles**, and mounted content
-**world packs**; see the [player lexicon](player-lexicon.md). Stable manifest
-and API fields retain their existing `card` and `pack` names.
+recorded in [ADR 0006](../../docs/decisions/0006-avatar-nft-only-bridge.md).
+Player copy calls these representations **cards** and mounted content **world
+packs**; it does not call them owned collections, passes, or bundles. Stable
+manifest fields retain `card` and `pack` where those words describe
+presentation and content packaging.
 
 Manifest v1 is fail-closed: unknown fields are rejected. Forward-compatible
 metadata must live under `extensions` with a namespaced `x-...` key. Adding a
@@ -580,25 +580,23 @@ rules.
 
 ## Runtime discovery and access
 
-`GET /content-packs` exposes the installed bundle as a player-facing catalogue.
-It accepts the same wallet and development-card query fields as `/state`, and
-returns each visible pack's metadata, resource counts, entry location, access
-state, required grants/cards, asset providers, entitlement authorities,
-distribution metadata, and accessible location summaries. Asset-provider rows
-include the public prefix, mount, provider capability, content hash, and cache
-namespace. The current access
-states are `public`, `included`, `locked`, `partial`, and `entitled`.
+`GET /content-packs` exposes the installed bundle as a public player-facing
+catalogue. It accepts no wallet or owned-card query fields and returns each
+pack's metadata, resource counts, entry location, asset providers, distribution
+metadata, and public location summaries. Asset-provider rows include the public
+prefix, mount, provider capability, content hash, and cache namespace. Every
+mounted pack is public; installation and version locking remain operator
+decisions.
 
 The compiler stamps `pack_id` onto every compiled resource and external card.
 Runtime actor, item, location, and card projections retain that provenance.
 This records who authored a resource without making the authoring pack the
-authorization boundary. Ruby High owns both its school locations and their
-access gates; Core remains playable with the entire peer pack absent.
+authorization boundary. Ruby High owns its school locations; Core remains
+playable with the entire peer pack absent.
 
 All packs in this endpoint are already installed by the canonical world's locked
-composition. The endpoint does not dynamically install packs or interpret a
-payment rail. Packs declare content and access surfaces; verified claims
-determine the current player's entitlement projection.
+composition. The endpoint does not dynamically install packs or interpret
+payment, wallet, or ownership claims.
 
 `GET /licenses` is the unauthenticated attribution surface. It returns one
 record for every mounted pack with its pinned version, license identifier and
@@ -638,13 +636,15 @@ actionable `404`; an optional provider may declare `fallback: "external_uri"`
 for external-card metadata, otherwise the host returns a stable placeholder.
 Missing optional media never prevents unrelated public packs from loading.
 
-### Entitlement authorities and named grants
+### Legacy entitlement declarations
 
-Resources depend on stable grant ids, never directly on wallet, chain, or
-payment code. A pack declares an `entitlements` capability and every authority
-names that provider. Missing or mismatched providers reject the composition
-before the listener opens. A denied or unavailable provider grants nothing, so
-gated content fails closed while unrelated public content remains available:
+Manifest v1 can still parse entitlement authorities, grants, and access-gate
+resources so older packs and journals can be inspected and migrated. They are
+not a supported official-world authorization surface and do not change
+movement, content visibility, or `/content-packs`. New packs express access
+through canonical world facts such as topology, keys, relationships, Jobs, or
+represented permission—not wallets or external asset ownership. A legacy
+declaration has this historical shape:
 
 ```json
 {
@@ -671,18 +671,10 @@ gated content fails closed while unrelated public content remains available:
 }
 ```
 
-An access gate then names `required_grant_id`. `required_card_id` remains an
-optional compatibility/display hint and must match the grant's `asset_id`.
-The Rust host resolves verified assets to grants before movement; the C kernel
-continues to receive only an allowed/denied action.
-
-Authority type `asset_feed` accepts claims from the world's protected ownership
-adapter. This is how the current Ruby High bridge works while its collection
-address remains owned by the upstream deployment. `solana_collection` pins a
-specific collection address in the permanent pack. `signed_set` pins an Ed25519
-issuer public key for off-chain private sets; the protected adapter verifies the
-assertion against that key before emitting claims. Protected feeds may return
-`grantIds` for a wallet; unknown or undeclared grants are discarded.
+`required_grant_id`, `required_card_id`, `asset_feed`, `solana_collection`, and
+`signed_set` therefore remain migration vocabulary only. The linked-avatar
+adapter has its own allowlisted actor-profile boundary and does not resolve
+these grants.
 
 ### Permanent distribution
 
@@ -703,10 +695,9 @@ Before upload, use `permanence: "content-addressed"` and omit
 `permanent_uri`. The lockfile records the SHA-256 integrity of the complete
 declared pack. Publishing uploads that exact canonical release to Arweave; a
 new immutable pack version can then replace the distribution block with the
-transaction URI and refresh the lock. NFT collection metadata may point back
-to the same URI. Pack identity remains the content hash, while a collection or
-signed issuer remains an entitlement authority that may serve multiple pack
-versions.
+transaction URI and refresh the lock. Pack identity remains the content hash;
+external catalog metadata may reference the immutable release but cannot mount
+it or grant access.
 
 ## SRD packs
 
@@ -744,7 +735,7 @@ identity, and explicit precedence. Compile-time mutation fixtures prove that
 mechanical reskins and implicit conflicts fail. Pack order alone never selects
 a winner. See [action-pack-authoring.md](action-pack-authoring.md).
 
-The collectible subject kinds remain avatar, item, and location. Weapon, skill
+Card subject kinds include avatar, item, and location. Weapon, skill
 charm, spell, relic, tool, and consumable are Item roles sharing a playable-item
 contract. Skill and bonus are state of a charm instance; spell cards occupy a
 spell deck; weapons occupy equipment slots. Items also declare weight and
@@ -753,12 +744,11 @@ The carried deck is validated from those physical rules, never a fixed card
 count. Packs may author rarity and transfer or theft eligibility independently
 of the mechanical power budget.
 
-An account entitlement is still not a shard-local item. Materializing a
-collectible into a world, changing its equipped holder, unlocking a bracelet
-slot, moving it between card zones, or stealing it requires an idempotent,
-journaled authoritative operation.
-Owning an avatar or location card never grants control of a shared NPC or the
-right to mutate shared geography.
+External ownership never creates a shard-local item. Changing an item's holder,
+unlocking a bracelet slot, moving it between physical zones, or stealing it
+requires an idempotent, journaled authoritative operation. A supported avatar
+NFT may recover one durable autonomous actor through the separate adapter;
+item and location ownership have no runtime meaning.
 
 See [the action and collectible architecture](../../docs/systems/04-action-system.md)
 and [implementation backlog](../../docs/backlog/srd-action-card-foundation.md).

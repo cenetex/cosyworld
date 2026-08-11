@@ -388,9 +388,6 @@ mod tests {
 
         let access = AccessContext::default();
         assert!(location_access_allowed(CORE_LODGING_LOCATION_ID, &access));
-        let access_rule = location_access_rule(CORE_LODGING_LOCATION_ID);
-        assert_eq!(access_rule.required_grant_id, None);
-        assert_eq!(access_rule.required_card_id, None);
         let mut discovery_record = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_NONE,

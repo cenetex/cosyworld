@@ -40,8 +40,8 @@
   },
   {
     "pack_id": "ruby-high.first-bell",
-    "pack_version": "1.3.5",
-    "pack_integrity": "sha256:e8092c36fb9ef2880a19bfb111385137e9c0b635919ab78bd2f98910a0225847",
+    "pack_version": "1.3.6",
+    "pack_integrity": "sha256:a6cd0983e10a75cf05abbc502a124f3d6b65079ade12c539c892a46def0a4104",
     "provider": "ruby-high.first-bell/assets",
     "mount": "cards",
     "root": "ruby-high-first-bell",

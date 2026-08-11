@@ -451,11 +451,7 @@ mod tests {
             actor_session: Some(session.to_string()),
             command: "this prose must never be parsed".to_string(),
             offer_id: Some(offer_id.to_string()),
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             envelope: None,
         }
     }

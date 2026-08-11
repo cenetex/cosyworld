@@ -108,8 +108,8 @@ Ordinary play, friendship, travel, discovery, safety, and growth always have a
 zero-Orb path. Orbs support shared images. They do not buy success, power,
 access, conversation, or a better roll.
 
-Gifts and trades preserve provenance. Paying for or holding a keepsake or pass
-does not grant rules authority over another player.
+Gifts and trades preserve provenance. Paying for or holding an external asset
+does not grant rules authority, world items, or access to shared places.
 
 ## Every Traveler Keeps Their Boundaries
 

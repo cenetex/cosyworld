@@ -2875,10 +2875,7 @@ impl RuntimeWorld {
                 ));
                 let mut disabled_reason = projected.disabled_reason.clone();
                 if !exit.accessible {
-                    disabled_reason = exit
-                        .access_reason
-                        .clone()
-                        .or_else(|| Some("The destination is not accessible.".to_string()));
+                    disabled_reason = Some("The destination is not accessible.".to_string());
                 }
                 let disabled = !projected.allowed || !exit.accessible;
                 let mut offer = self.ranked_offer_from_parts(
@@ -3623,11 +3620,9 @@ mod tests {
         assert!(!runtime.route_binding_is_current(&route_binding));
         runtime.world.items[item_index].holder_actor_id = 5000;
 
-        let (_, tag_id, job_id, grant_id) = install_projection_fact_gate(&mut runtime, 5000);
-        let access = AccessContext {
-            granted_entitlement_ids: BTreeSet::from([grant_id]),
-            ..AccessContext::default()
-        };
+        let (_, tag_id, job_id, _legacy_grant_id) =
+            install_projection_fact_gate(&mut runtime, 5000);
+        let access = AccessContext::default();
         let (projection_offer, projection_allowed) = runtime
             .threshold_offer_binding_for_exit_with_access(
                 5000,
@@ -3877,11 +3872,7 @@ mod tests {
                     actor_session: None,
                     command: "open".to_string(),
                     offer_id: None,
-                    wallet_address: None,
-                    wallet: None,
                     wallet_session: None,
-                    owned_card_ids: None,
-                    cards: None,
                     envelope: None,
                 },
                 &access,
@@ -3921,11 +3912,7 @@ mod tests {
                     actor_session: None,
                     command: String::new(),
                     offer_id: Some(dealt_key_offer.offer_id.clone()),
-                    wallet_address: None,
-                    wallet: None,
                     wallet_session: None,
-                    owned_card_ids: None,
-                    cards: None,
                     envelope: None,
                 },
                 &access,

@@ -19,7 +19,7 @@ Clients        browser card-hand shell (index.html) · terminal CLI (v2/cli) · 
                │  HTTP + SSE, actor_session / wallet_session
 Rust           orchestrator (v2/orchestrator-rust): routes, SSE fanout, sessions, rate limits,
 orchestrator   room turns + ping/pong (turns.rs), resident autonomy (desire-driven wander/pickup),
-               moderation, ownership feeds, card projection, economy ledgers, clocks/tags/bonds/
+               moderation, optional linked-avatar ownership, card projection, economy ledgers, clocks/tags/bonds/
                jobs/fronts projection, AI calls, media, persistence
                │  FFI, actions in / events out
 C kernel       cosy_kernel (v2/core-c): deterministic world rules — actors, movement, speech
@@ -64,14 +64,14 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
 ## Current State
 
 The one-paragraph version: the kernel,
-orchestrator, avatar gate, advancement-backed Chat, coalescing
+orchestrator, avatar entry, advancement-backed Chat, coalescing
 contextual room heartbeats, shared live rooms with room turns and ping/pong
 pacing, resident autonomy, transcript-rendered world feedback, items/evolution,
-card projection, legacy wallet-gated expansion access, economy MVP (Orbs, claim keys,
-image-only community spends, legacy Box/pack bridge), moderation basics, the RPG layer
+card projection, public mounted expansions, economy MVP (Orbs, claim keys,
+image-only community spends), moderation basics, the RPG layer
 first slice, deterministic frontier simulation, both clients, and the production
-deploy profile are live and covered by `./v2/mvp.sh check`. The wallet gates and
-Box/pack surfaces are migration inventory under #682/#685, not target architecture.
+deploy profile are live and covered by `./v2/mvp.sh check`. Legacy Box/pack and
+item-materialization rows remain only as replayable operator-audit data.
 
 ## Engineering Priorities
 
@@ -83,7 +83,7 @@ Ordered. Priorities 1–3 are the foundation everything else builds on.
 
 - `world/` — world projection, presence, placement, resident autonomy.
 - `cards.rs` — card projection and asset resolution.
-- `economy/` — Orb ledger and claim sets; isolate then archive legacy Box/pack flows.
+- `economy/` — Orb ledger and claim sets plus read-only legacy receipt audit.
 - `avatar_links/` — optional allowlisted ownership adapter, exactly-once actor binding, custody association, and offstage policy.
 - `rpg/` — clocks, tags, bonds, journal, jobs, fronts (and later covenants).
 - `ai_gateway/` — see priority 3.
@@ -141,15 +141,16 @@ Implements PRD "Next" #1 — item meets room:
 - Provenance tie-in: a craft result is a physical world item when the recipe declares one and carries a canonical craft receipt with lineage from both ingredients. Presentation cards project that item and receipt; they do not create a transferable ownership plane.
 - Balance and anti-deadlock: search tables bias toward ingredients and arrangement needs not currently represented nearby. Authored supply, claim keys, and played-time seasons bound faucets; weight, size, containers, typed slots, exhaustion, readiness, recharge, access, and placement bound usable supply. Every recipe that creates a physical item must declare the capacity, desire, route, or story possibility it adds, and content-ratio validation must prove that output has a reachable use.
 
-### 8. Avatar-link boundary and legacy ownership retirement
+### 8. Avatar-link boundary
 
 Implement ADR 0006 through three bounded paths:
 
 - #688 generalizes the Project 89 pilot into an optional allowlisted adapter:
   verified asset identity and custody in, exactly one durable autonomous actor
   binding out.
-- #682 removes keepsake, Box/bundle, item/location NFT, wallet-gate, and native
-  transferable-card surfaces from ordinary runtime and UI dependencies.
+- #682 removed keepsake, Box/bundle, item/location NFT, wallet-gate, and native
+  transferable-card surfaces from ordinary runtime and UI dependencies while
+  preserving historical audit rows.
 - #685 disables new item materialization before converting or archiving every
   existing receipt exactly once, without duplicating or losing a live world
   item.
@@ -176,12 +177,15 @@ The worldpack is the designer contract. Keep `check-worldpack.mjs` strict and ex
   host-agnostic: a persistent volume at `/data`, the production-profile env
   (optional protected avatar-ownership adapter when configured, SQLite event store, moderation token,
   process id), and `/meta` as the deploy smoke surface.
-- Keep legacy ownership reconciliation observable and fail-closed during archival. Do not make ordinary production boot depend on Ruby High, Solana RPC capacity, or a broad ownership feed.
+- Keep legacy ownership reconciliation observable and fail-closed as an audit path. Do not make ordinary production boot depend on Ruby High, Solana RPC capacity, or a broad ownership feed.
 - SQLite backup, retention, and restore-drill policy for `/data`.
 - Observability past `/meta`: request/latency metrics, AI provider and dialogue inference failure rates, ledger anomaly counts, ping-to-skip rates.
 - World hygiene rituals: a documented wipe/reset procedure before playtests (no smoke-avatar residue in first impressions), and presence/turn eligibility windows tuned so ghosts are rare rather than merely skippable.
-- Keep resident placement player-powered: overlap tie rotation uses world-tick seasons rather than wall-clock days, and future placement changes should be audited world actions rather than invisible time.
-- Disable new Box burns before receipt migration; retain only the verifier, support search, alerts, and retention controls needed to audit historical receipts safely.
+- Keep resident placement world-authored and journaled; external item/location
+  ownership cannot move residents or alter topology.
+- Retain support search, anomaly resolution, alerts, and retention controls
+  needed to audit historical Box/pack receipts safely; no burn/open route or
+  chain verifier remains in the player runtime.
 
 ## The Hand as Transport Contract
 
@@ -214,7 +218,20 @@ Standing rules for new work:
 
 ## Deployment and Scale
 
-The current `COSYWORLD_DEPLOY_PROFILE=production` still requires the protected remote ownership feed + bearer when the active compatibility composition declares that authority. #682 removes that requirement from the default/core target; only a configured avatar adapter may require its protected feed. SQLite event storage, moderation, process identity, and disabled dev shortcuts remain production requirements. Kernel capacities are compiled (1024 actors, 1024 items, 2048 locations, 4096 exits) and exposed with live counters on `/meta`; approaching them is a sharding conversation, not a hot patch. Locations and exits are sized so a single world can mount every authored pack at once — that union currently seeds 555 locations and 1151 exits — with room for generated pathway descendants. Actors and items are not: the same union seeds 565 actors and 540 items, which leaves under half of each cap for live play. Track live-item growth against authored faucet bounds and content-ratio validation; raise a capacity or retention decision before the item counter approaches its compiled cap.
+`COSYWORLD_DEPLOY_PROFILE=production` does not require wallet, chain, or
+ownership configuration for the default/core composition. A configured
+linked-avatar adapter uses its protected feed and bearer independently from
+ordinary play. SQLite event storage, moderation, process identity, and disabled
+dev shortcuts remain production requirements. Kernel capacities are compiled
+(1024 actors, 1024 items, 2048 locations, 4096 exits) and exposed with live
+counters on `/meta`; approaching them is a sharding conversation, not a hot
+patch. Locations and exits are sized so a single world can mount every authored
+pack at once — that union currently seeds 555 locations and 1151 exits — with
+room for generated pathway descendants. Actors and items are not: the same
+union seeds 565 actors and 540 items, which leaves under half of each cap for
+live play. Track live-item growth against authored faucet bounds and
+content-ratio validation; raise a capacity or retention decision before the
+item counter approaches its compiled cap.
 
 Scale model: one shard per process, isolated stores, route players to their shard at a layer above. Revisit only when a single world's concurrency actually demands it.
 

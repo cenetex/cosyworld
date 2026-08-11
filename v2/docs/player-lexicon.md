@@ -6,9 +6,9 @@ remain shared-world facts. New player copy does not call actor/item/location
 cards owned keepsakes, does not reveal bundles, and does not describe wallet
 possession as place access.
 
-Internal schemas retain stable `card_*`, `*_card_ids`, `pack_*`, receipt, and
-legacy ownership fields through the #682/#685 migration. Those implementation
-names do not define player vocabulary.
+Historical schemas retain stable receipt and legacy ownership fields for
+replay and moderation audit. Those implementation names do not define player
+vocabulary or appear in ordinary state.
 
 ## Canonical concepts
 
@@ -26,19 +26,12 @@ Access is explained through the fiction and exact world requirement: a key,
 relationship, completed Job, represented permission, or mounted composition.
 There is no wallet-owned location **pass** in the accepted target.
 
-## Legacy compatibility vocabulary
+## Retired compatibility vocabulary
 
-The current runtime may still expose **keepsake**, **bundle**, **Box**, and
-wallet **pass** copy while #682 removes the broad collection model and #685
-migrates materialization receipts. These nouns identify compatibility surfaces;
-they are frozen and must not appear in new product copy, new analytics, or new
-worldpack requirements.
-
-Existing accessibility selectors and analytics such as
-`data-player-concept="keepsake"`, `data-player-concept="bundle"`,
-`keepsake.open`, and `bundle.open` remain temporarily test-covered so the
-migration cannot silently strand users. #682 removes or replaces those tests
-with the target concepts above in the same change that removes the UI.
+**Keepsake**, **bundle**, **Box**, and wallet **pass** are retired player nouns.
+They may occur in immutable historical records, migration fixtures, or an
+operator audit result, but not in current product copy, analytics producers,
+accessibility concepts, routes, state projections, or worldpack requirements.
 
 ## Copy rules
 
@@ -65,10 +58,10 @@ with the target concepts above in the same change that removes the UI.
 - Never expose dotted event keys, source sequence numbers, payload delimiters,
   arrow movement, or “Something changed” as Journal copy.
 
-The internal API remains migration-compatible: `cards`, `card_id`,
-`required_card_id`, `unopened_pack_ids`, `/nft/packs/open`, and related database
-names do not change in this decision-only revision. #682/#685 remove or archive
-them deliberately rather than reinterpreting historical records.
+The public API keeps card presentation (`cards`, `card_id`) but has no
+`required_card_id`, Box/pack inventory, owned-card projection, NFT burn/open,
+or collection-materialization route. Related database names remain unchanged
+only where needed to replay and audit historical records.
 
 ## Accessibility and analytics
 
@@ -84,9 +77,8 @@ Target interactive surfaces expose the same concept nouns through
 | `journal.open`, `journal.close` | open or close the player Journal |
 | `journal.entry.expand` | reveal additive context for one Journal entry |
 
-Legacy collection analytics remain readable but receive no new producers after
-their migration lands. Journal entries expose no raw event identity through
-accessibility labels.
+Legacy collection analytics remain readable but have no current producers.
+Journal entries expose no raw event identity through accessibility labels.
 
 ## Six-task comprehension check
 
@@ -99,8 +91,8 @@ accessibility labels.
 | Find mounted experience content | a **world pack** | World Library count and world-pack entries |
 | Review what changed in the current place | the **Journal** | current place, open threads, and story-so-far outcomes |
 
-The #682 browser migration updates the current legacy comprehension test to
-these six target tasks when it removes the corresponding UI.
+The browser comprehension test covers these six target tasks and rejects the
+retired collection vocabulary.
 
 ## Architecture relationship
 
