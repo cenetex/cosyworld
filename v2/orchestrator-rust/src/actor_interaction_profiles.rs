@@ -8,8 +8,8 @@ use std::{
 };
 
 const PROFILE_SCHEMA_VERSION: u32 = 1;
-const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-09.5";
-const PROFILE_BINDING_COUNT: usize = 485;
+const PROFILE_SNAPSHOT_VERSION: &str = "openrouter-interactions-2026-08-10.7";
+const PROFILE_BINDING_COUNT: usize = 500;
 
 // Interaction profiles describe operational provider routes, not authored or
 // persisted world state. Embedding this separately avoids changing worldpack
@@ -22,10 +22,11 @@ const EMBEDDED_INTERACTION_PROFILES: &str =
 const EMBEDDED_ACTOR_MODEL_BINDINGS: &str =
     include_str!("../../content/elysium/actor_model_bindings.json");
 
-const ARCHIVED_MODEL_IDS: [&str; 4] = [
+const ARCHIVED_MODEL_IDS: [&str; 5] = [
     "inclusionai/ling-3.0-flash:free",
     "mistralai/devstral-2512",
     "openai/gpt-5.1-chat",
+    "openai/gpt-5.3-chat",
     "openai/text-embedding-3-small:batch",
 ];
 const TTS_VOICE_UNAVAILABLE_REASON: &str =
@@ -56,6 +57,7 @@ fn authoritative_tts_voice(requested_model_id: &str) -> Option<&'static str> {
 #[serde(rename_all = "snake_case")]
 pub(super) enum ActorInteractionKind {
     Talk,
+    BatchTalk,
     Illustrate,
     Speak,
     Transcribe,
@@ -71,6 +73,7 @@ impl ActorInteractionKind {
     fn expected_endpoint(self) -> Option<&'static str> {
         match self {
             Self::Talk | Self::VoiceChat | Self::ComposeAudio => Some("/api/v1/chat/completions"),
+            Self::BatchTalk => Some("/api/beta/batches"),
             Self::Illustrate => Some("/api/v1/images"),
             Self::Speak => Some("/api/v1/audio/speech"),
             Self::Transcribe => Some("/api/v1/audio/transcriptions"),
@@ -272,6 +275,29 @@ fn validate_profile_document(
                     binding.requested_model_id
                 ));
             }
+            if profile.kind == ActorInteractionKind::BatchTalk {
+                let submitted_model = binding
+                    .requested_model_id
+                    .strip_suffix(":batch")
+                    .unwrap_or_default();
+                if submitted_model.is_empty()
+                    || profile.endpoint_zdr != Some(false)
+                    || !profile.asynchronous
+                    || profile.streaming
+                    || profile.defaults.get("endpoint").and_then(Value::as_str)
+                        != Some("/v1/chat/completions")
+                    || profile
+                        .defaults
+                        .get("submission_model_id")
+                        .and_then(Value::as_str)
+                        != Some(submitted_model)
+                {
+                    return Err(format!(
+                        "actor interaction profile {} has an unsafe batch contract",
+                        binding.requested_model_id
+                    ));
+                }
+            }
             if profile.kind == ActorInteractionKind::Speak {
                 let authoritative_voice = authoritative_tts_voice(&binding.requested_model_id);
                 let pinned_voice_value = profile.defaults.get("voice");
@@ -389,28 +415,28 @@ mod tests {
             .iter()
             .flat_map(|binding| binding.profiles.iter())
             .collect::<Vec<_>>();
-        assert_eq!(document.bindings.len(), 485);
-        assert_eq!(profiles.len(), 496);
+        assert_eq!(document.bindings.len(), 500);
+        assert_eq!(profiles.len(), 511);
         assert_eq!(
             profiles
                 .iter()
                 .filter(|profile| profile.provider_available)
                 .count(),
-            453
+            495
         );
         assert_eq!(
             profiles
                 .iter()
                 .filter(|profile| profile.runtime_adapter_supported)
                 .count(),
-            451
+            463
         );
         assert_eq!(
             profiles
                 .iter()
                 .filter(|profile| profile.ready_before_policy())
                 .count(),
-            414
+            453
         );
     }
 
@@ -440,6 +466,28 @@ mod tests {
         )
         .expect("profile registry")
         .is_none());
+    }
+
+    #[test]
+    fn exact_batch_query_pins_the_provider_submission_model() {
+        let exact = exact_actor_interaction_profile_for_model(
+            "google/gemini-2.5-pro:batch",
+            ActorInteractionKind::BatchTalk,
+        )
+        .expect("profile registry")
+        .expect("Gemini batch profile");
+        assert_eq!(exact.binding.route_model_id, "google/gemini-2.5-pro:batch");
+        assert_eq!(
+            exact
+                .profile
+                .defaults
+                .get("submission_model_id")
+                .and_then(Value::as_str),
+            Some("google/gemini-2.5-pro")
+        );
+        assert!(exact.profile.ready_before_policy());
+        assert!(exact.profile.asynchronous);
+        assert_eq!(exact.profile.endpoint_zdr, Some(false));
     }
 
     #[test]

@@ -11,6 +11,7 @@ const ITEM_BASE = 6_520_000;
 const EXIT_CAPACITY = 4_096;
 const VOID_PATH_MIN_DISTANCE = 3;
 const VOID_PATH_MAX_DISTANCE = 5;
+const VOID_TOPOLOGY_EPOCH_NODE_COUNT = 485;
 const PHI = (1 + Math.sqrt(5)) / 2;
 const PHI_CONJUGATE = PHI - 1;
 const rawArgs = process.argv.slice(2);
@@ -71,16 +72,35 @@ function normalizeExactRoutePolicies(bindings) {
   );
 }
 
-function bindingsFromCatalog(catalog, zdrCatalog, snapshotVersion) {
+function bindingsFromCatalog(
+  catalog,
+  zdrCatalog,
+  snapshotVersion,
+  previousBindings,
+) {
   assert(Array.isArray(catalog?.data), "OpenRouter catalog must contain a data array");
   const zdrIds = new Set((zdrCatalog?.data ?? []).map((model) => model.id));
   const ids = new Set();
   const actors = new Set();
-  return catalog.data
+  for (const model of catalog.data) {
+    assert(
+      typeof model.id === "string" && model.id,
+      "OpenRouter model is missing id",
+    );
+    assert(!ids.has(model.id), `OpenRouter catalog repeats ${model.id}`);
+    ids.add(model.id);
+  }
+
+  // Batch variants are asynchronous discounted routes, not additional model
+  // identities. Elysium's Talk contract is an immediate world exchange, and
+  // the runtime intentionally has no submit-and-poll Batch API adapter. Keep
+  // already-published batch actors as dormant compatibility tombstones, but
+  // do not embody newly advertised variants as residents.
+  const currentModels = catalog.data.filter(
+    (model) => !model.id.endsWith(":batch"),
+  );
+  const currentBindings = currentModels
     .map((model) => {
-      assert(typeof model.id === "string" && model.id, "OpenRouter model is missing id");
-      assert(!ids.has(model.id), `OpenRouter catalog repeats ${model.id}`);
-      ids.add(model.id);
       const actor_id = actorId(model.id);
       assert(!actors.has(actor_id), `stable actor id collision at ${actor_id}`);
       actors.add(actor_id);
@@ -107,8 +127,33 @@ function bindingsFromCatalog(catalog, zdrCatalog, snapshotVersion) {
         zero_data_retention: exactRouteHasZeroDataRetention(model.id, zdrIds),
         speech_mode: textChat ? "raw" : "unavailable",
       };
-    })
-    .sort((left, right) => left.id.localeCompare(right.id));
+    });
+  const currentById = new Map(
+    currentBindings.map((binding) => [binding.id, binding]),
+  );
+  const orderedBindings = previousBindings.map((binding) => {
+    const current = currentById.get(binding.id);
+    if (current) {
+      currentById.delete(binding.id);
+      return current;
+    }
+    const actor_id = actorId(binding.id);
+    assert(
+      binding.actor_id === actor_id,
+      `legacy actor id drift for ${binding.id}`,
+    );
+    assert(!actors.has(actor_id), `stable actor id collision at ${actor_id}`);
+    actors.add(actor_id);
+    return {
+      ...binding,
+      catalog_snapshot_version: snapshotVersion,
+      zero_data_retention: false,
+    };
+  });
+  const additions = [...currentById.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  return [...orderedBindings, ...additions];
 }
 
 function actorsFromBindings(bindings) {
@@ -203,8 +248,12 @@ function voidTopology(nodeCount) {
     "the Wythoff tree must remain binary",
   );
 
+  // Preserve the lateral links from the published 485-node topology epoch.
+  // Later catalog additions extend the Wythoff tree without rewiring paths
+  // players may already have discovered and journaled.
+  const lateralNodeCount = Math.min(nodeCount, VOID_TOPOLOGY_EPOCH_NODE_COUNT);
   const nodesByDepth = new Map();
-  for (let index = 0; index < depths.length; index += 1) {
+  for (let index = 0; index < lateralNodeCount; index += 1) {
     const peers = nodesByDepth.get(depths[index]) ?? [];
     peers.push(index);
     nodesByDepth.set(depths[index], peers);
@@ -259,6 +308,16 @@ function voidTopology(nodeCount) {
       ? { ...edge, leftDirection: "northwest", rightDirection: "southeast" }
       : { ...edge, leftDirection: "northeast", rightDirection: "southwest" };
   });
+  if (nodeCount > VOID_TOPOLOGY_EPOCH_NODE_COUNT) {
+    const expandedEdgeKeys = new Set(
+      edges.map((edge) => JSON.stringify(edge)),
+    );
+    const epoch = voidTopology(VOID_TOPOLOGY_EPOCH_NODE_COUNT);
+    assert(
+      epoch.edges.every((edge) => expandedEdgeKeys.has(JSON.stringify(edge))),
+      "catalog expansion rewired the published Elysium topology epoch",
+    );
+  }
   return { edges, depths };
 }
 
@@ -414,6 +473,11 @@ async function main() {
             ? await fetchCatalog("?output_modalities=all&zdr=true")
             : readJson(path.resolve(option("--zdr-catalog"))),
           snapshotVersion,
+          readJson(
+            option("--previous-bindings")
+              ? path.resolve(option("--previous-bindings"))
+              : path.join(packRoot, "actor_model_bindings.json"),
+          ),
         )
       : normalizeExactRoutePolicies(
           readJson(path.join(packRoot, "actor_model_bindings.json")),

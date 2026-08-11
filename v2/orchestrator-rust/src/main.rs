@@ -35198,16 +35198,12 @@ fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
     Ok(Duration::from_millis(millis))
 }
 
-/// Schema version stamped into `PRAGMA user_version` once the event-store
-/// DDL has run. Bump it when the DDL batch below gains a table so existing
-/// stores self-heal exactly once on the next initialize.
-const EVENT_STORE_SCHEMA_VERSION: i64 = 3;
+/// Schema version stamped after DDL runs. Bump it when a table is added so
+/// existing stores self-heal once on their next initialization.
+const EVENT_STORE_SCHEMA_VERSION: i64 = 4;
 
-/// Ensures the event-store schema exists. The DDL batch is idempotent but
-/// takes the write lock, so steady-state command commits skip it: a store
-/// already stamped with the current schema version initializes once per
-/// boot, while a missing, replaced, or older store re-runs the DDL and
-/// self-heals.
+/// Ensures the schema exists without taking its write lock on steady-state
+/// commits. Missing, replaced, and older stores rerun the idempotent DDL.
 fn init_event_store(path: &Path) -> io::Result<()> {
     if path.exists() {
         let conn = open_event_store(path)?;
@@ -35423,6 +35419,7 @@ fn initialize_event_store_schema(path: &Path) -> io::Result<()> {
     .map_err(sqlite_error)?;
     init_ai_publication_store(&conn)?;
     ai_voice_routing::init_ai_voice_routing_store(&conn)?;
+    model_interaction::init_model_interaction_batch_store(&conn)?;
     ensure_sqlite_column(
         &conn,
         "persistence_compaction",
@@ -36626,6 +36623,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM persistence_compaction;
          DELETE FROM canonical_command_receipts;
          DELETE FROM actor_jobs;
+         DELETE FROM model_interaction_batches;
          DELETE FROM actor_sessions;
          DELETE FROM wallet_avatar_links;
          DELETE FROM actor_suspensions;

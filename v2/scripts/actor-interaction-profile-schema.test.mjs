@@ -24,7 +24,7 @@ const bindings = readJson(ELYSIUM_ACTOR_MODEL_BINDINGS_PATH);
 const document = readJson(ELYSIUM_ACTOR_INTERACTION_PROFILES_PATH);
 
 test("pins one interaction-profile binding for every Elysium actor without reordering", () => {
-  assert.equal(document.bindings.length, 485);
+  assert.equal(document.bindings.length, 500);
   assert.deepEqual(
     document.bindings.map((row) => [row.actor_id, row.requested_model_id]),
     bindings.map((binding) => [binding.actor_id, binding.requested_model_id]),
@@ -64,31 +64,33 @@ test("classifies the pinned catalog into exact native interactions", () => {
     }
   }
   assert.deepEqual(Object.fromEntries(profileCounts), {
-    talk: 360,
-    illustrate: 40,
-    speak: 19,
-    transcribe: 13,
+    talk: 342,
+    create_video: 22,
+    batch_talk: 28,
     find_resonance: 34,
+    illustrate: 42,
+    speak: 19,
     rank_echoes: 6,
-    create_video: 20,
-    voice_chat: 2,
+    transcribe: 14,
     compose_audio: 2,
+    voice_chat: 2,
   });
   assert.deepEqual(Object.fromEntries(providerAvailableCounts), {
-    talk: 328,
-    illustrate: 38,
-    speak: 13,
-    transcribe: 13,
+    talk: 337,
+    create_video: 22,
+    batch_talk: 28,
     find_resonance: 31,
+    illustrate: 40,
+    speak: 13,
     rank_echoes: 6,
-    create_video: 20,
-    voice_chat: 2,
+    transcribe: 14,
     compose_audio: 2,
+    voice_chat: 2,
   });
   assert.deepEqual(Object.fromEntries(availabilityCounts), {
-    active: 444,
-    unsupported: 37,
-    archived: 4,
+    active: 486,
+    unsupported: 9,
+    archived: 5,
   });
 });
 
@@ -105,21 +107,32 @@ test("withholds Talk when the exact chat-completion endpoint is absent", () => {
   );
 });
 
-test("withholds synchronous Talk from asynchronous batch variants", () => {
+test("routes legacy text batch variants through the asynchronous batch adapter", () => {
   const batchProfiles = document.bindings.filter((row) =>
     row.requested_model_id.endsWith(":batch"),
   );
   assert.equal(batchProfiles.length, 31);
+  const batchTalk = batchProfiles.filter((row) =>
+    row.profiles.some((profile) => profile.kind === "batch_talk"),
+  );
+  assert.equal(batchTalk.length, 28);
   assert(
-    batchProfiles.every((row) =>
-      row.profiles.every(
-        (profile) =>
-          profile.kind !== "talk" ||
-          (profile.provider_available === false &&
-            profile.disabled_reason ===
-              "exact_batch_model_id_requires_async_batch_route_2026-08-09"),
-      ),
-    ),
+    batchTalk.every((row) => {
+      const profile = row.profiles.find(
+        (candidate) => candidate.kind === "batch_talk",
+      );
+      return (
+        row.availability === "active" &&
+        profile.provider_available &&
+        profile.runtime_adapter_supported &&
+        profile.asynchronous &&
+        profile.endpoint_zdr === false &&
+        profile.endpoint === "/api/beta/batches" &&
+        profile.defaults.endpoint === "/v1/chat/completions" &&
+        profile.defaults.submission_model_id ===
+          row.requested_model_id.slice(0, -":batch".length)
+      );
+    }),
   );
 });
 
@@ -201,7 +214,7 @@ test("declares video as async and never ZDR", () => {
   const videoProfiles = document.bindings.flatMap((row) =>
     row.profiles.filter((profile) => profile.kind === "create_video"),
   );
-  assert.equal(videoProfiles.length, 20);
+  assert.equal(videoProfiles.length, 22);
   assert(
     videoProfiles.every(
       (profile) =>
@@ -223,14 +236,14 @@ test("keeps provider availability separate from local adapter support", () => {
   );
   assert.equal(
     profiles.filter(({ profile }) => profile.runtime_adapter_supported).length,
-    451,
+    463,
   );
   assert.equal(
     profiles.filter(
       ({ profile }) =>
         profile.provider_available && profile.runtime_adapter_supported,
     ).length,
-    414,
+    453,
   );
   const vectorProfiles = profiles.filter(
     ({ row, profile }) =>
@@ -275,8 +288,8 @@ test("pins direct voice chat to the implemented MP3 stream contract", () => {
 
 test("indexes and returns only the actor's exact requested model", () => {
   const loaded = loadPinnedElysiumInteractionProfiles();
-  assert.equal(loaded.byActorId.size, 485);
-  assert.equal(loaded.byRequestedModelId.size, 485);
+  assert.equal(loaded.byActorId.size, 500);
+  assert.equal(loaded.byRequestedModelId.size, 500);
   const trinity = bindings.find(
     (binding) =>
       binding.requested_model_id === "arcee-ai/trinity-large-thinking",
@@ -303,7 +316,7 @@ test("indexes and returns only the actor's exact requested model", () => {
   );
   assert.equal(
     indexActorInteractionProfiles(loaded.document).byActorId.size,
-    485,
+    500,
   );
 });
 

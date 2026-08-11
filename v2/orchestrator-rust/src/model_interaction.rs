@@ -8,17 +8,45 @@ const MODEL_INTERACTION_EMBEDDING_FEATURE: &str = "model_interaction_embeddings"
 const MODEL_INTERACTION_RERANK_FEATURE: &str = "model_interaction_rerank";
 const MODEL_INTERACTION_SPEECH_FEATURE: &str = "model_interaction_speech";
 const MODEL_INTERACTION_SPEECH_TEXT_FEATURE: &str = "model_interaction_speech_text";
+const MODEL_INTERACTION_BATCH_TALK_FEATURE: &str = "model_interaction_batch_talk";
 const MODEL_INTERACTION_IMAGE_CONTEXT_VERSION: &str = "authoritative-scene-v1";
 const MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION: &str = "authoritative-model-neighbors-v1";
 const MODEL_INTERACTION_SPEECH_CONTEXT_VERSION: &str = "authoritative-world-speech-v2";
 const MODEL_INTERACTION_SPEECH_TEXT_CONTEXT_VERSION: &str = "authoritative-world-speech-text-v1";
+const MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION: &str = "authoritative-world-echo-v1";
 const MODEL_INTERACTION_SEMANTIC_CANDIDATES: usize = 8;
 const MODEL_INTERACTION_SEMANTIC_RESULTS: usize = 3;
 const MODEL_INTERACTION_MAX_PARTS: usize = 8;
 const MODEL_INTERACTION_MAX_SUMMARY_CHARS: usize = 280;
+pub(super) const MODEL_INTERACTION_BATCH_PENDING: &str = "model_interaction_batch_pending";
+pub(super) const MODEL_INTERACTION_BATCH_POLL_DELAY_MS: u64 = 10_000;
+const MODEL_INTERACTION_BATCH_RESPONSE_MAX_BYTES: usize = 2 * 1024 * 1024;
+const MODEL_INTERACTION_BATCH_TEXT_MAX_CHARS: usize = 280;
 
 static MODEL_INTERACTION_LOCKS: OnceLock<StdMutex<BTreeMap<String, Weak<Mutex<()>>>>> =
     OnceLock::new();
+
+pub(super) fn init_model_interaction_batch_store(conn: &Connection) -> io::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS model_interaction_batches (
+            interaction_id TEXT PRIMARY KEY,
+            actor_id INTEGER NOT NULL,
+            target_actor_id INTEGER NOT NULL,
+            queue_event_seq INTEGER NOT NULL,
+            requested_model_id TEXT NOT NULL,
+            submission_model_id TEXT NOT NULL,
+            custom_id TEXT NOT NULL UNIQUE,
+            provider_batch_id TEXT UNIQUE,
+            provider_status TEXT NOT NULL,
+            result_digest TEXT,
+            created_at_ms INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_model_interaction_batches_provider
+            ON model_interaction_batches(provider_batch_id, provider_status);",
+    )
+    .map_err(sqlite_error)
+}
 
 #[derive(Clone, Debug)]
 pub(super) struct TransientOpenRouterKey {
@@ -82,6 +110,7 @@ pub(super) enum ModelInteractionProfile {
     Embeddings,
     Rerank,
     Speech,
+    BatchTalk,
 }
 
 impl ModelInteractionProfile {
@@ -91,6 +120,7 @@ impl ModelInteractionProfile {
             Self::Embeddings => "Find resonance",
             Self::Rerank => "Rank echoes",
             Self::Speech => "Speak",
+            Self::BatchTalk => "Leave an echo",
         }
     }
 
@@ -100,6 +130,7 @@ impl ModelInteractionProfile {
             Self::Embeddings => "find_resonance",
             Self::Rerank => "rank_echoes",
             Self::Speech => "speak",
+            Self::BatchTalk => "echo",
         }
     }
 
@@ -109,6 +140,7 @@ impl ModelInteractionProfile {
             Self::Embeddings => ActorInteractionKind::FindResonance,
             Self::Rerank => ActorInteractionKind::RankEchoes,
             Self::Speech => ActorInteractionKind::Speak,
+            Self::BatchTalk => ActorInteractionKind::BatchTalk,
         }
     }
 }
@@ -282,6 +314,10 @@ impl ModelInteractionPublication {
                             ..
                         }
                     )
+            }
+            ModelInteractionProfile::BatchTalk => {
+                self.output_parts.len() == 1
+                    && matches!(&self.output_parts[0], ModelInteractionOutputPart::Text { .. })
             }
         };
         if !coherent {
@@ -475,6 +511,9 @@ impl RuntimeWorld {
             ModelInteractionProfile::Speech => {
                 format!("asks {name}'s exact voice model to speak from authoritative world context")
             }
+            ModelInteractionProfile::BatchTalk => {
+                format!("leaves {name}'s exact batch model an echo that may return later")
+            }
         })
     }
 
@@ -644,6 +683,7 @@ fn supported_profile_for_binding(
         ModelInteractionProfile::Embeddings,
         ModelInteractionProfile::Rerank,
         ModelInteractionProfile::Speech,
+        ModelInteractionProfile::BatchTalk,
     ]
     .into_iter()
     .find(|profile| binding_has_ready_profile(binding, *profile))
@@ -782,6 +822,9 @@ fn binding_has_ready_profile(
                 )
             }
         }
+        ModelInteractionProfile::BatchTalk => {
+            PinnedModelSelection::from_actor_binding(binding, DataPolicyMode::Development)
+        }
     };
     pinned.is_ok()
 }
@@ -851,6 +894,17 @@ pub(super) async fn model_interaction(
         .map(str::trim)
         .filter(|key| !key.is_empty())
         .map(ToString::to_string);
+    if player_openrouter.is_some()
+        && supported_profile_for_actor(payload.target_actor_id)
+            == Some(ModelInteractionProfile::BatchTalk)
+    {
+        return model_interaction_failure(
+            payload.actor_id,
+            payload.target_actor_id,
+            400,
+            "Delayed echoes require the durable world route; a temporary key was not stored.",
+        );
+    }
     if let Some(path) = state.event_store_path.as_deref() {
         match active_model_interaction_target(path, payload.actor_id) {
             Ok(Some(active_target)) if active_target == payload.target_actor_id => {
@@ -1105,6 +1159,9 @@ fn model_interaction_route_availability(
 }
 
 fn model_interaction_route_is_configured(state: &AppState, plan: &ModelInteractionPlan) -> bool {
+    if plan.profile == ModelInteractionProfile::BatchTalk && state.event_store_path.is_none() {
+        return false;
+    }
     model_interaction_route_availability(state.ai_config.as_ref().as_ref(), plan).is_ready()
 }
 
@@ -1153,6 +1210,12 @@ fn model_interaction_target_availability(
             } else {
                 "audio/speech"
             },
+        ),
+        ModelInteractionProfile::BatchTalk => (
+            config.pin_actor_model(binding).is_ok()
+                && (ai_provider_name(Some(config)) == "openrouter"
+                    || local_ai_base_url(&config.base_url)),
+            "batches",
         ),
     };
     if !pinned {
@@ -1398,6 +1461,17 @@ pub(super) async fn complete_model_interaction_attempt(
             .await?;
             return Ok(());
         }
+        Err(error) if error.local_terminal() => {
+            clear_transient_openrouter_key(state, job.actor_id);
+            commit_model_interaction_status(
+                state,
+                &job,
+                "failed",
+                "the delayed model interaction could not finish",
+            )
+            .await?;
+            return Ok(());
+        }
         Err(error) if error.provider_terminal() => {
             let gateway = error
                 .gateway()
@@ -1513,6 +1587,8 @@ pub(super) async fn complete_model_interaction_attempt(
 enum ModelInteractionAttemptError {
     Gateway(AiGatewayError),
     Local(String),
+    Terminal(String),
+    Pending,
 }
 
 impl ModelInteractionAttemptError {
@@ -1528,11 +1604,19 @@ impl ModelInteractionAttemptError {
         matches!(self, Self::Gateway(error) if error.retryable_for_model_interaction())
     }
 
+    fn local_terminal(&self) -> bool {
+        matches!(self, Self::Terminal(_))
+    }
+
     fn gateway(&self) -> Option<&AiGatewayError> {
         match self {
             Self::Gateway(error) => Some(error),
-            Self::Local(_) => None,
+            Self::Local(_) | Self::Terminal(_) | Self::Pending => None,
         }
+    }
+
+    fn pending(&self) -> bool {
+        matches!(self, Self::Pending)
     }
 }
 
@@ -1554,6 +1638,8 @@ impl fmt::Display for ModelInteractionAttemptError {
                 error.latency.as_millis()
             ),
             Self::Local(error) => formatter.write_str(error),
+            Self::Terminal(error) => formatter.write_str(error),
+            Self::Pending => formatter.write_str(MODEL_INTERACTION_BATCH_PENDING),
         }
     }
 }
@@ -1563,7 +1649,17 @@ fn model_interaction_attempt_is_terminal(
     attempt: u32,
     route_retry_floor_ms: u64,
 ) -> bool {
-    attempt >= ACTOR_JOB_MAX_ATTEMPTS && (!error.provider_retryable() || route_retry_floor_ms == 0)
+    !error.pending()
+        && attempt >= ACTOR_JOB_MAX_ATTEMPTS
+        && (!error.provider_retryable() || route_retry_floor_ms == 0)
+}
+
+pub(super) fn model_interaction_batch_poll_pending(
+    interaction: &ModelInteractionJob,
+    error: &str,
+) -> bool {
+    interaction.plan.profile == ModelInteractionProfile::BatchTalk
+        && error == MODEL_INTERACTION_BATCH_PENDING
 }
 
 struct ExecutedModelInteraction {
@@ -1622,6 +1718,568 @@ async fn execute_model_interaction_profile(
         ModelInteractionProfile::Speech => {
             execute_speech_model_interaction(state, job, interaction_id).await
         }
+        ModelInteractionProfile::BatchTalk => {
+            execute_batch_talk_model_interaction(state, job, interaction_id).await
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct BatchTalkState {
+    provider_batch_id: Option<String>,
+    provider_status: String,
+    submission_model_id: String,
+}
+
+fn batch_talk_submission_model(job: &ModelInteractionJob) -> Result<String, String> {
+    frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::BatchTalk)?;
+    let exact = exact_actor_interaction_profile_for_actor(
+        job.target_actor_id,
+        ActorInteractionKind::BatchTalk,
+    )
+    .map_err(|error| format!("batch profile registry is unavailable: {error}"))?
+    .ok_or_else(|| "batch interaction lost its exact profile".to_string())?;
+    let submission_model_id = exact
+        .profile
+        .defaults
+        .get("submission_model_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if exact.binding.requested_model_id != job.plan.requested_model_id
+        || exact.binding.canonical_slug != job.plan.canonical_slug
+        || job.plan.requested_model_id.strip_suffix(":batch") != Some(submission_model_id)
+        || submission_model_id.is_empty()
+    {
+        return Err("batch interaction changed its pinned submission model".to_string());
+    }
+    Ok(submission_model_id.to_string())
+}
+
+fn batch_talk_context_hash(plan: &ModelInteractionPlan) -> String {
+    let mut hasher = Sha256::new();
+    for component in [
+        MODEL_INTERACTION_BATCH_TALK_FEATURE.as_bytes(),
+        MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION.as_bytes(),
+        plan.target_name.as_bytes(),
+        plan.location_name.as_bytes(),
+        plan.location_description.as_bytes(),
+        plan.requested_model_id.as_bytes(),
+        plan.canonical_slug.as_bytes(),
+    ] {
+        hasher.update(component.len().to_be_bytes());
+        hasher.update(component);
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn batch_talk_messages(plan: &ModelInteractionPlan) -> (String, String) {
+    let system = "Return one brief line of in-world dialogue as the named resident. This is a delayed echo tied to an earlier world moment. Return only the spoken words: no label, quotation marks, markdown, stage direction, tool call, or explanation. Use only the supplied authoritative setting and stay under 240 characters.".to_string();
+    let user = format!(
+        "Resident: {name}\nOrigin location: {location}\nAuthoritative setting at submission: {description}\nLet one fitting echo return from that moment.",
+        name = compact_whitespace(&plan.target_name),
+        location = compact_whitespace(&plan.location_name),
+        description = compact_whitespace(&plan.location_description),
+    );
+    (system, user)
+}
+
+fn openrouter_batch_collection_url(config: &AiConfig) -> Result<String, String> {
+    let base = config.base_url.trim_end_matches('/');
+    if let Some(prefix) = base.strip_suffix("/api/v1") {
+        return Ok(format!("{prefix}/api/beta/batches"));
+    }
+    if let Some(prefix) = base.strip_suffix("/v1") {
+        return Ok(format!("{prefix}/beta/batches"));
+    }
+    Err("batch interactions require an OpenRouter-compatible /api/v1 base URL".to_string())
+}
+
+fn valid_provider_batch_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 256
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
+}
+
+fn load_or_create_batch_talk_state(
+    path: &Path,
+    job: &ModelInteractionJob,
+    interaction_id: &str,
+    submission_model_id: &str,
+) -> Result<BatchTalkState, String> {
+    let conn = open_event_store(path).map_err(|error| error.to_string())?;
+    let now = now_millis() as i64;
+    conn.execute(
+        "INSERT OR IGNORE INTO model_interaction_batches
+            (interaction_id, actor_id, target_actor_id, queue_event_seq,
+             requested_model_id, submission_model_id, custom_id, provider_status,
+             created_at_ms, updated_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?1, 'submitting', ?7, ?7)",
+        params![
+            interaction_id,
+            job.actor_id as i64,
+            job.target_actor_id as i64,
+            job.queue_event_id.unwrap_or(0) as i64,
+            job.plan.requested_model_id,
+            submission_model_id,
+            now,
+        ],
+    )
+    .map_err(|error| sqlite_error(error).to_string())?;
+    let row = conn
+        .query_row(
+            "SELECT actor_id, target_actor_id, queue_event_seq, requested_model_id,
+                    submission_model_id, custom_id, provider_batch_id, provider_status
+             FROM model_interaction_batches WHERE interaction_id = ?1",
+            [interaction_id],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, String>(7)?,
+                ))
+            },
+        )
+        .map_err(|error| sqlite_error(error).to_string())?;
+    if row.0 != job.actor_id as i64
+        || row.1 != job.target_actor_id as i64
+        || row.2 != job.queue_event_id.unwrap_or(0) as i64
+        || row.3 != job.plan.requested_model_id
+        || row.4 != submission_model_id
+        || row.5 != interaction_id
+        || row
+            .6
+            .as_deref()
+            .is_some_and(|id| !valid_provider_batch_id(id))
+    {
+        return Err("durable batch interaction identity changed".to_string());
+    }
+    Ok(BatchTalkState {
+        provider_batch_id: row.6,
+        provider_status: row.7,
+        submission_model_id: row.4,
+    })
+}
+
+fn persist_batch_talk_state(
+    path: &Path,
+    interaction_id: &str,
+    provider_batch_id: &str,
+    provider_status: &str,
+    result_digest: Option<&str>,
+) -> Result<(), String> {
+    if !valid_provider_batch_id(provider_batch_id)
+        || provider_status.is_empty()
+        || provider_status.len() > 64
+        || result_digest.is_some_and(|digest| !sha256_hex(digest))
+    {
+        return Err("provider batch state is invalid".to_string());
+    }
+    let conn = open_event_store(path).map_err(|error| error.to_string())?;
+    let updated = conn
+        .execute(
+            "UPDATE model_interaction_batches
+             SET provider_batch_id = ?2, provider_status = ?3, result_digest = ?4,
+                 updated_at_ms = ?5
+             WHERE interaction_id = ?1
+               AND (provider_batch_id IS NULL OR provider_batch_id = ?2)",
+            params![
+                interaction_id,
+                provider_batch_id,
+                provider_status,
+                result_digest,
+                now_millis() as i64,
+            ],
+        )
+        .map_err(|error| sqlite_error(error).to_string())?;
+    if updated != 1 {
+        return Err("provider batch id changed after submission".to_string());
+    }
+    Ok(())
+}
+
+fn batch_object(value: &serde_json::Value) -> &serde_json::Value {
+    value
+        .get("data")
+        .filter(|data| data.is_object())
+        .unwrap_or(value)
+}
+
+fn batch_status(value: &serde_json::Value) -> Option<&str> {
+    batch_object(value)
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+}
+
+async fn bounded_batch_json(
+    response: reqwest::Response,
+) -> Result<serde_json::Value, ModelInteractionAttemptError> {
+    let status = response.status();
+    if response
+        .content_length()
+        .is_some_and(|length| length > MODEL_INTERACTION_BATCH_RESPONSE_MAX_BYTES as u64)
+    {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "provider batch response exceeded its byte limit".to_string(),
+        ));
+    }
+    let bytes = response.bytes().await.map_err(|error| {
+        ModelInteractionAttemptError::Local(format!(
+            "provider batch response could not be read: {error}"
+        ))
+    })?;
+    if bytes.len() > MODEL_INTERACTION_BATCH_RESPONSE_MAX_BYTES {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "provider batch response exceeded its byte limit".to_string(),
+        ));
+    }
+    let value = serde_json::from_slice::<serde_json::Value>(&bytes).map_err(|error| {
+        ModelInteractionAttemptError::Local(format!(
+            "provider batch response was not valid JSON: {error}"
+        ))
+    })?;
+    if status.is_success() {
+        return Ok(value);
+    }
+    let detail = value
+        .pointer("/error/message")
+        .and_then(serde_json::Value::as_str)
+        .map(|message| trim_to_chars(message, 200))
+        .unwrap_or_else(|| format!("HTTP {}", status.as_u16()));
+    if status.as_u16() == 408 || status.as_u16() == 429 || status.is_server_error() {
+        Err(ModelInteractionAttemptError::Local(format!(
+            "provider batch request will retry: {detail}"
+        )))
+    } else {
+        Err(ModelInteractionAttemptError::Terminal(format!(
+            "provider rejected the batch request: {detail}"
+        )))
+    }
+}
+
+fn readable_batch_message_content(message: &serde_json::Value) -> Option<String> {
+    if let Some(text) = message.get("content").and_then(serde_json::Value::as_str) {
+        return Some(text.to_string());
+    }
+    let parts = message.get("content")?.as_array()?;
+    let text = parts
+        .iter()
+        .filter_map(|part| part.get("text").and_then(serde_json::Value::as_str))
+        .collect::<Vec<_>>()
+        .join(" ");
+    (!text.trim().is_empty()).then_some(text)
+}
+
+fn completed_batch_talk_publication(
+    job: &ModelInteractionJob,
+    interaction_id: &str,
+    submission_model_id: &str,
+    batch: &serde_json::Value,
+) -> Result<(ModelInteractionPublication, String), ModelInteractionAttemptError> {
+    let batch = batch_object(batch);
+    let results = batch
+        .get("results")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            ModelInteractionAttemptError::Local(
+                "completed provider batch did not include results".to_string(),
+            )
+        })?;
+    let matches = results
+        .iter()
+        .filter(|result| {
+            result.get("custom_id").and_then(serde_json::Value::as_str) == Some(interaction_id)
+        })
+        .collect::<Vec<_>>();
+    if matches.len() != 1 {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "completed provider batch did not contain one exact custom id".to_string(),
+        ));
+    }
+    let result = matches[0];
+    if result.get("error").is_some_and(|error| !error.is_null()) {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "the provider batch request failed".to_string(),
+        ));
+    }
+    let response = result.get("response").ok_or_else(|| {
+        ModelInteractionAttemptError::Terminal("provider batch result had no response".to_string())
+    })?;
+    let status_code = response
+        .get("status_code")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| {
+            ModelInteractionAttemptError::Terminal(
+                "provider batch result had no response status".to_string(),
+            )
+        })?;
+    if status_code != 200 {
+        return Err(ModelInteractionAttemptError::Terminal(format!(
+            "provider batch item failed with HTTP {status_code}"
+        )));
+    }
+    let body = response.get("body").unwrap_or(response);
+    let choices = body
+        .get("choices")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            ModelInteractionAttemptError::Terminal(
+                "provider batch result had no completion choices".to_string(),
+            )
+        })?;
+    if choices.len() != 1 {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "provider batch result did not contain exactly one completion choice".to_string(),
+        ));
+    }
+    let choice = &choices[0];
+    if choice
+        .get("finish_reason")
+        .and_then(serde_json::Value::as_str)
+        != Some("stop")
+    {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "provider batch result was incomplete".to_string(),
+        ));
+    }
+    let message = choice.get("message").ok_or_else(|| {
+        ModelInteractionAttemptError::Terminal("provider batch result had no message".to_string())
+    })?;
+    let raw_text = readable_batch_message_content(message).ok_or_else(|| {
+        ModelInteractionAttemptError::Terminal(
+            "provider batch result had no publishable text".to_string(),
+        )
+    })?;
+    if raw_text
+        .chars()
+        .any(|character| character.is_control() && !character.is_whitespace())
+    {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "provider batch result contained unsafe control text".to_string(),
+        ));
+    }
+    let text = compact_whitespace(&raw_text);
+    validate_bounded_text(
+        &text,
+        MODEL_INTERACTION_BATCH_TEXT_MAX_CHARS,
+        "batch echo text",
+    )
+    .map_err(ModelInteractionAttemptError::Terminal)?;
+    let resolved_model = body
+        .get("model")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            ModelInteractionAttemptError::Terminal(
+                "provider batch result had no model attribution".to_string(),
+            )
+        })?;
+    if ![
+        submission_model_id,
+        job.plan.requested_model_id.as_str(),
+        job.plan.canonical_slug.as_str(),
+    ]
+    .contains(&resolved_model)
+    {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "provider batch result changed its exact model route".to_string(),
+        ));
+    }
+    let result_bytes = serde_json::to_vec(result).map_err(|error| {
+        ModelInteractionAttemptError::Local(format!(
+            "provider batch result could not be hashed: {error}"
+        ))
+    })?;
+    let result_digest = format!("{:x}", Sha256::digest(result_bytes));
+    let publication = ModelInteractionPublication {
+        schema_version: MODEL_INTERACTION_SCHEMA_VERSION,
+        interaction_id: interaction_id.to_string(),
+        profile: ModelInteractionProfile::BatchTalk,
+        summary: bounded_authoritative_speech(
+            &format!(
+                "{}'s delayed echo returned to {}.",
+                authoritative_speech_fragment(&job.plan.target_name),
+                authoritative_speech_fragment(&job.plan.location_name)
+            ),
+            MODEL_INTERACTION_MAX_SUMMARY_CHARS,
+        ),
+        output_parts: vec![ModelInteractionOutputPart::Text { text }],
+        attribution: ModelInteractionAttribution {
+            provider: "openrouter".to_string(),
+            model: job.plan.requested_model_id.clone(),
+        },
+        prompt_version: MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION.to_string(),
+        context_hash: batch_talk_context_hash(&job.plan),
+    };
+    publication
+        .validate()
+        .map_err(ModelInteractionAttemptError::Terminal)?;
+    Ok((publication, result_digest))
+}
+
+async fn execute_batch_talk_model_interaction(
+    state: &AppState,
+    job: &ModelInteractionJob,
+    interaction_id: &str,
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
+    let submission_model_id = batch_talk_submission_model(job)?;
+    execute_batch_talk_with_submission_model(state, job, interaction_id, &submission_model_id).await
+}
+
+async fn execute_batch_talk_with_submission_model(
+    state: &AppState,
+    job: &ModelInteractionJob,
+    interaction_id: &str,
+    submission_model_id: &str,
+) -> Result<Option<ExecutedModelInteraction>, ModelInteractionAttemptError> {
+    if job.player_openrouter {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "batch interactions cannot use transient credentials".to_string(),
+        ));
+    }
+    let path = state.event_store_path.as_deref().ok_or_else(|| {
+        ModelInteractionAttemptError::Terminal(
+            "batch interactions require durable storage".to_string(),
+        )
+    })?;
+    let config = state.ai_config.as_ref().as_ref().ok_or_else(|| {
+        ModelInteractionAttemptError::Terminal(
+            "batch interactions require a configured provider".to_string(),
+        )
+    })?;
+    if ai_provider_name(Some(config)) != "openrouter" && !local_ai_base_url(&config.base_url) {
+        return Err(ModelInteractionAttemptError::Terminal(
+            "batch interactions require OpenRouter".to_string(),
+        ));
+    }
+    let mut durable =
+        load_or_create_batch_talk_state(path, job, interaction_id, submission_model_id)?;
+    let collection_url = openrouter_batch_collection_url(config)?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| {
+            ModelInteractionAttemptError::Local(format!(
+                "provider batch client setup failed: {error}"
+            ))
+        })?;
+    let started_at = Instant::now();
+    let batch_json = if let Some(provider_batch_id) = durable.provider_batch_id.as_deref() {
+        let response = client
+            .get(format!("{collection_url}/{provider_batch_id}"))
+            .bearer_auth(&config.api_key)
+            .header("HTTP-Referer", "https://cosy.world/")
+            .header("X-OpenRouter-Title", "CosyWorld v2")
+            .header("X-Title", "CosyWorld v2")
+            .send()
+            .await
+            .map_err(|error| {
+                ModelInteractionAttemptError::Local(format!("provider batch poll failed: {error}"))
+            })?;
+        bounded_batch_json(response).await?
+    } else {
+        let _server_spend_guard =
+            enforce_server_paid_daily_limit(config, MODEL_INTERACTION_BATCH_TALK_FEATURE)
+                .await
+                .map_err(ModelInteractionAttemptError::from_gateway)?;
+        let (system, user) = batch_talk_messages(&job.plan);
+        let payload = serde_json::json!({
+            "endpoint": "/v1/chat/completions",
+            "model": submission_model_id,
+            "requests": [{
+                "custom_id": interaction_id,
+                "body": {
+                    "model": submission_model_id,
+                    "messages": [
+                        { "role": "system", "content": system },
+                        { "role": "user", "content": user }
+                    ],
+                    "max_tokens": 96
+                }
+            }]
+        });
+        let response = client
+            .post(&collection_url)
+            .bearer_auth(&config.api_key)
+            .header("HTTP-Referer", "https://cosy.world/")
+            .header("X-OpenRouter-Title", "CosyWorld v2")
+            .header("X-Title", "CosyWorld v2")
+            .header("Idempotency-Key", interaction_id)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|error| {
+                ModelInteractionAttemptError::Local(format!(
+                    "provider batch submission failed: {error}"
+                ))
+            })?;
+        bounded_batch_json(response).await?
+    };
+    let provider_batch_id = batch_object(&batch_json)
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .or(durable.provider_batch_id.as_deref())
+        .filter(|id| valid_provider_batch_id(id))
+        .ok_or_else(|| {
+            ModelInteractionAttemptError::Terminal(
+                "provider batch response had no valid id".to_string(),
+            )
+        })?
+        .to_string();
+    let provider_status = batch_status(&batch_json).ok_or_else(|| {
+        ModelInteractionAttemptError::Local("provider batch response had no status".to_string())
+    })?;
+    durable.provider_batch_id = Some(provider_batch_id.clone());
+    durable.provider_status = provider_status.to_string();
+    persist_batch_talk_state(
+        path,
+        interaction_id,
+        &provider_batch_id,
+        provider_status,
+        None,
+    )?;
+    match provider_status {
+        "validating" | "in_progress" | "finalizing" | "cancelling" => {
+            Err(ModelInteractionAttemptError::Pending)
+        }
+        "completed" => {
+            let (publication, result_digest) = completed_batch_talk_publication(
+                job,
+                interaction_id,
+                &durable.submission_model_id,
+                &batch_json,
+            )?;
+            persist_batch_talk_state(
+                path,
+                interaction_id,
+                &provider_batch_id,
+                provider_status,
+                Some(&result_digest),
+            )?;
+            Ok(Some(ExecutedModelInteraction {
+                publication,
+                image: None,
+                usages: vec![ModelInteractionUsage {
+                    feature: MODEL_INTERACTION_BATCH_TALK_FEATURE,
+                    actor_id: job.target_actor_id,
+                    provider: "openrouter".to_string(),
+                    model: job.plan.requested_model_id.clone(),
+                    latency: started_at.elapsed(),
+                    payer_mode: "server",
+                }],
+            }))
+        }
+        "failed" | "cancelled" | "expired" => Err(ModelInteractionAttemptError::Terminal(format!(
+            "provider batch ended with status {provider_status}"
+        ))),
+        _ => Err(ModelInteractionAttemptError::Local(format!(
+            "provider batch returned unknown status {provider_status}"
+        ))),
     }
 }
 
@@ -2484,6 +3142,9 @@ fn model_interaction_id(job: &ModelInteractionJob) -> String {
             MODEL_INTERACTION_SEMANTIC_CONTEXT_VERSION.as_bytes()
         }
         ModelInteractionProfile::Speech => MODEL_INTERACTION_SPEECH_CONTEXT_VERSION.as_bytes(),
+        ModelInteractionProfile::BatchTalk => {
+            MODEL_INTERACTION_BATCH_TALK_CONTEXT_VERSION.as_bytes()
+        }
     });
     hasher.update([0]);
     hasher.update(job.actor_id.to_be_bytes());
@@ -2625,14 +3286,20 @@ async fn commit_model_interaction_output(
     }) {
         return Ok(Vec::new());
     }
-    let current_plan = runtime.model_interaction_plan_for(job.actor_id, job.target_actor_id);
-    if current_plan.as_ref().is_none_or(|plan| {
-        plan.location_id != job.plan.location_id
-            || plan.profile != job.plan.profile
-            || plan.requested_model_id != job.plan.requested_model_id
-            || plan.canonical_slug != job.plan.canonical_slug
-            || plan.exact_voice != job.plan.exact_voice
-    }) {
+    let frozen_batch_route_is_valid = job.plan.profile == ModelInteractionProfile::BatchTalk
+        && frozen_ready_profile_binding(&job.plan, ModelInteractionProfile::BatchTalk).is_ok();
+    let current_plan = (job.plan.profile != ModelInteractionProfile::BatchTalk)
+        .then(|| runtime.model_interaction_plan_for(job.actor_id, job.target_actor_id))
+        .flatten();
+    if !frozen_batch_route_is_valid
+        && current_plan.as_ref().is_none_or(|plan| {
+            plan.location_id != job.plan.location_id
+                || plan.profile != job.plan.profile
+                || plan.requested_model_id != job.plan.requested_model_id
+                || plan.canonical_slug != job.plan.canonical_slug
+                || plan.exact_voice != job.plan.exact_voice
+        })
+    {
         return Err(
             "model interaction participants or exact route changed before publication".to_string(),
         );
@@ -2691,6 +3358,11 @@ fn apply_job_causality(record: &mut JournalRecord, job: &ModelInteractionJob) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{
+        routing::{get, post},
+        Router,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn elysium_bindings() -> Vec<SeedActorModelBinding> {
         serde_json::from_str(include_str!(
@@ -2826,6 +3498,24 @@ mod tests {
                 .expect("exact excluded binding");
             assert_eq!(supported_profile_for_binding(binding), None, "{model_id}");
         }
+    }
+
+    #[test]
+    fn batch_text_bindings_offer_delayed_echoes_instead_of_talk() {
+        let bindings = elysium_bindings();
+        let batch = bindings
+            .iter()
+            .filter(|binding| binding.requested_model_id.ends_with(":batch"))
+            .filter(|binding| binding.output_modalities == ["text"])
+            .collect::<Vec<_>>();
+        assert_eq!(batch.len(), 28);
+        assert!(batch.iter().all(|binding| {
+            !binding_supports_text_reply(binding)
+                && supported_profile_for_binding(binding)
+                    == Some(ModelInteractionProfile::BatchTalk)
+        }));
+        assert_eq!(ModelInteractionProfile::BatchTalk.label(), "Leave an echo");
+        assert_eq!(ModelInteractionProfile::BatchTalk.intention(), "echo");
     }
 
     #[test]
@@ -3222,12 +3912,18 @@ mod tests {
         ));
         let local =
             ModelInteractionAttemptError::Local("event store write was interrupted".to_string());
+        let pending = ModelInteractionAttemptError::Pending;
         assert!(gateway.provider_terminal());
         assert!(!gateway.provider_retryable());
         assert!(!transient.provider_terminal());
         assert!(transient.provider_retryable());
         assert!(!local.provider_terminal());
         assert!(!local.provider_retryable());
+        assert!(!model_interaction_attempt_is_terminal(
+            &pending,
+            ACTOR_JOB_MAX_ATTEMPTS.saturating_add(100),
+            0,
+        ));
         assert!(model_interaction_attempt_is_terminal(
             &transient,
             ACTOR_JOB_MAX_ATTEMPTS,
@@ -3245,6 +3941,301 @@ mod tests {
         ));
     }
 
+    fn frozen_batch_talk_job() -> ModelInteractionJob {
+        let binding = elysium_bindings()
+            .into_iter()
+            .find(|binding| binding.requested_model_id == "google/gemini-2.5-pro:batch")
+            .expect("pinned Gemini batch binding");
+        ModelInteractionJob {
+            actor_id: 5000,
+            target_actor_id: binding.actor_id,
+            plan: ModelInteractionPlan {
+                actor_id: 5000,
+                target_actor_id: binding.actor_id,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                target_name: binding.display_name,
+                location_name: "The Cosy Cottage".to_string(),
+                location_description: "A lantern-lit room frozen at submission.".to_string(),
+                profile: ModelInteractionProfile::BatchTalk,
+                requested_model_id: binding.requested_model_id,
+                canonical_slug: binding.canonical_slug,
+                exact_voice: None,
+                target_descriptor: String::new(),
+                semantic_candidates: Vec::new(),
+            },
+            player_openrouter: false,
+            queue_event_id: Some(77),
+            source_world_tick: Some(11),
+            observed_through_seq: Some(77),
+        }
+    }
+
+    #[tokio::test]
+    async fn batch_talk_submits_once_resumes_by_provider_id_and_publishes_typed_text() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-batch-talk-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let job = frozen_batch_talk_job();
+        let interaction_id = model_interaction_id(&job);
+        let submissions = Arc::new(AtomicUsize::new(0));
+        let polls = Arc::new(AtomicUsize::new(0));
+        let submitted_payloads = Arc::new(StdMutex::new(Vec::<serde_json::Value>::new()));
+        let app = Router::new()
+            .route(
+                "/api/beta/batches",
+                post({
+                    let submissions = submissions.clone();
+                    let submitted_payloads = submitted_payloads.clone();
+                    move |Json(payload): Json<serde_json::Value>| {
+                        submissions.fetch_add(1, Ordering::SeqCst);
+                        submitted_payloads
+                            .lock()
+                            .expect("capture batch payload")
+                            .push(payload);
+                        async {
+                            Json(serde_json::json!({
+                                "id": "batch_test_123",
+                                "status": "validating"
+                            }))
+                        }
+                    }
+                }),
+            )
+            .route(
+                "/api/beta/batches/batch_test_123",
+                get({
+                    let polls = polls.clone();
+                    let interaction_id = interaction_id.clone();
+                    move || {
+                        polls.fetch_add(1, Ordering::SeqCst);
+                        let interaction_id = interaction_id.clone();
+                        async move {
+                            Json(serde_json::json!({
+                                "id": "batch_test_123",
+                                "status": "completed",
+                                "results": [{
+                                    "custom_id": interaction_id,
+                                    "response": {
+                                        "status_code": 200,
+                                        "body": {
+                                            "model": "google/gemini-2.5-pro",
+                                            "choices": [{
+                                                "finish_reason": "stop",
+                                                "message": {
+                                                    "content": "The lantern kept your place; its warmth still remembers you."
+                                                }
+                                            }]
+                                        }
+                                    }
+                                }]
+                            }))
+                        }
+                    }
+                }),
+            );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind batch provider");
+        let address = listener.local_addr().expect("batch provider address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}/api/v1"),
+            server_paid: false,
+            model: "google/gemini-2.5-pro:batch".to_string(),
+            ..AiConfig::default()
+        }));
+        let first = match execute_batch_talk_with_submission_model(
+            &state,
+            &job,
+            &interaction_id,
+            "google/gemini-2.5-pro",
+        )
+        .await
+        {
+            Err(error) => error,
+            Ok(_) => panic!("validating batch must remain pending"),
+        };
+        assert_eq!(first.to_string(), MODEL_INTERACTION_BATCH_PENDING);
+        assert_eq!(submissions.load(Ordering::SeqCst), 1);
+        assert_eq!(polls.load(Ordering::SeqCst), 0);
+        drop(state);
+
+        let mut resumed = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        resumed.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}/api/v1"),
+            server_paid: false,
+            model: "google/gemini-2.5-pro:batch".to_string(),
+            ..AiConfig::default()
+        }));
+        let completed = execute_batch_talk_with_submission_model(
+            &resumed,
+            &job,
+            &interaction_id,
+            "google/gemini-2.5-pro",
+        )
+        .await
+        .expect("persisted provider id resumes")
+        .expect("completed batch publishes");
+        assert_eq!(submissions.load(Ordering::SeqCst), 1);
+        assert_eq!(polls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            completed.publication.profile,
+            ModelInteractionProfile::BatchTalk
+        );
+        assert!(matches!(
+            &completed.publication.output_parts[..],
+            [ModelInteractionOutputPart::Text { text }]
+                if text.contains("lantern kept your place")
+        ));
+        assert_eq!(
+            completed.publication.attribution.model,
+            "google/gemini-2.5-pro:batch"
+        );
+
+        let captured = submitted_payloads
+            .lock()
+            .expect("inspect submitted batch payload");
+        assert_eq!(captured.len(), 1);
+        assert_eq!(captured[0]["endpoint"], "/v1/chat/completions");
+        assert_eq!(captured[0]["model"], "google/gemini-2.5-pro");
+        assert_eq!(captured[0]["requests"][0]["custom_id"], interaction_id);
+        assert_eq!(
+            captured[0]["requests"][0]["body"]["model"],
+            "google/gemini-2.5-pro"
+        );
+        drop(captured);
+        let conn = open_event_store(&path).expect("inspect persisted batch state");
+        let persisted: (String, String, Option<String>) = conn
+            .query_row(
+                "SELECT provider_batch_id, provider_status, result_digest
+                 FROM model_interaction_batches WHERE interaction_id = ?1",
+                [&interaction_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("persisted completed batch");
+        assert_eq!(persisted.0, "batch_test_123");
+        assert_eq!(persisted.1, "completed");
+        assert!(persisted.2.as_deref().is_some_and(sha256_hex));
+        drop(conn);
+        server.abort();
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn completed_batch_talk_requires_an_exact_provider_envelope() {
+        let job = frozen_batch_talk_job();
+        let interaction_id = model_interaction_id(&job);
+        let valid = serde_json::json!({
+            "status": "completed",
+            "results": [{
+                "custom_id": interaction_id,
+                "response": {
+                    "status_code": 200,
+                    "body": {
+                        "model": "google/gemini-2.5-pro",
+                        "choices": [{
+                            "finish_reason": "stop",
+                            "message": { "content": "The lantern remembers." }
+                        }]
+                    }
+                }
+            }]
+        });
+        assert!(completed_batch_talk_publication(
+            &job,
+            &interaction_id,
+            "google/gemini-2.5-pro",
+            &valid,
+        )
+        .is_ok());
+
+        let mut missing_status = valid.clone();
+        missing_status
+            .pointer_mut("/results/0/response")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("response object")
+            .remove("status_code");
+        let mut missing_model = valid.clone();
+        missing_model
+            .pointer_mut("/results/0/response/body")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("response body")
+            .remove("model");
+        let mut multiple_choices = valid.clone();
+        let choices = multiple_choices
+            .pointer_mut("/results/0/response/body/choices")
+            .and_then(serde_json::Value::as_array_mut)
+            .expect("completion choices");
+        choices.push(choices[0].clone());
+
+        for invalid in [missing_status, missing_model, multiple_choices] {
+            assert!(matches!(
+                completed_batch_talk_publication(
+                    &job,
+                    &interaction_id,
+                    "google/gemini-2.5-pro",
+                    &invalid,
+                ),
+                Err(ModelInteractionAttemptError::Terminal(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn pending_batch_poll_does_not_exhaust_the_actor_job_attempt_budget() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-batch-poll-budget-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize batch actor queue");
+        let conn = open_event_store(&path).expect("open batch actor queue");
+        let job = frozen_batch_talk_job();
+        assert!(insert_model_interaction_job(&conn, &job, 11, Some(77))
+            .expect("insert batch actor job"));
+        conn.execute(
+            "UPDATE actor_jobs SET attempts = 99, available_at_ms = 0",
+            [],
+        )
+        .expect("age pending batch job");
+        drop(conn);
+        let claimed = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_MODEL_INTERACTION)
+            .expect("claim aged batch job")
+            .expect("aged batch job exists");
+        assert_eq!(claimed.attempts, 100);
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        fail_actor_job_for_runtime_state(
+            &path,
+            &state,
+            &claimed,
+            MODEL_INTERACTION_BATCH_PENDING,
+            0,
+        )
+        .expect("requeue pending batch poll");
+        let conn = open_event_store(&path).expect("inspect requeued batch job");
+        let (status, available_at_ms): (String, i64) = conn
+            .query_row(
+                "SELECT status, available_at_ms FROM actor_jobs",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("requeued batch job state");
+        assert_eq!(status, "pending");
+        assert!(available_at_ms >= now_millis() as i64);
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
     #[test]
     fn browser_has_a_certificate_bound_non_speech_interaction_flow() {
         for contract in [
@@ -3256,6 +4247,9 @@ mod tests {
             "const modelInteractionPresentations",
             "find_resonance",
             "rank_echoes",
+            "batch_talk",
+            "OpenRouter retains batch inputs and results for 30 days",
+            "durableBatchInteraction",
             "modelInteractionPresentation(offer)",
             "clientModelInteractionProfile",
             "<audio controls preload=\"metadata\"",

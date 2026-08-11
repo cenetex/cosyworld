@@ -1313,6 +1313,7 @@ impl RuntimeWorld {
         let (model_interaction_profile, interaction_rest) = match raw_verb.as_str() {
             "illustrate" => (Some(ModelInteractionProfile::Image), Some(rest)),
             "speak" => (Some(ModelInteractionProfile::Speech), Some(rest)),
+            "echo" => (Some(ModelInteractionProfile::BatchTalk), Some(rest)),
             "find" => strip_ascii_command_prefix(rest, "resonance")
                 .map(|tail| (Some(ModelInteractionProfile::Embeddings), Some(tail)))
                 .unwrap_or((None, None)),
