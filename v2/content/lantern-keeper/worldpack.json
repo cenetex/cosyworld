@@ -14,7 +14,8 @@
       "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb",
       "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
       "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd",
-      "sha256:b459f7f38512c3fae3c3a19c0491f8c97e0b0e22c760ec860288488d47381173"
+      "sha256:b459f7f38512c3fae3c3a19c0491f8c97e0b0e22c760ec860288488d47381173",
+      "sha256:6f31a10d918f5c75c96b8b7d59130129cd2ca558e34b64d6feb37a1e3610a743"
     ]
   },
   "pack_lifecycle": {
@@ -750,7 +751,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:6f31a10d918f5c75c96b8b7d59130129cd2ca558e34b64d6feb37a1e3610a743",
+  "bundle_hash": "sha256:3d40e935661417ef62b27e753685a80308167d1715f0d13c7d2b042a506f6381",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1059,6 +1060,12 @@
               "from_policy_id": "cosyworld.compatibility.host-generation/1",
               "from_migration_version": 0,
               "from_pack_version": "1.3.10",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.core/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.3.11",
               "mode": "preserve_descendants"
             }
           ],
@@ -1955,7 +1962,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:4426f7cf5bbe4b95b50a050d3ed97b4c50f96a7448dc45f92f6a6169c7fd481f"
+      "integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
