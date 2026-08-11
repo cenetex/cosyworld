@@ -228,4 +228,12 @@
 # the authoritative runtime boundary in main.rs.
 # 68154 -> 67993: move the actor-causal delivery matcher integration coverage
 # into delivery_matching_tests.rs beside the matcher/provenance seam.
-67993
+# 67993 -> 67947: five more ProjectionMutation variants become newtype payloads
+# owning their apply -- SetItemContained, SetCharmEquipped, UnlockCharmSlot,
+# UnlockCharmSlotForCharm, SetSpellPrepared -- in projection_items.rs with
+# empirically derived write sets. Every one of the five writes
+# actor_rules_facets, including the two that never touch an item, so that looks
+# like a property of event-appending handlers generally rather than the
+# item-specific effect ADR 0008 recorded for SetItemEquipped. No behaviour
+# changes; journal encoding pinned by test for each variant.
+67947

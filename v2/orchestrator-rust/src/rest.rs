@@ -876,11 +876,13 @@ mod tests {
         );
         prepare
             .projection_mutations
-            .push(ProjectionMutation::SetSpellPrepared {
-                item_id: 2014,
-                prepared: true,
-                reason: "rest_replay_fixture".to_string(),
-            });
+            .push(ProjectionMutation::SetSpellPrepared(
+                projection_items::SetSpellPrepared {
+                    item_id: 2014,
+                    prepared: true,
+                    reason: "rest_replay_fixture".to_string(),
+                },
+            ));
         let cast = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_RULES_MAGIC,
