@@ -83,8 +83,10 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         .transpose()
         .expect("open test WAL keepalive")
         .map(|connection| Arc::new(StdMutex::new(connection)));
+    let projection_cache = Arc::new(ProjectionCache::new(&runtime));
     AppState {
         inner: Arc::new(Mutex::new(runtime)),
+        projection_cache,
         tx,
         deployment: DeploymentConfig::local(),
         snapshot_path: None,
