@@ -274,6 +274,14 @@ impl RuntimeWorld {
 
     fn resident_card_policy_snapshot(&self, actor_id: u64) -> Option<ResidentCardPolicySnapshot> {
         let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        self.resident_card_policy_snapshot_from_offers(actor_id, &offers)
+    }
+
+    fn resident_card_policy_snapshot_from_offers(
+        &self,
+        actor_id: u64,
+        offers: &[RankedActionOffer],
+    ) -> Option<ResidentCardPolicySnapshot> {
         let mut ranked_offers = offers
             .iter()
             .filter(|offer| offer.ranked_hand_eligible && action_offer_is_reachable(offer))
@@ -300,7 +308,7 @@ impl RuntimeWorld {
             return None;
         }
         let offer_deck = deck.iter().map(|(offer, _)| *offer).collect::<Vec<_>>();
-        let hand = self.action_hand_for(Some(actor_id), &offers);
+        let hand = self.action_hand_for(Some(actor_id), offers);
         let hand_candidate_ids = std::array::from_fn(|index| {
             hand.entries.get(index).and_then(|entry| {
                 deck.iter()
@@ -316,7 +324,7 @@ impl RuntimeWorld {
         });
         let hand_offset = hand_candidate_indices[0].unwrap_or_default();
         let next_hand = compose_action_hand_at(
-            &offers,
+            offers,
             usize::try_from(hand.generation)
                 .unwrap_or(usize::MAX)
                 .saturating_add(1),
@@ -2070,7 +2078,9 @@ mod tests {
                 assert_eq!(candidate.candidate_id, offer.offer_id);
                 checked += 1;
             }
-            if let Some(snapshot) = runtime.resident_card_policy_snapshot(actor.id) {
+            if let Some(snapshot) =
+                runtime.resident_card_policy_snapshot_from_offers(actor.id, &offers)
+            {
                 for candidate_id in snapshot.deck_candidate_ids {
                     let offer = offers
                         .iter()

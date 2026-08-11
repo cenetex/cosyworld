@@ -722,7 +722,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:bbd129c4ebdafee6b2dfa9837616e165e47af61f62cda6cc99dc682bba9dc845",
+    "bundle_hash": "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -1031,6 +1031,12 @@
                 "from_policy_id": "cosyworld.compatibility.host-generation/1",
                 "from_migration_version": 0,
                 "from_pack_version": "1.3.10",
+                "mode": "preserve_descendants"
+              },
+              {
+                "from_policy_id": "cosyworld.core/generation/1",
+                "from_migration_version": 1,
+                "from_pack_version": "1.3.11",
                 "mode": "preserve_descendants"
               }
             ],
@@ -1927,7 +1933,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:4426f7cf5bbe4b95b50a050d3ed97b4c50f96a7448dc45f92f6a6169c7fd481f"
+        "integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93"
       },
       {
         "id": "cosyworld.the-holy-land",
@@ -11718,7 +11724,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.12",
-      "pack_integrity": "sha256:4426f7cf5bbe4b95b50a050d3ed97b4c50f96a7448dc45f92f6a6169c7fd481f",
+      "pack_integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -11731,7 +11737,7 @@
     {
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.12",
-      "pack_integrity": "sha256:4426f7cf5bbe4b95b50a050d3ed97b4c50f96a7448dc45f92f6a6169c7fd481f",
+      "pack_integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",

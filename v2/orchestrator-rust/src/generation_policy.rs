@@ -845,6 +845,14 @@ mod tests {
             generation_policy_allows_upgrade(&production_core, "1.3.12").is_ok(),
             "the exact production Core pathway tuple must migrate"
         );
+        let mut production_core_current_policy = production_core.clone();
+        production_core_current_policy.policy_id = "cosyworld.core/generation/1".to_string();
+        production_core_current_policy.migration_version = 1;
+        production_core_current_policy.owner_pack_version = "1.3.11".to_string();
+        assert!(
+            generation_policy_allows_upgrade(&production_core_current_policy, "1.3.12").is_ok(),
+            "the exact production Core 1.3.11 pathway tuple must migrate"
+        );
         let mut undeclared_core = production_core;
         undeclared_core.owner_pack_version = "1.3.9".to_string();
         assert!(
@@ -1009,6 +1017,58 @@ mod tests {
         let restored = snapshot
             .into_runtime()
             .expect("the exact production Core tuple must migrate");
+        assert_eq!(
+            restored.generated_pathways[&pathway.id].generation_policy,
+            binding
+        );
+        assert_eq!(
+            restored.routes[&source_route_id].owner_pack_version,
+            "1.3.12"
+        );
+
+        let replayed = RuntimeSnapshot::from_runtime(&restored)
+            .into_runtime()
+            .expect("the migrated Core checkpoint must remain idempotent");
+        assert_eq!(
+            serde_json::to_value(&replayed.generated_pathways)
+                .expect("serialize replayed generated pathways"),
+            serde_json::to_value(&restored.generated_pathways)
+                .expect("serialize restored generated pathways")
+        );
+        assert_eq!(replayed.routes, restored.routes);
+    }
+
+    #[test]
+    fn production_core_1311_pathway_checkpoint_restores_idempotently() {
+        let mut runtime = RuntimeWorld::seeded();
+        let historical_hash =
+            "sha256:264c3fae45dbb63f17720c6e59630d3da9977a233a66e228e04ac5508ea2101d";
+        let mut pathway = runtime
+            .generated_pathway(RATI_ACTOR_ID, 2, 3, 2)
+            .expect("production Core route");
+        pathway.owner_pack_version = "1.3.11".to_string();
+        pathway.generation_policy.owner_pack_version = "1.3.11".to_string();
+        for waypoint in &mut pathway.waypoints {
+            waypoint.generation_policy = pathway.generation_policy.clone();
+        }
+        let binding = pathway.generation_policy.clone();
+        let source_route_id = pathway.source_route_id.clone();
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        runtime.ensure_generated_pathway_route_records(&pathway);
+
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.worldpack_bundle_hash = historical_hash.to_string();
+        snapshot
+            .routes
+            .get_mut(&source_route_id)
+            .expect("historical Core source route")
+            .owner_pack_version = "1.3.11".to_string();
+
+        let restored = snapshot
+            .into_runtime()
+            .expect("the exact production Core 1.3.11 tuple must migrate");
         assert_eq!(
             restored.generated_pathways[&pathway.id].generation_policy,
             binding
