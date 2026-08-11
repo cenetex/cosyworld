@@ -93,8 +93,15 @@ source, the generated destination, one holder, and contiguous movement before
 the delivery action. If no represented item is available, the runtime withholds
 the Connection job instead of accepting arbitrary cargo. Existing persisted
 delivery jobs without an exact requirement retain their historical replay
-semantics. Aggregate world-simulation resource labels remain a separate
-follow-up; they are not silently treated as item tags.
+semantics.
+
+General delivery jobs also support immutable `exact_template` and authored
+`item_tag` requirements. Loot templates opt into resource matching with bounded
+canonical `delivery_tags`; the runtime resolves each delivered instance through
+its versioned loot allocation or craft receipt instead of matching display
+names. World-simulation scarcity creates a job only when the selected resource
+has such an authored binding, then freezes an `item_tag` requirement. Unbound
+aggregate labels remain pressure and cannot be completed with arbitrary cargo.
 
 ### Location classes, typed slots, and levels — accepted direction
 
@@ -325,10 +332,10 @@ first bounded, executable slice whose prerequisites are satisfied.
 1. **Reconcile language and status.** Keep this document, ADR 0005, player
    guides, and action contracts consistent about Anchor, settlement, Facets,
    discovery claims, and shipped versus target behavior.
-2. **Make logistics exact.** The generated-place exact-item slice is shipped:
-   Connection jobs match item identity, origin, destination, holder, and
-   movement history. Finish a typed item/resource binding before treating
-   aggregate world-simulation resource labels as physical delivery contracts.
+2. **Make logistics exact.** Shipped: generated-place Connections match exact
+   item identity, while general jobs may match immutable template or authored
+   item tag. Every form also requires origin, destination, holder, and movement
+   evidence; unbound aggregate labels do not become delivery contracts.
 3. **Prove one path construction site.** Use the existing generated-place
    lifecycle and one mounted Discovery Slot in one real worldpack branch; capture
    player-facing and replay evidence.

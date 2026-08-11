@@ -1052,8 +1052,6 @@ pub(super) struct SeedCardContent {
     #[serde(default)]
     pub(super) chain_image_uri: Option<String>,
     #[serde(default)]
-    pub(super) requires_ownership: bool,
-    #[serde(default)]
     pub(super) art: Option<SeedCardArtContent>,
 }
 
@@ -3067,6 +3065,16 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
     if job_ids.len() != content.jobs.len() {
         return Err("duplicate seed job id".to_string());
     }
+    let mut delivery_template_ids = BTreeSet::new();
+    let mut delivery_item_tags = BTreeSet::new();
+    for pack in &content.manifest.packs {
+        if let Some(catalog) = parse_loot_catalog(pack)? {
+            for template in catalog.item_templates {
+                delivery_template_ids.insert(template.id);
+                delivery_item_tags.extend(template.delivery_tags);
+            }
+        }
+    }
     for job in &content.jobs {
         if job.id.trim().is_empty()
             || job.premise.trim().is_empty()
@@ -3079,6 +3087,28 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 != job.action_copy.summary.trim().is_empty())
         {
             return Err(format!("invalid seed job {}", job.id));
+        }
+        if let Some(delivery) = &job.delivery {
+            let requirement_is_valid = match delivery.requirement.as_ref() {
+                Some(DeliveryRequirement::ExactItem { item_id }) => item_ids.contains(item_id),
+                Some(DeliveryRequirement::ExactTemplate { template_id }) => {
+                    delivery_template_ids.contains(template_id)
+                }
+                Some(DeliveryRequirement::ItemTag { tag }) => {
+                    valid_delivery_item_tag(tag) && delivery_item_tags.contains(tag)
+                }
+                None => false,
+            };
+            if delivery.resource.trim().is_empty()
+                || !location_ids.contains(&delivery.origin_location_id)
+                || !location_ids.contains(&delivery.destination_location_id)
+                || !job.location_ids.contains(&delivery.origin_location_id)
+                || !job.location_ids.contains(&delivery.destination_location_id)
+                || delivery.updated_world_tick < delivery.created_world_tick
+                || !requirement_is_valid
+            {
+                return Err(format!("seed job {} has invalid typed delivery", job.id));
+            }
         }
         if job.contribution_schema_version != JOB_CONTRIBUTION_SCHEMA_VERSION
             || job.contribution_strategies.is_empty()

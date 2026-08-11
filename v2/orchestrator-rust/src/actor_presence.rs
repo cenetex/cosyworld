@@ -148,11 +148,7 @@ mod tests {
             actor_session: None,
             command: command.to_string(),
             offer_id: None,
-            wallet_address: None,
-            wallet: None,
             wallet_session: None,
-            owned_card_ids: None,
-            cards: None,
             envelope: None,
         }
     }

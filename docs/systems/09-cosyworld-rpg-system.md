@@ -12,8 +12,8 @@ bounded Magic, and explicit unsupported actions. The item-card layer has
 authoritative Carried/Equipped/Spell deck/Exhausted/Contained/World zones,
 weight and size, equipped non-recursive containers, bracelet
 slots, possession-bound skill charms, weapon profiles, executable spell cards,
-theft, and provenance. Legacy Collection/Escrow and item-materialization state
-remains replay-readable pending #682/#685. Deterministic
+read-only legacy materialization receipts with idempotent returns, theft, and
+provenance. New item collectible materialization is retired. Deterministic
 scene composition produces an internal legal deck and the current two-card
 hand for browser and terminal clients. Certified Think/Pass rotates by two and yields the turn;
 there is no complete client chooser. Legacy
@@ -838,7 +838,7 @@ Clock and tag projection state in Rust; Moonlit Trail clocks; sanctuary/frontier
 
 ### Phase 2: Motivation Core (landed foundation)
 
-Default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger marks for Search/Study/Calling/Helped/bond/frontier-return, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision, claim-key gating, sanctuary/frontier zones, bracelet slots, equipped skill-charm bonuses, and the complete card-zone/materialization lifecycle are landed. Legacy avatar skill steps remain replay-compatible but are no longer the ordinary new progression path. Covenant contribution and additional advancement choices remain future breadth.
+Default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger marks for Search/Study/Calling/Helped/bond/frontier-return, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision, claim-key gating, sanctuary/frontier zones, bracelet slots, equipped skill-charm bonuses, and the physical card-zone lifecycle are landed. Historical materialization receipts remain replay-compatible and returnable, but cannot create new world items. Legacy avatar skill steps remain replay-compatible but are no longer the ordinary new progression path. Covenant contribution and additional advancement choices remain future breadth.
 
 ### Phase 3: Stable Verbs (landed foundation)
 
@@ -858,7 +858,7 @@ Covenant sheets with boons/hooks/resources/reputation/loyalty; room sheets; cove
 
 Objective clocks in danger rooms, nonlethal outcomes, container contents and
 size validation, equipped weapon profiles, executable bounded spell cards,
-authoritative materialization/theft/transfer, bracelet-slot progression,
+legacy receipt returns plus authoritative theft/transfer, bracelet-slot progression,
 skill-charm equipment, and weight-based carrying capacity are landed.
 Durability/armor and broader Calling milestones remain possible future systems.
 

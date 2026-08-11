@@ -12,6 +12,9 @@ do not define V2 behavior.
 - **[A Traveler's Guide To CosyWorld](travelers-guide.md)** — the concise
   player guide to the action hand, Callings, Friends, discovery, scouting,
   thresholds, rest, the six-function tale rhythm, and what is still direction.
+- **[CosyWorld:Dungeons](cosyworld-dungeons.md)** — the situation-board motif:
+  semantic world and scene boards, meaningful two-card forks, visible
+  constraints and clocks, deterministic authority, and AI presentation limits.
 - **[Location Classes, Development Projects, and Buildings](location-development.md)** —
   canonical product law for cairn-founded location classes, typed building
   slots, project-derived levels, and equal human/AI civic agency.
@@ -167,4 +170,4 @@ current PRD take precedence:
 - [Legacy service documentation](services/)
 - [Deployment guide](deployment/07-deployment.md)
 
-Last reviewed: 2026-08-09.
+Last reviewed: 2026-08-10.

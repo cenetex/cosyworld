@@ -14,7 +14,9 @@
       "sha256:29db5ba3069c84dea79e90a5f707d0c1fc730c446f3948224f70539c91fe2bfb",
       "sha256:f16b48db1690307acb9861bc2d5005f143ec776060d98315dd95fa21befb7911",
       "sha256:84f1b7deb52511a47f66e827b1edc13912a01f345d2468edf14bbcb8db5060bd",
-      "sha256:b459f7f38512c3fae3c3a19c0491f8c97e0b0e22c760ec860288488d47381173"
+      "sha256:b459f7f38512c3fae3c3a19c0491f8c97e0b0e22c760ec860288488d47381173",
+      "sha256:6f31a10d918f5c75c96b8b7d59130129cd2ca558e34b64d6feb37a1e3610a743",
+      "sha256:3d40e935661417ef62b27e753685a80308167d1715f0d13c7d2b042a506f6381"
     ]
   },
   "pack_lifecycle": {
@@ -750,7 +752,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:78b083b1d23f0012168354ea5cdfe318656fa275d9b8a049d42f72c308ff60f9",
+  "bundle_hash": "sha256:7d3b33f743bd50699fe013321e23cfe6b11476b4f457e41ee8525a10e7d72d72",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -916,7 +918,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.11",
+      "version": "1.3.12",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1062,6 +1064,12 @@
               "from_policy_id": "cosyworld.compatibility.host-generation/1",
               "from_migration_version": 0,
               "from_pack_version": "1.3.10",
+              "mode": "preserve_descendants"
+            },
+            {
+              "from_policy_id": "cosyworld.core/generation/1",
+              "from_migration_version": 1,
+              "from_pack_version": "1.3.11",
               "mode": "preserve_descendants"
             }
           ],
@@ -1624,6 +1632,13 @@
               "role": "consumable",
               "weight_tenths": 5,
               "size": "small",
+              "delivery_tags": [
+                "broth",
+                "herbs",
+                "medicine",
+                "tea",
+                "warmth"
+              ],
               "mechanics": {
                 "binding": "srd5.2.1:utilize",
                 "equipment_profile": "carried",
@@ -1647,7 +1662,11 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "fish",
+                "provisions"
+              ]
             },
             {
               "id": "smoked_river_sprat",
@@ -1657,7 +1676,11 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "fish",
+                "provisions"
+              ]
             },
             {
               "id": "glassfin_scale",
@@ -1667,7 +1690,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 1,
-              "size": "tiny"
+              "size": "tiny",
+              "delivery_tags": [
+                "fish"
+              ]
             },
             {
               "id": "iron_nodule",
@@ -1677,7 +1703,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 20,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "iron_bloom",
@@ -1687,7 +1716,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 14,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "waystone_bracket",
@@ -1697,7 +1729,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 12,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "quartz_chip",
@@ -1707,7 +1742,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 5,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "ore"
+              ]
             },
             {
               "id": "orchard_apple",
@@ -1717,7 +1755,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             },
             {
               "id": "amber_pear",
@@ -1727,7 +1768,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 4,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             },
             {
               "id": "garden_beans",
@@ -1737,7 +1781,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 3,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             },
             {
               "id": "moon_carrot",
@@ -1747,7 +1794,10 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 2,
-              "size": "small"
+              "size": "small",
+              "delivery_tags": [
+                "provisions"
+              ]
             }
           ],
           "tables": [
@@ -1916,7 +1966,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:04a333d2b519d3bf580b6adc75100b2573546567efb35ae764090872c5a82f2c"
+      "integrity": "sha256:3796f69e814069971bd674b9c8b63357c8e8bc0bfbc37a927f22ae37a4e82f93"
     },
     {
       "id": "cosyworld.rules-srd-5.1",

@@ -19,6 +19,7 @@ const valid = {
       role: "generic",
       weight_tenths: 4,
       size: "small",
+      delivery_tags: ["fish", "provisions"],
     },
     {
       id: "bright_scale",
@@ -78,5 +79,14 @@ test("rejects a unique fallback that could make retries reroll", () => {
   assert.match(
     lootTableValidationErrors(invalid).join("\n"),
     /fallback template cannot be unique/,
+  );
+});
+
+test("rejects unsupported item delivery tags", () => {
+  const invalid = structuredClone(valid);
+  invalid.item_templates[0].delivery_tags = ["fish", "Fish", "fish"];
+  assert.match(
+    lootTableValidationErrors(invalid).join("\n"),
+    /delivery_tags must contain up to 16 unique canonical tags/,
   );
 });
