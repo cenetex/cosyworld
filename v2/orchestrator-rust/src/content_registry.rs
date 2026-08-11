@@ -178,6 +178,7 @@ impl ContentRegistry {
             exits: take_resource(&mut resources, "exits")?,
             hidden_exits: take_resource(&mut resources, "hidden_exits")?,
             room_features: take_resource(&mut resources, "room_features")?,
+            spatial_scenes: take_resource(&mut resources, "spatial_scenes")?,
             room_sheets: take_resource(&mut resources, "room_sheets")?,
             clocks: take_resource(&mut resources, "clocks")?,
             jobs: take_resource(&mut resources, "jobs")?,

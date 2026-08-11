@@ -48,6 +48,11 @@ attacks, reactions, bonus actions, combat spellcasting, concentration,
 resistance/vulnerability, saving throws, or SRD monster action blocks. These
 remain explicit exclusions, not browser approximations.
 
+An authored [spatial scene](spatial-scenes.md) may visualize participants,
+exits, and an active blocking relationship. That projection does not add
+distance, positioning, reach, or another source of action legality; the kernel
+and the current combat hand remain authoritative.
+
 ## Product integration
 
 Encounters attach to active worldpack jobs. Rust derives the encounter id from
