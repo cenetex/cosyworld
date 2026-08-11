@@ -44,6 +44,8 @@ impl StateKey {
     pub(super) const GIFT_AUTO_ACCEPTS: Self = Self("gift_auto_accepts");
     pub(super) const WORLD_ITEMS: Self = Self("world_items");
     pub(super) const WORLD_EXITS: Self = Self("world_exits");
+    pub(super) const WORLD_ACTORS: Self = Self("world_actors");
+    pub(super) const ACTOR_META: Self = Self("actor_meta");
     pub(super) const ACTOR_RULES_FACETS: Self = Self("actor_rules_facets");
     pub(super) const ADVANCEMENT_SPENDS: Self = Self("advancement_spends");
     pub(super) const CHARM_SLOTS: Self = Self("charm_slots");
@@ -53,6 +55,10 @@ impl StateKey {
     pub(super) const RPG_CLAIMS: Self = Self("rpg_claims");
     pub(super) const TREASURE_OBJECTIVES: Self = Self("treasure_objectives");
     pub(super) const ROUTES: Self = Self("routes");
+    pub(super) const CHARACTER_IDENTITIES: Self = Self("character_identities");
+    pub(super) const CALLINGS: Self = Self("callings");
+    pub(super) const SKILLS: Self = Self("skills");
+    pub(super) const BONDS: Self = Self("bonds");
     /// Appending an event is itself durable projection state. Any handler that
     /// returns events writes these two, which is easy to miss by inspection and
     /// is why the declaration is derived from a run rather than from reading.
@@ -210,6 +216,78 @@ mod projection_write_set_tests {
                 json!({
                     "kind": "consume_gift_auto_accept",
                     "policy_id": "policy-1",
+                }),
+            ),
+            (
+                ProjectionMutation::ChooseClass(projection_character::ChooseClass {
+                    profile_id: "profile-1".to_string(),
+                    class_id: "class-1".to_string(),
+                    calling: "I mend the paths.".to_string(),
+                    starting_skill_id: "lifting".to_string(),
+                    actor_meta: ActorMeta {
+                        name: "Rati".to_string(),
+                        speech_mode: "prose".to_string(),
+                        title: "Lantern Warden".to_string(),
+                        description: "A keeper of small lights.".to_string(),
+                    },
+                    reason: "first_world_action".to_string(),
+                }),
+                json!({
+                    "kind": "choose_class",
+                    "profile_id": "profile-1",
+                    "class_id": "class-1",
+                    "calling": "I mend the paths.",
+                    "starting_skill_id": "lifting",
+                    "actor_meta": {
+                        "name": "Rati",
+                        "speech_mode": "prose",
+                        "title": "Lantern Warden",
+                        "description": "A keeper of small lights.",
+                    },
+                    "reason": "first_world_action",
+                }),
+            ),
+            (
+                ProjectionMutation::ReviseCalling(projection_character::ReviseCalling {
+                    statement: "I mend what the rain loosens.".to_string(),
+                    cost: 1,
+                    reason: "advancement".to_string(),
+                }),
+                json!({
+                    "kind": "revise_calling",
+                    "statement": "I mend what the rain loosens.",
+                    "cost": 1,
+                    "reason": "advancement",
+                }),
+            ),
+            (
+                ProjectionMutation::DeepenBond(projection_character::DeepenBond {
+                    target_actor_id: 1002,
+                    claim_key: "claim-1".to_string(),
+                    event_reason: "help_project".to_string(),
+                    ledger_reason: "help_project".to_string(),
+                }),
+                json!({
+                    "kind": "deepen_bond",
+                    "target_actor_id": 1002,
+                    "claim_key": "claim-1",
+                    "event_reason": "help_project",
+                    "ledger_reason": "help_project",
+                }),
+            ),
+            (
+                ProjectionMutation::ReviseBond(projection_character::ReviseBond {
+                    target_actor_id: 1002,
+                    statement: "We mend the same roads now.".to_string(),
+                    cost: 1,
+                    reason: "advancement".to_string(),
+                }),
+                json!({
+                    "kind": "revise_bond",
+                    "target_actor_id": 1002,
+                    "statement": "We mend the same roads now.",
+                    "cost": 1,
+                    "reason": "advancement",
                 }),
             ),
             (
@@ -391,10 +469,15 @@ mod projection_write_set_tests {
     /// The durable projection keys touched by applying `mutation` to `world`.
     ///
     /// Snapshot terms, because the snapshot is what a restart remembers.
+    /// Returns the durable keys the mutation changed, plus the snapshot it
+    /// produced. The snapshot comes back because declared keys are validated
+    /// against it: `RuntimeSnapshot` skips empty collections when serializing,
+    /// so a field that starts empty is simply absent from a seeded world's JSON
+    /// and a correct declaration naming it would be rejected as unknown.
     fn changed_keys(
         world: &mut RuntimeWorld,
         apply: impl FnOnce(&mut RuntimeWorld),
-    ) -> Vec<String> {
+    ) -> (Vec<String>, Value) {
         let before = serde_json::to_value(RuntimeSnapshot::from_runtime(world))
             .expect("snapshot serializes");
         apply(world);
@@ -403,14 +486,20 @@ mod projection_write_set_tests {
         let (Value::Object(before), Value::Object(after)) = (before, after) else {
             panic!("snapshot is a JSON object");
         };
-        after
-            .into_iter()
-            .filter(|(key, value)| before.get(key) != Some(value))
-            .map(|(key, _)| key)
-            .collect()
+        let changed = after
+            .iter()
+            .filter(|(key, value)| before.get(*key) != Some(*value))
+            .map(|(key, _)| key.clone())
+            .collect();
+        (changed, Value::Object(after))
     }
 
-    fn assert_within_declared_writes(changed: &[String], declared: &[StateKey], label: &str) {
+    fn assert_within_declared_writes(
+        changed: &[String],
+        snapshot: &Value,
+        declared: &[StateKey],
+        label: &str,
+    ) {
         // A mutation that changed nothing satisfies containment trivially and
         // would let a wrong declaration pass. Every fixture must exercise the
         // handler for real.
@@ -420,9 +509,8 @@ mod projection_write_set_tests {
         );
         let allowed: Vec<&str> = declared.iter().map(|key| key.snapshot_key()).collect();
         // Every declared key must name a real snapshot field, or the
-        // declaration is checking nothing.
-        let snapshot = serde_json::to_value(RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded()))
-            .expect("snapshot serializes");
+        // declaration is checking nothing. Validate against the post-mutation
+        // snapshot: a seeded world omits fields that are still empty.
         for key in &allowed {
             assert!(
                 snapshot.get(key).is_some(),
@@ -476,7 +564,7 @@ mod projection_write_set_tests {
             resolved_by_actor_id: 2,
         };
 
-        let changed = changed_keys(&mut world, |world| {
+        let (changed, snapshot) = changed_keys(&mut world, |world| {
             let events = Vec::new();
             let ctx = context_for(&action, &events);
             mutation.apply(world, &ctx);
@@ -493,6 +581,7 @@ mod projection_write_set_tests {
         );
         assert_within_declared_writes(
             &changed,
+            &snapshot,
             ResolveTransferOffer::WRITES,
             "ResolveTransferOffer",
         );
@@ -518,7 +607,7 @@ mod projection_write_set_tests {
             policy_id: "policy-1".to_string(),
         };
 
-        let changed = changed_keys(&mut world, |world| {
+        let (changed, snapshot) = changed_keys(&mut world, |world| {
             let events = Vec::new();
             let ctx = context_for(&action, &events);
             mutation.apply(world, &ctx);
@@ -527,6 +616,7 @@ mod projection_write_set_tests {
         assert!(world.gift_auto_accepts["policy-1"].consumed);
         assert_within_declared_writes(
             &changed,
+            &snapshot,
             ConsumeGiftAutoAccept::WRITES,
             "ConsumeGiftAutoAccept",
         );
@@ -563,7 +653,7 @@ mod projection_write_set_tests {
         };
 
         let mut produced = Vec::new();
-        let changed = changed_keys(&mut world, |world| {
+        let (changed, snapshot) = changed_keys(&mut world, |world| {
             let events = Vec::new();
             let ctx = context_for(&action, &events);
             produced = mutation.apply(world, &ctx);
@@ -575,6 +665,11 @@ mod projection_write_set_tests {
                 .any(|event| event.type_name == "item.equipped"),
             "expected the equip to be applied",
         );
-        assert_within_declared_writes(&changed, SetItemEquipped::WRITES, "SetItemEquipped");
+        assert_within_declared_writes(
+            &changed,
+            &snapshot,
+            SetItemEquipped::WRITES,
+            "SetItemEquipped",
+        );
     }
 }

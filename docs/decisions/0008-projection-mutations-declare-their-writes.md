@@ -63,6 +63,26 @@ writes `actor_rules_facets`, `event_log`, and `next_event_seq`. Appending an
 event is itself durable projection state, which every event-returning handler
 does and no one would list by inspection.
 
+Thirteen variants later that is no longer a surprise, it is the rule: **every
+handler that returns events writes `event_log`, `next_event_seq`, and
+`actor_rules_facets`.** It held for variants that touch no item and change no
+object — `UnlockCharmSlot` and `UnlockCharmSlotForCharm` only append, and still
+write all three. Declare them by default and let the check confirm; do not
+rediscover them one batch at a time.
+
+Two failure modes of the check itself are worth knowing, because both were hit
+in practice. A fixture that changes nothing satisfies containment trivially, so
+the harness rejects a no-op fixture rather than recording a write set no test
+exercised. And declared keys are validated against the snapshot the fixture
+*produced*, not a freshly seeded one: `RuntimeSnapshot` skips empty collections
+when serializing, so a field that starts empty is absent from a seeded world's
+JSON and a correct declaration naming it would be rejected as unknown.
+
+A variant whose handler cannot produce a non-vacuous fixture therefore cannot be
+verified at all. `SetJobStatus` and `LegacyAcceptQuest` are both left unreshaped
+for that reason — the latter is an unconditional no-op by construction. An
+unverified declaration is worth less than none.
+
 ## Consequences
 
 `ProjectionMutation` is persisted inside `JournalRecord` under `#[serde(tag =

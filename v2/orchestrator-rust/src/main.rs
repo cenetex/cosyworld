@@ -75,6 +75,7 @@ mod projection;
 mod projection_cache;
 #[cfg(test)]
 mod projection_cache_tests;
+mod projection_character;
 mod projection_items;
 mod projection_ledger;
 mod prompts;
@@ -1137,31 +1138,15 @@ enum ProjectionMutation {
         reason: String,
     },
     MarkVisitLedger(projection_ledger::MarkVisitLedger),
-    ChooseClass {
-        profile_id: String,
-        class_id: String,
-        calling: String,
-        starting_skill_id: String,
-        actor_meta: ActorMeta,
-        reason: String,
-    },
-    ReviseCalling {
-        statement: String,
-        cost: u8,
-        reason: String,
-    },
+    ChooseClass(projection_character::ChooseClass),
+    ReviseCalling(projection_character::ReviseCalling),
     CreateBond {
         target_actor_id: u64,
         statement: String,
         cost: u8,
         reason: String,
     },
-    ReviseBond {
-        target_actor_id: u64,
-        statement: String,
-        cost: u8,
-        reason: String,
-    },
+    ReviseBond(projection_character::ReviseBond),
     TrainSkill {
         skill_id: String,
         cost: u8,
@@ -1190,12 +1175,7 @@ enum ProjectionMutation {
         receipt_id: String,
         reason: String,
     },
-    DeepenBond {
-        target_actor_id: u64,
-        claim_key: String,
-        event_reason: String,
-        ledger_reason: String,
-    },
+    DeepenBond(projection_character::DeepenBond),
     ResolveBond {
         target_actor_id: u64,
         reason: String,
@@ -10702,30 +10682,11 @@ impl RuntimeWorld {
                         events.push(event);
                     }
                 }
-                ProjectionMutation::ChooseClass {
-                    profile_id,
-                    class_id,
-                    calling,
-                    starting_skill_id,
-                    actor_meta,
-                    reason,
-                } => {
-                    events.extend(self.choose_character_class(
-                        action.actor_id,
-                        profile_id,
-                        class_id,
-                        calling,
-                        starting_skill_id,
-                        actor_meta,
-                        reason,
-                    ));
+                ProjectionMutation::ChooseClass(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
-                ProjectionMutation::ReviseCalling {
-                    statement,
-                    cost,
-                    reason,
-                } => {
-                    events.extend(self.revise_calling(action.actor_id, statement, *cost, reason));
+                ProjectionMutation::ReviseCalling(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
                 ProjectionMutation::CreateBond {
                     target_actor_id,
@@ -10741,19 +10702,8 @@ impl RuntimeWorld {
                         reason,
                     ));
                 }
-                ProjectionMutation::ReviseBond {
-                    target_actor_id,
-                    statement,
-                    cost,
-                    reason,
-                } => {
-                    events.extend(self.revise_bond(
-                        action.actor_id,
-                        *target_actor_id,
-                        statement,
-                        *cost,
-                        reason,
-                    ));
+                ProjectionMutation::ReviseBond(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
                 ProjectionMutation::TrainSkill {
                     skill_id,
@@ -10811,21 +10761,8 @@ impl RuntimeWorld {
                 ProjectionMutation::UnmaterializeItem { receipt_id, reason } => {
                     events.extend(self.unmaterialize_item(action.actor_id, receipt_id, reason));
                 }
-                ProjectionMutation::DeepenBond {
-                    target_actor_id,
-                    claim_key,
-                    event_reason,
-                    ledger_reason,
-                } => {
-                    let source_event_seq = self.world.next_event_seq;
-                    events.extend(self.deepen_bond_from_event(
-                        action.actor_id,
-                        *target_actor_id,
-                        source_event_seq,
-                        claim_key.clone(),
-                        event_reason,
-                        ledger_reason,
-                    ));
+                ProjectionMutation::DeepenBond(mutation) => {
+                    events.extend(mutation.apply(self, &ctx));
                 }
                 ProjectionMutation::ResolveBond {
                     target_actor_id,
@@ -23166,14 +23103,16 @@ async fn choose_avatar_class(
     let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_system();
     record
         .projection_mutations
-        .push(ProjectionMutation::ChooseClass {
-            profile_id: profile.id,
-            class_id: class.id,
-            calling: class.calling,
-            starting_skill_id: class.starting_skill_id,
-            actor_meta,
-            reason: "first_world_action".to_string(),
-        });
+        .push(ProjectionMutation::ChooseClass(
+            projection_character::ChooseClass {
+                profile_id: profile.id,
+                class_id: class.id,
+                calling: class.calling,
+                starting_skill_id: class.starting_skill_id,
+                actor_meta,
+                reason: "first_world_action".to_string(),
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -31300,12 +31239,14 @@ async fn help_room(
     if let Some(target_actor_id) = contribution_target_actor_id {
         record
             .projection_mutations
-            .push(ProjectionMutation::DeepenBond {
-                target_actor_id,
-                claim_key: help_bond_claim_key(payload.actor_id, target_actor_id),
-                event_reason: "help_project".to_string(),
-                ledger_reason: "help_project".to_string(),
-            });
+            .push(ProjectionMutation::DeepenBond(
+                projection_character::DeepenBond {
+                    target_actor_id,
+                    claim_key: help_bond_claim_key(payload.actor_id, target_actor_id),
+                    event_reason: "help_project".to_string(),
+                    ledger_reason: "help_project".to_string(),
+                },
+            ));
     }
     if prepared {
         record
@@ -31522,11 +31463,13 @@ async fn revise_calling(
     .into_player_card();
     record
         .projection_mutations
-        .push(ProjectionMutation::ReviseCalling {
-            statement,
-            cost: CALLING_REVISION_COST,
-            reason: "advancement".to_string(),
-        });
+        .push(ProjectionMutation::ReviseCalling(
+            projection_character::ReviseCalling {
+                statement,
+                cost: CALLING_REVISION_COST,
+                reason: "advancement".to_string(),
+            },
+        ));
 
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
@@ -32193,12 +32136,14 @@ async fn revise_bond(
     .into_player_card();
     record
         .projection_mutations
-        .push(ProjectionMutation::ReviseBond {
-            target_actor_id: payload.target_actor_id,
-            statement,
-            cost: BOND_REVISION_COST,
-            reason: "advancement".to_string(),
-        });
+        .push(ProjectionMutation::ReviseBond(
+            projection_character::ReviseBond {
+                target_actor_id: payload.target_actor_id,
+                statement,
+                cost: BOND_REVISION_COST,
+                reason: "advancement".to_string(),
+            },
+        ));
 
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
@@ -51911,11 +51856,13 @@ mod tests {
         let mut revise_record = JournalRecord::new(revise_action, 7095);
         revise_record
             .projection_mutations
-            .push(ProjectionMutation::ReviseCalling {
-                statement: statement.clone(),
-                cost: CALLING_REVISION_COST,
-                reason: "advancement".to_string(),
-            });
+            .push(ProjectionMutation::ReviseCalling(
+                projection_character::ReviseCalling {
+                    statement: statement.clone(),
+                    cost: CALLING_REVISION_COST,
+                    reason: "advancement".to_string(),
+                },
+            ));
         let (status, events) = runtime.apply_journal_record(&revise_record);
         assert_eq!(status, CW_OK);
         assert!(events
@@ -65990,12 +65937,14 @@ mod tests {
         let mut revise_record = JournalRecord::new(revise_action, 7214);
         revise_record
             .projection_mutations
-            .push(ProjectionMutation::ReviseBond {
-                target_actor_id: 1002,
-                statement: revised_statement.to_string(),
-                cost: BOND_REVISION_COST,
-                reason: "advancement".to_string(),
-            });
+            .push(ProjectionMutation::ReviseBond(
+                projection_character::ReviseBond {
+                    target_actor_id: 1002,
+                    statement: revised_statement.to_string(),
+                    cost: BOND_REVISION_COST,
+                    reason: "advancement".to_string(),
+                },
+            ));
         let (status, events) = runtime.apply_journal_record(&revise_record);
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
