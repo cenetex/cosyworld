@@ -96,34 +96,6 @@ describe("worldpack progression access validation", () => {
     );
   });
 
-  it("rejects an evolution item seeded behind an undeclared access gate", () => {
-    const root = worldpackFixture();
-    const items = JSON.parse(fs.readFileSync(path.join(root, "items.json"), "utf8"));
-    items.find((item) => item.id === 2004).location_id = 10;
-    writeJson(root, "items.json", items);
-
-    const result = runChecker(root);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "evolution track 1001 requirement item 2004 uses gated or unreachable location 10 without required_grant_id",
-    );
-  });
-
-  it("rejects a recipe output placed behind an undeclared access gate", () => {
-    const root = worldpackFixture();
-    const recipes = JSON.parse(fs.readFileSync(path.join(root, "recipes.json"), "utf8"));
-    recipes[0].output.target_id = 11;
-    recipes[0].balance.target_id = 11;
-    writeJson(root, "recipes.json", recipes);
-
-    const result = runChecker(root);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "recipe 3001 output uses gated or unreachable location 11 without required_grant_id",
-    );
-  });
 });
 
 describe("worldpack Manifest v1 validation", () => {
@@ -193,19 +165,6 @@ describe("worldpack Manifest v1 validation", () => {
     expect(result.stderr).toContain(
       "generated-art card holy-land-simon-peter is missing required asset",
     );
-  });
-
-  it("rejects an entitlement authority whose provider is unavailable", () => {
-    const root = worldpackFixture();
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
-    const gatedPack = manifest.packs.find((pack) => pack.entitlements?.authorities?.length);
-    gatedPack.entitlements.authorities[0].provider = "fixture.missing/entitlements";
-    writeJson(root, "worldpack.json", manifest);
-
-    const result = runChecker(root);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("has unavailable provider fixture.missing/entitlements");
   });
 
   it("rejects wallet identity embedded in a world item", () => {

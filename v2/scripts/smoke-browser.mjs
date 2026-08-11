@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { spentPreparationTagBelongsToJob } from "./smoke-project-tags.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const defaultUrl = "http://127.0.0.1:3102/?wallet=dev-wallet&reset=1";
+const defaultUrl = "http://127.0.0.1:3102/?reset=1";
 const targetUrl = process.env.COSYWORLD_SMOKE_URL || defaultUrl;
 const runLivingWorldStress = ["1", "true", "yes"].includes(
   String(process.env.COSYWORLD_SMOKE_LIVING_WORLD_STRESS || "").toLowerCase(),
@@ -28,7 +28,7 @@ const signedSmokeWalletPrivateKeyDer =
 
 function withoutWalletUrl(value) {
   const url = new URL(value);
-  for (const key of ["wallet", "wallet_address", "wallet_session", "cards", "owned_card_ids"]) {
+  for (const key of ["wallet", "wallet_address", "wallet_session"]) {
     url.searchParams.delete(key);
   }
   url.searchParams.set("reset", "1");
@@ -99,29 +99,15 @@ async function assertSignedWalletSession() {
 
   const state = await fetch(`${baseUrl}/state?wallet_session=${encodeURIComponent(session.wallet_session)}`)
     .then((response) => response.json());
-  const homeroomExit = (state.exits || []).find((exit) => exit.destination_location_name === "Homeroom");
-  const homeroomCard = (state.account?.owned_cards || []).find((card) => card.card_id === "location-homeroom");
-  const libraryCard = (state.account?.owned_cards || []).find((card) => card.card_id === "location-library");
   const world = await fetch(`${baseUrl}/world?wallet_session=${encodeURIComponent(session.wallet_session)}`)
     .then((response) => response.json());
-  const library = (world.locations || []).find((location) => location.name === "Library");
-  assert(state.access?.mode === "signed_wallet_entitlements", `expected signed wallet mode, got ${JSON.stringify(state.access)}`);
-  assert(state.access?.owner_wallet_address === signedSmokeWalletAddress, "signed wallet owner did not round-trip");
-  assert(homeroomCard?.owned === true && homeroomCard?.accessible === true, `signed wallet should list its owned Homeroom card before route discovery: ${JSON.stringify(state.account)}`);
-  assert(libraryCard?.owned === true && libraryCard?.accessible === true, `signed wallet should list its owned Library card before route discovery: ${JSON.stringify(state.account)}`);
-  assert(!homeroomExit || homeroomExit.accessible === true, `a discovered Homeroom exit should accept its owner: ${JSON.stringify(homeroomExit)}`);
-  assert(!library || (library.accessible === true && library.card?.owned === true), `a discovered Library should be accessible to its owner: ${JSON.stringify(library)}`);
-  const hasFreshBox = (state.access?.owned_box_ids || []).includes("box-smoke-1");
-  const packAvatarIds = ["rati", "cosy-whiskerwind", "cosy-skull", "lyra", "sami", "ravi", "indra", "captain-null"];
-  const hasOpenedCards = packAvatarIds.filter((cardId) => (
-    (state.access?.owned_card_ids || []).includes(cardId)
-  )).length >= 3;
-  assert(hasFreshBox || hasOpenedCards, `signed smoke wallet should expose its Box or the cards revealed from it: ${JSON.stringify(state.access)}`);
+  assert(state.account?.linked_wallet_address === signedSmokeWalletAddress, "signed wallet link did not round-trip");
+  assert(state.access === undefined, `ordinary state must not expose wallet access: ${JSON.stringify(state.access)}`);
+  assert((world.locations || []).every((location) => location.public && location.accessible), `wallet linking must not gate world locations: ${JSON.stringify(world.locations)}`);
+  assert(!JSON.stringify(state).match(/owned_card_ids|owned_box_ids|unopened_pack_ids|materialization_receipts/), `ordinary state must omit retired ownership projections: ${JSON.stringify(state.account)}`);
   return {
     wallet: signedSmokeWalletAddress,
     walletSession: session.wallet_session,
-    unlocked: `${homeroomCard.display_name} and ${libraryCard.display_name}`,
-    box: hasFreshBox ? "box-smoke-1" : "already opened",
   };
 }
 
@@ -202,8 +188,8 @@ async function assertRuntimeMeta() {
     meta.persistence?.moderation_report_retention_days === 90,
     `runtime meta should expose default report retention: ${JSON.stringify(meta.persistence)}`,
   );
-  assert(typeof meta.ownership_feed?.wallet_count === "number", `runtime meta should expose ownership wallet count: ${JSON.stringify(meta.ownership_feed)}`);
-  assert(Number.isInteger(meta.ownership_feed?.timeout_secs), `runtime meta should expose ownership timeout: ${JSON.stringify(meta.ownership_feed)}`);
+  assert(typeof meta.linked_avatar_adapter?.wallet_count === "number", `runtime meta should expose linked-avatar wallet count: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+  assert(Number.isInteger(meta.linked_avatar_adapter?.timeout_secs), `runtime meta should expose linked-avatar timeout: ${JSON.stringify(meta.linked_avatar_adapter)}`);
   assert((meta.world?.actor_count || 0) >= 4, `runtime meta should expose seeded world counters: ${JSON.stringify(meta.world)}`);
   assert((meta.world?.location_count || 0) >= 3, `runtime meta should expose location counters: ${JSON.stringify(meta.world)}`);
   assert(
@@ -545,7 +531,7 @@ async function main() {
   }, signedSmokeWalletAddress);
   page.setDefaultTimeout(10_000);
   const steps = [
-    { label: "signed wallet session", wallet: signedWallet.wallet, unlocked: signedWallet.unlocked },
+    { label: "linked-avatar wallet session", wallet: signedWallet.wallet },
     {
       label: "runtime meta",
       version: runtimeMeta.version,
@@ -2162,7 +2148,7 @@ async function main() {
       }
     });
     assert(result.useCount === 1, `feature and care options should share one Use card: ${JSON.stringify(result)}`);
-    assert(result.detail === "Hearth Tonic · choose how", `the combined Use card should name its keepsake and affordance: ${JSON.stringify(result)}`);
+    assert(result.detail === "Hearth Tonic · choose how", `the combined Use card should name its item and affordance: ${JSON.stringify(result)}`);
     assert(result.title === "choose how to use Hearth Tonic" && result.summary === "Choose what Hearth Tonic should do here.", `combined Use confirmation should explain the choice plainly: ${JSON.stringify(result)}`);
     assert(result.choices.map((choice) => choice.label).sort().join(",") === "help Lantern Stitch,with Hearth", `combined Use should retain both concrete options: ${JSON.stringify(result)}`);
     assert(result.featurePayload?.command === "use Hearth Tonic on Hearth", `feature choice should preserve its server-authored command: ${JSON.stringify(result)}`);
@@ -3353,7 +3339,7 @@ async function main() {
     assert(result.giftActions?.[0]?.detail === "Dewbright Button to Gust", `gift action should preserve item and target detail: ${JSON.stringify(result)}`);
     assert(result.giftTitle === "give Dewbright Button to Gust", `gift confirmation should name both the item and recipient: ${JSON.stringify(result)}`);
     assert(result.giftSummary === "Pass Dewbright Button to Gust.", `gift confirmation should state the gesture plainly: ${JSON.stringify(result)}`);
-    assert(result.giftEffect.includes("hands you Story Button to make room"), `a full resident should explain the keepsake they return: ${JSON.stringify(result)}`);
+    assert(result.giftEffect.includes("hands you Story Button to make room"), `a full resident should explain the item they return: ${JSON.stringify(result)}`);
     assert(
       result.giftActions?.[0]?.focusKeys?.includes("actor:1002") && result.giftActions?.[0]?.focusKeys?.includes("item:2002"),
       `gift action should expose both actor and item focus keys: ${JSON.stringify(result)}`,
@@ -3816,188 +3802,6 @@ async function main() {
     );
   }
 
-  async function assertKeepsakeLoadoutShapesSceneDeal() {
-    const result = await page.evaluate(() => {
-      const previous = {
-        state,
-        actorId,
-        actions,
-        focusIndex,
-        focusedKey,
-        handKeys,
-        discardedHandKeys,
-        handDealNonce,
-        playerPromotedHandKey,
-        walletAddress,
-        equippedCardIds,
-        accountPanelPinned,
-        menuSection,
-      };
-      walletAddress = "keepsake-smoke-wallet";
-      const storageKey = keepsakeStorageKey();
-      const previousStorage = localStorage.getItem(storageKey);
-      const gust = { card_id: "cosy-whiskerwind", display_name: "Gust", role: "resident", aspect: "tall", rarity: "seed", title: "Weather Gremlin" };
-      const tonic = { card_id: "cosy-hearth-tonic", display_name: "Hearth Tonic", role: "item", aspect: "square", rarity: "seed", title: "Pocket Warmth" };
-      const homeroom = { card_id: "location-homeroom", display_name: "Homeroom", role: "location", aspect: "wide", rarity: "ultra-rare", title: "Front Door" };
-      const lyra = { card_id: "lyra", display_name: "Lyra", role: "student", aspect: "tall", rarity: "common", title: "Color-Coded Spare" };
-      try {
-        state = {
-          location: { id: 1, name: "The Cosy Cottage" },
-          primary_action: { kind: "move", options: [{ kind: "move" }] },
-          economy: { listen_attempted_here: true },
-          ledger: { unbanked_count: 0, banked_count: 1, spent_count: 1, advancement_points: 0 },
-          account: { wallet_address: walletAddress, owned_cards: [gust, tonic, homeroom, lyra] },
-          cards: {
-            actors: { 1002: gust },
-            items: { 2001: tonic },
-            locations: {
-              1: { card_id: "cosy-cottage", display_name: "The Cosy Cottage", role: "location", aspect: "wide", rarity: "seed" },
-              11: homeroom,
-            },
-          },
-          actors: [{ id: 5000, name: "Moss Stitch", kind: "human", status: "active", stats: { level: 1 } }],
-          skills: [],
-          bonds: [],
-          action_hand: {
-            schema_version: 1,
-            capacity: 2,
-            entries: [
-              { offer_id: "move:go", kind: "move", provider: { kind: "location", id: "location:1" } },
-              { offer_id: "rest:rest", kind: "rest", provider: { kind: "rules", id: "rules:recovery" } },
-            ],
-          },
-        };
-        actorId = 5000;
-        actions = [
-          { label: "rest", detail: "feel fresh", command: "rest", focusKey: "rest", offerKinds: ["rest"], offerIds: ["rest:rest"], handProvider: { priority: 0, reason: "Because you need to recover" } },
-          { label: "travel", detail: "choose a path", command: "go", focusKey: "travel:11", focusKeys: ["exit:11"], card: state.cards.locations[1], offerKinds: ["move"], offerIds: ["move:go"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
-          { label: "take", detail: "Hearth Tonic", command: "take Hearth Tonic", focusKey: "item:2001", card: tonic, offerKinds: ["pick_up"], offerIds: ["pickup:tonic"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
-          { label: "chat", detail: "Gust", command: "chat Gust", focusKey: "actor:1002", card: gust, offerKinds: ["chat"], offerIds: ["chat:gust"], handProvider: { priority: 20, reason: "Because Gust trusts you" } },
-        ];
-        handKeys = [];
-        discardedHandKeys = [];
-        handCompositionSignature = authoritativeHandSignature(state);
-        focusIndex = 0;
-        focusedKey = "";
-        playerPromotedHandKey = "";
-        equippedCardIds = [];
-        const unequippedLabels = orderedActionIndexesForHand().slice(0, 2).map((index) => actions[index].label);
-        equippedCardIds = [gust.card_id, tonic.card_id, homeroom.card_id];
-        saveKeepsakeLoadout();
-        const orderedLabels = orderedActionIndexesForHand().slice(0, 2).map((index) => actions[index].label);
-        const guides = Object.fromEntries(actions.map((action) => [
-          action.label,
-          keepsakeGuideForAction(action)?.display_name || "",
-        ]));
-        accountPanelPinned = true;
-        menuSection = "collection";
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = accountPanelHtml();
-        const cardButtons = [...wrapper.querySelectorAll(".account-card-open[data-card-key]")].map((button) => ({
-          tag: button.tagName,
-          type: button.type,
-          label: button.getAttribute("aria-label") || "",
-          imageAlt: button.querySelector("img")?.getAttribute("alt"),
-        }));
-        const cardPromises = [...wrapper.querySelectorAll(".account-asset-effect")]
-          .map((node) => node.textContent.replace(/\s+/g, " ").trim());
-        const materializeLabels = [...wrapper.querySelectorAll("[data-materialize-card]")]
-          .map((button) => ({ cardId: button.getAttribute("data-materialize-card"), label: button.textContent.trim() }));
-        state.account.materialization_receipts = [{
-          id: "smoke:tonic",
-          card_id: tonic.card_id,
-          item_id: 99001,
-          status: "materialized",
-        }];
-        const returnedWrapper = document.createElement("div");
-        returnedWrapper.innerHTML = accountPanelHtml();
-        const returnLabels = [...returnedWrapper.querySelectorAll("[data-unmaterialize-receipt]")]
-          .map((button) => ({ receiptId: button.getAttribute("data-unmaterialize-receipt"), label: button.textContent.trim() }));
-        openCardModal(homeroom);
-        const modalPromise = document.querySelector("#card-modal-keepsake")?.textContent.replace(/\s+/g, " ").trim() || "";
-        closeCardModal();
-        const chatAction = actions.find((action) => action.label === "chat");
-        renderButton("primary", {
-          ...chatAction,
-          actionIndex: actions.indexOf(chatAction),
-          keepsakeGuide: keepsakeGuideForAction(chatAction),
-        });
-        const guidedButton = {
-          text: document.querySelector("#primary")?.textContent.replace(/\s+/g, " ").trim() || "",
-          aria: document.querySelector("#primary")?.getAttribute("aria-label") || "",
-          guide: document.querySelector("#primary")?.getAttribute("data-keepsake-guide") || "",
-          highlighted: document.querySelector("#primary")?.classList.contains("keepsake-guided") || false,
-          visibleCue: document.querySelector("#primary .keepsake-call")?.textContent.replace(/\s+/g, " ").trim() || "",
-        };
-        return {
-          unequippedLabels,
-          orderedLabels,
-          guides,
-          keptClose: wrapper.querySelectorAll(".account-asset.kept-close").length,
-          disabledChoices: wrapper.querySelectorAll("[data-account-toggle-keepsake]:disabled").length,
-          cardButtons,
-          cardPromises,
-          materializeLabels,
-          returnLabels,
-          modalPromise,
-          guidedButton,
-          copy: wrapper.textContent.replace(/\s+/g, " ").trim(),
-          friendlyRarity: friendlyCardRarity("ultra-rare"),
-        };
-      } finally {
-        if (previousStorage === null) localStorage.removeItem(storageKey);
-        else localStorage.setItem(storageKey, previousStorage);
-        state = previous.state;
-        actorId = previous.actorId;
-        actions = previous.actions;
-        focusIndex = previous.focusIndex;
-        focusedKey = previous.focusedKey;
-        handKeys = previous.handKeys;
-        discardedHandKeys = previous.discardedHandKeys;
-        handDealNonce = previous.handDealNonce;
-        playerPromotedHandKey = previous.playerPromotedHandKey;
-        walletAddress = previous.walletAddress;
-        equippedCardIds = previous.equippedCardIds;
-        accountPanelPinned = previous.accountPanelPinned;
-        menuSection = previous.menuSection;
-        render();
-      }
-    });
-    assert(
-      JSON.stringify(result.orderedLabels) === JSON.stringify(["travel", "rest"])
-        && JSON.stringify(result.orderedLabels) === JSON.stringify(result.unequippedLabels),
-      `equipped keepsakes must not change the authoritative scene-action order: ${JSON.stringify(result)}`,
-    );
-    assert(
-      result.guides.chat === "Gust" && result.guides.take === "Hearth Tonic" && result.guides.travel === "Homeroom",
-      `exact Avatar, Item, and Location subjects should guide their matching actions: ${JSON.stringify(result)}`,
-    );
-    assert(result.keptClose === 3 && result.disabledChoices === 1, `the account should enforce a visible three-keepsake limit: ${JSON.stringify(result)}`);
-    assert(result.friendlyRarity === "storybook" && result.copy.includes("storybook"), `player-facing rarity should use the compact cosy tier: ${JSON.stringify(result)}`);
-    assert(result.copy.includes("Keep a few keepsakes close—up to three. This is a menu preference, not your physical carried deck or bracelet."), `collection favorites should explain their distinction from physical inventory plainly: ${JSON.stringify(result)}`);
-    assert(
-      ["Gust can appear beside matching choices. It does not change available actions or odds", "Hearth Tonic can appear beside matching choices. It does not change available actions or odds", "Homeroom can appear beside matching choices. It does not change available actions or odds"]
-        .every((promise) => result.cardPromises.some((copy) => copy.includes(promise))),
-      `each Avatar, Item, and Location should explain its cosmetic keepsake promise: ${JSON.stringify(result)}`,
-    );
-    assert(result.modalPromise.includes("Homeroom can appear beside matching choices. It does not change available actions or odds."), `card details should repeat the cosmetic keepsake promise: ${JSON.stringify(result)}`);
-    assert(JSON.stringify(result.materializeLabels) === JSON.stringify([{ cardId: "cosy-hearth-tonic", label: "materialize to carried deck" }]), `owned Item cards should expose an explicit collection-to-shard materialization operation: ${JSON.stringify(result)}`);
-    assert(JSON.stringify(result.returnLabels) === JSON.stringify([{ receiptId: "smoke:tonic", label: "return from carried deck" }]), `materialized Item cards should expose the receipt-backed return operation: ${JSON.stringify(result)}`);
-    assert(
-      result.guidedButton.highlighted
-        && result.guidedButton.guide === "Gust"
-        && result.guidedButton.visibleCue === "✦ Gust kept close"
-        && result.guidedButton.text.includes("Because Gust trusts you")
-        && result.guidedButton.aria.includes("matching kept-close art: Gust"),
-      `a scene card should separate authoritative provenance from cosmetic kept-close art: ${JSON.stringify(result)}`,
-    );
-    assert(
-      result.cardButtons.length === 4
-        && result.cardButtons.every((button) => button.tag === "BUTTON" && button.type === "button" && button.label.startsWith("Open ") && button.imageAlt === ""),
-      `owned keepsake art should be a labelled button with decorative nested art: ${JSON.stringify(result)}`,
-    );
-  }
-
   async function assertChoicePreviewFollowsSelectedCard() {
     const result = await page.evaluate(() => {
       const card = (cardId, name, role, aspect, image) => ({
@@ -4044,7 +3848,7 @@ async function main() {
         mixedUse: preview({
           label: "use",
           useChoiceKind: "mixed",
-          modalTitle: "choose how to use a keepsake",
+          modalTitle: "choose how to use an item",
           selectedChoice: "tonic",
           choices: [
             { label: "help you", detail: "Hearth Tonic", value: "tonic", card: card("tonic", "Hearth Tonic", "item", "square", "/choice-tonic.png") },
@@ -4059,8 +3863,8 @@ async function main() {
     }
     assert(result.avatar.before.src === "/choice-rati.png" && result.avatar.after.src === "/choice-skull.png" && result.avatar.after.alt === "Skull", `Avatar choices should follow the selected resident card: ${JSON.stringify(result)}`);
     assert(result.avatar.after.shape === "avatar" && result.avatar.after.objectFit === "contain", `portrait choice art should remain fully visible rather than being cropped wide: ${JSON.stringify(result)}`);
-    assert(result.item.before.src === "/choice-story.png" && result.item.after.src === "/choice-dew.png" && result.item.after.shape === "item" && result.item.after.objectFit === "contain", `Item choices should follow the selected keepsake card without cropping it: ${JSON.stringify(result)}`);
-    assert(result.mixedUse.after.src === "/choice-button.png" && result.mixedUse.after.alt === "with Hearth", `mixed Use choices should preview the selected mode's keepsake: ${JSON.stringify(result)}`);
+    assert(result.item.before.src === "/choice-story.png" && result.item.after.src === "/choice-dew.png" && result.item.after.shape === "item" && result.item.after.objectFit === "contain", `Item choices should follow the selected item card without cropping it: ${JSON.stringify(result)}`);
+    assert(result.mixedUse.after.src === "/choice-button.png" && result.mixedUse.after.alt === "with Hearth", `mixed Use choices should preview the selected mode's item: ${JSON.stringify(result)}`);
   }
 
   async function assertCarriedDeckUsesWeightLanguage() {
@@ -4247,12 +4051,12 @@ async function main() {
     assert(result.empty.label === "take" && result.empty.detail === "Story Button", `an empty carried deck should still offer a simple Take card: ${JSON.stringify(result)}`);
     assert(result.empty.title === "pick up Story Button" && result.empty.confirm === "take", `Take should keep simple confirmation language: ${JSON.stringify(result)}`);
     assert(result.empty.summary === "Tuck Story Button into your keeping.", `Take should explain where the item goes: ${JSON.stringify(result)}`);
-    assert(result.multiple.count === 1 && result.multiple.detail === "choose a keepsake", `multiple floor items should share one Take card: ${JSON.stringify(result)}`);
+    assert(result.multiple.count === 1 && result.multiple.detail === "choose an item", `multiple floor items should share one Take card: ${JSON.stringify(result)}`);
     assert(result.multiple.title === "choose what to take" && result.multiple.confirm === "take", `the multi-item Take card should open one clear picker: ${JSON.stringify(result)}`);
-    assert(result.multiple.choices.join(",") === "Story Button,Watch Bell" && result.multiple.selectedItemId === 2007, `Take should submit the keepsake selected inside the card: ${JSON.stringify(result)}`);
-    assert(result.multiple.summary === "Take one of the room's keepsakes.", `multi-item Take should explain the choice warmly: ${JSON.stringify(result)}`);
+    assert(result.multiple.choices.join(",") === "Story Button,Watch Bell" && result.multiple.selectedItemId === 2007, `Take should submit the item selected inside the card: ${JSON.stringify(result)}`);
+    assert(result.multiple.summary === "Take one of the room's items.", `multi-item Take should explain the choice warmly: ${JSON.stringify(result)}`);
     assert(result.multipleWhileCarrying.count === 1 && result.multipleWhileCarrying.label === "take", `carrying cards should not change the room picker into an implicit Swap card: ${JSON.stringify(result)}`);
-    assert(result.multipleWhileCarrying.detail === "choose a keepsake" && result.multipleWhileCarrying.selectedItemId === 2007, `Take should preserve the chosen incoming card while other carried cards remain held: ${JSON.stringify(result)}`);
+    assert(result.multipleWhileCarrying.detail === "choose an item" && result.multipleWhileCarrying.selectedItemId === 2007, `Take should preserve the chosen incoming card while other carried cards remain held: ${JSON.stringify(result)}`);
     assert(
       result.projectedSingle.label === "take"
         && result.projectedSingle.detail === "Watch Bell"
@@ -4621,8 +4425,8 @@ async function main() {
           inference,
           unknown,
           nearby: {
-            chips: nearbyWrapper.querySelectorAll(".nearby-keepsake-chip").length,
-            target: nearbyWrapper.querySelector(".nearby-keepsake-chip")?.getAttribute("data-card-key") || "",
+            chips: nearbyWrapper.querySelectorAll(".nearby-card-chip").length,
+            target: nearbyWrapper.querySelector(".nearby-card-chip")?.getAttribute("data-card-key") || "",
           },
         };
       } finally {
@@ -4636,7 +4440,7 @@ async function main() {
     assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 1, `unknown holdings must stay hidden behind Notice: ${JSON.stringify(result)}`);
     assert(result.direct.safety === 3 && result.inference.safety === 3, `safety controls should stay separate from item actions: ${JSON.stringify(result)}`);
     assert(result.direct.itemText.includes("Keeper's Brass Key") && !result.direct.itemText.includes("request Keeper's Brass Key"), `the item picker should keep names in the selected detail instead of giant verb buttons: ${JSON.stringify(result)}`);
-    assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent keepsakes for image-workshop access: ${JSON.stringify(result)}`);
+    assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent items for image-workshop access: ${JSON.stringify(result)}`);
   }
 
   async function assertDiscoverySettlementDoesNotSurfaceGrowAction() {
@@ -6156,7 +5960,7 @@ async function main() {
         && result.gardenBellHint === "A mute little bell rests where two broad leaves touch."
         && result.trailTagHint === "A warm stone tag rests beside the silver milepost."
         && result.scienceFallbackHint === "A folded note beneath the lab bench asks for one careful second look.",
-      `Listen should rotate to one grounded room lead when earlier keepsakes are gone: ${JSON.stringify(result)}`,
+      `Listen should rotate to one grounded room lead when earlier items are gone: ${JSON.stringify(result)}`,
     );
     assert(/class="roll-symbol"/.test(result.rollMarkup) && /class="roll-result"/.test(result.rollMarkup), `chance feedback should use the narrative card shape: ${JSON.stringify(result)}`);
     assert(/d20 9 \+3 = 12 vs DC 10/.test(result.rollMarkup) && /Listening \+1 from Mothwood Guide/.test(result.rollMarkup), `non-combat chance feedback should expose exact arithmetic and Class provenance: ${JSON.stringify(result)}`);
@@ -6225,7 +6029,7 @@ async function main() {
     assert(result.sheetHtml.includes("journal") && result.sheetHtml.includes("something you noticed is ready to keep · you can strengthen a friendship or open bracelet space"), `Journal row should summarize growth without counted resources: ${JSON.stringify(result)}`);
     assert(!/memory marks?|growth points?|\b(?:one|two|three|four) (?:memories|chances)\b/i.test(result.sheetHtml), `Journal row should keep growth arithmetic out of the avatar sheet: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("purpose") && result.sheetHtml.includes("I stick my nose into lost-property trouble."), `avatar sheet should name purpose in everyday language: ${JSON.stringify(result)}`);
-    assert(result.sheetHtml.includes("worn skill charms") && result.sheetHtml.includes("find a skill charm, then wear it from Deck"), `avatar sheet should direct skill loadout changes to collectible charms: ${JSON.stringify(result)}`);
+    assert(result.sheetHtml.includes("worn skill charms") && result.sheetHtml.includes("find a skill charm, then wear it from Deck"), `avatar sheet should direct skill loadout changes to physical charms: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("friends") && result.sheetHtml.includes("I bring small kindnesses to Gust. (new friend)"), `friendship should show its statement and warm closeness instead of a raw strength number: ${JSON.stringify(result)}`);
     assert(!result.sheetHtml.includes("Gust 1"), `avatar sheet should not expose raw bond counters: ${JSON.stringify(result)}`);
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
@@ -6331,7 +6135,7 @@ async function main() {
               offer_id: "cosy:77:rest:rest",
               kind: "rest",
               rank: 84,
-              effect: "restores one exhausted keepsake",
+              effect: "restores one exhausted item",
             }],
             action_hand: {
               schema_version: 1,
@@ -6565,8 +6369,8 @@ async function main() {
       await locationCardButton.click();
       await page.waitForSelector("#card-modal:not([hidden])");
       const locationCardName = await page.locator("#card-modal-name").innerText();
-      assert(locationCardName.length > 0, `a mounted location keepsake should open its details: ${locationCardName}`);
-      steps.push({ label: "location keepsake details", card: locationCardName });
+      assert(locationCardName.length > 0, `a mounted location item should open its details: ${locationCardName}`);
+      steps.push({ label: "location item details", card: locationCardName });
       await closeCardModal();
     }
 
@@ -6622,7 +6426,7 @@ async function main() {
         && pathwayContract.disabled === false
         && pathwayContract.live === "polite"
         && pathwayContract.copy.includes("1 Orb is still needed from the community"),
-      `a revealed generated pathway keepsake should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
+      `a revealed generated pathway item should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
     );
 
     const communityArtStates = await page.evaluate(() => {
@@ -7045,7 +6849,7 @@ async function main() {
         };
       });
       assert(!/\blv\s*\d+/i.test(residentCard.meta), `resident cards should not expose level shorthand: ${JSON.stringify(residentCard)}`);
-      assert(!/\bItem\s+\d+/i.test(residentCard.economy), `resident cards should name keepsakes instead of database ids: ${JSON.stringify(residentCard)}`);
+      assert(!/\bItem\s+\d+/i.test(residentCard.economy), `resident cards should name items instead of database ids: ${JSON.stringify(residentCard)}`);
       assert(!/\bslots?\b/i.test(residentCard.economy), `resident cards should describe their hands without inventory slots: ${JSON.stringify(residentCard)}`);
       assert(!/\bwhy\b/i.test(residentCard.economy), `resident cards should not repeat their default wants as a why-row: ${JSON.stringify(residentCard)}`);
       assert(residentCard.portrait, `resident cards should opt into the portrait layout: ${JSON.stringify(residentCard)}`);
@@ -8274,13 +8078,13 @@ async function main() {
     assert(result.searchTagEntry === null, `internal Search tags should stay out of room memory: ${JSON.stringify(result)}`);
     assert(result.featureSearchTagEntry === null, `internal feature-Search tags should not become broken room-log sentences: ${JSON.stringify(result)}`);
     assert(result.searchAtmosphere === "Thimble Guest looks closely around The Cosy Cottage.", `Search should name who searched and where: ${JSON.stringify(result)}`);
-    assert(result.foundAtmosphere === "Thimble Guest found Story Button.", `found keepsakes should name the finder and item: ${JSON.stringify(result)}`);
+    assert(result.foundAtmosphere === "Thimble Guest found Story Button.", `found items should name the finder and item: ${JSON.stringify(result)}`);
     assert(result.pathAtmosphere === "A path to Homeroom opened.", `found paths should state the concrete destination: ${JSON.stringify(result)}`);
     assert(result.moveAtmosphere === "Moss Stitch arrived at The Cosy Cottage.", `movement headlines should name the traveler and destination: ${JSON.stringify(result)}`);
     assert(result.departureAtmosphere === "Rati left for Science Class.", `a room headline should describe a departure from the room on screen instead of claiming an off-screen arrival: ${JSON.stringify(result)}`);
     assert(result.growthAtmosphere === "Moss Stitch lets what happened shape what comes next.", `growth headlines should name whose growth changed: ${JSON.stringify(result)}`);
     assert(result.bondAtmosphere === "Moss Stitch grew closer to Rati.", `friendship headlines should name both people: ${JSON.stringify(result)}`);
-    assert(result.giftAtmosphere === "Moss Stitch gives Watch Bell to Skull.", `gift headlines should name giver, keepsake, and recipient: ${JSON.stringify(result)}`);
+    assert(result.giftAtmosphere === "Moss Stitch gives Watch Bell to Skull.", `gift headlines should name giver, item, and recipient: ${JSON.stringify(result)}`);
     assert(result.projectAtmosphere === "Quiet the Moonlit Trail draws closer.", `project headlines should retain the concrete project outcome: ${JSON.stringify(result)}`);
     assert(result.chatAtmosphere === "Rati's voice stayed in the room.", `chat headlines should identify the voice without purple prose: ${JSON.stringify(result)}`);
     assert(!/hush|lingers|something learned|stirs close to the light/i.test(JSON.stringify(result)), `room headlines should avoid vague stock atmosphere: ${JSON.stringify(result)}`);
@@ -9276,7 +9080,6 @@ async function main() {
         limit: "200",
         actor_id: currentActorId,
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const replay = await fetch(`/events?${params}`).then((response) => response.json());
       const events = replay.events || [];
@@ -9775,9 +9578,9 @@ async function main() {
       document.querySelector("#brand")?.getAttribute("aria-expanded") === "true"
         && Boolean(document.querySelector(".account-panel"))
     ));
-    await page.locator('[data-menu-section="collection"]').click();
+    await page.locator('[data-menu-section="character"]').click();
     await page.waitForFunction(() => (
-      document.querySelector('[data-menu-section="collection"]')?.classList.contains("active")
+      document.querySelector('[data-menu-section="character"]')?.classList.contains("active")
         && Boolean(document.querySelector(".account-panel"))
     ));
     await page.waitForTimeout(75);
@@ -9925,6 +9728,7 @@ async function main() {
         : (kind === "trade" ? "/actions/trade-item" : "");
       const target = (state?.actors || []).find((actor) => Number(actor.id || 0) === Number(targetActorId));
       return {
+        actorId: Number(actorId || localStorage.getItem("cosyworld.actorId") || 0),
         offerIds,
         focusKey,
         command: String(selected?.command || ""),
@@ -10046,9 +9850,10 @@ async function main() {
     ), null, { timeout: 35_000 });
     if (body?.ok !== true) {
       const responsePath = new URL(response.url()).pathname;
-      const currentActorId = Number(await page.evaluate(() => (
-        localStorage.getItem("cosyworld.actorId") || 0
-      )));
+      // A knockout can clear or replace the active browser actor while the
+      // rejected action is settling. Classify the response against the actor
+      // that actually submitted the certified action, not mutable UI state.
+      const currentActorId = Number(submission.actorId || 0);
       const playerDefeated = (body?.events || []).some((event) => (
         event?.type === "combat.knockout"
           && Number(event?.target_actor_id || 0) === currentActorId
@@ -10247,7 +10052,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: actorId,
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       return fetch(`/state?${params}`).then((response) => response.json());
     });
@@ -10502,7 +10306,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: actorId,
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const deadline = Date.now() + 6_000;
       let latestWorld = null;
@@ -10611,7 +10414,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: actorId,
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       const currentName = state?.location?.name || "";
@@ -10649,7 +10451,6 @@ async function main() {
         const params = new URLSearchParams({
           actor_id: actorId,
           actor_session: actorSession,
-          wallet_address: "dev-wallet",
         });
         const world = await fetch(`/world?${params}`).then((response) => response.json());
         const room = (world.locations || []).find((location) => (
@@ -10883,7 +10684,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: String(currentActorId),
         actor_session: currentActorSession,
-        wallet_address: "dev-wallet",
       });
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       for (const location of world.locations || []) {
@@ -11168,7 +10968,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: currentActorId,
         actor_session: currentActorSession,
-        wallet_address: "dev-wallet",
       });
       const world = await fetch(`/world?${params}`).then((worldResponse) => worldResponse.json());
       const target = (world.locations || []).flatMap((location) => location.actors || [])
@@ -11184,7 +10983,7 @@ async function main() {
     return true;
   }
 
-  async function resolveHeldKeepsakeFor(name, label, itemName) {
+  async function resolveHeldItemFor(name, label, itemName) {
     let lastJourney = null;
     let lastAvailability = null;
     let lastPrimary = "";
@@ -11388,14 +11187,14 @@ async function main() {
     );
   }
 
-  async function deliverGardenKeepsakes() {
+  async function deliverGardenItems() {
     const delivered = new Set();
-    const keepsakes = [
+    const items = [
       { itemName: "Dewbright Button", itemId: 2002, residentName: "Gust" },
       { itemName: "Watch Bell", itemId: 2007, residentName: "Skull" },
     ];
     const itemToResident = new Map(
-      keepsakes.map(({ itemName, residentName }) => [itemName, residentName]),
+      items.map(({ itemName, residentName }) => [itemName, residentName]),
     );
     for (let attempt = 1; attempt <= 12 && delivered.size < itemToResident.size; attempt += 1) {
       if (await currentLocation() !== "Rain-Soft Garden") {
@@ -11407,30 +11206,29 @@ async function main() {
         const params = new URLSearchParams({
           actor_id: String(actorId),
           actor_session: actorSession,
-          wallet_address: "dev-wallet",
         });
         const world = await fetch(`/world?${params}`).then((response) => response.json());
         const held = [];
         const misdirected = [];
         for (const location of world.locations || []) {
           for (const resident of location.actors || []) {
-            for (const keepsake of expected) {
+            for (const item of expected) {
               if (
                 resident.kind === "npc"
-                && (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
+                && (resident.economy?.held_item_ids || []).includes(item.itemId)
               ) {
-                const claim = { ...keepsake, actualResidentName: resident.name, location: location.name };
-                if (resident.name === keepsake.residentName) held.push(claim);
+                const claim = { ...item, actualResidentName: resident.name, location: location.name };
+                if (resident.name === item.residentName) held.push(claim);
                 else misdirected.push(claim);
               }
             }
           }
         }
         return { held, misdirected };
-      }, keepsakes);
+      }, items);
       assert(
         residentClaimState.misdirected.length === 0,
-        `garden keepsakes should not settle with the wrong resident: ${JSON.stringify(residentClaimState.misdirected)}`,
+        `garden items should not settle with the wrong resident: ${JSON.stringify(residentClaimState.misdirected)}`,
       );
       for (const found of residentClaimState.held) {
         if (delivered.has(found.itemName)) continue;
@@ -11458,7 +11256,7 @@ async function main() {
       }, [...itemToResident.keys()].filter((itemName) => !delivered.has(itemName)));
       if (carriedGift) {
         const recipientName = itemToResident.get(carriedGift.itemName);
-        const settlement = await resolveHeldKeepsakeFor(
+        const settlement = await resolveHeldItemFor(
           recipientName,
           `give ${carriedGift.itemName}`,
           carriedGift.itemName,
@@ -11469,7 +11267,7 @@ async function main() {
         if (settlement?.settled) delivered.add(carriedGift.itemName);
         continue;
       }
-      const looseKeepsake = await page.evaluate((remainingItemNames) => {
+      const looseItem = await page.evaluate((remainingItemNames) => {
         const currentLocationId = Number(state?.location?.id || 0);
         const item = (state?.items || []).find((candidate) => (
           Number(candidate.holder_actor_id || 0) === 0
@@ -11478,8 +11276,8 @@ async function main() {
         ));
         return item ? { itemName: item.name } : null;
       }, [...itemToResident.keys()].filter((itemName) => !delivered.has(itemName)));
-      if (looseKeepsake) {
-        await takeItem(looseKeepsake.itemName, { allowResidentClaim: true });
+      if (looseItem) {
+        await takeItem(looseItem.itemName, { allowResidentClaim: true });
         continue;
       }
       const available = await page.evaluate(() => actions
@@ -11511,7 +11309,7 @@ async function main() {
           steps.push({ label: "clear garden floor", item: blockingItem });
           continue;
         }
-        const remainingKeepsakes = keepsakes.filter(({ itemName: remainingName }) => (
+        const remainingItems = items.filter(({ itemName: remainingName }) => (
           !delivered.has(remainingName)
         ));
         const gardenSceneChanged = () => page.evaluate(async (expected) => {
@@ -11524,10 +11322,10 @@ async function main() {
                 Number(item.holder_actor_id || 0) === currentActorId
                   || Number(item.location_id || 0) === currentLocationId
                   || (state?.actors || []).some((resident) => {
-                    const keepsake = expected.find((candidate) => Number(candidate.itemId) === Number(item.id));
-                    return keepsake
+                    const item = expected.find((candidate) => Number(candidate.itemId) === Number(item.id));
+                    return item
                       && Number(resident.id || 0) === Number(item.holder_actor_id || 0)
-                      && resident.name === keepsake.residentName;
+                      && resident.name === item.residentName;
                   })
               )
           ))) return true;
@@ -11544,33 +11342,32 @@ async function main() {
           const params = new URLSearchParams({
             actor_id: String(currentActorId),
             actor_session: currentActorSession,
-            wallet_address: "dev-wallet",
           });
           const world = await fetch(`/world?${params}`).then((response) => response.json());
           return (world.locations || []).some((location) => (
             (location.actors || []).some((resident) => (
-              expected.some((keepsake) => (
-                resident.name === keepsake.residentName
-                  && (resident.economy?.held_item_ids || []).includes(Number(keepsake.itemId))
+              expected.some((item) => (
+                resident.name === item.residentName
+                  && (resident.economy?.held_item_ids || []).includes(Number(item.itemId))
               ))
             ))
           ));
-        }, remainingKeepsakes);
+        }, remainingItems);
         const searchCard = await drawCertifiedGardenInspect(
-          "garden keepsake search",
+          "garden item search",
           gardenSceneChanged,
         );
         if (searchCard === false) continue;
         if (!searchCard) {
           if (await gardenSceneChanged()) continue;
           if (attempt < 12) {
-            await passCertifiedHandForDraw("find remaining garden keepsake");
+            await passCertifiedHandForDraw("find remaining garden item");
             steps.push({ label: "rotate garden hand without a legal Inspect", attempt });
           }
           continue;
         }
-        steps.push({ label: "garden keepsake search", attempt, primary: searchCard });
-        await clickSearchAndAssertProgress(`garden keepsake search ${attempt}`);
+        steps.push({ label: "garden item search", attempt, primary: searchCard });
+        await clickSearchAndAssertProgress(`garden item search ${attempt}`);
         continue;
       }
       await takeItem(itemName, { allowResidentClaim: true });
@@ -11593,7 +11390,7 @@ async function main() {
     }));
     assert(
       delivered.size === itemToResident.size,
-      `both garden keepsakes should reach their residents: ${JSON.stringify({ delivered: [...delivered], deliveryDiagnostic })}`,
+      `both garden items should reach their residents: ${JSON.stringify({ delivered: [...delivered], deliveryDiagnostic })}`,
     );
   }
 
@@ -11640,7 +11437,7 @@ async function main() {
     const seedArt = await page.evaluate(async () => {
       const actorId = localStorage.getItem("cosyworld.actorId");
       const actorSession = localStorage.getItem("cosyworld.actorSession");
-      const state = await fetch(`/state?actor_id=${actorId}&actor_session=${actorSession}&wallet_address=dev-wallet`).then((response) => response.json());
+      const state = await fetch(`/state?actor_id=${actorId}&actor_session=${actorSession}`).then((response) => response.json());
       const urls = [
         state.cards.actors["1002"]?.image_url || "/assets/generated/cards/cosy-whiskerwind.webp",
         state.cards.actors["1003"]?.image_url || "/assets/generated/cards/cosy-skull.webp",
@@ -11655,7 +11452,7 @@ async function main() {
       return {
         urls,
         statuses,
-        accessMode: state.access?.mode,
+        hasAccessProjection: state.access !== undefined,
         assetStatuses: [
           state.cards.actors["1002"]?.asset_status,
           state.cards.actors["1003"]?.asset_status,
@@ -11665,7 +11462,7 @@ async function main() {
       };
     });
     assert(seedArt.urls.length >= 3, `expected visible seed art URLs, got ${JSON.stringify(seedArt)}`);
-    assert(seedArt.accessMode === "unsigned_dev_wallet", `expected smoke to use explicit unsigned_dev_wallet mode, got ${seedArt.accessMode}`);
+    assert(!seedArt.hasAccessProjection, `ordinary state should not expose a wallet access projection: ${JSON.stringify(seedArt)}`);
     assert(
       seedArt.assetStatuses.filter(Boolean).every((status) => status === "seed_art" || status === "generated_art"),
       `expected fetchable seed/generated art statuses, got ${JSON.stringify(seedArt.assetStatuses)}`,
@@ -11717,7 +11514,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: actorId,
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const deadline = Date.now() + 6_000;
       let projection = null;
@@ -11771,7 +11567,6 @@ async function main() {
           body: JSON.stringify({
             actor_id: actorId,
             actor_session: actorSession,
-            wallet_address: "dev-wallet",
             command,
           }),
         });
@@ -12078,7 +11873,6 @@ async function main() {
           body: JSON.stringify({
             actor_id: actorId,
             actor_session: actorSession,
-            wallet_address: "dev-wallet",
             command: "look",
           }),
         });
@@ -12422,14 +12216,14 @@ async function main() {
     }));
     assert(JSON.stringify(menuDeck.sections) === JSON.stringify([
       { id: "deck", label: "deck" },
-      { id: "collection", label: "collection & account" },
+      { id: "character", label: "character" },
       { id: "identity", label: "sign in / identity" },
       { id: "world", label: "worlds & packs" },
       { id: "journal", label: "journal" },
       { id: "settings", label: "orbs & settings" },
-    ]), `${label}: Menu should separate deck, collection, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
+    ]), `${label}: Menu should separate deck, character, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
     assert(menuDeck.iconCount === 6 && menuDeck.decorativeIcons, `${label}: every named Menu section should have one decorative icon: ${JSON.stringify(menuDeck)}`);
-    assert(menuDeck.role === "region" && menuDeck.label === "Your avatar and collection" && menuDeck.heading === "your deck", `${label}: Deck should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
+    assert(menuDeck.role === "region" && menuDeck.label === "Your avatar menu" && menuDeck.heading === "your deck", `${label}: Deck should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
     assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /carried weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /spell deck/i.test(menuDeck.copy) && /exhausted \/ discard/i.test(menuDeck.copy), `${label}: Deck should explain weight, loadout, charms, spells, and exhausted cards: ${JSON.stringify(menuDeck)}`);
     await page.locator('[data-menu-section="world"]').click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("library-mode"));
@@ -12446,7 +12240,7 @@ async function main() {
       supportingDisclosure: document.querySelector(".library-system-packs") !== null,
     }));
     assert(library.role === "region" && library.label === "World Library" && !library.live && library.roomHidden && library.promptHidden, `${label}: library should be a dedicated semantic panel: ${JSON.stringify(library)}`);
-    assert(library.heading === "Worlds" && /continue through an open world/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
+    assert(library.heading === "Worlds" && /ordinary places are public and need no wallet/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
     assert(library.featured && library.packIconCount > 0 && library.supportingDisclosure, `${label}: library should separate playable worlds from supporting packs: ${JSON.stringify(library)}`);
 
     await page.locator('[data-menu-section="settings"]').click();
@@ -12495,7 +12289,7 @@ async function main() {
 
     await page.locator("#brand").click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open"));
-    await page.locator('[data-menu-section="collection"]').click();
+    await page.locator('[data-menu-section="character"]').click();
     await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("account-mode"));
     const account = await page.evaluate(() => ({
       role: document.querySelector("#log")?.getAttribute("role") || "",
@@ -12503,7 +12297,7 @@ async function main() {
       promptHidden: document.querySelector(".prompt")?.hidden || false,
       heading: document.querySelector("#account-panel-title")?.tagName || "",
     }));
-    assert(account.role === "region" && account.label === "Your avatar and collection" && account.promptHidden && account.heading === "H2", `${label}: collection should be a dedicated semantic panel: ${JSON.stringify(account)}`);
+    assert(account.role === "region" && account.label === "Your avatar menu" && account.promptHidden && account.heading === "H2", `${label}: character should be a dedicated semantic panel: ${JSON.stringify(account)}`);
     await page.locator("#brand").click();
     await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.getAttribute("role") === "log");
     steps.push({ label, mobileNavigation: "visible", dialogs: "contained", panels: "semantic" });
@@ -13626,8 +13420,8 @@ async function main() {
       `an empty avatar sheet should point warmly toward what comes next: ${guestSheetText}`,
     );
     assert(!/quiet for now|nothing yet|no one yet|\bnone\b|\b\d+ of \d+\b|dev-wallet/i.test(guestSheetText), `avatar sheet should avoid cold empty-state and account shorthand: ${guestSheetText}`);
-    assert(guestSheetText.includes("a wooden box may turn up") && guestSheetText.includes("an avatar bundle may turn up"), `empty collection slots should suggest possibility instead of absence: ${guestSheetText}`);
-    assert(guestSheetText.includes("local tale") && guestSheetText.includes("choose a few collection cards to pin"), `local tale and collection favorites should read naturally without pretending to be physical inventory: ${guestSheetText}`);
+    assert(!/wooden box|avatar bundle|keepsake|collection/i.test(guestSheetText), `the avatar sheet should omit retired collection copy: ${guestSheetText}`);
+    assert(guestSheetText.includes("story identity and growth"), `the avatar sheet should describe continuity naturally: ${guestSheetText}`);
     assert(guestSheetText.includes("purpose") && !guestSheetText.includes("calling"), `avatar sheet should use purpose rather than Calling terminology: ${guestSheetText}`);
     assert(await page.locator(".account-portrait[data-card-key]").count() === 1, "avatar sheet should make the generated portrait card visible");
     const guestSheetHeight = await page.locator("#log").evaluate((node) => node.getBoundingClientRect().height);
@@ -13661,7 +13455,7 @@ async function main() {
     await page.waitForFunction(() => document.querySelector("#brand")?.getAttribute("aria-expanded") === "false");
     assert(await page.evaluate(() => document.activeElement?.id === "brand"), "Escape should close Menu and return focus to its toggle");
     await focusIdentityPanel();
-    assert(await page.locator("[data-passkey-continue]").isVisible(), "guest account should offer passkey continuation before NFT wallet claiming");
+    assert(await page.locator("[data-passkey-continue]").isVisible(), "guest account should offer passkey continuation before optional avatar linking");
     await closeAccountInventory();
     await page.evaluate(() => connectWallet());
     await page.waitForFunction(
@@ -13669,118 +13463,14 @@ async function main() {
         && Boolean(localStorage.getItem("cosyworld.walletSession")),
       signedSmokeWalletAddress,
     );
-    await page.waitForFunction(() => (
-      state?.access?.mode === "signed_wallet_entitlements"
-        && !document.querySelector("#primary")?.disabled
-    ));
-    await focusAccountInventory();
-    const signedCollectionText = await page.locator(".account-panel").innerText();
-    assert(signedCollectionText.includes("Homeroom") && signedCollectionText.includes("Library"), `signed collection should show owned location keepsakes before their paths are found: ${signedCollectionText}`);
-    assert(await page.locator(".account-panel .owned-card .account-card-open[data-card-key]").count() >= 2, "signed collection should render owned keepsake art as detail buttons");
-    assert(await page.locator(".account-panel .owned-card .account-asset-effect").count() >= 2, "signed collection should explain what each kept-close card changes");
-    await page.evaluate(() => {
-      localStorage.removeItem("cosyworld.wallet");
-      localStorage.removeItem("cosyworld.walletSession");
-    });
-  }
-
-  async function assertSignedWalletBoxAccountFlow() {
-    await page.evaluate(() => {
-      localStorage.removeItem("cosyworld.wallet");
-      localStorage.removeItem("cosyworld.walletSession");
-      localStorage.removeItem("cosyworld.cards");
-      localStorage.removeItem("cosyworld.actorId");
-      localStorage.removeItem("cosyworld.actorSession");
-    });
-    await page.goto(withoutWalletUrl(targetUrl), { waitUntil: "domcontentloaded", timeout: 10_000 });
-    await page.waitForSelector("#primary");
-    await page.waitForFunction(() => {
-      const primary = document.querySelector("#primary");
-      const label = primary?.getAttribute("aria-label") || "";
-      return !primary?.disabled && label.trim().toLowerCase().startsWith("begin,");
-    });
-    await clickPrimary("box flow generate avatar");
-    await confirmActionModalIfOpen();
-    await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-    steps.push({ label: "box flow open account", primary: await focusAccountInventory() });
-    const walletConnected = await page.evaluate(() => connectWallet());
-    assert(walletConnected === true, "signed wallet smoke provider should establish a wallet session");
-    await page.waitForFunction(
-      (walletAddress) => localStorage.getItem("cosyworld.wallet") === walletAddress
-        && Boolean(localStorage.getItem("cosyworld.walletSession")),
-      signedSmokeWalletAddress,
-    );
-    await page.waitForFunction(() => state?.access?.mode === "signed_wallet_entitlements" && !document.querySelector("#primary")?.disabled);
-    const beforeBoxOpen = await page.evaluate(async () => {
-      const walletSession = localStorage.getItem("cosyworld.walletSession") || "";
-      return fetch(`/state?wallet_session=${encodeURIComponent(walletSession)}`).then((response) => response.json());
-    });
-    steps.push({ label: "focus signed Wooden Box", primary: await focusAccountInventory() });
-    await assertActionBarCapped("account inventory focus", 0);
-    if (!(beforeBoxOpen.access?.owned_box_ids || []).includes("box-smoke-1")) {
-      const openedCollectionText = await page.locator(".account-panel").innerText();
-      assert(
-        openedCollectionText.includes("Homeroom")
-          && openedCollectionText.includes("Library")
-          && openedCollectionText.includes("Rati"),
-        `already-opened collection should retain location and revealed avatar cards: ${openedCollectionText}`,
-      );
-      steps.push({ label: "signed Wooden Box already opened", cards: beforeBoxOpen.access?.owned_card_ids || [] });
-      return;
-    }
-    await page.waitForSelector(".account-panel [data-account-open-box='box-smoke-1']");
-    const accountBeforeText = await page.locator(".account-panel").innerText();
-    assert(
-      accountBeforeText.includes("box-smoke-1") && accountBeforeText.toLowerCase().includes("intricately carved wooden box"),
-      `account panel should show active Box before opening: ${accountBeforeText}`,
-    );
-    assert(accountBeforeText.includes("Homeroom") && accountBeforeText.includes("Library"), `account panel should show signed location keepsakes alongside the Box: ${accountBeforeText}`);
-    const boxArtProbe = await page.evaluate(async () => {
-      const image = document.querySelector(".account-panel [data-card-key^='box:']");
-      const response = await fetch(image?.getAttribute("src") || "");
-      const text = await response.text();
-      return {
-        src: image?.getAttribute("src") || "",
-        ok: response.ok,
-        contentType: response.headers.get("content-type") || "",
-        svgPrefix: text.slice(0, 80),
-        hasBoxState: text.includes("data-box-state='closed'"),
-      };
-    });
-    assert(boxArtProbe.src.includes("/assets/generated/boxes/closed/box-smoke-1.svg"), `Box art should use the generated closed route: ${JSON.stringify(boxArtProbe)}`);
-    assert(boxArtProbe.ok && boxArtProbe.contentType.includes("image/svg+xml") && boxArtProbe.svgPrefix.includes("<svg") && boxArtProbe.hasBoxState, `Box SVG should be fetchable: ${JSON.stringify(boxArtProbe)}`);
-    await page.locator(".account-panel [data-account-open-box='box-smoke-1']").click();
-    await page.waitForFunction(() => {
-      const status = document.querySelector("#error");
-      return status?.classList.contains("ok") && status.textContent.includes("Opened avatar bundle");
-    });
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
-    await page.waitForSelector(".account-panel", { state: "visible" });
-    const accountAfterText = await page.locator(".account-panel").innerText();
-    const afterBoxOpen = await page.evaluate(async () => {
-      const walletSession = localStorage.getItem("cosyworld.walletSession") || "";
-      return fetch(`/state?wallet_session=${encodeURIComponent(walletSession)}`).then((response) => response.json());
-    });
-    assert(!(afterBoxOpen.access?.owned_box_ids || []).includes("box-smoke-1"), `opened Box should leave trusted access: ${JSON.stringify(afterBoxOpen.access)}`);
-    assert((afterBoxOpen.access?.unopened_pack_ids || []).length === 0, `opened bundle should not remain unopened: ${JSON.stringify(afterBoxOpen.access)}`);
-    assert(
-      (afterBoxOpen.access?.owned_card_ids || []).length > (beforeBoxOpen.access?.owned_card_ids || []).length,
-      `pack opening should grant avatar cards: ${JSON.stringify({ before: beforeBoxOpen.access, after: afterBoxOpen.access })}`,
-    );
-    const newlyGrantedIds = (afterBoxOpen.access?.owned_card_ids || [])
-      .filter((card) => !(beforeBoxOpen.access?.owned_card_ids || []).includes(card));
-    const newlyGrantedNames = (afterBoxOpen.account?.owned_cards || [])
-      .filter((card) => newlyGrantedIds.includes(card.card_id))
-      .map((card) => card.display_name || card.card_id);
-    assert(
-      accountAfterText.toLowerCase().includes("opened bundle")
-        && newlyGrantedNames.length === 3
-        && newlyGrantedNames.every((name) => accountAfterText.includes(name)),
-      `account panel should show every card the weighted pack held: ${JSON.stringify({ newlyGrantedIds, newlyGrantedNames, accountAfterText })}`,
-    );
-    steps.push({
-      label: "open signed Wooden Box",
-      cards: (afterBoxOpen.access?.owned_card_ids || []).filter((card) => !(beforeBoxOpen.access?.owned_card_ids || []).includes(card)),
+    await focusIdentityPanel();
+    const linkedIdentityText = await page.locator(".account-panel").innerText();
+    assert(linkedIdentityText.includes("linked avatars"), `signed identity should explain the optional avatar adapter: ${linkedIdentityText}`);
+    assert(!/Homeroom|Library|Wooden Box|bundle|keepsake|collection/i.test(linkedIdentityText), `signing a wallet must not expose retired ownership surfaces: ${linkedIdentityText}`);
+    await page.evaluate(() => {
+      localStorage.removeItem("cosyworld.wallet");
+      localStorage.removeItem("cosyworld.walletSession");
     });
   }
 
@@ -13791,7 +13481,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: String(actorId),
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
         limit: "200",
         smoke_nonce: `${Date.now()}-${Math.random()}`,
       });
@@ -13825,7 +13514,6 @@ async function main() {
         const params = new URLSearchParams({
           actor_id: String(actorId),
           actor_session: actorSession,
-          wallet_address: "dev-wallet",
         });
         if (limit !== null) params.set("limit", String(limit));
         return params;
@@ -13914,7 +13602,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: String(actorId),
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const state = await fetch(`/state?${params}`).then((response) => response.json());
       const target = (state.actors || []).find((actor) => actor.id !== actorId && actor.kind === "npc");
@@ -14005,7 +13692,6 @@ async function main() {
         const params = new URLSearchParams({
           actor_id: String(actorId),
           actor_session: actorSession,
-          wallet_address: "dev-wallet",
           limit: "200",
         });
         const replay = await fetch(`/events?${params}`).then((response) => response.json());
@@ -14163,20 +13849,20 @@ async function main() {
   await assertStalePassRefreshesAndRotatesReceipt();
   await assertBrowserDrawReachesEveryLegalAction();
   await assertNoComposerOrDebugChrome();
-  const collectibleAvailable = await page.evaluate(() => actions.some((action) => (
+  const itemAvailable = await page.evaluate(() => actions.some((action) => (
     [compactActionLabel(action), action?.detail, action?.command]
       .filter(Boolean)
       .join(" ")
       .toLowerCase()
       .includes("take")
   )));
-  if (collectibleAvailable) {
-    const collectibleCard = await focusPrimaryMatching("collectible card", (text) => text.includes("take"), 64);
+  if (itemAvailable) {
+    const itemCard = await focusPrimaryMatching("item card", (text) => text.includes("take"), 64);
     steps.push({
-      label: "focus collectible card",
-      primary: collectibleCard,
+      label: "focus item card",
+      primary: itemCard,
     });
-    assert(collectibleCard.toLowerCase().includes("take"), "a room with a collectible should keep Take available in the authoritative hand");
+    assert(itemCard.toLowerCase().includes("take"), "a room with an item should keep Take available in the authoritative hand");
     useFocusedActionOnNextClick = false;
   }
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
@@ -14203,7 +13889,6 @@ async function main() {
   await assertTravelChoicesCollapseIntoOneCard();
   await assertChatActivityLivesInStatusSurface();
   await assertChoicePreviewFollowsSelectedCard();
-  await assertKeepsakeLoadoutShapesSceneDeal();
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDrawnFromShuffledDeck();
   await assertAvatarItemsUseDisclosureAndExactActions();
@@ -14287,7 +13972,7 @@ async function main() {
         && action.providerCopy.includes(action.reason)
         && action.aria.includes(action.reason)
     ))
-      && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*keepsake)/i.test(projectedRoomHand.thread)
+      && /(path to Rain-Soft Garden is waiting|few distant routes are waiting|(?:nearby )?avatar.*(?:hoping|waiting).*item)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,
     `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
   );
@@ -14298,7 +13983,6 @@ async function main() {
     const params = new URLSearchParams({
       actor_id: localStorage.getItem("cosyworld.actorId") || "0",
       actor_session: localStorage.getItem("cosyworld.actorSession") || "",
-      wallet_address: "dev-wallet",
       limit: "1",
     });
     const replay = await fetch(`/events?${params}`).then((response) => response.json());
@@ -14360,7 +14044,6 @@ async function main() {
     const params = new URLSearchParams({
       actor_id: localStorage.getItem("cosyworld.actorId") || "0",
       actor_session: localStorage.getItem("cosyworld.actorSession") || "",
-      wallet_address: "dev-wallet",
       after: String(after),
       limit: "200",
     });
@@ -14570,7 +14253,7 @@ async function main() {
   await assertReloadContinuity("The Cosy Cottage");
   if (runLivingWorldStress) {
     await travelTo("Rain-Soft Garden");
-    await deliverGardenKeepsakes();
+    await deliverGardenItems();
     await discoverRoute("Moonlit Trail");
     await travelTo("Moonlit Trail");
     const hearthstonePlacement = await page.evaluate(async () => {
@@ -14579,7 +14262,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: String(currentActorId),
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       for (const location of world.locations || []) {
@@ -15178,11 +14860,7 @@ async function main() {
             && refreshInFlight === null
             && document.querySelector("#action-modal")?.hidden === true
         ), null, { timeout: 35_000 });
-        const projectComplete = await page.evaluate(() => {
-          const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
-          const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
-          return Number(progress?.filled || 0) === 4 && job?.status === "completed";
-        });
+        const projectComplete = (await moonlitProjectStatus()).completed;
         if (projectComplete) break;
         const projectRecovery = await page.evaluate(() => {
           const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
@@ -15223,11 +14901,7 @@ async function main() {
         const completionAction = await drawMoonlitProjectStrategy(`project completion ${attempt}`, {
           strategyId: "steady-trail",
           needles: ["steady the trail"],
-          stopWhen: () => page.evaluate(() => {
-            const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
-            const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
-            return Number(progress?.filled || 0) === 4 && job?.status === "completed";
-          }),
+          stopWhen: async () => (await moonlitProjectStatus()).completed,
         });
         if (!completionAction) break;
         const completionResult = await commitMoonlitProjectWithRetry(`complete project ${attempt}`, {
@@ -15245,6 +14919,13 @@ async function main() {
       }
     }
     const authoritativeProjectBeforeReconcile = await moonlitProjectStatus();
+    assert(
+      authoritativeProjectBeforeReconcile.completed,
+      `the completion path should finish the authoritative shared project before testing browser reconciliation: ${JSON.stringify({
+        filled: authoritativeProjectBeforeReconcile.filled,
+        job: authoritativeProjectBeforeReconcile.status,
+      })}`,
+    );
     await reconcileActionHand();
     const reconciledProjectPresentation = await page.evaluate(() => {
       const progress = (state?.clocks || []).find(
@@ -15407,7 +15088,7 @@ async function main() {
     await travelTo("Quiet Abbey");
     assert(
       (await currentLocation()) === "Quiet Abbey",
-      "Quiet Abbey should be reachable without a Ruby High entitlement",
+      "Quiet Abbey should be reachable without external ownership",
     );
     const moonwoolResidentHolder = await page.evaluate(async () => {
       const currentActorId = localStorage.getItem("cosyworld.actorId");
@@ -15415,7 +15096,6 @@ async function main() {
       const params = new URLSearchParams({
         actor_id: currentActorId,
         actor_session: actorSession,
-        wallet_address: "dev-wallet",
       });
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       for (const location of world.locations || []) {
@@ -15472,7 +15152,6 @@ async function main() {
           const params = new URLSearchParams({
             actor_id: currentActorId,
             actor_session: actorSession,
-            wallet_address: "dev-wallet",
           });
           const world = await fetch(`/world?${params}`).then((response) => response.json());
           const rati = (world.locations || []).flatMap((location) => location.actors || [])
@@ -15507,14 +15186,12 @@ async function main() {
     const params = new URLSearchParams({
       actor_id: actorId,
       actor_session: actorSession,
-      wallet_address: "dev-wallet",
       limit: "500",
     });
     const state = await fetch(`/state?${params}`).then((response) => response.json());
     const worldParams = new URLSearchParams({
       actor_id: actorId,
       actor_session: actorSession,
-      wallet_address: "dev-wallet",
     });
     const world = await fetch(`/world?${worldParams}`).then((response) => response.json());
     const events = [];
@@ -15561,22 +15238,22 @@ async function main() {
           : event.actor_name,
         item: event.item_name,
       }));
-    const residentKeepsakeState = [];
-    const expectedKeepsakes = [
+    const residentItemState = [];
+    const expectedItems = [
       { item: "Dewbright Button", itemId: 2002, resident: "Gust" },
       { item: "Watch Bell", itemId: 2007, resident: "Skull" },
     ];
     for (const location of world.locations || []) {
       for (const resident of location.actors || []) {
-        for (const keepsake of expectedKeepsakes) {
+        for (const item of expectedItems) {
           if (
-            resident.name === keepsake.resident
-              && (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
+            resident.name === item.resident
+              && (resident.economy?.held_item_ids || []).includes(item.itemId)
           ) {
-            residentKeepsakeState.push({
+            residentItemState.push({
               type: "item.held",
               resident: resident.name,
-              item: keepsake.item,
+              item: item.item,
               location: location.name,
             });
           }
@@ -15611,7 +15288,7 @@ async function main() {
       evolved,
       residentStoryMoments,
       itemStoryMoments,
-      residentKeepsakeState,
+      residentItemState,
       moonlitProjectCompleted,
       avatarMessages,
       branchEvents,
@@ -15630,7 +15307,7 @@ async function main() {
   if (runLivingWorldStress) {
     const residentStoryEvidence = [
       ...finalState.residentStoryMoments,
-      ...finalState.residentKeepsakeState,
+      ...finalState.residentItemState,
       ...finalState.livingItemEvidence,
     ];
     const storyResidents = new Set(residentStoryEvidence.map((moment) => moment.resident).filter(Boolean));
@@ -15653,10 +15330,10 @@ async function main() {
           && moment.resident === "Skull")
       )) || finalState.livingItemEvidence.some((moment) => (
         moment.item === "Watch Bell" && moment.resident === "Skull"
-      )) || finalState.residentKeepsakeState.some((moment) => (
+      )) || finalState.residentItemState.some((moment) => (
         moment.item === "Watch Bell" && moment.resident === "Skull"
       )),
-      `the Watch Bell should reach Skull, perform its authored use, or complete an evolution: ${JSON.stringify({ itemStoryMoments: finalState.itemStoryMoments, residentKeepsakeState: finalState.residentKeepsakeState })}`,
+      `the Watch Bell should reach Skull, perform its authored use, or complete an evolution: ${JSON.stringify({ itemStoryMoments: finalState.itemStoryMoments, residentItemState: finalState.residentItemState })}`,
     );
     assert(finalState.trailExitEvents.includes("Rain-Soft Garden"), "leaving Moonlit Trail should record a trail exit event");
   }
@@ -15675,7 +15352,6 @@ async function main() {
     await assertExpeditionRingContract("desktop expedition ring");
     await assertMudShellVisualContract(runLivingWorldStress ? "desktop visual shell stress" : "desktop visual shell");
   }
-  await assertSignedWalletBoxAccountFlow();
 
   await browser.close();
   console.log(JSON.stringify({ ok: true, url: targetUrl, steps, finalState }, null, 2));

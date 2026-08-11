@@ -1050,8 +1050,6 @@ pub(super) struct SeedCardContent {
     #[serde(default)]
     pub(super) chain_image_uri: Option<String>,
     #[serde(default)]
-    pub(super) requires_ownership: bool,
-    #[serde(default)]
     pub(super) art: Option<SeedCardArtContent>,
 }
 

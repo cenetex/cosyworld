@@ -39,11 +39,7 @@ async fn observational_views_do_not_wait_for_the_runtime_lock() {
     let query = StateQuery {
         actor_id: None,
         actor_session: None,
-        wallet_address: None,
-        wallet: None,
         wallet_session: None,
-        owned_card_ids: None,
-        cards: None,
         openrouter_connected: None,
     };
     let _world = tokio::time::timeout(

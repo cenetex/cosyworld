@@ -1920,7 +1920,7 @@ impl RuntimeWorld {
         gate: &CwGate,
         method: &CwGateMethod,
         actor_id: u64,
-        access: &AccessContext,
+        _access: &AccessContext,
     ) -> Vec<CwGateFact> {
         let Some(source) = self.threshold_gate_sources.get(&gate.id) else {
             return Vec::new();
@@ -2010,19 +2010,12 @@ impl RuntimeWorld {
                             .unwrap_or(0),
                     );
                 }
-                ThresholdFactSource::AccessGrant { grant_id } => {
-                    let allowed = access.granted_entitlement_ids.contains(grant_id)
-                        || access.owned_card_ids.contains(grant_id);
-                    let source_version = threshold_kernel_id(
-                        &access
-                            .granted_entitlement_ids
-                            .iter()
-                            .chain(&access.owned_card_ids)
-                            .cloned()
-                            .collect::<Vec<_>>()
-                            .join("\u{1f}"),
-                    );
-                    push_fact(actor_id, u64::from(allowed), source_version);
+                ThresholdFactSource::AccessGrant { .. } => {
+                    // Legacy wallet-grant thresholds are public after the
+                    // avatar-NFT-only boundary. The declaration remains
+                    // readable for old worldpacks, but external ownership can
+                    // no longer gate a route or action.
+                    push_fact(actor_id, 1, 0);
                 }
                 ThresholdFactSource::PerActorClaim { claim_id } => {
                     let key = format!("{claim_id}:{actor_id}");
