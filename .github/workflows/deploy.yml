@@ -192,7 +192,14 @@ jobs:
               echo "::error::A recovery capture and fresh tenant bootstrap cannot be requested together"
               exit 1
             fi
-            flyctl ssh console -a cosyworld-lonelyforest -C 'test ! -e /data/worldpacks/hoppycat || test -z "$(find /data/worldpacks/hoppycat -mindepth 1 -print -quit)"'
+            if flyctl ssh console -a cosyworld-lonelyforest -C 'test -e /data/worldpacks/hoppycat'; then
+              flyctl ssh console -a cosyworld-lonelyforest -C 'test -d /data/worldpacks/hoppycat'
+              fresh_tenant_entry="$(flyctl ssh console -a cosyworld-lonelyforest -C 'find /data/worldpacks/hoppycat -mindepth 1 -print -quit')"
+              if [ -n "$fresh_tenant_entry" ]; then
+                echo "::error::Fresh Hoppycat tenant directory is not empty: $fresh_tenant_entry"
+                exit 1
+              fi
+            fi
             node v2/scripts/check-lonelyforest-worldpacks.mjs --fresh-empty-tenant hoppycat
           elif [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
             node v2/scripts/check-lonelyforest-worldpacks.mjs --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"

@@ -175,6 +175,21 @@ describe('deploy workflow', () => {
     ).toBeLessThan(workflow.indexOf('Create rollback backup'));
   });
 
+  it('checks a fresh Hoppycat volume with direct remote commands', () => {
+    expect(workflow).toContain(
+      "-C 'test -e /data/worldpacks/hoppycat'"
+    );
+    expect(workflow).toContain(
+      "-C 'test -d /data/worldpacks/hoppycat'"
+    );
+    expect(workflow).toContain(
+      "-C 'find /data/worldpacks/hoppycat -mindepth 1 -print -quit'"
+    );
+    expect(workflow).not.toContain(
+      "-C 'test ! -e /data/worldpacks/hoppycat ||"
+    );
+  });
+
   it('serializes deployments across branch and tag refs', () => {
     expect(workflow).toContain('group: deploy-${{ github.repository }}');
     expect(workflow).toContain('cancel-in-progress: false');

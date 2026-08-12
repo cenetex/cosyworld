@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.2 — 2026-08-12
+## 1.0.3 — 2026-08-12
 
 CosyWorld 1.0 is the first stable release of the canonical V2 product: a shared,
 persistent AI MUD with a deterministic rules kernel, a Rust HTTP/SSE host, and a
