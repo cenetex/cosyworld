@@ -29217,17 +29217,15 @@ async fn generate_hidden_pathway_content(
     };
     let contents = parse_generated_pathway_content(&completion.text, pathway.waypoints.len())
         .filter(|contents| {
-            contents.iter().all(|content| {
-                generated_pathway_name_avoids_anchors(
-                    &content.name,
-                    &[
-                        &prompt_context.origin_name,
-                        &prompt_context.destination_name,
-                    ],
-                ) && !prompt_context
-                    .occupied_names
-                    .contains(&content.name.to_ascii_lowercase())
-            })
+            generated_pathway_contents_are_novel(
+                contents,
+                &[
+                    &prompt_context.origin_name,
+                    &prompt_context.destination_name,
+                ],
+                &prompt_context.occupied_names,
+                &prompt_context.occupied_name_words,
+            )
         });
     let Some(contents) = contents else {
         pathway.generation = GenerationProvenance::for_pathway(
@@ -44140,8 +44138,8 @@ mod tests {
         assert!(INDEX_HTML.contains("Reveal the first adjacent stretch toward"));
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
-        assert!(INDEX_HTML
-            .contains("const thumb = thumbnailHtml(action, false, \"action-mini-card\");"));
+        assert!(INDEX_HTML.contains("const thumb = action.pathwayDirection"));
+        assert!(INDEX_HTML.contains(": thumbnailHtml(action, false, \"action-mini-card\");"));
         assert!(INDEX_HTML.contains("button.classList.add(\"has-copy\");"));
         assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-label\">"));
         assert!(INDEX_HTML.contains("cardImage(card) || fallbackCardImage(fallback)"));
@@ -44298,7 +44296,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function actionChoiceCard"));
         assert!(INDEX_HTML.contains("function syncActionChoicePreview"));
         assert!(INDEX_HTML.contains(".action-art.avatar img"));
-        assert!(INDEX_HTML.contains("card: cardForLocation(exit.destination_location_id)"));
+        assert!(INDEX_HTML.contains("direction?.endpointId || exit.destination_location_id"));
         assert!(INDEX_HTML.contains("card: cardForItem(item.id) || cardForActor(target.id)"));
         assert!(INDEX_HTML.contains("target.economy?.request"));
         assert!(INDEX_HTML.contains("candidate.kind === \"trade_item\""));

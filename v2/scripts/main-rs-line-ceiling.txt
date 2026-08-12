@@ -253,4 +253,6 @@
 # refinement behind avatar_identity.rs while adding keyed model-pool retries.
 # 67779 -> 67765: avatar session recovery and its tests live in
 # actor_presence.rs; primary_action delegates the lifecycle boundary there.
-67765
+# 67765 -> 67763: move pathway-name novelty validation behind the AI gateway's
+# focused helper while adding the occupied distinctive-word check.
+67763

@@ -37,7 +37,7 @@ pub(crate) const OPENROUTER_FREE_MODEL: &str = "openrouter/free";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
 pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
-pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v2";
+pub(crate) const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v3";
 pub(crate) const CARD_POLICY_MODE_ENV: &str = "COSYWORLD_CARD_POLICY_MODE";
 pub(crate) const CARD_POLICY_MODEL_PATH_ENV: &str = "COSYWORLD_CARD_POLICY_MODEL_PATH";
 pub(crate) const CARD_POLICY_TOP_K_ENV: &str = "COSYWORLD_CARD_POLICY_TOP_K";
@@ -3958,6 +3958,20 @@ pub(super) struct PathwayContentPromptContext {
     pub(super) origin_name: String,
     pub(super) destination_name: String,
     pub(super) occupied_names: BTreeSet<String>,
+    pub(super) occupied_name_words: BTreeSet<String>,
+}
+
+const GENERIC_PATHWAY_NAME_WORDS: &[&str] = &[
+    "bend", "causeway", "crossing", "cut", "ford", "glen", "hollow", "mile", "notch", "pass",
+    "path", "reach", "ridge", "rise", "road", "steps", "terrace", "trail", "turn", "verge", "way",
+];
+
+pub(super) fn distinctive_pathway_name_words(value: &str) -> BTreeSet<String> {
+    value
+        .split(|character: char| !character.is_ascii_alphabetic())
+        .map(str::to_ascii_lowercase)
+        .filter(|word| word.len() >= 4 && !GENERIC_PATHWAY_NAME_WORDS.contains(&word.as_str()))
+        .collect()
 }
 
 fn ecosystem_labels(meta: &LocationMeta) -> Vec<&'static str> {
@@ -4038,6 +4052,7 @@ struct PathwayRoutePromptContext<'a> {
 fn generated_pathway_content_prompt(
     pathway: &GeneratedPathwayState,
     route: &PathwayRoutePromptContext<'_>,
+    occupied_name_words: &BTreeSet<String>,
 ) -> String {
     let waypoint_context = pathway
         .waypoints
@@ -4054,8 +4069,14 @@ fn generated_pathway_content_prompt(
         })
         .collect::<Vec<_>>()
         .join("\n");
+    let avoided_words = occupied_name_words
+        .iter()
+        .take(80)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
     format!(
-        "Create {count} distinct hidden waypoint identities for successive segments of one cozy storybook route. They are generated together now but players encounter them one at a time through Scout.\nCanonical route ID: {route_id}\nCanonical route version: {route_version}\nRoute endpoints: origin {origin_name}; destination {destination_name}\nTravel direction: {direction}, from {origin_name} toward {destination_name}.\nNearby authored origin description: {origin_description}\nNearby authored origin persona: {origin_persona}\nOrigin ecology: {origin_ecology}\nNearby authored destination description: {destination_description}\nNearby authored destination persona: {destination_persona}\nDestination ecology: {destination_ecology}\n{waypoint_context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Ground every field in the supplied direction, endpoint descriptions, biome, terrain, climate, hydrology, vegetation, fauna, and ecosystem cues. You may name and describe a waypoint, but you must not choose or change topology, route identity, endpoints, directionality, ownership, route version, segment count, access, or rules. Do not introduce named people, items, quests, rewards, danger outcomes, magic powers, or unsupported ecological facts. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Segment, either route endpoint, or duplicates.",
+        "Create {count} distinct hidden waypoint identities for successive segments of one cozy storybook route. They are generated together now but players encounter them one at a time through Scout.\nCanonical route ID: {route_id}\nCanonical route version: {route_version}\nRoute endpoints: origin {origin_name}; destination {destination_name}\nTravel direction: {direction}, from {origin_name} toward {destination_name}.\nNearby authored origin description: {origin_description}\nNearby authored origin persona: {origin_persona}\nOrigin ecology: {origin_ecology}\nNearby authored destination description: {destination_description}\nNearby authored destination persona: {destination_persona}\nDestination ecology: {destination_ecology}\n{waypoint_context}\nAlready-visible distinctive name words to avoid: {avoided_words}.\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Ground every field in the supplied direction, endpoint descriptions, biome, terrain, climate, hydrology, vegetation, fauna, and ecosystem cues. Use a different distinctive naming word for every waypoint and do not reuse any already-visible distinctive name word listed above. You may name and describe a waypoint, but you must not choose or change topology, route identity, endpoints, directionality, ownership, route version, segment count, access, or rules. Do not introduce named people, items, quests, rewards, danger outcomes, magic powers, or unsupported ecological facts. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Segment, either route endpoint, or duplicates.",
         count = pathway.waypoints.len(),
         route_id = route.route_id,
         route_version = route.route_version,
@@ -4106,6 +4127,13 @@ pub(super) async fn pathway_content_generation_context(
                 .map(|(_, name)| name.to_ascii_lowercase()),
         )
         .collect();
+    let occupied_name_words = runtime
+        .generated_pathways
+        .values()
+        .filter(|existing| existing.id != pathway.id)
+        .flat_map(|existing| existing.waypoints.iter())
+        .flat_map(|waypoint| distinctive_pathway_name_words(&waypoint.name))
+        .collect::<BTreeSet<_>>();
     let route_id = if pathway.source_route_id.is_empty() {
         pathway.id.as_str()
     } else {
@@ -4123,12 +4151,14 @@ pub(super) async fn pathway_content_generation_context(
             origin_meta: &origin_meta,
             destination_meta: &destination_meta,
         },
+        &occupied_name_words,
     );
     PathwayContentPromptContext {
         prompt,
         origin_name,
         destination_name,
         occupied_names,
+        occupied_name_words,
     }
 }
 
@@ -4300,6 +4330,33 @@ pub(super) fn parse_generated_pathway_content(
         .map(|waypoint| waypoint.name.to_ascii_lowercase())
         .collect::<BTreeSet<_>>();
     (unique.len() == waypoints.len()).then_some(waypoints)
+}
+
+pub(super) fn generated_pathway_names_use_fresh_words(
+    waypoints: &[GeneratedWaypointContentProposal],
+    occupied_name_words: &BTreeSet<String>,
+) -> bool {
+    let mut proposed_words = BTreeSet::new();
+    waypoints.iter().all(|waypoint| {
+        let distinctive_words = distinctive_pathway_name_words(&waypoint.name);
+        !distinctive_words.is_empty()
+            && distinctive_words.iter().all(|word| {
+                !occupied_name_words.contains(word) && proposed_words.insert(word.clone())
+            })
+    })
+}
+
+pub(super) fn generated_pathway_contents_are_novel(
+    waypoints: &[GeneratedWaypointContentProposal],
+    anchors: &[&str],
+    occupied_names: &BTreeSet<String>,
+    occupied_name_words: &BTreeSet<String>,
+) -> bool {
+    generated_pathway_names_use_fresh_words(waypoints, occupied_name_words)
+        && waypoints.iter().all(|waypoint| {
+            generated_pathway_name_avoids_anchors(&waypoint.name, anchors)
+                && !occupied_names.contains(&waypoint.name.to_ascii_lowercase())
+        })
 }
 
 pub(super) fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
@@ -4595,6 +4652,7 @@ mod tests {
             .expect("Bethlehem-to-Jerusalem route");
         let origin_meta = runtime.location_meta_for(700);
         let destination_meta = runtime.location_meta_for(712);
+        let occupied_name_words = BTreeSet::from(["foxglove".to_string()]);
         let prompt = generated_pathway_content_prompt(
             &pathway,
             &PathwayRoutePromptContext {
@@ -4606,6 +4664,7 @@ mod tests {
                 origin_meta: &origin_meta,
                 destination_meta: &destination_meta,
             },
+            &occupied_name_words,
         );
 
         assert!(prompt.contains("Canonical route ID: route://cosyworld.the-holy-land"));
@@ -4615,6 +4674,7 @@ mod tests {
         assert!(prompt.contains(&origin_meta.description));
         assert!(prompt.contains(&destination_meta.description));
         assert!(prompt.contains("segment index/count: 1/2"));
+        assert!(prompt.contains("Already-visible distinctive name words to avoid: foxglove"));
         for field in [
             "biome:",
             "terrain:",
@@ -4627,6 +4687,56 @@ mod tests {
             assert!(prompt.contains(field), "missing {field} from {prompt}");
         }
         assert!(prompt.contains("must not choose or change topology"));
+    }
+
+    #[test]
+    fn pathway_name_vocabulary_separates_distinctive_words_from_landforms() {
+        assert_eq!(
+            distinctive_pathway_name_words("Foxglove Turn"),
+            BTreeSet::from(["foxglove".to_string()])
+        );
+        assert_eq!(
+            distinctive_pathway_name_words("Rain-Silver Crossing"),
+            BTreeSet::from(["rain".to_string(), "silver".to_string()])
+        );
+        assert!(distinctive_pathway_name_words("Quiet Hollow").contains("quiet"));
+    }
+
+    #[test]
+    fn pathway_names_reject_reused_distinctive_words() {
+        let waypoint = |name: &str| GeneratedWaypointContentProposal {
+            name: name.to_string(),
+            title: "A route landmark".to_string(),
+            description: "Flat stones cross the slope beside low grass.".to_string(),
+            persona: "Footprints remain visible on the pale ground.".to_string(),
+            visual_detail: "flat stones and low grass".to_string(),
+        };
+        let occupied = BTreeSet::from(["foxglove".to_string()]);
+
+        assert!(generated_pathway_names_use_fresh_words(
+            &[waypoint("Cedar Hollow"), waypoint("Amber Crossing")],
+            &occupied,
+        ));
+        assert!(!generated_pathway_names_use_fresh_words(
+            &[waypoint("Foxglove Turn")],
+            &occupied,
+        ));
+        assert!(!generated_pathway_names_use_fresh_words(
+            &[waypoint("Cedar Hollow"), waypoint("Cedar Crossing")],
+            &BTreeSet::new(),
+        ));
+        assert!(generated_pathway_contents_are_novel(
+            &[waypoint("Cedar Hollow")],
+            &["Bethlehem", "Jerusalem"],
+            &BTreeSet::new(),
+            &occupied,
+        ));
+        assert!(!generated_pathway_contents_are_novel(
+            &[waypoint("Jerusalem Hollow")],
+            &["Bethlehem", "Jerusalem"],
+            &BTreeSet::new(),
+            &occupied,
+        ));
     }
 
     #[test]

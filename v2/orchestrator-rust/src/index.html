@@ -563,6 +563,124 @@
         linear-gradient(180deg, rgba(5, 8, 6, 0.08), rgba(5, 8, 6, 0.18) 43%, rgba(5, 8, 6, 0.78)),
         radial-gradient(circle at 18% 84%, rgba(101, 230, 138, 0.2), transparent 32%);
     }
+    .pathway-stage {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 8px;
+      padding: 14px 18px 12px;
+      pointer-events: none;
+      color: #fff3d4;
+      background:
+        linear-gradient(180deg, rgba(5, 8, 6, 0.34), rgba(5, 8, 6, 0.2) 38%, rgba(5, 8, 6, 0.84)),
+        radial-gradient(circle at 50% 62%, rgba(var(--type-travel-rgb), 0.16), transparent 48%);
+    }
+    .pathway-stage[hidden] { display: none; }
+    .room-hero.pathway .room-hero-card { cursor: default; }
+    .room-hero.pathway .room-hero-card img {
+      filter: saturate(0.72) contrast(1.04) brightness(0.72);
+      transform: scale(1.015);
+    }
+    .room-hero.pathway .room-avatar-rail { display: none; }
+    .pathway-stage-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+    .pathway-stage-head strong {
+      min-width: 0;
+      overflow: hidden;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(16px, 2.4vw, 23px);
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pathway-stage-head span {
+      flex: 0 0 auto;
+      color: rgba(255, 243, 212, 0.76);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .pathway-track-wrap {
+      position: relative;
+      align-self: end;
+      height: 52px;
+      margin: 0 22px;
+    }
+    .pathway-track,
+    .pathway-track-progress {
+      position: absolute;
+      left: 0;
+      top: 29px;
+      height: 4px;
+      border-radius: 999px;
+    }
+    .pathway-track {
+      right: 0;
+      background: rgba(255, 243, 212, 0.28);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.42);
+    }
+    .pathway-track-progress {
+      width: var(--pathway-position);
+      background: var(--type-travel);
+      box-shadow: 0 0 12px rgba(var(--type-travel-rgb), 0.48);
+    }
+    .pathway-track-point {
+      position: absolute;
+      left: var(--pathway-point);
+      top: 25px;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 243, 212, 0.72);
+      border-radius: 999px;
+      background: #142019;
+      transform: translateX(-50%);
+    }
+    .pathway-track-point.passed {
+      border-color: var(--type-travel);
+      background: var(--type-travel);
+    }
+    .pathway-avatar-position {
+      position: absolute;
+      left: var(--pathway-position);
+      top: 0;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 3px solid #f4d77f;
+      border-radius: 999px;
+      background: #142019 center top / cover no-repeat;
+      color: #142019;
+      font-size: 12px;
+      font-weight: 900;
+      transform: translateX(-50%);
+      box-shadow: 0 3px 14px rgba(0, 0, 0, 0.48), 0 0 0 2px rgba(5, 8, 6, 0.58);
+    }
+    .pathway-directions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      color: rgba(255, 243, 212, 0.82);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .pathway-directions span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pathway-directions span:first-child::before { content: "← "; color: var(--type-travel); }
+    .pathway-directions span:last-child { text-align: right; }
+    .pathway-directions span:last-child::after { content: " →"; color: var(--type-travel); }
     .room-avatar-rail {
       position: absolute;
       left: 14px;
@@ -2434,6 +2552,23 @@
       flex-basis: 58px;
       height: 34px;
     }
+    .cmd.pathway-direction {
+      background:
+        linear-gradient(90deg, rgba(var(--cmd-accent-rgb), 0.18), rgba(16, 25, 18, 0.92) 44%),
+        var(--terminal-2);
+    }
+    .cmd.pathway-direction .pathway-direction-thumb {
+      width: 50px;
+      flex-basis: 50px;
+      height: 36px;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--cmd-accent);
+      font-size: 28px;
+      font-weight: 500;
+      cursor: inherit;
+    }
     .cmd .thumb.action-mini-card,
     .cmd .thumb.action-mini-card.avatar,
     .cmd .thumb.action-mini-card.item,
@@ -3397,6 +3532,12 @@
         height: clamp(92px, 22vh, 150px);
         margin: -11px -12px 10px;
       }
+      .room-hero.pathway { height: 156px; }
+      .pathway-stage { padding: 10px 12px 9px; }
+      .pathway-stage-head strong { font-size: 16px; }
+      .pathway-stage-head span { font-size: 9px; }
+      .pathway-track-wrap { margin-inline: 17px; }
+      .pathway-directions { font-size: 10px; gap: 8px; }
       .room-avatar-rail {
         left: 10px;
         right: 10px;
@@ -4794,6 +4935,7 @@
           <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location card" data-player-concept="card" data-analytics-event="card.open">
             <img id="room-hero-image" alt="" />
           </button>
+          <div class="pathway-stage" id="pathway-stage" role="img" hidden></div>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
           <div class="room-rescue-row" id="room-rescue-row" aria-label="Knocked-out avatars needing rescue" hidden></div>
           <div class="spatial-stage" id="spatial-stage" role="img" hidden>
@@ -6643,6 +6785,7 @@
         });
       }
       const journey = view.journey || null;
+      const pathwayJourney = activePathwayJourney(view);
       const scoutOffers = (view.action_offers || []).filter((offer) => (
         offer.kind === "explore_path"
           && offer?.target?.kind === "location"
@@ -6693,6 +6836,11 @@
         const scoutLabel = targetBearingLabel("scout", scoutVerb, firstScout.destinationName);
         const scoutAction = {
           ...semanticAction(firstScout.offer, "scout", scoutLabel),
+          pathwayDirection: pathwayJourney ? {
+            side: "forward",
+            endpointId: Number(pathwayJourney.destination_location_id || firstScout.destinationId),
+            endpointName: String(pathwayJourney.destination_name || firstScout.destinationName),
+          } : null,
           target: oneScout ? firstScout.offer.target : null,
           label: scoutVerb.toLowerCase(),
           detail: oneScout ? `toward ${firstScout.destinationName}` : "choose a distant destination",
@@ -6702,7 +6850,7 @@
             : `scout:${scoutCandidates.map((candidate) => candidate.destinationId).join("|")}`,
           focusKeys: scoutCandidates.map((candidate) => `exit:${candidate.destinationId}`),
           card: oneScout
-            ? cardForLocation(firstScout.destinationId)
+            ? cardForLocation(pathwayJourney?.destination_location_id || firstScout.destinationId)
             : cardForLocation(view.location?.id),
           shape: "location",
           priority: Math.min(...scoutCandidates.map((candidate) => Number(candidate.offer?.rank || 55))),
@@ -7283,6 +7431,7 @@
           const groupedExits = routeGroup.exits;
           const firstExit = groupedExits[0];
           const onePath = groupedExits.length === 1;
+          const firstPathwayDirection = pathwayDirectionForExit(firstExit, pathwayJourney);
           const searchingPathway = false;
           const fleeing = routeGroup.mode === "flee";
           const routeOffer = routeOffers.find((offer) => (
@@ -7297,9 +7446,11 @@
             : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
           const routeLabel = String(firstExit.route_label || "").trim();
           const routeTargetLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
-          const routeAccessibleLabel = onePath && routeLabel
-            ? `${routeTargetLabel} via ${routeLabel}`
-            : routeTargetLabel;
+          const routeAccessibleLabel = firstPathwayDirection
+            ? `${routeVerb} toward ${firstPathwayDirection.endpointName}`
+            : (onePath && routeLabel
+              ? `${routeTargetLabel} via ${routeLabel}`
+              : routeTargetLabel);
           const routeGuidance = onePath
             && !searchingPathway
             && !fleeing
@@ -7309,9 +7460,12 @@
             : "";
           const routeAction = {
             ...semanticAction(routeOffer, routeIntention, routeAccessibleLabel),
+            pathwayDirection: firstPathwayDirection,
             label: routeVerb.toLowerCase(),
             detail: onePath
-              ? (searchingPathway
+              ? (firstPathwayDirection
+                ? `toward ${firstPathwayDirection.endpointName}`
+                : searchingPathway
                 ? `${routeTargetPrefix}${firstExit.destination_location_name}`
                 : (fleeing ? firstExit.destination_location_name : `${routeTargetPrefix}${firstExit.destination_location_name}${routeGuidance}`))
               : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path")),
@@ -7323,7 +7477,7 @@
               : `${routeGroup.mode}:${groupedExits.map((exit) => exit.destination_location_id).join("|")}`,
             focusKeys: groupedExits.map((exit) => `exit:${exit.destination_location_id}`),
             card: onePath
-              ? cardForLocation(firstExit.destination_location_id)
+              ? cardForLocation(firstPathwayDirection?.endpointId || firstExit.destination_location_id)
               : (cardForLocation(view.location?.id) || cardForLocation(firstExit.destination_location_id)),
             shape: "location",
             priority: Number(routeOffer?.rank || (searchingPathway ? 55 : (fleeing ? 50 : 80))),
@@ -7331,7 +7485,9 @@
               ? undefined
               : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel")),
             modalSummary: onePath
-              ? (fleeing
+              ? (firstPathwayDirection
+                ? `Move one stretch toward ${firstPathwayDirection.endpointName}.`
+                : fleeing
                 ? `Leave the danger behind and hurry toward ${firstExit.destination_location_name}.`
                 : (searchingPathway
                   ? `Reveal the first adjacent stretch toward ${firstExit.destination_location_name} without moving.`
@@ -7342,20 +7498,29 @@
                   ? "Choose a destination and reveal its next adjacent route segment without moving."
                   : "Choose where to travel.")),
             effect: onePath
-              ? (searchingPathway
+              ? (firstPathwayDirection
+                ? (Number(firstExit.destination_location_id) === Number(firstPathwayDirection.endpointId)
+                  ? `you arrive in ${firstPathwayDirection.endpointName}`
+                  : `you move one stretch toward ${firstPathwayDirection.endpointName}`)
+                : searchingPathway
                 ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
                 : `you arrive in ${firstExit.destination_location_name}`)
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
-              choices: groupedExits.map((exit) => ({
-                label: exit.route_label || exit.destination_location_name,
-                detail: searchingPathway
-                  ? `${Number(exit.distance || 1)} stretches toward ${exit.destination_location_name}`
-                  : exit.destination_location_name,
-                previewAlt: exit.destination_location_name,
-                value: String(exit.destination_location_id),
-                card: cardForLocation(exit.destination_location_id),
-              })),
+              choices: groupedExits.map((exit) => {
+                const direction = pathwayDirectionForExit(exit, pathwayJourney);
+                return {
+                  label: direction ? `toward ${direction.endpointName}` : (exit.route_label || exit.destination_location_name),
+                  detail: direction
+                    ? "move one stretch"
+                    : (searchingPathway
+                      ? `${Number(exit.distance || 1)} stretches toward ${exit.destination_location_name}`
+                      : exit.destination_location_name),
+                  previewAlt: direction?.endpointName || exit.destination_location_name,
+                  value: String(exit.destination_location_id),
+                  card: cardForLocation(direction?.endpointId || exit.destination_location_id),
+                };
+              }),
               selectedChoice: String(firstExit.destination_location_id),
             }),
           };
@@ -7367,6 +7532,8 @@
             : (searchingPathway ? "searching" : "travelling");
           routeAction.busyDetail = () => {
             const selectedExit = selectedRouteExit();
+            const selectedDirection = pathwayDirectionForExit(selectedExit, pathwayJourney);
+            if (selectedDirection) return `following the path toward ${selectedDirection.endpointName}…`;
             if (fleeing) return `hurrying toward ${selectedExit.destination_location_name}…`;
             if (searchingPathway) return `finding the path toward ${selectedExit.destination_location_name}…`;
             return `following the path to ${selectedExit.destination_location_name}…`;
@@ -10430,6 +10597,76 @@
       return true;
     }
 
+    function activePathwayJourney(view = state) {
+      const journey = view?.journey || null;
+      if (!journey) return null;
+      const currentStep = Math.max(0, Number(journey.current_step || 0));
+      const totalSteps = Math.max(0, Number(journey.total_steps || 0));
+      const onPathway = journey.on_pathway === true
+        || (journey.on_pathway !== false && currentStep > 0 && currentStep < totalSteps);
+      return onPathway ? journey : null;
+    }
+
+    function pathwayDirectionForExit(exit, journey = activePathwayJourney()) {
+      if (!journey || !exit) return null;
+      const exitId = Number(exit.destination_location_id || 0);
+      if (exitId === Number(journey.previous_location_id || 0)) {
+        return {
+          side: "back",
+          endpointId: Number(journey.origin_location_id || 0),
+          endpointName: String(journey.origin_name || "the way back"),
+        };
+      }
+      if (exitId === Number(journey.next_location_id || 0)) {
+        return {
+          side: "forward",
+          endpointId: Number(journey.destination_location_id || 0),
+          endpointName: String(journey.destination_name || "the destination"),
+        };
+      }
+      return null;
+    }
+
+    function pathwayStageHtml(view = state) {
+      const journey = activePathwayJourney(view);
+      if (!journey) return "";
+      const currentStep = Math.max(1, Number(journey.current_step || 1));
+      const totalSteps = Math.max(currentStep + 1, Number(journey.total_steps || 1));
+      const position = Math.max(0, Math.min(100, (currentStep / totalSteps) * 100));
+      const originName = String(journey.origin_name || "the way back");
+      const destinationName = String(journey.destination_name || "the destination");
+      const avatar = actorForId(actorId);
+      const avatarCard = cardForActor(actorId);
+      const avatarName = avatar ? actorLabel(avatar) : "Your avatar";
+      const avatarImage = cardImage(avatarCard);
+      const avatarStyle = avatarImage
+        ? `background-image:url(&quot;${escapeAttr(avatarImage)}&quot;);`
+        : "";
+      const pointCount = Math.min(totalSteps, 10);
+      const points = Array.from({ length: pointCount + 1 }, (_, index) => {
+        const point = (index / pointCount) * 100;
+        const passed = point <= position ? " passed" : "";
+        return `<span class="pathway-track-point${passed}" style="--pathway-point:${point.toFixed(2)}%" aria-hidden="true"></span>`;
+      }).join("");
+      return `<div class="pathway-stage-head"><strong>${escapeHtml(originName)} — ${escapeHtml(destinationName)}</strong><span>stretch ${currentStep} of ${totalSteps}</span></div><div class="pathway-track-wrap" style="--pathway-position:${position.toFixed(2)}%"><span class="pathway-track" aria-hidden="true"></span><span class="pathway-track-progress" aria-hidden="true"></span>${points}<span class="pathway-avatar-position" style="${avatarStyle}" aria-hidden="true">${avatarImage ? "" : escapeHtml(initials(avatarName))}</span></div><div class="pathway-directions"><span>to ${escapeHtml(originName)}</span><span>to ${escapeHtml(destinationName)}</span></div>`;
+    }
+
+    function renderPathwayStage(view = state) {
+      const stage = $("pathway-stage");
+      const journey = activePathwayJourney(view);
+      stage.hidden = !journey;
+      stage.innerHTML = journey ? pathwayStageHtml(view) : "";
+      if (journey) {
+        stage.setAttribute(
+          "aria-label",
+          `On the pathway from ${journey.origin_name || "the way back"} to ${journey.destination_name || "the destination"}. Stretch ${journey.current_step} of ${journey.total_steps}.`,
+        );
+      } else {
+        stage.removeAttribute("aria-label");
+      }
+      return Boolean(journey);
+    }
+
     function render() {
       const location = state.location || {};
       const locationCard = cardForLocation(location.id);
@@ -10444,8 +10681,16 @@
       roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} card`);
       setCardTarget(roomHeroCard, locationCard);
       renderRoomAvatarRail();
-      $("room-hero").classList.toggle("spatial", renderSpatialScene(state?.spatial_scene));
-      $("location-name").textContent = location.name || "Unknown";
+      const pathwayJourney = activePathwayJourney(state);
+      const roomHero = $("room-hero");
+      roomHero.classList.toggle("pathway", renderPathwayStage(state));
+      const hasSpatialScene = pathwayJourney
+        ? (renderSpatialScene(null), false)
+        : renderSpatialScene(state?.spatial_scene);
+      roomHero.classList.toggle("spatial", hasSpatialScene);
+      $("location-name").textContent = pathwayJourney
+        ? `on the way to ${pathwayJourney.destination_name || "the destination"}`
+        : (location.name || "Unknown");
       const brand = $("brand");
       const menuOpen = libraryPanelPinned || accountPanelPinned;
       brand.innerHTML = `${iconSvg(menuOpen ? "close" : "menu")}<span>${menuOpen ? "close menu" : "menu"}</span>`;
@@ -10455,7 +10700,9 @@
       $("card-modal").querySelector(".card-close").innerHTML = iconSvg("close");
       $("wallet-modal").querySelector(".wallet-close").innerHTML = iconSvg("close");
       renderEconomy();
-      $("journal-location").textContent = location.name || "Unknown";
+      $("journal-location").textContent = pathwayJourney
+        ? `${pathwayJourney.origin_name || "the way back"} — ${pathwayJourney.destination_name || "the destination"}`
+        : (location.name || "Unknown");
       document.querySelector(".room")?.classList.toggle("collapsed", !roomCopyExpanded);
       if (lastRoomCopyLocationId !== location.id) {
         roomCopyExpanded = false;
@@ -15394,6 +15641,7 @@
         button.classList.remove(...actionCardAccentClasses);
         button.classList.remove("dealt");
         button.classList.remove("story-guided");
+        button.classList.remove("pathway-direction");
         button.setAttribute("aria-label", "wait");
         button.classList.remove("has-copy");
         button.innerHTML = `<span class="thumb placeholder" aria-hidden="true"></span>`;
@@ -15424,6 +15672,7 @@
       else button.removeAttribute("data-card-rarity");
       button.classList.add(className);
       button.classList.toggle("story-guided", storyGuide);
+      button.classList.toggle("pathway-direction", Boolean(action.pathwayDirection));
       if (storyGuide) button.dataset.storyGuide = storyGuideLabel;
       else button.removeAttribute("data-story-guide");
       if (Number.isInteger(action.actionIndex)) button.dataset.actionIndex = String(action.actionIndex);
@@ -15442,7 +15691,7 @@
         button.classList.remove("dealt");
       }
       const title = [
-        action.command,
+        action.pathwayDirection ? "" : action.command,
         handProviderReason(action),
         friendlyActionText(action.effect),
         friendlyActionText(action.risk),
@@ -15474,7 +15723,12 @@
         button.innerHTML = `<span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">${iconSvg("cards")}${escapeHtml(compactActionLabel(action) || "all")}</span>`;
         return;
       }
-      const thumb = thumbnailHtml(action, false, "action-mini-card");
+      const directionArrow = action.pathwayDirection?.side === "back"
+        ? "←"
+        : (action.pathwayDirection?.side === "forward" ? "→" : "↔");
+      const thumb = action.pathwayDirection
+        ? `<span class="thumb pathway-direction-thumb" aria-hidden="true">${directionArrow}</span>`
+        : thumbnailHtml(action, false, "action-mini-card");
       button.classList.add("has-copy");
       const labelText = compactActionLabel(action) || String(action.command || "action").toLowerCase();
       const detailHtml = detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "";
