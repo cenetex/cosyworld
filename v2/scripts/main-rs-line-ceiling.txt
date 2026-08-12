@@ -241,4 +241,12 @@
 # StartTreasureObjective, SetRouteLifecycle -- in projection_ledger.rs with
 # empirically derived write sets. Journal encoding pinned per variant; no
 # behaviour change.
-67912
+# 67912 -> 67860: four character and bond ProjectionMutation variants become
+# newtype payloads owning their apply -- ChooseClass, ReviseCalling, DeepenBond,
+# ReviseBond -- in projection_character.rs with empirically derived write sets.
+# LegacyAcceptQuest is deliberately left inline: its handler is an unconditional
+# no-op, so no non-vacuous fixture can exist and its write set is unverifiable
+# by construction, the same reason SetJobStatus was reverted from #731. Also
+# fixes the write-set helper, which validated declared keys against a seeded
+# snapshot and so rejected correct declarations naming a normally-empty field.
+67860
