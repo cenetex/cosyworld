@@ -4,12 +4,44 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { evaluateWorldpackGate } from "./check-deploy-worldpack.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packRoot = path.resolve(scriptDir, "../content/hoppycat-archive");
+const worldRoot = path.resolve(scriptDir, "../worlds/hoppycat");
+const compiledRoot = path.resolve(scriptDir, "../content/hoppycat");
+const deployedBundleHash =
+  "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035";
 
 function readJson(fileName) {
   return JSON.parse(fs.readFileSync(path.join(packRoot, fileName), "utf8"));
 }
+
+function readJsonFrom(root, fileName) {
+  return JSON.parse(fs.readFileSync(path.join(root, fileName), "utf8"));
+}
+
+test("Hoppycat accepts replay from its deployed pre-identity bundle", () => {
+  // #764 added avatar identity and naming metadata without changing resource
+  // identities, topology, rules, or the meaning of persisted gameplay state.
+  const world = readJsonFrom(worldRoot, "world.json");
+  const registry = readJsonFrom(compiledRoot, "registry.json");
+  const authoredHashes = world.persistence_compatibility
+    .replay_compatible_bundle_hashes;
+  const compiledHashes = registry.manifest.persistence_compatibility
+    .replay_compatible_bundle_hashes;
+
+  assert.deepEqual(authoredHashes, [deployedBundleHash]);
+  assert.deepEqual(compiledHashes, authoredHashes);
+
+  const decision = evaluateWorldpackGate({
+    candidateHash: registry.manifest.bundle_hash,
+    candidateReplayCompatible: compiledHashes,
+    liveHash: deployedBundleHash,
+  });
+  assert.equal(decision.ok, true);
+  assert.equal(decision.status, "declared_migration");
+});
 
 test("Hoppycat residents are a mobile illustrated cast led by Hoppy Cat", () => {
   const actors = readJson("actors.json");
