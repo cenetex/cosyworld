@@ -510,14 +510,24 @@ describe('deploy workflow', () => {
     }
   });
 
-  it('copies compile-time media registries into the release image build', () => {
+  it('copies every out-of-crate compile-time input into the release image build', () => {
     const dependencyBuild = 'RUN cargo chef cook --release --recipe-path /app/recipe.json';
+    const engineVersionCopy =
+      'COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt';
     const mediaCopy = 'COPY v2/media /app/v2/media';
     const releaseBuild = 'RUN cargo build --release';
 
+    expect(dockerignore).toContain('!v2/content-engine-version.txt');
     expect(dockerignore).toContain('!v2/media/');
     expect(dockerignore).toContain('!v2/media/**');
+    expect(dockerfile).toContain(engineVersionCopy);
     expect(dockerfile).toContain(mediaCopy);
+    expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
+      dockerfile.indexOf(engineVersionCopy)
+    );
+    expect(dockerfile.indexOf(engineVersionCopy)).toBeLessThan(
+      dockerfile.indexOf(releaseBuild)
+    );
     expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
       dockerfile.indexOf(mediaCopy)
     );
