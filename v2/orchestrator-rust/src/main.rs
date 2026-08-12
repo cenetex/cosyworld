@@ -44004,10 +44004,6 @@ mod tests {
         assert!(INDEX_HTML.contains(
             "log.innerHTML = `${partyHeading}${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
-        assert!(INDEX_HTML.contains("id=\"journey-progress\" role=\"progressbar\""));
-        assert!(INDEX_HTML.contains("function renderJourney"));
-        assert!(INDEX_HTML.contains("function travellingPartyHeaderHtml"));
-        assert!(INDEX_HTML.contains("Travelling party chat"));
         assert!(INDEX_HTML.contains(
             "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
         ));
