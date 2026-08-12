@@ -1,0 +1,506 @@
+[
+  {
+    "id": "hoppycat:ring-in-february-third",
+    "premise": "The forest is caught in February Second, and the belfry can welcome tomorrow only through continuity that remains sourced, bounded, revisable, and consensual.",
+    "stakes": "A perfect-sounding story could ring the bell sooner while quietly erasing corrections, self-authorship, and the right to pause.",
+    "location_ids": [
+      770000,
+      770001,
+      770002,
+      770003,
+      770004,
+      770005,
+      770006
+    ],
+    "participant_ids": [
+      771000,
+      771001,
+      771002,
+      771003,
+      771004,
+      771007
+    ],
+    "progress_clock_id": "hoppycat.february-third",
+    "danger_clock_id": "hoppycat.perfect-copy",
+    "status": "active",
+    "reward": {
+      "label": "the first honest morning of February Third",
+      "orbs": 3
+    },
+    "consequence": "the calendar changes its label while the same day repeats beneath it",
+    "memory_summary": "Travelers connect record, context, self-authored facets, return paths, and the authority to pause so the world can become tomorrow without becoming a copy.",
+    "action_copy": {
+      "label": "Ring in February Third",
+      "summary": "Gather the world’s loose continuities and fit them to the Red-Thread Wheel without forcing the bell."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "read-the-visible-correction",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:study",
+        "target": {
+          "kind": "feature",
+          "id": "open-record-ledger",
+          "label": "the visibly corrected record"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770001
+          },
+          {
+            "kind": "feature_searched",
+            "location_id": 770001,
+            "feature_key": "open-record-ledger"
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 10
+        },
+        "clock_id": "hoppycat.february-third",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Read the visible correction",
+        "narration_key": "hoppycat.february-third.record",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "plant-one-context-seed",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "empty-memory-bed",
+          "label": "the bounded memory bed"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770004
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770004,
+            "feature_key": "empty-memory-bed",
+            "item_id": 772003
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.february-third",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Plant one context seed",
+        "narration_key": "hoppycat.february-third.context",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "choose-the-final-facet",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "unfinished-portrait",
+          "label": "the unfinished prism portrait"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770003
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770003,
+            "feature_key": "unfinished-portrait",
+            "item_id": 772002
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.february-third",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Choose the final facet",
+        "narration_key": "hoppycat.february-third.facet",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "seat-the-fermata-clapper",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "red-thread-wheel",
+          "label": "the bell’s fermata socket"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770002
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770002,
+            "feature_key": "red-thread-wheel",
+            "item_id": 772007
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.february-third",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Seat the fermata clapper",
+        "narration_key": "hoppycat.february-third.pause",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "tie-the-chosen-thread",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "hoppycat:ring-in-february-third",
+          "label": "the completed Red-Thread Wheel"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770002
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770002,
+            "feature_key": "red-thread-wheel",
+            "item_id": 772000
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.february-third",
+        "baseline_progress": 2,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Tie the chosen red thread",
+        "narration_key": "hoppycat.february-third.thread",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": "hoppycat:make-one-impossible-thing",
+    "premise": "Mira’s ninth drawer contains a commission everyone loves and nobody has begun: make one small impossible thing and send it beyond the forest.",
+    "stakes": "Care may harden into endless preparation, or excitement may launch the work without consent, context, or a return path.",
+    "location_ids": [
+      770007,
+      770008,
+      770009
+    ],
+    "participant_ids": [
+      771005,
+      771006
+    ],
+    "progress_clock_id": "hoppycat.impossible-thing",
+    "danger_clock_id": "hoppycat.perpetual-draft",
+    "status": "active",
+    "reward": {
+      "label": "a dream with a second tail",
+      "orbs": 2
+    },
+    "consequence": "the atelier becomes perfectly organized around a work that never begins",
+    "memory_summary": "Travelers make a cared-for first draft, promise to attempt again, and launch with risks and return path attached.",
+    "action_copy": {
+      "label": "Make one impossible thing",
+      "summary": "Move an impossible commission from careful making through a first attempt to a safe launch."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "leave-care-in-the-draft",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "nine-drawer-workbench",
+          "label": "the impossible first draft"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770007
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770007,
+            "feature_key": "nine-drawer-workbench",
+            "item_id": 772005
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.impossible-thing",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Leave care in the first draft",
+        "narration_key": "hoppycat.impossible.meraki",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "promise-to-repeat",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "impossible-dream-bowl",
+          "label": "the dream’s second tail"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770008
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770008,
+            "feature_key": "impossible-dream-bowl",
+            "item_id": 772006
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.impossible-thing",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Promise to attempt again",
+        "narration_key": "hoppycat.impossible.repeat",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "look-twice-then-send",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "hoppycat:make-one-impossible-thing",
+          "label": "the inspected launch"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770009
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770009,
+            "feature_key": "launch-rail",
+            "item_id": 772009
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.impossible-thing",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Look twice, then send",
+        "narration_key": "hoppycat.impossible.launch",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": "hoppycat:restore-the-living-footnote",
+    "premise": "A beautiful play has reached the Theatre of Settled Light without the living route that distinguishes record, event, and invention.",
+    "stakes": "The play’s emotional force may harden into false provenance if it circulates before a path home is restored.",
+    "location_ids": [
+      770000,
+      770005,
+      770006
+    ],
+    "participant_ids": [
+      771000,
+      771001,
+      771002,
+      771005
+    ],
+    "progress_clock_id": "hoppycat.living-footnote",
+    "danger_clock_id": "hoppycat.rendering-adrift",
+    "status": "active",
+    "reward": {
+      "label": "a rendering that can answer back",
+      "orbs": 2
+    },
+    "consequence": "the play becomes easier to repeat and harder to correct",
+    "memory_summary": "Travelers complete a provenance card, find the rendering’s return path, and make its footnote welcoming enough to be used.",
+    "action_copy": {
+      "label": "Restore the living footnote",
+      "summary": "Trace tonight’s play through the source current and reconnect it without draining away its imaginative life."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "complete-the-provenance-card",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "source-current",
+          "label": "the three source currents"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770005
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770005,
+            "feature_key": "source-current",
+            "item_id": 772001
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "intelligence",
+          "dc": 10
+        },
+        "clock_id": "hoppycat.living-footnote",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Complete the provenance card",
+        "narration_key": "hoppycat.footnote.card",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "find-the-return-path",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "feature",
+          "id": "settled-stage",
+          "label": "the missing path in the playbill"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770006
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770006,
+            "feature_key": "settled-stage",
+            "item_id": 772004
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "intelligence",
+          "dc": 10
+        },
+        "clock_id": "hoppycat.living-footnote",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Find the return path",
+        "narration_key": "hoppycat.footnote.compass",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      },
+      {
+        "version": 1,
+        "id": "serve-the-footnote-halfway",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "hoppycat:restore-the-living-footnote",
+          "label": "a living and welcoming citation"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 770000
+          },
+          {
+            "kind": "feature_used",
+            "location_id": 770000,
+            "feature_key": "halfway-table",
+            "item_id": 772008
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "hoppycat.living-footnote",
+        "baseline_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Serve the footnote halfway",
+        "narration_key": "hoppycat.footnote.tea",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "hoppycat.archive",
+        "pack_version": "0.3.0"
+      }
+    ],
+    "pack_id": "hoppycat.archive"
+  }
+]

@@ -1,0 +1,402 @@
+{
+  "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "id": "hoppycat.february-third",
+  "name": "Hoppycat: February Third",
+  "version": 3,
+  "description": "A cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
+  "entry_location": "hoppycat.archive:location/770000",
+  "rules_profile": "cosyworld.srd5/1",
+  "active_rules_variants": [],
+  "active_rules_extensions": [],
+  "bundle_hash": "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035",
+  "packs": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.1",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.2.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "srd5.2.1"
+        }
+      ],
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.2.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:949901b6dfd936d60b668c16c7aba9f36b23dd9b89211964df1e1322e44ba00a"
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "name": "CosyWorld SRD 5.2.1 Action Profile",
+      "description": "The bounded SRD 5.2.1 action, skill, equipment, and playable-item profile used by CosyWorld.",
+      "version": "1.0.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-profile-srd5/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.2.1/reference"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "cosyworld.srd5"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 112,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/2",
+      "rules_namespace": "cosyworld.srd5",
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-profile-srd5"
+      },
+      "integrity": "sha256:8ed9de1a2a5c3d49389c2a43c948ee45ccce3363ff901ad0996d8b122c64e068"
+    },
+    {
+      "id": "hoppycat.archive",
+      "name": "Hoppycat: February Third",
+      "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
+      "version": "0.3.0",
+      "kind": "world",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "hoppycat.archive/world",
+          "kind": "world",
+          "version": "0.3.0"
+        },
+        {
+          "id": "hoppycat.archive/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "default_ruleset": "cosyworld.rules-profile-srd5/rules",
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/770000"
+        },
+        {
+          "kind": "character_creation",
+          "id": "hoppycat-february-third"
+        },
+        {
+          "kind": "asset_mount",
+          "id": "cards"
+        }
+      ],
+      "provenance": {
+        "author": "CosyWorld contributors",
+        "source_name": "HoppyCat public GitHub work",
+        "source_url": "https://github.com/HoppyCat",
+        "modification_notice": "Recurring ideas across the public repositories informed an original fantasy setting. The pack does not reproduce source text, private material, or documented Cathedral participants as characters. Original generated art uses user-provided Hoppy Cat and Teacat visual references; those references are not bundled."
+      },
+      "resource_counts": {
+        "actors": 9,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 3,
+        "items": 10,
+        "locations": 10,
+        "exits": 24,
+        "hidden_exits": 0,
+        "room_features": 10,
+        "room_sheets": 10,
+        "clocks": 6,
+        "jobs": 3,
+        "action_vocabulary": 0,
+        "fronts": 3,
+        "cards": 29,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 1,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-hoppycat-github-sources": {
+          "schema_version": 1,
+          "owner": "HoppyCat",
+          "runtime_fetch": false,
+          "catalog_path": "v2/worlds/hoppycat/github-index.json",
+          "default_ingestion": "metadata_and_link_only",
+          "new_repository_policy": "review_required",
+          "missing_repository_policy": "retain_tombstone",
+          "sources": [
+            {
+              "repository_id": 1273716470,
+              "repository": "HoppyCat/HoppyCat",
+              "location_id": 770000,
+              "role": "public signal and ecosystem context",
+              "reuse_policy": "link_only_no_detected_license"
+            },
+            {
+              "repository_id": 1182193443,
+              "repository": "HoppyCat/cathedral",
+              "location_id": 770001,
+              "role": "documentary archive and red-thread themes",
+              "reuse_policy": "link_only_artifact_specific"
+            },
+            {
+              "repository_id": 1319662501,
+              "repository": "HoppyCat/blobness",
+              "location_id": 770005,
+              "role": "provenance and concordance themes",
+              "reuse_policy": "link_only_artifact_specific"
+            },
+            {
+              "repository_id": 1221939288,
+              "repository": "HoppyCat/soulmode-agent",
+              "location_id": 770004,
+              "role": "bounded memory-routing themes",
+              "reuse_policy": "link_only_cc_by_nc_4_0"
+            },
+            {
+              "repository_id": 1247194532,
+              "repository": "HoppyCat/context-garden",
+              "location_id": 770004,
+              "role": "maintained-context themes",
+              "reuse_policy": "link_only_no_detected_license"
+            },
+            {
+              "repository_id": 760228196,
+              "repository": "HoppyCat/AIEDB",
+              "location_id": 770003,
+              "role": "character-method history",
+              "reuse_policy": "link_only_no_detected_license"
+            },
+            {
+              "repository_id": 751002427,
+              "repository": "HoppyCat/prompt-pack",
+              "location_id": 770007,
+              "role": "creative prompt practice",
+              "reuse_policy": "metadata_and_link_unlicense"
+            },
+            {
+              "repository_id": 747016717,
+              "repository": "HoppyCat/sorta-descriptive",
+              "location_id": 770007,
+              "role": "creative analysis practice",
+              "reuse_policy": "metadata_and_link_unlicense"
+            },
+            {
+              "repository_id": 762043660,
+              "repository": "HoppyCat/how-hands-work",
+              "location_id": 770007,
+              "role": "gesture-study practice",
+              "reuse_policy": "metadata_and_link_cc0_1_0"
+            },
+            {
+              "repository_id": 732694626,
+              "repository": "HoppyCat/parse-and-prettify",
+              "location_id": 770006,
+              "role": "playful citation practice",
+              "reuse_policy": "metadata_and_link_unlicense"
+            },
+            {
+              "repository_id": 795217277,
+              "repository": "HoppyCat/Sendy",
+              "location_id": 770009,
+              "role": "launch-safety themes",
+              "reuse_policy": "link_only_gpl_3_0"
+            },
+            {
+              "repository_id": 1254780833,
+              "repository": "HoppyCat/goldfish-society",
+              "location_id": 770008,
+              "role": "impossible-dream and repetition themes",
+              "reuse_policy": "link_only_no_detected_license"
+            }
+          ]
+        }
+      },
+      "rules_compatibility": {
+        "profiles": [
+          "cosyworld.srd5/1"
+        ]
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/hoppycat-archive"
+      },
+      "integrity": "sha256:228d9e0007ef27b60c750817ef7406f66971f73627d7c1266d7fb09ddb1efc27"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "actor_facets": "actor_facets.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "card_bindings": "card_bindings.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json",
+    "sentences": "sentences.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "contributions": "contributions.json",
+  "attributions": "attributions.json",
+  "licenses": "licenses.json",
+  "modified_material": "modified-material.json",
+  "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
+  "registry": "registry.json"
+}

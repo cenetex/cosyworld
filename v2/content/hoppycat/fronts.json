@@ -1,0 +1,88 @@
+[
+  {
+    "id": "hoppycat:the-holding-pattern",
+    "premise": "February Second repeats while the world chooses between honest continuity and a seamless imitation of tomorrow.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      770000,
+      770001,
+      770002,
+      770003,
+      770004,
+      770005,
+      770006
+    ],
+    "participant_ids": [
+      771000,
+      771001,
+      771002,
+      771003,
+      771004,
+      771007
+    ],
+    "stakes_questions": [
+      "Can change preserve a traceable relationship to what came before?",
+      "Will the right to pause survive the pressure to make the bell ring?"
+    ],
+    "portent_clock_id": "hoppycat.perfect-copy",
+    "job_ids": [
+      "hoppycat:ring-in-february-third"
+    ],
+    "impending_outcome": "A polished copy of tomorrow replaces continuity with performance and begins the same February Second again.",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": "hoppycat:the-ninth-drawer",
+    "premise": "An impossible commission waits between the atelier’s endless preparation and the jetty’s dangerous invitation to launch.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      770007,
+      770008,
+      770009
+    ],
+    "participant_ids": [
+      771005,
+      771006
+    ],
+    "stakes_questions": [
+      "Can visible care coexist with an imperfect first attempt?",
+      "Can ambition travel with consent, risk awareness, and a route home?"
+    ],
+    "portent_clock_id": "hoppycat.perpetual-draft",
+    "job_ids": [
+      "hoppycat:make-one-impossible-thing"
+    ],
+    "impending_outcome": "Preparation becomes the world’s most elegant way of never making the thing.",
+    "pack_id": "hoppycat.archive"
+  },
+  {
+    "id": "hoppycat:the-drifting-play",
+    "premise": "A luminous interpretation is circulating faster than the source path that could keep it corrigible.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      770000,
+      770001,
+      770005,
+      770006
+    ],
+    "participant_ids": [
+      771000,
+      771001,
+      771002,
+      771005
+    ],
+    "stakes_questions": [
+      "Can the play keep its emotional life without masquerading as a transcript?",
+      "Will audiences use the restored path rather than treating citation as decoration?"
+    ],
+    "portent_clock_id": "hoppycat.rendering-adrift",
+    "job_ids": [
+      "hoppycat:restore-the-living-footnote"
+    ],
+    "impending_outcome": "The rendering hardens into unsupported history and becomes resistant to correction.",
+    "pack_id": "hoppycat.archive"
+  }
+]

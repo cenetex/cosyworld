@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "hoppycat.february-third",
+  "name": "Hoppycat: February Third",
+  "version": 3,
+  "description": "A cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
+  "entry_location": "hoppycat.archive:location/770000",
+  "rules_profile": "cosyworld.srd5/1",
+  "packs": [
+    "hoppycat.archive",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5"
+  ]
+}

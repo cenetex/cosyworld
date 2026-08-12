@@ -27,6 +27,7 @@ images/*
 *.webp
 !v2/content/core/assets/generated/cards/*.webp
 !v2/content/the-holy-land/assets/cards/*.webp
+!v2/content/hoppycat-archive/assets/cards/*.webp
 attached_assets/*
 
 # Generated files

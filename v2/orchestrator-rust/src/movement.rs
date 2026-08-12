@@ -28,6 +28,39 @@ pub(super) async fn scout_access_context(
 }
 
 impl RuntimeWorld {
+    pub(super) fn resident_roaming_action(&self, actor: CwActor) -> Option<CwAction> {
+        if !seed_actor_roams(actor.id) {
+            return None;
+        }
+        let exits = self
+            .accessible_movement_exits(actor.id, &AccessContext::default())
+            .into_iter()
+            .filter(|exit| exit.distance <= 1)
+            .collect::<Vec<_>>();
+        if exits.is_empty() {
+            return None;
+        }
+        let start = actor
+            .id
+            .wrapping_add(self.world.tick)
+            .wrapping_rem(exits.len() as u64) as usize;
+        for offset in 0..exits.len() {
+            let exit = &exits[(start + offset) % exits.len()];
+            if let Some(action) = self.fresh_resident_autonomy_action(
+                actor,
+                CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id: actor.id,
+                    destination_location_id: exit.destination_location_id,
+                    ..CwAction::default()
+                },
+            ) {
+                return Some(action);
+            }
+        }
+        None
+    }
+
     pub(crate) fn plan_scout_offer_with_access(
         &self,
         actor_id: u64,
@@ -740,6 +773,18 @@ impl RuntimeWorld {
     pub(super) fn has_accessible_exit(&self, actor_id: u64, access: &AccessContext) -> bool {
         !self.accessible_movement_exits(actor_id, access).is_empty()
     }
+}
+
+fn seed_actor_roams(actor_id: u64) -> bool {
+    active_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == actor_id)
+        .is_some_and(seed_actor_roaming_enabled)
+}
+
+pub(super) fn seed_actor_roaming_enabled(actor: &SeedActorContent) -> bool {
+    actor.ambient_autonomy.unwrap_or(true) && actor.roaming.unwrap_or(false)
 }
 
 pub(super) fn bind_threshold_action(

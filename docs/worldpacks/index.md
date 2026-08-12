@@ -27,6 +27,9 @@ Start here:
 - [Project 89 Content Review](project-89-content-review.md) reviews the story,
   avatars, residents, factions, items, locations, maps, relationships, and
   remaining design risks as one playable whole.
+- [Hoppycat: February Third](hoppycat-living-archive.md) defines the executable
+  original fantasy world, its avatars, residents, items, quests, thematic
+  GitHub-curation agents, and the safe path to `hoppycat.lonelyforest.com`.
 - [Worldpack Machine Contract](https://github.com/cenetex/cosyworld/blob/main/v2/docs/worldpacks.md)
   documents the current manifest, compiler, registry, generation, and runtime
   authority boundary.

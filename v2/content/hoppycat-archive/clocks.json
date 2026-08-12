@@ -1,0 +1,104 @@
+[
+  {
+    "id": "hoppycat.february-third",
+    "scope": "room",
+    "scope_id": 770002,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Ring in February Third",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {"op": "set_tag", "tag_id": "room:770002:february_third_can_begin", "scope": "room", "scope_id": 770002, "label": "February Third can begin", "kind": "memory", "reason": "hoppycat_continuity_repaired"},
+      {"op": "set_job_status", "job_id": "hoppycat:ring-in-february-third", "status": "completed", "reason": "hoppycat_continuity_repaired"}
+    ],
+    "presentation": {"version": 1, "question": "Can the world carry enough honest continuity to become tomorrow?", "rhythm": "multi_session", "attention": "communal", "priority": 96, "situation": "February Second repeats while the belfry waits for record, context, self-authorship, return, and an honest pause.", "stakes": "If the day advances through a perfect story rather than an inspectable continuity, tomorrow will only be another copy.", "outcome": "The bell rings once, the date changes, and everyone keeps both memory and the right to revise it.", "completion_memory": "The residents and travelers joined record, context, facets, return paths, and pause into a continuity sturdy enough to welcome February Third."}
+  },
+  {
+    "id": "hoppycat.perfect-copy",
+    "scope": "room",
+    "scope_id": 770002,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Tomorrow Becomes a Perfect Copy",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {"op": "set_tag", "tag_id": "room:770002:perfect_copy_tomorrow", "scope": "room", "scope_id": 770002, "label": "tomorrow is only a perfect copy", "kind": "hook", "reason": "hoppycat_copy_wins"},
+      {"op": "set_job_status", "job_id": "hoppycat:ring-in-february-third", "status": "failed", "reason": "hoppycat_copy_wins"}
+    ],
+    "presentation": {"version": 1, "question": "Will a polished certainty replace the unfinished truth?", "rhythm": "multi_session", "attention": "background", "priority": 52, "situation": "Each repetition makes it easier to smooth away corrections, pauses, and inconvenient source paths.", "stakes": "A flawless copy can preserve the appearance of continuity while erasing everyone’s agency inside it.", "outcome": "The bell rings beautifully, but February Second begins again under a new label.", "completion_memory": "The world accepted a perfect story in place of an honest continuity, and tomorrow repeated yesterday with cleaner seams."}
+  },
+  {
+    "id": "hoppycat.impossible-thing",
+    "scope": "room",
+    "scope_id": 770009,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Make One Impossible Thing",
+    "segments": 3,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {"op": "set_tag", "tag_id": "room:770009:impossible_thing_launched", "scope": "room", "scope_id": 770009, "label": "an impossible thing launched safely", "kind": "memory", "reason": "hoppycat_dream_launched"},
+      {"op": "set_job_status", "job_id": "hoppycat:make-one-impossible-thing", "status": "completed", "reason": "hoppycat_dream_launched"}
+    ],
+    "presentation": {"version": 1, "question": "Can care, ambition, and risk awareness make something genuinely new?", "rhythm": "construction", "attention": "immediate", "priority": 78, "situation": "The ninth drawer holds an impossible commission and the launch rail is waiting.", "stakes": "The dream may stay forever in planning, or launch quickly enough to lose its return path.", "outcome": "A small impossible thing travels beyond the forest with its risks, sources, and way home attached.", "completion_memory": "The travelers made an impossible thing with visible care, attempted it, and launched it with a return path."}
+  },
+  {
+    "id": "hoppycat.perpetual-draft",
+    "scope": "room",
+    "scope_id": 770007,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "The Perpetual Draft",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {"op": "set_tag", "tag_id": "room:770007:planning_replaces_making", "scope": "room", "scope_id": 770007, "label": "planning replaces making", "kind": "hook", "reason": "hoppycat_draft_stalls"},
+      {"op": "set_job_status", "job_id": "hoppycat:make-one-impossible-thing", "status": "failed", "reason": "hoppycat_draft_stalls"}
+    ],
+    "presentation": {"version": 1, "question": "Will preparation become a hiding place from the first attempt?", "rhythm": "construction", "attention": "background", "priority": 40, "situation": "Every drawer offers one more useful ingredient, category, or study before the work begins.", "stakes": "Care can become avoidance when no imperfect draft is allowed to exist.", "outcome": "The worktable becomes exquisitely organized around a thing no one has made.", "completion_memory": "The makers prepared forever and protected the impossible thing from ever becoming real."}
+  },
+  {
+    "id": "hoppycat.living-footnote",
+    "scope": "room",
+    "scope_id": 770006,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Restore the Living Footnote",
+    "segments": 3,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {"op": "set_tag", "tag_id": "room:770006:rendering_has_return_path", "scope": "room", "scope_id": 770006, "label": "the rendering has a living return path", "kind": "memory", "reason": "hoppycat_footnote_restored"},
+      {"op": "set_job_status", "job_id": "hoppycat:restore-the-living-footnote", "status": "completed", "reason": "hoppycat_footnote_restored"}
+    ],
+    "presentation": {"version": 1, "question": "Can tonight’s play remain imaginative and still answer back to its record?", "rhythm": "multi_session", "attention": "immediate", "priority": 74, "situation": "A luminous play has reached the theatre without the path that explains what was sourced, transformed, or invented.", "stakes": "Without a living footnote, emotional force may be mistaken for documentary proof.", "outcome": "The play remains strange and beautiful while its source distance glows visibly at the footlights.", "completion_memory": "The travelers traced the rendering through the source current and restored a warm, usable path back to the record."}
+  },
+  {
+    "id": "hoppycat.rendering-adrift",
+    "scope": "room",
+    "scope_id": 770005,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "The Rendering Drifts Free",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "on_fill": [
+      {"op": "set_tag", "tag_id": "room:770005:rendering_without_source", "scope": "room", "scope_id": 770005, "label": "a rendering circulates without its source", "kind": "hook", "reason": "hoppycat_rendering_drifts"},
+      {"op": "set_job_status", "job_id": "hoppycat:restore-the-living-footnote", "status": "failed", "reason": "hoppycat_rendering_drifts"}
+    ],
+    "presentation": {"version": 1, "question": "Will repetition turn the play into an unsupported claim?", "rhythm": "multi_session", "attention": "background", "priority": 44, "situation": "Each retelling shortens the distance between the moving play and the record it no longer names.", "stakes": "A vivid interpretation may harden into false provenance.", "outcome": "The rendering becomes easier to repeat and harder to correct.", "completion_memory": "The play drifted from its record until audiences could no longer tell which parts could answer back."}
+  }
+]

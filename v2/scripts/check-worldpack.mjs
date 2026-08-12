@@ -1583,6 +1583,12 @@ for (const actor of actors) {
   if (actor.ambient_autonomy !== undefined && typeof actor.ambient_autonomy !== "boolean") {
     fail(`actor ${actor.id} has invalid ambient_autonomy`);
   }
+  if (actor.roaming !== undefined && typeof actor.roaming !== "boolean") {
+    fail(`actor ${actor.id} has invalid roaming`);
+  }
+  if (actor.roaming === true && actor.ambient_autonomy === false) {
+    fail(`actor ${actor.id} cannot roam while ambient_autonomy is disabled`);
+  }
   if (!has(locationIds, actor.location_id)) {
     fail(`actor ${actor.id} references missing location ${actor.location_id}`);
   }

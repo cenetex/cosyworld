@@ -19966,7 +19966,7 @@ The relationship statement they are preserving is: {statement}"
                 }
             }
         }
-        None
+        self.resident_roaming_action(actor)
     }
 
     fn resident_proposed_action_matches_legal_offer(

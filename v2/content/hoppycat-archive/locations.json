@@ -1,0 +1,112 @@
+[
+  {
+    "id": 770000,
+    "name": "Halfway Tea Garden",
+    "title": "Where Forest and Traveler Meet",
+    "description": "A round garden balances on the seam between forest and town. Kettles hum in tree hollows, tapioca pearls roll like glossy marbles, and every chair can be shortened or raised until strangers meet eye to eye.",
+    "persona": "The garden greets seriousness with play and play with enough care to become meaningful.",
+    "biome": "temperate tea garden",
+    "terrain": ["moss tables", "kettle trees", "adjustable chairs"],
+    "memory": ["Every dawn has been February Second for longer than anyone agrees to count.", "The garden keeps an empty cup for whoever arrives next."],
+    "allow_combat": false
+  },
+  {
+    "id": 770001,
+    "name": "Cathedral of the Open Record",
+    "title": "A Building That Keeps Its Corrections",
+    "description": "Vellum rafters rise around shelves of weather, testimony, rehearsal, and revision. Erased lines remain pale but legible, and sealed doors carry the date and reason they closed.",
+    "persona": "The cathedral would rather preserve a difficult uncertainty than replace it with a beautiful lie.",
+    "biome": "living paper cathedral",
+    "terrain": ["open ledgers", "correction windows", "red-thread rafters"],
+    "memory": ["A record and an interpretation are neighbors, not twins.", "Nothing withdrawn is secretly kept behind another name."],
+    "allow_combat": false
+  },
+  {
+    "id": 770002,
+    "name": "Red-Thread Belfry",
+    "title": "The Bell That Has Never Rung Tomorrow",
+    "description": "A narrow tower gathers red threads from every district into one enormous wheel. Above it hangs a bell engraved February Third, silent because its clapper and the world’s honest continuities are still scattered.",
+    "persona": "The belfry welcomes commitment but refuses to turn urgency into pressure.",
+    "biome": "high forest belfry",
+    "terrain": ["thread wheel", "fermata alcove", "unrung bell"],
+    "memory": ["The bell cannot be rung by force or certainty alone.", "A pause belongs to the person who asks for it."],
+    "allow_combat": false
+  },
+  {
+    "id": 770003,
+    "name": "Prism Foundry",
+    "title": "Workshop of Self-Authored Light",
+    "description": "Cold furnaces shape prisms instead of weapons. Each facet reveals a different color already present in the light, and unfinished portraits wait for their subjects to choose the next line.",
+    "persona": "The foundry offers patterns as tools, never verdicts about who someone must become.",
+    "biome": "rainbow glass foundry",
+    "terrain": ["facet anvils", "portrait easels", "cool light furnaces"],
+    "memory": ["A prism reveals; it does not imprison.", "The subject keeps the right to revise the portrait."],
+    "allow_combat": false
+  },
+  {
+    "id": 770004,
+    "name": "Context Greenhouse",
+    "title": "Small Memories, Carefully Routed",
+    "description": "Glass rooms hold labeled beds for anchors, patches, heuristics, and dormant seeds. The doors open one at a time so a useful memory can arrive without the whole greenhouse invading the room.",
+    "persona": "The greenhouse grows continuity through small deliberate acts of maintenance.",
+    "biome": "memory greenhouse",
+    "terrain": ["index trellises", "patch beds", "one-way watering gates"],
+    "memory": ["Not everything remembered belongs in every moment.", "A missing route is marked rather than guessed."],
+    "allow_combat": false
+  },
+  {
+    "id": 770005,
+    "name": "Concordance Tidelands",
+    "title": "The Shore of the Great Blob Sea",
+    "description": "At low tide, cards, renderings, names, and source paths glimmer in separate pools. Otter-built bridges connect them without pretending they came from the same current.",
+    "persona": "The tidelands allow the record to stay while identity and meaning remain open.",
+    "biome": "luminous archive coast",
+    "terrain": ["source pools", "concordance bridges", "sediment shelves"],
+    "memory": ["Source fidelity and event provenance answer different questions.", "Every rendering should keep a route home."],
+    "allow_combat": false
+  },
+  {
+    "id": 770006,
+    "name": "Theatre of Settled Light",
+    "title": "Where Records Become Plays Without Becoming Proof",
+    "description": "A pocket theatre stages cartoons, songs, weather reports, and impossible conversations beneath lamps that soften as the audience listens. Each playbill names what was sourced, imagined, or left unresolved.",
+    "persona": "The theatre loves interpretation and keeps it visibly distinct from evidence.",
+    "biome": "lantern theatre",
+    "terrain": ["paper moon stage", "citation footlights", "playbill press"],
+    "memory": ["A rendering may be emotionally true without becoming a transcript.", "Play is one way a serious signal crosses a difficult room."],
+    "allow_combat": false
+  },
+  {
+    "id": 770007,
+    "name": "Meraki Atelier",
+    "title": "Nine Drawers and a Very Difficult Hand",
+    "description": "Prompts, textures, gestures, odd adjectives, and half-finished images cover a cheerful workroom. One wall is devoted to hands drawn badly, then better, then more honestly.",
+    "persona": "The atelier values care left visibly in the work more than frictionless polish.",
+    "biome": "creative forest studio",
+    "terrain": ["nine sorting drawers", "gesture wall", "emoji type case"],
+    "memory": ["Meraki is the care placed into the making, not a style pasted on afterward.", "Useful imperfection can teach more than sterile perfection."],
+    "allow_combat": false
+  },
+  {
+    "id": 770008,
+    "name": "Goldfish Tank",
+    "title": "Department of Impossible Things, Repeated",
+    "description": "A room-sized bowl drifts among roots and brass walkways. Dream slips swim like tiny fish; once achieved, each grows a bright second tail marked try again.",
+    "persona": "The tank treats success as evidence that another impossible attempt may be worth making.",
+    "biome": "floating dream aquarium",
+    "terrain": ["dream current", "repeat rings", "vibe-scout balcony"],
+    "memory": ["An impossible dream becomes practice when someone tries again.", "Reviews are field notes, not rankings carved in stone."],
+    "allow_combat": false
+  },
+  {
+    "id": 770009,
+    "name": "Signal Jetty",
+    "title": "Look Twice, Then Send",
+    "description": "Paper boats, lantern packets, and bright little launches wait at a jetty overlooking the dark web beyond the forest. Every vessel must carry a return address, a risk note, and room to turn back.",
+    "persona": "The jetty believes a signal should travel, but never faster than consent and context can follow.",
+    "biome": "moonlit signal harbor",
+    "terrain": ["launch rails", "risk buoys", "return-path ropes"],
+    "memory": ["A launch is examined before it is celebrated.", "Fast circulation does not erase responsibility for the route."],
+    "allow_combat": false
+  }
+]

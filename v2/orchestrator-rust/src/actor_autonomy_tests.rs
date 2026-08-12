@@ -1,5 +1,50 @@
 use super::*;
 
+fn roaming_actor(ambient_autonomy: Option<bool>, roaming: Option<bool>) -> SeedActorContent {
+    SeedActorContent {
+        pack_id: "test.roaming".to_string(),
+        id: 900_001,
+        name: "Test Wanderer".to_string(),
+        speech_mode: "prose".to_string(),
+        title: "Route Tester".to_string(),
+        description: "A resident used to exercise roaming policy.".to_string(),
+        identity: None,
+        level_track_id: None,
+        voice: String::new(),
+        ambient_autonomy,
+        roaming,
+        location_id: Some(COSY_COTTAGE_LOCATION_ID),
+        stats: None,
+        goals: Vec::new(),
+        desires: Vec::new(),
+        attachments: Vec::new(),
+        relationship: None,
+    }
+}
+
+#[test]
+fn authored_roaming_requires_ambient_autonomy_and_an_explicit_opt_in() {
+    assert!(movement::seed_actor_roaming_enabled(&roaming_actor(
+        Some(true),
+        Some(true)
+    )));
+    assert!(movement::seed_actor_roaming_enabled(&roaming_actor(
+        None,
+        Some(true)
+    )));
+    assert!(!movement::seed_actor_roaming_enabled(&roaming_actor(
+        Some(false),
+        Some(true)
+    )));
+    assert!(!movement::seed_actor_roaming_enabled(&roaming_actor(
+        Some(true),
+        None
+    )));
+    assert!(!movement::seed_actor_roaming_enabled(&roaming_actor(
+        None, None
+    )));
+}
+
 #[test]
 fn autonomous_result_dedup_uses_event_causality_after_a_tick_restore() {
     let mut runtime = RuntimeWorld::seeded();
