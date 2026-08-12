@@ -43,11 +43,16 @@ impl StateKey {
     pub(super) const TRANSFER_OFFERS: Self = Self("transfer_offers");
     pub(super) const GIFT_AUTO_ACCEPTS: Self = Self("gift_auto_accepts");
     pub(super) const WORLD_ITEMS: Self = Self("world_items");
+    pub(super) const WORLD_EXITS: Self = Self("world_exits");
     pub(super) const ACTOR_RULES_FACETS: Self = Self("actor_rules_facets");
     pub(super) const ADVANCEMENT_SPENDS: Self = Self("advancement_spends");
     pub(super) const CHARM_SLOTS: Self = Self("charm_slots");
     pub(super) const EQUIPPED_CHARMS: Self = Self("equipped_charms");
     pub(super) const PREPARED_SPELLS: Self = Self("prepared_spells");
+    pub(super) const LEDGER_MARKS: Self = Self("ledger_marks");
+    pub(super) const RPG_CLAIMS: Self = Self("rpg_claims");
+    pub(super) const TREASURE_OBJECTIVES: Self = Self("treasure_objectives");
+    pub(super) const ROUTES: Self = Self("routes");
     /// Appending an event is itself durable projection state. Any handler that
     /// returns events writes these two, which is easy to miss by inspection and
     /// is why the declaration is derived from a run rather than from reading.
@@ -283,6 +288,86 @@ mod projection_write_set_tests {
                     "item_id": 2014,
                     "prepared": true,
                     "reason": "spell_deck_configuration",
+                }),
+            ),
+            (
+                ProjectionMutation::SetGiftAutoAccept(
+                    crate::projection_ledger::SetGiftAutoAccept {
+                        policy: GiftAutoAcceptPolicy {
+                            id: "policy-1".to_string(),
+                            recipient_actor_id: 1,
+                            offered_by_actor_id: 2,
+                            item_id: 3,
+                            created_tick: 10,
+                            expires_tick: 110,
+                            consumed: false,
+                        },
+                    },
+                ),
+                json!({
+                    "kind": "set_gift_auto_accept",
+                    "policy": {
+                        "id": "policy-1",
+                        "recipient_actor_id": 1,
+                        "offered_by_actor_id": 2,
+                        "item_id": 3,
+                        "created_tick": 10,
+                        "expires_tick": 110,
+                        "consumed": false,
+                    },
+                }),
+            ),
+            (
+                ProjectionMutation::MarkVisitLedger(crate::projection_ledger::MarkVisitLedger {
+                    category: "witness".to_string(),
+                    label: "saw something happen".to_string(),
+                    source_event_seq: 5,
+                    reason: "chat:1:2".to_string(),
+                }),
+                json!({
+                    "kind": "mark_visit_ledger",
+                    "category": "witness",
+                    "label": "saw something happen",
+                    "source_event_seq": 5,
+                    "reason": "chat:1:2",
+                }),
+            ),
+            (
+                ProjectionMutation::StartTreasureObjective(
+                    crate::projection_ledger::StartTreasureObjective {
+                        start: TreasureObjectiveStart {
+                            schema_version: 1,
+                            objective_id: "objective:test".to_string(),
+                            actor_id: 1,
+                            treasure_item_id: 2012,
+                            max_turns: 48,
+                        },
+                    },
+                ),
+                json!({
+                    "kind": "start_treasure_objective",
+                    "start": {
+                        "schema_version": 1,
+                        "objective_id": "objective:test",
+                        "actor_id": 1,
+                        "treasure_item_id": 2012,
+                        "max_turns": 48,
+                    },
+                }),
+            ),
+            (
+                ProjectionMutation::SetRouteLifecycle(RouteLifecycleMutation {
+                    route_id: "route:authored:1:2".to_string(),
+                    expected_version: 3,
+                    lifecycle: RouteLifecycle::Blocked,
+                    reason: "test".to_string(),
+                }),
+                json!({
+                    "kind": "set_route_lifecycle",
+                    "route_id": "route:authored:1:2",
+                    "expected_version": 3,
+                    "lifecycle": "blocked",
+                    "reason": "test",
                 }),
             ),
         ];

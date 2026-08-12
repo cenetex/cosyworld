@@ -143,7 +143,9 @@ pub(super) async fn start_treasure_objective(
     .into_system();
     record
         .projection_mutations
-        .push(ProjectionMutation::StartTreasureObjective { start });
+        .push(ProjectionMutation::StartTreasureObjective(
+            projection_ledger::StartTreasureObjective { start },
+        ));
 
     if !treasure_objective_record_preconditions_hold(&runtime, &record) {
         return objective_response(
@@ -193,7 +195,7 @@ pub(super) fn treasure_objective_record_preconditions_hold(
         .projection_mutations
         .iter()
         .filter_map(|mutation| match mutation {
-            ProjectionMutation::StartTreasureObjective { start } => Some(start),
+            ProjectionMutation::StartTreasureObjective(mutation) => Some(&mutation.start),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -1052,15 +1054,17 @@ mod tests {
         .into_system();
         record
             .projection_mutations
-            .push(ProjectionMutation::StartTreasureObjective {
-                start: TreasureObjectiveStart {
-                    schema_version: TREASURE_OBJECTIVE_SCHEMA_VERSION,
-                    objective_id: "objective:test".to_string(),
-                    actor_id,
-                    treasure_item_id,
-                    max_turns,
+            .push(ProjectionMutation::StartTreasureObjective(
+                projection_ledger::StartTreasureObjective {
+                    start: TreasureObjectiveStart {
+                        schema_version: TREASURE_OBJECTIVE_SCHEMA_VERSION,
+                        objective_id: "objective:test".to_string(),
+                        actor_id,
+                        treasure_item_id,
+                        max_turns,
+                    },
                 },
-            });
+            ));
         record
     }
 

@@ -76,6 +76,7 @@ mod projection_cache;
 #[cfg(test)]
 mod projection_cache_tests;
 mod projection_items;
+mod projection_ledger;
 mod prompts;
 mod proxim8;
 mod quest_loot;
@@ -921,16 +922,12 @@ enum ProjectionMutation {
         control: ActorSafetyControl,
         enabled: bool,
     },
-    SetGiftAutoAccept {
-        policy: GiftAutoAcceptPolicy,
-    },
+    SetGiftAutoAccept(projection_ledger::SetGiftAutoAccept),
     ConsumeGiftAutoAccept(projection::ConsumeGiftAutoAccept),
     ShuffleHand {
         reason: String,
     },
-    StartTreasureObjective {
-        start: TreasureObjectiveStart,
-    },
+    StartTreasureObjective(projection_ledger::StartTreasureObjective),
     UpdateCardPolicyPreference {
         update: CardPolicyPreferenceUpdate,
     },
@@ -1139,12 +1136,7 @@ enum ProjectionMutation {
     SettleVisitLedgerAfterDiscovery {
         reason: String,
     },
-    MarkVisitLedger {
-        category: String,
-        label: String,
-        source_event_seq: u64,
-        reason: String,
-    },
+    MarkVisitLedger(projection_ledger::MarkVisitLedger),
     ChooseClass {
         profile_id: String,
         class_id: String,
@@ -9776,9 +9768,8 @@ impl RuntimeWorld {
                         }
                     }
                 }
-                ProjectionMutation::SetGiftAutoAccept { policy } => {
-                    self.gift_auto_accepts
-                        .insert(policy.id.clone(), policy.clone());
+                ProjectionMutation::SetGiftAutoAccept(mutation) => {
+                    mutation.apply(self, &ctx);
                 }
                 ProjectionMutation::ConsumeGiftAutoAccept(mutation) => {
                     mutation.apply(self, &ctx);
@@ -9786,8 +9777,8 @@ impl RuntimeWorld {
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
                 }
-                ProjectionMutation::StartTreasureObjective { start } => {
-                    if let Some(event) = self.apply_treasure_objective_start(start) {
+                ProjectionMutation::StartTreasureObjective(mutation) => {
+                    if let Some(event) = mutation.apply(self, &ctx) {
                         events.push(event);
                     }
                 }
@@ -10116,14 +10107,8 @@ impl RuntimeWorld {
                         }
                     }
                 }
-                ProjectionMutation::SetRouteLifecycle(transition) => {
-                    if let Some(event) = self.apply_route_lifecycle_mutation(
-                        action.actor_id,
-                        &transition.route_id,
-                        transition.expected_version,
-                        transition.lifecycle,
-                        &transition.reason,
-                    ) {
+                ProjectionMutation::SetRouteLifecycle(mutation) => {
+                    if let Some(event) = mutation.apply(self, &ctx) {
                         events.push(event);
                     }
                 }
@@ -10712,19 +10697,8 @@ impl RuntimeWorld {
                     // have been projected. Keeping this as an explicit journal
                     // mutation preserves the historical order for older records.
                 }
-                ProjectionMutation::MarkVisitLedger {
-                    category,
-                    label,
-                    source_event_seq,
-                    reason,
-                } => {
-                    if let Some(event) = self.mark_visit_ledger(
-                        action.actor_id,
-                        category,
-                        label,
-                        *source_event_seq,
-                        reason,
-                    ) {
+                ProjectionMutation::MarkVisitLedger(mutation) => {
+                    if let Some(event) = mutation.apply(self, &ctx) {
                         events.push(event);
                     }
                 }
@@ -30719,9 +30693,11 @@ async fn request_gift_auto_accept(
         );
         record
             .projection_mutations
-            .push(ProjectionMutation::SetGiftAutoAccept {
-                policy: policy.clone(),
-            });
+            .push(ProjectionMutation::SetGiftAutoAccept(
+                projection_ledger::SetGiftAutoAccept {
+                    policy: policy.clone(),
+                },
+            ));
         if commit_journal_record(&state, &mut runtime, record).is_err() {
             return Json(ActionResponse {
                 ok: false,

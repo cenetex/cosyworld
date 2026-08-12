@@ -503,12 +503,14 @@ pub(super) async fn commit_completed_chat(
         });
     record
         .projection_mutations
-        .push(ProjectionMutation::MarkVisitLedger {
-            category: "witness".to_string(),
-            label: format!("shared a little chat with {target_name}."),
-            source_event_seq,
-            reason: format!("chat:{actor_id}:{target_actor_id}"),
-        });
+        .push(ProjectionMutation::MarkVisitLedger(
+            projection_ledger::MarkVisitLedger {
+                category: "witness".to_string(),
+                label: format!("shared a little chat with {target_name}."),
+                source_event_seq,
+                reason: format!("chat:{actor_id}:{target_actor_id}"),
+            },
+        ));
     let Ok((status, events)) = commit_journal_record(state, &mut runtime, record) else {
         return Vec::new();
     };
