@@ -2794,18 +2794,18 @@ async function main() {
           schema_version: 1,
           interaction_id: "a".repeat(64),
           profile,
-          summary: profile === "rerank" ? "Echo ranked three neighboring model echoes." : "Echo found three resonant neighboring model profiles.",
+          summary: profile === "rerank" ? "Echo ranked three earlier room messages against the latest line." : "Echo found three earlier messages that resonate with the latest room line.",
           output_parts: [{
             modality: "semantic_match",
             source,
-            entity_kind: "actor_model",
+            entity_kind: "message",
             entity_id: "1002",
-            label: "Neighboring Exact Model",
-            relation: source === "rerank" ? "was ranked as a neighboring model echo" : "resonates with this neighboring model descriptor",
+            label: "Moss Lantern: The rain sounds like seeds waking.",
+            relation: source === "rerank" ? "was ranked against the latest room message" : "resonates with the latest room message",
             score_band: "high",
           }],
           attribution: { provider: "openrouter", model: "exact-model" },
-          prompt_version: "grounded-semantic-v1",
+          prompt_version: "authoritative-room-message-resonance-v1",
           context_hash: "b".repeat(64),
         }),
       });
@@ -2984,11 +2984,11 @@ async function main() {
       && /pfp/.test(result.mobileImageLayout?.gridTemplateAreas || ""), `mobile visual model output should use the transcript width with its caption beneath the image: ${JSON.stringify(result.mobileImageLayout)}`);
     assert(result.image?.summary.includes("exact image model") && result.image?.busyLabel === "illustrating", `image confirmation and pending copy should remain visual: ${JSON.stringify(result.image)}`);
     assert(result.embeddings?.label === "find resonance" && result.embeddings?.title === "find resonance with Echo", `embedding interaction should render Find resonance: ${JSON.stringify(result.embeddings)}`);
-    assert(result.embeddings?.detail.endsWith("three neighboring model resonances") && result.embeddings?.busyLabel === "finding resonance", `embedding interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.embeddings)}`);
-    assert(/authoritative model descriptor/i.test(result.embeddings?.summary || "") && !/current scene|this place/i.test(result.embeddings?.summary || ""), `embedding confirmation must describe exact model descriptors, not scene similarity: ${JSON.stringify(result.embeddings)}`);
+    assert(result.embeddings?.detail.endsWith("three resonant earlier messages") && result.embeddings?.busyLabel === "finding resonance", `embedding interaction should use message-resonance, non-visual copy: ${JSON.stringify(result.embeddings)}`);
+    assert(/latest visible room message/i.test(result.embeddings?.summary || "") && /up to eight earlier room messages/i.test(result.embeddings?.summary || "") && !/model descriptor|current scene|this place/i.test(result.embeddings?.summary || ""), `embedding confirmation must describe bounded room-message resonance: ${JSON.stringify(result.embeddings)}`);
     assert(result.rerank?.label === "rank echoes" && result.rerank?.title === "rank echoes with Echo", `rerank interaction should render Rank echoes: ${JSON.stringify(result.rerank)}`);
-    assert(result.rerank?.detail.endsWith("three ranked model echoes") && result.rerank?.busyLabel === "ranking echoes", `rerank interaction should use model-neighbor, non-visual copy: ${JSON.stringify(result.rerank)}`);
-    assert(/authoritative descriptor/i.test(result.rerank?.summary || "") && !/current scene|this place/i.test(result.rerank?.summary || ""), `rerank confirmation must describe exact model descriptors, not scene similarity: ${JSON.stringify(result.rerank)}`);
+    assert(result.rerank?.detail.endsWith("three ranked earlier messages") && result.rerank?.busyLabel === "ranking echoes", `rerank interaction should use message-ranking, non-visual copy: ${JSON.stringify(result.rerank)}`);
+    assert(/up to eight earlier visible room messages/i.test(result.rerank?.summary || "") && /latest visible room message/i.test(result.rerank?.summary || "") && !/model descriptor|current scene|this place/i.test(result.rerank?.summary || ""), `rerank confirmation must describe bounded room-message ranking: ${JSON.stringify(result.rerank)}`);
     assert(result.speech?.label === "speak" && result.speech?.title === "speak with Echo", `speech interaction should render Speak: ${JSON.stringify(result.speech)}`);
     assert(result.speech?.detail.endsWith("one server-authored spoken line") && result.speech?.busyLabel === "speaking", `speech interaction should promise exactly one authored audio result: ${JSON.stringify(result.speech)}`);
     assert(/exact speech model and voice/i.test(result.speech?.summary || "")
@@ -3005,11 +3005,11 @@ async function main() {
     assert(result.explicitUnknown?.label === "interact", `an explicit unknown intention must not be inferred as Image from its generic label: ${JSON.stringify(result.explicitUnknown)}`);
     assert(result.legacyFallback?.label === "find resonance", `label fallback should apply only when the offer intention is absent: ${JSON.stringify(result.legacyFallback)}`);
     assert(/illustrating the current scene/i.test(result.imagePendingText), `image pending output should stay visual: ${result.imagePending}`);
-    assert(/finding resonant model profiles/i.test(result.embeddingsPendingText) && !/image|visual|illustrat|current scene|this place/i.test(result.embeddingsPendingText), `embedding pending output should stay model-semantic: ${result.embeddingsPending}`);
+    assert(/finding resonant earlier messages/i.test(result.embeddingsPendingText) && !/image|visual|illustrat|current scene|this place|model profiles/i.test(result.embeddingsPendingText), `embedding pending output should stay message-semantic: ${result.embeddingsPending}`);
     assert(/trying the ranking route again/i.test(result.rerankPendingText) && !/image|visual|illustrat/i.test(result.rerankPendingText), `rerank pending output should stay semantic: ${result.rerankPending}`);
     assert(/synthesizing the line with the exact voice/i.test(result.speechPendingText) && !/typing|player-authored|prompt/i.test(result.speechPendingText), `speech pending output should stay exact-voice and server-authored: ${result.speechPending}`);
-    assert(/model resonances found/i.test(result.embeddingsResultText) && !/image|visual|illustrat|current scene|this place/i.test(result.embeddingsResultText), `embedding result should stay model-semantic: ${result.embeddingsResult}`);
-    assert(/model echoes ranked/i.test(result.rerankResultText) && !/image|visual|illustrat|current scene|this place/i.test(result.rerankResultText), `rerank result should stay model-semantic: ${result.rerankResult}`);
+    assert(/message resonances found/i.test(result.embeddingsResultText) && /Moss Lantern/.test(result.embeddingsResultText) && !/image|visual|illustrat|current scene|this place|model profiles/i.test(result.embeddingsResultText), `embedding result should stay message-semantic: ${result.embeddingsResult}`);
+    assert(/room echoes ranked/i.test(result.rerankResultText) && /Moss Lantern/.test(result.rerankResultText) && !/image|visual|illustrat|current scene|this place|model profiles/i.test(result.rerankResultText), `rerank result should stay message-semantic: ${result.rerankResult}`);
     assert(/spoken line/i.test(result.speechResult) && /<audio controls/.test(result.speechResult)
       && /From The Cosy Cottage, Echo offers this place a voice\./.test(result.speechResult), `speech output should render one audio player and its transcript: ${result.speechResult}`);
     assert(result.speechMetadata?.parts?.[0]?.durationMs === null, `speech duration must be optional rather than fabricated: ${JSON.stringify(result.speechMetadata)}`);
