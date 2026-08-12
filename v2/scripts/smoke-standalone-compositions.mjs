@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { constants } from "node:fs";
 import { createHash } from "node:crypto";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -141,6 +141,10 @@ const worldCases = [
     additionalScoutDestination: "Void 003",
     multiStepScoutPath: true,
     connectionItem: "Void Token 001",
+    legacyGeneratedCheckpoint: {
+      bundleHash: "sha256:3cfea1b17307d8c65fa904f612ca25f01c805a892647ecd54ff03c816a0041ee",
+      packVersion: "0.2.0",
+    },
   },
 ];
 
@@ -262,7 +266,12 @@ function stopServer(proc) {
   });
 }
 
-async function startServer(tempDir, registryPath, entryLocationId) {
+async function startServer(
+  tempDir,
+  registryPath,
+  entryLocationId,
+  { production = false } = {},
+) {
   const port = await freePort();
   const output = [];
   const env = { ...process.env };
@@ -278,16 +287,23 @@ async function startServer(tempDir, registryPath, entryLocationId) {
   Object.assign(env, {
     COSYWORLD_CONTENT_REGISTRY_PATH: registryPath,
     COSYWORLD_CONTENT_ROOT: contentRoot,
-    COSYWORLD_DEPLOY_PROFILE: "local",
+    COSYWORLD_DEPLOY_PROFILE: production ? "production" : "local",
     RUST_LOG: "cosyworld_orchestrator=info",
     COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
-    COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
     COSYWORLD_V2_GENERATED_ASSET_DIR: resolve(tempDir, "generated"),
   });
+  if (production) {
+    env.COSYWORLD_MODERATION_TOKEN = "standalone-composition-smoke";
+    env.COSYWORLD_WEBAUTHN_RP_ID = "localhost";
+    env.COSYWORLD_WEBAUTHN_ORIGIN = `http://localhost:${port}`;
+    delete env.COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS;
+  } else {
+    env.COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS = "0";
+  }
   if (entryLocationId) {
     env.COSYWORLD_ENTRY_LOCATION_ID = String(entryLocationId);
   } else {
@@ -309,6 +325,61 @@ async function startServer(tempDir, registryPath, entryLocationId) {
     throw error;
   }
   return { proc, output, baseUrl, meta };
+}
+
+async function rewriteElysiumCheckpointAsProductionLegacy(tempDir, legacy) {
+  const snapshotPath = resolve(tempDir, "snapshot.json");
+  const snapshot = JSON.parse(await readFile(snapshotPath, "utf8"));
+  const legacyBinding = {
+    schema_version: 1,
+    policy_id: "cosyworld.compatibility.host-generation/1",
+    migration_version: 0,
+    collision_namespace: "",
+    owner_pack_id: "cosyworld.elysium",
+    owner_pack_version: legacy.packVersion,
+    composition_id: "cosyworld.elysium",
+    composition_bundle_hash: legacy.bundleHash,
+    prose_profile_id: "",
+    prose_prompt_version: "",
+    ecology_transition: "",
+    topology_profile_id: "",
+    unmount_behavior: "host_default",
+  };
+  let rewrittenBindings = 0;
+
+  function rewrite(value) {
+    if (Array.isArray(value)) {
+      for (const entry of value) rewrite(entry);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+
+    if (value.generation_policy?.owner_pack_id === "cosyworld.elysium") {
+      value.generation_policy = { ...legacyBinding };
+      rewrittenBindings += 1;
+    }
+    if (value.owner_pack_id === "cosyworld.elysium" && "owner_pack_version" in value) {
+      value.owner_pack_version = legacy.packVersion;
+    }
+    if (value.pack_id === "cosyworld.elysium" && "pack_version" in value) {
+      value.pack_version = legacy.packVersion;
+    }
+    if (value.provider_pack_id === "cosyworld.elysium" && "provider_pack_version" in value) {
+      value.provider_pack_version = legacy.packVersion;
+    }
+    if (value.id === "cosyworld.elysium" && value.version === "0.2.2") {
+      value.version = legacy.packVersion;
+    }
+    for (const entry of Object.values(value)) rewrite(entry);
+  }
+
+  snapshot.worldpack_bundle_hash = legacy.bundleHash;
+  rewrite(snapshot);
+  assert(
+    rewrittenBindings >= 3,
+    `Elysium historical checkpoint rewrote only ${rewrittenBindings} generated policy bindings`,
+  );
+  await writeFile(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
 }
 
 function stateUrl(baseUrl, actorId, actorSession) {
@@ -1450,7 +1521,24 @@ async function runWorldLoop(spec) {
       })}`,
     );
 
-    restarted = await startServer(tempDir, spec.registryPath, spec.entryLocationId);
+    if (spec.legacyGeneratedCheckpoint) {
+      assert(
+        inspection.compaction.action_journal_floor_seq > 0
+          && inspection.compaction.action_journal_floor_seq <= durableJournalHead,
+        `${spec.label} did not compact behind its production checkpoint: ${JSON.stringify(inspection.compaction)}`,
+      );
+      await rewriteElysiumCheckpointAsProductionLegacy(
+        tempDir,
+        spec.legacyGeneratedCheckpoint,
+      );
+    }
+
+    restarted = await startServer(
+      tempDir,
+      spec.registryPath,
+      spec.entryLocationId,
+      { production: Boolean(spec.legacyGeneratedCheckpoint) },
+    );
     assertMountedComposition(restarted.meta, spec, 1, spec.multiStepScoutPath ? 1 : 0);
     assert(
       restarted.output.some((line) => line.includes("loaded journal checkpoint")),
@@ -1458,6 +1546,14 @@ async function runWorldLoop(spec) {
         restarted.output.slice(-40).join("")
       }`,
     );
+    if (spec.legacyGeneratedCheckpoint) {
+      assert(
+        restarted.meta.persistence?.checkpoint_rejections === 0
+          && restarted.meta.persistence.action_journal_floor_seq
+            === inspection.compaction.action_journal_floor_seq,
+        `${spec.label} rejected or bypassed its compacted production checkpoint: ${JSON.stringify(restarted.meta.persistence)}`,
+      );
+    }
     let replayed = await fetchJson(stateUrl(restarted.baseUrl, actorId, actorSession));
     assertScene(
       replayed,
@@ -1508,6 +1604,23 @@ async function runWorldLoop(spec) {
             && event.item_name === exactConnection.itemName).length === 1,
         `${spec.label} restart lost or duplicated its exact physical delivery`,
       );
+      if (spec.legacyGeneratedCheckpoint) {
+        const replayedMove = await dealOffer(
+          restarted.baseUrl,
+          actorId,
+          actorSession,
+          (offer) => offer.kind === "move" && offer.target?.label === spec.location,
+          `${spec.label} restored production route Move card`,
+        );
+        replayed = replayedMove.state;
+        assert(
+          replayedMove.offer.kind === "move"
+            && Boolean(replayedMove.offer.target?.label)
+            && !replayed.action_offers?.some((offer) =>
+              offer.kind === "explore_path" && offer.target?.label === spec.location),
+          `${spec.label} restored its discovered route as Scout instead of Move: ${JSON.stringify(replayed.action_offers)}`,
+        );
+      }
     }
     assert(
       replayed.world_seq >= committed.world_seq,

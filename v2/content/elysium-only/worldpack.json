@@ -4,7 +4,7 @@
   "canonical_id_mapping_version": 1,
   "id": "cosyworld.elysium",
   "name": "Elysium",
-  "version": 3,
+  "version": 4,
   "description": "The standalone Elysium AI zone, woven as a scoutable Fibonacci-Wythoff rhizome.",
   "entry_location": "cosyworld.elysium:location/652000",
   "persistence_compatibility": {
@@ -20,7 +20,7 @@
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
-  "bundle_hash": "sha256:494ba3ac7bf357b45a0d88b4e17ceb07fe0413cfc9eec561bdc875dbf0103099",
+  "bundle_hash": "sha256:e23cc846746aadf9aba63f0c3ea821ac5f1a1b4df111fd0510fe3a6101e8bf1c",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -188,7 +188,7 @@
       "id": "cosyworld.elysium",
       "name": "Elysium",
       "description": "A scoutable Fibonacci-Wythoff rhizome of private voids whose avatars each represent one model from a pinned OpenRouter catalog snapshot.",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit/",
@@ -197,7 +197,7 @@
         {
           "id": "cosyworld.elysium/world",
           "kind": "world",
-          "version": "0.2.1"
+          "version": "0.2.2"
         }
       ],
       "dependencies": [
@@ -262,6 +262,33 @@
         "extensions": 0
       },
       "extensions": {
+        "x-cosyworld-generation": {
+          "schema_version": 1,
+          "policy_id": "cosyworld.elysium/generation/1",
+          "migration_version": 1,
+          "collision_namespace": "pack://cosyworld.elysium/generated/v1",
+          "generated_descendants": {
+            "owner": "source_route",
+            "composition": "active_bundle",
+            "subject_kinds": [
+              "route",
+              "waypoint",
+              "place",
+              "location_card"
+            ],
+            "on_upgrade": "require_declared_migration",
+            "on_unmount": "freeze_with_owner"
+          },
+          "migrations": [
+            {
+              "from_policy_id": "cosyworld.compatibility.host-generation/1",
+              "from_migration_version": 0,
+              "from_pack_version": "0.2.0",
+              "mode": "preserve_descendants"
+            }
+          ],
+          "cross_pack_routes": []
+        },
         "x-cosyworld-ai-cast": {
           "schema_version": 1,
           "provider": "openrouter",
@@ -280,7 +307,7 @@
         "type": "workspace",
         "path": "../../content/elysium"
       },
-      "integrity": "sha256:d4eba2045b4c1ad1f3d54219b2c1585dd358d8a6eea4dce722fd0e4e3d8e0e35"
+      "integrity": "sha256:09d774965b96f6f07e337d2f750baf4da54432e3ea326c43419cfab0b15c06bd"
     }
   ],
   "files": {
