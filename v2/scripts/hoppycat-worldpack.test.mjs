@@ -10,8 +10,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packRoot = path.resolve(scriptDir, "../content/hoppycat-archive");
 const worldRoot = path.resolve(scriptDir, "../worlds/hoppycat");
 const compiledRoot = path.resolve(scriptDir, "../content/hoppycat");
-const deployedBundleHash =
-  "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035";
+const deployedBundleHashes = [
+  "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035",
+  "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
+];
 
 function readJson(fileName) {
   return JSON.parse(fs.readFileSync(path.join(packRoot, fileName), "utf8"));
@@ -21,9 +23,10 @@ function readJsonFrom(root, fileName) {
   return JSON.parse(fs.readFileSync(path.join(root, fileName), "utf8"));
 }
 
-test("Hoppycat accepts replay from its deployed pre-identity bundle", () => {
-  // #764 added avatar identity and naming metadata without changing resource
-  // identities, topology, rules, or the meaning of persisted gameplay state.
+test("Hoppycat accepts replay from deployed bundles before locked item art", () => {
+  // #764 added avatar identity and naming metadata, and #767 locks local art
+  // for all item cards. Neither changes resource identities, topology, rules,
+  // or the meaning of persisted gameplay state.
   const world = readJsonFrom(worldRoot, "world.json");
   const registry = readJsonFrom(compiledRoot, "registry.json");
   const authoredHashes = world.persistence_compatibility
@@ -31,19 +34,21 @@ test("Hoppycat accepts replay from its deployed pre-identity bundle", () => {
   const compiledHashes = registry.manifest.persistence_compatibility
     .replay_compatible_bundle_hashes;
 
-  assert.deepEqual(authoredHashes, [deployedBundleHash]);
+  assert.deepEqual(authoredHashes, deployedBundleHashes);
   assert.deepEqual(compiledHashes, authoredHashes);
 
-  const decision = evaluateWorldpackGate({
-    candidateHash: registry.manifest.bundle_hash,
-    candidateReplayCompatible: compiledHashes,
-    liveHash: deployedBundleHash,
-  });
-  assert.equal(decision.ok, true);
-  assert.equal(decision.status, "declared_migration");
+  for (const deployedBundleHash of deployedBundleHashes) {
+    const decision = evaluateWorldpackGate({
+      candidateHash: registry.manifest.bundle_hash,
+      candidateReplayCompatible: compiledHashes,
+      liveHash: deployedBundleHash,
+    });
+    assert.equal(decision.ok, true);
+    assert.equal(decision.status, "declared_migration");
+  }
 });
 
-test("Hoppycat residents are a mobile illustrated cast led by Hoppy Cat", () => {
+test("Hoppycat uses a locked illustrated card set led by Hoppy Cat", () => {
   const actors = readJson("actors.json");
   const cards = readJson("cards.json");
   const manifest = readJson("pack.json");
@@ -59,9 +64,15 @@ test("Hoppycat residents are a mobile illustrated cast led by Hoppy Cat", () => 
   assert.match(hoppy?.identity?.appearance ?? "", /blue hoodie/i);
   assert.match(hoppy?.identity?.appearance ?? "", /microphone/i);
 
-  const illustratedCards = cards.filter((card) =>
+  const avatarAndLocationCards = cards.filter((card) =>
     card.subject_kind === "actor" || card.subject_kind === "location");
-  assert.equal(illustratedCards.length, 19);
+  assert.equal(avatarAndLocationCards.length, 19);
+
+  const itemCards = cards.filter((card) => card.subject_kind === "item");
+  assert.equal(itemCards.length, 10);
+
+  const illustratedCards = [...avatarAndLocationCards, ...itemCards];
+  assert.equal(illustratedCards.length, 29);
   assert.ok(illustratedCards.every((card) => card.asset_status === "generated_art"));
 
   const mount = manifest.assets.find((asset) => asset.mount === "cards");
@@ -73,9 +84,11 @@ test("Hoppycat residents are a mobile illustrated cast led by Hoppy Cat", () => 
     assert.ok(fs.statSync(assetPath).size > 10_000, `${card.card_id} has usable art`);
   }
 
-  const itemCards = cards.filter((card) => card.subject_kind === "item");
-  assert.equal(itemCards.length, 10);
-  assert.ok(itemCards.every((card) => card.asset_status === "pending_art"));
+  assert.equal(
+    fs.readdirSync(path.join(packRoot, mount.directory))
+      .filter((fileName) => fileName.endsWith(".webp")).length,
+    illustratedCards.length,
+  );
 });
 
 test("every Hoppycat location is reachable by roaming residents", () => {

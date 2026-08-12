@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.10 — 2026-08-12
+
+- Lock Hoppycat's pregenerated avatar and location cards as canonical local
+  artwork, and add a matching ten-image set for every portable story item.
+
 ## 1.0.8 — 2026-08-12
 
 - Declare the exact Hoppycat bundle currently deployed to Lonely Forest as

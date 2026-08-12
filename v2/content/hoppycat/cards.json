@@ -295,7 +295,8 @@
     "blurb": "It catches only on relationships someone has chosen to carry forward.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-red-thread-spool.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -309,7 +310,8 @@
     "blurb": "Separate source, event, rendering, permission, and uncertainty before the tide moves again.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-provenance-card.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -323,7 +325,8 @@
     "blurb": "A glass beginning that refuses to decide its subject’s last color.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-unfinished-prism.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -337,7 +340,8 @@
     "blurb": "Plant it for a declared purpose; never mistake it for the whole past.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-context-seed.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -351,7 +355,8 @@
     "blurb": "Find source custody, event evidence, and declared interpretation without flattening them.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-concordance-compass.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -365,7 +370,8 @@
     "blurb": "Its imperfect tips leave the path of care visible in the image.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-meraki-brush.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -379,7 +385,8 @@
     "blurb": "A brass promise that success will lead to curiosity again.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-loop-token.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -393,7 +400,8 @@
     "blurb": "The February Third bell remains silent whenever its carrier asks for time.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-fermata-clapper.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -407,7 +415,8 @@
     "blurb": "Two handles at different heights make sharing part of the design.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-halfway-cup.webp",
     "pack_id": "hoppycat.archive"
   },
   {
@@ -421,7 +430,8 @@
     "blurb": "Name consent, harm, source, correction, and the way home before launch.",
     "aspect": "square",
     "source": "hoppycat_february_third",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
+    "image_url": "/assets/hoppycat/cards/hoppycat-return-path-checklist.webp",
     "pack_id": "hoppycat.archive"
   }
 ]
