@@ -100,6 +100,7 @@ mod settlement_buildings;
 mod snapshot_persistence;
 mod solana;
 mod spatial;
+mod startup;
 mod story_metrics;
 #[cfg(test)]
 mod test_support;
@@ -4580,62 +4581,7 @@ async fn action_response_http_status(response: Response) -> Response {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let boot_started = std::time::Instant::now();
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "cosyworld_orchestrator=info,tower_http=info".into()),
-        )
-        .init();
-
-    configured_content_registry().map_err(io::Error::other)?;
-    let state = AppState::bootstrap().await?;
-    let shutdown_state = state.clone();
-    let _projection_refresh_scheduler = start_projection_refresh_scheduler(state.clone());
-    let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
-    start_focused_encounter_scheduler(state.clone());
-    start_actor_job_worker(state.clone());
-    resume_pending_community_art_generations(&state);
-    start_event_store_retry_scheduler(state.clone());
-    start_ownership_refresh_scheduler(state.clone());
-    start_moderation_retention_scheduler(state.clone());
-    start_story_metrics_retention_scheduler(state.clone());
-    start_command_receipt_retention_scheduler(state.clone());
-    let _ai_readiness_scheduler = start_ai_readiness_scheduler(state.ai_config.as_ref().clone());
-    let app = routes::app_router(state);
-    let addr: SocketAddr = std::env::var("COSYWORLD_V2_ADDR")
-        .unwrap_or_else(|_| "127.0.0.1:3102".to_string())
-        .parse()?;
-    let listener = TcpListener::bind(addr).await?;
-    info!(
-        "CosyWorld v2 orchestrator listening on http://{addr} after {}ms",
-        boot_started.elapsed().as_millis()
-    );
-
-    let server = axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    );
-    if env_flag("COSYWORLD_DISABLE_CTRL_C_SHUTDOWN") {
-        // The flag exists so a detached session survives a stray SIGINT. It must
-        // not mean "ignore SIGTERM": that is how Fly stops a machine and how the
-        // composition smoke stops a server before running the offline pack-mount
-        // migration, and dying unhandled there would strand the coalesced
-        // snapshot behind the journal head.
-        server.with_graceful_shutdown(terminate_signal()).await?;
-    } else {
-        server.with_graceful_shutdown(shutdown_signal()).await?;
-    }
-
-    // Snapshot writes are coalesced during play, so the last one may be older
-    // than the journal. Force a final write on the way out; the journal would
-    // still rebuild the gap, but this keeps the next boot cheap.
-    {
-        let runtime = shutdown_state.inner.lock().await;
-        persist_runtime_now(&shutdown_state, &runtime);
-    }
-
-    Ok(())
+    startup::run().await
 }
 
 impl AppState {
