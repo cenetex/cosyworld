@@ -14,7 +14,8 @@
       "replay_compatible_bundle_hashes": [
         "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df",
         "sha256:0d989794764b86a1b3067a3c1ca43078dbacfece38a84371039d5a16af80e2f3",
-        "sha256:2029c79967979ad2864570ea55708b6fdc02aced3c32ad80f88c646c330083f8"
+        "sha256:2029c79967979ad2864570ea55708b6fdc02aced3c32ad80f88c646c330083f8",
+        "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347"
       ]
     },
     "pack_lifecycle": {
@@ -723,7 +724,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
+    "bundle_hash": "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2413,6 +2414,96 @@
           "path": "../../content/core-holy-land-bridge"
         },
         "integrity": "sha256:33ec60037a997b8a40d92805bb2a9aff60428eeadf32a78489c179ef160af3d9"
+      },
+      {
+        "id": "cosyworld.lonely-forest.characters",
+        "name": "Lonely Forest Character Art",
+        "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
+        "version": "1.1.1",
+        "kind": "assets",
+        "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+        "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
+        "engine": ">=0.0.20 <0.1.0",
+        "capabilities": [
+          {
+            "id": "cosyworld.lonely-forest.characters/assets",
+            "kind": "assets",
+            "version": "1.0.0"
+          }
+        ],
+        "dependencies": [
+          "cosyworld.core",
+          "cosyworld.rules-profile-srd5"
+        ],
+        "dependency_requirements": [
+          {
+            "id": "cosyworld.core",
+            "version": ">=1.0.0 <2.0.0",
+            "capabilities": [
+              "cosyworld.core/world"
+            ]
+          },
+          {
+            "id": "cosyworld.rules-profile-srd5",
+            "version": ">=1.0.0 <2.0.0",
+            "capabilities": [
+              "cosyworld.rules-profile-srd5/rules"
+            ]
+          }
+        ],
+        "dependency_closure": [
+          "cosyworld.rules-srd-5.2.1",
+          "cosyworld.rules-profile-srd5",
+          "cosyworld.core"
+        ],
+        "default_ruleset": null,
+        "entry_points": [
+          {
+            "kind": "asset_mount",
+            "id": "characters"
+          }
+        ],
+        "provenance": {
+          "author": "Cenetex",
+          "source_name": "Cenetex Lonely Forest character art",
+          "source_url": "https://github.com/cenetex/cosyworld"
+        },
+        "resource_counts": {
+          "actors": 0,
+          "actor_facets": 0,
+          "access_gates": 0,
+          "factions": 0,
+          "items": 0,
+          "locations": 0,
+          "exits": 0,
+          "hidden_exits": 0,
+          "room_features": 0,
+          "room_sheets": 0,
+          "clocks": 0,
+          "jobs": 0,
+          "action_vocabulary": 0,
+          "fronts": 0,
+          "cards": 0,
+          "card_bindings": 0,
+          "lifecycle_hooks": 0,
+          "evolution_tracks": 0,
+          "recipes": 0,
+          "sentences": 0,
+          "external_cards": 0,
+          "assets": 1,
+          "rules": 0,
+          "character_creation": 0,
+          "reskins": 0,
+          "offers": 0,
+          "variants": 0,
+          "extensions": 0
+        },
+        "rules_profile": "cosyworld.srd5/1",
+        "source": {
+          "type": "workspace",
+          "path": "../../content/lonely-forest"
+        },
+        "integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff"
       }
     ],
     "files": {
@@ -11760,6 +11851,19 @@
       "content_hash": "sha256:61865d00e777907b22ad2411651e5ec638362e346661ac81e3f5e191054de9e2",
       "optional": false,
       "fallback": null
+    },
+    {
+      "pack_id": "cosyworld.lonely-forest.characters",
+      "pack_version": "1.1.1",
+      "pack_integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff",
+      "provider": "cosyworld.lonely-forest.characters/assets",
+      "mount": "characters",
+      "root": "lonely-forest",
+      "directory": "assets/characters/slices",
+      "public_prefix": "/assets/lonely-forest/characters",
+      "content_hash": "sha256:d45eb30a962de236ddba913834e8bdaa7b9c530bc6b66383e272118218797d93",
+      "optional": false,
+      "fallback": null
     }
   ],
   "rules": [
@@ -13272,6 +13376,19 @@
       "provenance": {
         "author": "Cenetex",
         "source_name": "CosyWorld official composition",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "notices": []
+    },
+    {
+      "pack_id": "cosyworld.lonely-forest.characters",
+      "name": "Lonely Forest Character Art",
+      "version": "1.1.1",
+      "license_identifier": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Cenetex Lonely Forest character art",
         "source_url": "https://github.com/cenetex/cosyworld"
       },
       "notices": []

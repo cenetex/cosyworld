@@ -47,6 +47,7 @@ const worldCases = [
       "cosyworld.core",
       "cosyworld.the-holy-land",
       "cosyworld.composition.core-holy-land",
+      "cosyworld.lonely-forest.characters",
     ],
     location: "Bethlehem",
     locationPack: "cosyworld.the-holy-land",
@@ -54,6 +55,7 @@ const worldCases = [
     capability: "cosyworld.core/rules",
     offerVerb: null,
     firstTaleAbsent: true,
+    cardImagePath: "/assets/lonely-forest/characters/34-armored-winged-hero.png",
   },
   {
     label: "Lantern Keeper",
@@ -1294,6 +1296,20 @@ async function runWorldLoop(spec) {
   try {
     first = await startServer(tempDir, spec.registryPath, spec.entryLocationId);
     assertMountedComposition(first.meta, spec);
+    if (spec.cardImagePath) {
+      const image = await fetch(`${first.baseUrl}${spec.cardImagePath}`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      assert(image.ok, `${spec.label} card image returned HTTP ${image.status}`);
+      assert(
+        image.headers.get("content-type") === "image/png",
+        `${spec.label} card image used ${image.headers.get("content-type")}`,
+      );
+      assert(
+        !image.headers.has("x-cosyworld-asset-diagnostic"),
+        `${spec.label} card image returned an asset-provider diagnostic`,
+      );
+    }
     let created;
     try {
       created = await postJson(

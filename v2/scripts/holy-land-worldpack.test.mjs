@@ -16,6 +16,7 @@ const cards = readJson("the-holy-land", "cards.json");
 const jobs = readJson("the-holy-land", "jobs.json");
 const holyLandPack = readJson("the-holy-land", "pack.json");
 const bridgePack = readJson("core-holy-land-bridge", "pack.json");
+const bethlehemRegistry = readJson("bethlehem", "registry.json");
 const officialWorld = JSON.parse(
   fs.readFileSync(path.resolve(scriptDir, "../worlds/official/world.json"), "utf8"),
 );
@@ -140,13 +141,27 @@ test("Bethlehem accepts every declared production replay epoch", () => {
   // resource identities, rules profile, pack versions, and persisted-state
   // interpretation remain stable across this boundary.
   // Tenant 7 persisted the second and third hashes before later content-pack
-  // compiler releases; their journals use the same canonical IDs and state
-  // interpretation as the current bundle.
+  // compiler releases. The fourth is the provider-less bundle replaced by the
+  // Lonely Forest art mount; all use the same canonical IDs and state meaning.
   const compatible = bethlehemWorld.persistence_compatibility
     .replay_compatible_bundle_hashes;
   assert.deepEqual(compatible, [
     "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df",
     "sha256:0d989794764b86a1b3067a3c1ca43078dbacfece38a84371039d5a16af80e2f3",
     "sha256:2029c79967979ad2864570ea55708b6fdc02aced3c32ad80f88c646c330083f8",
+    "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
   ]);
+});
+
+test("Bethlehem mounts a provider for every authored card image", () => {
+  const prefixes = bethlehemRegistry.assets.map(({ public_prefix }) => public_prefix);
+  for (const card of bethlehemRegistry.resources.cards) {
+    if (!card.image_url?.startsWith("/assets/")) continue;
+    assert.ok(
+      prefixes.some(
+        (prefix) => card.image_url === prefix || card.image_url.startsWith(`${prefix}/`),
+      ),
+      `${card.card_id} has no mounted asset provider for ${card.image_url}`,
+    );
+  }
 });
