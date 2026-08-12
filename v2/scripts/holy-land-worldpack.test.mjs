@@ -14,6 +14,7 @@ function readJson(...parts) {
 const actors = readJson("the-holy-land", "actors.json");
 const cards = readJson("the-holy-land", "cards.json");
 const jobs = readJson("the-holy-land", "jobs.json");
+const locations = readJson("the-holy-land", "locations.json");
 const holyLandPack = readJson("the-holy-land", "pack.json");
 const bridgePack = readJson("core-holy-land-bridge", "pack.json");
 const bethlehemRegistry = readJson("bethlehem", "registry.json");
@@ -42,6 +43,17 @@ test("Christ remains real in the fiction and absent from the authored cast", () 
   assert.ok(actors.some((actor) => actor.goals?.[0]?.objective === "Search for Christ."));
   assert.ok(!actors.some((actor) => /\bjesus\b|\bchrist\b/i.test(actor.name)));
   assert.ok(!cards.some((card) => /\bjesus\b|\bchrist\b/i.test(card.display_name)));
+});
+
+test("Emmaus is the destination while its road belongs to the journey system", () => {
+  const emmaus = locations.find(({ id }) => id === 714);
+  const emmausCard = cards.find(({ subject_kind, subject_id }) => (
+    subject_kind === "location" && subject_id === 714
+  ));
+
+  assert.equal(emmaus?.name, "Emmaus");
+  assert.equal(emmausCard?.display_name, "Emmaus");
+  assert.ok(!locations.some(({ name }) => name === "Road to Emmaus"));
 });
 
 test("Holy Land generated paths use the current ecology-grounded prose contract", () => {

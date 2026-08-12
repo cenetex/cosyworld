@@ -168,11 +168,11 @@ impl PathwayWayClass {
         }
     }
 
-    fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Route => "Route",
+            Self::Route => "Unmarked way",
             Self::Track => "Track",
-            Self::Path => "Path",
+            Self::Path => "Cairn path",
             Self::Trail => "Trail",
             Self::Road => "Road",
             Self::Avenue => "Avenue",
@@ -400,6 +400,39 @@ impl RuntimeWorld {
             }
         }
         Some(journey)
+    }
+
+    pub(super) fn journey_advancing_offer<'a>(
+        &self,
+        actor_id: u64,
+        offers: &'a [RankedActionOffer],
+    ) -> Option<&'a RankedActionOffer> {
+        let journey = self.journey_at_actor_location(actor_id)?;
+        let next_location_id = journey.path.get(journey.current_step + 1).copied()?;
+        offers
+            .iter()
+            .find(|offer| {
+                offer.ranked_hand_eligible
+                    && action_offer_is_reachable(offer)
+                    && offer.kind == "move"
+                    && offer
+                        .target
+                        .as_ref()
+                        .and_then(|target| target.id)
+                        .is_some_and(|target_id| target_id == next_location_id)
+            })
+            .or_else(|| {
+                offers.iter().find(|offer| {
+                    offer.ranked_hand_eligible
+                        && action_offer_is_reachable(offer)
+                        && offer.kind == "explore_path"
+                        && offer
+                            .target
+                            .as_ref()
+                            .and_then(|target| target.id)
+                            .is_some_and(|target_id| target_id == journey.destination_location_id)
+                })
+            })
     }
 
     fn generated_pathway_for_edge(
@@ -875,6 +908,19 @@ mod tests {
             .expect("the active journey remains visible");
         assert_eq!(recovered.current_step, 1);
         assert_eq!(recovered.next_location_id, Some(path[2]));
+        assert_eq!(recovered.way_class, PathwayWayClass::Route);
+        assert_eq!(recovered.way_name, "Unmarked way to Moonlit Trail");
+        let offers = runtime
+            .legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1;
+        let advancing_offer = runtime
+            .journey_advancing_offer(actor_id, &offers)
+            .expect("the active journey has one exact advancing offer");
+        let hand = runtime.action_hand_for(Some(actor_id), &offers);
+        assert!(hand
+            .entries
+            .iter()
+            .any(|entry| entry.offer_id == advancing_offer.offer_id));
         let MovementPlan::Journey { mutation, .. } = runtime
             .plan_move_choice_action(actor_id, path[2], &AccessContext::default())
             .expect("the next revealed segment remains a legal Travel choice")
@@ -938,16 +984,16 @@ mod tests {
 
         assert_eq!(
             runtime.route_label_for_edge(700, waypoint_id),
-            "Route from Bethlehem to Jerusalem"
+            "Unmarked way from Bethlehem to Jerusalem"
         );
         assert_eq!(
             runtime.route_label_for_edge(712, waypoint_id),
-            "Route from Jerusalem to Bethlehem"
+            "Unmarked way from Jerusalem to Bethlehem"
         );
 
         for (traffic_count, expected_class, expected_label) in [
             (1, PathwayWayClass::Track, "Track"),
-            (4, PathwayWayClass::Path, "Path"),
+            (4, PathwayWayClass::Path, "Cairn path"),
             (8, PathwayWayClass::Trail, "Trail"),
             (16, PathwayWayClass::Road, "Road"),
             (32, PathwayWayClass::Avenue, "Avenue"),

@@ -118,6 +118,25 @@ block, decline, withdraw, and report. A symbolic or ceremonial act is always a
 fictional world action chosen by its participants, never treatment, diagnosis,
 humiliation, or an instruction for real life.
 
+## Together Is Chosen
+
+Standing in the same room, riding in the same carriage, serving on the same
+ship, or entering the same ruin does not silently make people a party. A party
+exists because its members chose a shared Venture. Joining, accompanying,
+leaving, staying behind, and separating are recorded choices.
+
+One traveler cannot move another by pressing Travel. A shared departure names
+who is ready, what Formation they are using, where it intends to go, and what
+known cost or risk the group accepts. An absent person cannot hold everyone
+hostage; the ready travelers may leave as a smaller party while the world keeps
+the others truthfully where they remained.
+
+Vehicles remain physical things rather than social authority. A walking group,
+carriage, jetski flotilla, pirate ship, and dungeon delve can all carry the same
+Company through different parts of one Venture. Conversation follows the party
+only when authoritative membership and the fiction's communication boundaries
+permit it; the client never invents a private channel by relabeling a room.
+
 ## The Shape Of A Tale
 
 CosyWorld authors may compose a tale from six recurring functions:

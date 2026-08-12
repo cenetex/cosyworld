@@ -96,7 +96,7 @@ mechanical offer declares its stable identity:
 | Study, Recall | Interpretation of an already perceived target; exposes meaning, operation, requirements, provenance, or a better method without materializing physical truth. |
 | Inspect, Investigate | Search when physical examination is decisive; Study when interpretation is decisive. The offer must declare which binding it uses. |
 | Scout, Scope Out | The CosyWorld geographic procedure: pursue an exact Lead from an Anchor or active foray and reveal an authorized segment/target without moving. It is not a universal SRD action. |
-| Travel, Head To | Movement through a revealed route whose Gate permits the actor; it performs no discovery. |
+| Travel, Head To | Current: movement through a revealed route whose Gate permits the actor; it performs no discovery. Target: an ADR 0009 shared Venture transition may move only its explicitly ready participant set. |
 | Mark | A temporary expedition return cue on a traversed leg; no topology, forward reveal, independent branch, or Anchor. |
 | Open | One certified Gate method on a door, seal, or container; no implicit reveal or transfer. |
 | Take | Transfer one revealed accessible item after custody and capacity checks; no implicit Open, equip, install, or use. |

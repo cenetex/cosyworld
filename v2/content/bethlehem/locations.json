@@ -676,19 +676,19 @@
   },
   {
     "id": 714,
-    "name": "Road to Emmaus",
-    "title": "The Stranger on the Way",
-    "description": "A westward road crosses open hills where evening light lengthens every traveler's shadow.",
-    "persona": "The companionable Emmaus road searches slowly enough to recognize what has been walking alongside it.",
-    "biome": "western Judean hill road",
+    "name": "Emmaus",
+    "title": "Village of Recognition",
+    "description": "A small hill village gathers around warm doorways, bread ovens, and a western road glowing in the last evening light.",
+    "persona": "Companionable Emmaus makes room at the table until a familiar presence can finally be recognized.",
+    "biome": "western Judean hill village",
     "terrain": [
-      "rolling limestone hills",
+      "limestone homes",
       "grain fields",
       "evening road"
     ],
     "memory": [
-      "Two disciples walked this way with grief and met a stranger who made their broken hopes burn with meaning again.",
-      "Evening travelers still break bread before choosing the next road."
+      "Two disciples arrived here with a stranger after telling their broken hopes along the road; they recognized Jesus when bread was broken.",
+      "Evening travelers still make room at the table before choosing the next road."
     ],
     "allow_combat": false,
     "pack_id": "cosyworld.the-holy-land"

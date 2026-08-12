@@ -1,11 +1,12 @@
 # CosyWorld Product Requirements
 
-Last major revision: 2026-08-09. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, the card-composed world, and the accepted wallet-optional ownership boundary in ADR 0006.
+Last major revision: 2026-08-12. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, the card-composed world, and the accepted wallet-optional ownership boundary in ADR 0006.
 
 Companion documents:
 
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative mechanics design: Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, ownership, and poems. This PRD does not restate it.
 - `docs/systems/04-action-system.md` — authoritative target for card zones, deterministic scene composition, rules-bound offers, loadouts, and pack extensions.
+- `docs/decisions/0009-companies-ventures-formations-and-shared-travel.md` — accepted travel and party design: Companies define consensual social membership, Ventures define shared undertakings, Formations define how a party operates, and vehicles remain independent world objects.
 - `ENG.md` — architecture and engineering priorities.
 - `ECONOMY.md` — Orbs, shared media funding, the avatar-NFT bridge, and the read-only legacy receipt archive.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
@@ -37,7 +38,7 @@ The question this PRD answers is no longer "can the loop exist?" It is: **why do
 
 Every feature must serve at least one of these; a feature that serves none does not ship.
 
-1. **One shared world.** No private room copies, no resident DMs, no per-player AI responses. A resident reply is a world event broadcast to everyone present. Wallet or card ownership never unlocks, owns, or controls a shared place.
+1. **One shared world.** No private room copies, no resident DMs, no per-player AI responses. A resident reply is a world event broadcast to everyone present. ADR 0009 permits a later Company conversation only as an authoritative shared event with explicit membership, audience, and communication capability—not as a private chatbot. Wallet or card ownership never unlocks, owns, or controls a shared place.
 2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
 3. **The world runs on played time.** World time advances only through committed player turns — never on a wall clock. A quiet world is still, not rotting; a busy world is alive because people are in it. "The world moved while you were away" is always true in a populated shard, and it always means other players moved it.
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
@@ -65,6 +66,13 @@ Two rules follow.
 | Orbs | the one visible currency | ledgers, payer modes, claim gating |
 
 Everything else is *fiction, not vocabulary*: a clock is "the trail feels safer lately," a job is "someone needs help," a front is weather and trouble, a faction is who a character stands with. System names (clock, front, claim key, projection, sanctuary/frontier) never appear in the player UI. A new feature must fit an existing noun or replace one — the budget does not grow by default.
+
+Company, Venture, Formation, and detachment follow the same rule. They are
+authoritative design identities, not four new permanent tabs or terms every
+player must memorize. The interface may say **your party**, use a Company's
+chosen name, show friends travelling together, or present the relevant vehicle
+card. Co-presence and common transport never silently create that party; the
+underlying membership and shared commitment remain explicit under ADR 0009.
 
 **Rule 2 — the action hand is the controller.** The shipped resting surface is a dealt hand of exactly two labeled action cards plus a certified Think/Pass control. Selecting a suggestion opens the detail surface naming target, cost, and risk before commit. Think/Pass replaces the visible pair with the next pair from the finite authoritative order, consumes exactly one turn, and cannot change legality or silently re-rank the opening hand. The same contract projects onto every future transport: cards become Discord reactions, terminal keys, or voice intents without new server concepts. Every action and Pass certificate is server-authored; alternate transports cannot create authority.
 
@@ -111,6 +119,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 4. **Evolution as arrangement.** Placement-pattern evolution tracks with generated per-level quest lists, replacing the fixed two-item gift: patterns compile through the same fail-closed descriptor seam as clock effects, the kernel checks satisfaction against real world state, and ceremonies pay witness credit. This is the renewable quest engine — every resident level mints a fresh constellation of things to find, carry, place, and guard.
 5. **Conflict with objectives.** Objective clocks in danger rooms, nonlethal outcomes, gear durability that breaks to absorb harm, and Flee as a first-class success path. Combat stays one risk mode among many, never the default verb. (RPG Bible Phase 6.)
 6. **Linked-avatar bridge.** Productize allowlisted avatar profiles, exactly-once asset-to-actor binding, safe offstage presence, custody transfer, cosmetic metadata allowlisting, and recovery of the same actor across retries and restarts. Direct control remains a separate decision.
+7. **Companies and shared Ventures.** Replace the provisional actor-scoped travelling-party presentation with authoritative consensual Company membership, a shared Venture and chronicle, Formation and readiness state, atomic departure for the ready subset, honest progress profiles, and vehicle/dungeon composition. A vehicle never creates membership, an absent member never holds the room hostage, and unknown or branching geography never receives a false completion percentage. (ADR 0009.)
 
 ### Later — many hearths
 
@@ -156,6 +165,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - Covenant-spawned jobs and played-time seasonal cadence.
 - Self-hosted installation configuration surface.
 - Higher-level evolution tracks.
+- Companies and shared Ventures: persistent membership and consent, Venture-scoped party state, walking and vehicle Formations, detachments, shared departure, and Delve integration under ADR 0009.
 
 ## Non-Goals
 
@@ -166,6 +176,8 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - No consumable world items — use, craft, and evolution may exhaust or transform meaning, but must not delete physical items from the world.
 - No dashboard/admin chrome in the player surface; operator tools live behind protected routes.
 - No wall-clock world simulation; the world's pulse is its players.
+- No party inferred from co-presence, friendship, vehicle occupancy, or crew status; travelling together requires explicit Venture participation, and one actor cannot move another without recorded consent.
+- No universal travel percentage over hidden, open, or branching geography. Known routes may show segmented distance; voyages and dungeon delves expose only what the world can truthfully know.
 - No player-facing capacity shards or isolated official-world copies. The current release stays one writer; later capacity processes must share canonical identity, history, routing, and presence under [ADR 0003](docs/decisions/0003-one-canonical-world.md).
 - No poem-derived keys, ever: poems are tickets and incantations, keys are keys.
 
@@ -203,6 +215,7 @@ Economy health:
 - **Economy drift.** Any negative Orb ledger reason other than `community_image_generation`, or any image contribution that buys outcomes or ownership, breaks pillar 7. Review must enforce the single-sink invariant and level-sized pooled cap.
 - **External ownership leaks into world authority.** Wallet custody must never become command authority, item supply, location access, action legality, or progression. Fail closed whenever an adapter cannot prove the narrow linked-avatar contract.
 - **Turn systems can suffocate a chat world.** Speech stays turn-exempt, browsing stays free, and absent players are skippable — if any of those three slips, shared rooms stop feeling alive.
+- **A party projection can lie about social authority.** Treating everyone in a room or vehicle as a party would let presentation imply membership, shared conversation, or movement consent that the world never recorded. Company, Venture, Formation, and channel scope must be authoritative before the travelling-party treatment graduates from provisional UI.
 - **Scope gravity toward simulation.** Covenants, fronts, seasons, and crafting can each become a management game. Ship the smallest slice that serves a fantasy, per the RPG Bible's acceptance criteria.
 
 ## Acceptance Criteria Snapshot

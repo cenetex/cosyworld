@@ -173,8 +173,10 @@ and `POST /invites/{invite_id}/follow` moves an authenticated follower to the
 inviter's current canonical location. The follow is fenced across origin and
 destination rooms and is forwarded to the current owner when necessary.
 Invites expose bounded rendezvous terms before acceptance and may form a
-durable social party. Party membership never grants location access or changes
-ownership; see the [rendezvous party contract](hosted-group-access.md).
+bounded social rendezvous party. This is not an ADR 0009 Company or Venture,
+and its membership never grants location access, changes ownership, or creates
+group movement authority; see the
+[rendezvous party contract](hosted-group-access.md).
 
 Presence uses the same live route registry but remains explicitly ephemeral.
 Capacity processes relay `actor.presence` with `seq: 0`, keep a bounded regional

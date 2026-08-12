@@ -24,6 +24,10 @@ do not define V2 behavior.
 - **[ADR 0008: Projection Mutations Declare Their Writes](decisions/0008-projection-mutations-declare-their-writes.md)** —
   why each `ProjectionMutation` carries a payload that owns its `apply` and
   declares, under test, the projection state it may touch.
+- **[ADR 0009: Companies, Ventures, Formations, and Shared Travel](decisions/0009-companies-ventures-formations-and-shared-travel.md)** —
+  accepted party and travel model: explicit social membership and consent,
+  shared undertakings, walking/vehicle/delve Formations, detachments, honest
+  progress, and vehicles that remain independent world objects.
 - **[The CosyWorld Referee's Guide](dm-guide/README.md)** — source and build
   instructions for the illustrated guide to scenes, discovery, frontier
   forays, thresholds, tables, and strict AI refereeing.

@@ -418,6 +418,34 @@ Filling the existing familiarity clock settles the route under its own
 versioned contract and unlocks generated landscape art, while the deterministic
 SVG remains available throughout discovery and as the inference fallback.
 
+### Shared Travel Target
+
+[ADR 0009](../decisions/0009-companies-ventures-formations-and-shared-travel.md)
+defines the accepted party model without changing the current actor-scoped
+Travel procedure. Four authoritative identities stay separate:
+
+- **Company** records the durable social group and consensual membership;
+- **Venture** records the shared undertaking and its participating party;
+- **Formation** records how that party is operating now; and
+- **vehicle** records a physical world object, its occupancy, condition,
+  capacity, custody, cargo, and capabilities.
+
+Co-presence, Bond, crew status, common destination, and vehicle occupancy never
+imply Company or Venture membership. Shared departure requires explicit
+readiness from every actor it moves and resolves atomically for the declared
+ready subset. An absent member does not block the others and is never moved by
+a wall-clock timeout or another member's Travel card.
+
+The Venture selects an honest progress profile. Known segmented routes may
+show remaining legs; an unrevealed route shows its Lead and return chain
+without a false total; voyages expose heading and relevant vehicle condition;
+and dungeon Delves expose semantic sites, known branches, objective evidence,
+detachments, and safe retreat rather than linear distance.
+
+This is staged design. Until its versioned state, actions, replay, snapshot,
+and kernel movement contract land, the browser journey treatment remains an
+individual projection and room actors are not authoritative party members.
+
 Project Push resolution is append-only at kernel action `31`. Its recorded input
 contains the direct progress, authored preparation bonus, prepared flag,
 evidence count, project location count, and remaining clock segments. The

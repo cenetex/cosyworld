@@ -118,6 +118,41 @@ The world board answers **where could this venture go?** The scene board
 answers **what matters here, now?** A card may target either scale, but both
 remain projections of the same canonical world.
 
+## Companies, Delves, And Detachments
+
+A dungeon does not create a party and is not a linear trail with indoor art.
+Under [ADR 0009](decisions/0009-companies-ventures-formations-and-shared-travel.md),
+a **Company** supplies durable social identity, a **Delve Venture** supplies the
+shared purpose, and a **Delve Formation** supplies the current operating facts:
+marching order, light, noise, carried supplies, cohesion, and retreat chain.
+
+The Company may have arrived on foot, by carriage, or aboard a ship left at the
+threshold. Changing Formation does not discard its membership, conversation,
+or Venture history. A vehicle remains an independent world object and never
+certifies who belongs to the delve.
+
+Dungeon progress is knowledge and position, not a guessed completion
+percentage. The party projection should answer:
+
+- which semantic site each member occupies;
+- which branches and constraints are known;
+- what evidence advances the Venture objective;
+- where the most recent refuge, Anchor, or entrance lies;
+- whether the return chain is currently usable; and
+- which members are together, separated, or out of contact.
+
+A subset entering another site becomes a **detachment**, not a second copy of
+the dungeon or an accidental loss of party state. It remains related to the
+Company while receiving its own local board, transcript audience, and exact
+action context. Rejoining, losing contact, rescue, retreat, and extraction are
+authoritative events.
+
+Company conversation is also distinct from local speech. The Venture chronicle
+can persist across the delve, but separated members hear one another only when
+their positions or an authored communication capability allow it. The board
+must not imply remote contact merely because everyone remains in the same
+Company.
+
 ## The Pair Is The Unit Of Choice
 
 The existing action hand is exactly two server-authored offers plus certified
@@ -291,6 +326,26 @@ not replace it. A target shape could be:
 
 ```json
 {
+  "venture": {
+    "schema_version": 1,
+    "venture_ref": "venture:flooded-barrow-delve",
+    "kind": "delve",
+    "company_ref": "company:lantern-bearers",
+    "participant_refs": ["actor:percy", "actor:brindle"],
+    "formation": {
+      "kind": "delve",
+      "cohesion": "together",
+      "light_source_ref": "item:dawn-lantern"
+    },
+    "progress": {
+      "profile": "delve",
+      "current_site_ref": "site:west-bank",
+      "known_branch_refs": ["link:barrow-causeway"],
+      "retreat_site_ref": "site:saint-orras-ruin",
+      "percent": null
+    },
+    "detachments": []
+  },
   "scene_board": {
     "schema_version": 1,
     "scene_ref": "scene:flooded-barrow",
@@ -349,7 +404,10 @@ not replace it. A target shape could be:
 `presentation_pos` is a layout hint, not a rules coordinate. `target_refs`
 must name only currently perceivable projected subjects. The existing offer
 envelope remains the authority for target, cost, risk, expected effect,
-resolver, and state revision.
+resolver, and state revision. The Venture block is likewise a projection of
+authoritative membership, Formation, site occupancy, and discovered topology;
+the client cannot populate it from the room roster. `percent` is deliberately
+null for a Delve because the remaining site graph is not known.
 
 ## Reference Encounter: Flooded Barrow
 
@@ -445,7 +503,10 @@ This motif should land through narrow, independently playable slices:
    with deterministic fork-aware pairs under an explicit playtest profile.
 5. **World board and memory marks.** Project known topology and durable local
    consequences beyond the current room.
-6. **Cross-door joins.** Show declared shared routes and transfer gates across
+6. **Companies and Delves.** Bind authoritative Venture participants,
+   detachments, Formation, local transcript scope, and retreat chains to the
+   semantic site graph; do not infer the party from co-presence.
+7. **Cross-door joins.** Show declared shared routes and transfer gates across
    worldpacks without suggesting that every mounted pack is physically
    connected.
 

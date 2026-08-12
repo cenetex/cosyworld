@@ -2,6 +2,42 @@
 
 # Part V: Frontier Expeditions {#part-frontier}
 
+## The Company Contract {#company-contract}
+
+::: {.target}
+**ACCEPTED TARGET - Shared Ventures.** The shipped journey cursor is
+actor-scoped. A future shared party must be derived from authoritative Company
+membership and Venture participation, never from everyone in the current room
+or vehicle. See ADR 0009, "companies, ventures, formations, and shared travel."
+:::
+
+Keep four questions separate when preparing group travel:
+
+| Question | Design identity |
+| --- | --- |
+| Who chose to act together? | **Company**, with an explicitly participating party |
+| What are they trying to do? | **Venture** |
+| How are they presently operating? | **Formation** |
+| What are they moving through? | route, open region, vehicle interior, or dungeon site graph |
+
+A vehicle does not create the party. It can carry members, guests, passengers,
+crew, cargo, and people pursuing unrelated purposes. One Company can walk,
+hire a carriage, divide across several jetskis, sail a ship, and adopt a delve
+formation while pursuing one Venture.
+
+Before shared departure, show the proposed leg, Formation, known risk, and
+participants. Each traveler may become ready, decline, remain behind, or
+withdraw. Resolve one atomic transition for the ready subset; never move an
+avatar merely because another traveler played Travel. An absent member cannot
+block departure, and no wall-clock timeout chooses for them.
+
+Choose progress according to what the fiction knows. A known path may expose
+its remaining legs. An uncertain foray exposes the Lead and return chain but no
+invented total. A voyage exposes heading, landmarks, supplies, and vehicle
+condition. A Delve exposes the current site, known branches, objective, and
+safe retreat. Arrival is only one Venture beat when delivery, rescue,
+pilgrimage, or Return still remains.
+
 ## 18. Scout v1 and Scout v2 {#scout-versions}
 
 Two append-only Scout procedures coexist. Legacy `scout_v1` reveals the next
