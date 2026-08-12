@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-08-11
+## 1.0.2 — 2026-08-12
 
 CosyWorld 1.0 is the first stable release of the canonical V2 product: a shared,
 persistent AI MUD with a deterministic rules kernel, a Rust HTTP/SSE host, and a
@@ -16,6 +16,7 @@ small card-driven browser interface.
   and seventh-visit memory proof.
 - The Project 89 composition with playable onboarding, populated actors, durable
   progress, and the narrow optional Proxim8 linked-avatar pilot.
+- The illustrated Hoppycat living archive as a dedicated Lonely Forest tenant.
 - Version-locked world packs, deterministic content compilation, explicit upgrade
   compatibility, and production recovery evidence.
 - Browser coverage for onboarding, card actions, persistence, failure states,
@@ -46,3 +47,5 @@ retained journal cursor; it must not reseed or fork the canonical world.
 
 The final GitHub release and issue #533 record the immutable candidate and final
 tag workflow runs, production observations, and the completed milestone evidence.
+The earlier `v1.0.0-rc.1` candidate failed during image construction before any
+production process was replaced; its tag remains immutable as failure evidence.
