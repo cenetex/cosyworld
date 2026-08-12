@@ -7,6 +7,12 @@
   "entry_location": "hoppycat.archive:location/770000",
   "rules_profile": "cosyworld.srd5/1",
   "avatar_naming": "../shared/hoppycat-avatar-naming.json",
+  "persistence_compatibility": {
+    "schema_version": 1,
+    "replay_compatible_bundle_hashes": [
+      "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035"
+    ]
+  },
   "packs": [
     "hoppycat.archive",
     "cosyworld.rules-srd-5.2.1",

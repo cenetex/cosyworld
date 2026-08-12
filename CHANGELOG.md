@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.8 — 2026-08-12
+
+- Declare the exact Hoppycat bundle currently deployed to Lonely Forest as
+  replay-compatible with the avatar identity and naming update, preserving its
+  journal and checkpoint while keeping all other bundle transitions fail-closed.
+
 ## 1.0.4 — 2026-08-12
 
 CosyWorld 1.0 is the first stable release of the canonical V2 product: a shared,
