@@ -11,6 +11,7 @@
  * already unavailable, an operator may pass an explicit captured identity:
  *
  *   --recovery-capture lantern=ops/lantern-meta-capture.json
+ *   --fresh-empty-tenant hoppycat
  *
  * Captures must record the tenant, source, timestamp, and unmodified /meta
  * response. This is an audited recovery path, not a bypass: the captured hash
@@ -116,11 +117,13 @@ export async function verifyLonelyForestTenants({
   root = repoRoot,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   recoveryCaptures = new Map(),
+  freshEmptyTenants = new Set(),
   fetchImpl = fetch,
   log = console.log,
 }) {
   const results = [];
   const usedRecoveryCaptures = new Set();
+  const usedFreshEmptyTenants = new Set();
   for (const tenant of tenants) {
     const registryPath = candidateRegistryPath(tenant, root);
     if (!fs.existsSync(registryPath)) {
@@ -138,6 +141,18 @@ export async function verifyLonelyForestTenants({
     try {
       liveHash = await fetchLiveWorldpackHash({ baseUrl, timeoutMs, fetchImpl });
     } catch (error) {
+      if (freshEmptyTenants.has(tenant.slug)) {
+        usedFreshEmptyTenants.add(tenant.slug);
+        log(`::warning::tenant=${tenant.slug} live /meta unavailable; accepting a one-time fresh install after the deployment workflow proved its snapshot and event database are absent`);
+        results.push({
+          tenant,
+          status: "fresh_install",
+          ok: true,
+          candidateHash: candidate.bundleHash,
+          identitySource: "workflow-attested empty persistence paths",
+        });
+        continue;
+      }
       const capture = recoveryCaptures.get(tenant.slug);
       if (!capture) {
         fail(`tenant=${tenant.slug} host=${tenant.hosts[0]} candidate=${candidate.bundleHash} could not read live /meta (${error.message}). Refusing to replace the image without this tenant's persisted bundle identity. Restore the tenant or pass an explicit reviewed --recovery-capture ${tenant.slug}=path from its volume.`);
@@ -161,6 +176,12 @@ export async function verifyLonelyForestTenants({
     }
     results.push({ tenant, status: decision.status, ok: true, liveHash, candidateHash: candidate.bundleHash, identitySource });
   }
+  for (const slug of freshEmptyTenants) {
+    if (!tenants.some((tenant) => tenant.slug === slug)) fail(`fresh install names unknown tenant '${slug}'`);
+    if (!usedFreshEmptyTenants.has(slug)) {
+      fail(`fresh install for ${slug} was supplied but live /meta was available; remove it so bootstrap remains one-time and explicit`);
+    }
+  }
   for (const slug of recoveryCaptures.keys()) {
     if (!tenants.some((tenant) => tenant.slug === slug)) fail(`recovery capture names unknown tenant '${slug}'`);
     if (!usedRecoveryCaptures.has(slug)) {
@@ -182,8 +203,18 @@ async function main(args) {
     fail("--timeout-ms must be an integer from 1000 through 120000");
   }
   const captures = recoveryCapturesFromArgs(args);
+  const freshEmptyTenants = new Set();
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] !== "--fresh-empty-tenant") continue;
+    const slug = args[index + 1];
+    if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      fail("--fresh-empty-tenant requires a valid tenant slug");
+    }
+    if (freshEmptyTenants.has(slug)) fail(`duplicate fresh install for tenant '${slug}'`);
+    freshEmptyTenants.add(slug);
+  }
   requireTrackedRecoveryCaptures(captures);
-  return verifyLonelyForestTenants({ timeoutMs, recoveryCaptures: captures });
+  return verifyLonelyForestTenants({ timeoutMs, recoveryCaptures: captures, freshEmptyTenants });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(scriptPath)) {
@@ -194,7 +225,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(scriptPath
         ? "Lonely Forest worldpack deploy gate failed"
         : "Lonely Forest worldpack deploy gate crashed";
       console.error(`::error::${prefix}: ${error.message}`);
-      console.error("usage: check-lonelyforest-worldpacks.mjs [--timeout-ms N] [--recovery-capture tenant=path/to/captured-meta.json]");
+      console.error("usage: check-lonelyforest-worldpacks.mjs [--timeout-ms N] [--recovery-capture tenant=path/to/captured-meta.json] [--fresh-empty-tenant slug]");
       process.exit(1);
     });
 }

@@ -138,6 +138,9 @@ variable "worldpack_fly_hosts" {
     "lantern.lonelyforest.com" = {
       fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
     }
+    "hoppycat.lonelyforest.com" = {
+      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
+    }
   }
   description = "Worldpack subdomains routed to the shared Lonely Forest Fly app. Optional per-certificate Fly DNS validation IDs publish ACME delegation records."
 

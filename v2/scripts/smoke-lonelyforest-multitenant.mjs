@@ -37,6 +37,11 @@ const cases = [
     worldpack: "cosyworld.lantern-keeper",
     location: "Wayside Lantern Inn",
   },
+  {
+    host: "hoppycat.lonelyforest.com",
+    worldpack: "hoppycat.february-third",
+    location: "Halfway Tea Garden",
+  },
 ];
 
 function assert(condition, message) {
