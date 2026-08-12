@@ -258,15 +258,19 @@ also an explicitly authored conversational actor:
   content-addressed audio is durably recovered and published with its digest,
   MIME type, exact attribution, and transcript. The avatar speaks through the
   voicebox; the device or model does not become the speaker.
-- `Find resonance` sends one frozen model descriptor and eight deterministic
-  neighboring descriptors to the exact embeddings endpoint, computes cosine
-  similarity locally, and publishes only the top three coarse matches. The
-  request stays pinned to the catalog model ID; when OpenRouter returns the
-  serving backend's implementation ID instead, attribution preserves both the
-  pinned requested ID and that truthful resolved ID.
-- `Rank echoes` sends the same server-authored descriptor set to the exact
-  rerank endpoint and publishes the provider's top three matches. Neither
-  semantic action journals its prompt, embedding vectors, or raw scores.
+- `Find resonance` freezes the latest visible room message as its query and up
+  to eight earlier visible room messages as its corpus. It sends those texts to
+  the exact embeddings endpoint, computes cosine similarity locally, and
+  publishes the three closest earlier messages with event references and
+  coarse score bands. The request stays pinned to the catalog model ID; when
+  OpenRouter returns the serving backend's implementation ID instead,
+  attribution preserves both the pinned requested ID and that truthful
+  resolved ID.
+- `Rank echoes` sends the same frozen room-message query and corpus to the
+  exact rerank endpoint and publishes its top three earlier messages. Equal
+  scores are resolved by stable event sequence. Neither semantic action
+  journals a free-form prompt, embedding vectors, or raw scores, and neither
+  action is offered until at least four earlier messages are available.
 
 There is no player-authored speech or model prompt in any of these paths. The
 browser submits only the current certified offer for the acting avatar and its

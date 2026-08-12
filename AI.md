@@ -188,9 +188,11 @@ Raw Talk sends reasoning effort `none` only when the exact model advertises the
 reasoning parameter. One precise HTTP 400 may retry with mandatory reasoning
 enabled but excluded from visible output, or with an unsupported reasoning
 object omitted. Production operator-registry pools retain the strict
-no-retention/no-training gate. Exact Elysium Talk and device-backed Illustrate,
-Speak, Find resonance, and Rank echoes carry only server-authored world or catalog facts,
-so both ZDR and non-ZDR bindings are eligible. ZDR profiles add the provider
+no-retention/no-training gate. Exact Elysium Talk and device-backed Illustrate
+and Speak carry only server-authored world or catalog facts. Find resonance and
+Rank echoes operate on a bounded, frozen set of visible server-authored room
+messages, so both ZDR and non-ZDR bindings are eligible. ZDR profiles add the
+provider
 privacy constraint; non-ZDR profiles remain truthfully non-ZDR. No path accepts
 player-authored speech or a free-form model prompt.
 
