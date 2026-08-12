@@ -168,11 +168,11 @@ impl PathwayWayClass {
         }
     }
 
-    fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Route => "Route",
+            Self::Route => "Unmarked way",
             Self::Track => "Track",
-            Self::Path => "Path",
+            Self::Path => "Cairn path",
             Self::Trail => "Trail",
             Self::Road => "Road",
             Self::Avenue => "Avenue",
@@ -875,6 +875,8 @@ mod tests {
             .expect("the active journey remains visible");
         assert_eq!(recovered.current_step, 1);
         assert_eq!(recovered.next_location_id, Some(path[2]));
+        assert_eq!(recovered.way_class, PathwayWayClass::Route);
+        assert_eq!(recovered.way_name, "Unmarked way to Moonlit Trail");
         let MovementPlan::Journey { mutation, .. } = runtime
             .plan_move_choice_action(actor_id, path[2], &AccessContext::default())
             .expect("the next revealed segment remains a legal Travel choice")
@@ -938,16 +940,16 @@ mod tests {
 
         assert_eq!(
             runtime.route_label_for_edge(700, waypoint_id),
-            "Route from Bethlehem to Jerusalem"
+            "Unmarked way from Bethlehem to Jerusalem"
         );
         assert_eq!(
             runtime.route_label_for_edge(712, waypoint_id),
-            "Route from Jerusalem to Bethlehem"
+            "Unmarked way from Jerusalem to Bethlehem"
         );
 
         for (traffic_count, expected_class, expected_label) in [
             (1, PathwayWayClass::Track, "Track"),
-            (4, PathwayWayClass::Path, "Path"),
+            (4, PathwayWayClass::Path, "Cairn path"),
             (8, PathwayWayClass::Trail, "Trail"),
             (16, PathwayWayClass::Road, "Road"),
             (32, PathwayWayClass::Avenue, "Avenue"),

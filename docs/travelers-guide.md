@@ -201,6 +201,46 @@ level appears. This broader founding flow is not yet shipped for every authored
 and generated location; a cairn still does not itself count as settlement,
 shelter, lodging, or Hearth.
 
+## Traveling Together
+
+The current journey system belongs to one avatar. Its destination, revealed
+stretches, and progress display are useful orientation, but nearby faces do not
+yet certify a shared party, the transcript remains attached to the current
+room, and every avatar still moves independently.
+
+The accepted shared-travel direction begins with consent rather than a vehicle:
+
+- a **Company** is the durable group that has chosen to act together;
+- a **Venture** is the undertaking its current party has agreed to pursue;
+- a **Formation** describes how that party is operating now; and
+- a carriage, jetski, or ship is a physical world object used by the Formation.
+
+These are design terms rather than new permanent menu words. In play, the game
+can simply say **your party**, use the Company's chosen name, and show the
+relevant people, place, or vehicle cards.
+
+Sharing a room or boarding the same vehicle does not automatically join a
+party. A traveler may accompany one leg, join the Venture, become a lasting
+Company member, travel as a guest, decline, remain behind, or leave. A shared
+departure moves only the people who explicitly became ready; nobody can move
+another avatar by selecting Travel, and an absent member cannot trap everyone
+in place.
+
+One Company may change Formation without losing its story: walk to a harbour,
+cross by ship, leave the ship at the coast, and enter a ruin in a delve
+formation. A Venture can likewise continue after geographic arrival when its
+real purpose was a delivery, meeting, rescue, discovery, or pilgrimage.
+
+Progress must stay honest. A known road can show completed and remaining
+stretches. An unexplored way shows the revealed return chain and uncertainty,
+not a guessed total. A dungeon shows the current chamber, known branches,
+objective, and safe retreat rather than pretending that depth is a percentage.
+
+This model is accepted design, not current runtime behavior. Its authoritative
+membership, readiness, shared transition, vehicle, conversation, detachment,
+and dungeon contracts are specified in
+[ADR 0009](decisions/0009-companies-ventures-formations-and-shared-travel.md).
+
 ## Doors, Keys, And Thresholds
 
 A threshold can be a door, chest, bridge, boundary, custom, vow, or guarded

@@ -724,7 +724,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
+    "bundle_hash": "sha256:97c90b233f9a548f914bed0ddb4d9b5582bc370398a980d8ef9ec8d524a13c74",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2200,7 +2200,7 @@
           "type": "workspace",
           "path": "../../content/the-holy-land"
         },
-        "integrity": "sha256:d54565c7516b305da3ecd7acecdaf2fc28fb2dd3491da1ad139fd83fdb6b2d3a"
+        "integrity": "sha256:a0fc51ec447da44cc1a2135aef1268b812192ef31c174a96b35c2c79905e01e1"
       },
       {
         "id": "cosyworld.composition.core-holy-land",
@@ -5317,19 +5317,19 @@
       },
       {
         "id": 714,
-        "name": "Road to Emmaus",
-        "title": "The Stranger on the Way",
-        "description": "A westward road crosses open hills where evening light lengthens every traveler's shadow.",
-        "persona": "The companionable Emmaus road searches slowly enough to recognize what has been walking alongside it.",
-        "biome": "western Judean hill road",
+        "name": "Emmaus",
+        "title": "Village of Recognition",
+        "description": "A small hill village gathers around warm doorways, bread ovens, and a western road glowing in the last evening light.",
+        "persona": "Companionable Emmaus makes room at the table until a familiar presence can finally be recognized.",
+        "biome": "western Judean hill village",
         "terrain": [
-          "rolling limestone hills",
+          "limestone homes",
           "grain fields",
           "evening road"
         ],
         "memory": [
-          "Two disciples walked this way with grief and met a stranger who made their broken hopes burn with meaning again.",
-          "Evening travelers still break bread before choosing the next road."
+          "Two disciples arrived here with a stranger after telling their broken hopes along the road; they recognized Jesus when bread was broken.",
+          "Evening travelers still make room at the table before choosing the next road."
         ],
         "allow_combat": false,
         "pack_id": "cosyworld.the-holy-land"
@@ -7347,18 +7347,18 @@
       {
         "id": "holy-land:room:714",
         "location_id": 714,
-        "name": "Road to Emmaus",
+        "name": "Emmaus",
         "safety": "safe",
         "zone": "frontier",
         "aspects": [
-          "evening companionship",
+          "evening hospitality",
           "slow recognition"
         ],
         "boons": [
-          "walking together lets a broken story be told again"
+          "a shared table lets a broken story be understood again"
         ],
         "hooks": [
-          "a stranger has joined the road at the right pace"
+          "a road companion waits at the threshold while bread is set out"
         ],
         "resources": {
           "companionship": 3,
@@ -10887,11 +10887,11 @@
         "subject_kind": "location",
         "subject_id": 714,
         "card_id": "holy-land-emmaus-road",
-        "display_name": "Road to Emmaus",
+        "display_name": "Emmaus",
         "role": "pilgrimage-place",
         "rarity": "pilgrimage",
-        "title": "The Stranger on the Way",
-        "blurb": "Evening lengthens across a road where companionship slowly changes recognition.",
+        "title": "Village of Recognition",
+        "blurb": "Warm doorways and broken bread wait at the end of a road where companionship slowly changes recognition.",
         "aspect": "wide",
         "source": "holy_land",
         "asset_status": "generated_art",
@@ -11842,13 +11842,13 @@
     {
       "pack_id": "cosyworld.the-holy-land",
       "pack_version": "1.2.1",
-      "pack_integrity": "sha256:d54565c7516b305da3ecd7acecdaf2fc28fb2dd3491da1ad139fd83fdb6b2d3a",
+      "pack_integrity": "sha256:a0fc51ec447da44cc1a2135aef1268b812192ef31c174a96b35c2c79905e01e1",
       "provider": "cosyworld.the-holy-land/assets",
       "mount": "cards",
       "root": "the-holy-land",
       "directory": "assets/cards",
       "public_prefix": "/assets/the-holy-land/cards",
-      "content_hash": "sha256:61865d00e777907b22ad2411651e5ec638362e346661ac81e3f5e191054de9e2",
+      "content_hash": "sha256:08cf969403cf241d0f988396d07440d8367b6e6e461acde3c2f45b7cb957ddf9",
       "optional": false,
       "fallback": null
     },

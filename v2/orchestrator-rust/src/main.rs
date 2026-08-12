@@ -42718,7 +42718,7 @@ mod tests {
                 .iter()
                 .find(|exit| exit.destination_location_id == first_waypoint_id)
                 .map(|exit| exit.route_label.as_str()),
-            Some("Route from Rain-Soft Garden to Moonlit Trail")
+            Some("Unmarked way from Rain-Soft Garden to Moonlit Trail")
         );
         assert!(!after_first_search
             .exits
@@ -44002,7 +44002,7 @@ mod tests {
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains("const visibleEvents = sharedRoomTranscriptEvents(logEvents);"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
+            "log.innerHTML = `${partyHeading}${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
         assert!(INDEX_HTML.contains(
             "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"

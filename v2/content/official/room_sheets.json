@@ -1009,18 +1009,18 @@
   {
     "id": "holy-land:room:714",
     "location_id": 714,
-    "name": "Road to Emmaus",
+    "name": "Emmaus",
     "safety": "safe",
     "zone": "frontier",
     "aspects": [
-      "evening companionship",
+      "evening hospitality",
       "slow recognition"
     ],
     "boons": [
-      "walking together lets a broken story be told again"
+      "a shared table lets a broken story be understood again"
     ],
     "hooks": [
-      "a stranger has joined the road at the right pace"
+      "a road companion waits at the threshold while bread is set out"
     ],
     "resources": {
       "companionship": 3,

@@ -120,6 +120,8 @@ pub(super) struct JourneyView {
     pub(super) origin_name: String,
     pub(super) destination_location_id: u64,
     pub(super) destination_name: String,
+    pub(super) way_class: PathwayWayClass,
+    pub(super) way_name: String,
     pub(super) current_step: usize,
     pub(super) total_steps: usize,
     pub(super) steps_remaining: usize,
@@ -2112,6 +2114,11 @@ impl RuntimeWorld {
             .and_then(|index| journey.path.get(index))
             .copied();
         let next_location_id = journey.path.get(journey.current_step + 1).copied();
+        let way_class = self
+            .generated_pathways
+            .get(&journey.pathway_id)
+            .map(|pathway| pathway.way_class)
+            .unwrap_or_default();
         Some(JourneyView {
             origin_location_id: journey.origin_location_id,
             origin_name: self
@@ -2119,6 +2126,8 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "the way back".to_string()),
             destination_location_id: journey.destination_location_id,
             destination_name: journey.destination_name.clone(),
+            way_class,
+            way_name: format!("{} to {}", way_class.label(), journey.destination_name),
             current_step: journey.current_step,
             total_steps,
             steps_remaining: total_steps.saturating_sub(journey.current_step),

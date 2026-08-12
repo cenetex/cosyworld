@@ -26,6 +26,21 @@ Access is explained through the fiction and exact world requirement: a key,
 relationship, completed Job, represented permission, or mounted composition.
 There is no wallet-owned location **pass** in the accepted target.
 
+### Contextual group language
+
+[ADR 0009](../../docs/decisions/0009-companies-ventures-formations-and-shared-travel.md)
+defines Company, Venture, Formation, and detachment as authoritative design
+identities, not additional permanent player nouns or navigation surfaces.
+Ordinary copy uses **your party**, a Company's chosen name, **travel together**,
+or the relevant vehicle card when the context is clear.
+
+Target copy uses **party** only when authoritative Venture participation is
+available. Co-present actors, friends, passengers, and crew are not called a
+party merely because the client can see them. The current actor-scoped journey
+treatment still says **Travelling party**; ADR 0009 records that wording as
+provisional semantic debt, not authority that clients or new features may
+depend on.
+
 ## Retired compatibility vocabulary
 
 **Keepsake**, **bundle**, **Box**, and wallet **pass** are retired player nouns.

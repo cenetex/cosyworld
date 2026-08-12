@@ -1592,6 +1592,8 @@
       .chat-thinking-dots > i { animation: none; opacity: 0.72; }
       .arrival-scene::before { animation: none; opacity: 0.9; }
       .expedition-ring.committed-change { animation: none; }
+      .journey-progress-fill,
+      .journey-progress-party { transition: none; }
     }
     .chat-pfp {
       width: 32px;
@@ -4525,8 +4527,218 @@
       font-size: 12px;
       text-align: center;
     }
+    .journey-strip {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      margin: 0 -16px -12px;
+      padding: 12px 16px 13px;
+      border-top: 1px solid rgba(239, 201, 107, 0.2);
+      background:
+        linear-gradient(90deg, rgba(239, 201, 107, 0.075), transparent 36%),
+        rgba(7, 13, 9, 0.76);
+      overflow: hidden;
+    }
+    .journey-strip[hidden] { display: none; }
+    .journey-strip::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(115deg, transparent 0 22px, rgba(255, 255, 255, 0.012) 22px 23px);
+    }
+    .journey-heading,
+    .journey-foot {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .journey-title {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+    }
+    .journey-kicker {
+      color: var(--green);
+      font-size: 9px;
+      font-weight: 850;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .journey-destination {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-size: 17px;
+      font-weight: 650;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .journey-way {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .journey-remaining,
+    .journey-next {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .journey-remaining {
+      flex: 0 0 auto;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .journey-progress {
+      position: relative;
+      z-index: 1;
+      height: 10px;
+      border: 1px solid rgba(239, 201, 107, 0.3);
+      border-radius: 999px;
+      background: rgba(3, 7, 4, 0.82);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.58);
+    }
+    .journey-progress-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--journey-progress, 0%);
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(101, 230, 138, 0.72), var(--amber));
+      transition: width 320ms ease;
+    }
+    .journey-progress-stops {
+      position: absolute;
+      inset: 0 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .journey-progress-stop {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(248, 237, 207, 0.5);
+      box-shadow: 0 0 0 2px rgba(5, 8, 6, 0.64);
+    }
+    .journey-progress-party {
+      position: absolute;
+      top: 50%;
+      left: clamp(8px, var(--journey-progress, 0%), calc(100% - 8px));
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--amber);
+      border-radius: 50%;
+      background: #102016;
+      color: var(--text);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.54);
+      transition: left 320ms ease;
+    }
+    .journey-progress-party .ui-icon { width: 11px; height: 11px; }
+    .journey-party {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .journey-party-faces {
+      display: flex;
+      align-items: center;
+      padding-left: 3px;
+    }
+    .journey-party-face {
+      width: 24px;
+      height: 24px;
+      margin-left: -4px;
+      border: 2px solid #101a12;
+      border-radius: 50%;
+      background: rgba(13, 20, 15, 0.94) center / cover no-repeat;
+      box-shadow: 0 0 0 1px rgba(239, 201, 107, 0.34);
+    }
+    .journey-party-face.you { box-shadow: 0 0 0 1px var(--amber); }
+    .journey-party-label {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .journey-next {
+      min-width: 0;
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .party-channel-heading {
+      position: sticky;
+      top: -12px;
+      z-index: 4;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: -12px -16px 9px;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(239, 201, 107, 0.18);
+      background: rgba(8, 15, 10, 0.96);
+    }
+    .party-channel-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .party-channel-title .ui-icon { color: var(--amber); }
+    .party-channel-heading small {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--dim);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log.journey-mode.room-mode {
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 12px 16px 18px;
+    }
+    .log.journey-mode.room-mode .chat-empty { margin: auto; }
 
     @media (max-width: 900px) {
+      .journey-strip {
+        margin: 0 -12px -11px;
+        padding: 10px 12px 11px;
+      }
+      .journey-heading { align-items: end; }
+      .journey-destination { font-size: 15px; }
+      .journey-foot { gap: 8px; }
+      .journey-next { max-width: 46%; }
+      .party-channel-heading {
+        top: -12px;
+        margin-inline: -16px;
+        padding-inline: 12px;
+      }
       .room-log-toggle {
         width: auto;
         min-width: auto;
@@ -4943,6 +5155,28 @@
             <div class="spatial-caption"><strong id="spatial-title"></strong><span class="spatial-hand-key"><span>first card</span><span>second card</span></span></div>
           </div>
         </div>
+        <section class="journey-strip" id="journey-strip" aria-labelledby="journey-destination" hidden>
+          <header class="journey-heading">
+            <div class="journey-title">
+              <span class="journey-kicker">Journey</span>
+              <strong class="journey-destination" id="journey-destination"></strong>
+              <span class="journey-way" id="journey-way"></span>
+            </div>
+            <span class="journey-remaining" id="journey-remaining"></span>
+          </header>
+          <div class="journey-progress" id="journey-progress" role="progressbar" aria-valuemin="0">
+            <span class="journey-progress-fill" aria-hidden="true"></span>
+            <span class="journey-progress-stops" id="journey-progress-stops" aria-hidden="true"></span>
+            <span class="journey-progress-party" aria-hidden="true"></span>
+          </div>
+          <footer class="journey-foot">
+            <div class="journey-party">
+              <span class="journey-party-faces" id="journey-party-faces" aria-hidden="true"></span>
+              <span class="journey-party-label" id="journey-party-label"></span>
+            </div>
+            <span class="journey-next" id="journey-next"></span>
+          </footer>
+        </section>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" data-player-concept="journal" data-analytics-event="journal.open" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -10688,6 +10922,7 @@
         ? (renderSpatialScene(null), false)
         : renderSpatialScene(state?.spatial_scene);
       roomHero.classList.toggle("spatial", hasSpatialScene);
+      renderJourney();
       $("location-name").textContent = pathwayJourney
         ? `on the way to ${pathwayJourney.destination_name || "the destination"}`
         : (location.name || "Unknown");
@@ -10714,6 +10949,80 @@
       renderSharedQuestions();
       renderTimelines();
       renderCommands();
+    }
+
+    function journeyPartyActors(view = state) {
+      return [...(view?.actors || [])]
+        .filter((actor) => !actorIsDownedForRail(actor))
+        .sort((left, right) => {
+          if (Number(left.id) === Number(actorId)) return -1;
+          if (Number(right.id) === Number(actorId)) return 1;
+          return String(left.name || "").localeCompare(String(right.name || ""));
+        });
+    }
+
+    function journeyPartyFaceHtml(actor) {
+      const card = cardForActor(actor.id);
+      const fallback = card || {
+        display_name: actor.name || "Traveller",
+        role: "avatar",
+        aspect: "tall",
+      };
+      const image = cardImage(card) || fallbackCardImage(fallback);
+      const you = Number(actor.id) === Number(actorId);
+      return `<span class="journey-party-face${you ? " you" : ""}" title="${escapeAttr(you ? `${actorLabel(actor)} (you)` : actorLabel(actor))}"${backgroundImageStyle(image)}></span>`;
+    }
+
+    function journeyNextStepText(journey) {
+      const nextName = String(journey?.next_location_name || "").trim();
+      if (!nextName) return "Choose how the party makes camp.";
+      if (/^unexplored stretch\b/i.test(nextName)) return "Next: scout the road ahead";
+      if (Number(journey?.steps_remaining || 0) <= 1) return `Next: arrive at ${journey.destination_name}`;
+      return `Next: press on to ${nextName}`;
+    }
+
+    function renderJourney(view = state) {
+      const strip = $("journey-strip");
+      const journey = view?.journey || null;
+      const active = Boolean(
+        journey
+        && Number(journey.total_steps || 0) > 0
+        && Number(journey.steps_remaining || 0) > 0
+      );
+      document.querySelector(".terminal")?.classList.toggle("journey-active", active);
+      strip.hidden = !active;
+      if (!active) {
+        strip.removeAttribute("aria-label");
+        return;
+      }
+      const total = Math.max(1, Number(journey.total_steps || 1));
+      const current = Math.max(0, Math.min(total, Number(journey.current_step || 0)));
+      const remaining = Math.max(0, total - current);
+      const percent = Math.max(0, Math.min(100, (current / total) * 100));
+      const destination = String(journey.destination_name || "the destination");
+      const wayName = String(journey.way_name || `Way to ${destination}`);
+      const party = journeyPartyActors(view);
+      const travellerWord = party.length === 1 ? "traveller" : "travellers";
+      $("journey-destination").textContent = destination;
+      $("journey-way").textContent = wayName;
+      $("journey-remaining").textContent = `${remaining} ${remaining === 1 ? "stretch" : "stretches"} to go`;
+      $("journey-party-faces").innerHTML = party.slice(0, 5).map(journeyPartyFaceHtml).join("");
+      $("journey-party-label").textContent = `${party.length || 1} ${travellerWord} together`;
+      $("journey-next").textContent = journeyNextStepText(journey);
+      const progress = $("journey-progress");
+      progress.style.setProperty("--journey-progress", `${percent}%`);
+      progress.setAttribute("aria-valuemax", String(total));
+      progress.setAttribute("aria-valuenow", String(current));
+      progress.setAttribute("aria-valuetext", `${current} of ${total} stretches travelled toward ${destination}; ${remaining} remaining`);
+      $("journey-progress-stops").innerHTML = Array.from(
+        { length: total + 1 },
+        () => '<i class="journey-progress-stop"></i>',
+      ).join("");
+      progress.querySelector(".journey-progress-party").innerHTML = iconSvg("travel");
+      strip.setAttribute(
+        "aria-label",
+        `Journey to ${destination} via ${wayName}. ${current} of ${total} stretches travelled. ${party.length || 1} ${travellerWord} together.`,
+      );
     }
 
     function renderEconomy() {
@@ -11355,13 +11664,14 @@
 
     function journalWorldProse(value) {
       const prose = cleanStatusText(value);
+      if (/^world(?:\s*\.\s*[a-z0-9_]+)+[.!?…]*$/i.test(prose)) return "";
       const sentences = prose.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g) || [];
       return cleanStatusText(sentences
         .map((sentence) => cleanStatusText(sentence))
         .filter((sentence) => (
           sentence
           && !/kept a memory:\s*noticed/i.test(sentence)
-          && !/journal:\/\/|->|Something changed|\b(?:journey|pathway)\.[a-z_]+/i.test(sentence)
+          && !/journal:\/\/|->|Something changed|\b(?:journey|pathway|world)\.[a-z0-9_.]+/i.test(sentence)
         ))
         .join(" "));
     }
@@ -12189,6 +12499,9 @@
           text: cleanStatusText(String(event.content || "").split(/\n+/).map((line) => line.trim()).filter(Boolean).join(" ")),
         };
       }
+      if (worldTranscriptEventTypes.has(String(event.type || ""))) {
+        return { kind: "world", label: "world", text: sceneCardEventText(event) };
+      }
       return { kind: statusKindForEvent(event), label: statusLabelForEvent(event), text: cleanStatusText(eventText(event)) };
     }
 
@@ -12253,6 +12566,7 @@
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
       const observerScene = knockedOutObserverHtml();
+      const partyHeading = travellingPartyHeaderHtml();
       const hasTranscript = visibleEvents.length > 0
         || Boolean(pendingConversation)
         || Boolean(pendingChatReplies)
@@ -12268,6 +12582,7 @@
       log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene && !observerScene);
       log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene || observerScene));
       log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && inferredOnly);
+      log.classList.toggle("journey-mode", !libraryPanel && !accountPanel && Boolean(state?.journey));
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
       document.querySelector(".terminal")?.classList.toggle("panel-open", Boolean(panelMode));
       document.querySelector(".prompt").hidden = Boolean(panelMode);
@@ -12278,7 +12593,7 @@
         log.removeAttribute("aria-relevant");
       } else {
         log.setAttribute("role", "log");
-        log.setAttribute("aria-label", "Shared room transcript");
+        log.setAttribute("aria-label", state?.journey ? "Travelling party chat" : "Shared room transcript");
         log.setAttribute("aria-live", "polite");
         log.setAttribute("aria-relevant", "additions text");
       }
@@ -12293,13 +12608,13 @@
         return;
       }
       if (pendingArrival) {
-        log.innerHTML = pendingArrival;
+        log.innerHTML = `${partyHeading}${pendingArrival}`;
         log.scrollTop = 0;
         return;
       }
       if (!hasTranscript) {
         renderedChatTailKey = "";
-        log.innerHTML = quietRoomSceneHtml();
+        log.innerHTML = `${partyHeading}${quietRoomSceneHtml()}`;
         log.scrollTop = 0;
         return;
       }
@@ -12313,7 +12628,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
+      log.innerHTML = `${partyHeading}${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -12456,7 +12771,8 @@
       const entries = history.length
         ? history.map((event) => {
             const route = event.destination_location_name ? `${event.location_name || "somewhere"} → ${event.destination_location_name}` : (event.location_name || "somewhere beyond this room");
-            return `<div class="world-chronicle-entry"><span class="world-chronicle-place">${escapeHtml(route)}</span><span class="world-chronicle-copy">${escapeHtml(cleanStatusText(event.content || eventText(event)))}</span></div>`;
+            const copy = worldBeatAuthoredProse(event) || sceneCardEventText(event);
+            return `<div class="world-chronicle-entry"><span class="world-chronicle-place">${escapeHtml(route)}</span><span class="world-chronicle-copy">${escapeHtml(copy)}</span></div>`;
           }).join("")
         : `<div class="world-chronicle-entry"><span class="world-chronicle-copy">The wider world is settled. Six committed turns will carry the first distant change.</span></div>`;
       const movingFactions = (simulation.factions || []).filter((faction) => Number(faction.momentum || 0) !== 0).sort((left, right) => Math.abs(Number(right.momentum || 0)) - Math.abs(Number(left.momentum || 0))).slice(0, 4).map((faction) => `${faction.faction_name || faction.faction_id} ${Number(faction.momentum) > 0 ? "+" : ""}${Number(faction.momentum || 0)}`).join(" · ");
@@ -12589,10 +12905,19 @@
 
     function quietRoomSceneHtml() {
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
-      const cue = hasAvatar
-        ? "Chat with someone here or explore the room."
+      const cue = state?.journey
+        ? "The road is quiet for a moment. Chat with the travelling party or choose how to press on."
+        : hasAvatar
+          ? "Chat with someone here or explore the room."
         : "Begin a tale, then discover the room through play.";
       return `<p class="chat-empty" role="note">${escapeHtml(cue)}</p>`;
+    }
+
+    function travellingPartyHeaderHtml(view = state) {
+      if (!view?.journey) return "";
+      const party = journeyPartyActors(view);
+      const count = party.length || 1;
+      return `<header class="party-channel-heading"><span class="party-channel-title">${iconSvg("travel")}Travelling party</span><small>${escapeHtml(`${count} ${count === 1 ? "traveller" : "travellers"} · this conversation follows the road`)}</small></header>`;
     }
 
     function eventIsChatTranscriptEvent(event) {
@@ -12844,6 +13169,35 @@
       return `<div class="line event scene-card ${escapeAttr(meta.kind)}" data-event-row${exposureAttrs} aria-label="${escapeAttr(`Story beat. ${text}`)}"><span class="event-label" aria-hidden="true">✦</span><span class="text">${escapeHtml(text)}</span></div>`;
     }
 
+    function worldBeatAuthoredProse(event) {
+      const raw = String(event?.content || "").trim();
+      if (!raw) return "";
+      let candidate = raw;
+      if (raw.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(raw);
+          candidate = typeof parsed?.summary === "string" ? parsed.summary : "";
+        } catch (_error) {
+          candidate = "";
+        }
+      }
+      candidate = cleanStatusText(candidate);
+      const normalized = candidate.replace(/[.!?…]+$/g, "");
+      const internalIdentifier = /^world(?:\s*\.\s*[a-z0-9_]+)+$/i.test(normalized);
+      if (!candidate || internalIdentifier || normalized.toLowerCase() === String(event?.type || "").toLowerCase()) {
+        return "";
+      }
+      return finishSentence(candidate);
+    }
+
+    function factionInfluenceBeatText(event) {
+      const authored = worldBeatAuthoredProse(event);
+      if (authored) return authored;
+      const from = event?.location_name || "this place";
+      const destination = event?.destination_location_name || "a nearby place";
+      return `Influence shifted from ${from} toward ${destination}.`;
+    }
+
     function sceneCardEventText(event) {
       const actor = String(event?.actor_name || "Someone").trim() || "Someone";
       const type = String(event?.type || "");
@@ -12873,10 +13227,10 @@
         return finishSentence(`${actor} ${lowerInitial(trace)}`);
       }
       if (type === "world.weather.shifted") {
-        return finishSentence(cleanStatusText(event.content || "The weather changes its mind"));
+        return worldBeatAuthoredProse(event) || "The weather changes its mind.";
       }
       if (type === "world.weather.held") {
-        return finishSentence(cleanStatusText(event.content || "The weather settles in and stays"));
+        return worldBeatAuthoredProse(event) || "The weather settles in and stays.";
       }
       if (type === "world.trade.flowed") {
         return "Supplies at the far end of the road have changed.";
@@ -12885,34 +13239,31 @@
         return "A distant place is running short, and someone could answer the need.";
       }
       if (type === "world.delivery.needed") {
-        return finishSentence(cleanStatusText(event.content || "A distant place needs a physical delivery"));
+        return worldBeatAuthoredProse(event) || "A distant place needs a physical delivery.";
       }
       if (type === "world.logistics.completed") {
-        try {
-          const evidence = JSON.parse(String(event.content || "{}"));
-          const clock = logEvents.find((candidate) => (
-            candidate.type === "clock.updated"
-            && Number(candidate.caused_by_event_seq || 0) === Number(event.caused_by_event_seq || 0)
-          ));
-          const progress = Number(clock?.clock_segments || 0) > 0
-            ? ` The need is answered (${Number(clock.clock_filled || 0)}/${Number(clock.clock_segments || 0)}), and the contribution is remembered here.`
-            : "";
-          return `${finishSentence(cleanStatusText(evidence.summary || "A traveler completes a physical delivery"))}${progress}`;
-        } catch (_error) {
-          return "A traveler completes a physical delivery.";
-        }
+        const clock = logEvents.find((candidate) => (
+          candidate.type === "clock.updated"
+          && Number(candidate.caused_by_event_seq || 0) === Number(event.caused_by_event_seq || 0)
+        ));
+        const progress = Number(clock?.clock_segments || 0) > 0
+          ? ` The need is answered (${Number(clock.clock_filled || 0)}/${Number(clock.clock_segments || 0)}), and the contribution is remembered here.`
+          : "";
+        const prose = worldBeatAuthoredProse(event)
+          || "A traveler completes a physical delivery.";
+        return `${prose}${progress}`;
       }
       if (type === "world.faction.influence_shifted") {
-        return finishSentence(cleanStatusText(event.content || "A familiar presence carries farther today"));
+        return factionInfluenceBeatText(event);
       }
       if (type === "world.conflict.pressure_grew") {
-        return finishSentence(cleanStatusText(event.content || "An unanswered strain draws the air taut"));
+        return worldBeatAuthoredProse(event) || "An unanswered strain draws the air taut.";
       }
       if (type === "world.conflict.pressure_eased") {
-        return finishSentence(cleanStatusText(event.content || "Whatever pressed here loosens, for now"));
+        return worldBeatAuthoredProse(event) || "Whatever pressed here loosens, for now.";
       }
       if (type === "world.conflict.escalated") {
-        return finishSentence(cleanStatusText(event.content || "Old strains meet, and the air hardens"));
+        return worldBeatAuthoredProse(event) || "Old strains meet, and the air hardens.";
       }
       if (type.startsWith("journey.") || type === "pathway.discovered" || type === "pathway.familiarized") {
         return finishSentence(cleanStatusText(event.content || "The path changes beneath careful feet"));
@@ -13518,6 +13869,7 @@
       if (event.type === "image.created") return residentImageMetadata(event)?.alt || "shares a visual reply.";
       if (event.type === "avatar.thought") return event.content || "thinks for a moment.";
       if (event.type === "avatar.dream") return event.content || "dreams during the long rest.";
+      if (worldTranscriptEventTypes.has(String(event.type || ""))) return sceneCardEventText(event);
       if (event.type === "feature.searched" || event.type === "location.searched") return searchEventText(event);
       if (event.type === "exit.discovered") {
         return event.content || `discovers a way to ${event.destination_location_name || "somewhere new"}.`;

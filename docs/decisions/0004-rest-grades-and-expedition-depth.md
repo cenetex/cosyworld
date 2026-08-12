@@ -91,6 +91,13 @@ Future HP or wound presentation may coexist with expedition depth, but not as
 another ring. The ring belongs exclusively to expedition depth; wounds change
 the portrait treatment. There are no concentric HP and expedition arcs.
 
+[ADR 0009](0009-companies-ventures-formations-and-shared-travel.md) does not
+turn this actor condition into a shared Company meter. A Venture may project
+the condition and readiness of each participant and any separately authored
+vehicle or shared pressure, but it cannot average expedition depth, let a fresh
+member erase another member's fatigue, or infer pooled recovery. Party progress
+and individual recovery remain distinct.
+
 ### Navigation Anchors are not rest
 
 [ADR 0005](0005-thresholds-trails-and-strict-referee.md) gives cairns, Signal
@@ -164,3 +171,4 @@ this closed schema rather than introduce a separate lodging economy.
 - [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
 - [SRD-backed action and collectible system](../systems/04-action-system.md)
 - [ADR 0002: the action hand is an authoritative state projection](0002-action-hand-is-authoritative-state.md)
+- [ADR 0009: companies, Ventures, Formations, and shared travel](0009-companies-ventures-formations-and-shared-travel.md)

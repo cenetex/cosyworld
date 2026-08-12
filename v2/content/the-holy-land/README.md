@@ -8,7 +8,7 @@ can be fixed with modern geographic certainty.
 The pack includes:
 
 - fifteen Gospel-associated locations from Bethlehem and Nazareth to
-  Jerusalem and the road to Emmaus;
+  Jerusalem and Emmaus, with the road carried by the journey system;
 - the traditional list of the Twelve; Christ is real within their world but
   remains beyond the authored cast;
 - a personal goal for each disciple to search for Christ, with a distinct

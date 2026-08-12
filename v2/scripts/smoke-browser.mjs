@@ -7622,6 +7622,49 @@ async function main() {
     );
   }
 
+  async function assertFactionInfluenceEventNameStaysInternal() {
+    const result = await page.evaluate(() => {
+      const base = {
+        seq: 990500010,
+        type: "world.faction.influence_shifted",
+        location_name: "Rain-Soft Garden",
+        destination_location_name: "The Cosy Cottage",
+      };
+      return [
+        { name: "raw", event: { ...base, content: base.type } },
+        { name: "spaced", event: { ...base, content: "world. faction. influence_shifted" } },
+        { name: "legacy-json", event: { ...base, content: JSON.stringify({ schema_version: 1, summary: base.type }) } },
+        { name: "authored", event: { ...base, content: "The Hearthwardens' lantern-song carries farther today." } },
+      ].map(({ name, event }) => ({
+        name,
+        scene: sceneCardEventText(event),
+        status: statusUpdateMeta(event),
+        eventText: eventText(event),
+        statusHtml: statusEventHtml(event),
+      }));
+    });
+    for (const presentation of result) {
+      assert(
+        !/world\s*\.\s*faction\s*\.\s*influence_shifted/i.test(JSON.stringify(presentation)),
+        `faction influence identifiers must stay out of user-facing copy: ${JSON.stringify(presentation)}`,
+      );
+      assert(
+        presentation.status?.label === "world",
+        `faction influence status should carry a user-facing world label: ${JSON.stringify(presentation)}`,
+      );
+    }
+    assert(
+      result[0]?.scene === "Influence shifted from Rain-Soft Garden toward The Cosy Cottage."
+        && result[1]?.scene === result[0]?.scene
+        && result[2]?.scene === result[0]?.scene,
+      `raw and legacy faction payloads should receive the prose fallback: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result[3]?.scene === "The Hearthwardens' lantern-song carries farther today.",
+      `authored faction prose should remain intact: ${JSON.stringify(result)}`,
+    );
+  }
+
   async function assertWorldResetClearsTranscriptAndResidentRepeatsCollapse() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
@@ -9194,6 +9237,48 @@ async function main() {
       };
       const pathwayStage = document.createElement("div");
       pathwayStage.innerHTML = pathwayStageHtml(pathwayFixture);
+      const previousState = state;
+      const previousActions = actions;
+      state = {
+        ...base,
+        location: { id: 100002, name: "Olive Turn" },
+        actors: [
+          { id: actorId, name: "Road Reader", status: "active" },
+          { id: 8600, name: "Wayside Friend", status: "active" },
+        ],
+        journey: {
+          destination_location_id: 714,
+          destination_name: "Emmaus",
+          way_class: "road",
+          way_name: "Road to Emmaus",
+          current_step: 2,
+          total_steps: 4,
+          steps_remaining: 2,
+          explorer: true,
+          next_location_id: 100003,
+          next_location_name: "Figshade Bend",
+        },
+      };
+      actions = travellingActions;
+      render();
+      renderLog();
+      const journeyProgress = document.querySelector("#journey-progress");
+      const journeyPresentation = {
+        hidden: document.querySelector("#journey-strip")?.hidden,
+        destination: document.querySelector("#journey-destination")?.textContent || "",
+        way: document.querySelector("#journey-way")?.textContent || "",
+        remaining: document.querySelector("#journey-remaining")?.textContent || "",
+        next: document.querySelector("#journey-next")?.textContent || "",
+        party: document.querySelector("#journey-party-label")?.textContent || "",
+        progress: journeyProgress?.getAttribute("aria-valuenow") || "",
+        progressMax: journeyProgress?.getAttribute("aria-valuemax") || "",
+        progressWidth: journeyProgress?.style.getPropertyValue("--journey-progress") || "",
+        chatLabel: document.querySelector("#log")?.getAttribute("aria-label") || "",
+        chatHeading: document.querySelector(".party-channel-heading")?.textContent || "",
+      };
+      state = previousState;
+      actions = previousActions;
+      render();
       return {
         searchingActionCount: searchingActions.length,
         travellingActionCount: travellingActions.length,
@@ -9254,6 +9339,7 @@ async function main() {
           targets: inspectTargets,
         },
         pathwayStage: pathwayStage.textContent.replace(/\s+/g, " ").trim(),
+        journeyPresentation,
       };
     });
     assert(
@@ -9316,6 +9402,20 @@ async function main() {
       result.finalTravel.label === "travel"
         && /arrive in Moonlit Trail/i.test(result.finalTravel.effect),
       `the final adjacent Move should arrive at the destination: ${JSON.stringify(result)}`,
+    );
+    assert(
+      result.journeyPresentation.hidden === false
+        && result.journeyPresentation.destination === "Emmaus"
+        && result.journeyPresentation.way === "Road to Emmaus"
+        && result.journeyPresentation.remaining === "2 stretches to go"
+        && result.journeyPresentation.next === "Next: press on to Figshade Bend"
+        && result.journeyPresentation.party === "2 travellers together"
+        && result.journeyPresentation.progress === "2"
+        && result.journeyPresentation.progressMax === "4"
+        && result.journeyPresentation.progressWidth === "50%"
+        && result.journeyPresentation.chatLabel === "Travelling party chat"
+        && /Travelling party/i.test(result.journeyPresentation.chatHeading),
+      `an active journey should turn the room into a named way, progress bar, and travelling-party chat: ${JSON.stringify(result)}`,
     );
     assert(
       result.inspect.count === 1
@@ -14202,6 +14302,7 @@ async function main() {
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
   await assertWorldBeatExposureFollowsVisibleAuthoredProse();
+  await assertFactionInfluenceEventNameStaysInternal();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCombatStaysInSharedRoomTranscript();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();

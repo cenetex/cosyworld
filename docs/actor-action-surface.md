@@ -47,6 +47,14 @@ authored request ranks a gift but does not make it legal. Trades use the same
 transfer rule but require the recipient controller's acceptance policy. No
 controller may add an action or target.
 
+[ADR 0009](decisions/0009-companies-ventures-formations-and-shared-travel.md)
+does not let one actor's ordinary Travel offer acquire control of nearby
+actors. Shared departure is a separate versioned consent and Venture contract:
+Company membership, Venture participation, Formation, vehicle occupancy, and
+readiness are independent facts, and only the declared ready subset moves.
+Until that contract lands, every Travel action remains actor-scoped even when
+the browser presents a travelling-party treatment.
+
 Inference-controller selection is deterministic. Safety, recovery, active
 projects, represented delivery needs, witnessed item memories, possessed
 recipe inputs, and relationship context provide the main score. An established

@@ -2376,10 +2376,10 @@ impl RuntimeWorld {
         if let Some(actor_id) = actor_id {
             let (advancing_offer_id, advancing_offer_ids) =
                 self.first_tale_advancing_offer_selection(actor_id, offers);
-            if let Some(advancing_offer_id) = advancing_offer_id {
+            if let Some(advancing_offer_id) = advancing_offer_id.as_ref() {
                 if let Some(offer) = offers
                     .iter()
-                    .find(|offer| offer.offer_id == advancing_offer_id)
+                    .find(|offer| offer.offer_id == *advancing_offer_id)
                 {
                     let companion_capacity = usize::from(hand.capacity).saturating_sub(1);
                     let mut companion_candidates = offers

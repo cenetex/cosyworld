@@ -782,14 +782,14 @@
   "holy-land-emmaus-road": {
     "subject_kind": "location",
     "subject_id": 714,
-    "display_name": "Road to Emmaus",
+    "display_name": "Emmaus",
     "model": "ratimics/b43l:2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f",
     "model_owner": "ratimics",
     "model_name": "b43l",
     "model_version": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f",
     "lora_trigger": "B43L",
     "image_url": "/assets/the-holy-land/cards/holy-land-emmaus-road.webp",
-    "prompt": "B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.\nRoad to Emmaus, The Stranger on the Way, already mid-journey. Evening lengthens across a road where companionship slowly changes recognition.",
+    "prompt": "B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.\nEmmaus, Village of Recognition, waiting at journey's end. A small Judean hill village gathers around warm doorways and bread ovens while the western road glows in the last evening light.",
     "input": {
       "model": "dev",
       "aspect_ratio": "16:9",

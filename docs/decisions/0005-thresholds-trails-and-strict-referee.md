@@ -179,6 +179,19 @@ Five facts must remain independent:
 | Shelter | Authored room feature or equipped `camp_shelter` capability | Determines whether Camp can be offered; a navigation fixture is not shelter. |
 | Rest grade | ADR 0004 Hearth/Lodged/Camp derivation | Never inferred from a cairn, Mark, Lead, familiarity, or route reveal. |
 
+[ADR 0009](0009-companies-ventures-formations-and-shared-travel.md) adds a
+sixth independent concern: the social group moving through this geography. A
+pathway, active Lead, Anchor, shared room, or common vehicle never creates a
+Company or party. Company membership, Venture participation, Formation,
+readiness, and detachments use their own consent and replay contracts.
+
+Route development must likewise preserve causality. Repeated use may wear an
+unmarked way into a track or trail, but cairn paths require wayfinding work and
+roads require construction or stewardship. One traversal of a long generated
+path must not improve it faster solely because it emits more per-edge movement
+events. Any replacement for the current traffic-class compatibility behavior
+requires explicit evidence normalization and replay migration.
+
 Rest/fatigue cadence is owned by #356 and the decision in #603. Scout and
 Pressure consume that contract after it is accepted; they do not invent short
 rests, fatigue thresholds, or a second recovery system.
@@ -301,4 +314,5 @@ inspectable.
 - [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
 - [SRD-backed action and collectible system](../systems/04-action-system.md)
 - [ADR 0004: rest grades and expedition depth](0004-rest-grades-and-expedition-depth.md)
+- [ADR 0009: companies, Ventures, Formations, and shared travel](0009-companies-ventures-formations-and-shared-travel.md)
 - [Worldpacks](../../v2/docs/worldpacks.md)
