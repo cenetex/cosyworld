@@ -16,7 +16,12 @@ The authored pack includes:
 - 10 portable story items with concrete quest uses;
 - 3 factions organized around record, rendering, and careful circulation;
 - 3 playable quests, 6 progress/danger clocks, and 3 active fronts;
-- 19 generated-art cards for locations and moving residents, plus 10 pending-art item cards.
+- 29 fixed generated-art cards covering every location, moving resident, and portable story item.
+
+The pregenerated card files are the canonical Hoppycat visuals. Runtime card
+rendering resolves only these mounted local assets; new generation does not
+replace avatar, location, or item art. The shared item-art direction and prompt
+subjects are recorded in `ART_GENERATION.md`.
 
 Every authored resident has ambient autonomy and explicit roaming enabled. They
 can pursue useful goals first, then choose a legal adjacent route when idle;

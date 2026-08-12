@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.12 — 2026-08-12
+
+- Keep an active journey's exact next Travel card in one hand slot while every
+  other eligible action rotates fairly through the remaining slot.
+
+## 1.0.11 — 2026-08-12
+
+- Record semantic instruments as subjective, replay-safe memory lenses and
+  reflective resident work as off-tick batch computation that cannot mint
+  history.
+
+## 1.0.10 — 2026-08-12
+
+- Lock Hoppycat's pregenerated avatar and location cards as canonical local
+  artwork, and add a matching ten-image set for every portable story item.
+
 ## 1.0.8 — 2026-08-12
 
 - Declare the exact Hoppycat bundle currently deployed to Lonely Forest as

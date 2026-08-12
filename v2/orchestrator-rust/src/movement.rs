@@ -402,6 +402,39 @@ impl RuntimeWorld {
         Some(journey)
     }
 
+    pub(super) fn journey_advancing_offer<'a>(
+        &self,
+        actor_id: u64,
+        offers: &'a [RankedActionOffer],
+    ) -> Option<&'a RankedActionOffer> {
+        let journey = self.journey_at_actor_location(actor_id)?;
+        let next_location_id = journey.path.get(journey.current_step + 1).copied()?;
+        offers
+            .iter()
+            .find(|offer| {
+                offer.ranked_hand_eligible
+                    && action_offer_is_reachable(offer)
+                    && offer.kind == "move"
+                    && offer
+                        .target
+                        .as_ref()
+                        .and_then(|target| target.id)
+                        .is_some_and(|target_id| target_id == next_location_id)
+            })
+            .or_else(|| {
+                offers.iter().find(|offer| {
+                    offer.ranked_hand_eligible
+                        && action_offer_is_reachable(offer)
+                        && offer.kind == "explore_path"
+                        && offer
+                            .target
+                            .as_ref()
+                            .and_then(|target| target.id)
+                            .is_some_and(|target_id| target_id == journey.destination_location_id)
+                })
+            })
+    }
+
     fn generated_pathway_for_edge(
         &self,
         from_location_id: u64,
@@ -877,6 +910,44 @@ mod tests {
         assert_eq!(recovered.next_location_id, Some(path[2]));
         assert_eq!(recovered.way_class, PathwayWayClass::Route);
         assert_eq!(recovered.way_name, "Unmarked way to Moonlit Trail");
+        let offers = runtime
+            .legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1;
+        let journey_offer = runtime
+            .journey_advancing_offer(actor_id, &offers)
+            .expect("the active journey has one exact advancing offer");
+        let expected_companions = offers
+            .iter()
+            .filter(|offer| {
+                offer.ranked_hand_eligible
+                    && action_offer_is_reachable(offer)
+                    && offer.offer_id != journey_offer.offer_id
+            })
+            .map(|offer| offer.offer_id.clone())
+            .collect::<BTreeSet<_>>();
+        let mut seen_companions = BTreeSet::new();
+        for generation in 0..expected_companions.len().max(1) {
+            runtime
+                .hand_generations
+                .insert(actor_id, u64::try_from(generation).unwrap());
+            let hand = runtime.action_hand_for(Some(actor_id), &offers);
+            assert_eq!(
+                hand.entries.first().map(|entry| entry.offer_id.as_str()),
+                Some(journey_offer.offer_id.as_str()),
+                "the exact next Travel card stays pinned"
+            );
+            assert_eq!(usize::from(hand.deck_size), expected_companions.len() + 1);
+            seen_companions.extend(
+                hand.entries
+                    .iter()
+                    .skip(1)
+                    .map(|entry| entry.offer_id.clone()),
+            );
+        }
+        assert_eq!(
+            seen_companions, expected_companions,
+            "every other eligible card rotates fairly beside Travel"
+        );
         let MovementPlan::Journey { mutation, .. } = runtime
             .plan_move_choice_action(actor_id, path[2], &AccessContext::default())
             .expect("the next revealed segment remains a legal Travel choice")

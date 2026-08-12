@@ -8,6 +8,14 @@ an item device. The model is not automatically a person. Actor-versus-device
 embodiment follows
 [ADR 0007](docs/decisions/0007-model-bindings-and-item-devices.md).
 
+An embedding or rerank device changes whose memory surfaces and in what order,
+never what happened; the journal stays the one history and only access to it is
+subjective, per
+[ADR 0010](docs/decisions/0010-semantic-instruments-shape-memory.md). Work no
+player is waiting on — consolidation, identity refinement, journals, and
+objectives — runs in batch off the tick, per
+[ADR 0011](docs/decisions/0011-reflective-work-runs-in-batch.md).
+
 `Chat` is the player-facing friendship action. It appears only when the avatar
 has banked advancement and a nearby resident is eligible for a new Bond; playing
 it spends one advancement point, creates that friendship, and passes the room

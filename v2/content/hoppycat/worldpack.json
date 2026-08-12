@@ -10,7 +10,8 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
-      "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035"
+      "sha256:4033bce20f86585f2fc5221ab7e3aeac637358b4b395ded6dc0b2e71fd1e6035",
+      "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
@@ -181,7 +182,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:4972bbf08959881440c0ab6b718789f6d5822fc3b2898ce7c785ddeb1fe3d475",
+  "bundle_hash": "sha256:d1030b7fa7d0e6bb2e801928e54b461171d871e60e41756b517c1462f4c7382c",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -345,7 +346,7 @@
       "id": "hoppycat.archive",
       "name": "Hoppycat: February Third",
       "description": "An original cosy-weird world of tea, tides, prisms, careful memory, impossible dreams, and a day trying to become tomorrow.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit/",
@@ -354,7 +355,7 @@
         {
           "id": "hoppycat.archive/world",
           "kind": "world",
-          "version": "0.3.0"
+          "version": "0.3.1"
         },
         {
           "id": "hoppycat.archive/assets",
@@ -535,7 +536,7 @@
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:228d9e0007ef27b60c750817ef7406f66971f73627d7c1266d7fb09ddb1efc27"
+      "integrity": "sha256:9e01b6d1e9f2dd07333126d8db2c722e73a7dca14f7366d1c431f4bda7065218"
     }
   ],
   "files": {
