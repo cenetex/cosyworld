@@ -2427,33 +2427,6 @@ impl RuntimeWorld {
                     hand.draw_available = guided_deck_size > usize::from(hand.capacity);
                 }
             }
-            if let Some(journey_offer) = self.journey_advancing_offer(actor_id, offers) {
-                let journey_is_dealt = hand
-                    .entries
-                    .iter()
-                    .any(|entry| entry.offer_id == journey_offer.offer_id);
-                if !journey_is_dealt {
-                    let journey_entry = ActionHandEntryView {
-                        offer_id: journey_offer.offer_id.clone(),
-                        kind: journey_offer.kind.clone(),
-                        intention: journey_offer.intention.clone(),
-                        provider: journey_offer.provider.clone(),
-                    };
-                    let protected_index = advancing_offer_id.as_ref().and_then(|offer_id| {
-                        hand.entries
-                            .iter()
-                            .position(|entry| entry.offer_id == *offer_id)
-                    });
-                    if hand.entries.len() < usize::from(hand.capacity) {
-                        hand.entries.push(journey_entry);
-                    } else if let Some(replace_index) = (0..hand.entries.len())
-                        .rev()
-                        .find(|index| Some(*index) != protected_index)
-                    {
-                        hand.entries[replace_index] = journey_entry;
-                    }
-                }
-            }
         }
         let state_revision = self.current_state_revision();
         let scene_key = focused_encounter_for_actor(self, actor_id.unwrap_or_default())
