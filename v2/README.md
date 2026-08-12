@@ -649,7 +649,9 @@ First entry shows The Cosy Cottage with one command: `create avatar`. The browse
 
 Returning players keep their local avatar id plus an opaque `actor_session` minted by `/avatar`, and re-enter through `/state?actor_id=...&actor_session=...`. If the server no longer recognizes that actor/session pair, the state contract falls back to `Create Avatar` instead of silently fabricating a character or letting another browser drive the avatar by guessing its id.
 
-When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same live human actor and issue a fresh actor session without emitting duplicate `actor.created` world events. Dev reset clears those links along with the reseeded world.
+When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same present human actor — active or knocked out — and issue a fresh actor session without emitting duplicate `actor.created` world events. Knockout never mints or links a replacement identity. Dev reset clears those links along with the reseeded world.
+
+`POST /avatar/session` renews credentials only for the same canonical actor. A current actor session may rotate itself; an expired actor session requires the signed wallet already linked to that actor. The route returns `409` for a terminal actor and never creates an avatar. Browser action retries use it once after a credential-specific failure and reuse the original command intent.
 
 Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, and `/state` use the same current-room roster projection. The one bounded exception is a lapsed avatar who still owns a focused turn: that holder stays visible until turn recovery hands off, but remains absent from actor-target offers and commands. The browser and terminal clients maintain explicit presence heartbeats. NPC residents stay visible according to world placement.
 
@@ -815,6 +817,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /stream`
 - `POST /dev/reset` when `COSYWORLD_ENABLE_DEV_RESET=1`
 - `POST /avatar`
+- `POST /avatar/session`
 - `POST /commands` for read controls and certified Think/Pass
 - `POST /presence/ping`
 - `POST /presence/leave`

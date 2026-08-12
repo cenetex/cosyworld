@@ -4898,6 +4898,8 @@
   </div>
   <script>
     const avatarGateVersion = "2";
+    const actorSessionExpiryStorageKey = "cosyworld.actorSessionExpiresAtUnix";
+    const actorSessionRenewalWindowSeconds = 24 * 60 * 60;
     const walletRequestTimeoutMs = 20000;
     const presenceHeartbeatMs = 60000;
     const authoredCallingChoices = [
@@ -4986,9 +4988,13 @@
     const hasExplicitAvatar = localStorage.getItem("cosyworld.avatarGateVersion") === avatarGateVersion;
     let actorId = hasExplicitAvatar ? Number(localStorage.getItem("cosyworld.actorId") || 0) : 0;
     let actorSession = hasExplicitAvatar ? (localStorage.getItem("cosyworld.actorSession") || "") : "";
+    let actorSessionExpiresAtUnix = hasExplicitAvatar
+      ? Number(localStorage.getItem(actorSessionExpiryStorageKey) || 0)
+      : 0;
     if (!hasExplicitAvatar) {
       localStorage.removeItem("cosyworld.actorId");
       localStorage.removeItem("cosyworld.actorSession");
+      localStorage.removeItem(actorSessionExpiryStorageKey);
     }
     let state = null;
     let actions = [];
@@ -5020,6 +5026,8 @@
     let refreshQueued = false;
     let refreshAttemptId = 0;
     let recoveryRefreshAttemptId = 0;
+    let actorSessionRenewalInFlight = null;
+    let actorSessionTerminal = false;
     let transientStatus = null;
     let actionBusy = false;
     let actionSlow = false;
@@ -5089,6 +5097,7 @@
       localStorage.removeItem("cosyworld.actorId");
       localStorage.removeItem("cosyworld.actorSession");
       localStorage.removeItem("cosyworld.avatarGateVersion");
+      localStorage.removeItem(actorSessionExpiryStorageKey);
     }
 
     function loadDefeatTransition() {
@@ -5529,6 +5538,72 @@
       }
     }
 
+    function rememberActorSession(response) {
+      const nextActorId = Number(response?.actor?.id || 0);
+      const nextSession = String(response?.actor_session || "");
+      if (!nextActorId || nextActorId !== Number(actorId) || !nextSession) return false;
+      actorSession = nextSession;
+      actorSessionExpiresAtUnix = Math.max(
+        0,
+        Number(response?.actor_session_expires_at_unix || 0),
+      );
+      actorSessionTerminal = false;
+      localStorage.setItem("cosyworld.actorId", String(actorId));
+      localStorage.setItem("cosyworld.actorSession", actorSession);
+      localStorage.setItem("cosyworld.avatarGateVersion", avatarGateVersion);
+      if (actorSessionExpiresAtUnix) {
+        localStorage.setItem(actorSessionExpiryStorageKey, String(actorSessionExpiresAtUnix));
+      } else {
+        localStorage.removeItem(actorSessionExpiryStorageKey);
+      }
+      return true;
+    }
+
+    async function renewActorSession({ rotate = false } = {}) {
+      if (!actorId) return { ok: false, renewed: false, status: 400 };
+      if (actorSessionRenewalInFlight) return actorSessionRenewalInFlight;
+      const requestedActorId = Number(actorId);
+      actorSessionRenewalInFlight = (async () => {
+        const result = await postResult("/avatar/session", {
+          actor_id: requestedActorId,
+          ...(actorSession ? { actor_session: actorSession } : {}),
+          ...(walletSession ? { wallet_session: walletSession } : {}),
+          rotate,
+        });
+        if (requestedActorId !== Number(actorId)) {
+          return { ok: false, renewed: false, status: 409 };
+        }
+        if (!result.ok) {
+          if (Number(result.status || 0) === 409) actorSessionTerminal = true;
+          return { ok: false, renewed: false, status: Number(result.status || 0) };
+        }
+        if (!rememberActorSession(result)) {
+          return { ok: false, renewed: false, status: 409 };
+        }
+        if (result.renewed && stream) connectStream();
+        return {
+          ok: true,
+          renewed: Boolean(result.renewed),
+          status: Number(result.status || 0),
+        };
+      })();
+      try {
+        return await actorSessionRenewalInFlight;
+      } finally {
+        actorSessionRenewalInFlight = null;
+      }
+    }
+
+    async function rotateActorSessionIfNeeded() {
+      if (!actorId) return;
+      const now = Math.floor(Date.now() / 1000);
+      if (
+        actorSession
+        && actorSessionExpiresAtUnix > now + actorSessionRenewalWindowSeconds
+      ) return;
+      await renewActorSession({ rotate: true });
+    }
+
     async function createAvatar(selection = null) {
       const profile = selection?.profileId
         ? (state?.character_creation || [])
@@ -5551,10 +5626,7 @@
         throw new Error(avatarFailureMessage(avatar));
       }
       actorId = avatar.actor.id;
-      actorSession = avatar.actor_session || "";
-      localStorage.setItem("cosyworld.actorId", String(actorId));
-      if (actorSession) localStorage.setItem("cosyworld.actorSession", actorSession);
-      localStorage.setItem("cosyworld.avatarGateVersion", avatarGateVersion);
+      if (!rememberActorSession(avatar)) throw new Error("The avatar session could not be stored safely.");
       clearDefeatTransition();
       pushEvents(avatar.events || []);
       await pingPresence();
@@ -5597,10 +5669,20 @@
       const previousLocationId = state?.location?.id || null;
       const wasTired = actorIsTired(state);
       const requestedActorId = actorId;
-      const stateRequest = api(statePath());
+      await rotateActorSessionIfNeeded();
+      let stateRequest = api(statePath());
       const contentPacksRequest = ensureContentPacks().catch(() => null);
-      const nextState = await stateRequest;
+      let nextState = await stateRequest;
       if (requestedActorId !== actorId) return;
+      if (actorId && nextState.primary_action?.kind === "create_avatar") {
+        const recovery = await renewActorSession();
+        if (recovery.ok && recovery.renewed) {
+          stateRequest = api(statePath());
+          nextState = await stateRequest;
+        }
+      } else if (actorId) {
+        actorSessionTerminal = false;
+      }
       await contentPacksRequest;
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
@@ -5612,11 +5694,6 @@
         handDealNonce += 1;
         playerPromotedHandKey = "";
         handCompositionSignature = nextHandCompositionSignature;
-      }
-      if (actorId && state.primary_action?.kind === "create_avatar") {
-        actorId = 0;
-        clearLocalSession();
-        stopPresenceHeartbeat();
       }
       const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
       if (logEvents.length === 0 || locationChanged || timelineRewound
@@ -6043,6 +6120,23 @@
 
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
+        if (actorId && !actorSessionTerminal) {
+          return [{
+            kind: "avatar-reconnect",
+            label: "reconnect",
+            detail: "restore this same avatar",
+            command: "reconnect avatar",
+            focusKey: "reconnect-avatar",
+            card: cardForActor(actorId) || cardForLocation(view.location?.id),
+            shape: "avatar",
+            modalTitle: "reconnect your avatar",
+            modalSummary: "Sign in to restore this avatar. No replacement.",
+            effect: "restores the same identity, belongings, bonds, and journal position",
+            busyLabel: "reconnecting",
+            busyDetail: "finding the same thread in the world…",
+            run: () => connectWallet(),
+          }];
+        }
         const beginningAgain = Boolean(defeatTransition);
         const creationProfile = (view.character_creation || [])[0] || null;
         const callingChoices = authoredCallingChoices.map((choice) => ({
@@ -6146,6 +6240,8 @@
             });
         return [action, campaignAction];
       }
+
+      if (view.primary_action?.kind === "await_rescue") return [];
 
       const characterIdentity = view.character_identity || null;
       if (characterIdentity?.class_selection_ready && !characterIdentity?.class_id) {
@@ -8365,8 +8461,10 @@
         void queueRefresh();
         return result;
       }
-      const result = offer
-          ? await postResult("/actions/submit", {
+      const submit = () => {
+        const currentPayload = withAccess(donatedPayload);
+        return offer
+          ? postResult("/actions/submit", {
               path,
               offer_id: offer.offer_id,
               composition_id: offer.composition_id,
@@ -8378,9 +8476,15 @@
               route: offer.route,
               target: offer.target,
               cost: offer.cost,
-              payload: authoritativePayload,
+              payload: currentPayload,
             })
-          : await postResult(path, authoritativePayload);
+          : postResult(path, currentPayload);
+      };
+      let result = await submit();
+      if (Number(result.status || 0) === 403) {
+        const recovery = await renewActorSession();
+        if (recovery.ok && recovery.renewed) result = await submit();
+      }
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
@@ -8437,7 +8541,7 @@
       if (status === 503 && path === "/actions/model-interaction") {
         return "That model route is resting right now. Choose another action; nothing was spent.";
       }
-      if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
+      if (status === 403) return "Reconnect your account to restore this same avatar. The world will not replace it.";
       if (status === 400 && path.includes("/actions/rest")) return "You are already steady enough to keep going.";
       if (status === 409) return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
@@ -8450,7 +8554,7 @@
       const output = String(result.output || "").trim();
       if (output) return output;
       const status = Number(result.status || 0);
-      if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
+      if (status === 403) return "Reconnect your account to restore this same avatar. The world will not replace it.";
       if (status === 409) return "That choice changed while you were deciding. Nothing else happened; look again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
@@ -8509,12 +8613,18 @@
         return null;
       }
       const beforeOrbs = economyOrbCount();
-      const result = await postResult("/commands", withAccess({
-        actor_id: actorId,
-        command,
-        ...(exactOffer?.offer_id ? { offer_id: exactOffer.offer_id } : {}),
-        envelope: canonicalCommandEnvelope(),
-      }));
+      const envelope = canonicalCommandEnvelope();
+      const submit = () => postResult("/commands", withAccess({
+          actor_id: actorId,
+          command,
+          ...(exactOffer?.offer_id ? { offer_id: exactOffer.offer_id } : {}),
+          envelope,
+        }));
+      let result = await submit();
+      if (Number(result.status || 0) === 403) {
+        const recovery = await renewActorSession();
+        if (recovery.ok && recovery.renewed) result = await submit();
+      }
       const resultEvents = result.events || [];
       pushEvents(resultEvents);
       if (result.output) pushCommandOutput(result.command || command, result.output, result.ok, resultEvents);
@@ -11895,19 +12005,21 @@
       const pendingModelOutputs = pendingModelInteractionsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
+      const observerScene = knockedOutObserverHtml();
       const hasTranscript = visibleEvents.length > 0
         || Boolean(pendingConversation)
         || Boolean(pendingChatReplies)
         || Boolean(pendingModelOutputs)
-        || Boolean(defeatScene);
+        || Boolean(defeatScene)
+        || Boolean(observerScene);
       const inferredOnly = visibleEvents.length > 0 && visibleEvents.every((event) => (
         ["message.created", "image.created", "model_interaction.output"].includes(event.type) && messageActorUsesInference(event)
       ));
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
       log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasTranscript);
-      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene);
-      log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene));
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasTranscript && !pendingArrival && !defeatScene && !observerScene);
+      log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene || observerScene));
       log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && inferredOnly);
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
       document.querySelector(".terminal")?.classList.toggle("panel-open", Boolean(panelMode));
@@ -11954,7 +12066,7 @@
       ].join(":");
       const firstTranscriptRender = !renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;
       log.scrollTop = firstTranscriptRender || wasAtBottom
         ? log.scrollHeight
         : Math.min(previousScrollTop, Math.max(0, log.scrollHeight - log.clientHeight));
@@ -12212,10 +12324,20 @@
         ? `${actor} was knocked out by ${opponent}.`
         : `${actor} was defeated by ${opponent}.`;
       const cue = knockedOut
-        ? "Their body is still where it fell, and the world keeps it. Choose begin again below when you are ready."
+        ? "Their body is still where it fell, and the world keeps their identity, bonds, belongings, and journal. Stay with them while help arrives."
         : "This avatar is gone. Any linked account and items are still here. Choose begin again below when you are ready.";
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene defeat-scene" role="alert" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
+    }
+
+    function knockedOutObserverHtml() {
+      if (defeatTransition || state?.primary_action?.kind !== "await_rescue") return "";
+      const actor = actorForId(actorId);
+      const name = actor?.name || "Your avatar";
+      const text = `${name} is knocked out, but still present in this one shared world.`;
+      const cue = "You can observe the room while another traveler brings help. This identity, its bonds, belongings, and journal remain attached.";
+      const aria = `awaiting rescue. ${text} ${cue}`;
+      return `<div class="room-scene defeat-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">awaiting rescue</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
 
     function quietRoomSceneHtml() {

@@ -371,7 +371,7 @@ pub(crate) async fn resolve_command_submission_at_boundary(
                 command: normalize_command_text(&payload.command),
                 verb: String::new(),
                 output: Some(
-                    "Your avatar slipped out of reach. Begin again or reconnect your account."
+                    "Reconnect your account to restore this same avatar; the world will not replace it."
                         .to_string(),
                 ),
                 error_kind: None,

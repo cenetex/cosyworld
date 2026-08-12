@@ -17804,28 +17804,8 @@ The relationship statement they are preserving is: {statement}"
             };
         };
 
-        // A defeated avatar still resolves through `actor_by_id`, so matching
-        // only on a missing actor left a defeated player being offered
-        // ordinary actions they can never submit: every offer fails
-        // `actor_can_act` as a stale offer, and the defeat copy instructs a
-        // beginning the projection never dealt. A knocked-out avatar keeps its
-        // presence in the world — the body stays visible and targetable — but
-        // the player holding it has no legal move until rescue or recovery
-        // exists, so any avatar that cannot act projects the same beginning as
-        // having no avatar at all. The client releases its binding and shows
-        // creation, while the body persists.
-        let departed = match self.actor_by_id(actor_id) {
-            None => true,
-            Some(actor) => !Self::actor_can_act(actor),
-        };
-        if departed {
-            return PrimaryAction {
-                kind: "create_avatar".to_string(),
-                label: "Create Avatar".to_string(),
-                command: "create avatar".to_string(),
-                disabled: false,
-                options: Vec::new(),
-            };
+        if let Some(action) = self.avatar_lifecycle_primary_action(actor_id) {
+            return action;
         }
 
         if let Some(encounter) = self.active_combat_encounter_for_actor(actor_id) {
@@ -22720,7 +22700,7 @@ async fn create_avatar(
             let runtime = state.inner.lock().await;
             if let Some(actor) = runtime
                 .actor_by_id(actor_id)
-                .filter(|actor| runtime.client_actor_can_submit(actor.id))
+                .filter(|actor| runtime.client_actor_can_observe(actor.id))
                 .map(|actor| runtime.actor_view(actor))
             {
                 drop(runtime);
@@ -25508,7 +25488,7 @@ async fn command_with_forwarding(
             return canonical_command_error(
                 &payload.command,
                 403,
-                "Your avatar slipped out of reach. Begin again or reconnect your account.",
+                "Reconnect your account to restore this same avatar; the world will not replace it.",
             );
         }
     }
@@ -26658,7 +26638,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(
-                        "Your avatar slipped out of reach. Begin again or reconnect your account."
+                        "Reconnect your account to restore this same avatar; the world will not replace it."
                             .to_string(),
                     ),
                     error_kind: None,
@@ -27036,7 +27016,7 @@ async fn command_inner(
                     command: resolved.command,
                     verb: resolved.verb,
                     output: Some(
-                        "Your avatar slipped out of reach. Begin again or reconnect your account."
+                        "Reconnect your account to restore this same avatar; the world will not replace it."
                             .to_string(),
                     ),
                     error_kind: None,
@@ -40663,7 +40643,7 @@ mod tests {
         );
         assert_eq!(
             reconnect,
-            "Your avatar slipped out of reach. Begin again or reconnect your account."
+            "Reconnect your account to restore this same avatar; the world will not replace it."
         );
         assert_eq!(hurried, "The room needs a breath. Try again in a moment.");
         assert!(![lost, reconnect, hurried].iter().any(|copy| {
@@ -43952,10 +43932,12 @@ mod tests {
         assert!(INDEX_HTML.contains("sessionStorage.removeItem(\"cosyworld.openrouterApiKey\""));
         assert!(!INDEX_HTML.contains("sessionStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
-        assert!(INDEX_HTML.contains("const stateRequest = api(statePath())"));
+        assert!(INDEX_HTML.contains("await rotateActorSessionIfNeeded();"));
+        assert!(INDEX_HTML.contains("let stateRequest = api(statePath())"));
+        assert!(INDEX_HTML.contains("if (recovery.ok && recovery.renewed)"));
         assert!(INDEX_HTML.contains("await Promise.all([pingPresence(), refresh()])"));
         assert!(INDEX_HTML.contains("async function postResult(path, payload)"));
-        assert!(INDEX_HTML.contains("await postResult(\"/commands\""));
+        assert!(INDEX_HTML.contains("const submit = () => postResult(\"/commands\""));
         assert!(INDEX_HTML.contains("await postResult(\"/presence/ping\""));
         assert!(!INDEX_HTML.contains("await post(\"/commands\""));
         assert!(!INDEX_HTML.contains("await post(\"/presence/ping\""));
@@ -44022,7 +44004,7 @@ mod tests {
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains("const visibleEvents = sharedRoomTranscriptEvents(logEvents);"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
+            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${defeatScene}${observerScene}${pendingConversation}${pendingChatReplies}${pendingModelOutputs}`;"
         ));
         assert!(INDEX_HTML.contains(
             "return [\"message.created\", \"image.created\", \"model_interaction.output\", \"avatar.thought\", \"avatar.dream\"].includes(event?.type);"
@@ -44190,11 +44172,14 @@ mod tests {
         ));
         assert!(INDEX_HTML.contains("function captureDefeatTransition"));
         assert!(INDEX_HTML.contains("this tale has ended"));
-        // A knockout is not an ended tale: the scene must say the body remains
-        // and still point at the one real exit.
+        // A knockout is not an ended tale: the scene keeps the same identity
+        // attached and waits for rescue rather than offering replacement.
         assert!(INDEX_HTML.contains("was knocked out by"));
         assert!(INDEX_HTML.contains("Their body is still where it fell"));
-        assert!(INDEX_HTML.contains("Choose begin again below when you are ready."));
+        assert!(INDEX_HTML.contains("Stay with them while help arrives."));
+        assert!(INDEX_HTML.contains("kind !== \"await_rescue\""));
+        assert!(INDEX_HTML.contains("/avatar/session"));
+        assert!(INDEX_HTML.contains("restore this same avatar"));
         assert!(INDEX_HTML.contains("label: beginningAgain ? \"begin again\" : \"begin\""));
         assert!(INDEX_HTML.contains("character_creation_id"));
         assert!(INDEX_HTML.contains("character_choice_id"));
@@ -48402,7 +48387,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wallet_linked_knocked_out_avatar_can_begin_a_new_tale() {
+    async fn wallet_linked_knocked_out_avatar_reconnects_without_replacement() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -48415,6 +48400,7 @@ mod tests {
             .find(|actor| actor.id == 5000)
             .expect("linked avatar")
             .status = CW_ACTOR_KNOCKED_OUT;
+        let actor_count = runtime.world.actor_count;
 
         let state = test_app_state(runtime, None);
         let wallet_address = "wallet-ready-for-another-tale";
@@ -48426,7 +48412,7 @@ mod tests {
             ConnectInfo("127.0.0.1:45114".parse().expect("client address")),
             State(state.clone()),
             Json(CreateAvatarRequest {
-                name: Some("New Lantern".to_string()),
+                name: Some("Ignored Replacement".to_string()),
                 calling: None,
                 wallet_session: Some(wallet_session.to_string()),
                 character_creation_id: Some("the-lantern-keeper".to_string()),
@@ -48439,13 +48425,12 @@ mod tests {
         .0;
 
         assert!(response.ok, "{response:?}");
-        let actor = response.actor.expect("replacement avatar");
-        assert_ne!(actor.id, 5000);
-        assert_eq!(actor.status, "active");
-        assert_eq!(
-            linked_actor_for_wallet(&state, wallet_address),
-            Some(actor.id)
-        );
+        let actor = response.actor.expect("same observable avatar");
+        assert_eq!(actor.id, 5000);
+        assert_eq!(actor.status, "knocked_out");
+        assert!(response.actor_session.is_some());
+        assert!(response.events.is_empty());
+        assert_eq!(linked_actor_for_wallet(&state, wallet_address), Some(5000));
         assert_eq!(
             state
                 .inner
@@ -48456,6 +48441,7 @@ mod tests {
                 .status,
             CW_ACTOR_KNOCKED_OUT
         );
+        assert_eq!(state.inner.lock().await.world.actor_count, actor_count);
     }
 
     #[tokio::test]

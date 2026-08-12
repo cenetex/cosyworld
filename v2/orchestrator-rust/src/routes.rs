@@ -207,6 +207,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/dev/reset", post(dev_reset))
         .route("/avatar", post(create_avatar))
+        .route(
+            "/avatar/session",
+            post(super::actor_presence::renew_avatar_session),
+        )
         .route("/avatar/class", post(choose_avatar_class))
         .route("/presence/ping", post(ping_presence))
         .route("/presence/leave", post(leave_presence))
