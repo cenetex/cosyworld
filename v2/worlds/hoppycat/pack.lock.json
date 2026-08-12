@@ -78,12 +78,12 @@
     },
     {
       "id": "hoppycat.archive",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "source": {
         "type": "workspace",
         "path": "../../content/hoppycat-archive"
       },
-      "integrity": "sha256:228d9e0007ef27b60c750817ef7406f66971f73627d7c1266d7fb09ddb1efc27",
+      "integrity": "sha256:9e01b6d1e9f2dd07333126d8db2c722e73a7dca14f7366d1c431f4bda7065218",
       "dependencies": [
         {
           "id": "cosyworld.rules-profile-srd5",
@@ -101,7 +101,7 @@
         {
           "id": "hoppycat.archive/world",
           "kind": "world",
-          "version": "0.3.0"
+          "version": "0.3.1"
         },
         {
           "id": "hoppycat.archive/assets",
@@ -169,7 +169,7 @@
     {
       "pack_id": "hoppycat.archive",
       "name": "Hoppycat: February Third",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit/",
       "provenance": {
