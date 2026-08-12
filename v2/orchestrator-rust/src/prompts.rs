@@ -555,7 +555,7 @@ fn avatar_chat_prompt(plan: &AvatarChatPlan, followup: bool) -> PromptEnvelope {
             )
         } else {
             format!(
-                "Open a conversation with {} because {}'s controller selected Chat. Begin with a concrete live detail, preference, curiosity, or open thread rather than announcing a place name. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
+                "Open a conversation with {} because {}'s controller selected Chat. Begin with a concrete live detail, preference, observation, intention, or mild disagreement rather than announcing a place name. Vary sentence form; do not default to a rhetorical question or ask what everyone is avoiding. Do not ask about real-world work or tasks, and do not merely mirror a prior question.",
                 plan.target_actor_name, plan.actor_name
             )
         },

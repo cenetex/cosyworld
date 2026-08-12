@@ -749,6 +749,9 @@ fn retry_instruction(
     if failed.contains(&PublicationCheckCode::VoiceSignpostOpening) {
         clauses.push("start with a person, object, action, or sensation · mention the place later only if it matters".to_string());
     }
+    if failed.contains(&PublicationCheckCode::VoiceQuestionMonoculture) {
+        clauses.push("make a concrete statement, observation, intention, joke, or disagreement · no rhetorical question".to_string());
+    }
     (!clauses.is_empty()).then(|| format!("again · {}", clauses.join(" · ")))
 }
 

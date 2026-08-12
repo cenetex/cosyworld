@@ -444,6 +444,26 @@ impl AiConfig {
         registry.pin(capability, configured, self.data_policy_mode)
     }
 
+    fn pin_model_for_key(
+        &self,
+        capability: ModelCapability,
+        routing_key: &str,
+    ) -> Result<PinnedModelSelection, RegistryError> {
+        // A capability-specific override is an operator pin and therefore
+        // wins over exploration. The legacy global model is only a default;
+        // when a reviewed registry exposes a pool, stable keyed sampling keeps
+        // one avatar consistent while spreading different avatars across it.
+        if self.capability_models.contains_key(&capability) {
+            return self.pin_model(capability);
+        }
+        let candidates = self.pin_models(capability)?;
+        let digest = Sha256::digest(format!("{capability:?}\0{routing_key}").as_bytes());
+        let index = u64::from_be_bytes(digest[..8].try_into().expect("SHA-256 routing prefix"))
+            as usize
+            % candidates.len();
+        Ok(candidates[index].clone())
+    }
+
     pub(crate) fn pin_models(
         &self,
         capability: ModelCapability,
@@ -1303,6 +1323,17 @@ pub(crate) async fn request_chat_completion(
         Some(&selection),
     )
     .await
+}
+
+pub(crate) async fn request_chat_completion_for_key(
+    config: &AiConfig,
+    request: ChatCompletionRequest<'_>,
+    routing_key: &str,
+) -> Result<AiCompletion, AiGatewayError> {
+    let selection = config
+        .pin_model_for_key(request.capability, routing_key)
+        .map_err(|error| AiGatewayError::registry(request.feature, error))?;
+    request_chat_completion_with_selection(config, request, &selection).await
 }
 
 pub(crate) async fn request_chat_completion_with_selection(
@@ -5786,6 +5817,81 @@ mod tests {
             }"#,
         )
         .expect("startup validation registry")
+    }
+
+    #[test]
+    fn keyed_world_content_routing_is_stable_and_uses_the_reviewed_pool() {
+        let registry = CapabilityRegistrySnapshot::from_json(
+            r#"{
+              "schema_version": 1,
+              "snapshot_version": "keyed-routing-1",
+              "declared": [
+                {
+                  "requested_model_id": "provider/luna",
+                  "provider": "openrouter",
+                  "concrete_model": {"model_id": "provider/luna"},
+                  "input_modalities": ["text"],
+                  "output_modalities": ["text"],
+                  "supported_parameters": {"structured_output": true, "json_mode": true},
+                  "data_policy": {"retention": "none", "training": "prohibited"},
+                  "capabilities": ["world_content"]
+                },
+                {
+                  "requested_model_id": "provider/gemini",
+                  "provider": "openrouter",
+                  "concrete_model": {"model_id": "provider/gemini"},
+                  "input_modalities": ["text"],
+                  "output_modalities": ["text"],
+                  "supported_parameters": {"structured_output": true, "json_mode": true},
+                  "data_policy": {"retention": "none", "training": "prohibited"},
+                  "capabilities": ["world_content"]
+                }
+              ]
+            }"#,
+        )
+        .expect("keyed routing registry");
+        let config = AiConfig {
+            model: "provider/luna".to_string(),
+            registry: Some(Arc::new(registry)),
+            data_policy_mode: DataPolicyMode::Production,
+            ..AiConfig::default()
+        };
+
+        let first = config
+            .pin_model_for_key(ModelCapability::WorldContent, "avatar:5000")
+            .expect("first selection");
+        let repeated = config
+            .pin_model_for_key(ModelCapability::WorldContent, "avatar:5000")
+            .expect("repeated selection");
+        assert_eq!(first.requested_model_id(), repeated.requested_model_id());
+
+        let selected = (5000..5100)
+            .map(|actor_id| {
+                config
+                    .pin_model_for_key(ModelCapability::WorldContent, &format!("avatar:{actor_id}"))
+                    .expect("pooled selection")
+                    .requested_model_id()
+                    .to_string()
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(selected.len(), 2);
+
+        let mut pinned = config.clone();
+        pinned
+            .capability_models
+            .insert(ModelCapability::WorldContent, "provider/luna".to_string());
+        for actor_id in 5000..5010 {
+            assert_eq!(
+                pinned
+                    .pin_model_for_key(
+                        ModelCapability::WorldContent,
+                        &format!("avatar:{actor_id}"),
+                    )
+                    .expect("operator pin")
+                    .requested_model_id(),
+                "provider/luna"
+            );
+        }
     }
 
     #[test]

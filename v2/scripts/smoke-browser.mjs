@@ -124,9 +124,10 @@ async function assertAvatarNameModeration() {
   }).then((result) => result.json());
   assert(response.ok && response.actor, `avatar name moderation probe failed to create avatar: ${JSON.stringify(response)}`);
   assert(
-    response.actor.name === "Newcomer"
+    response.actor.name !== "Newcomer"
+      && /^[A-Za-z0-9][A-Za-z0-9 '\-]{0,27}$/.test(response.actor.name)
       && !/\b(?:Traveler|Traveller|Actor) \d+\b/i.test(response.actor.name),
-    `unsafe avatar name should fall back without exposing a runtime id: ${JSON.stringify(response.actor)}`,
+    `unsafe avatar name should fall back to a generated identity without exposing a runtime id: ${JSON.stringify(response.actor)}`,
   );
   const created = (response.events || []).find((event) => event.type === "actor.created");
   assert(created?.actor_name === response.actor.name, `created event should use sanitized avatar name: ${JSON.stringify(created)}`);
@@ -11304,45 +11305,37 @@ async function main() {
       const currentActorId = Number(actorId || 0);
       const locationId = Number(state?.location?.id || 0);
       const items = state?.items || [];
+      const target = items.find((item) => item.name === name) || null;
       return {
         locationId,
-        targetHeld: items.some((item) => (
-          item.name === name && Number(item.holder_actor_id || 0) === currentActorId
-        )),
-        exchangeItemName: items.find((item) => (
-          item.name !== name
-            && Number(item.holder_actor_id || 0) === 0
-            && Number(item.location_id || 0) === locationId
-        ))?.name || "",
+        targetItemId: Number(target?.id || 0),
+        targetHeld: Number(target?.holder_actor_id || 0) === currentActorId,
       };
     }, itemName);
     assert(placement.targetHeld, `${itemName} should be in hand before placing it`);
-    if (placement.exchangeItemName) {
-      await takeItem(placement.exchangeItemName);
-    } else {
-      const result = await clickDealtActionMatching(
-        `drop ${itemName}`,
-        ["drop", itemName.toLowerCase()],
-      );
-      assert(
-        result?.ok === true && String(result.output || "").includes(`drop ${itemName}`),
-        `dropping ${itemName} should place it in the current room: ${JSON.stringify(result)}`,
-      );
-    }
-    steps.push({ label: `place ${itemName}`, location: await currentLocation() });
+    const result = await clickDealtActionMatching(
+      `give ${itemName}`,
+      ["give", itemName.toLowerCase()],
+    );
+    const transferReceipt = (result?.events || []).find((event) => (
+      event.type === "item.given"
+        && Number(event.item_id || 0) === placement.targetItemId
+        && Number(event.target_actor_id || 0) > 0
+    ));
+    assert(
+      result?.ok === true && transferReceipt,
+      `giving ${itemName} should place it with a resident: ${JSON.stringify(result)}`,
+    );
+    steps.push({
+      label: `place ${itemName}`,
+      location: await currentLocation(),
+      holder: transferReceipt.target_actor_name || `actor:${transferReceipt.target_actor_id}`,
+    });
     await page.evaluate(() => refresh());
-    await page.waitForFunction(
-      ({ name, locationId, currentActorId }) => (state?.items || []).some((item) => {
-        if (item.name !== name) return false;
-        const holderActorId = Number(item.holder_actor_id || 0);
-        return holderActorId !== currentActorId
-          && (holderActorId > 0 || Number(item.location_id || 0) === locationId);
-      }),
-      {
-        name: itemName,
-        locationId: placement.locationId,
-        currentActorId: await page.evaluate(() => Number(actorId || 0)),
-      },
+    const settledPlacement = await worldItemPlacement(itemName, placement.targetItemId);
+    assert(
+      settledPlacement && settledPlacement.kind !== "player",
+      `${itemName} should leave the player's hand after its item.given receipt: ${JSON.stringify(settledPlacement)}`,
     );
   }
 

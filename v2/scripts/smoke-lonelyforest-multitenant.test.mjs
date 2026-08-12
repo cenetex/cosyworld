@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
 import test from "node:test";
 
@@ -42,7 +43,7 @@ test("remote unknown-host router probes retain the configured public transport",
   });
 });
 
-test("failed smoke requests name the method, Host, path, and transport without retrying a POST", async () => {
+test("failed smoke requests name the method, Host, path, and transport", async () => {
   let attempts = 0;
   const server = http.createServer((incoming) => {
     attempts += 1;
@@ -54,14 +55,20 @@ test("failed smoke requests name the method, Host, path, and transport without r
     await assert.rejects(
       request(
         "lantern.lonelyforest.com",
-        "/avatar",
-        { method: "POST", body: { name: "Smoke" } },
+        "/meta",
+        {},
         new URL(`http://127.0.0.1:${port}`),
       ),
-      /POST host=lantern\.lonelyforest\.com path=\/avatar connect=127\.0\.0\.1:/,
+      /GET host=lantern\.lonelyforest\.com path=\/meta connect=127\.0\.0\.1:/,
     );
-    assert.equal(attempts, 1, "a mutating smoke request must not receive a blind transport retry");
+    assert.equal(attempts, 1);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
+});
+
+test("the deployed multitenant smoke is read-only", () => {
+  const source = fs.readFileSync(new URL("./smoke-lonelyforest-multitenant.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /method:\s*["']POST["']/);
+  assert.doesNotMatch(source, /["']\/avatar["']/);
 });

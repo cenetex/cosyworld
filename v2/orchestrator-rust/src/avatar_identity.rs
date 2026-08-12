@@ -1,15 +1,21 @@
 use std::time::Duration;
 
 use cosyworld_ai_model::GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity;
+use tracing::warn;
 
 use super::{
     active_content,
-    ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability},
+    ai_gateway::{
+        request_chat_completion_for_key, AiConfig, ChatCompletionRequest, ModelCapability,
+    },
     ai_publication::SpeechMode,
     avatar_context_spine::{AvatarContextMode, AvatarContextPromptOptions, AvatarContextSpine},
+    avatar_naming_context, broadcast_events, calling_statement_is_explorer, commit_journal_record,
     content_policy::{
         compact_whitespace, has_disallowed_control_character, human_message_is_cozy_safe,
     },
+    ActorMeta, AppState, CharacterCreationSelection, CwAction, JournalRecord, ProjectionMutation,
+    RuntimeWorld, CW_ACTION_NONE, CW_OK,
 };
 
 pub(super) const MAX_AVATAR_NAME_CHARS: usize = 28;
@@ -35,9 +41,145 @@ impl From<ModelGeneratedAvatarIdentity> for GeneratedAvatarIdentity {
     }
 }
 
+pub(super) fn apply_avatar_creation_flavor(
+    mut identity: GeneratedAvatarIdentity,
+    character_selection: Option<&CharacterCreationSelection>,
+    initial_calling: &str,
+) -> GeneratedAvatarIdentity {
+    if let Some(choice) = character_selection.and_then(|selection| selection.class.as_ref()) {
+        identity.title = choice.title.clone();
+        identity.visual_prompt = format!(
+            "{}, {}, exactly one short fantasy campaign character in practical traveling clothes, empty hands, no pets or companions",
+            identity.visual_prompt, choice.description
+        );
+    } else if let Some((species, origin)) = character_selection
+        .and_then(|selection| selection.species.as_ref().zip(selection.origin.as_ref()))
+    {
+        identity.title = format!("{} from {}", species.title, origin.title);
+        identity.visual_prompt = format!(
+            "{}, {}, {}, {}, exactly one short fantasy campaign character before choosing a profession, empty hands, no pets or companions",
+            identity.visual_prompt,
+            species.visual_prompt,
+            origin.visual_prompt,
+            species.description
+        );
+    } else if calling_statement_is_explorer(initial_calling) {
+        identity.title = "Explorer of Unnamed Ways".to_string();
+        identity.visual_prompt = format!(
+            "{}, exactly one practical pathfinder in weather-ready clothes and muddy boots, empty hands, no handheld props, pets, or companions",
+            identity.visual_prompt
+        );
+    }
+    identity
+}
+
+pub(super) fn schedule_avatar_identity_refinement(
+    state: &AppState,
+    actor_id: u64,
+    character_selection: Option<CharacterCreationSelection>,
+    initial_calling: String,
+    fallback_identity: GeneratedAvatarIdentity,
+) {
+    let Some(config) = state.ai_config.as_ref().clone() else {
+        return;
+    };
+    let state = state.clone();
+    tokio::spawn(async move {
+        let naming_context = avatar_naming_context(character_selection.as_ref());
+        let context_spine = {
+            let runtime = state.inner.lock().await;
+            runtime.avatar_context_spine(
+                actor_id,
+                None,
+                None,
+                "This newly arrived avatar is discovering a first stable way to describe themself in the current world.",
+            )
+        };
+        let mut refined = None;
+        for refinement_attempt in 0..3 {
+            match request_ai_avatar_identity(
+                &config,
+                actor_id,
+                refinement_attempt,
+                naming_context.as_ref(),
+                context_spine.as_ref(),
+            )
+            .await
+            {
+                Ok(identity) => {
+                    refined = Some(identity);
+                    break;
+                }
+                Err(error) => {
+                    warn!(
+                        "AI avatar identity refinement attempt {} failed for actor {}: {}",
+                        refinement_attempt + 1,
+                        actor_id,
+                        error
+                    );
+                    if refinement_attempt < 2 {
+                        tokio::time::sleep(Duration::from_millis(
+                            150 * u64::from(refinement_attempt + 1),
+                        ))
+                        .await;
+                    }
+                }
+            }
+        }
+        let Some(identity) = refined else {
+            return;
+        };
+        let mut identity =
+            apply_avatar_creation_flavor(identity, character_selection.as_ref(), &initial_calling);
+        // The world grammar (or the player's accepted name) is authoritative.
+        // Model refinement may enrich the card, but must not collapse distinct
+        // residents back onto a fashionable repeated name.
+        identity.name = fallback_identity.name;
+        let actor_meta = ActorMeta {
+            name: identity.name.clone(),
+            speech_mode: "prose".to_string(),
+            title: identity.title.clone(),
+            description: identity.description.clone(),
+        };
+        let events = {
+            let mut runtime = state.inner.lock().await;
+            let valid_actor = runtime
+                .actor_by_id(actor_id)
+                .is_some_and(RuntimeWorld::actor_can_act);
+            if !valid_actor {
+                return;
+            }
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record.actor_meta_upserts.insert(actor_id, actor_meta);
+            record
+                .projection_mutations
+                .push(ProjectionMutation::RefreshAvatarIdentity {
+                    actor_id,
+                    physical_description: identity.visual_prompt,
+                });
+            let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+                return;
+            };
+            if status != CW_OK {
+                return;
+            }
+            events
+        };
+        broadcast_events(&state, &events);
+    });
+}
+
 pub(super) async fn request_ai_avatar_identity(
     config: &AiConfig,
     actor_id: u64,
+    refinement_attempt: u8,
     naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
     context_spine: Option<&AvatarContextSpine>,
 ) -> Result<GeneratedAvatarIdentity, String> {
@@ -75,7 +217,8 @@ pub(super) async fn request_ai_avatar_identity(
         description = fallback.description,
     );
 
-    let completion = request_chat_completion(
+    let routing_key = format!("avatar:{actor_id}:attempt:{refinement_attempt}");
+    let completion = request_chat_completion_for_key(
         config,
         ChatCompletionRequest {
             feature: "avatar_identity",
@@ -86,11 +229,12 @@ pub(super) async fn request_ai_avatar_identity(
             temperature: 1.0,
             max_tokens: 240,
             timeout: Duration::from_secs(14),
-            max_attempts: 2,
+            max_attempts: 1,
             referer: "https://cosyworld.fly.dev",
             response_format: None,
             room_id: None,
         },
+        &routing_key,
     )
     .await
     .map_err(|error| error.to_string())?;
@@ -98,8 +242,14 @@ pub(super) async fn request_ai_avatar_identity(
         .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
-pub(super) fn fallback_avatar_name(_actor_id: u64) -> String {
-    "Newcomer".to_string()
+pub(super) fn fallback_avatar_name(actor_id: u64) -> String {
+    cosyworld_ai_model::generate_avatar_identity_with_naming(
+        actor_id,
+        None,
+        active_content().manifest.avatar_naming.as_ref(),
+        None,
+    )
+    .name
 }
 
 pub(super) fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String {

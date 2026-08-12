@@ -168,7 +168,7 @@ never reach a prompt segment, a media brief, a gate anchor, or provider telemetr
 ## Conversation assembly
 
 The spine renders one lean role contract and structured evidence segments in speaker
-order: `SELF`, `CALLING`, `VOICE`, `INNER CONTINUITY`, `OPEN THREAD`, `OTHER`,
+order: `SELF`, `CALLING`, `VOICE`, `INNER CONTINUITY`, `STORY PRESSURE`, `OTHER`,
 `RELATIONSHIP`, `SCENE`, authorized facts, present cast, recent events/dialogue, `NOW`,
 the pinned `DIRECTED TURN`, and finally the explicit `RESPONSE JOB`.
 
