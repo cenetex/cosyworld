@@ -19,6 +19,12 @@ candidate and sends only that model ID to the provider.
   rather than borrowing a model from a global text pool. Under
   [ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md), an
   image-only subject is a model-backed item device rather than a resident.
+- `embeddings` and `rerank` rank existing records against a query. Under
+  [ADR 0010](../../docs/decisions/0010-semantic-instruments-shape-memory.md) a
+  binding of either kind powers a semantic instrument: an item whose holder gets
+  a different ordering of the same history. The ranking is committed against an
+  exact query event sequence and replay reads that commit, so no journal depends
+  on the bound model and retiring one invalidates nothing.
 
 Capabilities are independent. Discovery metadata is retained for inspection
 but never grants eligibility. Only a normalized declared capability enters a

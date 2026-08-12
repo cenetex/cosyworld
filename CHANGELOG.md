@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.11 — 2026-08-12
+
+- Record semantic instruments as subjective, replay-safe memory lenses and
+  reflective resident work as off-tick batch computation that cannot mint
+  history.
+
 ## 1.0.10 — 2026-08-12
 
 - Lock Hoppycat's pregenerated avatar and location cards as canonical local
